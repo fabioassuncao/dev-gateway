@@ -230,6 +230,9 @@ Details: **[docs/security.md](docs/security.md)**.
 | [firewall.md](docs/firewall.md) | Minimal rules, and why Docker bypasses UFW |
 | [remote-bootstrap.md](docs/remote-bootstrap.md) | Preparing a host over SSH |
 | [adopting-projects.md](docs/adopting-projects.md) | Adapting a project, with a checklist |
+| [monorepos.md](docs/monorepos.md) | Monorepos and worktrees |
+| [agent-guidelines.md](docs/agent-guidelines.md) | Rules for autonomous agents |
+| [templates/](templates/) | Overlay templates for the usual project shapes |
 | [security.md](docs/security.md) | Threat model and hardening |
 | [troubleshooting.md](docs/troubleshooting.md) | When something does not route |
 | [adr/](docs/adr/) | Why things are the way they are |

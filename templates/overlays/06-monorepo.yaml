@@ -1,0 +1,56 @@
+# ============================================================================
+# Monorepo — apps/ and services/ in one repository
+# ============================================================================
+# A monorepo is one Compose project with more services in it. Nothing about the
+# contract changes, and the gateway needs to know nothing about the layout.
+#
+#   repo/
+#     apps/web/          -> web
+#     apps/admin/        -> admin
+#     services/api/      -> api
+#     services/worker/   -> worker      (no HTTP; not routed)
+#     services/importer/ -> importer    (no HTTP; not routed)
+#     compose.yaml
+#     compose.dev-gateway.yaml   <- this file
+#
+#   -> http://<COMPOSE_PROJECT_NAME>-web.localhost
+#   -> http://<COMPOSE_PROJECT_NAME>-admin.localhost
+#   -> http://<COMPOSE_PROJECT_NAME>-api.localhost
+#
+# Build contexts, Dockerfiles and volumes stay exactly where they are. The
+# gateway never centralises any of that.
+#
+# Splitting one monorepo into several namespaces is possible — run separate
+# Compose projects per app — but it is rarely worth it: one namespace keeps the
+# services on a single private network, which is usually what they expect.
+# ============================================================================
+
+services:
+  web:
+    networks: [default, dev-gateway]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-web.loadbalancer.server.port=3000"
+
+  admin:
+    networks: [default, dev-gateway]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-admin.loadbalancer.server.port=3000"
+
+  api:
+    networks: [default, dev-gateway]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-api.loadbalancer.server.port=8000"
+
+  # worker and importer are absent on purpose: they serve no HTTP, so they need
+  # no networks and no labels. They keep running exactly as they did.
+
+networks:
+  dev-gateway:
+    external: true
+    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}

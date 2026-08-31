@@ -1,0 +1,33 @@
+# ============================================================================
+# Web + API + PostgreSQL
+# ============================================================================
+# Note what is NOT here: postgres. A database has no business on the shared
+# network — everything else on the host could reach it — and it does not need a
+# host port either.
+#
+# The API reaches it as `postgres:5432` over the project's own network, exactly
+# as before. A human reaches it on demand:
+#
+#   dev-gateway access open --project <name> --service postgres
+#   -> 127.0.0.1:<free port>
+# ============================================================================
+
+services:
+  web:
+    networks: [default, dev-gateway]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-web.loadbalancer.server.port=3000"
+
+  api:
+    networks: [default, dev-gateway]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-api.loadbalancer.server.port=8000"
+
+networks:
+  dev-gateway:
+    external: true
+    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}

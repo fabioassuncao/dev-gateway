@@ -3,9 +3,27 @@
 Your project stays where it is, in its own repository, started from its own
 directory. Adoption means adding one file to it.
 
-> A fuller version of this guide — analyzer, monorepos, per-template examples
-> and the copy-paste page for the consumer repository — arrives with the
-> project tooling. What follows is the contract itself and a working checklist.
+## Start here
+
+```bash
+dev-gateway analyze /path/to/project
+```
+
+It reads the project and reports what adoption would take: every service and
+what it looks like, the host ports it publishes and what already holds them,
+fixed container names, datastores that are published, and whether the namespace
+is implicit. It writes nothing.
+
+Then generate the overlay:
+
+```bash
+dev-gateway init /path/to/project --dry-run   # see the file first
+dev-gateway init /path/to/project
+```
+
+`init` creates exactly one new file. It never edits `compose.yaml`, never
+touches volumes or databases, shows you the file and a diff before writing, and
+requires `--force` to overwrite (keeping a backup).
 
 ## The contract
 
@@ -62,7 +80,9 @@ Set `COMPOSE_FILE=compose.yaml:compose.dev-gateway.yaml` in the project's
 `.env` to drop the `-f` flags entirely.
 
 Working examples: [`examples/demo-a`](../examples/demo-a) and
-[`examples/demo-b`](../examples/demo-b).
+[`examples/demo-b`](../examples/demo-b). Templates for the usual project shapes
+— single web, web + API, full stack, several APIs, monorepo, worktree,
+non-standard ports — are in [`templates/`](../templates/).
 
 ## Two rules that are easy to get wrong
 
@@ -106,6 +126,18 @@ dev-gateway urls
 ```
 
 Both environments should be listed and both should answer.
+
+## Documenting it in the project
+
+Copy [`templates/project/DEV-GATEWAY.md`](../templates/project/DEV-GATEWAY.md)
+into the project and adjust the names. It covers only what someone working on
+that project needs — how to start it, its URLs, how to reach its database, how
+to run a second copy — and leaves the rules here.
+
+## Monorepos
+
+Nothing changes: a monorepo is one Compose project with more services in it.
+See [monorepos.md](monorepos.md).
 
 ## Keeping the project runnable without the gateway
 
