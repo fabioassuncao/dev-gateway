@@ -201,7 +201,9 @@ dg_access_open() {
     err "the bridge exited immediately"
     docker logs "$name" 2>&1 | tail -5 | sed 's/^/  /' >&2
     hint "is $service reachable on port $port from the $network network?"
-    docker rm -f "$name" >/dev/null 2>&1
+    # We created it a moment ago, but the ownership check is unconditional on
+    # every path that removes a container, without exception.
+    dg_container_is_managed "$name" && docker rm -f "$name" >/dev/null 2>&1
     return 1
   fi
 

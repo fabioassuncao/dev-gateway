@@ -44,11 +44,16 @@ jobs:
       - name: Start the gateway
         run: ./bin/dev-gateway up local
 
+      - name: Build the toolbox
+        run: ./bin/dev-gateway toolbox build
+
       - name: Doctor
         run: ./bin/dev-gateway doctor
 
       - name: End-to-end suites
         run: ./tests/run.sh --e2e
+        env:
+          DG_ASSUME_YES: "true"
 
       - name: Diagnostics on failure
         if: failure()
@@ -62,6 +67,15 @@ jobs:
       - name: Tear down
         if: always()
         run: ./bin/dev-gateway down || true
+
+  audit:
+    name: Audit invariants
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      # No Docker needed: these are static checks on what is tracked.
+      - name: Decoupling, ownership, secrets and supply chain
+        run: bash tests/unit/audit.test.sh
 
   exposure:
     name: Exposure regression checks
@@ -102,5 +116,26 @@ jobs:
             || { echo "control network is not internal"; exit 1; }
           echo "ok: control network is internal"
 
+      - name: A database bridge stays on loopback
+        run: |
+          set -euo pipefail
+          cd examples/demo-a
+          docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d --wait --wait-timeout 180
+          cd ../..
+          ./bin/dev-gateway access open --project demo-a --service postgres --quiet
+          binds=$(docker ps --format '{{.Names}} {{.Ports}}' | grep '^dg-access-')
+          echo "$binds"
+          case "$binds" in
+            *0.0.0.0*) echo "an access bridge is bound beyond loopback"; exit 1 ;;
+          esac
+          echo "ok: access bridges bind loopback only"
+          ./bin/dev-gateway access close --all
+
       - name: Doctor agrees
         run: ./bin/dev-gateway doctor
+
+      - name: Tear down
+        if: always()
+        run: |
+          ./bin/dev-gateway access close --all || true
+          cd examples/demo-a && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v || true

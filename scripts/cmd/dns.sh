@@ -135,16 +135,31 @@ dg_cf_require() {
 }
 
 # dg_cf_api <method> <path> [body] — returns the raw JSON response.
+#
+# Options go to curl through a config on stdin rather than on the command line:
+# anything in argv is visible to every user on the machine via `ps`, and an API
+# token is exactly the thing that must not be.
 dg_cf_api() {
   local method="$1" path="$2" body="${3:-}"
-  if [ -n "$body" ]; then
-    dg_curl -s -X "$method" "$DG_CF_API$path" \
-      -H "Authorization: Bearer $CF_DNS_API_TOKEN" \
-      -H "Content-Type: application/json" \
-      --data "$body"
+  {
+    printf 'silent\n'
+    printf 'request = "%s"\n' "$method"
+    printf 'url = "%s%s"\n' "$DG_CF_API" "$path"
+    printf 'header = "Authorization: Bearer %s"\n' "$CF_DNS_API_TOKEN"
+    if [ -n "$body" ]; then
+      printf 'header = "Content-Type: application/json"\n'
+      printf 'data = "%s"\n' "$(printf '%s' "$body" | sed 's/"/\\"/g')"
+    fi
+  } | dg_curl_stdin
+}
+
+# dg_curl_stdin — curl reading its configuration from stdin.
+dg_curl_stdin() {
+  if dg_have curl; then
+    curl -K -
   else
-    dg_curl -s -X "$method" "$DG_CF_API$path" \
-      -H "Authorization: Bearer $CF_DNS_API_TOKEN"
+    dg_toolbox_ensure --quiet || return 1
+    docker run --rm -i "$DG_TOOLBOX_IMAGE" curl -K -
   fi
 }
 

@@ -35,8 +35,8 @@ dev-gateway namespace — derive a COMPOSE_PROJECT_NAME
 With no arguments, in a git repository, the name comes from the repository and
 the current branch, so a worktree gets a distinct namespace on its own:
 
-  ~/base-empresarial          on main      -> base-empresarial
-  ~/base-empresarial-issue59  on issue59   -> base-empresarial-issue59
+  ~/my-project          on main      -> my-project
+  ~/my-project-issue59  on issue59   -> my-project-issue59
 
 The result is lowercase [a-z0-9-], collapsed, trimmed, and short enough to be a
 DNS label once a service name is appended.
@@ -107,7 +107,7 @@ dg_ns_compose() {
   suffix=$(dg_slug "${2:-}")
 
   if [ -n "$suffix" ]; then
-    # A branch like `feature/base-empresarial-search` already carries the base;
+    # A branch like `feature/my-project-search` already carries the base;
     # repeating it produces an unreadable name for no benefit.
     case "$suffix" in
       "$base"|"$base"-*) name="$suffix" ;;

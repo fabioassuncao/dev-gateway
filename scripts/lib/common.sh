@@ -104,8 +104,10 @@ dg_load_env() {
       *) value=${value%"${value##*[![:space:]]}"} ;;
     esac
 
-    # Shell environment wins over the file.
-    if [ -z "$(eval "printf '%s' \"\${$key+set}\"")" ]; then
+    # Shell environment wins over the file. Indirect expansion rather than
+    # eval, so a crafted key can never be executed even if the filter above
+    # were ever loosened.
+    if [ -z "${!key+set}" ]; then
       export "$key=$value"
     fi
   done < "$file"

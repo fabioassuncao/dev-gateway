@@ -22,9 +22,12 @@ Every image pins an explicit version tag. As of this writing:
 | `traefik/whoami` | `v1.12.0` | fixtures only |
 | `postgres` | `18.6-alpine` | fixtures only |
 | `redis` | `8.10.1-alpine` | fixtures only |
+| `nginx` | `1.31.4-alpine` | fixtures only |
+| `alpine` | `3.24.1` | toolbox base, fixtures |
 
-`tests/run.sh --lint` fails the build if any `image:` lacks an explicit tag,
-and `doctor` warns if the running Traefik is on a floating tag.
+`tests/unit/audit.test.sh` fails the build if any image lacks an explicit tag,
+if a `:latest` appears anywhere, or if a pinned image is missing from the table
+above. `doctor` warns if the running Traefik is on a floating tag.
 
 We pin tags, not digests. A digest would be stronger against tag mutation, but
 it makes the update path opaque — nobody can tell what `sha256:9f2c…` is by

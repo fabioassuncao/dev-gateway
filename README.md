@@ -240,13 +240,21 @@ Details: **[docs/security.md](docs/security.md)**.
 | [templates/](templates/) | Overlay templates for the usual project shapes |
 | [security.md](docs/security.md) | Threat model and hardening |
 | [troubleshooting.md](docs/troubleshooting.md) | When something does not route |
+| [compatibility.md](docs/compatibility.md) | Platforms verified, and measured overhead |
 | [adr/](docs/adr/) | Why things are the way they are |
 
 ## Status
 
-Experimental (`v0.x`). The local profile is exercised by the end-to-end suite
-on every change. See [CHANGELOG.md](CHANGELOG.md) for what is tested and what
-is not.
+Experimental (`v0.x`), and honest about it.
+
+The local profile is exercised end to end on every change: four environments at
+once, adopting an unknown project, TCP bridges to four databases, and the
+lifecycle guarantees. The remote profiles are covered by configuration tests —
+every profile renders, the private one never binds `0.0.0.0` — but the tailnet
+and ACME paths need real credentials and are **not** exercised automatically.
+
+See [compatibility.md](docs/compatibility.md) for what is verified where, and
+[CHANGELOG.md](CHANGELOG.md) for the release notes.
 
 ## License
 

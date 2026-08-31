@@ -347,7 +347,7 @@ cmd_inspect() {
            DEV_GATEWAY_HTTPS_PORT DEV_GATEWAY_LOG_LEVEL DEV_GATEWAY_ACCESS_LOG \
            DEV_GATEWAY_DASHBOARD TLS_ENABLED TLS_MODE TAILSCALE_ENABLED \
            PUBLIC_ENABLED PUBLIC_DOMAIN PRIVATE_DOMAIN CLOUDFLARE_ENABLED; do
-    printf '  %-32s %s\n' "$v" "$(eval "printf '%s' \"\${$v:-}\"")"
+    printf '  %-32s %s\n' "$v" "${!v:-}"
   done
 
   printf '\n%s\n' "$(dg_bold 'Compose files')"
@@ -412,6 +412,92 @@ DG_HELP
 }
 
 # ---------------------------------------------------------------------------
+# Per-command help
+# ---------------------------------------------------------------------------
+# The subcommand groups (access, dns, public, ...) carry their own help. These
+# are the flat commands, so that `--help` works the same everywhere.
+
+cmd_help_for() {
+  case "$1" in
+    up) cat >&2 <<'DG_HELP'
+dev-gateway up [profile] — start the gateway
+
+  profile     local | remote-private | remote-public
+              (default: DEV_GATEWAY_PROFILE, or `local`)
+  --attach    Run in the foreground and stream logs
+
+Creates the shared network if it is missing, then starts Traefik and the
+socket proxy. Consumer projects are never started or stopped by this.
+DG_HELP
+      ;;
+    down) cat >&2 <<'DG_HELP'
+dev-gateway down — stop the gateway
+
+Stops Traefik and the socket proxy. Applications keep running, the shared
+network is kept because other projects are attached to it, and no volume is
+ever removed.
+DG_HELP
+      ;;
+    restart) cat >&2 <<'DG_HELP'
+dev-gateway restart [profile] — restart gateway components
+
+Applications are not restarted. Traefik rediscovers every route on its own
+once it is back.
+DG_HELP
+      ;;
+    status) cat >&2 <<'DG_HELP'
+dev-gateway status — compact overview
+
+  --json    Machine-readable output
+
+Profile, domain, listeners, component health, the shared network, TLS,
+Tailscale, public access, and how many services are routed.
+DG_HELP
+      ;;
+    logs) cat >&2 <<'DG_HELP'
+dev-gateway logs [service] — follow gateway logs
+
+  service   traefik | socket-proxy | tailscale (default: all)
+
+Only gateway components. A project's logs come from its own directory.
+DG_HELP
+      ;;
+    urls) cat >&2 <<'DG_HELP'
+dev-gateway urls — the hostnames currently being served
+
+  --project <name>   Only this project
+  --json             Machine-readable output
+
+Read from Docker labels, so it works with the dashboard off and even while
+Traefik is down.
+DG_HELP
+      ;;
+    inspect) cat >&2 <<'DG_HELP'
+dev-gateway inspect — the resolved configuration
+
+Every setting after .env, the shell environment and the built-in defaults have
+been applied, plus the compose files the active profile selects. Secrets are
+shown as <set> or <unset>, never by value.
+DG_HELP
+      ;;
+    update) cat >&2 <<'DG_HELP'
+dev-gateway update — pull the pinned images and recreate
+
+Validates the compose configuration before touching anything, pulls, then asks
+before recreating. State under ./state — ACME certificates and the Tailscale
+identity — is left alone.
+DG_HELP
+      ;;
+    version) cat >&2 <<'DG_HELP'
+dev-gateway version — print the gateway version
+DG_HELP
+      ;;
+    *) return 1 ;;
+  esac
+  return 0
+}
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -430,6 +516,14 @@ main() {
     esac
   done
   export DG_ASSUME_YES DEV_GATEWAY_PROFILE
+
+  # `--help` behaves the same for every command. The subcommand groups parse
+  # it themselves; these are the flat ones.
+  case " $* " in
+    *" --help "*|*" -h "*)
+      if cmd_help_for "${cmd:-}"; then exit 0; fi
+      ;;
+  esac
 
   case "${cmd:-}" in
     ''|help) usage; exit 0 ;;

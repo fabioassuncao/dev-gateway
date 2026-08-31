@@ -148,7 +148,9 @@ dg_service_publish() {
   # A second, alias-bearing attachment: Tailscale resolves the service by this
   # name and never needs a route into the project's own network.
   docker network connect --alias "$alias" "$DEV_GATEWAY_ACCESS_NETWORK" "$name" \
-    || { err "could not attach the forwarder to $DEV_GATEWAY_ACCESS_NETWORK"; docker rm -f "$name" >/dev/null 2>&1; return 1; }
+    || { err "could not attach the forwarder to $DEV_GATEWAY_ACCESS_NETWORK"
+         dg_container_is_managed "$name" && docker rm -f "$name" >/dev/null 2>&1
+         return 1; }
 
   ok "published $project/$service privately"
   printf '\n'

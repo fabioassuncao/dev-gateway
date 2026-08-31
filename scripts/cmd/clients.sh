@@ -173,9 +173,12 @@ dg_client_exec() {
     psql)
       [ -n "$user" ] || user=$(dg_container_env "$target" POSTGRES_USER)
       [ -n "$database" ] || database=$(dg_container_env "$target" POSTGRES_DB)
+      # `-e NAME` with no value tells Docker to take it from this process's
+      # environment, so the password never appears in the command line and
+      # therefore never in `ps` output.
       local pass
       pass=$(dg_container_env "$target" POSTGRES_PASSWORD)
-      [ -z "$pass" ] || envs="-e PGPASSWORD=$pass"
+      if [ -n "$pass" ]; then export PGPASSWORD="$pass"; envs="-e PGPASSWORD"; fi
       set -- -h "$service" -p "$port" ${user:+-U "$user"} ${database:+-d "$database"} "$@"
       ;;
     mysql)
@@ -183,7 +186,7 @@ dg_client_exec() {
       [ -n "$database" ] || database=$(dg_container_env "$target" MYSQL_DATABASE)
       local mpass
       mpass=$(dg_container_env "$target" MYSQL_PASSWORD)
-      [ -z "$mpass" ] || envs="-e MYSQL_PWD=$mpass"
+      if [ -n "$mpass" ]; then export MYSQL_PWD="$mpass"; envs="-e MYSQL_PWD"; fi
       set -- -h "$service" -P "$port" ${user:+-u "$user"} ${database:+"$database"} "$@"
       ;;
     redis-cli)
