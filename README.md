@@ -1,13 +1,13 @@
 # Dev Gateway
 
-Run every project you work on at the same time, on the same machine, without
-ever renumbering a port or killing somebody else's containers.
+A technical arrangement I am experimenting with to organise my own development
+flow across several containerised projects, locally and on a VPS: everything I
+work on runs at the same time, on the same machine, without ever renumbering a
+port or killing somebody else's containers.
 
-> A technical arrangement I am experimenting with to organise my own
-> development flow across several containerised projects, locally and on a
-> VPS. It is not a product, and it is shaped around one person's habits. The
-> repository is public because there is no reason for it not to be — if it
-> fits how you work, help yourself.
+It is not a product, and it is shaped around one person's habits. The
+repository is public because there is no reason for it not to be — if it fits
+how you work, help yourself.
 
 ```
 $ dev-gateway urls
