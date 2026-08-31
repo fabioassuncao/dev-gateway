@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Dev Gateway — bootstrap
+# Dev Gateway: bootstrap
 # ============================================================================
 # Prepares a host to run the gateway. Idempotent by design: run it as often as
 # you like. It never deletes user data and never touches consumer projects.
@@ -27,7 +27,7 @@ while [ $# -gt 0 ]; do
     -y|--yes) DG_ASSUME_YES=true ;;
     -h|--help)
       cat >&2 <<'DG_HELP'
-dev-gateway bootstrap — prepare this host to run the gateway
+dev-gateway bootstrap: prepare this host to run the gateway
 
   --skip-pull   Do not pre-pull component images
   -y, --yes     Assume yes for confirmation prompts
@@ -79,7 +79,7 @@ if [ -f "$DG_ROOT/.env" ]; then
       ;;
   esac
 else
-  warn "no .env file — the gateway will run on built-in defaults"
+  warn "no .env file; the gateway will run on built-in defaults"
   if dg_confirm "Create .env from .env.example now?"; then
     cp "$DG_ROOT/.env.example" "$DG_ROOT/.env"
     # .env may grow secrets (auth keys, API tokens); keep it owner-only.
@@ -111,7 +111,7 @@ ok "state directories ready under ./state"
 
 step "5/8  Shared network"
 if dg_network_exists "$DEV_GATEWAY_NETWORK"; then
-  ok "network '$DEV_GATEWAY_NETWORK' already exists — reused as is"
+  ok "network '$DEV_GATEWAY_NETWORK' already exists; reused as is"
   if ! dg_network_is_managed "$DEV_GATEWAY_NETWORK"; then
     warn "network '$DEV_GATEWAY_NETWORK' was not created by the gateway"
     hint "that is fine; the gateway will never remove a network it does not own"
@@ -152,7 +152,7 @@ cat >&2 <<DG_NEXT
 
   To adapt a project, from that project's own directory:
     dev-gateway analyze /path/to/project
-  See docs/adopting-projects.md — projects are never moved into this repository.
+  See docs/adopting-projects.md. Projects are never moved into this repository.
 DG_NEXT
 
 exit "$doctor_status"

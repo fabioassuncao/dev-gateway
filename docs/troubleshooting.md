@@ -19,7 +19,7 @@ ping demo-a-web.localhost
 ```
 
 `*.localhost` is required to resolve to loopback by RFC 6761 and needs no
-configuration. If it fails, the resolver in play does not implement it — most
+configuration. If it fails, the resolver in play does not implement it, most
 often an old Go binary, a JVM HTTP client, or musl inside an Alpine container.
 
 Point `DEV_GATEWAY_DOMAIN` at a real domain resolving to `127.0.0.1`, or reach
@@ -33,14 +33,14 @@ Traefik answered, but no router matched. In order of likelihood:
 dev-gateway urls        # is the hostname listed at all?
 ```
 
-**Not listed** — the container did not opt in. Check it has
+**Not listed.** The container did not opt in. Check it has
 `traefik.enable=true`, and that it is actually running:
 
 ```bash
 docker inspect <container> --format '{{json .Config.Labels}}' | jq
 ```
 
-**Listed but 404** — usually a stale route. Traefik discovers asynchronously;
+**Listed but 404.** Usually a stale route. Traefik discovers asynchronously;
 give it a couple of seconds after `up`. If it persists:
 
 ```bash
@@ -48,7 +48,7 @@ DEV_GATEWAY_LOG_LEVEL=DEBUG dev-gateway up local
 dev-gateway logs traefik
 ```
 
-**A literal `${...}` in a label** — the labels were written in map form.
+**A literal `${...}` in a label.** The labels were written in map form.
 Compose interpolates `${VAR}` inside a *list* entry but not inside a mapping
 key. Rewrite as a list:
 
@@ -120,7 +120,7 @@ docker logs dev-gateway-traefik-1 2>&1 | tail -5
 # failed to decode configuration from environment variables: field not found, node: ...
 ```
 
-Nested keys are the usual cause — `aliasHeadersStrategy` lives under `http`, so
+Nested keys are the usual cause: `aliasHeadersStrategy` lives under `http`, so
 the variable is `TRAEFIK_ENTRYPOINTS_WEB_HTTP_ALIASHEADERSSTRATEGY`, not
 `TRAEFIK_ENTRYPOINTS_WEB_ALIASHEADERSSTRATEGY`.
 

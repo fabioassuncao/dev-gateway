@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `dev-gateway remote access` — reach a VPS's private TCP services from here.
+# `dev-gateway remote access`: reach a VPS's private TCP services from here.
 #
 #   your Mac  ->  SSH (over Tailscale, or plain)  ->  VPS loopback bridge
 #             ->  the project's private network   ->  postgres / redis
@@ -17,7 +17,7 @@ dg_cmd_remote_access() {
     close) dg_remote_access_close "$@" ;;
     -h|--help|help)
       cat >&2 <<'DG_HELP'
-dev-gateway remote access — reach a remote project's private TCP services
+dev-gateway remote access: reach a remote project's private TCP services
 
   remote access open <user@host> --project <p> --service <s> [--port N] [--local-port N]
   remote access list
@@ -136,7 +136,7 @@ META
   printf '  %s\n' "$(dg_dim "close with: dev-gateway remote access close $id")"
 }
 
-# dg_free_local_port — a port nothing is listening on. Racy in principle;
+# dg_free_local_port: a port nothing is listening on. Racy in principle;
 # ExitOnForwardFailure turns a lost race into a clear error rather than a
 # tunnel that quietly does nothing.
 dg_free_local_port() {
@@ -200,7 +200,7 @@ dg_remote_access_close() {
     rm -f "$f"
     # The remote bridge is the remote host's to keep or drop; closing it here
     # would be surprising if another tunnel is using it, so say what to run.
-    info "the bridge on $target is still open — close it there if you are done:"
+    info "the bridge on $target is still open; close it there if you are done:"
     hint "dev-gateway remote exec $target -- 'cd dev-gateway && ./bin/dev-gateway access close --project $project'"
   done
 

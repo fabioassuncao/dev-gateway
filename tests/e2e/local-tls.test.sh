@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# E2E — optional local HTTPS
+# E2E: optional local HTTPS
 # ============================================================================
 # Issues a local CA and wildcard certificate, serves a demo over HTTPS, checks
 # the chain validates against that CA, then puts the gateway back on plain HTTP.
@@ -21,8 +21,8 @@ dg_load_env; dg_defaults
 GW="$DG_ROOT/bin/dev-gateway"
 CA="$DG_ROOT/config/tls/dev-gateway-ca.crt"
 
-dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable — skipping"; exit 0; }
-dg_have openssl || { echo "openssl unavailable — skipping"; exit 0; }
+dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
+dg_have openssl || { echo "openssl unavailable, skipping"; exit 0; }
 
 # Remember how TLS was configured so the suite leaves the host as it found it.
 ORIG_TLS="${TLS_ENABLED:-false}"

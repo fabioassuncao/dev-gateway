@@ -6,7 +6,7 @@ work on runs at the same time, on the same machine, without ever renumbering a
 port or killing somebody else's containers.
 
 It is not a product, and it is shaped around one person's habits. The
-repository is public because there is no reason for it not to be — if it fits
+repository is public because there is no reason for it not to be. If it fits
 how you work, help yourself.
 
 ```
@@ -27,7 +27,7 @@ own Postgres on 5432 and Redis on 6379. None of them publishes a host port.
 ## The problem
 
 A host port can only be held by one process. So the moment two projects both
-want `3000:3000` — or you check out a second worktree of the same project — you
+want `3000:3000` (or you check out a second worktree of the same project), you
 have to pick one:
 
 - stop the other environment, which interrupts whoever was using it;
@@ -71,16 +71,16 @@ flowchart TB
         traefik[Traefik<br/>:80 :443]
         proxy[docker-socket-proxy<br/>read-only, no host port]
         socket[/var/run/docker.sock/]
-        subgraph shared [dev-gateway network — shared]
+        subgraph shared [dev-gateway network: shared]
             aweb[demo-a web :3000]
             aapi[demo-a api :8000]
             bweb[demo-b web :3000]
         end
-        subgraph pa [demo-a_default — private]
+        subgraph pa [demo-a_default: private]
             apg[(postgres :5432)]
             ard[(redis :6379)]
         end
-        subgraph pb [demo-b_default — private]
+        subgraph pb [demo-b_default: private]
             bpg[(postgres :5432)]
         end
     end
@@ -98,8 +98,8 @@ any project's private network, and never needs one.
 
 ## Requirements
 
-**macOS** — [OrbStack](https://orbstack.dev) (recommended) or Docker Desktop,
-Git, and a shell. **Linux** — Docker Engine 24+, the Compose v2 plugin, Git,
+**macOS**: [OrbStack](https://orbstack.dev) (recommended) or Docker Desktop,
+Git, and a shell. **Linux**: Docker Engine 24+, the Compose v2 plugin, Git,
 and a shell.
 
 Nothing else is required on the host. `jq`, `socat`, database clients and other
@@ -117,7 +117,7 @@ cp .env.example .env
 ./bin/dev-gateway doctor
 ```
 
-Then try the bundled examples — two unrelated stacks that both use ports 3000
+Then try the bundled examples, two unrelated stacks that both use ports 3000
 and 8000 internally:
 
 ```bash
@@ -139,7 +139,7 @@ drop the `./bin/` prefix.
 Your project stays where it is. You add one file to it:
 
 ```yaml
-# compose.dev-gateway.yaml — the entire integration
+# compose.dev-gateway.yaml: the entire integration
 services:
   web:
     networks: [default, dev-gateway]
@@ -166,7 +166,8 @@ Full walkthrough: **[docs/adopting-projects.md](docs/adopting-projects.md)**.
 ## Working in parallel
 
 `COMPOSE_PROJECT_NAME` is the namespace. Change it and you get a completely
-independent environment — its own containers, network, volumes and hostnames:
+independent environment, with its own containers, network, volumes and
+hostnames:
 
 ```bash
 COMPOSE_PROJECT_NAME=base-empresarial-issue59 \
@@ -179,7 +180,7 @@ The first environment keeps running. Nothing inside the project changed.
 ## Databases, Redis and other TCP services
 
 They are never published on the host and never joined to the shared network.
-When a human needs one — TablePlus, `psql`, `redis-cli` — the gateway opens a
+When a human needs one (TablePlus, `psql`, `redis-cli`), the gateway opens a
 temporary bridge on a free loopback port:
 
 ```bash
@@ -195,7 +196,7 @@ See [docs/tcp-access.md](docs/tcp-access.md).
 |---|---|
 | `dev-gateway bootstrap` | Prepare the host: runtime checks, shared network, state |
 | `dev-gateway up [profile]` | Start the gateway |
-| `dev-gateway down` | Stop it — applications keep running |
+| `dev-gateway down` | Stop it; applications keep running |
 | `dev-gateway status` | Compact overview |
 | `dev-gateway doctor` | Deep diagnostics with suggested fixes |
 | `dev-gateway urls` | Hostnames currently being served |
@@ -211,7 +212,7 @@ Short version: nothing is exposed unless you ask for it.
 
 - Traefik never sees the Docker socket. A read-only, endpoint-filtered proxy on
   an `internal` network does discovery ([ADR 0002](docs/adr/0002-docker-socket-proxy.md)).
-- `exposedByDefault=false` — a service is routed only when it opts in.
+- `exposedByDefault=false`, so a service is routed only when it opts in.
 - The local profile binds to `127.0.0.1`.
 - The dashboard is off; when enabled it is loopback-only and never routed
   through the public entrypoints.
@@ -255,8 +256,8 @@ Experimental (`v0.x`), and honest about it.
 
 The local profile is exercised end to end on every change: four environments at
 once, adopting an unknown project, TCP bridges to four databases, and the
-lifecycle guarantees. The remote profiles are covered by configuration tests —
-every profile renders, the private one never binds `0.0.0.0` — but the tailnet
+lifecycle guarantees. The remote profiles are covered by configuration tests
+(every profile renders, the private one never binds `0.0.0.0`), but the tailnet
 and ACME paths need real credentials and are **not** exercised automatically.
 
 See [compatibility.md](docs/compatibility.md) for what is verified where, and
@@ -268,4 +269,4 @@ welcome; so is forking it and taking it somewhere else entirely.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

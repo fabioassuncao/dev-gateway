@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `dev-gateway dns` — verify and, optionally, create the wildcard DNS record.
+# `dev-gateway dns`: verify and, optionally, create the wildcard DNS record.
 #
 # Cloudflare is the reference provider, not a requirement: `dns check` works
 # with any provider, and `dns setup` simply prints the record to create when
@@ -15,7 +15,7 @@ dg_cmd_dns() {
     setup) dg_dns_setup "$@" ;;
     -h|--help|help)
       cat >&2 <<'DG_HELP'
-dev-gateway dns — wildcard DNS for the gateway domain
+dev-gateway dns: wildcard DNS for the gateway domain
 
   dns check     Resolve the gateway's wildcard and compare it to this host
   dns status    Show the DNS configuration, and Cloudflare records if configured
@@ -30,7 +30,7 @@ DG_HELP
   esac
 }
 
-# dg_dns_expected_target — the address the wildcard should point at.
+# dg_dns_expected_target: the address the wildcard should point at.
 dg_dns_expected_target() {
   case "$DEV_GATEWAY_PROFILE" in
     remote-public)
@@ -55,7 +55,7 @@ dg_dns_check() {
   local domain="$DEV_GATEWAY_DOMAIN"
   case "$domain" in
     localhost|*.localhost)
-      ok "domain '$domain' is RFC 6761 loopback — no DNS records are needed"
+      ok "domain '$domain' is RFC 6761 loopback; no DNS records are needed"
       return 0
       ;;
   esac
@@ -74,7 +74,7 @@ dg_dns_check() {
 
   if [ -z "$resolved" ]; then
     err "the wildcard *.$domain does not resolve"
-    hint "dev-gateway dns setup    — create the record"
+    hint "dev-gateway dns setup creates the record"
     rc=1
   elif [ -n "$expected" ] && [ "$resolved" != "$expected" ]; then
     warn "the wildcard resolves to $resolved but this host expects $expected"
@@ -123,7 +123,7 @@ dg_cf_require() {
   if [ -z "${CF_DNS_API_TOKEN:-}" ]; then
     err "CF_DNS_API_TOKEN is not set"
     hint "create a scoped token with Zone:DNS:Edit on ${CLOUDFLARE_ZONE:-your zone}"
-    hint "see docs/cloudflare.md — never use the Global API Key"
+    hint "see docs/cloudflare.md; never use the Global API Key"
     return 1
   fi
   if [ -z "${CLOUDFLARE_ZONE:-}" ]; then
@@ -134,7 +134,7 @@ dg_cf_require() {
   return 0
 }
 
-# dg_cf_api <method> <path> [body] — returns the raw JSON response.
+# dg_cf_api <method> <path> [body]: returns the raw JSON response.
 #
 # Options go to curl through a config on stdin rather than on the command line:
 # anything in argv is visible to every user on the machine via `ps`, and an API
@@ -153,7 +153,7 @@ dg_cf_api() {
   } | dg_curl_stdin
 }
 
-# dg_curl_stdin — curl reading its configuration from stdin.
+# dg_curl_stdin: curl reading its configuration from stdin.
 dg_curl_stdin() {
   if dg_have curl; then
     curl -K -
@@ -222,7 +222,7 @@ dg_dns_setup() {
   fi
 
   if ! dg_is_true "$CLOUDFLARE_ENABLED"; then
-    info "Cloudflare integration is disabled — create the record above with your DNS provider"
+    info "Cloudflare integration is disabled; create the record above with your DNS provider"
     hint "set CLOUDFLARE_ENABLED=true and CF_DNS_API_TOKEN to automate this"
     return 0
   fi
@@ -267,7 +267,7 @@ dg_dns_setup() {
 
   if [ "$(printf '%s' "$resp" | dg_jq -r '.success' 2>/dev/null)" = "true" ]; then
     ok "record applied"
-    hint "dev-gateway dns check    — confirm propagation"
+    hint "dev-gateway dns check confirms propagation"
   else
     err "Cloudflare rejected the change"
     hint "$(printf '%s' "$resp" | dg_jq -r '.errors[0].message // "unknown error"' 2>/dev/null)"

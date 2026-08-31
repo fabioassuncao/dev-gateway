@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `dev-gateway namespace` — derive a COMPOSE_PROJECT_NAME.
+# `dev-gateway namespace`: derive a COMPOSE_PROJECT_NAME.
 #
 # The namespace is the whole mechanism behind parallel environments: Compose
 # derives container, network and volume names from it, and the gateway derives
@@ -25,7 +25,7 @@ dg_cmd_namespace() {
       --no-check) check=0 ;;
       -h|--help)
         cat >&2 <<'DG_HELP'
-dev-gateway namespace — derive a COMPOSE_PROJECT_NAME
+dev-gateway namespace: derive a COMPOSE_PROJECT_NAME
 
   --path <dir>      Derive from this directory (default: the current one)
   --base <name>     Base name, overriding what the path suggests
@@ -73,12 +73,12 @@ DG_HELP
   fi
 }
 
-# dg_ns_derive_base <dir> — the repository name, or the directory name.
+# dg_ns_derive_base <dir>: the repository name, or the directory name.
 dg_ns_derive_base() {
   local dir="$1" top url
   if top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
     # A worktree's directory is often named after the branch, so the repository
-    # name comes from the remote when there is one — it is the stable part.
+    # name comes from the remote when there is one: it is the stable part.
     url=$(git -C "$dir" remote get-url origin 2>/dev/null || true)
     if [ -n "$url" ]; then
       printf '%s' "$(basename "$url" .git)"
@@ -90,7 +90,7 @@ dg_ns_derive_base() {
   printf '%s' "$(basename "$dir")"
 }
 
-# dg_ns_derive_suffix <dir> — the branch, unless it is the trunk.
+# dg_ns_derive_suffix <dir>: the branch, unless it is the trunk.
 dg_ns_derive_suffix() {
   local dir="$1" branch
   branch=$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null) || return 0
@@ -100,7 +100,7 @@ dg_ns_derive_suffix() {
   printf '%s' "$branch"
 }
 
-# dg_ns_compose <base> <suffix> — sanitize, join, and fit the length budget.
+# dg_ns_compose <base> <suffix>: sanitize, join, and fit the length budget.
 dg_ns_compose() {
   local base suffix name
   base=$(dg_slug "${1:-}")

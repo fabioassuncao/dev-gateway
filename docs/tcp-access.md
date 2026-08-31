@@ -20,8 +20,8 @@ Concretely:
 
 | | Carries a name a proxy can route on |
 |---|---|
-| HTTP | yes — `Host` header |
-| HTTPS / TLS | yes — SNI, before decryption |
+| HTTP | yes, in the `Host` header |
+| HTTPS / TLS | yes, in SNI, before decryption |
 | PostgreSQL | no (`sslmode=require` may add SNI, but not reliably, and not for a proxy that must not terminate TLS) |
 | MySQL | no |
 | Redis | no |
@@ -39,15 +39,15 @@ So sharing one port between raw TCP services requires one of:
 - a **distinct IP** per service (a Tailscale Service VIP, for instance),
 - a **tunnel** the client opens deliberately, or
 - a **protocol-aware proxy** that speaks PostgreSQL and can route on the
-  startup packet's database name — a real thing (pgbouncer, pgcat), but a
-  database-specific component, not general TCP.
+  startup packet's database name. That is a real thing (pgbouncer, pgcat), but
+  a database-specific component, not general TCP.
 
 The gateway takes the distinct-port route for sessions, and offers distinct
 identities for the persistent case.
 
 ## The four levels of access
 
-### A — application to service
+### A. Application to service
 
 Unchanged, and the gateway is not involved.
 
@@ -58,7 +58,7 @@ api  ->  postgres:5432        on the project's own private network
 Keep it that way. Nothing is published, and nothing else on the host can reach
 it.
 
-### B — a human on this machine
+### B. A human on this machine
 
 ```bash
 dev-gateway access open --project base-empresarial --service postgres
@@ -76,8 +76,8 @@ dev-gateway access open --project base-empresarial --service postgres
 
 A small `socat` container joins the project's private network, forwards to
 `postgres:5432`, and publishes **127.0.0.1 on a port the kernel picks**. Open
-one per database and they never collide — the port that would collide, 5432,
-is never published by anybody.
+one per database and they never collide, because the port that would collide,
+5432, is never published by anybody.
 
 It touches nothing that belongs to the project: no volumes, no container
 changes, no Compose edits. Closing it leaves no trace.
@@ -93,7 +93,7 @@ dev-gateway access gc            # bridges whose target is gone
 `--ttl 2h` expires a bridge; there is deliberately no default TTL, because a
 GUI client left open overnight is a normal thing to do.
 
-### C — an agent, or a quick query
+### C. An agent, or a quick query
 
 Do not open a bridge. Run the client inside the project's own network:
 
@@ -104,7 +104,7 @@ dev-gateway redis cli --project base-empresarial -- keys 'session:*'
 
 No port is published, the container is removed on exit, and credentials are
 read from the target container's own environment and passed straight to the
-client — never printed.
+client. They are never printed.
 
 Equivalent, with no gateway at all:
 
@@ -112,7 +112,7 @@ Equivalent, with no gateway at all:
 docker compose exec postgres psql -U app -d app
 ```
 
-### D — a service on a VPS
+### D. A service on a VPS
 
 The bridge on the VPS binds *its* loopback, exactly as it does locally, and an
 SSH tunnel carries it to you:
@@ -166,16 +166,16 @@ project-a_default              project-b_default
 
 The shape is the point. Each forwarder bridges exactly one service. Project
 networks are never merged with each other, and the Tailscale container is never
-attached to a project's network — it only ever sees the access network. Two
+attached to a project's network; it only ever sees the access network. Two
 databases can then keep port 5432 and be told apart by identity rather than by
 port.
 
 `dev-gateway doctor` fails if a forwarder ever ends up on the shared HTTP
 network.
 
-The tailnet side — the Tailscale Service and the grants — is configured on your
-tailnet, deliberately: the gateway never edits your Tailscale policy. It prints
-exactly what to apply. See [tailscale-services.md](tailscale-services.md).
+The tailnet side, meaning the Tailscale Service and the grants, is configured
+on your tailnet, deliberately: the gateway never edits your Tailscale policy.
+It prints exactly what to apply. See [tailscale-services.md](tailscale-services.md).
 
 ## What is never published
 
@@ -194,8 +194,8 @@ prints a warning first, and `doctor` fails on a bridge bound beyond loopback.
 
 Not supported. The bridge forwards TCP only.
 
-The pieces exist — Docker publishes UDP, Traefik has UDP entrypoints, Tailscale
-carries UDP over the tailnet — but nothing here is implemented or tested for
+The pieces exist (Docker publishes UDP, Traefik has UDP entrypoints, Tailscale
+carries UDP over the tailnet), but nothing here is implemented or tested for
 it, so it is listed as absent rather than as a caveat. If you need a UDP
 service reachable, publish it from the project itself with an explicit
 `ports:` entry and bind it to loopback.
@@ -211,7 +211,7 @@ postgresql://<user>@127.0.0.1:33077/<database>
 
 The credentials are the project's, and stay there. The one exception is
 `db psql`, which reads them from the target container's environment and hands
-them to the client process directly — they are not printed, logged, or written
+them to the client process directly. They are not printed, logged, or written
 anywhere.
 
 ## GUI clients
@@ -224,7 +224,7 @@ TablePlus, DBeaver, DataGrip and friends all want a host and a port:
 | Port | whatever `access open` printed |
 | User / password / database | the project's own |
 
-Remote is identical — `remote access open` gives you a local address too, so
+Remote is identical: `remote access open` gives you a local address too, so
 the client never needs to know the VPS exists.
 
 Note that the port changes each time you open a bridge, because the kernel
@@ -237,15 +237,16 @@ dev-gateway access open --project base-empresarial --service postgres --local-po
 
 ## Troubleshooting
 
-**"cannot tell which port to forward"** — the container exposes several ports
-and its image is not a recognised datastore. Name it: `--port 5432`.
+**"cannot tell which port to forward"** means the container exposes several
+ports and its image is not a recognised datastore. Name it: `--port 5432`.
 
-**"is on several networks; choose one"** — the service is on more than one
-private network. `--network <name>`.
+**"is on several networks; choose one"** means the service is on more than one
+private network. Pick it with `--network <name>`.
 
-**The bridge exits immediately** — the target is not reachable from that
+**The bridge exits immediately.** The target is not reachable from that
 network on that port. `dev-gateway access inspect <id>` shows socat's own log.
 
-**The port changed** — it is meant to. Pin it with `--local-port`.
+**The port changed.** It is meant to. Pin it with `--local-port`.
 
-**A bridge points nowhere after a `docker compose down`** — `dev-gateway access gc`.
+**A bridge points nowhere after a `docker compose down`.** Run
+`dev-gateway access gc`.

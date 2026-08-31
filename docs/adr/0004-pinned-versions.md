@@ -1,4 +1,4 @@
-# 0004 — Every component image pins an explicit version
+# 0004. Every component image pins an explicit version
 
 **Status:** Accepted
 
@@ -30,8 +30,8 @@ if a `:latest` appears anywhere, or if a pinned image is missing from the table
 above. `doctor` warns if the running Traefik is on a floating tag.
 
 We pin tags, not digests. A digest would be stronger against tag mutation, but
-it makes the update path opaque — nobody can tell what `sha256:9f2c…` is by
-reading it — and there is no automation here to keep digests fresh. Pinning a
+it makes the update path opaque, since nobody can tell what `sha256:9f2c…` is
+by reading it, and there is no automation here to keep digests fresh. Pinning a
 tag we can read and audit is the better trade at this size.
 
 ## Consequences

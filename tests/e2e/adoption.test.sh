@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # ============================================================================
-# E2E — adopting an unknown project
+# E2E: adopting an unknown project
 # ============================================================================
 # The acceptance test for the whole adoption story: build a project the gateway
-# has never seen, one that looks like the awkward real thing — a built image, a
+# has never seen, one that looks like the awkward real thing: a built image, a
 # worker sharing that image, a database, and host ports that collide with
-# what is already running — then adapt it using only `analyze` and `init`.
+# what is already running: then adapt it using only `analyze` and `init`.
 #
 # It proves three things:
 #   1. the analyzer sees the real problems;
@@ -24,7 +24,7 @@ dg_load_env; dg_defaults
 GW="$DG_ROOT/bin/dev-gateway"
 export DG_ASSUME_YES=true
 
-dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable — skipping"; exit 0; }
+dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/dg-adopt.XXXXXX")
 PROJ="$WORK/legacy-shop"

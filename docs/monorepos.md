@@ -54,7 +54,7 @@ Adding one is a three-line change to your own overlay:
 network, so they reach each other by service name, and one `docker compose up`
 brings the whole thing up.
 
-**Several** — a separate Compose project per app — makes sense only when apps
+**Several**, a separate Compose project per app, makes sense only when apps
 are genuinely independent: separate databases, separate lifecycles, and you
 routinely run one without the others. The cost is real: they no longer share a
 private network, so cross-app calls have to go through the gateway by hostname,
@@ -67,8 +67,9 @@ COMPOSE_PROJECT_NAME=base-empresarial-web   docker compose -f apps/web/compose.y
 COMPOSE_PROJECT_NAME=base-empresarial-api   docker compose -f services/api/compose.yaml up -d
 ```
 
-Note the hostnames become `base-empresarial-web-web.localhost` — the namespace
-and the service name are both in there. Usually a reason to keep one namespace.
+Note the hostnames become `base-empresarial-web-web.localhost`, with the
+namespace and the service name both in there. Usually a reason to keep one
+namespace.
 
 ## Worktrees of a monorepo
 

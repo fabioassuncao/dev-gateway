@@ -5,11 +5,11 @@ The same gateway, the same commands, one host away. Two modes:
 | Profile | Who can reach it | Typical use |
 |---|---|---|
 | `remote-private` | your tailnet only | the default and the recommendation |
-| `remote-public` | the internet | demos, webhooks, external testing — opt-in |
+| `remote-public` | the internet | demos, webhooks, external testing (opt-in) |
 
 > **Verification status.** The local profile is exercised end to end by CI on
-> every change. The remote profiles are validated by configuration tests — every
-> profile renders, the private profile never binds `0.0.0.0` — but the tailnet
+> every change. The remote profiles are validated by configuration tests (every
+> profile renders, the private profile never binds `0.0.0.0`), but the tailnet
 > and ACME paths need real credentials and are **not** exercised automatically.
 > Treat the checklist at the end of this page as required, not optional.
 
@@ -34,7 +34,7 @@ or updates the repository, creates `.env` **only if absent**, runs `bootstrap`,
 and offers to start the gateway and run `doctor`.
 
 Useful flags: `--dry-run` (change nothing), `--install-docker` (offer to run
-Docker's official installer — it asks first, because that is remote code
+Docker's official installer, asking first, because that is remote code
 execution as root), `--dir`, `--repo`, `--branch`.
 
 Secrets are never copied from your machine. Set them on the host:
@@ -97,8 +97,8 @@ list of URLs that would become reachable, then asks. See
 
 ## TLS
 
-Wildcard certificates require ACME **DNS-01** — HTTP-01 cannot issue them. That
-also means a private domain works: the ACME server never has to reach your
+Wildcard certificates require ACME **DNS-01**, because HTTP-01 cannot issue
+them. That also means a private domain works: the ACME server never has to reach your
 host, only see the DNS record. See [dns-and-tls.md](dns-and-tls.md).
 
 ## Firewall
@@ -119,8 +119,8 @@ shows interfaces, the tailnet address, every published port and who owns it.
 ```
 
 Validates the Compose configuration **before** pulling, pulls the pinned images,
-asks before recreating, and leaves `state/` — ACME certificates and Tailscale
-identity — untouched.
+asks before recreating, and leaves `state/` untouched, including ACME
+certificates and the Tailscale identity.
 
 To take new gateway code as well:
 
@@ -136,9 +136,9 @@ Everything worth keeping is in two places:
 tar czf dev-gateway-backup.tgz .env state/
 ```
 
-- `state/traefik/acme/acme.json` — issued certificates
-- `state/tailscale/` — the node identity; losing it means re-authenticating
-- `.env` — configuration and secrets
+- `state/traefik/acme/acme.json` holds the issued certificates
+- `state/tailscale/` holds the node identity; losing it means re-authenticating
+- `.env` holds the configuration and secrets
 
 Consumer project data is not here and never was; it belongs to the projects.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# E2E — lifecycle independence
+# E2E: lifecycle independence
 # ============================================================================
 # The gateway is shared infrastructure, so its lifecycle must not be entangled
 # with any project's. Restarting or stopping it leaves applications running;
@@ -25,7 +25,7 @@ down_demo() {
   ( cd "$DG_ROOT/examples/$1" && COMPOSE_PROJECT_NAME="$1" docker compose \
       -f compose.yaml -f compose.dev-gateway.yaml down -v ) >/dev/null 2>&1
 }
-# http_code <url> — resolves the hostname to the gateway's bind address
+# http_code <url>: resolves the hostname to the gateway's bind address
 # explicitly. Routing and name resolution are separate concerns: `doctor`
 # checks that *.localhost resolves, and these suites check that Traefik routes,
 # so they keep working on hosts and CI runners whose resolver does not
@@ -37,7 +37,7 @@ http_code() {
     --resolve "${host}:${DEV_GATEWAY_HTTP_PORT}:${DEV_GATEWAY_BIND_ADDRESS}" "$url"
 }
 
-# wait_for_route <url> <expected> — Traefik rediscovers asynchronously.
+# wait_for_route <url> <expected>: Traefik rediscovers asynchronously.
 wait_for_route() {
   local i=0
   while [ "$i" -lt 30 ]; do
@@ -47,7 +47,7 @@ wait_for_route() {
   return 1
 }
 
-# wait_for_health <container> — a freshly started container reports
+# wait_for_health <container>: a freshly started container reports
 # `starting` until its healthcheck has had a chance to run at least once.
 wait_for_health() {
   local i=0
@@ -60,7 +60,7 @@ wait_for_health() {
 
 cleanup() { down_demo demo-a; down_demo demo-b; "$GW" up local >/dev/null 2>&1; }
 
-dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable — skipping"; exit 0; }
+dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
 
 trap cleanup EXIT INT TERM
 "$GW" up local >/dev/null 2>&1

@@ -14,9 +14,9 @@ port conflict.
 
 Each directory holds two files worth reading:
 
-- `compose.yaml` — the project as it exists without the gateway. It still runs
+- `compose.yaml` is the project as it exists without the gateway. It still runs
   standalone with `docker compose up -d`.
-- `compose.dev-gateway.yaml` — the whole integration, which is nothing but
+- `compose.dev-gateway.yaml` is the whole integration, which is nothing but
   networks and labels.
 
 ## Running them
@@ -44,7 +44,7 @@ http://demo-b-api.localhost
 ## Running the same project twice
 
 `COMPOSE_PROJECT_NAME` is the namespace. Set it to something else and you get
-a second, fully independent copy — its own containers, volumes, network and
+a second, fully independent copy, with its own containers, volumes, network and
 hostnames:
 
 ```bash

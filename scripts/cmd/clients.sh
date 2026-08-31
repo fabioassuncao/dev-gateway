@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `dev-gateway db` and `dev-gateway redis` — ergonomics over `access`.
+# `dev-gateway db` and `dev-gateway redis`: ergonomics over `access`.
 #
 # Two ways in, for two different needs:
 #
@@ -19,7 +19,7 @@ dg_cmd_db() {
     mysql) dg_client_exec mysql "$@" ;;
     ''|-h|--help|help)
       cat >&2 <<'DG_HELP'
-dev-gateway db — reach a project's database
+dev-gateway db: reach a project's database
 
   db open  --project <p> [--service postgres] [--port N]
         Open a loopback bridge for a GUI client (TablePlus, DBeaver, DataGrip).
@@ -51,7 +51,7 @@ dg_cmd_redis() {
     cli)   dg_client_exec redis-cli "$@" ;;
     ''|-h|--help|help)
       cat >&2 <<'DG_HELP'
-dev-gateway redis — reach a project's Redis
+dev-gateway redis: reach a project's Redis
 
   redis open  --project <p> [--service redis]
         Open a loopback bridge for a GUI client.
@@ -100,7 +100,7 @@ dg_db_url() {
   printf '%s\n' "$(dg_dim 'the password belongs to the project and is deliberately not filled in')" >&2
 }
 
-# dg_container_env <container> <NAME> — read one environment variable from a
+# dg_container_env <container> <NAME>: read one environment variable from a
 # container's configuration.
 #
 # Docker's --format is plain Go templates plus a handful of Docker helpers; it
@@ -197,7 +197,7 @@ dg_client_exec() {
   local tty=""
   [ -t 0 ] && [ -t 1 ] && tty="-t"
 
-  info "running $client inside $network — no port is published"
+  info "running $client inside $network; no port is published"
   # shellcheck disable=SC2086  # envs is a deliberately split flag list
   docker run --rm -i $tty --network "$network" $envs "$DG_TOOLBOX_IMAGE" "$client" "$@"
 }

@@ -1,5 +1,5 @@
 # ============================================================================
-# Dev Gateway — reusable dynamic configuration
+# Dev Gateway: reusable dynamic configuration
 # ============================================================================
 # Hot-reloaded by Traefik's file provider. Reference these from a consumer
 # project with, for example:

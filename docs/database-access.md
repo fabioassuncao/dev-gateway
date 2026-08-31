@@ -22,8 +22,8 @@ dev-gateway access open --project base-empresarial --service postgres
 | Port | the one printed |
 | User / password / database | the project's own, from its `.env` |
 
-Add `--local-port 55432` to keep a saved connection working across sessions —
-otherwise the kernel picks a new free port each time, which is what lets four
+Add `--local-port 55432` to keep a saved connection working across sessions.
+Otherwise the kernel picks a new free port each time, which is what lets four
 databases be open at once.
 
 ```bash
@@ -100,7 +100,7 @@ All three still listen on 5432 inside their containers. None publishes it.
 
 ## Migrations and seeds
 
-Run them where they have always run — inside the project:
+Run them where they have always run, inside the project:
 
 ```bash
 docker compose run --rm api npm run migrate

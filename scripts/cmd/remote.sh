@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `dev-gateway remote` — prepare and drive a remote host over SSH.
+# `dev-gateway remote`: prepare and drive a remote host over SSH.
 #
 # SSH is the transport because macOS and Linux both ship it, and because
 # Tailscale SSH slots in behind the same command. Host key verification is
@@ -17,7 +17,7 @@ dg_cmd_remote() {
     access) dg_cmd_remote_access "$@" ;;
     ''|-h|--help|help)
       cat >&2 <<'DG_HELP'
-dev-gateway remote — operate a gateway on another host over SSH
+dev-gateway remote: operate a gateway on another host over SSH
 
   remote bootstrap <user@host> [flags]   Prepare a host and start the gateway
   remote status <user@host>              Run `dev-gateway status` there
@@ -43,7 +43,7 @@ DG_HELP
   esac
 }
 
-# dg_ssh <target> <command...> — one place for the SSH options we rely on.
+# dg_ssh <target> <command...>: one place for the SSH options we rely on.
 dg_ssh() {
   local target="$1"; shift
   # StrictHostKeyChecking=accept-new records a key the first time but still
@@ -117,7 +117,7 @@ dg_remote_bootstrap() {
   printf '  %-16s %s\n' "branch" "$branch" >&2
 
   if [ "$dry_run" = "1" ]; then
-    info "dry run — nothing will be changed on $target"
+    info "dry run; nothing will be changed on $target"
   fi
 
   step "1/6  Reaching the host"
@@ -168,9 +168,9 @@ dg_remote_bootstrap() {
   fi
 
   step "4/6  Configuration"
-  # Never overwrite a .env that is already there — it holds the host's secrets.
+  # Never overwrite a .env that is already there: it holds the host's secrets.
   if dg_ssh "$target" "test -f '$dir/.env'"; then
-    ok ".env already exists on the remote host — left untouched"
+    ok ".env already exists on the remote host; left untouched"
   elif [ "$dry_run" = "1" ]; then
     info "would create .env from .env.example"
   else
@@ -184,7 +184,7 @@ dg_remote_bootstrap() {
   printf '  %s\n\n' "$(dg_dim "ssh $target 'nano ~/$dir/.env'")" >&2
 
   if [ "$dry_run" = "1" ]; then
-    info "dry run complete — nothing was changed"
+    info "dry run complete; nothing was changed"
     return 0
   fi
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `dev-gateway network status` — what is listening, on which interface, and
+# `dev-gateway network status`: what is listening, on which interface, and
 # who can reach it. Read-only: it never changes a firewall rule or a bind.
 
 dg_cmd_network() {
@@ -8,7 +8,7 @@ dg_cmd_network() {
     status) dg_network_status "$@" ;;
     -h|--help|help)
       cat >&2 <<'DG_HELP'
-dev-gateway network status — interfaces, binds, listeners and exposure
+dev-gateway network status: interfaces, binds, listeners and exposure
 
   --public-ip   Also look up this host's public address (makes an outbound
                 request to an external service)
@@ -101,7 +101,7 @@ dg_network_status() {
       *) printf '  %-30s %s\n' "$cname" "$pub" ;;
     esac
   done
-  [ "$any" = "1" ] || printf '  %s\n' "(nothing published — this is the goal)"
+  [ "$any" = "1" ] || printf '  %s\n' "(nothing published, which is the goal)"
 
   printf '\n%s\n' "$(dg_bold 'Host listeners on the gateway ports')"
   local p
@@ -115,5 +115,5 @@ dg_network_status() {
     fi
   done
 
-  printf '\n%s\n' "$(dg_dim 'Firewall rules are never changed for you — see docs/firewall.md.')"
+  printf '\n%s\n' "$(dg_dim 'Firewall rules are never changed for you. See docs/firewall.md.')"
 }

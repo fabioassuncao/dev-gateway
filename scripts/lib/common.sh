@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dev Gateway — shared shell helpers.
+# Dev Gateway: shared shell helpers.
 #
 # Targets bash 3.2 (the version macOS still ships), so: no associative arrays,
 # no ${var,,}, no mapfile. Sourced by bin/dev-gateway and scripts/*.sh.
@@ -59,14 +59,14 @@ die() { err "$*"; exit 1; }
 
 step() { printf '\n%s\n' "$(dg_bold "$*")" >&2; }
 
-# hint <text> — an actionable suggestion printed under an error or warning.
+# hint <text>: an actionable suggestion printed under an error or warning.
 hint() { printf '   %s %s\n' "$(dg_dim '->')" "$*" >&2; }
 
 # ---------------------------------------------------------------------------
 # Environment
 # ---------------------------------------------------------------------------
 
-# dg_load_env — read .env into the environment without executing it.
+# dg_load_env: read .env into the environment without executing it.
 #
 # Mirrors Compose precedence: a variable already set in the shell wins over the
 # file, so `DEV_GATEWAY_DOMAIN=foo ./bin/dev-gateway up` behaves as expected.
@@ -113,7 +113,7 @@ dg_load_env() {
   done < "$file"
 }
 
-# dg_defaults — fill in every value the CLI relies on.
+# dg_defaults: fill in every value the CLI relies on.
 # Runs after dg_load_env so an empty (or missing) .env still yields a usable
 # local gateway. Keep these in sync with .env.example.
 dg_defaults() {
@@ -160,7 +160,7 @@ dg_version() {
   fi
 }
 
-# dg_env_set <key> <value> [file] — set a value in .env in place.
+# dg_env_set <key> <value> [file]: set a value in .env in place.
 #
 # Rewrites the line if the key is present (keeping its position and the
 # comments around it) and appends otherwise. Writes through a temporary file in
@@ -198,7 +198,7 @@ dg_env_set() {
 # Predicates
 # ---------------------------------------------------------------------------
 
-# dg_is_true <value> — accepts the spellings people actually write in .env.
+# dg_is_true <value>: accepts the spellings people actually write in .env.
 dg_is_true() {
   case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')" in
     1|true|yes|on|enabled) return 0 ;;
@@ -208,7 +208,7 @@ dg_is_true() {
 
 dg_have() { command -v "$1" >/dev/null 2>&1; }
 
-# dg_confirm <prompt> — returns 0 on yes. Non-interactive callers must pass
+# dg_confirm <prompt>: returns 0 on yes. Non-interactive callers must pass
 # --yes explicitly; we never assume consent when there is no tty.
 dg_confirm() {
   local prompt="$1" reply
@@ -232,7 +232,7 @@ dg_confirm() {
 # Text helpers
 # ---------------------------------------------------------------------------
 
-# dg_slug <text> — DNS-safe label: lowercase, [a-z0-9-], no leading/trailing
+# dg_slug <text>: DNS-safe label: lowercase, [a-z0-9-], no leading/trailing
 # dash, collapsed dashes. Mirrors Traefik's `normalize` closely enough that a
 # hostname printed by `urls` matches the one Traefik generates.
 dg_slug() {
@@ -241,7 +241,7 @@ dg_slug() {
     | sed -e 's/[^a-z0-9]/-/g' -e 's/--*/-/g' -e 's/^-//' -e 's/-$//'
 }
 
-# dg_json_escape <text> — minimal JSON string escaping for hand-built output.
+# dg_json_escape <text>: minimal JSON string escaping for hand-built output.
 dg_json_escape() {
   printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g'
 }

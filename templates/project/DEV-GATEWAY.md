@@ -24,7 +24,7 @@ Set `COMPOSE_FILE=compose.yaml:compose.dev-gateway.yaml` in `.env` to drop the
 ## Namespace
 
 `COMPOSE_PROJECT_NAME` is what keeps this environment separate from every other
-one on the host — containers, network, volumes and hostnames all derive from it.
+one on the host: containers, network, volumes and hostnames all derive from it.
 
 ```env
 # .env
@@ -48,14 +48,14 @@ No port numbers, and no host port is published for either.
 
 Not published on the host. Two ways in:
 
-**From inside the project** — nothing to open, nothing to close:
+**From inside the project**, with nothing to open and nothing to close:
 
 ```bash
 docker compose exec postgres psql -U <user> -d <db>
 docker compose exec redis redis-cli
 ```
 
-**From a GUI on the host** — a temporary loopback bridge on a free port:
+**From a GUI on the host**, through a temporary loopback bridge on a free port:
 
 ```bash
 dev-gateway access open --project <project> --service postgres
@@ -89,8 +89,8 @@ dev-gateway urls --project <project>
 docker compose logs -f
 ```
 
-**404** — the service did not opt in, or Traefik has not discovered it yet.
-**502** — the route matched but the backend did not answer: usually the wrong
+**404**: the service did not opt in, or Traefik has not discovered it yet.
+**502**: the route matched but the backend did not answer, usually the wrong
 port in the overlay, or the service is not on the `dev-gateway` network.
 
 More: the Dev Gateway's `docs/troubleshooting.md`.
@@ -103,5 +103,5 @@ The overlay only adds networks and labels, so the project still runs on its own:
 docker compose up -d
 ```
 
-You lose hostname routing, so you will need published ports — put those in your
+You lose hostname routing, so you will need published ports. Put those in your
 personal `compose.override.yaml`, not in the shared files.

@@ -1,4 +1,4 @@
-# 0002 — Traefik reaches Docker through a filtered read-only proxy
+# 0002. Traefik reaches Docker through a filtered read-only proxy
 
 **Status:** Accepted
 
@@ -35,7 +35,7 @@ A compromised Traefik can no longer start containers or reach the host.
 Two limits are worth stating plainly. First, `/containers/{id}/json` is
 required for discovery and includes container environment variables, so a
 compromised Traefik could still read secrets that consumer projects pass as
-env vars — that is inherent to Traefik's Docker provider, not to this proxy.
+env vars. That is inherent to Traefik's Docker provider, not to this proxy.
 Second, the proxy is a small HAProxy configuration doing path filtering, not a
 policy engine; it reduces blast radius rather than eliminating it.
 

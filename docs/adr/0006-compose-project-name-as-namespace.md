@@ -1,11 +1,11 @@
-# 0006 — `COMPOSE_PROJECT_NAME` is the namespace for parallel environments
+# 0006. `COMPOSE_PROJECT_NAME` is the namespace for parallel environments
 
 **Status:** Accepted
 
 ## Context
 
-Running the same project several times — a worktree per issue, one environment
-per agent — needs every piece of per-environment state to be distinct:
+Running the same project several times, a worktree per issue or one environment
+per agent, needs every piece of per-environment state to be distinct:
 containers, networks, volumes and hostnames. Inventing a gateway-specific
 registry of environments would duplicate something Docker Compose already does.
 

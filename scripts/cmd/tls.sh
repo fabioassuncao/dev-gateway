@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `dev-gateway tls` — optional local HTTPS.
+# `dev-gateway tls`: optional local HTTPS.
 #
 # HTTP works with no setup and is the right default for local development.
 # Local HTTPS matters when you need a secure context: Secure cookies, service
@@ -20,7 +20,7 @@ dg_cmd_tls() {
     untrust) dg_tls_untrust "$@" ;;
     -h|--help|help)
       cat >&2 <<'DG_HELP'
-dev-gateway tls — optional local HTTPS
+dev-gateway tls: optional local HTTPS
 
   tls status     Show the TLS configuration and any local certificate
   tls init       Create a local CA and a wildcard certificate for the domain
@@ -28,7 +28,7 @@ dev-gateway tls — optional local HTTPS
   tls untrust    Print the command to remove it again
 
 Local HTTPS is never required. For remote profiles, certificates come from
-ACME over DNS-01 instead — see docs/dns-and-tls.md.
+ACME over DNS-01 instead. See docs/dns-and-tls.md.
 DG_HELP
       ;;
     *) err "unknown tls subcommand: $sub"; return 1 ;;
@@ -94,7 +94,7 @@ dg_openssl_sans() {
     || printf 'unknown'
 }
 
-# dg_toolbox_stdin <cmd...> — toolbox with stdin attached, no network.
+# dg_toolbox_stdin <cmd...>: toolbox with stdin attached, no network.
 dg_toolbox_stdin() {
   if dg_have openssl && [ "$1" = "openssl" ]; then
     "$@"

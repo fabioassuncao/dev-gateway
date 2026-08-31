@@ -16,8 +16,8 @@ gateway's ports.
 ### Private profile (recommended)
 
 Nothing needs to be open. Traefik listens on the tailnet interface only, and
-Tailscale itself needs no inbound rule — it establishes outbound connections
-and negotiates a path.
+Tailscale itself needs no inbound rule, because it establishes outbound
+connections and negotiates a path.
 
 ```bash
 sudo ufw default deny incoming
@@ -81,5 +81,5 @@ In the private profile, all three should fail.
 
 A security group or cloud firewall usually sits in front of the host and is
 evaluated before anything on it. Both have to allow a port for it to be
-reachable — and the cloud layer is a good place to keep 80/443 closed while you
+reachable, and the cloud layer is a good place to keep 80/443 closed while you
 are on the private profile.

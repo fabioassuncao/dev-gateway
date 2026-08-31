@@ -1,5 +1,5 @@
 # ============================================================================
-# Remote profiles — settings shared by remote-private and remote-public
+# Remote profiles: settings shared by remote-private and remote-public
 # ============================================================================
 # HTTPS is the point of running remotely, so this overlay wires up ACME and
 # makes websecure the default entrypoint. Certificates are issued over DNS-01

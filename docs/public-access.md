@@ -12,7 +12,7 @@ dev-gateway public enable
 Before changing anything it prints:
 
 - the wildcard domain that becomes reachable;
-- the interface (`0.0.0.0` — every interface on the host);
+- the interface (`0.0.0.0`, meaning every interface on the host);
 - the ports;
 - the TLS state, and a warning if traffic would be plaintext;
 - **the exact list of URLs** that would be served;
@@ -57,8 +57,8 @@ TLS_MODE=acme
 ACME_EMAIL=you@example.com
 ```
 
-`public enable` refuses without `PUBLIC_DOMAIN`, and warns loudly — asking for
-a second confirmation — if TLS is off.
+`public enable` refuses without `PUBLIC_DOMAIN`, and if TLS is off it warns
+loudly and asks for a second confirmation.
 
 A wildcard `A` record for `*.dev.example.com` must point at the host's public
 address: `dev-gateway dns setup`.
@@ -74,7 +74,7 @@ underscores.
 
 There is **no authentication layer**. Anything routed is reachable by anyone.
 For a development environment that usually matters, so add a middleware to the
-routers that need it — basic auth, or an OAuth forward-auth service. The
+routers that need it: basic auth, or an OAuth forward-auth service. The
 gateway ships reusable middlewares in `config/traefik/dynamic/` and is
 deliberately not coupled to any identity provider.
 
@@ -101,7 +101,7 @@ provider. Traefik hot-reloads the directory, so neither needs a restart.
 ## Deciding
 
 Use the private profile. It is the default recommendation because it gives you
-the same thing — remote access from anywhere — without an open port.
+the same thing, remote access from anywhere, without an open port.
 
 Public mode earns its keep for external webhooks, a demo for someone who cannot
 join your tailnet, or testing something that must see a public certificate.

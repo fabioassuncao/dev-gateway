@@ -1,10 +1,10 @@
-# 0001 — The gateway is infrastructure, not a parent project
+# 0001. The gateway is infrastructure, not a parent project
 
 **Status:** Accepted
 
 ## Context
 
-Several projects — and several worktrees of the same project — need to run at
+Several projects, and several worktrees of the same project, need to run at
 once on one machine. Each wants web on 3000, an API on 8000, Postgres on 5432
 and Redis on 6379. Only one process can hold a given host port, so today the
 usual fix is to stop somebody else's containers or renumber ports inside a
@@ -34,7 +34,7 @@ Integration is a small contract, nothing more:
 3. the project sets a unique `COMPOSE_PROJECT_NAME`.
 
 The recommended shape for that contract is a separate overlay file the project
-owns — `compose.dev-gateway.yaml` — so the project's own Compose file keeps
+owns, `compose.dev-gateway.yaml`, so the project's own Compose file keeps
 describing the application and nothing else, and still runs standalone.
 
 Everything the gateway creates is labelled `dev-gateway.managed=true`, and
@@ -46,6 +46,6 @@ Good: any Docker project can adopt the gateway by adding one file; projects
 stay in their own repositories; the gateway can be removed without touching
 anyone's data; several gateways could even coexist on different networks.
 
-Costs: the gateway cannot fix a project that misconfigures itself — it can only
+Costs: the gateway cannot fix a project that misconfigures itself. It can only
 detect and report, which is why `doctor` and `analyze` carry so much weight. It
 also cannot start or stop applications for you, by design.

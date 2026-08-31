@@ -2,8 +2,8 @@
 # Web + API + PostgreSQL
 # ============================================================================
 # Note what is NOT here: postgres. A database has no business on the shared
-# network — everything else on the host could reach it — and it does not need a
-# host port either.
+# network, since everything else on the host could reach it, and it does not
+# need a host port either.
 #
 # The API reaches it as `postgres:5432` over the project's own network, exactly
 # as before. A human reaches it on demand:

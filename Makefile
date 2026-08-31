@@ -1,4 +1,4 @@
-# Dev Gateway — convenience wrapper around ./bin/dev-gateway.
+# Dev Gateway: convenience wrapper around ./bin/dev-gateway.
 #
 # Make is a shortcut, never a requirement: every target below is a one-line
 # call to the CLI, which is the stable operational contract.
@@ -12,7 +12,7 @@ GW    := ./bin/dev-gateway
         test test-all test-e2e lint demo-up demo-down
 
 help: ## Show this help
-	@printf 'Dev Gateway — make targets\n\n'
+	@printf 'Dev Gateway make targets\n\n'
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
 	  | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 	@printf '\nEverything here just calls %s.\n' '$(GW)'

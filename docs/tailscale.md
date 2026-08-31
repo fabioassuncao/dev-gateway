@@ -43,7 +43,7 @@ See [ADR 0007](adr/0007-tailscale-sidecar.md).
 
 **`TS_USERSPACE=false`.** Userspace mode has no real interface in the
 namespace, so an inbound tailnet connection would never reach Traefik. Kernel
-networking is what makes the pattern work — hence `/dev/net/tun` and
+networking is what makes the pattern work, hence `/dev/net/tun` and
 `NET_ADMIN`.
 
 **`TS_ACCEPT_DNS=false`.** MagicDNS rewrites `/etc/resolv.conf`. Traefik shares
@@ -71,7 +71,7 @@ depending on a person's identity. Pre-authorized so the container does not sit
 waiting for manual approval.
 
 The key is only needed for the first login; after that the persisted state is
-enough. It never enters Git — `.env` is ignored and lint fails on a tracked
+enough. It never enters Git: `.env` is ignored and lint fails on a tracked
 `tskey-`.
 
 ## ACLs
@@ -95,7 +95,7 @@ Deny by default, then grant deliberately. A minimal policy:
 ```
 
 Note what is absent: no `*` in `src` or `dst`, and no database ports. Database
-access has its own path — a bridge or a tunnel — rather than a standing ACL.
+access has its own path, a bridge or a tunnel, rather than a standing ACL.
 
 The gateway never edits your tailnet policy. This is a snippet to adapt.
 
@@ -124,7 +124,7 @@ The gateway attaches to the host instead and binds only that address.
 docker exec dev-gateway-tailscale-1 tailscale status
 ```
 
-`doctor` fails if Traefik is not actually in the Tailscale namespace — a case
+`doctor` fails if Traefik is not actually in the Tailscale namespace, a case
 where everything looks fine but nothing is reachable.
 
 ## Troubleshooting
@@ -134,7 +134,7 @@ where everything looks fine but nothing is reachable.
 Check `docker logs dev-gateway-tailscale-1`.
 
 **Reachable on the tailnet but every route 404s.** Traefik is up but discovery
-is broken — usually MagicDNS overwriting `resolv.conf`. Confirm
+is broken, usually MagicDNS overwriting `resolv.conf`. Confirm
 `TS_ACCEPT_DNS=false`.
 
 **Works, then stops after a restart.** `state/tailscale/` is not persisted, so

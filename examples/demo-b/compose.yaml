@@ -1,5 +1,5 @@
 # ============================================================================
-# demo-b — a second, unrelated project
+# demo-b: a second, unrelated project
 # ============================================================================
 # Uses the SAME internal ports as demo-a (3000 and 8000) and its own Postgres
 # on 5432 and Redis on 6379. Both stacks run at once with no host-port

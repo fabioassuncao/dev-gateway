@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `dev-gateway public` — opt in to, and out of, internet exposure.
+# `dev-gateway public`: opt in to, and out of, internet exposure.
 #
 # Turning this on is the single most consequential thing the gateway can do, so
 # it is explicit, it shows exactly what changes, and it asks first.
@@ -12,7 +12,7 @@ dg_cmd_public() {
     disable) dg_public_disable "$@" ;;
     -h|--help|help)
       cat >&2 <<'DG_HELP'
-dev-gateway public — control internet exposure (disabled by default)
+dev-gateway public: control internet exposure (disabled by default)
 
   public status     Show what is exposed, and what would be
   public enable     Expose HTTP services on the public wildcard domain
@@ -26,7 +26,7 @@ DG_HELP
   esac
 }
 
-# dg_public_preview — everything the user should see before saying yes.
+# dg_public_preview: everything the user should see before saying yes.
 dg_public_preview() {
   local routes
   routes=$(dg_discover_http)
@@ -35,7 +35,7 @@ dg_public_preview() {
   printf '  %-22s %s\n' "domain" "*.${PUBLIC_DOMAIN:-<unset>}"
   printf '  %-22s %s\n' "interface" "0.0.0.0 (every interface on this host)"
   printf '  %-22s %s\n' "ports" "${DEV_GATEWAY_HTTP_PORT}/tcp, ${DEV_GATEWAY_HTTPS_PORT}/tcp"
-  printf '  %-22s %s\n' "tls" "$(dg_is_true "$TLS_ENABLED" && printf '%s via %s' "$TLS_MODE" "$ACME_DNS_PROVIDER" || printf 'DISABLED — traffic would be plaintext')"
+  printf '  %-22s %s\n' "tls" "$(dg_is_true "$TLS_ENABLED" && printf '%s via %s' "$TLS_MODE" "$ACME_DNS_PROVIDER" || printf 'DISABLED, traffic would be plaintext')"
   printf '  %-22s %s\n' "dashboard" "$(dg_is_true "$DEV_GATEWAY_DASHBOARD" && printf 'enabled (loopback only, never routed publicly)' || printf 'disabled')"
 
   printf '\n%s\n' "$(dg_bold 'Services that would be served publicly')"
@@ -97,7 +97,7 @@ dg_public_enable() {
   # Serving development environments over plaintext to the open internet is
   # not something to do by accident.
   if ! dg_is_true "$TLS_ENABLED"; then
-    warn "TLS_ENABLED is false — everything would be served over plain HTTP"
+    warn "TLS_ENABLED is false; everything would be served over plain HTTP"
     hint "set TLS_ENABLED=true and TLS_MODE=acme before exposing anything"
     dg_confirm "Expose over plain HTTP anyway?" || { info "aborted"; return 1; }
   elif [ "$TLS_MODE" = "acme" ] && [ -z "${ACME_EMAIL:-}" ]; then
@@ -121,9 +121,9 @@ dg_public_enable() {
   dg_compose remote-public up -d --remove-orphans || return 1
 
   ok "the gateway is now serving *.${PUBLIC_DOMAIN}"
-  hint "dev-gateway dns check     — confirm the wildcard record points here"
-  hint "dev-gateway public status — confirm what is exposed"
-  hint "dev-gateway public disable — turn it off again"
+  hint "dev-gateway dns check confirms the wildcard record points here"
+  hint "dev-gateway public status confirms what is exposed"
+  hint "dev-gateway public disable turns it off again"
 }
 
 dg_public_disable() {

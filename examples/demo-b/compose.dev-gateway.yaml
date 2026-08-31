@@ -1,5 +1,5 @@
 # ============================================================================
-# demo-b — Dev Gateway integration overlay
+# demo-b: Dev Gateway integration overlay
 # ============================================================================
 # Identical in shape to demo-a's overlay. That is the point: the contract is
 # the same for every project, whatever runs inside it.

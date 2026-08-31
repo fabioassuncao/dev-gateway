@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `dev-gateway analyze <path>` — read-only report on how a project would adopt
+# `dev-gateway analyze <path>`: read-only report on how a project would adopt
 # the gateway.
 #
 # It reads. It never writes, never starts anything, never touches the project's
@@ -25,7 +25,7 @@ dg_cmd_analyze() {
       --json) as_json=1 ;;
       -h|--help)
         cat >&2 <<'DG_HELP'
-dev-gateway analyze <path> — report on how a project would adopt the gateway
+dev-gateway analyze <path>: report on how a project would adopt the gateway
 
   --json    Machine-readable output
 
@@ -69,7 +69,7 @@ DG_HELP
   fi
 }
 
-# dg_analyze_find_compose <dir> — the project's own compose files, most
+# dg_analyze_find_compose <dir>: the project's own compose files, most
 # canonical first. Gateway overlays are reported separately, not merged.
 dg_analyze_find_compose() {
   local dir="$1" f out=""
@@ -87,7 +87,7 @@ dg_analyze_has_overlay() {
   printf ''
 }
 
-# dg_analyze_render <dir> <file> — the resolved model as JSON.
+# dg_analyze_render <dir> <file>: the resolved model as JSON.
 #
 # Interpolation is attempted first because it gives real values; a project with
 # required variables we cannot supply falls back to --no-interpolate so the
@@ -141,7 +141,7 @@ dg_analyze_classify() {
   printf 'unknown'
 }
 
-# dg_analyze_project_name <dir> — what COMPOSE_PROJECT_NAME will actually be,
+# dg_analyze_project_name <dir>: what COMPOSE_PROJECT_NAME will actually be,
 # following Compose's own precedence.
 dg_analyze_project_name() {
   local dir="$1" name=""
@@ -220,7 +220,7 @@ EOF
 $published
 EOF
   else
-    printf '\n  %s\n' "$(dg_c 32 'No published host ports — nothing can collide.')"
+    printf '\n  %s\n' "$(dg_c 32 'No published host ports, so nothing can collide.')"
   fi
 
   # container_name defeats parallel copies.
@@ -273,7 +273,7 @@ EOF
     findings=$((findings + 1))
     printf '\n  %s\n' "$(dg_c 33 'Namespace is implicit')"
     printf '    %s\n' "COMPOSE_PROJECT_NAME is not set, so Compose uses the directory name"
-    printf '    %s\n' "$(dg_dim 'set it explicitly in .env — it is what keeps worktrees apart')"
+    printf '    %s\n' "$(dg_dim 'set it explicitly in .env; it is what keeps worktrees apart')"
   fi
 
   [ "$findings" -gt 0 ] || printf '\n  %s\n' "$(dg_c 32 'Nothing to change.')"
@@ -305,7 +305,7 @@ EOF
   printf '\n%s\n' "$(dg_dim 'Nothing in this project was modified. See docs/adopting-projects.md.')"
 }
 
-# dg_analyze_http_services <json> — service<TAB>port for services that look
+# dg_analyze_http_services <json>: service<TAB>port for services that look
 # like they serve HTTP. Prefers a declared port; falls back to the first
 # published or exposed one.
 dg_analyze_http_services() {
@@ -329,11 +329,11 @@ $(printf '%s' "$json" | dg_jq -r '
 EOF
 }
 
-# dg_analyze_port_holder <port> — what is already holding a host port, if
+# dg_analyze_port_holder <port>: what is already holding a host port, if
 # anything. Docker first, since that is the usual answer.
 # Always succeeds: "nothing holds this port" is an answer, not an error. The
 # caller assigns the result, and under `set -e` a non-zero return here would
-# abort the whole report — which is exactly what it used to do on a host
+# abort the whole report: which is exactly what it used to do on a host
 # without lsof.
 dg_analyze_port_holder() {
   local port="$1" holder=""

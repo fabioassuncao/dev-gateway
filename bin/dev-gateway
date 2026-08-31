@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# dev-gateway — operational entrypoint for the Dev Gateway
+# dev-gateway: operational entrypoint for the Dev Gateway
 # ============================================================================
 # The Dev Gateway is shared host infrastructure. It never owns, moves, starts
 # or stops a consumer project: every command here acts only on resources
@@ -38,7 +38,7 @@ DG_ASSUME_YES="${DG_ASSUME_YES:-false}"
 
 usage() {
   cat >&2 <<'DG_HELP'
-dev-gateway — shared HTTP/TCP gateway for parallel Docker development
+dev-gateway: shared HTTP/TCP gateway for parallel Docker development
 
 USAGE
   dev-gateway <command> [arguments] [flags]
@@ -156,8 +156,8 @@ cmd_up() {
   fi
 
   ok "gateway is up"
-  hint "dev-gateway status    — see what is running"
-  hint "dev-gateway urls      — see the hostnames being served"
+  hint "dev-gateway status shows what is running"
+  hint "dev-gateway urls lists the hostnames being served"
 }
 
 cmd_down() {
@@ -179,7 +179,7 @@ cmd_down() {
   # gateway's own Compose project.
   dg_compose "$profile" down
 
-  ok "gateway stopped — consumer projects were not touched"
+  ok "gateway stopped; consumer projects were not touched"
   if dg_network_exists "$DEV_GATEWAY_NETWORK"; then
     hint "the shared network '$DEV_GATEWAY_NETWORK' was kept ($(dg_network_endpoints "$DEV_GATEWAY_NETWORK") container(s) still attached)"
   fi
@@ -190,7 +190,7 @@ cmd_restart() {
   dg_require_docker || exit 1
   dg_resolve_profile "$profile" || exit 1
   dg_compose "$profile" restart
-  ok "gateway restarted — routes are rediscovered automatically"
+  ok "gateway restarted; routes are rediscovered automatically"
 }
 
 cmd_logs() {
@@ -398,7 +398,7 @@ cmd_toolbox() {
       ;;
     ''|-h|--help|help)
       cat >&2 <<'DG_HELP'
-dev-gateway toolbox — containerised tooling
+dev-gateway toolbox: containerised tooling
 
   toolbox build          Build the image (done automatically on first use)
   toolbox run -- <cmd>   Run a command inside it
@@ -420,7 +420,7 @@ DG_HELP
 cmd_help_for() {
   case "$1" in
     up) cat >&2 <<'DG_HELP'
-dev-gateway up [profile] — start the gateway
+dev-gateway up [profile]: start the gateway
 
   profile     local | remote-private | remote-public
               (default: DEV_GATEWAY_PROFILE, or `local`)
@@ -431,7 +431,7 @@ socket proxy. Consumer projects are never started or stopped by this.
 DG_HELP
       ;;
     down) cat >&2 <<'DG_HELP'
-dev-gateway down — stop the gateway
+dev-gateway down: stop the gateway
 
 Stops Traefik and the socket proxy. Applications keep running, the shared
 network is kept because other projects are attached to it, and no volume is
@@ -439,14 +439,14 @@ ever removed.
 DG_HELP
       ;;
     restart) cat >&2 <<'DG_HELP'
-dev-gateway restart [profile] — restart gateway components
+dev-gateway restart [profile]: restart gateway components
 
 Applications are not restarted. Traefik rediscovers every route on its own
 once it is back.
 DG_HELP
       ;;
     status) cat >&2 <<'DG_HELP'
-dev-gateway status — compact overview
+dev-gateway status: compact overview
 
   --json    Machine-readable output
 
@@ -455,7 +455,7 @@ Tailscale, public access, and how many services are routed.
 DG_HELP
       ;;
     logs) cat >&2 <<'DG_HELP'
-dev-gateway logs [service] — follow gateway logs
+dev-gateway logs [service]: follow gateway logs
 
   service   traefik | socket-proxy | tailscale (default: all)
 
@@ -463,7 +463,7 @@ Only gateway components. A project's logs come from its own directory.
 DG_HELP
       ;;
     urls) cat >&2 <<'DG_HELP'
-dev-gateway urls — the hostnames currently being served
+dev-gateway urls: the hostnames currently being served
 
   --project <name>   Only this project
   --json             Machine-readable output
@@ -473,7 +473,7 @@ Traefik is down.
 DG_HELP
       ;;
     inspect) cat >&2 <<'DG_HELP'
-dev-gateway inspect — the resolved configuration
+dev-gateway inspect: the resolved configuration
 
 Every setting after .env, the shell environment and the built-in defaults have
 been applied, plus the compose files the active profile selects. Secrets are
@@ -481,15 +481,15 @@ shown as <set> or <unset>, never by value.
 DG_HELP
       ;;
     update) cat >&2 <<'DG_HELP'
-dev-gateway update — pull the pinned images and recreate
+dev-gateway update: pull the pinned images and recreate
 
 Validates the compose configuration before touching anything, pulls, then asks
-before recreating. State under ./state — ACME certificates and the Tailscale
-identity — is left alone.
+before recreating. State under ./state is left alone, including ACME
+certificates and the Tailscale identity.
 DG_HELP
       ;;
     version) cat >&2 <<'DG_HELP'
-dev-gateway version — print the gateway version
+dev-gateway version: print the gateway version
 DG_HELP
       ;;
     *) return 1 ;;

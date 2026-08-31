@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `dev-gateway services` — what is running on this host, and how to reach it.
+# `dev-gateway services`: what is running on this host, and how to reach it.
 
 dg_cmd_services() {
   local as_json=0 project=""
@@ -10,7 +10,7 @@ dg_cmd_services() {
       --project=*) project="${1#--project=}" ;;
       -h|--help)
         cat >&2 <<'DG_HELP'
-dev-gateway services — every service of every running Compose project
+dev-gateway services: every service of every running Compose project
 
   --project <name>   Only this project
   --json             Machine-readable output
@@ -83,6 +83,6 @@ EOF
 $rows
 EOF
 
-  printf '\n%s\n' "$(dg_dim 'HTTP services are reached by hostname — dev-gateway urls')"
-  printf '%s\n' "$(dg_dim 'Everything else is reached on demand — dev-gateway access open --project <p> --service <s>')"
+  printf '\n%s\n' "$(dg_dim 'HTTP services are reached by hostname; see dev-gateway urls')"
+  printf '%s\n' "$(dg_dim 'Everything else is reached on demand: dev-gateway access open --project <p> --service <s>')"
 }

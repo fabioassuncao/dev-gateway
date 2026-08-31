@@ -2,12 +2,12 @@
 
 ## Requirements
 
-**macOS** — [OrbStack](https://orbstack.dev) or Docker Desktop, Git, a shell.
-**Linux** — Docker Engine 24+, the Compose v2 plugin, Git, a shell.
+**macOS**: [OrbStack](https://orbstack.dev) or Docker Desktop, Git, a shell.
+**Linux**: Docker Engine 24+, the Compose v2 plugin, Git, a shell.
 
 OrbStack is the recommended runtime on macOS: it starts faster and uses much
 less memory than Docker Desktop. The gateway does **not** depend on any
-OrbStack-specific API — anything OrbStack-only is an optimisation the gateway
+OrbStack-specific API. Anything OrbStack-only is an optimisation the gateway
 detects and offers, never something it requires.
 
 Note the versions: Docker Compose **v2** (the `docker compose` plugin). The
@@ -25,7 +25,7 @@ cp .env.example .env
 ./bin/dev-gateway doctor
 ```
 
-`bootstrap` is idempotent — run it whenever you want a health check with
+`bootstrap` is idempotent, so run it whenever you want a health check with
 repairs to the parts it owns. It never deletes anything.
 
 Put the CLI on your `PATH` so you can call it from any project directory:
@@ -37,7 +37,7 @@ ln -s "$PWD/bin/dev-gateway" /usr/local/bin/dev-gateway
 ## Why `.localhost` needs no configuration
 
 `localhost` is reserved by [RFC 6761](https://www.rfc-editor.org/rfc/rfc6761),
-which requires resolvers to map it — **and its subdomains** — to loopback
+which requires resolvers to map it, **and its subdomains**, to loopback
 without consulting DNS.
 
 In practice that means `demo-a-web.localhost` resolves to `127.0.0.1` with:
@@ -68,7 +68,7 @@ dev-gateway logs       # follow gateway logs
 dev-gateway doctor     # when something does not behave
 ```
 
-Starting and stopping applications is not the gateway's job — do that from the
+Starting and stopping applications is not the gateway's job. Do that from the
 project's own directory, as you always have.
 
 ## Running several environments
@@ -96,7 +96,7 @@ Plain HTTP works with no setup, and for most local work that is the right
 choice. HTTPS is worth enabling when you need Secure cookies, service workers,
 or anything else gated behind a secure context.
 
-It is opt-in and never required — see [dns-and-tls.md](dns-and-tls.md).
+It is opt-in and never required. See [dns-and-tls.md](dns-and-tls.md).
 
 ## If port 80 is taken
 
@@ -121,5 +121,5 @@ docker network rm dev-gateway    # only once no project is attached
 rm -rf state/
 ```
 
-Your projects, their volumes and their databases are untouched — the gateway
-never owned them.
+Your projects, their volumes and their databases are untouched, because the
+gateway never owned them.

@@ -9,7 +9,7 @@ DG_ROOT=$(cd -P "$DG_TEST_DIR/.." && pwd); export DG_ROOT
 . "$DG_ROOT/scripts/lib/common.sh"
 . "$DG_ROOT/scripts/lib/docker.sh"
 
-# resolve <profile> <var> [env assignments...] — resolve in a subshell so each
+# resolve <profile> <var> [env assignments...]: resolve in a subshell so each
 # case starts from a clean environment.
 resolve() {
   local profile="$1" want="$2"; shift 2
@@ -37,7 +37,7 @@ assert_eq "dev.example.test" "$(resolve remote-public DEV_GATEWAY_DOMAIN PUBLIC_
 it "remote-public without PUBLIC_DOMAIN is refused"
 assert_eq "REFUSED" "$(resolve remote-public DEV_GATEWAY_DOMAIN)"
 
-describe "bind addresses — the security-relevant part"
+describe "bind addresses: the security-relevant part"
 it "local binds loopback"
 assert_eq "127.0.0.1" "$(resolve local DEV_GATEWAY_BIND_ADDRESS)"
 it "remote-private with Tailscale binds loopback, reachable only via the tailnet"

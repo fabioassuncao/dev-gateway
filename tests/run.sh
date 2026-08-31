@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Dev Gateway — test runner
+# Dev Gateway: test runner
 # ============================================================================
 #   tests/run.sh            lint + unit  (fast, no Docker)
 #   tests/run.sh --e2e      also the end-to-end suites (needs Docker)
@@ -122,7 +122,7 @@ fi
 if [ "$RUN_E2E" = "1" ]; then
   if ! docker info >/dev/null 2>&1; then
     echo
-    echo "E2E suites need a running Docker daemon — refusing to report success without running them." >&2
+    echo "E2E suites need a running Docker daemon; refusing to report success without running them." >&2
     exit 1
   fi
   for t in tests/e2e/*.test.sh; do

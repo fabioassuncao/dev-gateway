@@ -27,7 +27,7 @@ the fix is that something is publishing it that should not be. Renumbering to
 3001 makes development diverge from production and does not fix the cause.
 
 **Never publish a database or cache on the host.** Not `5432:5432`, not
-`0.0.0.0` — not even temporarily. Use the access bridge.
+`0.0.0.0`, not even temporarily. Use the access bridge.
 
 **Never reuse another environment's volume, network or namespace.** Two
 environments sharing a database corrupt each other silently.
@@ -75,7 +75,7 @@ dev-gateway urls --project "$COMPOSE_PROJECT_NAME"
 Report those, not `localhost:3000`, which is meaningless on a shared host.
 
 **Reach databases without publishing them.** For a quick query, run a client
-inside the project's own network — no port, nothing to clean up:
+inside the project's own network, with no port and nothing to clean up:
 
 ```bash
 docker compose exec postgres psql -U app -d app -c 'select 1'
@@ -103,15 +103,15 @@ Add `-v` only if the data is yours and you are sure.
 
 ## Reaching databases: the order to try
 
-1. **`docker compose exec`** — already inside the project, nothing to set up.
-2. **`dev-gateway db psql` / `redis cli`** — a client inside the project's
+1. **`docker compose exec`**, already inside the project, nothing to set up.
+2. **`dev-gateway db psql` / `redis cli`**, a client inside the project's
    network from anywhere on the host. Nothing published, nothing left behind.
-3. **`dev-gateway access open`** — only when a human needs a GUI. Close it.
-4. **`dev-gateway remote access open`** — for a VPS, over the VPN. Never open a
+3. **`dev-gateway access open`**, only when a human needs a GUI. Close it.
+4. **`dev-gateway remote access open`**, for a VPS, over the VPN. Never open a
    public port to make a remote database easier to reach.
 
 Never `ports: ["5432:5432"]`, not even temporarily, and never a database on
-`0.0.0.0`. Never stop another project's database to free 5432 — nothing is
+`0.0.0.0`. Never stop another project's database to free 5432: nothing is
 holding it, because nothing publishes it.
 
 Never reuse another workspace's volume. Two environments writing to one
@@ -182,7 +182,7 @@ Always:
 - report URLs from `dev-gateway urls`, not `localhost:3000`
 - reach databases in this order: `docker compose exec`, then
   `dev-gateway db psql` / `redis cli`, then `dev-gateway access open` for a GUI,
-  then `dev-gateway remote access open` over the VPN for a VPS — never by
+  then `dev-gateway remote access open` over the VPN for a VPS. Never by
   publishing a port, and never on `0.0.0.0`
 - stop only what you started, from its own directory
 

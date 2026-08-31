@@ -19,7 +19,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   also understands `ss`, and has a regression test that runs it with an empty
   `PATH`.
 - The `*.localhost` resolution check demanded `127.0.0.1`. RFC 6761 requires
-  loopback, and systemd-resolved answers `::1` — equally correct.
+  loopback, and systemd-resolved answers `::1`, which is equally correct.
 - The audit suite matched its own text, since it contains every forbidden
   pattern as a search string.
 - `bootstrap` now tightens `.env` to `0600` when it is looser. The documented
@@ -49,7 +49,7 @@ the release notes, not a footnote.
   `<compose-project>-<service>.<domain>`. A project opts in without naming
   itself anywhere, and a new worktree gets new hostnames from one environment
   variable.
-- **`exposedByDefault=false`** — a service is routed only when it sets
+- **`exposedByDefault=false`**, so a service is routed only when it sets
   `traefik.enable=true`.
 - **Three profiles** as composable Compose overlays: `local`,
   `remote-private`, `remote-public`. Exactly one attachment overlay decides how
@@ -57,8 +57,8 @@ the release notes, not a footnote.
 
 ### Parallel environments
 
-- `COMPOSE_PROJECT_NAME` is the whole mechanism. Four environments — two
-  worktrees of one project among them — run at once with web on 3000, api on
+- `COMPOSE_PROJECT_NAME` is the whole mechanism. Four environments, two
+  worktrees of one project among them, run at once with web on 3000, api on
   8000, Postgres on 5432 and Redis on 6379, and no host port published by any
   of them.
 - `dev-gateway namespace` derives a DNS-safe name from the repository and
@@ -70,24 +70,24 @@ the release notes, not a footnote.
 
 Projects stay in their own repositories and are never moved, cloned or mounted.
 
-- `dev-gateway analyze <path>` — read-only report: services and what they look
-  like, published host ports and what already holds them, fixed container
+- `dev-gateway analyze <path>` gives a read-only report: services and what they
+  look like, published host ports and what already holds them, fixed container
   names, published datastores, an implicit namespace.
-- `dev-gateway init <path>` — writes exactly one new file, shows it and a diff
+- `dev-gateway init <path>` writes exactly one new file, shows it and a diff
   first, never edits `compose.yaml`, supports `--dry-run`, keeps a backup.
 - Eight overlay templates, and a page to copy into the consumer repository.
 
 ### Databases, caches and other TCP services
 
-- `dev-gateway access open` — a per-session bridge on the project's private
-  network, published on `127.0.0.1` on a port the kernel picks. Any number of
+- `dev-gateway access open` creates a per-session bridge on the project's
+  private network, published on `127.0.0.1` on a port the kernel picks. Any number of
   databases are reachable at once without one of them giving up 5432.
-- `dev-gateway db psql` / `redis cli` — a client inside the project's own
+- `dev-gateway db psql` and `redis cli` run a client inside the project's own
   network. Nothing published, nothing left behind.
-- `dev-gateway remote access open` — a loopback bridge on a VPS plus an SSH
-  tunnel here, over Tailscale SSH or plain SSH.
-- `dev-gateway service publish --private` — a dedicated forwarder per service
-  on the gateway's access network, for a stable tailnet address. Project
+- `dev-gateway remote access open` sets up a loopback bridge on a VPS plus an
+  SSH tunnel here, over Tailscale SSH or plain SSH.
+- `dev-gateway service publish --private` creates a dedicated forwarder per
+  service on the gateway's access network, for a stable tailnet address. Project
   networks are never merged.
 
 ### Remote and TLS
@@ -102,12 +102,12 @@ Projects stay in their own repositories and are never moved, cloned or mounted.
 
 ### Diagnostics
 
-- `doctor` — runtime, networks, component health, exposure, DNS, TLS, routing,
+- `doctor` covers runtime, networks, component health, exposure, DNS, TLS, routing,
   hostname and Traefik service-name collisions, uninterpolated `${...}` in
   labels, bridge binds, and forwarder placement. Read-only, with a suggested
   fix per failure, and `--json`.
-- `status`, `urls`, `services`, `network status`, `inspect` — all with `--json`
-  where it makes sense.
+- `status`, `urls`, `services`, `network status` and `inspect`, all with
+  `--json` where it makes sense.
 
 ### Security
 
@@ -128,7 +128,7 @@ shell library, profiles, templates and the CLI surface; end-to-end suites for
 parallel environments, lifecycle independence, adopting an unknown project,
 local HTTPS, and TCP access to four simultaneous databases.
 
-The audit suite is the interesting one — it turns the promises above into
+The audit suite is the interesting one: it turns the promises above into
 regression tests: no absolute home paths, no consumer project named in the
 code, no prune of any kind, every container removal ownership-checked, no
 secret in argv, nothing exposed by default, every image pinned.

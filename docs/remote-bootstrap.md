@@ -79,8 +79,8 @@ user.
 
 ## Over Tailscale SSH
 
-With Tailscale SSH configured, the same commands work — the target is just the
-tailnet name:
+With Tailscale SSH configured, the same commands work, with the target being
+the tailnet name:
 
 ```bash
 dev-gateway remote bootstrap deploy@dev-vps --profile remote-private
@@ -107,4 +107,4 @@ accepted. `ssh -v deploy@host` says more than the wrapper does.
 session uses a shorter `PATH`. Check `ssh host 'command -v docker'`.
 
 **Permission denied talking to the Docker daemon.** The user is not in the
-`docker` group, or the session predates being added — log out and back in.
+`docker` group, or the session predates being added. Log out and back in.

@@ -7,8 +7,8 @@ because it "should" work.
 
 | Platform | Status |
 |---|---|
-| macOS 15+ (arm64) + OrbStack | **Verified** — full suite run by hand during development |
-| Ubuntu 24.04 (amd64) + Docker Engine | **Verified in CI** — full suite on every change |
+| macOS 15+ (arm64) + OrbStack | **Verified**, full suite run by hand during development |
+| Ubuntu 24.04 (amd64) + Docker Engine | **Verified in CI**, full suite on every change |
 | macOS + Docker Desktop | **Expected to work, not verified.** Nothing here uses an OrbStack-specific API. |
 | Debian 12 + Docker Engine | **Expected to work, not verified.** |
 | Linux arm64 | **Expected to work, not verified.** Every pinned image publishes arm64. |
@@ -17,7 +17,7 @@ because it "should" work.
 Minimum versions: Docker Engine 24, Docker Compose v2. `bootstrap` warns below
 those, and `doctor` reports the versions it found.
 
-The CLI targets **bash 3.2**, which is what macOS still ships — so no
+The CLI targets **bash 3.2**, which is what macOS still ships, so no
 associative arrays, no `${var,,}`, no `mapfile`. That constraint is why the
 scripts look the way they do.
 
@@ -27,7 +27,7 @@ The `remote-private` and `remote-public` profiles are covered by configuration
 tests: every profile renders, the private profile never binds `0.0.0.0`, and
 the rendered private profile shares Traefik's network namespace with Tailscale.
 
-The parts that need real credentials — a tailnet, an ACME account, a DNS zone —
+The parts that need real credentials (a tailnet, an ACME account, a DNS zone)
 are **not exercised by any automated test**. `docs/remote-development.md` has a
 smoke checklist to run by hand after a first deploy, and
 `docs/tailscale-services.md` states which half of that feature is tested.
@@ -55,7 +55,7 @@ Two containers is the entire standing footprint. There is deliberately nothing
 else: bridges are created per session and removed, clients are one-shot, and
 the toolbox image is built once and then only run on demand.
 
-For comparison, the thing this replaces — a published host port per service —
+For comparison, the thing this replaces, a published host port per service,
 costs no memory but costs a port, which is the resource that actually runs out.
 
 ## Images

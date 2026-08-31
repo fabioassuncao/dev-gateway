@@ -50,8 +50,8 @@ record.
 Records the gateway creates use `proxied: false`, and yours should too.
 
 Cloudflare's proxy terminates TLS and re-originates the connection. That breaks
-the private profile completely — the record points at a tailnet address
-Cloudflare cannot reach — and for the public profile it means Cloudflare, not
+the private profile completely, since the record points at a tailnet address
+Cloudflare cannot reach, and for the public profile it means Cloudflare, not
 Traefik, decides what your certificate is.
 
 Turn the orange cloud off for `*.dev.example.com`.
@@ -62,17 +62,17 @@ Leave `CLOUDFLARE_ENABLED=false`. `dns setup` then prints the record for you to
 create by hand, and `dns check` still verifies it.
 
 For certificates, set `ACME_DNS_PROVIDER` to your provider's lego name and pass
-its credentials to Traefik as environment variables — the `CF_DNS_API_TOKEN`
+its credentials to Traefik as environment variables. The `CF_DNS_API_TOKEN`
 line in `compose.remote.yaml` is the template to copy.
 
 ## Troubleshooting
 
-**"Cloudflare did not return a zone named ..."** — the token lacks access to
-that zone, or `CLOUDFLARE_ZONE` is the domain rather than the zone (for
+**"Cloudflare did not return a zone named ..."** means the token lacks access
+to that zone, or `CLOUDFLARE_ZONE` is the domain rather than the zone (for
 `dev.example.com` the zone is usually `example.com`).
 
-**Certificates fail while `dns check` passes** — the token needs
+**Certificates fail while `dns check` passes.** The token needs
 `Zone:DNS:Edit`, not just `Zone:DNS:Read`. Issuance writes a TXT record.
 
-**The record exists but nothing connects** — it is probably proxied. Turn the
+**The record exists but nothing connects.** It is probably proxied. Turn the
 orange cloud off.

@@ -81,8 +81,8 @@ Set `COMPOSE_FILE=compose.yaml:compose.dev-gateway.yaml` in the project's
 
 Working examples: [`examples/demo-a`](../examples/demo-a) and
 [`examples/demo-b`](../examples/demo-b). Templates for the usual project shapes
-— single web, web + API, full stack, several APIs, monorepo, worktree,
-non-standard ports — are in [`templates/`](../templates/).
+(single web, web + API, full stack, several APIs, monorepo, worktree,
+non-standard ports) are in [`templates/`](../templates/).
 
 ## Two rules that are easy to get wrong
 
@@ -131,8 +131,8 @@ Both environments should be listed and both should answer.
 
 Copy [`templates/project/DEV-GATEWAY.md`](../templates/project/DEV-GATEWAY.md)
 into the project and adjust the names. It covers only what someone working on
-that project needs — how to start it, its URLs, how to reach its database, how
-to run a second copy — and leaves the rules here.
+that project needs: how to start it, its URLs, how to reach its database, how
+to run a second copy. The rules stay here.
 
 ## Monorepos
 
@@ -142,5 +142,5 @@ See [monorepos.md](monorepos.md).
 ## Keeping the project runnable without the gateway
 
 The overlay adds only networks and labels, so `docker compose up -d` on its own
-still works — you just lose hostname routing. If a developer needs a published
+still works; you just lose hostname routing. If a developer needs a published
 port for a one-off, that is their `compose.override.yaml`, not the shared file.

@@ -1,13 +1,13 @@
 # Tailscale Services
 
-A persistent, private address for a TCP service — so the database you use every
-day keeps port 5432 and a stable name, instead of a fresh loopback port each
+A persistent, private address for a TCP service, so the database you use every
+day keeps port 5432 and a stable name instead of a fresh loopback port each
 session.
 
 > **Verification status.** The forwarder side is implemented and tested: the
 > container is created, joins the right two networks, and is reachable by its
 > alias on the standard port (`tests/e2e/tcp-access.test.sh`). The tailnet side
-> — the Service advertisement and the grants — is **configuration you apply on
+> (the Service advertisement and the grants) is **configuration you apply on
 > your own tailnet**, and is not exercised by any automated test here. The
 > gateway prints exactly what to apply and never edits your Tailscale policy.
 
@@ -27,8 +27,8 @@ project-a_default              project-b_default
 Each published service gets **its own forwarder**, joined to exactly two
 networks: that project's private network, and the gateway's access network.
 
-The alternative — attaching the Tailscale container directly to every project's
-private network — would be simpler and much worse. It would give one container
+The alternative, attaching the Tailscale container directly to every project's
+private network, would be simpler and much worse. It would give one container
 a route into every project at once, and it would put projects one
 misconfiguration away from resolving each other's service names. The forwarder
 per service keeps every project network isolated from every other, and
@@ -84,7 +84,7 @@ svc:base-empresarial-redis     ->  tcp:6379  ->  base-empresarial-redis:6379
 
 Distinct identities, standard ports, no tunnels.
 
-**3. Grant access — never a blanket rule.**
+**3. Grant access, never a blanket rule.**
 
 ```jsonc
 {
@@ -108,7 +108,7 @@ is not there: no `*` in `src`, no `*` in `dst`, and no rule that would reach a
 service nobody asked to publish.
 
 Check the current [Tailscale Services documentation](https://tailscale.com/docs/features/tailscale-services)
-for the exact syntax your tailnet expects — this is the model, not a
+for the exact syntax your tailnet expects. This is the model, not a
 copy-paste-and-forget snippet, and the gateway will not apply it for you.
 
 ## When to use this instead of a bridge

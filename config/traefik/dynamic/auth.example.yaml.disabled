@@ -1,5 +1,5 @@
 # ============================================================================
-# Optional access protection — copy to auth.yaml to enable
+# Optional access protection: copy to auth.yaml to enable
 # ============================================================================
 # The gateway ships no identity layer and is deliberately not coupled to one.
 # This is the simplest useful thing: HTTP basic auth as a middleware a router
@@ -25,7 +25,7 @@ http:
   middlewares:
     dev-gateway-basic-auth:
       basicAuth:
-        # user:hash — replace with your own. The example hash is for the
+        # user:hash: replace with your own. The example hash is for the
         # password "changeme" and exists only to show the format.
         users:
           - "dev:$apr1$Xy9Zq2Lm$0Ux2dKcVQe8hV1nJgqQ4d1"

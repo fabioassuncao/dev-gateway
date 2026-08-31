@@ -3,7 +3,7 @@
 ## The one idea
 
 A container port and a host port are different things. Ten containers can all
-listen on 3000 forever — the conflict only appears when something publishes
+listen on 3000 forever. The conflict only appears when something publishes
 3000 *on the host*.
 
 So the gateway publishes almost nothing. One router holds 80 and 443 for the
@@ -25,31 +25,32 @@ toolbox containers are created on demand and removed when done.
 
 ```mermaid
 flowchart LR
-    subgraph ctrl [dev-gateway-control — internal: true]
+    subgraph ctrl [dev-gateway-control: internal]
         T[Traefik] <--> P[socket-proxy]
     end
-    subgraph shared [dev-gateway — external, shared]
+    subgraph shared [dev-gateway: external, shared]
         T2[Traefik] --- W1[project-a web] & A1[project-a api] & W2[project-b web]
     end
-    subgraph priv_a [project-a_default — private]
+    subgraph priv_a [project-a_default: private]
         W1b[web] --- DB1[(postgres)]
         A1b[api] --- DB1
         W1b --- R1[(redis)]
     end
-    subgraph priv_b [project-b_default — private]
+    subgraph priv_b [project-b_default: private]
         W2b[web] --- DB2[(postgres)]
     end
 ```
 
-**`dev-gateway`** — external, created by `bootstrap`, shared by every project.
+**`dev-gateway`** is external, created by `bootstrap`, and shared by every
+project.
 Its lifecycle is independent of both the gateway stack and the projects: it
 survives `dev-gateway down` and is never removed automatically.
 
-**`dev-gateway-control`** — created with `internal: true`, so it has no route
+**`dev-gateway-control`** is created with `internal: true`, so it has no route
 off the host. Only Traefik and the socket proxy are on it. This is what keeps
 the Docker API away from anything that handles network traffic.
 
-**`<project>_default`** — each project's own network, created by its own
+**`<project>_default`** is each project's own network, created by its own
 Compose file. Postgres, Redis, queues and search live here and nowhere else.
 Traefik has no route to these networks and never needs one.
 
@@ -62,7 +63,7 @@ private network and the shared one. Nothing else changes about it.
    [local-development.md](local-development.md)).
 2. Traefik, holding `127.0.0.1:80`, matches the `Host` header.
 3. The matching router points at a service Traefik built from the container's
-   labels, and dials the container **over the `dev-gateway` network** — pinned
+   labels, and dials the container **over the `dev-gateway` network**, pinned
    by `providers.docker.network` so a multi-homed container is never reached
    through a private network.
 4. The application answers on its own internal port. Nothing was published.
@@ -121,5 +122,5 @@ Profiles are Compose overlays that add only the keys they change, over a shared
 ## What the gateway deliberately cannot do
 
 It cannot start, stop or reconfigure your applications; it cannot repair a
-misconfigured project. It can only observe and report — which is why `doctor`
+misconfigured project. It can only observe and report, which is why `doctor`
 and `analyze` are as thorough as they are.

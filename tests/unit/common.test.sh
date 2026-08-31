@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Unit tests for scripts/lib/common.sh — no Docker required.
+# Unit tests for scripts/lib/common.sh: no Docker required.
 set -uo pipefail
 
 DG_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -7,7 +7,7 @@ DG_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 DG_ROOT=$(cd -P "$DG_TEST_DIR/.." && pwd); export DG_ROOT
 . "$DG_ROOT/scripts/lib/common.sh"
 
-describe "dg_slug — hostnames must be DNS-safe"
+describe "dg_slug: hostnames must be DNS-safe"
 it "lowercases"                  ; assert_eq "baseempresarial" "$(dg_slug 'BaseEmpresarial')"
 it "replaces underscores"        ; assert_eq "base-empresarial" "$(dg_slug 'base_empresarial')"
 it "collapses repeated dashes"   ; assert_eq "a-b" "$(dg_slug 'a___b')"
@@ -17,7 +17,7 @@ it "handles dots"                ; assert_eq "a-b-c" "$(dg_slug 'a.b.c')"
 it "keeps digits"                ; assert_eq "issue59" "$(dg_slug 'issue59')"
 it "survives mixed punctuation"  ; assert_eq "base-empresarial-issue-59" "$(dg_slug 'Base_Empresarial/Issue#59')"
 
-describe "dg_is_true — .env values people actually write"
+describe "dg_is_true: .env values people actually write"
 for v in 1 true TRUE yes Yes on enabled; do
   it "accepts '$v'"; assert_success dg_is_true "$v"
 done
@@ -25,7 +25,7 @@ for v in 0 false no off "" disabled maybe; do
   it "rejects '$v'"; assert_failure dg_is_true "$v"
 done
 
-describe "dg_load_env — parses, never executes"
+describe "dg_load_env: parses, never executes"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
@@ -56,7 +56,7 @@ it "keeps '=' inside a value"       ; assert_eq "a=b=c" "${DG_TEST_EQUALS:-}"
 it "lets the shell environment win" ; assert_eq "fromshell" "${DG_TEST_PRESET:-}"
 it "does not execute substitutions" ; assert_failure test -e /tmp/dg-should-not-exist
 
-describe "dg_defaults — an empty .env still yields a working local gateway"
+describe "dg_defaults: an empty .env still yields a working local gateway"
 unset DEV_GATEWAY_DOMAIN DEV_GATEWAY_NETWORK DEV_GATEWAY_BIND_ADDRESS DEV_GATEWAY_PROFILE
 dg_defaults
 it "defaults the domain to localhost"     ; assert_eq "localhost" "$DEV_GATEWAY_DOMAIN"

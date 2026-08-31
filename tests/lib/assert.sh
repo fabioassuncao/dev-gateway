@@ -29,7 +29,7 @@ _t_fail() {
 skip() {
   DG_T_SKIPPED=$((DG_T_SKIPPED + 1))
   DG_T_TOTAL=$((DG_T_TOTAL - 1))
-  printf '  %s %s\n' "$(_t_color 33 'skip')" "${DG_T_CURRENT}${1:+ — $1}"
+  printf '  %s %s\n' "$(_t_color 33 'skip')" "${DG_T_CURRENT}${1:+: $1}"
 }
 
 assert_eq() { # assert_eq <expected> <actual>

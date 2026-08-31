@@ -1,4 +1,4 @@
-# 0005 — Hostnames are derived from the labels Compose already injects
+# 0005. Hostnames are derived from the labels Compose already injects
 
 **Status:** Accepted
 
@@ -6,8 +6,8 @@
 
 Every service reachable through the gateway needs a unique hostname. Making
 each project spell out a full `Host(...)` rule would mean every worktree has to
-edit that rule — exactly the manual step that makes parallel environments
-annoying enough that people stop creating them.
+edit that rule, which is exactly the manual step that makes parallel
+environments annoying enough that people stop creating them.
 
 Docker Compose already labels every container it creates with
 `com.docker.compose.project` and `com.docker.compose.service`. Together those
@@ -40,7 +40,7 @@ single wildcard certificate (`*.dev.example.com`) covers everything.
 A project opts in without naming itself anywhere, and a new worktree gets new
 hostnames purely by changing `COMPOSE_PROJECT_NAME`.
 
-The trade-off is that hostnames get long — `base-empresarial-issue59-api` — and
+The trade-off is that hostnames get long (`base-empresarial-issue59-api`), and
 that two project names differing only in punctuation normalise to the same
 label. `doctor` reports that collision rather than letting one project quietly
 receive the other's traffic.

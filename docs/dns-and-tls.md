@@ -6,8 +6,8 @@
 with no DNS record and no configuration, and plain HTTP is the right default
 for local development.
 
-Local HTTPS is available when you need a secure context — Secure cookies,
-service workers, WebAuthn:
+Local HTTPS is available when you need a secure context: Secure cookies,
+service workers, WebAuthn.
 
 ```bash
 dev-gateway tls init
@@ -83,7 +83,7 @@ burn through them quickly.
 ACME_CA_SERVER=https://acme-staging-v02.api.letsencrypt.org/directory
 ```
 
-Certificates will not be trusted, which is the point — you are testing
+Certificates will not be trusted, which is the point: you are testing
 issuance. Switch to production and delete `state/traefik/acme/acme.json` to
 force a fresh issuance once it works.
 
@@ -125,4 +125,4 @@ served by a provider other than the one holding your token.
 then switch back.
 
 **The certificate is right but browsers still complain locally.** The local CA
-is not trusted yet — `dev-gateway tls trust`.
+is not trusted yet. Run `dev-gateway tls trust`.

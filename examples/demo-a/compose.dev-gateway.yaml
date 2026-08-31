@@ -1,5 +1,5 @@
 # ============================================================================
-# demo-a — Dev Gateway integration overlay
+# demo-a: Dev Gateway integration overlay
 # ============================================================================
 # The entire integration contract, in one file the project owns. It adds
 # nothing but networks and labels, so the project still runs without it.

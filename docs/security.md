@@ -7,12 +7,12 @@ something by accident*, and to keep an accident's blast radius small.
 
 The realistic risks are, in order:
 
-1. **Accidental exposure** — a database on `0.0.0.0`, a dashboard on a public
+1. **Accidental exposure.** A database on `0.0.0.0`, a dashboard on a public
    interface, a "temporary" public domain nobody turned off.
-2. **Docker socket access** — the API is not namespaced; reaching it means root
+2. **Docker socket access.** The API is not namespaced; reaching it means root
    on the host.
-3. **Secret leakage** — auth keys and API tokens in Git, logs, or shell history.
-4. **Lateral movement** — one project's compromise reaching another's database.
+3. **Secret leakage.** Auth keys and API tokens in Git, logs, or shell history.
+4. **Lateral movement.** One project's compromise reaching another's database.
 
 ## Nothing is exposed by default
 
@@ -51,7 +51,7 @@ See [ADR 0002](adr/0002-docker-socket-proxy.md).
 
 Each project keeps its own private network. Postgres, Redis, queues and search
 stay there. Traefik has no route to those networks, and neither does any other
-project — `tests/e2e/parallel.test.sh` asserts that one project cannot reach
+project. `tests/e2e/parallel.test.sh` asserts that one project cannot reach
 another's database.
 
 The shared `dev-gateway` network is the one place projects meet, and only
@@ -67,7 +67,7 @@ bridge bound beyond loopback.
 
 `dev-gateway service publish --public` on a datastore is refused outright, not
 warned about. Persistent forwarders join their project's network and the
-gateway's access network only — never the shared HTTP network, which `doctor`
+gateway's access network only, never the shared HTTP network, which `doctor`
 also enforces.
 
 `access close` and `access gc` re-check the ownership label on the code path
@@ -103,7 +103,7 @@ key ages out on its own.
 ## Header aliasing
 
 A header named `X_Auth_User` becomes `X-Auth-User` once CGI, WSGI, PHP or nginx
-normalises it — which lets a client forge a header Traefik believes it controls.
+normalises it, which lets a client forge a header Traefik believes it controls.
 `DEV_GATEWAY_ALIAS_HEADERS_STRATEGY` selects `keep` (Traefik's default, fine
 behind loopback), `delete` or `reject`. The public profile raises it to
 `delete`.

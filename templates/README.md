@@ -35,6 +35,6 @@ balancer and start serving each other's traffic.
 ## For the consumer repository
 
 [`project/DEV-GATEWAY.md`](project/DEV-GATEWAY.md) is a short page to copy into
-the project itself — how to start it, its URLs, how to reach its database, how
+the project itself: how to start it, its URLs, how to reach its database, how
 to run a second copy. It deliberately does not restate the gateway's
 documentation; this repository stays the single source of the rules.

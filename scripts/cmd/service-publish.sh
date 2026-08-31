@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `dev-gateway service publish` — a persistent private address for a TCP service.
+# `dev-gateway service publish`: a persistent private address for a TCP service.
 #
 # `access open` is for a session: temporary, on a port the kernel picks. This is
 # for the database you connect to every day and want at a stable address on
@@ -28,7 +28,7 @@ dg_cmd_service() {
     list|ls) dg_service_list "$@" ;;
     -h|--help|help)
       cat >&2 <<'DG_HELP'
-dev-gateway service — persistent private addresses for TCP services
+dev-gateway service: persistent private addresses for TCP services
 
   service publish --private --project <p> --service <s> [--port N] [--alias NAME]
   service unpublish <alias> | --project <p>
@@ -176,7 +176,7 @@ dg_service_tailscale_hint() {
   printf '     and can keep the standard port:\n\n'
   printf '       svc:%s  ->  tcp:%s  ->  %s:%s\n\n' "$alias" "$port" "$alias" "$port"
 
-  printf '  3. Grant access in your tailnet policy — never a blanket rule:\n\n'
+  printf '  3. Grant access in your tailnet policy, never a blanket rule:\n\n'
   cat <<POLICY
        {
          "grants": [
@@ -246,5 +246,5 @@ dg_service_unpublish() {
     dg_container_is_managed "$c" || { warn "refusing to remove a container the gateway does not own"; continue; }
     docker rm -f "$c" >/dev/null 2>&1 && n=$((n + 1))
   done
-  ok "unpublished $n forwarder(s) — the services themselves keep running"
+  ok "unpublished $n forwarder(s); the services themselves keep running"
 }

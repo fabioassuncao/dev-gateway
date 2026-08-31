@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dev Gateway — Docker and Compose helpers.
+# Dev Gateway: Docker and Compose helpers.
 #
 # Everything the gateway creates carries `dev-gateway.managed=true`. Nothing in
 # here may stop, remove or reconfigure a resource that lacks that label:
@@ -64,7 +64,7 @@ dg_profile_valid() {
   esac
 }
 
-# dg_resolve_profile <profile> — apply the profile's effective settings.
+# dg_resolve_profile <profile>: apply the profile's effective settings.
 #
 # The domain used for generated hostnames depends on the profile, and Traefik
 # bakes it into its default rule at startup, so it has to be settled here,
@@ -130,7 +130,7 @@ dg_resolve_profile() {
   return 0
 }
 
-# dg_attachment <profile> — which overlay decides how Traefik meets the world.
+# dg_attachment <profile>: which overlay decides how Traefik meets the world.
 dg_attachment() {
   case "$1" in
     local) printf 'host' ;;
@@ -140,7 +140,7 @@ dg_attachment() {
   esac
 }
 
-# dg_compose_files <profile> — echo the -f arguments for a profile, in order.
+# dg_compose_files <profile>: echo the -f arguments for a profile, in order.
 dg_compose_files() {
   local profile="$1"
   local files="compose.yaml"
@@ -201,7 +201,7 @@ dg_network_exists() {
   docker network inspect "$1" >/dev/null 2>&1
 }
 
-# dg_network_ensure <name> — idempotent. Creates the shared network if absent,
+# dg_network_ensure <name>: idempotent. Creates the shared network if absent,
 # labelled so `doctor` and the cleanup paths can prove we own it. An existing
 # network is reused untouched, even if it predates the gateway.
 dg_network_ensure() {
@@ -220,7 +220,7 @@ dg_network_is_managed() {
   [ "$(docker network inspect "$1" --format '{{ index .Labels "dev-gateway.managed" }}' 2>/dev/null)" = "true" ]
 }
 
-# dg_network_endpoints <name> — number of containers currently attached.
+# dg_network_endpoints <name>: number of containers currently attached.
 dg_network_endpoints() {
   docker network inspect "$1" --format '{{ len .Containers }}' 2>/dev/null || printf '0'
 }
@@ -229,7 +229,7 @@ dg_network_endpoints() {
 # Ownership
 # ---------------------------------------------------------------------------
 
-# dg_container_is_managed <container> — true only for gateway-created
+# dg_container_is_managed <container>: true only for gateway-created
 # containers. Every destructive code path must gate on this.
 dg_container_is_managed() {
   [ "$(docker inspect "$1" --format '{{ index .Config.Labels "dev-gateway.managed" }}' 2>/dev/null)" = "true" ]
@@ -239,13 +239,13 @@ dg_container_state() {
   docker inspect "$1" --format '{{ .State.Status }}' 2>/dev/null || printf 'absent'
 }
 
-# dg_container_health <container> — "healthy", "unhealthy", "starting", or
+# dg_container_health <container>: "healthy", "unhealthy", "starting", or
 # "none" when the image declares no healthcheck.
 dg_container_health() {
   docker inspect "$1" --format '{{ if .State.Health }}{{ .State.Health.Status }}{{ else }}none{{ end }}' 2>/dev/null || printf 'absent'
 }
 
-# dg_gateway_container <component> — resolve a gateway container id by label.
+# dg_gateway_container <component>: resolve a gateway container id by label.
 dg_gateway_container() {
   docker ps -aq \
     --filter "label=dev-gateway.managed=true" \
@@ -257,7 +257,7 @@ dg_gateway_container() {
 # Discovery
 # ---------------------------------------------------------------------------
 
-# dg_discover_http [project] — every container that opted into the gateway.
+# dg_discover_http [project]: every container that opted into the gateway.
 #
 # Reads Docker labels directly rather than Traefik's API: discovery then works
 # with the dashboard disabled and even while Traefik is down, and it needs no
@@ -305,7 +305,7 @@ dg_discover_http() {
   done
 }
 
-# dg_compose_projects — distinct Compose project names currently running.
+# dg_compose_projects: distinct Compose project names currently running.
 dg_compose_projects() {
   docker ps -q 2>/dev/null | while read -r id; do
     docker inspect "$id" --format '{{ index .Config.Labels "com.docker.compose.project" }}' 2>/dev/null

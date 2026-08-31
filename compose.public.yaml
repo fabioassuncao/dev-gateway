@@ -1,5 +1,5 @@
 # ============================================================================
-# `remote-public` profile — the internet can reach this
+# `remote-public` profile: the internet can reach this
 # ============================================================================
 # Opt-in, and deliberately never the default. Enabling it only changes who can
 # reach Traefik; it does not publish anything new. A service is still routed

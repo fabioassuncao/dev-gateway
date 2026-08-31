@@ -1,5 +1,5 @@
 # ============================================================================
-# Monorepo — apps/ and services/ in one repository
+# Monorepo: apps/ and services/ in one repository
 # ============================================================================
 # A monorepo is one Compose project with more services in it. Nothing about the
 # contract changes, and the gateway needs to know nothing about the layout.
@@ -20,8 +20,8 @@
 # Build contexts, Dockerfiles and volumes stay exactly where they are. The
 # gateway never centralises any of that.
 #
-# Splitting one monorepo into several namespaces is possible — run separate
-# Compose projects per app — but it is rarely worth it: one namespace keeps the
+# Splitting one monorepo into several namespaces is possible: run separate
+# Compose projects per app: but it is rarely worth it: one namespace keeps the
 # services on a single private network, which is usually what they expect.
 # ============================================================================
 

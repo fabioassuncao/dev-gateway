@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# E2E — several environments at once, on the same internal ports
+# E2E: several environments at once, on the same internal ports
 # ============================================================================
 # The gateway's central claim, tested end to end:
 #
@@ -35,7 +35,7 @@ down_env() {
          -f compose.yaml -f compose.dev-gateway.yaml down -v ) >/dev/null 2>&1
 }
 
-# http_code <url> — resolves the hostname to the gateway's bind address
+# http_code <url>: resolves the hostname to the gateway's bind address
 # explicitly. Routing and name resolution are separate concerns: `doctor`
 # checks that *.localhost resolves, and these suites check that Traefik routes,
 # so they keep working on hosts and CI runners whose resolver does not
@@ -52,7 +52,7 @@ cleanup() {
   down_env demo-b demo-b
 }
 
-dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable — skipping"; exit 0; }
+dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
 
 describe "setting up four independent environments"
 trap cleanup EXIT INT TERM

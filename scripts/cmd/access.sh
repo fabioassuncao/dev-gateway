@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `dev-gateway access` — reach a project's private TCP services from the host.
+# `dev-gateway access`: reach a project's private TCP services from the host.
 #
 # Traefik routes HTTP by Host header. The PostgreSQL, MySQL and Redis wire
 # protocols carry no hostname on the connection, so they cannot be multiplexed
@@ -20,7 +20,7 @@ dg_cmd_access() {
     gc) dg_access_gc "$@" ;;
     -h|--help|help)
       cat >&2 <<'DG_HELP'
-dev-gateway access — reach a project's private TCP services
+dev-gateway access: reach a project's private TCP services
 
   access open --project <p> --service <s> [--port N] [--local-port N] [--ttl 2h]
   access list [--json]
@@ -66,7 +66,7 @@ dg_access_open() {
     shift
   done
 
-  [ -n "$project" ] || { err "--project is required"; hint "dev-gateway services   — list what is running"; return 1; }
+  [ -n "$project" ] || { err "--project is required"; hint "dev-gateway services lists what is running"; return 1; }
   [ -n "$service" ] || { err "--service is required"; hint "dev-gateway services --project $project"; return 1; }
 
   dg_require_docker || return 1
@@ -322,7 +322,7 @@ dg_access_list() {
   done
 }
 
-# dg_access_resolve <id> — a bridge container id from a short access id.
+# dg_access_resolve <id>: a bridge container id from a short access id.
 dg_access_resolve() {
   docker ps -q \
     --filter "label=dev-gateway.component=access-bridge" \
@@ -377,7 +377,7 @@ dg_access_close() {
     fi
     docker rm -f "$c" >/dev/null 2>&1 && n=$((n + 1))
   done
-  ok "closed $n bridge(s) — the services themselves were not touched"
+  ok "closed $n bridge(s); the services themselves were not touched"
 }
 
 dg_access_inspect() {

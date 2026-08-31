@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `dev-gateway init <path>` — generate a project's integration overlay.
+# `dev-gateway init <path>`: generate a project's integration overlay.
 #
 # The only command in the gateway that writes into a project, and it is
 # deliberately timid: it creates one new file, never edits an existing one,
@@ -20,7 +20,7 @@ dg_cmd_init() {
       --service=*) svc_overrides="$svc_overrides ${1#--service=}" ;;
       -h|--help)
         cat >&2 <<'DG_HELP'
-dev-gateway init <path> — write the gateway integration overlay for a project
+dev-gateway init <path>: write the gateway integration overlay for a project
 
   --dry-run              Print the file that would be written, change nothing
   --service <name>:<port>  Attach this service on this port (repeatable).
@@ -106,14 +106,14 @@ EOF
 $content
 EOF
     then
-      printf '  %s\n' "$(dg_c 32 'identical — nothing to do')"
+      printf '  %s\n' "$(dg_c 32 'identical, nothing to do')"
       return 0
     fi
     printf '\n'
   fi
 
   if [ "$dry_run" = "1" ]; then
-    info "dry run — nothing was written"
+    info "dry run; nothing was written"
     return 0
   fi
 

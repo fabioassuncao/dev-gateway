@@ -1,5 +1,5 @@
 # ============================================================================
-# Dev Gateway — `local` profile overlay (macOS / Linux workstation)
+# Dev Gateway: `local` profile overlay (macOS / Linux workstation)
 # ============================================================================
 # Plain HTTP on loopback, no TLS, no certificates to trust. Hostnames end in
 # `.localhost`, which resolves to loopback without touching /etc/hosts.
@@ -11,5 +11,5 @@ services:
   traefik:
     environment:
       # With no TLS configured, routers that do not name an entrypoint should
-      # attach to :80 only — otherwise they would also answer plaintext on :443.
+      # attach to :80 only: otherwise they would also answer plaintext on :443.
       TRAEFIK_ENTRYPOINTS_WEB_ASDEFAULT: "true"

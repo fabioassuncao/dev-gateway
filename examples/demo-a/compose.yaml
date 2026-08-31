@@ -1,13 +1,13 @@
 # ============================================================================
-# demo-a — an ordinary project, unaware of the Dev Gateway
+# demo-a: an ordinary project, unaware of the Dev Gateway
 # ============================================================================
 # This file is what a project looks like BEFORE adoption, and it keeps working
 # unchanged afterwards. Nothing here mentions Traefik or the shared network.
 #
 # Note what it does NOT do:
-#   * no `ports:` for web/api — they are reached through the gateway
-#   * no `ports:` for postgres/redis — see `dev-gateway access open`
-#   * no `container_name:` — that would make parallel copies collide
+#   * no `ports:` for web/api: they are reached through the gateway
+#   * no `ports:` for postgres/redis: see `dev-gateway access open`
+#   * no `container_name:`: that would make parallel copies collide
 #
 # Run it on its own:      docker compose up -d
 # Run it on the gateway:  docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
@@ -16,13 +16,13 @@
 name: ${COMPOSE_PROJECT_NAME:-demo-a}
 
 services:
-  # Internal port 3000 — deliberately the same port demo-b uses.
+  # Internal port 3000: deliberately the same port demo-b uses.
   web:
     image: traefik/whoami:v1.12.0
     command: ["--port", "3000", "--name", "demo-a-web"]
     restart: unless-stopped
 
-  # Internal port 8000 — again shared with demo-b on purpose.
+  # Internal port 8000: again shared with demo-b on purpose.
   api:
     image: traefik/whoami:v1.12.0
     command: ["--port", "8000", "--name", "demo-a-api"]

@@ -22,7 +22,7 @@ dev-gateway inspect     # what the CLI actually resolved (secrets shown as <set>
 | `DEV_GATEWAY_CONTROL_NETWORK` | `dev-gateway-control` | Internal Traefik ↔ socket proxy network |
 | `DEV_GATEWAY_ACCESS_NETWORK` | `dev-gateway-access` | Network for persistent TCP forwarders |
 | `DEV_GATEWAY_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN`, `ERROR` |
-| `DEV_GATEWAY_ACCESS_LOG` | `false` | Traefik access logs — useful when a route misbehaves |
+| `DEV_GATEWAY_ACCESS_LOG` | `false` | Traefik access logs, useful when a route misbehaves |
 
 `DEV_GATEWAY_PROJECT_NAME` is load-bearing: ownership checks use it to tell
 gateway containers from everything else. Changing it orphans the running stack.
@@ -50,13 +50,13 @@ URLs become `http://demo-a-web.localhost:8080`.
 | `DEV_GATEWAY_ALIAS_HEADERS_STRATEGY` | `keep` | `keep`, `delete` or `reject` |
 
 Headers whose names contain characters outside `[A-Za-z0-9-]` can alias a
-canonical header once a backend normalises them — `X_Auth_User` becoming
-`X-Auth-User` in CGI, WSGI, PHP or nginx — which lets a client spoof headers
+canonical header once a backend normalises them (`X_Auth_User` becoming
+`X-Auth-User` in CGI, WSGI, PHP or nginx), which lets a client spoof headers
 Traefik manages.
 
 `keep` is Traefik's default and is fine behind loopback or a VPN. `delete`
 strips them, but also strips *legitimate* underscore headers, which can break
-an app in a confusing way — so it is opt-in locally and applied automatically
+an app in a confusing way, so it is opt-in locally and applied automatically
 by the public profile.
 
 ## Dashboard
@@ -84,7 +84,7 @@ address.
 | `ACME_DNS_RESOLVERS` | `1.1.1.1:53,8.8.8.8:53` | Propagation checks |
 
 Wildcard certificates require DNS-01; HTTP-01 cannot issue them. Use
-`ACME_CA_SERVER` with the staging endpoint while you get DNS working —
+`ACME_CA_SERVER` with the staging endpoint while you get DNS working, because
 Let's Encrypt rate limits are unforgiving.
 
 ## Private access
@@ -116,10 +116,10 @@ prints exactly what will become reachable and asks for confirmation.
 | `CLOUDFLARE_ZONE` | — | Target zone |
 
 Use a scoped token with `Zone:DNS:Edit` on the one zone. Never the Global API
-Key — it authenticates everything in the account and cannot be scoped.
+Key, which authenticates everything in the account and cannot be scoped.
 
 ## Secrets
 
 `.env` is git-ignored, `bootstrap` writes it `0600`, `inspect` prints `<set>`
 rather than values, and lint fails on tracked auth keys or private keys. Gateway
-state — including ACME material — lives under `state/`, which is also ignored.
+state, including ACME material, lives under `state/`, which is also ignored.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Dev Gateway — doctor
+# Dev Gateway: doctor
 # ============================================================================
 # Read-only diagnostics. Reports problems and suggests fixes; never applies
 # them, never stops a container, never removes anything.
@@ -29,7 +29,7 @@ while [ $# -gt 0 ]; do
     --json) AS_JSON=1 ;;
     -h|--help)
       cat >&2 <<'DG_HELP'
-dev-gateway doctor — diagnose the gateway and its host
+dev-gateway doctor: diagnose the gateway and its host
 
   --json   Emit machine-readable results on stdout
 
@@ -84,7 +84,7 @@ if [ -f "$DG_ROOT/.env" ]; then
     *) check pass config.env.perms ".env permissions" "$env_perms" "" ;;
   esac
 else
-  check warn config.env ".env" "absent — running on built-in defaults" \
+  check warn config.env ".env" "absent; running on built-in defaults" \
     "cp .env.example .env"
 fi
 
@@ -338,7 +338,7 @@ if [ "$attachment" = "tailscale" ]; then
 
   if [ -z "${TS_AUTHKEY:-}" ] && [ ! -f "$DG_STATE_DIR/tailscale/tailscaled.state" ]; then
     check fail tailscale.authkey "tailscale auth" "no TS_AUTHKEY and no persisted state" \
-      "set TS_AUTHKEY in .env — prefer an ephemeral, tagged, pre-authorized key"
+      "set TS_AUTHKEY in .env; prefer an ephemeral, tagged, pre-authorized key"
   else
     check pass tailscale.authkey "tailscale auth" \
       "$([ -n "${TS_AUTHKEY:-}" ] && printf 'auth key set' || printf 'using persisted state')" ""
@@ -356,7 +356,7 @@ if dg_is_true "$DEV_GATEWAY_DASHBOARD"; then
         "enabled on $DEV_GATEWAY_DASHBOARD_BIND_ADDRESS:$DEV_GATEWAY_DASHBOARD_PORT (loopback)" "" ;;
     *)
       check fail dashboard "traefik dashboard" \
-        "enabled and bound to $DEV_GATEWAY_DASHBOARD_BIND_ADDRESS — it exposes routing internals" \
+        "enabled and bound to $DEV_GATEWAY_DASHBOARD_BIND_ADDRESS, which exposes routing internals" \
         "set DEV_GATEWAY_DASHBOARD_BIND_ADDRESS=127.0.0.1 or DEV_GATEWAY_DASHBOARD=false" ;;
   esac
 else

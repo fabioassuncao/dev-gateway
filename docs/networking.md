@@ -4,11 +4,11 @@
 
 This distinction is the whole reason the gateway exists.
 
-**Container port** — the port a process listens on inside its container. It is
+**Container port.** The port a process listens on inside its container. It is
 namespaced per container. Twenty containers can all listen on 5432; they cannot
 see each other unless they share a network.
 
-**Host port** — created only by a `ports:` entry, which asks the daemon to bind
+**Host port.** Created only by a `ports:` entry, which asks the daemon to bind
 a port on the machine. Exactly one process can hold it.
 
 Almost every "port already in use" in local development comes from publishing
@@ -24,15 +24,15 @@ port was an accident of tooling.
 
 | Service | Internal | Published on the host? |
 |---|---|---|
-| web | 3000 | no — routed by hostname |
-| api | 8000 | no — routed by hostname |
-| postgres | 5432 | no — `dev-gateway access open` |
-| redis | 6379 | no — `dev-gateway access open` |
-| Traefik | 80 / 443 | yes — once, for the whole machine |
+| web | 3000 | no, routed by hostname |
+| api | 8000 | no, routed by hostname |
+| postgres | 5432 | no, use `dev-gateway access open` |
+| redis | 6379 | no, use `dev-gateway access open` |
+| Traefik | 80 / 443 | yes, once, for the whole machine |
 
 ## The three kinds of network
 
-### `dev-gateway` — shared, external
+### `dev-gateway`: shared, external
 
 Created by `bootstrap`, owned by the gateway, joined by every service that
 should receive HTTP traffic.
@@ -45,22 +45,23 @@ networks:
 ```
 
 `external: true` means Compose expects it to exist and will neither create nor
-remove it — exactly the decoupling we want. It survives `dev-gateway down` and
+remove it, which is exactly the decoupling we want. It survives
+`dev-gateway down` and
 is never removed automatically, because other projects are attached.
 
 Only HTTP-facing services join it. A database on this network is reachable by
 every other project on the host; `doctor` warns when it finds one.
 
-### `dev-gateway-control` — internal
+### `dev-gateway-control`: internal
 
 `internal: true` gives it no route to the outside world. It carries exactly one
 conversation: Traefik asking the socket proxy what containers exist.
 
-### `<project>_default` — private, per project
+### `<project>_default`: private, per project
 
 Compose creates one per project, named from `COMPOSE_PROJECT_NAME`. This is
 where Postgres, Redis, queues and search belong. Two projects get two networks
-and cannot resolve or reach each other — asserted in
+and cannot resolve or reach each other. That is asserted in
 `tests/e2e/parallel.test.sh`.
 
 ## Multi-homed services
@@ -99,7 +100,7 @@ Both parts are normalised to lowercase `[a-z0-9-]`. One subdomain level, not
 two, so a single wildcard certificate covers everything
 ([ADR 0005](adr/0005-hostname-convention.md)).
 
-To override, set an explicit rule — it wins over the derived hostname:
+To override, set an explicit rule. It wins over the derived hostname:
 
 ```yaml
 labels:
@@ -131,8 +132,8 @@ starts receiving project B's traffic. Always prefix with the namespace:
 
 ## Non-HTTP traffic
 
-Traefik routes HTTP by `Host` header. Raw TCP protocols — the PostgreSQL and
-Redis wire protocols among them — carry no hostname on the connection, so they
+Traefik routes HTTP by `Host` header. Raw TCP protocols, the PostgreSQL and
+Redis wire protocols among them, carry no hostname on the connection, so they
 cannot be multiplexed onto one port that way. They are reached through
 per-session loopback bridges instead: see [tcp-access.md](tcp-access.md).
 

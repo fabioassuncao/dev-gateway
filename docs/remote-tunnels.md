@@ -37,8 +37,8 @@ dev-gateway remote access close 7f2a91
 dev-gateway remote access close --all
 ```
 
-Closing the tunnel leaves the remote bridge in place — another tunnel may be
-using it — and prints the command to close that too.
+Closing the tunnel leaves the remote bridge in place, since another tunnel may
+be using it, and prints the command to close that too.
 
 ## What it actually does
 
@@ -61,16 +61,16 @@ Authentication and audit come from your tailnet policy instead of
 
 ## SSH options, and why
 
-`StrictHostKeyChecking=accept-new` — records a new host's key on first
-connection, still refuses a *changed* one. That is the attack worth defending
+`StrictHostKeyChecking=accept-new` records a new host's key on first
+connection and still refuses a *changed* one. That is the attack worth defending
 against. It is never `no`. Override with `DG_SSH_HOST_KEY_POLICY=yes` if you
 pre-populate `known_hosts`.
 
-`ExitOnForwardFailure=yes` — if the local port turns out to be taken, SSH exits
-instead of connecting successfully while forwarding nothing. The failure mode
+`ExitOnForwardFailure=yes` means that if the local port turns out to be taken,
+SSH exits instead of connecting successfully while forwarding nothing. The failure mode
 that flag prevents is a tunnel that looks open and silently does not work.
 
-`ServerAliveInterval=30` — keeps the tunnel alive through a NAT idle timeout,
+`ServerAliveInterval=30` keeps the tunnel alive through a NAT idle timeout,
 which is what usually kills a long-lived database session.
 
 ## Doing it by hand
@@ -85,16 +85,16 @@ ssh -N -L 127.0.0.1:55432:127.0.0.1:33077 deploy@vps
 
 ## Troubleshooting
 
-**"the SSH tunnel exited immediately"** — the local port is taken, or the host
-is unreachable. Try `--local-port` with a different number, or `ssh -v`.
+**"the SSH tunnel exited immediately"** means the local port is taken, or the
+host is unreachable. Try `--local-port` with a different number, or `ssh -v`.
 
-**"the remote bridge did not report a port"** — the gateway on the VPS is not
-where we looked. Pass `--dir` if it is not in `~/dev-gateway`, and check
+**"the remote bridge did not report a port"** means the gateway on the VPS is
+not where we looked. Pass `--dir` if it is not in `~/dev-gateway`, and check
 `dev-gateway remote status deploy@vps`.
 
-**The tunnel dies after a while** — a NAT or firewall idle timeout.
+**The tunnel dies after a while.** That is a NAT or firewall idle timeout.
 `ServerAliveInterval` covers the usual cases; a very aggressive middlebox may
 need a shorter one in your `~/.ssh/config`.
 
-**Connection refused through a working tunnel** — the remote bridge is gone.
+**Connection refused through a working tunnel.** The remote bridge is gone.
 `dev-gateway remote exec deploy@vps -- 'cd dev-gateway && ./bin/dev-gateway access list'`.

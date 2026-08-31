@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Audit — invariants that must not regress
+# Audit: invariants that must not regress
 # ============================================================================
 # These are the promises the gateway makes about what it will never do. Each
 # was verified by hand once; this keeps them true.
@@ -15,7 +15,7 @@ cd "$DG_ROOT" || exit 1
 # Tracked files, excluding the build brief and this file.
 #
 # This file is excluded because it contains every forbidden pattern as a search
-# string — `docker system prune`, an absolute home path, `tskey-` — and would
+# string (`docker system prune`, an absolute home path, `tskey-`) and would
 # otherwise match itself. That is a real limitation: the audit cannot audit its
 # own text, so keep the patterns here and the enforcement here only.
 SELF="tests/unit/audit.test.sh"
@@ -146,7 +146,7 @@ describe "helpers that feed an assignment never fail on 'nothing found'"
 
 # Regression: dg_analyze_port_holder returned the exit status of its last
 # probe, so on a host without lsof it returned 1. The caller assigns its
-# output, and under `set -e` that aborted the whole analyze report — which is
+# output, and under `set -e` that aborted the whole analyze report: which is
 # what happened on Linux, where the runner has no lsof.
 . "$DG_ROOT/scripts/lib/common.sh"
 . "$DG_ROOT/scripts/cmd/analyze.sh"

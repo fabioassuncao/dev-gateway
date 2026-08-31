@@ -3,13 +3,13 @@
 # ============================================================================
 # Traefik guesses the backend port from the image's EXPOSE when only one port
 # is exposed. That guess is wrong whenever the image exposes one port and the
-# application listens on another — which is most of the time once a command or
+# application listens on another: which is most of the time once a command or
 # an environment variable moves it.
 #
 # The symptom is a 502 from the gateway: the route matched, the backend did not
 # answer. Stating the port removes the guess.
 #
-# Anything is fine here — 4321, 9090, 1313. The port is internal, so it never
+# Anything is fine here: 4321, 9090, 1313. The port is internal, so it never
 # competes with another project.
 # ============================================================================
 

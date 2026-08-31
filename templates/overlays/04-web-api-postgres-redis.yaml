@@ -1,5 +1,5 @@
 # ============================================================================
-# Web + API + PostgreSQL + Redis — the common full stack
+# Web + API + PostgreSQL + Redis: the common full stack
 # ============================================================================
 # Identical to template 03: adding a cache changes nothing about the contract.
 # Postgres and Redis both stay on the project's private network, both keep

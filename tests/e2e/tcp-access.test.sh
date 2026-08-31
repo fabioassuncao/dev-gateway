@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # ============================================================================
-# E2E — reaching four databases that all listen on 5432
+# E2E: reaching four databases that all listen on 5432
 # ============================================================================
 # The step-04 acceptance test. Four environments run Postgres on 5432 and Redis
 # on 6379 at the same time. None publishes a host port. Every one of them is
-# reachable from the host, at the same time, on its own loopback port — and a
+# reachable from the host, at the same time, on its own loopback port: and a
 # real query proves each bridge reaches a genuinely different database.
 # ============================================================================
 set -uo pipefail
@@ -22,7 +22,7 @@ GW="$DG_ROOT/bin/dev-gateway"
 ENVS="demo-a demo-a-issue-1 demo-a-issue-2 demo-b"
 export DG_ASSUME_YES=true
 
-dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable — skipping"; exit 0; }
+dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
 
 up_env() {
   local dir="demo-a"; [ "$1" = "demo-b" ] && dir="demo-b"
@@ -43,7 +43,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# port_of <project> <service> — the loopback port of an open bridge.
+# port_of <project> <service>: the loopback port of an open bridge.
 port_of() {
   "$GW" access list --json 2>/dev/null | python3 -c "
 import json,sys
@@ -52,7 +52,7 @@ for b in json.load(sys.stdin)['bridges']:
         print(b['local_port']); break"
 }
 
-# pg <port> <sql> — a real query through the bridge, from a container using
+# pg <port> <sql>: a real query through the bridge, from a container using
 # host networking, so the path is exactly the one a GUI client would take.
 pg() {
   docker run --rm --network host -e PGPASSWORD=demo "$DG_TOOLBOX_IMAGE" \

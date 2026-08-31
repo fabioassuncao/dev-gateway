@@ -41,7 +41,7 @@ All still on 6379 internally.
 
 ## A project with more than one Redis
 
-Common enough — one for cache, one for queues, often on 6379 and 6380 on the
+Common enough: one for cache, one for queues, often on 6379 and 6380 on the
 host today. Name the service:
 
 ```bash
