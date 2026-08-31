@@ -141,4 +141,24 @@ for img in $(grep -rhoE 'image: [a-z0-9./_-]+' compose*.yaml examples/*/compose*
 done
 assert_eq "" "$missing"
 
+
+describe "helpers that feed an assignment never fail on 'nothing found'"
+
+# Regression: dg_analyze_port_holder returned the exit status of its last
+# probe, so on a host without lsof it returned 1. The caller assigns its
+# output, and under `set -e` that aborted the whole analyze report — which is
+# what happened on Linux, where the runner has no lsof.
+. "$DG_ROOT/scripts/lib/common.sh"
+. "$DG_ROOT/scripts/cmd/analyze.sh"
+
+it "dg_analyze_port_holder succeeds when the port is free"
+# 1 is never a listening port, and PATH is emptied so no probe tool is found.
+assert_success sh -c '
+  . "'"$DG_ROOT"'/scripts/lib/common.sh"
+  . "'"$DG_ROOT"'/scripts/cmd/analyze.sh"
+  PATH=/nonexistent dg_analyze_port_holder 1 >/dev/null'
+
+it "and reports nothing rather than an error"
+assert_eq "" "$(PATH=/nonexistent dg_analyze_port_holder 1 2>/dev/null)"
+
 t_summary

@@ -331,15 +331,22 @@ EOF
 
 # dg_analyze_port_holder <port> — what is already holding a host port, if
 # anything. Docker first, since that is the usual answer.
+# Always succeeds: "nothing holds this port" is an answer, not an error. The
+# caller assigns the result, and under `set -e` a non-zero return here would
+# abort the whole report — which is exactly what it used to do on a host
+# without lsof.
 dg_analyze_port_holder() {
-  local port="$1" holder
+  local port="$1" holder=""
   holder=$(docker ps --format '{{.Names}} {{.Ports}}' 2>/dev/null \
-    | grep -E "(^| )[0-9.:]*:$port->" | awk '{print $1}' | head -1)
-  [ -n "$holder" ] && { printf '%s' "$holder"; return 0; }
-  if dg_have lsof; then
-    holder=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk 'NR==2{print $1}')
-    [ -n "$holder" ] && printf '%s' "$holder"
+    | grep -E "(^| )[0-9.:]*:$port->" | awk '{print $1}' | head -1) || true
+  if [ -z "$holder" ] && dg_have lsof; then
+    holder=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk 'NR==2{print $1}') || true
   fi
+  if [ -z "$holder" ] && dg_have ss; then
+    holder=$(ss -ltnpH "sport = :$port" 2>/dev/null | sed -n 's/.*users:((\"\([^\"]*\)\".*/\1/p' | head -1) || true
+  fi
+  printf '%s' "$holder"
+  return 0
 }
 
 dg_analyze_json() {

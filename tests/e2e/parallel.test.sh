@@ -73,8 +73,13 @@ done
 
 describe "*.localhost resolves to loopback (RFC 6761)"
 it "the resolver maps a localhost subdomain to loopback"
+# RFC 6761 requires loopback, not specifically 127.0.0.1: systemd-resolved
+# answers ::1 first, which is equally correct.
 if resolved=$(getent hosts demo-a-web.localhost 2>/dev/null || ping -c1 -W1 demo-a-web.localhost 2>/dev/null); then
-  assert_contains "$resolved" "127.0.0.1"
+  case "$resolved" in
+    *127.0.0.1*|*::1*) _t_pass ;;
+    *) _t_fail "expected a loopback address, got: $resolved" ;;
+  esac
 else
   skip "this resolver does not implement RFC 6761 for localhost subdomains"
 fi
