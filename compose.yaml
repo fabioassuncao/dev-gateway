@@ -9,6 +9,9 @@
 #
 #   ./bin/dev-gateway up local
 #
+# compose.yaml alone is intentionally incomplete: it declares no Traefik
+# networks or ports, because exactly one attach-* overlay decides those.
+#
 # Traefik's static configuration lives in `environment:` (TRAEFIK_* variables)
 # rather than a config file. Traefik treats file / CLI / env as mutually
 # exclusive sources, and only the env form composes across Compose overlays.
@@ -105,12 +108,14 @@ services:
     depends_on:
       socket-proxy:
         condition: service_healthy
-    networks:
-      - gateway
-      - control
-    ports:
-      - "${DEV_GATEWAY_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_HTTP_PORT:-80}:80"
-      - "${DEV_GATEWAY_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_HTTPS_PORT:-443}:443"
+    # No `networks:` and no `ports:` here on purpose. How Traefik is attached to
+    # the world is a per-profile decision made by exactly one overlay:
+    #   compose.attach-host.yaml       — its own namespace, ports on the host
+    #   compose.attach-tailscale.yaml  — inside the Tailscale container's
+    #                                    network namespace, reachable over the
+    #                                    tailnet with nothing published
+    # `networks:` and `network_mode:` are mutually exclusive and Compose merges
+    # rather than replaces both, so neither can be declared here and undone later.
     environment:
       # -- global ----------------------------------------------------------
       TRAEFIK_GLOBAL_CHECKNEWVERSION: "false"
@@ -156,6 +161,9 @@ services:
       TRAEFIK_PROVIDERS_FILE_WATCH: "true"
     volumes:
       - ./config/traefik/dynamic:/etc/traefik/dynamic:ro
+      # Local CA material, when `dev-gateway tls init` has been run. Empty
+      # otherwise; git-ignored either way.
+      - ./config/tls:/etc/traefik/tls:ro
       - ./state/traefik/acme:/etc/traefik/acme
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]

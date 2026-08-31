@@ -158,6 +158,40 @@ dg_version() {
   fi
 }
 
+# dg_env_set <key> <value> [file] — set a value in .env in place.
+#
+# Rewrites the line if the key is present (keeping its position and the
+# comments around it) and appends otherwise. Writes through a temporary file in
+# the same directory so an interrupted run cannot truncate the user's config.
+dg_env_set() {
+  local key="$1" value="$2" file="${3:-$DG_ROOT/.env}" tmp
+
+  case "$key" in
+    ''|*[!A-Za-z0-9_]*) err "refusing to write invalid .env key: $key"; return 1 ;;
+  esac
+
+  if [ ! -f "$file" ]; then
+    printf '%s=%s\n' "$key" "$value" > "$file"
+    chmod 600 "$file"
+    return 0
+  fi
+
+  tmp="$file.dg-tmp.$$"
+  if grep -q "^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}$key=" "$file"; then
+    awk -v k="$key" -v v="$value" '
+      $0 ~ "^[[:space:]]*(export[[:space:]]+)?" k "=" { print k "=" v; next }
+      { print }
+    ' "$file" > "$tmp"
+  else
+    cp "$file" "$tmp"
+    printf '%s=%s\n' "$key" "$value" >> "$tmp"
+  fi
+
+  chmod 600 "$tmp"
+  mv "$tmp" "$file"
+  export "$key=$value"
+}
+
 # ---------------------------------------------------------------------------
 # Predicates
 # ---------------------------------------------------------------------------

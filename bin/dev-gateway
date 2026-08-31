@@ -14,6 +14,16 @@ DG_BIN_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 . "$DG_BIN_DIR/../scripts/lib/common.sh"
 # shellcheck source=../scripts/lib/docker.sh
 . "$DG_BIN_DIR/../scripts/lib/docker.sh"
+# shellcheck source=../scripts/lib/toolbox.sh
+. "$DG_BIN_DIR/../scripts/lib/toolbox.sh"
+
+# Subcommand groups live in their own files to keep this dispatcher readable.
+for _dg_cmd_file in "$DG_BIN_DIR"/../scripts/cmd/*.sh; do
+  [ -f "$_dg_cmd_file" ] || continue
+  # shellcheck source=/dev/null
+  . "$_dg_cmd_file"
+done
+unset _dg_cmd_file
 
 dg_load_env
 dg_defaults
@@ -45,6 +55,27 @@ CORE
   update                 Pull the pinned component images and recreate
   version                Print the gateway version
 
+NETWORK AND EXPOSURE
+  network status         Interfaces, binds, listeners and what is reachable
+  public status          Show internet exposure (disabled by default)
+  public enable          Expose HTTP services on the public wildcard domain
+  public disable         Stop exposing them
+  dns check              Confirm the wildcard record points at this host
+  dns status             DNS configuration, and Cloudflare records if enabled
+  dns setup              Create or update the wildcard record
+  tls status             TLS configuration and certificates
+  tls init               Create a local CA and certificate for local HTTPS
+  tls trust              How to trust the local CA on this machine
+
+REMOTE HOSTS
+  remote bootstrap <user@host>   Prepare a host and start the gateway there
+  remote status|doctor|urls <user@host>
+  remote exec <user@host> -- <command>
+
+TOOLBOX
+  toolbox build          Build the container holding curl, jq, dig, psql, ...
+  toolbox run -- <cmd>   Run a command inside it
+
 FLAGS
   -h, --help             Show help for the command
       --json             Machine-readable output (status, doctor, urls)
@@ -56,6 +87,7 @@ EXAMPLES
   dev-gateway up local
   dev-gateway urls --project demo-a
   dev-gateway doctor --json
+  dev-gateway remote bootstrap deploy@vps --profile remote-private
 
 Consumer projects are adapted with an overlay file and stay where they are.
 See docs/adopting-projects.md.
@@ -270,11 +302,21 @@ JSON
   printf '  %-18s %s\n' "domain" "$DEV_GATEWAY_DOMAIN"
   printf '  %-18s %s:%s (http) / %s (https)\n' "listening" \
     "$DEV_GATEWAY_BIND_ADDRESS" "$DEV_GATEWAY_HTTP_PORT" "$DEV_GATEWAY_HTTPS_PORT"
+  printf '  %-18s %s\n' "attachment" "$(dg_attachment "$DEV_GATEWAY_PROFILE")"
   printf '  %-18s %s\n' "traefik" "$traefik_state ($traefik_health)"
   printf '  %-18s %s\n' "socket proxy" "$proxy_state"
   printf '  %-18s %s %s\n' "network" "$DEV_GATEWAY_NETWORK" "$net_state"
   printf '  %-18s %s\n' "tls" "$(dg_is_true "$TLS_ENABLED" && printf 'enabled (%s)' "$TLS_MODE" || printf 'disabled')"
-  printf '  %-18s %s\n' "tailscale" "$(dg_is_true "$TAILSCALE_ENABLED" && printf 'enabled' || printf 'disabled')"
+  local ts_id ts_line
+  ts_id=$(dg_gateway_container tailscale)
+  if [ -n "$ts_id" ] && [ "$(dg_container_state "$ts_id")" = "running" ]; then
+    ts_line="running $(docker exec "$ts_id" tailscale ip -4 2>/dev/null | head -1)"
+  else
+    ts_line=$(dg_is_true "$TAILSCALE_ENABLED" && printf 'enabled (not running)' || printf 'disabled')
+  fi
+  printf '  %-18s %s\n' "tailscale" "$ts_line"
+  printf '  %-18s %s\n' "private domain" "${PRIVATE_DOMAIN:-<unset>}"
+  printf '  %-18s %s\n' "public domain" "${PUBLIC_DOMAIN:-<unset>}"
   printf '  %-18s %s\n' "public access" "$(dg_is_true "$PUBLIC_ENABLED" && printf 'ENABLED' || printf 'disabled')"
   printf '  %-18s %s\n' "dashboard" "$(dg_is_true "$DEV_GATEWAY_DASHBOARD" && printf 'enabled (%s:%s)' "$DEV_GATEWAY_DASHBOARD_BIND_ADDRESS" "$DEV_GATEWAY_DASHBOARD_PORT" || printf 'disabled')"
   printf '  %-18s %s\n' "routed services" "$routes"
@@ -324,6 +366,36 @@ cmd_update() {
   hint "run 'dev-gateway doctor' to confirm the new components are healthy"
 }
 
+cmd_toolbox() {
+  local sub="${1:-}"; [ $# -gt 0 ] && shift || true
+  case "$sub" in
+    build)
+      dg_require_docker || exit 1
+      info "building $DG_TOOLBOX_IMAGE"
+      docker build -t "$DG_TOOLBOX_IMAGE" "$DG_ROOT/toolbox" || die "build failed"
+      ok "toolbox ready"
+      ;;
+    run)
+      dg_require_docker || exit 1
+      case "${1:-}" in --) shift ;; esac
+      [ $# -gt 0 ] || die "no command given"
+      dg_toolbox_online "$@"
+      ;;
+    ''|-h|--help|help)
+      cat >&2 <<'DG_HELP'
+dev-gateway toolbox — containerised tooling
+
+  toolbox build          Build the image (done automatically on first use)
+  toolbox run -- <cmd>   Run a command inside it
+
+Holds curl, jq, dig, openssl, socat, nc, ssh, psql, mysql and redis-cli, so the
+host itself only needs Docker, Git and a shell.
+DG_HELP
+      ;;
+    *) die "unknown toolbox subcommand: $sub" ;;
+  esac
+}
+
 # ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
@@ -357,6 +429,12 @@ main() {
     urls) cmd_urls "$@" ;;
     inspect) cmd_inspect "$@" ;;
     update) cmd_update "$@" ;;
+    toolbox) cmd_toolbox "$@" ;;
+    network) dg_cmd_network "$@" ;;
+    public) dg_cmd_public "$@" ;;
+    dns) dg_cmd_dns "$@" ;;
+    tls) dg_cmd_tls "$@" ;;
+    remote) dg_cmd_remote "$@" ;;
     *)
       err "unknown command: $cmd"
       hint "run 'dev-gateway --help' for the command list"

@@ -82,12 +82,26 @@ dg_resolve_profile() {
   case "$profile" in
     local)
       : "${DEV_GATEWAY_DOMAIN:=localhost}"
+      : "${DEV_GATEWAY_BIND_ADDRESS:=127.0.0.1}"
       ;;
+
     remote-private)
       if [ -n "${PRIVATE_DOMAIN:-}" ]; then
         DEV_GATEWAY_DOMAIN="$PRIVATE_DOMAIN"
       fi
+      if dg_is_true "${TAILSCALE_ENABLED:-false}"; then
+        # Traefik lives inside the Tailscale container's network namespace and
+        # is reached over the tailnet. The published ports exist only so the
+        # VPS itself can curl the gateway, hence loopback.
+        DEV_GATEWAY_BIND_ADDRESS="127.0.0.1"
+      elif [ "${DEV_GATEWAY_BIND_ADDRESS:-}" = "0.0.0.0" ]; then
+        err "profile remote-private must not bind 0.0.0.0"
+        hint "either enable TAILSCALE_ENABLED=true, or set DEV_GATEWAY_BIND_ADDRESS"
+        hint "to the address of your VPN interface"
+        return 1
+      fi
       ;;
+
     remote-public)
       if [ -z "${PUBLIC_DOMAIN:-}" ]; then
         err "profile remote-public requires PUBLIC_DOMAIN"
@@ -95,32 +109,67 @@ dg_resolve_profile() {
         return 1
       fi
       DEV_GATEWAY_DOMAIN="$PUBLIC_DOMAIN"
+      # Public means public: this is the one profile that binds every interface.
+      DEV_GATEWAY_BIND_ADDRESS="0.0.0.0"
       ;;
   esac
 
-  export DEV_GATEWAY_PROFILE DEV_GATEWAY_DOMAIN
+  # ACME cannot issue a certificate without a contact address.
+  case "$profile" in
+    remote-private|remote-public)
+      if dg_is_true "${TLS_ENABLED:-false}" && [ "${TLS_MODE:-}" = "acme" ] \
+         && [ -z "${ACME_EMAIL:-}" ]; then
+        err "TLS_MODE=acme requires ACME_EMAIL"
+        hint "set ACME_EMAIL in .env"
+        return 1
+      fi
+      ;;
+  esac
+
+  export DEV_GATEWAY_PROFILE DEV_GATEWAY_DOMAIN DEV_GATEWAY_BIND_ADDRESS
   return 0
+}
+
+# dg_attachment <profile> — which overlay decides how Traefik meets the world.
+dg_attachment() {
+  case "$1" in
+    local) printf 'host' ;;
+    remote-private|remote-public)
+      if dg_is_true "${TAILSCALE_ENABLED:-false}"; then printf 'tailscale'; else printf 'host'; fi
+      ;;
+  esac
 }
 
 # dg_compose_files <profile> — echo the -f arguments for a profile, in order.
 dg_compose_files() {
   local profile="$1"
   local files="compose.yaml"
+  local attachment
+  attachment=$(dg_attachment "$profile")
+
+  # Exactly one attach-* overlay, always.
+  files="$files compose.attach-$attachment.yaml"
 
   case "$profile" in
-    local) files="$files compose.local.yaml" ;;
-    remote-private) files="$files compose.remote.yaml compose.tailscale.yaml" ;;
+    local)
+      files="$files compose.local.yaml"
+      # A locally-issued certificate flips the default entrypoint to :443.
+      if dg_is_true "${TLS_ENABLED:-false}" && [ "${TLS_MODE:-local}" = "local" ]; then
+        files="$files compose.local-tls.yaml"
+      fi
+      ;;
+    remote-private) files="$files compose.remote.yaml" ;;
     remote-public) files="$files compose.remote.yaml compose.public.yaml" ;;
   esac
 
-  if [ "$profile" = "remote-private" ] || [ "$profile" = "remote-public" ]; then
-    if dg_is_true "${TAILSCALE_ENABLED:-false}" && [ "$profile" = "remote-public" ]; then
-      files="$files compose.tailscale.yaml"
-    fi
-  fi
-
   if dg_is_true "${DEV_GATEWAY_DASHBOARD:-false}"; then
-    files="$files compose.dashboard.yaml"
+    # The dashboard port has to be published by whichever container owns the
+    # network namespace.
+    if [ "$attachment" = "tailscale" ]; then
+      files="$files compose.dashboard-tailscale.yaml"
+    else
+      files="$files compose.dashboard.yaml"
+    fi
   fi
 
   local f out=""
