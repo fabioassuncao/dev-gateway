@@ -1,0 +1,43 @@
+# ============================================================================
+# Optional access protection — copy to auth.yaml to enable
+# ============================================================================
+# The gateway ships no identity layer and is deliberately not coupled to one.
+# This is the simplest useful thing: HTTP basic auth as a middleware a router
+# can opt into. For anything real, point `forwardAuth` at your own IdP instead.
+#
+#   cp config/traefik/dynamic/auth.example.yaml.disabled \
+#      config/traefik/dynamic/auth.yaml
+#
+# Generate a hash without installing anything on the host:
+#
+#   dev-gateway toolbox run -- \
+#     openssl passwd -apr1 'your-password'
+#
+# Then use it from a project:
+#
+#   labels:
+#     - "traefik.http.routers.web.middlewares=dev-gateway-basic-auth@file"
+#
+# Traefik hot-reloads this directory, so no restart is needed.
+# ============================================================================
+
+http:
+  middlewares:
+    dev-gateway-basic-auth:
+      basicAuth:
+        # user:hash — replace with your own. The example hash is for the
+        # password "changeme" and exists only to show the format.
+        users:
+          - "dev:$apr1$Xy9Zq2Lm$0Ux2dKcVQe8hV1nJgqQ4d1"
+        realm: "Dev Gateway"
+        removeHeader: true
+
+    # Delegate to your own identity provider. `address` is any HTTP service
+    # that answers 2xx for an authorised request. Nothing here is specific to
+    # a particular vendor.
+    dev-gateway-forward-auth:
+      forwardAuth:
+        address: "http://your-auth-service:4181/auth"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - X-Forwarded-User

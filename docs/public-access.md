@@ -78,12 +78,25 @@ routers that need it — basic auth, or an OAuth forward-auth service. The
 gateway ships reusable middlewares in `config/traefik/dynamic/` and is
 deliberately not coupled to any identity provider.
 
-A per-router example:
+A working starting point ships disabled:
+
+```bash
+cp config/traefik/dynamic/auth.example.yaml.disabled \
+   config/traefik/dynamic/auth.yaml
+
+# generate a password hash without installing anything on the host
+dev-gateway toolbox run -- openssl passwd -apr1 'your-password'
+```
+
+Then opt a router in:
 
 ```yaml
 labels:
-  - "traefik.http.routers.web.middlewares=my-auth@file"
+  - "traefik.http.routers.web.middlewares=dev-gateway-basic-auth@file"
 ```
+
+The same file carries a `forwardAuth` middleware to point at your own identity
+provider. Traefik hot-reloads the directory, so neither needs a restart.
 
 ## Deciding
 
