@@ -7,37 +7,129 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 While the version is `0.x`, minor releases may contain breaking changes.
 
-## [Unreleased]
+## [0.1.0] — 2026-08-31
 
-### Added
+First release. Experimental, and the "Not verified" section below is part of
+the release notes, not a footnote.
 
-- Traefik `v3.7.12` gateway reachable on one host port pair, discovering
-  services through a read-only, endpoint-filtered Docker socket proxy on an
-  `internal` network.
-- Hostnames derived automatically from the labels Compose already injects:
-  `<compose-project>-<service>.<domain>`.
-- `dev-gateway` CLI: `bootstrap`, `up`, `down`, `restart`, `status`, `logs`,
-  `doctor`, `urls`, `inspect`, `update`, `version`. `--json` on `status`,
-  `doctor` and `urls`.
-- `doctor`: runtime, network, component, exposure, DNS, TLS and routing
-  diagnostics, including hostname collisions, Traefik service-name collisions
-  and uninterpolated `${...}` in labels.
-- Two example stacks that both run web on 3000, api on 8000, Postgres on 5432
-  and Redis on 6379 with no host port published.
-- Lint, unit and end-to-end test suites; CI on Linux including exposure
-  regression checks.
+### The gateway
+
+- **Traefik `v3.7.12`** holding 80 and 443 for the whole host, so no project
+  needs to publish an HTTP port. Discovery goes through
+  `tecnativa/docker-socket-proxy:v0.5.0`, which mounts the Docker socket
+  read-only, allows only the five endpoints the provider calls, denies every
+  write, publishes no host port, and sits on a network created `internal: true`.
+  The socket is never mounted into Traefik.
+- **Hostnames derived automatically** from the labels Compose already injects:
+  `<compose-project>-<service>.<domain>`. A project opts in without naming
+  itself anywhere, and a new worktree gets new hostnames from one environment
+  variable.
+- **`exposedByDefault=false`** — a service is routed only when it sets
+  `traefik.enable=true`.
+- **Three profiles** as composable Compose overlays: `local`,
+  `remote-private`, `remote-public`. Exactly one attachment overlay decides how
+  Traefik meets the world.
+
+### Parallel environments
+
+- `COMPOSE_PROJECT_NAME` is the whole mechanism. Four environments — two
+  worktrees of one project among them — run at once with web on 3000, api on
+  8000, Postgres on 5432 and Redis on 6379, and no host port published by any
+  of them.
+- `dev-gateway namespace` derives a DNS-safe name from the repository and
+  branch.
+- Stopping or restarting the gateway leaves applications running; starting it
+  again rediscovers them.
+
+### Adopting a project
+
+Projects stay in their own repositories and are never moved, cloned or mounted.
+
+- `dev-gateway analyze <path>` — read-only report: services and what they look
+  like, published host ports and what already holds them, fixed container
+  names, published datastores, an implicit namespace.
+- `dev-gateway init <path>` — writes exactly one new file, shows it and a diff
+  first, never edits `compose.yaml`, supports `--dry-run`, keeps a backup.
+- Eight overlay templates, and a page to copy into the consumer repository.
+
+### Databases, caches and other TCP services
+
+- `dev-gateway access open` — a per-session bridge on the project's private
+  network, published on `127.0.0.1` on a port the kernel picks. Any number of
+  databases are reachable at once without one of them giving up 5432.
+- `dev-gateway db psql` / `redis cli` — a client inside the project's own
+  network. Nothing published, nothing left behind.
+- `dev-gateway remote access open` — a loopback bridge on a VPS plus an SSH
+  tunnel here, over Tailscale SSH or plain SSH.
+- `dev-gateway service publish --private` — a dedicated forwarder per service
+  on the gateway's access network, for a stable tailnet address. Project
+  networks are never merged.
+
+### Remote and TLS
+
+- Tailscale container with Traefik in its network namespace, so a VPS publishes
+  nothing on its public interface.
+- ACME wildcard certificates over DNS-01, with Cloudflare as the reference
+  provider behind a scoped token.
+- `dev-gateway public enable` prints the domain, interfaces, ports and the
+  exact URLs that would become reachable, then asks.
+- `dev-gateway tls init` for optional local HTTPS from a local CA.
+
+### Diagnostics
+
+- `doctor` — runtime, networks, component health, exposure, DNS, TLS, routing,
+  hostname and Traefik service-name collisions, uninterpolated `${...}` in
+  labels, bridge binds, and forwarder placement. Read-only, with a suggested
+  fix per failure, and `--json`.
+- `status`, `urls`, `services`, `network status`, `inspect` — all with `--json`
+  where it makes sense.
 
 ### Security
 
-- The Docker socket is never mounted into Traefik.
-- `exposedByDefault=false`; the local profile binds to loopback; the dashboard
-  is off and, when enabled, is loopback-only and never routed through the
-  public entrypoints.
+- Nothing is exposed by default: loopback bind, no dashboard, no datastore ever
+  published, `service publish --public` on a datastore refused outright.
+- Secrets never reach the process list: the Cloudflare token goes to curl on
+  stdin, database passwords are inherited by Docker rather than interpolated
+  into `-e`.
+- `.env` is created `0600`; `bootstrap` tightens it if it is looser.
+- Every path that removes a container checks `dev-gateway.managed=true` first.
+  Nothing prunes, and no volume or network is ever removed.
+- SSH host key verification is never disabled.
+
+### Tests
+
+326 checks: lint, documentation-link and audit invariants; unit tests for the
+shell library, profiles, templates and the CLI surface; end-to-end suites for
+parallel environments, lifecycle independence, adopting an unknown project,
+local HTTPS, and TCP access to four simultaneous databases.
+
+The audit suite is the interesting one — it turns the promises above into
+regression tests: no absolute home paths, no consumer project named in the
+code, no prune of any kind, every container removal ownership-checked, no
+secret in argv, nothing exposed by default, every image pinned.
+
+### Not verified
+
+Stated plainly, because the alternative is a claim we cannot back:
+
+- **The tailnet and ACME paths.** They need a real tailnet, a real DNS zone and
+  a real ACME account. Configuration tests assert that every profile renders
+  and that `remote-private` never binds `0.0.0.0`; the rest is a manual
+  checklist in `docs/remote-development.md`.
+- **Tailscale Services.** The forwarder half is tested. The Service
+  advertisement and grants are printed for you to apply and are not exercised
+  here.
+- **macOS + Docker Desktop, Debian, Linux arm64, Windows/WSL2.** Expected to
+  work, not verified. See `docs/compatibility.md`.
+- **UDP.** Not supported, and listed as absent rather than as a caveat.
 
 ### Known limitations
 
-- Only the `local` profile is implemented and tested so far. The
-  `remote-private` and `remote-public` profiles, Tailscale, DNS/TLS automation
-  and TCP access bridges are in progress.
-- Verified on macOS with OrbStack and on Ubuntu in CI. Docker Desktop is
-  expected to work but is not exercised automatically.
+- No authentication layer. Anything routed is reachable by anyone who can reach
+  the gateway; an optional basic-auth and `forwardAuth` middleware ships
+  disabled.
+- Single-tenant. Every project on a host shares one Traefik and one shared
+  network.
+- A compromised Traefik could still read container environment variables
+  through `/containers/{id}/json`, which discovery requires. Inherent to
+  Traefik's Docker provider; see ADR 0002.

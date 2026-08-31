@@ -12,9 +12,15 @@ DG_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 DG_ROOT=$(cd -P "$DG_TEST_DIR/.." && pwd); export DG_ROOT
 cd "$DG_ROOT" || exit 1
 
-# Tracked files, excluding the build brief.
-tracked() { git ls-files "$@" 2>/dev/null | grep -v '^docs/prompts/'; }
-code() { git ls-files 'bin/*' 'scripts/**' 'compose*.yaml' 'toolbox/*' '.github/**' 2>/dev/null; }
+# Tracked files, excluding the build brief and this file.
+#
+# This file is excluded because it contains every forbidden pattern as a search
+# string — `docker system prune`, an absolute home path, `tskey-` — and would
+# otherwise match itself. That is a real limitation: the audit cannot audit its
+# own text, so keep the patterns here and the enforcement here only.
+SELF="tests/unit/audit.test.sh"
+tracked() { git ls-files "$@" 2>/dev/null | grep -v '^docs/prompts/' | grep -vx "$SELF"; }
+code() { git ls-files 'bin/*' 'scripts/**' 'compose*.yaml' 'toolbox/*' '.github/**' 2>/dev/null | grep -vx "$SELF"; }
 
 describe "the gateway stays decoupled from consumer projects"
 

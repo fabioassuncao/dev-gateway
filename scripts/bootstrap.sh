@@ -66,6 +66,18 @@ ok "Docker Compose $compose_version"
 step "3/8  Configuration"
 if [ -f "$DG_ROOT/.env" ]; then
   ok ".env found"
+  # `cp .env.example .env` inherits the umask, so the documented quick start
+  # leaves a world-readable file that will grow secrets. Tightening the
+  # permissions of the gateway's own configuration file is never destructive,
+  # so do it and say so rather than only warning.
+  env_mode=$(ls -l "$DG_ROOT/.env" | cut -c1-10)
+  case "$env_mode" in
+    -rw-------) ;;
+    *)
+      chmod 600 "$DG_ROOT/.env" \
+        && ok "tightened .env permissions from $env_mode to -rw------- (it may hold secrets)"
+      ;;
+  esac
 else
   warn "no .env file — the gateway will run on built-in defaults"
   if dg_confirm "Create .env from .env.example now?"; then
