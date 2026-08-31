@@ -1,0 +1,169 @@
+# ============================================================================
+# Dev Gateway — base stack
+# ============================================================================
+# This file contains ONLY gateway-owned infrastructure. It never references,
+# mounts or manages anything belonging to a consumer project.
+#
+# Do not run this file directly; use the CLI so the right profile overlays and
+# the resolved environment are applied:
+#
+#   ./bin/dev-gateway up local
+#
+# Traefik's static configuration lives in `environment:` (TRAEFIK_* variables)
+# rather than a config file. Traefik treats file / CLI / env as mutually
+# exclusive sources, and only the env form composes across Compose overlays.
+# Dynamic configuration stays in config/traefik/dynamic/. See docs/adr/0003.
+# ============================================================================
+
+name: ${DEV_GATEWAY_PROJECT_NAME:-dev-gateway}
+
+networks:
+  # Shared, external, created by `bootstrap`. Consumer projects attach their
+  # published HTTP services here. Its lifecycle is independent of this stack.
+  gateway:
+    external: true
+    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}
+
+  # Gateway-private control plane. `internal: true` means no route to the
+  # outside world: the Docker socket proxy is unreachable from anywhere else.
+  control:
+    name: ${DEV_GATEWAY_CONTROL_NETWORK:-dev-gateway-control}
+    internal: true
+    labels:
+      dev-gateway.managed: "true"
+      dev-gateway.component: control-network
+
+services:
+  # --------------------------------------------------------------------------
+  # Docker socket proxy — read-only, filtered view of the Docker API
+  # --------------------------------------------------------------------------
+  # Traefik needs container discovery, not control. This proxy exposes only the
+  # endpoints the Docker provider actually calls and rejects every write.
+  # It is reachable exclusively from the internal control network.
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    restart: unless-stopped
+    read_only: true
+    environment:
+      # Endpoints Traefik's Docker provider requires
+      CONTAINERS: "1"
+      NETWORKS: "1"
+      EVENTS: "1"
+      PING: "1"
+      VERSION: "1"
+      # Everything else stays denied
+      POST: "0"
+      ALLOW_RESTARTS: "0"
+      ALLOW_STOP: "0"
+      ALLOW_START: "0"
+      AUTH: "0"
+      BUILD: "0"
+      COMMIT: "0"
+      CONFIGS: "0"
+      DISTRIBUTION: "0"
+      EXEC: "0"
+      IMAGES: "0"
+      INFO: "0"
+      NODES: "0"
+      PLUGINS: "0"
+      SECRETS: "0"
+      SERVICES: "0"
+      SESSION: "0"
+      SWARM: "0"
+      SYSTEM: "0"
+      TASKS: "0"
+      VOLUMES: "0"
+      LOG_LEVEL: warning
+    volumes:
+      # Read-only bind. The proxy is the only component that sees the socket.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - control
+    # Deliberately no `ports:` — the proxy must never be reachable from the host.
+    # read_only above hardens the container; the entrypoint still needs to
+    # render the generated haproxy.cfg somewhere, hence these tmpfs mounts.
+    tmpfs:
+      - /tmp
+      - /run
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "2375"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    labels:
+      traefik.enable: "false"
+      dev-gateway.managed: "true"
+      dev-gateway.component: socket-proxy
+
+  # --------------------------------------------------------------------------
+  # Traefik — HTTP/HTTPS edge router
+  # --------------------------------------------------------------------------
+  traefik:
+    image: traefik:v3.7.12
+    restart: unless-stopped
+    depends_on:
+      socket-proxy:
+        condition: service_healthy
+    networks:
+      - gateway
+      - control
+    ports:
+      - "${DEV_GATEWAY_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_HTTP_PORT:-80}:80"
+      - "${DEV_GATEWAY_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_HTTPS_PORT:-443}:443"
+    environment:
+      # -- global ----------------------------------------------------------
+      TRAEFIK_GLOBAL_CHECKNEWVERSION: "false"
+      TRAEFIK_GLOBAL_SENDANONYMOUSUSAGE: "false"
+
+      # -- observability ---------------------------------------------------
+      TRAEFIK_LOG_LEVEL: ${DEV_GATEWAY_LOG_LEVEL:-INFO}
+      TRAEFIK_ACCESSLOG: ${DEV_GATEWAY_ACCESS_LOG:-false}
+      TRAEFIK_PING: "true"
+
+      # -- api / dashboard -------------------------------------------------
+      # Off by default. compose.dashboard.yaml turns it on, bound to loopback.
+      TRAEFIK_API: "false"
+
+      # -- entrypoints -----------------------------------------------------
+      TRAEFIK_ENTRYPOINTS_WEB_ADDRESS: ":80"
+      TRAEFIK_ENTRYPOINTS_WEBSECURE_ADDRESS: ":443"
+      # Headers whose names contain characters outside [A-Za-z0-9-] can alias a
+      # canonical header once a backend normalises them (X_Auth_User becoming
+      # X-Auth-User in CGI/WSGI/PHP/nginx), which lets a client spoof headers
+      # Traefik manages. `keep` is Traefik's default and is fine behind
+      # loopback; the public profile raises this to `delete`. Setting it
+      # explicitly also silences Traefik's startup advisory.
+      TRAEFIK_ENTRYPOINTS_WEB_HTTP_ALIASHEADERSSTRATEGY: ${DEV_GATEWAY_ALIAS_HEADERS_STRATEGY:-keep}
+      TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_ALIASHEADERSSTRATEGY: ${DEV_GATEWAY_ALIAS_HEADERS_STRATEGY:-keep}
+
+      # -- docker provider -------------------------------------------------
+      TRAEFIK_PROVIDERS_DOCKER: "true"
+      TRAEFIK_PROVIDERS_DOCKER_ENDPOINT: tcp://socket-proxy:2375
+      # A service is routed only when it opts in with traefik.enable=true.
+      TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT: "false"
+      # Consumer containers sit on several networks; always dial them over the
+      # shared gateway network so we never reach into a project's private one.
+      TRAEFIK_PROVIDERS_DOCKER_NETWORK: ${DEV_GATEWAY_NETWORK:-dev-gateway}
+      # Hostnames are derived from the labels Compose already injects, so a
+      # project opts in without repeating its own name. An explicit
+      # `traefik.http.routers.<name>.rule` label always wins.
+      TRAEFIK_PROVIDERS_DOCKER_DEFAULTRULE: >-
+        Host(`{{ if index .Labels "com.docker.compose.project" }}{{ normalize (index .Labels "com.docker.compose.project") }}-{{ normalize (index .Labels "com.docker.compose.service") }}{{ else }}{{ normalize .Name }}{{ end }}.${DEV_GATEWAY_DOMAIN:-localhost}`)
+
+      # -- file provider (dynamic configuration) ---------------------------
+      TRAEFIK_PROVIDERS_FILE_DIRECTORY: /etc/traefik/dynamic
+      TRAEFIK_PROVIDERS_FILE_WATCH: "true"
+    volumes:
+      - ./config/traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./state/traefik/acme:/etc/traefik/acme
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    labels:
+      traefik.enable: "false"
+      dev-gateway.managed: "true"
+      dev-gateway.component: traefik

@@ -1,0 +1,368 @@
+#!/usr/bin/env bash
+# ============================================================================
+# dev-gateway — operational entrypoint for the Dev Gateway
+# ============================================================================
+# The Dev Gateway is shared host infrastructure. It never owns, moves, starts
+# or stops a consumer project: every command here acts only on resources
+# labelled `dev-gateway.managed=true`.
+# ============================================================================
+
+set -euo pipefail
+
+DG_BIN_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=../scripts/lib/common.sh
+. "$DG_BIN_DIR/../scripts/lib/common.sh"
+# shellcheck source=../scripts/lib/docker.sh
+. "$DG_BIN_DIR/../scripts/lib/docker.sh"
+
+dg_load_env
+dg_defaults
+
+DG_ASSUME_YES="${DG_ASSUME_YES:-false}"
+
+# ---------------------------------------------------------------------------
+# Help
+# ---------------------------------------------------------------------------
+
+usage() {
+  cat >&2 <<'DG_HELP'
+dev-gateway — shared HTTP/TCP gateway for parallel Docker development
+
+USAGE
+  dev-gateway <command> [arguments] [flags]
+
+CORE
+  bootstrap              Prepare this host: check the runtime, create the shared
+                         network and state directories, then run doctor
+  up [profile]           Start the gateway (profile: local | remote-private | remote-public)
+  down                   Stop the gateway. Consumer projects keep running
+  restart                Restart gateway components
+  status                 Compact overview of the running gateway
+  logs [service]         Follow gateway logs
+  doctor                 Deep diagnostics and suggested fixes
+  urls                   List the hostnames currently routed by the gateway
+  inspect                Print the resolved configuration and compose files
+  update                 Pull the pinned component images and recreate
+  version                Print the gateway version
+
+FLAGS
+  -h, --help             Show help for the command
+      --json             Machine-readable output (status, doctor, urls)
+      --profile <name>   Override the profile for this invocation
+  -y, --yes              Assume yes for confirmation prompts
+
+EXAMPLES
+  dev-gateway bootstrap
+  dev-gateway up local
+  dev-gateway urls --project demo-a
+  dev-gateway doctor --json
+
+Consumer projects are adapted with an overlay file and stay where they are.
+See docs/adopting-projects.md.
+DG_HELP
+}
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+cmd_version() {
+  printf 'dev-gateway %s\n' "$(dg_version)"
+}
+
+cmd_bootstrap() {
+  exec "$DG_ROOT/scripts/bootstrap.sh" "$@"
+}
+
+cmd_doctor() {
+  exec "$DG_ROOT/scripts/doctor.sh" "$@"
+}
+
+cmd_up() {
+  local profile="${DEV_GATEWAY_PROFILE}"
+  local detach=1
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --attach) detach=0 ;;
+      -*) die "unknown flag for 'up': $1" ;;
+      *) profile="$1" ;;
+    esac
+    shift
+  done
+
+  dg_require_docker || exit 1
+  dg_require_compose || exit 1
+  dg_resolve_profile "$profile" || exit 1
+
+  # The shared network must exist before Compose resolves `external: true`.
+  dg_network_ensure "$DEV_GATEWAY_NETWORK" \
+    || die "could not create the shared network '$DEV_GATEWAY_NETWORK'"
+
+  mkdir -p "$DG_STATE_DIR/traefik/acme"
+
+  info "starting gateway (profile: $profile, domain: $DEV_GATEWAY_DOMAIN)"
+  if [ "$detach" = "1" ]; then
+    dg_compose "$profile" up -d --remove-orphans
+  else
+    dg_compose "$profile" up --remove-orphans
+  fi
+
+  ok "gateway is up"
+  hint "dev-gateway status    — see what is running"
+  hint "dev-gateway urls      — see the hostnames being served"
+}
+
+cmd_down() {
+  local profile="${DEV_GATEWAY_PROFILE}"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --profile) shift; profile="${1:-$profile}" ;;
+      -*) die "unknown flag for 'down': $1" ;;
+      *) profile="$1" ;;
+    esac
+    shift
+  done
+
+  dg_require_docker || exit 1
+  dg_resolve_profile "$profile" || exit 1
+
+  info "stopping gateway components"
+  # No `--volumes`, no `--remove-orphans`: this must never reach past the
+  # gateway's own Compose project.
+  dg_compose "$profile" down
+
+  ok "gateway stopped — consumer projects were not touched"
+  if dg_network_exists "$DEV_GATEWAY_NETWORK"; then
+    hint "the shared network '$DEV_GATEWAY_NETWORK' was kept ($(dg_network_endpoints "$DEV_GATEWAY_NETWORK") container(s) still attached)"
+  fi
+}
+
+cmd_restart() {
+  local profile="${1:-$DEV_GATEWAY_PROFILE}"
+  dg_require_docker || exit 1
+  dg_resolve_profile "$profile" || exit 1
+  dg_compose "$profile" restart
+  ok "gateway restarted — routes are rediscovered automatically"
+}
+
+cmd_logs() {
+  local profile="${DEV_GATEWAY_PROFILE}"
+  dg_require_docker || exit 1
+  dg_resolve_profile "$profile" || exit 1
+  dg_compose "$profile" logs -f --tail 100 "$@"
+}
+
+cmd_urls() {
+  local as_json=0 project=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --json) as_json=1 ;;
+      --project) shift; project="${1:-}" ;;
+      --project=*) project="${1#--project=}" ;;
+      *) die "unknown argument for 'urls': $1" ;;
+    esac
+    shift
+  done
+
+  dg_require_docker || exit 1
+  dg_resolve_profile "$DEV_GATEWAY_PROFILE" || exit 1
+
+  local scheme="http" rows
+  dg_is_true "$TLS_ENABLED" && scheme="https"
+
+  rows=$(dg_discover_http "$project")
+
+  if [ "$as_json" = "1" ]; then
+    printf '{\n  "scheme": "%s",\n  "domain": "%s",\n  "routes": [\n' \
+      "$scheme" "$(dg_json_escape "$DEV_GATEWAY_DOMAIN")"
+    local first=1 p s c h port state
+    while IFS="$(printf '\t')" read -r p s c h port state; do
+      [ -n "${p:-}" ] || continue
+      [ "$first" = "1" ] || printf ',\n'
+      first=0
+      printf '    {"project": "%s", "service": "%s", "container": "%s", "url": "%s://%s", "port": "%s", "state": "%s"}' \
+        "$(dg_json_escape "$p")" "$(dg_json_escape "$s")" "$(dg_json_escape "$c")" \
+        "$scheme" "$(dg_json_escape "$h")" "$(dg_json_escape "$port")" "$(dg_json_escape "$state")"
+    done <<EOF
+$rows
+EOF
+    printf '\n  ]\n}\n'
+    return 0
+  fi
+
+  if [ -z "$rows" ]; then
+    warn "no services are currently opted into the gateway"
+    hint "a service joins by setting traefik.enable=true and attaching to the '$DEV_GATEWAY_NETWORK' network"
+    hint "see docs/adopting-projects.md"
+    return 0
+  fi
+
+  printf '%-28s %-14s %s\n' "PROJECT" "SERVICE" "URL"
+  printf '%s\n' "$rows" | sort | while IFS="$(printf '\t')" read -r p s _c h _port state; do
+    [ -n "${p:-}" ] || continue
+    if [ "$state" = "running" ]; then
+      printf '%-28s %-14s %s://%s\n' "$p" "$s" "$scheme" "$h"
+    else
+      printf '%-28s %-14s %s://%s  (%s)\n' "$p" "$s" "$scheme" "$h" "$state"
+    fi
+  done
+}
+
+cmd_status() {
+  local as_json=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --json) as_json=1 ;;
+      *) die "unknown argument for 'status': $1" ;;
+    esac
+    shift
+  done
+
+  dg_require_docker || exit 1
+  dg_resolve_profile "$DEV_GATEWAY_PROFILE" || exit 1
+
+  local traefik_id traefik_state traefik_health proxy_state net_state routes
+  traefik_id=$(dg_gateway_container traefik)
+  if [ -n "$traefik_id" ]; then
+    traefik_state=$(dg_container_state "$traefik_id")
+    traefik_health=$(dg_container_health "$traefik_id")
+  else
+    traefik_state="absent"; traefik_health="none"
+  fi
+
+  local proxy_id
+  proxy_id=$(dg_gateway_container socket-proxy)
+  proxy_state=$([ -n "$proxy_id" ] && dg_container_state "$proxy_id" || printf 'absent')
+
+  if dg_network_exists "$DEV_GATEWAY_NETWORK"; then
+    net_state="present ($(dg_network_endpoints "$DEV_GATEWAY_NETWORK") attached)"
+  else
+    net_state="missing"
+  fi
+
+  routes=$(dg_discover_http | grep -c . || true)
+
+  if [ "$as_json" = "1" ]; then
+    cat <<JSON
+{
+  "version": "$(dg_version)",
+  "profile": "$DEV_GATEWAY_PROFILE",
+  "domain": "$DEV_GATEWAY_DOMAIN",
+  "bind_address": "$DEV_GATEWAY_BIND_ADDRESS",
+  "http_port": "$DEV_GATEWAY_HTTP_PORT",
+  "https_port": "$DEV_GATEWAY_HTTPS_PORT",
+  "tls_enabled": $(dg_is_true "$TLS_ENABLED" && echo true || echo false),
+  "tailscale_enabled": $(dg_is_true "$TAILSCALE_ENABLED" && echo true || echo false),
+  "public_enabled": $(dg_is_true "$PUBLIC_ENABLED" && echo true || echo false),
+  "dashboard_enabled": $(dg_is_true "$DEV_GATEWAY_DASHBOARD" && echo true || echo false),
+  "traefik": {"state": "$traefik_state", "health": "$traefik_health"},
+  "socket_proxy": {"state": "$proxy_state"},
+  "network": {"name": "$DEV_GATEWAY_NETWORK", "state": "$net_state"},
+  "routes": $routes
+}
+JSON
+    return 0
+  fi
+
+  printf '%s\n' "$(dg_bold "Dev Gateway $(dg_version)")"
+  printf '  %-18s %s\n' "profile" "$DEV_GATEWAY_PROFILE"
+  printf '  %-18s %s\n' "domain" "$DEV_GATEWAY_DOMAIN"
+  printf '  %-18s %s:%s (http) / %s (https)\n' "listening" \
+    "$DEV_GATEWAY_BIND_ADDRESS" "$DEV_GATEWAY_HTTP_PORT" "$DEV_GATEWAY_HTTPS_PORT"
+  printf '  %-18s %s\n' "traefik" "$traefik_state ($traefik_health)"
+  printf '  %-18s %s\n' "socket proxy" "$proxy_state"
+  printf '  %-18s %s %s\n' "network" "$DEV_GATEWAY_NETWORK" "$net_state"
+  printf '  %-18s %s\n' "tls" "$(dg_is_true "$TLS_ENABLED" && printf 'enabled (%s)' "$TLS_MODE" || printf 'disabled')"
+  printf '  %-18s %s\n' "tailscale" "$(dg_is_true "$TAILSCALE_ENABLED" && printf 'enabled' || printf 'disabled')"
+  printf '  %-18s %s\n' "public access" "$(dg_is_true "$PUBLIC_ENABLED" && printf 'ENABLED' || printf 'disabled')"
+  printf '  %-18s %s\n' "dashboard" "$(dg_is_true "$DEV_GATEWAY_DASHBOARD" && printf 'enabled (%s:%s)' "$DEV_GATEWAY_DASHBOARD_BIND_ADDRESS" "$DEV_GATEWAY_DASHBOARD_PORT" || printf 'disabled')"
+  printf '  %-18s %s\n' "routed services" "$routes"
+}
+
+cmd_inspect() {
+  dg_resolve_profile "$DEV_GATEWAY_PROFILE" || exit 1
+  printf '%s\n' "$(dg_bold 'Resolved configuration')"
+  local v
+  for v in DEV_GATEWAY_PROFILE DEV_GATEWAY_PROJECT_NAME DEV_GATEWAY_NETWORK \
+           DEV_GATEWAY_CONTROL_NETWORK DEV_GATEWAY_ACCESS_NETWORK \
+           DEV_GATEWAY_DOMAIN DEV_GATEWAY_BIND_ADDRESS DEV_GATEWAY_HTTP_PORT \
+           DEV_GATEWAY_HTTPS_PORT DEV_GATEWAY_LOG_LEVEL DEV_GATEWAY_ACCESS_LOG \
+           DEV_GATEWAY_DASHBOARD TLS_ENABLED TLS_MODE TAILSCALE_ENABLED \
+           PUBLIC_ENABLED PUBLIC_DOMAIN PRIVATE_DOMAIN CLOUDFLARE_ENABLED; do
+    printf '  %-32s %s\n' "$v" "$(eval "printf '%s' \"\${$v:-}\"")"
+  done
+
+  printf '\n%s\n' "$(dg_bold 'Compose files')"
+  local files
+  files=$(dg_compose_files "$DEV_GATEWAY_PROFILE") || exit 1
+  printf '%s\n' "$files" | tr ' ' '\n' | grep -v '^-f$' | sed 's#^#  #'
+
+  printf '\n%s\n' "$(dg_bold 'Secrets')"
+  printf '  %-32s %s\n' "TS_AUTHKEY" "$([ -n "${TS_AUTHKEY:-}" ] && printf '<set>' || printf '<unset>')"
+  printf '  %-32s %s\n' "CF_DNS_API_TOKEN" "$([ -n "${CF_DNS_API_TOKEN:-}" ] && printf '<set>' || printf '<unset>')"
+}
+
+cmd_update() {
+  local profile="${DEV_GATEWAY_PROFILE}"
+  dg_require_docker || exit 1
+  dg_resolve_profile "$profile" || exit 1
+
+  info "validating the compose configuration before touching anything"
+  dg_compose "$profile" config --quiet || die "compose configuration is invalid; nothing was changed"
+
+  info "pulling pinned component images"
+  dg_compose "$profile" pull
+
+  dg_confirm "Recreate gateway containers now? Consumer projects are unaffected." || {
+    info "aborted; images were pulled but nothing was recreated"
+    return 0
+  }
+
+  dg_compose "$profile" up -d --remove-orphans
+  ok "gateway updated"
+  hint "run 'dev-gateway doctor' to confirm the new components are healthy"
+}
+
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
+
+main() {
+  local cmd="${1:-}"
+  [ $# -gt 0 ] && shift || true
+
+  # Global flags that may precede the command.
+  while [ "${cmd:-}" != "" ]; do
+    case "$cmd" in
+      -h|--help|help) usage; exit 0 ;;
+      -V|--version) cmd_version; exit 0 ;;
+      -y|--yes) DG_ASSUME_YES=true; cmd="${1:-}"; [ $# -gt 0 ] && shift || true ;;
+      --profile) DEV_GATEWAY_PROFILE="${1:-}"; shift; cmd="${1:-}"; [ $# -gt 0 ] && shift || true ;;
+      *) break ;;
+    esac
+  done
+  export DG_ASSUME_YES DEV_GATEWAY_PROFILE
+
+  case "${cmd:-}" in
+    ''|help) usage; exit 0 ;;
+    version) cmd_version "$@" ;;
+    bootstrap) cmd_bootstrap "$@" ;;
+    up) cmd_up "$@" ;;
+    down) cmd_down "$@" ;;
+    restart) cmd_restart "$@" ;;
+    status) cmd_status "$@" ;;
+    logs) cmd_logs "$@" ;;
+    doctor) cmd_doctor "$@" ;;
+    urls) cmd_urls "$@" ;;
+    inspect) cmd_inspect "$@" ;;
+    update) cmd_update "$@" ;;
+    *)
+      err "unknown command: $cmd"
+      hint "run 'dev-gateway --help' for the command list"
+      exit 1
+      ;;
+  esac
+}
+
+main "$@"
