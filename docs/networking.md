@@ -134,7 +134,7 @@ starts receiving project B's traffic. Always prefix with the namespace:
 Traefik routes HTTP by `Host` header. Raw TCP protocols — the PostgreSQL and
 Redis wire protocols among them — carry no hostname on the connection, so they
 cannot be multiplexed onto one port that way. They are reached through
-per-session loopback bridges instead, via `dev-gateway access open`.
+per-session loopback bridges instead: see [tcp-access.md](tcp-access.md).
 
 ## Diagnostics
 

@@ -89,7 +89,8 @@ dev-gateway access open  --project <name> --service postgres   # -> 127.0.0.1:55
 dev-gateway access close --project <name>
 ```
 
-Both bind loopback only, and neither changes the project.
+Both bind loopback only, and neither changes the project. Details:
+[tcp-access.md](tcp-access.md).
 
 **Leave the environment as you found it.** Stop what you started, from its own
 directory:
@@ -99,6 +100,22 @@ docker compose -f compose.yaml -f compose.dev-gateway.yaml down
 ```
 
 Add `-v` only if the data is yours and you are sure.
+
+## Reaching databases: the order to try
+
+1. **`docker compose exec`** — already inside the project, nothing to set up.
+2. **`dev-gateway db psql` / `redis cli`** — a client inside the project's
+   network from anywhere on the host. Nothing published, nothing left behind.
+3. **`dev-gateway access open`** — only when a human needs a GUI. Close it.
+4. **`dev-gateway remote access open`** — for a VPS, over the VPN. Never open a
+   public port to make a remote database easier to reach.
+
+Never `ports: ["5432:5432"]`, not even temporarily, and never a database on
+`0.0.0.0`. Never stop another project's database to free 5432 — nothing is
+holding it, because nothing publishes it.
+
+Never reuse another workspace's volume. Two environments writing to one
+database corrupt each other silently.
 
 ## When a port seems to be in use
 
@@ -163,8 +180,10 @@ Always:
   `docker inspect <c> --format '{{ index .Config.Labels "com.docker.compose.project" }}'`
 - run `dev-gateway doctor` before improvising infrastructure
 - report URLs from `dev-gateway urls`, not `localhost:3000`
-- reach databases with `docker compose exec`, `dev-gateway db psql`, or
-  `dev-gateway access open` — never by publishing a port
+- reach databases in this order: `docker compose exec`, then
+  `dev-gateway db psql` / `redis cli`, then `dev-gateway access open` for a GUI,
+  then `dev-gateway remote access open` over the VPN for a VPS — never by
+  publishing a port, and never on `0.0.0.0`
 - stop only what you started, from its own directory
 
 If a port seems taken, that is the signal that something publishes a port it

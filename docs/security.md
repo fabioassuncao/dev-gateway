@@ -58,6 +58,22 @@ The shared `dev-gateway` network is the one place projects meet, and only
 HTTP-facing services join it. Anything on it is reachable by every other
 project on the host, which is exactly why a database does not belong there.
 
+## TCP access bridges
+
+A bridge is a hole into a project's private network, so it is kept small and
+short-lived. It binds `127.0.0.1` on a kernel-assigned port; binding anywhere
+else needs an explicit `--bind` and a confirmation, and `doctor` **fails** on a
+bridge bound beyond loopback.
+
+`dev-gateway service publish --public` on a datastore is refused outright, not
+warned about. Persistent forwarders join their project's network and the
+gateway's access network only — never the shared HTTP network, which `doctor`
+also enforces.
+
+`access close` and `access gc` re-check the ownership label on the code path
+that actually removes a container, rather than trusting the filter that found
+it.
+
 ## The dashboard
 
 Off by default. When enabled it is published on its own loopback-bound port and

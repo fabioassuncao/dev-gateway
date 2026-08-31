@@ -181,7 +181,7 @@ dev-gateway access open --project base-empresarial --service postgres
 # -> 127.0.0.1:55431
 ```
 
-Full details land with the TCP access tooling (`docs/tcp-access.md`).
+See [docs/tcp-access.md](docs/tcp-access.md).
 
 ## Commands
 
@@ -231,6 +231,11 @@ Details: **[docs/security.md](docs/security.md)**.
 | [remote-bootstrap.md](docs/remote-bootstrap.md) | Preparing a host over SSH |
 | [adopting-projects.md](docs/adopting-projects.md) | Adapting a project, with a checklist |
 | [monorepos.md](docs/monorepos.md) | Monorepos and worktrees |
+| [tcp-access.md](docs/tcp-access.md) | Why databases need a different mechanism |
+| [database-access.md](docs/database-access.md) | Reaching a database, by situation |
+| [redis-access.md](docs/redis-access.md) | Reaching Redis |
+| [remote-tunnels.md](docs/remote-tunnels.md) | Reaching a VPS's private services |
+| [tailscale-services.md](docs/tailscale-services.md) | A persistent private address |
 | [agent-guidelines.md](docs/agent-guidelines.md) | Rules for autonomous agents |
 | [templates/](templates/) | Overlay templates for the usual project shapes |
 | [security.md](docs/security.md) | Threat model and hardening |
