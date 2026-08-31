@@ -1,0 +1,34 @@
+# Local configuration (may contain secrets)
+.env
+.env.*
+!.env.example
+
+# Runtime state owned by the gateway (never commit)
+state/
+!state/.gitkeep
+
+# TLS material
+config/tls/*
+!config/tls/.gitkeep
+!config/tls/README.md
+
+# Secrets
+secrets/
+*.pem
+*.key
+*.crt
+*.p12
+acme.json
+tailscaled.state
+*.authkey
+
+# OS / editors
+.DS_Store
+._*
+.idea/
+.vscode/
+*.swp
+
+# Test artifacts
+tests/.tmp/
+tests/**/.env
