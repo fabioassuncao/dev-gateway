@@ -1,0 +1,63 @@
+# ============================================================================
+# demo-a — an ordinary project, unaware of the Dev Gateway
+# ============================================================================
+# This file is what a project looks like BEFORE adoption, and it keeps working
+# unchanged afterwards. Nothing here mentions Traefik or the shared network.
+#
+# Note what it does NOT do:
+#   * no `ports:` for web/api — they are reached through the gateway
+#   * no `ports:` for postgres/redis — see `dev-gateway access open`
+#   * no `container_name:` — that would make parallel copies collide
+#
+# Run it on its own:      docker compose up -d
+# Run it on the gateway:  docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+# ============================================================================
+
+name: ${COMPOSE_PROJECT_NAME:-demo-a}
+
+services:
+  # Internal port 3000 — deliberately the same port demo-b uses.
+  web:
+    image: traefik/whoami:v1.12.0
+    command: ["--port", "3000", "--name", "demo-a-web"]
+    restart: unless-stopped
+
+  # Internal port 8000 — again shared with demo-b on purpose.
+  api:
+    image: traefik/whoami:v1.12.0
+    command: ["--port", "8000", "--name", "demo-a-api"]
+    restart: unless-stopped
+
+  # Private services. They stay on the project's own network: the gateway has
+  # no route to them and never needs one.
+  postgres:
+    image: postgres:18.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: demo
+    volumes:
+      # PostgreSQL 18+ images store data in a major-version subdirectory and
+      # refuse to start when .../data is mounted directly. Mount the parent.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo -d demo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8.10.1-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
+  redisdata:

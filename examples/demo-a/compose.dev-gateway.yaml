@@ -1,0 +1,53 @@
+# ============================================================================
+# demo-a — Dev Gateway integration overlay
+# ============================================================================
+# The entire integration contract, in one file the project owns. It adds
+# nothing but networks and labels, so the project still runs without it.
+#
+#   docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+#
+# Hostnames are derived by the gateway from the labels Compose already injects:
+#   web -> <COMPOSE_PROJECT_NAME>-web.localhost
+#   api -> <COMPOSE_PROJECT_NAME>-api.localhost
+#
+# Two details worth copying verbatim:
+#
+# 1. Traefik service names share ONE namespace across every project on the
+#    host, so they carry the project name. Two projects declaring a bare `web`
+#    service would silently load-balance into each other. `dev-gateway doctor`
+#    reports that collision if it ever happens.
+#
+# 2. Labels use the LIST form. Compose interpolates `${VAR}` inside a list
+#    entry but NOT inside a mapping key: written as a map, the service name
+#    would stay the literal `${COMPOSE_PROJECT_NAME}` and every worktree of
+#    this project would collapse onto the same Traefik service.
+# ============================================================================
+
+services:
+  web:
+    networks:
+      - default        # keep talking to postgres/redis privately
+      - dev-gateway    # and accept traffic from the gateway
+    labels:
+      - "traefik.enable=true"
+      # The container sits on two networks; tell Traefik which one to dial.
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      # whoami's image EXPOSEs 80 but we run it on 3000, so state the port.
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-a}-web.loadbalancer.server.port=3000"
+
+  api:
+    networks:
+      - default
+      - dev-gateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-a}-api.loadbalancer.server.port=8000"
+
+  # postgres and redis are absent on purpose: private services never join the
+  # shared network. Reach them with `dev-gateway access open` instead.
+
+networks:
+  dev-gateway:
+    external: true
+    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}

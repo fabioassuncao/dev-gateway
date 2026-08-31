@@ -367,6 +367,42 @@ else
   check pass routes.collision "hostname collisions" "none" ""
 fi
 
+# Compose interpolates ${VAR} inside a label written in LIST form but not
+# inside a mapping key. A project that used the map form ships labels with a
+# literal ${...} in them, and every worktree of that project then collapses
+# onto one Traefik service. Cheap to detect, very confusing to debug.
+uninterpolated=""
+for cid in $(docker ps -q --filter "label=traefik.enable=true" 2>/dev/null); do
+  if docker inspect "$cid" --format '{{ range $k, $v := .Config.Labels }}{{ $k }}={{ $v }}{{ "\n" }}{{ end }}' 2>/dev/null \
+     | grep '^traefik\.' | grep -q '\${'; then
+    uninterpolated="$uninterpolated $(docker inspect "$cid" --format '{{ .Name }}' 2>/dev/null | sed 's#^/##')"
+  fi
+done
+if [ -n "$uninterpolated" ]; then
+  check fail labels.interpolation "Traefik label interpolation" \
+    "labels still contain a literal \${...}:$uninterpolated" \
+    "write those labels in list form (- \"key=value\"); Compose does not interpolate mapping keys"
+else
+  check pass labels.interpolation "Traefik label interpolation" "no literal \${...} in labels" ""
+fi
+
+# Traefik service names are one flat namespace for the whole host. Two
+# projects declaring the same name are merged into a single load balancer,
+# which silently sends one project's traffic to the other.
+svc_dupes=$(docker ps -q --filter "label=traefik.enable=true" 2>/dev/null | while read -r cid; do
+  proj=$(docker inspect "$cid" --format '{{ index .Config.Labels "com.docker.compose.project" }}' 2>/dev/null)
+  docker inspect "$cid" --format '{{ range $k, $v := .Config.Labels }}{{ $k }}{{ "\n" }}{{ end }}' 2>/dev/null \
+    | sed -n 's/^traefik\.http\.services\.\([^.]*\)\..*/\1/p' \
+    | sort -u | sed "s/^/$proj	/"
+done | awk -F'\t' '{print $2}' | sort | uniq -d)
+if [ -n "$svc_dupes" ]; then
+  check fail services.collision "Traefik service name collisions" \
+    "shared across projects: $(printf '%s' "$svc_dupes" | tr '\n' ' ')" \
+    "prefix each Traefik service name with the project namespace"
+else
+  check pass services.collision "Traefik service name collisions" "none" ""
+fi
+
 # A database or cache on the shared HTTP network is almost always a mistake.
 if dg_network_exists "$DEV_GATEWAY_NETWORK"; then
   risky=""

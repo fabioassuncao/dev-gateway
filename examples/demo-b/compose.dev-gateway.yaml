@@ -1,0 +1,34 @@
+# ============================================================================
+# demo-b — Dev Gateway integration overlay
+# ============================================================================
+# Identical in shape to demo-a's overlay. That is the point: the contract is
+# the same for every project, whatever runs inside it.
+#
+# Labels use the LIST form because Compose interpolates `${VAR}` inside a list
+# entry but not inside a mapping key.
+# ============================================================================
+
+services:
+  web:
+    networks:
+      - default
+      - dev-gateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      # nginx listens on 3000 here while the image EXPOSEs 80.
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-b}-web.loadbalancer.server.port=3000"
+
+  api:
+    networks:
+      - default
+      - dev-gateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-b}-api.loadbalancer.server.port=8000"
+
+networks:
+  dev-gateway:
+    external: true
+    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}
