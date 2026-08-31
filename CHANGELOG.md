@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 While the version is `0.x`, minor releases may contain breaking changes.
 
+## [0.1.1] — 2026-08-31
+
+### Fixed
+
+- **`analyze` aborted halfway through its report on any host without `lsof`.**
+  `dg_analyze_port_holder` returned the exit status of its last probe, so
+  "nothing holds this port" came back as a failure; under `set -e` that killed
+  the assignment and the rest of the report with it. It passed on macOS, where
+  `lsof` is always present, and failed on Linux. The helper now always succeeds,
+  also understands `ss`, and has a regression test that runs it with an empty
+  `PATH`.
+- The `*.localhost` resolution check demanded `127.0.0.1`. RFC 6761 requires
+  loopback, and systemd-resolved answers `::1` — equally correct.
+- The audit suite matched its own text, since it contains every forbidden
+  pattern as a search string.
+- `bootstrap` now tightens `.env` to `0600` when it is looser. The documented
+  quick start, `cp .env.example .env`, inherits the umask and immediately
+  tripped `doctor`'s own permission check.
+
+### Changed
+
+- CI uses `actions/checkout@v5`; v4 runs on a deprecated Node runtime.
+
+`v0.1.0` is tagged but was never green on Linux. Use `v0.1.1`.
+
 ## [0.1.0] — 2026-08-31
 
 First release. Experimental, and the "Not verified" section below is part of
