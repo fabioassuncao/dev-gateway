@@ -1,0 +1,125 @@
+# Configuration
+
+Everything lives in `.env` at the repository root, copied from
+`.env.example`. It is git-ignored and may hold secrets, so `bootstrap` creates
+it `chmod 600` and `doctor` warns if it becomes group- or world-readable.
+
+Precedence follows Compose: **shell environment > `.env` > built-in defaults**.
+Every value has a default, so an empty `.env` still yields a working local
+gateway.
+
+```bash
+dev-gateway inspect     # what the CLI actually resolved (secrets shown as <set>)
+```
+
+## Common
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DEV_GATEWAY_PROFILE` | `local` | Default profile for `up` |
+| `DEV_GATEWAY_PROJECT_NAME` | `dev-gateway` | Compose project name of the gateway itself |
+| `DEV_GATEWAY_NETWORK` | `dev-gateway` | Shared external network |
+| `DEV_GATEWAY_CONTROL_NETWORK` | `dev-gateway-control` | Internal Traefik ↔ socket proxy network |
+| `DEV_GATEWAY_ACCESS_NETWORK` | `dev-gateway-access` | Network for persistent TCP forwarders |
+| `DEV_GATEWAY_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN`, `ERROR` |
+| `DEV_GATEWAY_ACCESS_LOG` | `false` | Traefik access logs — useful when a route misbehaves |
+
+`DEV_GATEWAY_PROJECT_NAME` is load-bearing: ownership checks use it to tell
+gateway containers from everything else. Changing it orphans the running stack.
+
+## Local profile
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DEV_GATEWAY_DOMAIN` | `localhost` | Base domain for generated hostnames |
+| `DEV_GATEWAY_BIND_ADDRESS` | `127.0.0.1` | Host interface Traefik publishes on |
+| `DEV_GATEWAY_HTTP_PORT` | `80` | Host port for HTTP |
+| `DEV_GATEWAY_HTTPS_PORT` | `443` | Host port for HTTPS |
+
+`DEV_GATEWAY_BIND_ADDRESS` is the single most security-relevant setting here.
+Loopback keeps the gateway invisible to everyone else on your network;
+`doctor` fails if the local profile is bound to anything else.
+
+If 80 is already taken, changing `DEV_GATEWAY_HTTP_PORT` to, say, `8080` means
+URLs become `http://demo-a-web.localhost:8080`.
+
+## Header aliasing
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DEV_GATEWAY_ALIAS_HEADERS_STRATEGY` | `keep` | `keep`, `delete` or `reject` |
+
+Headers whose names contain characters outside `[A-Za-z0-9-]` can alias a
+canonical header once a backend normalises them — `X_Auth_User` becoming
+`X-Auth-User` in CGI, WSGI, PHP or nginx — which lets a client spoof headers
+Traefik manages.
+
+`keep` is Traefik's default and is fine behind loopback or a VPN. `delete`
+strips them, but also strips *legitimate* underscore headers, which can break
+an app in a confusing way — so it is opt-in locally and applied automatically
+by the public profile.
+
+## Dashboard
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DEV_GATEWAY_DASHBOARD` | `false` | Enable Traefik's dashboard |
+| `DEV_GATEWAY_DASHBOARD_BIND_ADDRESS` | `127.0.0.1` | Interface for the dashboard port |
+| `DEV_GATEWAY_DASHBOARD_PORT` | `8080` | Host port |
+
+The dashboard exposes your full routing table. It is served on its own port,
+never through the `web`/`websecure` entrypoints, so it can never appear under
+the public wildcard domain. `doctor` fails if it is enabled on a non-loopback
+address.
+
+## TLS
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `TLS_ENABLED` | `false` | Master switch for HTTPS |
+| `TLS_MODE` | `local` | `local` (local CA) or `acme` (Let's Encrypt) |
+| `ACME_EMAIL` | — | Required when `TLS_MODE=acme` |
+| `ACME_CA_SERVER` | production LE | Point at staging while testing |
+| `ACME_DNS_PROVIDER` | `cloudflare` | lego provider name for DNS-01 |
+| `ACME_DNS_RESOLVERS` | `1.1.1.1:53,8.8.8.8:53` | Propagation checks |
+
+Wildcard certificates require DNS-01; HTTP-01 cannot issue them. Use
+`ACME_CA_SERVER` with the staging endpoint while you get DNS working —
+Let's Encrypt rate limits are unforgiving.
+
+## Private access
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `TAILSCALE_ENABLED` | `false` | Run the Tailscale component |
+| `TAILSCALE_HOSTNAME` | `dev-gateway` | Node name on the tailnet |
+| `TS_AUTHKEY` | — | **Secret.** Prefer an ephemeral, tagged, pre-authorized key |
+| `TS_EXTRA_ARGS` | — | Extra flags for `tailscale up` |
+| `PRIVATE_DOMAIN` | — | Wildcard namespace served over the VPN |
+
+## Public access
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PUBLIC_ENABLED` | `false` | Opt in to internet exposure |
+| `PUBLIC_DOMAIN` | — | Public wildcard, e.g. `dev.example.com` |
+
+Off by default and deliberately awkward to turn on. `dev-gateway public enable`
+prints exactly what will become reachable and asks for confirmation.
+
+## Cloudflare
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `CLOUDFLARE_ENABLED` | `false` | Use Cloudflare for DNS-01 |
+| `CF_DNS_API_TOKEN` | — | **Secret.** Scoped API Token |
+| `CLOUDFLARE_ZONE` | — | Target zone |
+
+Use a scoped token with `Zone:DNS:Edit` on the one zone. Never the Global API
+Key — it authenticates everything in the account and cannot be scoped.
+
+## Secrets
+
+`.env` is git-ignored, `bootstrap` writes it `0600`, `inspect` prints `<set>`
+rather than values, and lint fails on tracked auth keys or private keys. Gateway
+state — including ACME material — lives under `state/`, which is also ignored.

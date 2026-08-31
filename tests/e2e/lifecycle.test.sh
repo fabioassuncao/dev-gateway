@@ -25,7 +25,17 @@ down_demo() {
   ( cd "$DG_ROOT/examples/$1" && COMPOSE_PROJECT_NAME="$1" docker compose \
       -f compose.yaml -f compose.dev-gateway.yaml down -v ) >/dev/null 2>&1
 }
-http_code() { curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$1"; }
+# http_code <url> — resolves the hostname to the gateway's bind address
+# explicitly. Routing and name resolution are separate concerns: `doctor`
+# checks that *.localhost resolves, and these suites check that Traefik routes,
+# so they keep working on hosts and CI runners whose resolver does not
+# implement RFC 6761 for localhost subdomains.
+http_code() {
+  local url="$1" host
+  host=$(printf '%s' "$url" | sed -e 's#^https\{0,1\}://##' -e 's#[:/].*$##')
+  curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+    --resolve "${host}:${DEV_GATEWAY_HTTP_PORT}:${DEV_GATEWAY_BIND_ADDRESS}" "$url"
+}
 
 # wait_for_route <url> <expected> — Traefik rediscovers asynchronously.
 wait_for_route() {

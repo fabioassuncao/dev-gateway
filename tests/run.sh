@@ -86,6 +86,9 @@ if [ "$RUN_LINT" = "1" ]; then
     echo "  ok  every image pins an explicit version"
   fi
 
+  bold "== documentation links =="
+  ./tests/lint-links.sh || FAILED=1
+
   bold "== no secrets committed =="
   leaked=$(git ls-files -z 2>/dev/null | xargs -0 grep -lE \
     'tskey-(auth|client)-[A-Za-z0-9]|-----BEGIN [A-Z ]*PRIVATE KEY-----' 2>/dev/null || true)

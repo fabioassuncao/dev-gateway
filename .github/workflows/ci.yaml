@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Two projects sharing one host is the whole point; two CI runs sharing one
+# runner is not. Cancel superseded runs instead.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint and unit tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Lint and unit tests
+        run: ./tests/run.sh
+
+  e2e:
+    name: End-to-end (Linux)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show runtime versions
+        run: |
+          docker version --format 'engine {{.Server.Version}}'
+          docker compose version
+
+      - name: Bootstrap the gateway
+        run: |
+          cp .env.example .env
+          ./bin/dev-gateway bootstrap --yes
+
+      - name: Start the gateway
+        run: ./bin/dev-gateway up local
+
+      - name: Doctor
+        run: ./bin/dev-gateway doctor
+
+      - name: End-to-end suites
+        run: ./tests/run.sh --e2e
+
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          ./bin/dev-gateway status || true
+          ./bin/dev-gateway doctor --json || true
+          docker ps -a
+          docker logs dev-gateway-traefik-1 --tail 100 || true
+          docker logs dev-gateway-socket-proxy-1 --tail 50 || true
+
+      - name: Tear down
+        if: always()
+        run: ./bin/dev-gateway down || true
+
+  exposure:
+    name: Exposure regression checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bring up the default local profile
+        run: |
+          cp .env.example .env
+          ./bin/dev-gateway bootstrap --yes --skip-pull
+          ./bin/dev-gateway up local
+
+      # A default install must never put the Docker API, the dashboard or a
+      # datastore on a public interface. This job exists to make that a
+      # build-breaking regression rather than something noticed in production.
+      - name: Nothing sensitive is bound to 0.0.0.0
+        run: |
+          set -euo pipefail
+          bad=$(docker ps --format '{{.Names}} {{.Ports}}' | grep '0.0.0.0' || true)
+          if [ -n "$bad" ]; then
+            echo "unexpected public bind in the default profile:"; echo "$bad"; exit 1
+          fi
+          echo "ok: no container publishes on 0.0.0.0 by default"
+
+      - name: The socket proxy publishes no host port
+        run: |
+          set -euo pipefail
+          ports=$(docker inspect dev-gateway-socket-proxy-1 \
+            --format '{{ range $p, $c := .NetworkSettings.Ports }}{{ range $c }}{{ .HostIp }}:{{ .HostPort }} {{ end }}{{ end }}')
+          [ -z "$ports" ] || { echo "socket proxy is published: $ports"; exit 1; }
+          echo "ok: socket proxy is unreachable from the host"
+
+      - name: The control network is internal
+        run: |
+          set -euo pipefail
+          [ "$(docker network inspect dev-gateway-control --format '{{ .Internal }}')" = "true" ] \
+            || { echo "control network is not internal"; exit 1; }
+          echo "ok: control network is internal"
+
+      - name: Doctor agrees
+        run: ./bin/dev-gateway doctor

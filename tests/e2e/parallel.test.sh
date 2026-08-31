@@ -35,7 +35,17 @@ down_env() {
          -f compose.yaml -f compose.dev-gateway.yaml down -v ) >/dev/null 2>&1
 }
 
-http_code() { curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$1"; }
+# http_code <url> — resolves the hostname to the gateway's bind address
+# explicitly. Routing and name resolution are separate concerns: `doctor`
+# checks that *.localhost resolves, and these suites check that Traefik routes,
+# so they keep working on hosts and CI runners whose resolver does not
+# implement RFC 6761 for localhost subdomains.
+http_code() {
+  local url="$1" host
+  host=$(printf '%s' "$url" | sed -e 's#^https\{0,1\}://##' -e 's#[:/].*$##')
+  curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+    --resolve "${host}:${DEV_GATEWAY_HTTP_PORT}:${DEV_GATEWAY_BIND_ADDRESS}" "$url"
+}
 
 cleanup() {
   for ns in $ENVS; do down_env "$ns" demo-a; done
@@ -60,6 +70,14 @@ for ns in $ENVS demo-b; do
   it "$ns web answers"; assert_eq "200" "$(http_code "http://${ns}-web.localhost/")"
   it "$ns api answers"; assert_eq "200" "$(http_code "http://${ns}-api.localhost/")"
 done
+
+describe "*.localhost resolves to loopback (RFC 6761)"
+it "the resolver maps a localhost subdomain to loopback"
+if resolved=$(getent hosts demo-a-web.localhost 2>/dev/null || ping -c1 -W1 demo-a-web.localhost 2>/dev/null); then
+  assert_contains "$resolved" "127.0.0.1"
+else
+  skip "this resolver does not implement RFC 6761 for localhost subdomains"
+fi
 
 describe "no environment publishes a host port"
 published=$(docker ps --format '{{.Names}} {{.Ports}}' \
