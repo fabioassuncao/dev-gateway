@@ -14,6 +14,7 @@ dg_cmd_remote() {
     doctor) dg_remote_run_gateway doctor "$@" ;;
     urls) dg_remote_run_gateway urls "$@" ;;
     exec) dg_remote_exec "$@" ;;
+    access) dg_cmd_remote_access "$@" ;;
     ''|-h|--help|help)
       cat >&2 <<'DG_HELP'
 dev-gateway remote — operate a gateway on another host over SSH
@@ -23,6 +24,8 @@ dev-gateway remote — operate a gateway on another host over SSH
   remote doctor <user@host>              Run `dev-gateway doctor` there
   remote urls <user@host>                Run `dev-gateway urls` there
   remote exec <user@host> -- <command>   Run an arbitrary command there
+  remote access open <user@host> --project <p> --service <s>
+                                        Tunnel to a remote private TCP service
 
 Flags for bootstrap:
   --profile <name>     Profile to configure (default: remote-private)

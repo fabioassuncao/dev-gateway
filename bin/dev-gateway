@@ -16,6 +16,8 @@ DG_BIN_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 . "$DG_BIN_DIR/../scripts/lib/docker.sh"
 # shellcheck source=../scripts/lib/toolbox.sh
 . "$DG_BIN_DIR/../scripts/lib/toolbox.sh"
+# shellcheck source=../scripts/lib/discovery.sh
+. "$DG_BIN_DIR/../scripts/lib/discovery.sh"
 
 # Subcommand groups live in their own files to keep this dispatcher readable.
 for _dg_cmd_file in "$DG_BIN_DIR"/../scripts/cmd/*.sh; do
@@ -54,6 +56,14 @@ CORE
   inspect                Print the resolved configuration and compose files
   update                 Pull the pinned component images and recreate
   version                Print the gateway version
+
+TCP SERVICES (databases, caches, queues)
+  services               Every service of every running project, and how to reach it
+  access open            Open a loopback bridge to a private TCP service
+  access list|close|gc   Manage those bridges
+  db psql | redis cli    Run a client inside the project's own network
+  db open | redis open   Open a bridge for a GUI client
+  service publish        Give a TCP service a persistent private address
 
 NETWORK AND EXPOSURE
   network status         Interfaces, binds, listeners and what is reachable
@@ -443,6 +453,11 @@ main() {
     analyze|analyse) dg_cmd_analyze "$@" ;;
     init|adapt) dg_cmd_init "$@" ;;
     namespace|ns) dg_cmd_namespace "$@" ;;
+    access) dg_cmd_access "$@" ;;
+    services) dg_cmd_services "$@" ;;
+    db) dg_cmd_db "$@" ;;
+    redis) dg_cmd_redis "$@" ;;
+    service) dg_cmd_service "$@" ;;
     *)
       err "unknown command: $cmd"
       hint "run 'dev-gateway --help' for the command list"

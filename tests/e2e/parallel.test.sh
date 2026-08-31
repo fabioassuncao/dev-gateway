@@ -112,6 +112,21 @@ shared=$(docker network inspect "$DEV_GATEWAY_NETWORK" \
 it "no postgres on the gateway network"; assert_not_contains "$shared" "postgres"
 it "no redis on the gateway network";    assert_not_contains "$shared" "redis"
 
+describe "nothing is routed without opting in"
+# A container on the shared network with no traefik.enable=true must stay
+# invisible: exposedByDefault=false is the difference between a gateway and an
+# accident.
+docker run -d --rm --name dg-optin-probe --network "$DEV_GATEWAY_NETWORK" \
+  --label com.docker.compose.project=optin-probe \
+  --label com.docker.compose.service=web \
+  traefik/whoami:v1.12.0 --port 3000 >/dev/null 2>&1
+sleep 3
+it "a container without traefik.enable is not routed"
+assert_ne "200" "$(http_code "http://optin-probe-web.$DEV_GATEWAY_DOMAIN/")"
+it "and urls does not list it"
+assert_not_contains "$("$GW" urls 2>/dev/null)" "optin-probe"
+docker stop dg-optin-probe >/dev/null 2>&1
+
 describe "the gateway reports what it is serving"
 urls=$("$GW" urls 2>/dev/null)
 for ns in $ENVS demo-b; do

@@ -17,6 +17,8 @@ DG_SCRIPT_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 . "$DG_SCRIPT_DIR/lib/docker.sh"
 # shellcheck source=lib/toolbox.sh
 . "$DG_SCRIPT_DIR/lib/toolbox.sh"
+# shellcheck source=lib/discovery.sh
+. "$DG_SCRIPT_DIR/lib/discovery.sh"
 
 dg_load_env
 dg_defaults
@@ -492,6 +494,65 @@ if dg_network_exists "$DEV_GATEWAY_NETWORK"; then
   else
     check pass network.datastores "datastores on the shared network" "none" ""
   fi
+fi
+
+# ---------------------------------------------------------------------------
+# TCP access
+# ---------------------------------------------------------------------------
+
+bridges=$(docker ps -q --filter "label=dev-gateway.component=access-bridge" 2>/dev/null)
+bridge_count=$(printf '%s' "$bridges" | grep -c . || true)
+check pass access.bridges "open access bridges" "$bridge_count" ""
+
+# A bridge is a hole into a project's private network. It must stay on
+# loopback, or the database it fronts is on the local network.
+bad_binds=""
+for cid in $bridges; do
+  bind=$(docker inspect "$cid" \
+    --format '{{ range $p, $c := .NetworkSettings.Ports }}{{ range $c }}{{ .HostIp }} {{ end }}{{ end }}' 2>/dev/null)
+  case "$bind" in
+    *0.0.0.0*|*"::"*)
+      bad_binds="$bad_binds $(dg_access_label "$cid" id)" ;;
+  esac
+done
+if [ -n "$bad_binds" ]; then
+  check fail access.binds "access bridge binds" "bound beyond loopback:$bad_binds" \
+    "close them and reopen without --bind, or with --bind 127.0.0.1"
+else
+  check pass access.binds "access bridge binds" "loopback only" ""
+fi
+
+# A bridge whose target is gone forwards nowhere and should be collected.
+stale=""
+for cid in $bridges; do
+  bproj=$(dg_access_label "$cid" project)
+  bsvc=$(dg_access_label "$cid" service)
+  [ -n "$(dg_find_container "$bproj" "$bsvc")" ] || stale="$stale $(dg_access_label "$cid" id)"
+done
+if [ -n "$stale" ]; then
+  check warn access.stale "stale access bridges" "target gone:$stale" \
+    "dev-gateway access gc"
+else
+  check pass access.stale "stale access bridges" "none" ""
+fi
+
+# A forwarder on the shared HTTP network would make a database reachable by
+# every project on the host, which is exactly what the access network avoids.
+forwarders=$(docker ps -q --filter "label=dev-gateway.component=access-forwarder" 2>/dev/null)
+leaky=""
+for cid in $forwarders; do
+  if docker inspect "$cid" --format '{{ range $k, $v := .NetworkSettings.Networks }}{{ $k }} {{ end }}' 2>/dev/null \
+     | tr ' ' '\n' | grep -qx "$DEV_GATEWAY_NETWORK"; then
+    leaky="$leaky $(docker inspect "$cid" --format '{{ index .Config.Labels "dev-gateway.forward.alias" }}')"
+  fi
+done
+if [ -n "$leaky" ]; then
+  check fail access.forwarder.network "published forwarders" \
+    "attached to the shared HTTP network:$leaky" \
+    "a forwarder belongs on the project network and $DEV_GATEWAY_ACCESS_NETWORK only"
+else
+  check pass access.forwarder.network "published forwarders" \
+    "$(printf '%s' "$forwarders" | grep -c . || true) on the access network only" ""
 fi
 
 # ---------------------------------------------------------------------------
