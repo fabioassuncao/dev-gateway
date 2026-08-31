@@ -15,6 +15,8 @@ DG_SCRIPT_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 . "$DG_SCRIPT_DIR/lib/common.sh"
 # shellcheck source=lib/docker.sh
 . "$DG_SCRIPT_DIR/lib/docker.sh"
+# shellcheck source=lib/toolbox.sh
+. "$DG_SCRIPT_DIR/lib/toolbox.sh"
 
 dg_load_env
 dg_defaults
@@ -283,6 +285,65 @@ for cid in $(docker ps -q --filter "label=dev-gateway.managed=true" 2>/dev/null)
 done
 
 # ---------------------------------------------------------------------------
+# Tailscale
+# ---------------------------------------------------------------------------
+
+attachment=$(dg_attachment "$DEV_GATEWAY_PROFILE")
+check pass config.attachment "traefik attachment" "$attachment" ""
+
+if [ "$attachment" = "tailscale" ]; then
+  ts_id=$(dg_gateway_container tailscale)
+  if [ -n "$ts_id" ]; then
+    ts_state=$(dg_container_state "$ts_id")
+    ts_health=$(dg_container_health "$ts_id")
+    if [ "$ts_state" = "running" ] && [ "$ts_health" = "healthy" ]; then
+      ts_ip=$(docker exec "$ts_id" tailscale ip -4 2>/dev/null | head -1)
+      if [ -n "$ts_ip" ]; then
+        check pass tailscale.state "tailscale" "connected as $ts_ip" ""
+      else
+        check fail tailscale.state "tailscale" "running but has no tailnet address" \
+          "check TS_AUTHKEY and the tailnet's device approval settings"
+      fi
+    else
+      check fail tailscale.state "tailscale" "state=$ts_state health=$ts_health" \
+        "dev-gateway logs tailscale"
+    fi
+
+    # Traefik must actually be inside that namespace, or the gateway is not
+    # on the tailnet at all and nothing is reachable.
+    if [ -n "$traefik_id" ]; then
+      tnetmode=$(docker inspect "$traefik_id" --format '{{ .HostConfig.NetworkMode }}' 2>/dev/null)
+      case "$tnetmode" in
+        container:*)
+          check pass tailscale.netns "traefik network namespace" "shared with tailscale" "" ;;
+        *)
+          check fail tailscale.netns "traefik network namespace" "traefik is not in the tailscale namespace ($tnetmode)" \
+            "dev-gateway up $DEV_GATEWAY_PROFILE" ;;
+      esac
+    fi
+
+    # State has to survive a restart or the node identity churns.
+    if [ -d "$DG_STATE_DIR/tailscale" ]; then
+      check pass tailscale.state.dir "tailscale state" "persisted under state/tailscale" ""
+    else
+      check warn tailscale.state.dir "tailscale state" "state directory missing" \
+        "dev-gateway bootstrap"
+    fi
+  else
+    check warn tailscale.state "tailscale" "container not created" \
+      "dev-gateway up $DEV_GATEWAY_PROFILE"
+  fi
+
+  if [ -z "${TS_AUTHKEY:-}" ] && [ ! -f "$DG_STATE_DIR/tailscale/tailscaled.state" ]; then
+    check fail tailscale.authkey "tailscale auth" "no TS_AUTHKEY and no persisted state" \
+      "set TS_AUTHKEY in .env — prefer an ephemeral, tagged, pre-authorized key"
+  else
+    check pass tailscale.authkey "tailscale auth" \
+      "$([ -n "${TS_AUTHKEY:-}" ] && printf 'auth key set' || printf 'using persisted state')" ""
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Dashboard
 # ---------------------------------------------------------------------------
 
@@ -316,6 +377,16 @@ case "$DEV_GATEWAY_DOMAIN" in
     ;;
   *)
     check pass dns.domain "domain" "$DEV_GATEWAY_DOMAIN" ""
+    # A name that can only match the wildcard, so a stray apex A record cannot
+    # make a broken wildcard look healthy.
+    probe_host="dev-gateway-probe.$DEV_GATEWAY_DOMAIN"
+    resolved=$(dg_dig +short "$probe_host" A 2>/dev/null | grep -E '^[0-9]+\.' | head -1)
+    if [ -n "$resolved" ]; then
+      check pass dns.wildcard "wildcard DNS" "*.$DEV_GATEWAY_DOMAIN -> $resolved" ""
+    else
+      check fail dns.wildcard "wildcard DNS" "*.$DEV_GATEWAY_DOMAIN does not resolve" \
+        "dev-gateway dns setup"
+    fi
     ;;
 esac
 

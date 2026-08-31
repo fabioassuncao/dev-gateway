@@ -101,6 +101,9 @@ are normalised before being interpolated anywhere.
 
 ## What is not protected
 
+- **Firewall.** Docker's published ports bypass UFW, so the bind address is
+  the boundary the gateway actually relies on. See
+  [firewall.md](firewall.md).
 - **Authentication.** There is no built-in identity layer. Anything routed is
   reachable by anyone who can reach the gateway. Use the VPN profile for
   anything that matters.

@@ -55,14 +55,20 @@ if [ "$RUN_LINT" = "1" ]; then
 
   bold "== compose validation =="
   if docker compose version >/dev/null 2>&1; then
-    # Only profiles whose overlay files exist in this version.
-    PROFILES_TO_VALIDATE="local"
-    for profile in $PROFILES_TO_VALIDATE; do
-      if ./bin/dev-gateway --profile "$profile" inspect >/dev/null 2>&1 \
-         && docker compose -f compose.yaml -f "compose.$profile.yaml" config --quiet; then
-        echo "  ok  profile '$profile' config is valid"
+    # Every profile is rendered and asserted in tests/unit/profiles.test.sh;
+    # here we only check that each compose file is individually parseable, so
+    # a syntax error is reported against the file that has it.
+    # Some overlays are fragments that only make sense on top of another one
+    # (the dashboard variant extends the Tailscale attachment), so try the
+    # progressively larger combinations before calling a file broken.
+    for f in compose*.yaml; do
+      if docker compose -f "$f" config --quiet >/dev/null 2>&1 \
+         || docker compose -f compose.yaml -f "$f" config --quiet >/dev/null 2>&1 \
+         || TS_AUTHKEY=x docker compose -f compose.yaml -f compose.attach-tailscale.yaml \
+              -f "$f" config --quiet >/dev/null 2>&1; then
+        echo "  ok  $f parses"
       else
-        echo "  FAIL profile '$profile' config is invalid"; FAILED=1
+        echo "  FAIL $f does not parse"; FAILED=1
       fi
     done
     for d in examples/demo-a examples/demo-b; do

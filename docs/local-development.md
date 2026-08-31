@@ -96,7 +96,7 @@ Plain HTTP works with no setup, and for most local work that is the right
 choice. HTTPS is worth enabling when you need Secure cookies, service workers,
 or anything else gated behind a secure context.
 
-It is opt-in and never required.
+It is opt-in and never required — see [dns-and-tls.md](dns-and-tls.md).
 
 ## If port 80 is taken
 

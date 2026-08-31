@@ -1,0 +1,78 @@
+# Cloudflare (optional)
+
+Cloudflare is the **reference** DNS provider, not a requirement. Everything the
+gateway does works with any provider; Cloudflare just gets automation.
+
+## Token, never the Global API Key
+
+Create a scoped API Token:
+
+1. Cloudflare dashboard → My Profile → API Tokens → Create Token
+2. Start from *Edit zone DNS*
+3. Permissions: **Zone → DNS → Edit**
+4. Zone Resources: **Include → Specific zone → your zone**
+5. Optionally restrict by client IP and set an expiry
+
+```env
+CLOUDFLARE_ENABLED=true
+CF_DNS_API_TOKEN=...
+CLOUDFLARE_ZONE=example.com
+```
+
+The Global API Key authenticates **everything in your account**, cannot be
+scoped, and cannot be rotated without breaking every other use. It is never a
+recommendation here.
+
+The token is sent only in an `Authorization` header, never on a command line
+where `ps` would show it, never printed, and never logged. `dev-gateway
+inspect` shows `<set>` or `<unset>`.
+
+## What it is used for
+
+**DNS-01 certificate challenges.** Traefik passes `CF_DNS_API_TOKEN` to lego,
+which creates and removes a TXT record during issuance. This is the part that
+makes wildcard certificates possible.
+
+**Wildcard record management**, through `dev-gateway dns`:
+
+```bash
+dev-gateway dns status         # configuration and current records
+dev-gateway dns check          # does the wildcard point here?
+dev-gateway dns setup          # show the change that is needed
+dev-gateway dns setup --apply  # make it, after confirming
+```
+
+`setup` never writes without `--apply`, and asks before changing an existing
+record.
+
+## Keep the record DNS-only
+
+Records the gateway creates use `proxied: false`, and yours should too.
+
+Cloudflare's proxy terminates TLS and re-originates the connection. That breaks
+the private profile completely — the record points at a tailnet address
+Cloudflare cannot reach — and for the public profile it means Cloudflare, not
+Traefik, decides what your certificate is.
+
+Turn the orange cloud off for `*.dev.example.com`.
+
+## Without Cloudflare
+
+Leave `CLOUDFLARE_ENABLED=false`. `dns setup` then prints the record for you to
+create by hand, and `dns check` still verifies it.
+
+For certificates, set `ACME_DNS_PROVIDER` to your provider's lego name and pass
+its credentials to Traefik as environment variables — the `CF_DNS_API_TOKEN`
+line in `compose.remote.yaml` is the template to copy.
+
+## Troubleshooting
+
+**"Cloudflare did not return a zone named ..."** — the token lacks access to
+that zone, or `CLOUDFLARE_ZONE` is the domain rather than the zone (for
+`dev.example.com` the zone is usually `example.com`).
+
+**Certificates fail while `dns check` passes** — the token needs
+`Zone:DNS:Edit`, not just `Zone:DNS:Read`. Issuance writes a TXT record.
+
+**The record exists but nothing connects** — it is probably proxied. Turn the
+orange cloud off.

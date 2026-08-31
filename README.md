@@ -222,6 +222,13 @@ Details: **[docs/security.md](docs/security.md)**.
 | [networking.md](docs/networking.md) | Networks, ports, and what talks to what |
 | [configuration.md](docs/configuration.md) | Every setting in `.env` |
 | [local-development.md](docs/local-development.md) | macOS and Linux workstations |
+| [remote-development.md](docs/remote-development.md) | Running on a VPS |
+| [tailscale.md](docs/tailscale.md) | VPN-only access |
+| [dns-and-tls.md](docs/dns-and-tls.md) | Wildcard DNS and certificates |
+| [public-access.md](docs/public-access.md) | Opting in to internet exposure |
+| [cloudflare.md](docs/cloudflare.md) | Optional DNS automation |
+| [firewall.md](docs/firewall.md) | Minimal rules, and why Docker bypasses UFW |
+| [remote-bootstrap.md](docs/remote-bootstrap.md) | Preparing a host over SSH |
 | [adopting-projects.md](docs/adopting-projects.md) | Adapting a project, with a checklist |
 | [security.md](docs/security.md) | Threat model and hardening |
 | [troubleshooting.md](docs/troubleshooting.md) | When something does not route |

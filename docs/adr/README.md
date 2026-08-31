@@ -11,3 +11,4 @@ context, the decision, and what it costs us.
 | [0004](0004-pinned-versions.md) | Every component image pins an explicit version | Accepted |
 | [0005](0005-hostname-convention.md) | Hostnames are derived from the labels Compose already injects | Accepted |
 | [0006](0006-compose-project-name-as-namespace.md) | `COMPOSE_PROJECT_NAME` is the namespace for parallel environments | Accepted |
+| [0007](0007-tailscale-sidecar.md) | Traefik runs inside the Tailscale container's network namespace | Accepted |
