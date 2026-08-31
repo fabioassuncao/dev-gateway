@@ -3,6 +3,12 @@
 Run every project you work on at the same time, on the same machine, without
 ever renumbering a port or killing somebody else's containers.
 
+> A technical arrangement I am experimenting with to organise my own
+> development flow across several containerised projects, locally and on a
+> VPS. It is not a product, and it is shaped around one person's habits. The
+> repository is public because there is no reason for it not to be — if it
+> fits how you work, help yourself.
+
 ```
 $ dev-gateway urls
 PROJECT                      SERVICE        URL
@@ -255,6 +261,10 @@ and ACME paths need real credentials and are **not** exercised automatically.
 
 See [compatibility.md](docs/compatibility.md) for what is verified where, and
 [CHANGELOG.md](CHANGELOG.md) for the release notes.
+
+Since this is a personal tool kept in the open, it changes when my own workflow
+needs it to, and comes with no support promise. Issues and pull requests are
+welcome; so is forking it and taking it somewhere else entirely.
 
 ## License
 
