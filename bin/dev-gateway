@@ -72,6 +72,11 @@ REMOTE HOSTS
   remote status|doctor|urls <user@host>
   remote exec <user@host> -- <command>
 
+ADOPTING A PROJECT
+  analyze <path>         Read-only report on how a project would adopt the gateway
+  init <path>            Generate the integration overlay (asks before writing)
+  namespace              Derive a COMPOSE_PROJECT_NAME for this worktree
+
 TOOLBOX
   toolbox build          Build the container holding curl, jq, dig, psql, ...
   toolbox run -- <cmd>   Run a command inside it
@@ -435,6 +440,9 @@ main() {
     dns) dg_cmd_dns "$@" ;;
     tls) dg_cmd_tls "$@" ;;
     remote) dg_cmd_remote "$@" ;;
+    analyze|analyse) dg_cmd_analyze "$@" ;;
+    init|adapt) dg_cmd_init "$@" ;;
+    namespace|ns) dg_cmd_namespace "$@" ;;
     *)
       err "unknown command: $cmd"
       hint "run 'dev-gateway --help' for the command list"
