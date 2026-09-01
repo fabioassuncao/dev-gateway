@@ -12,6 +12,7 @@ import { apiDocsHtml } from './openapi-docs.ts'
 export type ApiTag =
   | 'Status'
   | 'Projects'
+  | 'Workspaces'
   | 'Services'
   | 'Docker'
   | 'Network'
@@ -163,6 +164,7 @@ export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
     tags: [
       { name: 'Status', description: 'Liveness and overview.' },
       { name: 'Projects', description: 'Compose projects adopted by the gateway.' },
+      { name: 'Workspaces', description: 'Groupings a person created: repositories and the environments they own.' },
       { name: 'Services', description: 'Containers belonging to adopted projects.' },
       { name: 'Docker', description: 'Bounded host inventory and lifecycle operations.' },
       { name: 'Network', description: 'Routes, networks, DNS, TLS and VPN state.' },

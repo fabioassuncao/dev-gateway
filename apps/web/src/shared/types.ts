@@ -179,6 +179,73 @@ export const Project = named(
 )
 export type Project = z.infer<typeof Project>
 
+/**
+ * A workspace is what a person decided; a `Project` is what this host is
+ * running. Keeping both words is the point: `GET /api/projects` still answers
+ * exactly what it answered before.
+ */
+export const AdoptionSource = named(
+  z.enum(['manual', 'label', 'repo-match']).describe('Why this environment belongs to this workspace'),
+  'AdoptionSource',
+)
+export type AdoptionSource = z.infer<typeof AdoptionSource>
+
+export const WorkspaceRepository = named(
+  z.object({
+    repositoryId: z.string(),
+    fullName: z.string(),
+    htmlUrl: z.string(),
+    defaultBranch: z.string().nullable(),
+    private: z.boolean(),
+    archived: z.boolean(),
+    role: z.string().nullable().describe('api | web | mobile | services | infra | docs | other'),
+    position: z.number().int(),
+  }).strict(),
+  'WorkspaceRepository',
+)
+export type WorkspaceRepository = z.infer<typeof WorkspaceRepository>
+
+export const WorkspaceEnvironment = named(
+  z.object({
+    project: z.string().describe('COMPOSE_PROJECT_NAME, the key the project endpoints use'),
+    source: AdoptionSource,
+    running: z.boolean(),
+    serviceCount: z.number().int(),
+    runningCount: z.number().int(),
+    unhealthyCount: z.number().int(),
+    urls: z.array(RouteUrl),
+  }).strict(),
+  'WorkspaceEnvironment',
+)
+export type WorkspaceEnvironment = z.infer<typeof WorkspaceEnvironment>
+
+export const WorkspaceSummary = named(
+  z.object({
+    slug: z.string(),
+    name: z.string(),
+    description: z.string().nullable(),
+    archived: z.boolean(),
+    repositoryCount: z.number().int(),
+    environmentCount: z.number().int(),
+    runningEnvironmentCount: z.number().int(),
+  }).strict(),
+  'WorkspaceSummary',
+)
+export type WorkspaceSummary = z.infer<typeof WorkspaceSummary>
+
+export const Workspace = named(
+  z.object({
+    slug: z.string(),
+    name: z.string(),
+    description: z.string().nullable(),
+    archived: z.boolean(),
+    repositories: z.array(WorkspaceRepository),
+    environments: z.array(WorkspaceEnvironment),
+  }).strict(),
+  'Workspace',
+)
+export type Workspace = z.infer<typeof Workspace>
+
 export const GitHead = named(
   z.object({
     sha: z.string(),

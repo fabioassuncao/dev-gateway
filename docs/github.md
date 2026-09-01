@@ -37,6 +37,56 @@ The panel never treats PostgreSQL as a second GitHub. A board action that
 means "close" closes the issue on GitHub; the local row is a cache with
 an age, not the original.
 
+## Workspaces: repositories and the environments that belong to them
+
+A **workspace** is the grouping a person creates. It owns repositories, adopts
+environments, and — unlike an environment — does not disappear when nothing is
+running. That is why it is persisted rather than derived.
+
+```
+Workspace  "Meu Produto"
+├── repositories   acme/produto-api (api) · acme/produto-web (web)
+└── environments   produto            (label)
+                   produto-issue182   (repo-match)
+```
+
+One repository may belong to several workspaces, and a monorepo is one
+repository in one workspace. `role` is free text with a documented vocabulary —
+`api`, `web`, `mobile`, `services`, `infra`, `docs`, `other` — so adding one
+later is not a migration.
+
+### How an environment is adopted, and why
+
+In order, first match wins:
+
+| Source | Meaning |
+|---|---|
+| `manual` | You linked them in the panel. Always wins |
+| `label` | The environment carries `dev-gateway.project: <slug>`. The project declared it, per ADR 0001 |
+| `repo-match` | The environment's remote matches a repository this workspace owns — applied **only when exactly one workspace owns that coordinate** |
+
+The source is stored and shown, so the panel says *"adopted because it carries
+`dev-gateway.project: meu-produto`"* rather than presenting a mapping with no
+explanation. An ambiguous repository match adopts nothing and leaves the choice
+to you: an automatic adoption that is wrong is worse than none.
+
+An environment belongs to at most one workspace; a workspace may have any
+number, including none.
+
+### What the API keeps separate
+
+`GET /api/projects` still means exactly what it meant before — Compose projects
+observed on this host — and is unchanged. Workspaces live under `/api/workspaces`
+and are the only place the new entity appears.
+
+`DELETE /api/workspaces/:slug` removes **the grouping and nothing else**: no
+container is stopped, no volume is removed, no environment is changed, and no
+repository is unlinked from GitHub. The response says so, because it is the
+endpoint most likely to be misread.
+
+Every workspace endpoint needs the panel's database and answers `503` with a
+hint when it is unavailable; writes are refused in read-only mode.
+
 ## Project, environment, repository
 
 A **project** is a grouping a person creates. An **environment** is one

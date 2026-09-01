@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   Activity,
   Boxes,
+  Briefcase,
   Container,
   Globe,
   LayoutDashboard,
@@ -23,6 +24,8 @@ import { cn } from './lib/utils.ts'
 import { Overview } from './pages/Overview.tsx'
 import { Projects } from './pages/Projects.tsx'
 import { ProjectPage } from './pages/Project.tsx'
+import { Workspaces } from './pages/Workspaces.tsx'
+import { WorkspacePage } from './pages/Workspace.tsx'
 import { Services } from './pages/Services.tsx'
 import { DockerPage } from './pages/Docker.tsx'
 import { NetworkPage } from './pages/Network.tsx'
@@ -38,6 +41,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { path: '/overview', label: 'Overview', icon: LayoutDashboard },
+  { path: '/workspaces', label: 'Workspaces', icon: Briefcase },
   { path: '/projects', label: 'Projects', icon: Boxes },
   { path: '/services', label: 'Services', icon: Container },
   { path: '/docker', label: 'Docker', icon: Activity },
@@ -186,6 +190,8 @@ function Page({ path }: { path: string }) {
       return parts[1]
         ? <ProjectPage project={decode(parts[1])} tab={parts[2] ?? null} service={queryParam(path, 'service')} />
         : <Projects />
+    case 'workspaces':
+      return parts[1] ? <WorkspacePage slug={decode(parts[1])} /> : <Workspaces />
     case 'services':
       return <Services />
     case 'docker':

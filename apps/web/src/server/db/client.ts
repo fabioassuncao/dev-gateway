@@ -29,6 +29,34 @@ interface ValueRow {
   value: unknown
 }
 
+export interface WorkspaceRecord {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  archived: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface WorkspaceRepositoryRow {
+  workspaceId: string
+  repositoryId: string
+  fullName: string
+  htmlUrl: string
+  defaultBranch: string | null
+  private: boolean
+  archived: boolean
+  role: string | null
+  position: number
+}
+
+export interface WorkspaceEnvironmentRow {
+  workspaceId: string
+  composeProject: string
+  source: string
+}
+
 export interface ProjectSettingRow {
   composeProject: string
   key: string
@@ -345,6 +373,130 @@ export class DatabaseClient {
       SELECT scope, cursor, last_synced_at AS "lastSyncedAt", last_error AS "lastError"
       FROM github_sync_state ORDER BY scope
     `
+  }
+
+  // ---- workspaces ---------------------------------------------------------
+  //
+  // A workspace is the user's decision, so nothing on the snapshot path ever
+  // writes here: `recordSeen()` touches `projects` and stops.
+
+  async createWorkspace(input: { slug: string; name: string; description: string | null }): Promise<WorkspaceRecord> {
+    const rows = await this.sql<WorkspaceRecord[]>`
+      INSERT INTO workspaces (slug, name, description)
+      VALUES (${input.slug}, ${input.name}, ${input.description})
+      RETURNING
+        id::text AS id, slug, name, description, archived,
+        created_at AS "createdAt", updated_at AS "updatedAt"
+    `
+    const record = rows[0]
+    if (record === undefined) throw new Error(`database did not return workspace ${input.slug}`)
+    return record
+  }
+
+  /**
+   * Every column is optional. `description` is deliberately three-valued: an
+   * absent key leaves it alone, `null` clears it, and a string sets it, so
+   * "no change" and "clear this" stay distinguishable.
+   */
+  async updateWorkspace(
+    slug: string,
+    patch: { name?: string; description?: string | null; archived?: boolean },
+  ): Promise<WorkspaceRecord | null> {
+    const clearDescription = Object.hasOwn(patch, 'description') && patch.description === null
+    const rows = await this.sql<WorkspaceRecord[]>`
+      UPDATE workspaces SET
+        name = COALESCE(${patch.name ?? null}, name),
+        description = CASE
+          WHEN ${clearDescription} THEN NULL
+          ELSE COALESCE(${patch.description ?? null}, description)
+        END,
+        archived = COALESCE(${patch.archived ?? null}, archived),
+        updated_at = now()
+      WHERE slug = ${slug}
+      RETURNING id::text AS id, slug, name, description, archived,
+        created_at AS "createdAt", updated_at AS "updatedAt"
+    `
+    return rows[0] ?? null
+  }
+
+  async listWorkspaces(): Promise<WorkspaceRecord[]> {
+    return this.sql<WorkspaceRecord[]>`
+      SELECT id::text AS id, slug, name, description, archived,
+             created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM workspaces ORDER BY archived, name
+    `
+  }
+
+  async findWorkspace(slug: string): Promise<WorkspaceRecord | null> {
+    const rows = await this.sql<WorkspaceRecord[]>`
+      SELECT id::text AS id, slug, name, description, archived,
+             created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM workspaces WHERE slug = ${slug}
+    `
+    return rows[0] ?? null
+  }
+
+  /** Removes the grouping. It touches no container, no volume, no repository. */
+  async deleteWorkspace(slug: string): Promise<boolean> {
+    const rows = await this.sql<{ id: string }[]>`
+      DELETE FROM workspaces WHERE slug = ${slug} RETURNING id::text AS id
+    `
+    return rows.length > 0
+  }
+
+  async listWorkspaceRepositories(): Promise<WorkspaceRepositoryRow[]> {
+    return this.sql<WorkspaceRepositoryRow[]>`
+      SELECT
+        wr.workspace_id::text AS "workspaceId",
+        gr.id::text AS "repositoryId",
+        gr.full_name AS "fullName",
+        gr.html_url AS "htmlUrl",
+        gr.default_branch AS "defaultBranch",
+        gr.private,
+        gr.archived,
+        wr.role,
+        wr.position
+      FROM workspace_repositories wr
+      JOIN github_repositories gr ON gr.id = wr.repository_id
+      ORDER BY wr.position, gr.full_name
+    `
+  }
+
+  async setWorkspaceRepositories(
+    workspaceId: string,
+    repositories: { repositoryId: string; role: string | null }[],
+  ): Promise<void> {
+    await this.sql.begin(async (transaction) => {
+      await transaction`DELETE FROM workspace_repositories WHERE workspace_id = ${workspaceId}`
+      for (const [position, repository] of repositories.entries()) {
+        await transaction`
+          INSERT INTO workspace_repositories (workspace_id, repository_id, role, position)
+          VALUES (${workspaceId}, ${repository.repositoryId}, ${repository.role}, ${position})
+        `
+      }
+    })
+  }
+
+  async listWorkspaceEnvironments(): Promise<WorkspaceEnvironmentRow[]> {
+    return this.sql<WorkspaceEnvironmentRow[]>`
+      SELECT we.workspace_id::text AS "workspaceId", p.compose_project AS "composeProject", we.source
+      FROM workspace_environments we
+      JOIN projects p ON p.id = we.project_id
+    `
+  }
+
+  async setWorkspaceEnvironments(workspaceId: string, composeProjects: string[]): Promise<void> {
+    await this.sql.begin(async (transaction) => {
+      await transaction`DELETE FROM workspace_environments WHERE workspace_id = ${workspaceId}`
+      for (const composeProject of composeProjects) {
+        await transaction`
+          INSERT INTO workspace_environments (workspace_id, project_id, source)
+          SELECT ${workspaceId}, p.id, 'manual' FROM projects p
+          WHERE p.compose_project = ${composeProject}
+          ON CONFLICT (project_id) DO UPDATE SET workspace_id = EXCLUDED.workspace_id, source = 'manual'
+        `
+      }
+    })
   }
 
   async listProjects(): Promise<ProjectRecord[]> {

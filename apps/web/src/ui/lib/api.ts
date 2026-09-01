@@ -12,6 +12,9 @@ import type {
   Project,
   ProjectGit,
   GitHubIntegrationView,
+  GitHubRepositoryView,
+  Workspace,
+  WorkspaceSummary,
   ProjectLogsResponse,
   ProjectOverrides,
   ServiceOverrides,
@@ -107,11 +110,41 @@ export const api = {
     ),
 
   github: () => request<GitHubIntegrationView>('/integrations/github'),
+  githubRepositories: () =>
+    request<{ repositories: GitHubRepositoryView[] }>('/integrations/github/repositories').then(
+      (data) => data.repositories,
+    ),
   syncGitHub: () =>
     request<{ ok: boolean; installations: number; repositories: number; removed: number }>(
       '/integrations/github/sync',
       { method: 'POST', body: '{}' },
     ),
+
+  workspaces: () =>
+    request<{ workspaces: WorkspaceSummary[] }>('/workspaces').then((data) => data.workspaces),
+  workspace: (slug: string) => request<Workspace>(`/workspaces/${encodeURIComponent(slug)}`),
+  createWorkspace: (body: { slug: string; name: string; description: string | null }) =>
+    request<Workspace>('/workspaces', { method: 'POST', body: JSON.stringify(body) }),
+  patchWorkspace: (slug: string, body: Record<string, unknown>) =>
+    request<WorkspaceSummary>(`/workspaces/${encodeURIComponent(slug)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteWorkspace: (slug: string) =>
+    request<{ ok: boolean; removed: string; note: string }>(`/workspaces/${encodeURIComponent(slug)}`, {
+      method: 'DELETE',
+      body: '{}',
+    }),
+  setWorkspaceRepositories: (slug: string, repositories: { fullName: string; role?: string | null }[]) =>
+    request<Workspace>(`/workspaces/${encodeURIComponent(slug)}/repositories`, {
+      method: 'PUT',
+      body: JSON.stringify({ repositories }),
+    }),
+  setWorkspaceEnvironments: (slug: string, environments: string[]) =>
+    request<Workspace>(`/workspaces/${encodeURIComponent(slug)}/environments`, {
+      method: 'PUT',
+      body: JSON.stringify({ environments }),
+    }),
 
   services: () => request<{ services: ContainerSummary[] }>('/services').then((data) => data.services),
   serviceTraefik: (id: string) => request<ServiceTraefik>(`/services/${encodeURIComponent(id)}/traefik`),

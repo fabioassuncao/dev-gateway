@@ -2,6 +2,7 @@ import { DatabaseClient } from './client.ts'
 import { GitHubRepository } from './github.ts'
 import { ProjectsRepository } from './projects.ts'
 import { SettingsRepository } from './settings.ts'
+import { WorkspacesRepository } from './workspaces.ts'
 
 export interface DatabaseStatus {
   configured: boolean
@@ -24,6 +25,7 @@ export class Database {
   readonly projects: ProjectsRepository
   readonly settings: SettingsRepository
   readonly github: GitHubRepository
+  readonly workspaces: WorkspacesRepository
   private readonly client: DatabaseClient
   private initializing: Promise<void> | null = null
   private state: DatabaseStatus = {
@@ -39,6 +41,7 @@ export class Database {
     this.projects = new ProjectsRepository(client)
     this.settings = new SettingsRepository(client)
     this.github = new GitHubRepository(client)
+    this.workspaces = new WorkspacesRepository(client)
   }
 
   static open(url: string): Database {

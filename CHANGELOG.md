@@ -59,6 +59,18 @@ While the version is `0.x`, minor releases may contain breaking changes.
   response. `doctor` fails on a missing, unreadable or world-readable key. See
   [docs/github.md](docs/github.md) and [docs/security.md](docs/security.md).
 
+- **Workspaces: a project that owns several repositories and environments.** A
+  workspace is a grouping a person creates — a name, a slug, a description, the
+  repositories it owns and the environments that belong to it — and it stays
+  visible with nothing running, because it is a decision rather than an
+  observation. One repository may belong to several workspaces; a monorepo is
+  one repository in one workspace. An environment is adopted by a manual link,
+  by its `dev-gateway.project` label, or by an unambiguous repository match, and
+  the reason is recorded and shown rather than left mysterious. A repository the
+  App installation did not grant is refused, and deleting a workspace removes the
+  grouping only — no container, volume, environment or repository is touched.
+  `GET /api/projects` and every other existing endpoint are unchanged.
+
 ## [0.2.0] — 2026-09-01
 
 ### Added

@@ -290,6 +290,28 @@ The tiles are the questions people actually ask on a busy host, and the
 problems card is the panel saying what it noticed rather than waiting to be
 asked: see the [Overview screenshot above](#the-web-panel).
 
+### Workspaces
+
+The page for what you are working on, as opposed to what this host happens to
+be running. A workspace has a name, a slug, a description, the repositories it
+owns, and the environments that belong to it — and it stays visible with
+nothing up, because it is a decision rather than an observation.
+
+Each environment row says **why** it was adopted: linked by hand, declared by
+its `dev-gateway.project` label, or matched through a repository the workspace
+owns. Deleting a workspace removes the grouping and nothing else; the response
+says as much.
+
+Repositories come from the GitHub App projection, so only what the installation
+granted can be attached — and the dialog says that rather than offering a list
+that would be refused. With no App configured, a workspace still groups
+environments; it simply has no repositories.
+
+Workspaces need the panel's database. With PostgreSQL stopped the page explains
+that instead of failing, and every Docker-backed page keeps working.
+
+See [github.md](github.md#workspaces-repositories-and-the-environments-that-belong-to-them).
+
 ### Projects
 
 Compose projects with **at least one** service on the gateway, grouped by
