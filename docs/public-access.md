@@ -1,5 +1,9 @@
 # Public access
 
+Open the gateway's
+[Public access settings](http://127.0.0.1:8081/#/settings/public-access) to edit
+the managed keys from the panel.
+
 Disabled by default. Turning it on is the most consequential thing the gateway
 can do, so it is explicit, it shows you exactly what changes, and it asks.
 

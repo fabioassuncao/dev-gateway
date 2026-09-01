@@ -1,5 +1,8 @@
 # Cloudflare (optional)
 
+Open the gateway's [DNS settings](http://127.0.0.1:8081/#/settings/dns) to edit
+the managed Cloudflare keys from the panel.
+
 Cloudflare is the **reference** DNS provider, not a requirement. Everything the
 gateway does works with any provider; Cloudflare just gets automation.
 

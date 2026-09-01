@@ -1,5 +1,8 @@
 # Tailscale
 
+Open the gateway's [VPN settings](http://127.0.0.1:8081/#/settings/vpn) to edit
+the managed Tailscale keys from the panel.
+
 Tailscale is how the gateway becomes reachable without becoming public. The
 VPS keeps 80 and 443 closed to the internet, and the gateway answers on the
 node's tailnet address.

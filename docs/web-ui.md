@@ -527,10 +527,14 @@ cannot see truthfully. The panel says so and points at the command.
 
 The settings people actually change, from a fixed catalogue: domains, ports,
 bind address, profile, TLS and ACME, Tailscale, public access, DNS provider,
-and the panel's own options. A key that is not in the catalogue cannot be read
-or written through the API, whatever a request asks for.
+and the panel's own options. Each server-defined group has a stable deep link,
+such as `#/settings/tls` or `#/settings/public-access`. Moving between groups
+keeps one shared draft; badges identify unsaved work in another group and Save
+writes every changed key in one transaction. A key that is not in the
+catalogue cannot be read or written through the API, whatever a request asks
+for.
 
-![The Settings page: the gateway's .env grouped by topic, each field with the key it writes and what it means](../.github/images/panel-settings.png)
+![The Gateway settings group: a stable group navigation beside each field, the key it writes and what it means](../.github/images/panel-settings.png)
 
 ### Light and dark
 

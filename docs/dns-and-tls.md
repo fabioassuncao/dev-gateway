@@ -1,5 +1,9 @@
 # DNS and TLS
 
+The panel opens these controls directly at
+[TLS settings](http://127.0.0.1:8081/#/settings/tls) and
+[DNS settings](http://127.0.0.1:8081/#/settings/dns).
+
 ## Local: neither is needed
 
 `*.localhost` resolves to loopback by [RFC 6761](https://www.rfc-editor.org/rfc/rfc6761)
