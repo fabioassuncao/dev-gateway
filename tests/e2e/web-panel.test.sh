@@ -48,6 +48,20 @@ get() { curl -fsS -m 10 "$BASE$1" 2>/dev/null; }
 # dependency (the host only needs Docker, Git and a shell).
 jq_py() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
 
+# wait_until <seconds> <command...>: poll until it succeeds, or give up.
+#
+# A fixed `sleep` is a guess about how slow the machine is, and it is wrong in
+# both directions: too long on a workstation, too short on a loaded CI runner,
+# where it turns a passing assertion into a flake nobody can reproduce.
+wait_until() {
+  local deadline=$(( $(date +%s) + $1 )); shift
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    if "$@" >/dev/null 2>&1; then return 0; fi
+    sleep 1
+  done
+  return 1
+}
+
 describe "the panel starts through the CLI"
 
 ( cd "$PORTTA_ROOT/docker/examples/demo-a" && docker compose \
@@ -101,12 +115,16 @@ assert_eq "0005_issue_environments.sql" "$(docker exec "$DB_CONTAINER" psql -U p
   -At -c 'SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1')"
 
 docker stop "$DB_CONTAINER" >/dev/null
-sleep 2
+
+# The panel notices the database is gone on its next query, and how long that
+# takes depends on the machine, not on anything worth asserting.
+wait_until 30 sh -c 'curl -fsS -m 10 "'"$BASE"'/api/health" >/dev/null'
 
 it "health remains available while PostgreSQL is down"
 assert_success get /api/health
 
 it "Docker-backed project discovery remains available too"
+wait_until 30 sh -c 'curl -fsS -m 10 "'"$BASE"'/api/projects" >/dev/null'
 assert_contains "$(get /api/projects)" '"projects"'
 
 it "the degraded database is an explicit warning"
@@ -244,9 +262,11 @@ assert_success "$GW" doctor
 describe "stopping the panel leaves everything else alone"
 
 "$GW" web down >/dev/null 2>&1
-sleep 1
 
 it "the panel is gone"
+# The daemon settles a removal asynchronously, so poll rather than sleeping a
+# second and hoping that was enough.
+wait_until 30 sh -c '[ -z "$(docker ps -q --filter label=portta.component=web)" ]'
 assert_eq "" "$(docker ps -q --filter 'label=portta.component=web')"
 
 it "Traefik is still running"
