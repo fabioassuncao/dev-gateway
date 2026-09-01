@@ -297,15 +297,26 @@ if [ -n "$traefik_id" ] && [ "$(portta_container_state "$traefik_id")" = "runnin
     --format '{{ range $p, $conf := .NetworkSettings.Ports }}{{ range $conf }}{{ $p }}={{ .HostIp }}:{{ .HostPort }} {{ end }}{{ end }}' 2>/dev/null)
   check pass exposure.binds "published ports" "${binds:-none}" ""
 
+  # The panel's own entrypoint (container port 8090) is public on purpose in
+  # `public` access mode, and is the one port that is authenticated. Judge the
+  # application entrypoints without it: see docs/adr/0021-panel-access-modes.md.
+  app_binds="$binds"
+  if [ "${PORTTA_WEB_EXPOSE:-local}" = "public" ]; then
+    app_binds=$(printf '%s' "$binds" | tr ' ' '\n' | grep -v '^8090/tcp=' | tr '\n' ' ')
+  fi
+
   case "$PORTTA_PROFILE" in
     local)
-      case "$binds" in
+      case "$app_binds" in
         *0.0.0.0:*|*::*)
           check fail exposure.local "local profile exposure" \
-            "the gateway is bound to a non-loopback address in the local profile" \
+            "an application entrypoint is bound to a non-loopback address in the local profile" \
             "set PORTTA_BIND_ADDRESS=127.0.0.1 and run 'portta up local'" ;;
         *)
-          check pass exposure.local "local profile exposure" "loopback only" "" ;;
+          check pass exposure.local "local profile exposure" \
+            "$([ "${PORTTA_WEB_EXPOSE:-local}" = "public" ] \
+               && printf 'applications on loopback; only the authenticated panel entrypoint is public' \
+               || printf 'loopback only')" "" ;;
       esac
       ;;
     remote-private)
@@ -424,10 +435,15 @@ if portta_is_true "$PORTTA_WEB"; then
   if [ "$PORTTA_WEB_EXPOSE" = "local" ]; then
     check pass web.auth "panel authentication" \
       "not routed: loopback only on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT" ""
+  elif [ "$PORTTA_WEB_EXPOSE" = "tailscale" ]; then
+    # The tailnet is the boundary here, and it is a better one than a password.
+    # A credential on top is welcome, and not required.
+    check pass web.auth "panel authentication" \
+      "$([ "$PORTTA_WEB_AUTH" = "basic" ] && printf 'traefik basicauth as %s, ' "$PORTTA_WEB_AUTH_USER")reachable only on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT" ""
   elif [ "$PORTTA_WEB_AUTH" != "basic" ] \
        || [ -z "$PORTTA_WEB_AUTH_USER" ] || [ -z "$PORTTA_WEB_AUTH_HASH" ]; then
     check fail web.auth "panel authentication" \
-      "the panel is routed (expose: $PORTTA_WEB_EXPOSE) with nothing in front of it" \
+      "the panel is reachable beyond this host (access: $PORTTA_WEB_EXPOSE) with nothing in front of it" \
       "portta web auth set"
   else
     check pass web.auth "panel authentication" \
@@ -551,15 +567,38 @@ fi
 # more than for anything else the gateway runs.
 
 if portta_is_true "$PORTTA_WEB"; then
-  case "$PORTTA_WEB_BIND_ADDRESS" in
-    127.0.0.1|localhost|::1)
-      check pass web.bind "web panel" \
-        "enabled on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT (loopback)" "" ;;
-    *)
+  if [ "$PORTTA_WEB_EXPOSE" = "public" ]; then
+    # The panel container publishes nothing in this mode: the address belongs
+    # to Traefik's `panel` entrypoint, and web.auth above proves what is in
+    # front of it. What would be wrong here is a second, unauthenticated door.
+    web_own_ports=""
+    web_container=$(portta_gateway_container web)
+    if [ -n "$web_container" ]; then
+      web_own_ports=$(docker inspect "$web_container" --format \
+        '{{ range $p, $c := .NetworkSettings.Ports }}{{ range $c }}{{ .HostIp }}:{{ .HostPort }} {{ end }}{{ end }}' 2>/dev/null)
+    fi
+    if [ -n "$web_own_ports" ]; then
       check fail web.bind "web panel" \
-        "enabled and bound to $PORTTA_WEB_BIND_ADDRESS; it has no authentication" \
-        "set PORTTA_WEB_BIND_ADDRESS=127.0.0.1, and reach it over the VPN or an SSH tunnel" ;;
-  esac
+        "published directly on the host at $web_own_ports, bypassing the authenticating entrypoint" \
+        "remove the ports: entry; docker/compose/features/panel-public.yaml owns this port"
+    else
+      check pass web.bind "web panel" \
+        "reached only through Traefik's authenticated panel entrypoint on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT" ""
+    fi
+  else
+    case "$PORTTA_WEB_BIND_ADDRESS" in
+      127.0.0.1|localhost|::1)
+        check pass web.bind "web panel" \
+          "enabled on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT (loopback)" "" ;;
+      0.0.0.0|::)
+        check fail web.bind "web panel" \
+          "enabled and bound to $PORTTA_WEB_BIND_ADDRESS with nothing authenticating it" \
+          "portta config set panel.access public   (or set PORTTA_WEB_BIND_ADDRESS=127.0.0.1)" ;;
+      *)
+        check pass web.bind "web panel" \
+          "enabled on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT (access: $PORTTA_WEB_EXPOSE)" "" ;;
+    esac
+  fi
 
   if [ "$PORTTA_WEB_EXPOSE" = "vpn" ] && [ "$PORTTA_PROFILE" = "remote-public" ]; then
     check fail web.expose "web panel routing" \
@@ -819,46 +858,10 @@ if portta_is_true "$PORTTA_WEB"; then
         "portta config set panel.access public|tailscale|local" ;;
   esac
 
-  panel_auth_ok=0
-  if [ "$PORTTA_WEB_AUTH" = "basic" ] \
-     && [ -n "$PORTTA_WEB_AUTH_USER" ] && [ -n "$PORTTA_WEB_AUTH_HASH" ]; then
-    panel_auth_ok=1
-  fi
-
-  case "$PORTTA_WEB_EXPOSE" in
-    public|vpn)
-      if [ "$panel_auth_ok" = "1" ]; then
-        check pass panel.auth "panel authentication" "basic, user $PORTTA_WEB_AUTH_USER" ""
-      else
-        check fail panel.auth "panel authentication" \
-          "the panel is reachable beyond this host with no credential" \
-          "portta web auth set"
-      fi
-      # A middleware Traefik cannot resolve fails the router closed, which is
-      # the right direction, but it is still a broken panel nobody asked for.
-      if [ -f "$PORTTA_ROOT/config/traefik/dynamic/portta-panel.yaml" ] \
-         && grep -q 'portta-web-auth' "$PORTTA_ROOT/config/traefik/dynamic/portta-panel.yaml" 2>/dev/null; then
-        check pass panel.middleware "panel auth middleware" "rendered" ""
-      else
-        check fail panel.middleware "panel auth middleware" "missing or empty" \
-          "portta web auth apply"
-      fi
-      ;;
-    *)
-      check pass panel.auth "panel authentication" \
-        "$([ "$panel_auth_ok" = "1" ] && printf 'basic' || printf 'none (not required on %s)' "$PORTTA_WEB_EXPOSE")" ""
-      ;;
-  esac
-
-  # The panel is a control plane over every container on this host. Bound to
-  # 0.0.0.0 without the proxy in front of it, it is an open one.
-  if [ "$PORTTA_WEB_BIND_ADDRESS" = "0.0.0.0" ] && [ "$PORTTA_WEB_EXPOSE" != "public" ]; then
-    check fail panel.bind "panel bind address" \
-      "0.0.0.0 without the authenticating entrypoint" \
-      "portta config set panel.access public   (or bind an address that is not 0.0.0.0)"
-  else
-    check pass panel.bind "panel bind address" "$PORTTA_WEB_BIND_ADDRESS" ""
-  fi
+  # What is in front of the panel, whether the middleware exists and where it
+  # listens are checked above, under `web.auth`, `web.auth.file` and
+  # `web.bind`. This one records the mode itself, which is what a person
+  # actually wants to read back.
 fi
 
 # ---------------------------------------------------------------------------
