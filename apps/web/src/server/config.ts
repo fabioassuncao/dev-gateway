@@ -2,15 +2,12 @@
 //
 // Every value the panel reports comes from the same environment Compose was
 // invoked with, so the panel and the CLI always describe the same gateway.
-// Defaults mirror `dg_defaults` in scripts/lib/common.sh: keep them in sync.
+// Gateway-wide defaults are owned by @dev-gateway/core.
 
 import { readFileSync, existsSync } from 'node:fs'
+import { isTrue, loadGatewayConfig } from '@dev-gateway/core'
 
-const truthy = new Set(['1', 'true', 'yes', 'on', 'enabled'])
-
-export function isTrue(value: string | undefined | null): boolean {
-  return truthy.has(String(value ?? '').trim().toLowerCase())
-}
+export { isTrue }
 
 function env(key: string, fallback: string): string {
   const value = process.env[key]
@@ -94,6 +91,7 @@ export interface PanelConfig {
 
 export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
   const versionFile = env('DG_WEB_VERSION_FILE', '/app/state/VERSION')
+  const gateway = loadGatewayConfig(process.env)
   const config: PanelConfig = {
     dockerApi: env('DG_WEB_DOCKER_API', 'http://web-socket-proxy:2375'),
     host: env('DG_WEB_HOST', '0.0.0.0'),
@@ -101,31 +99,31 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     envFile: env('DG_WEB_ENV_FILE', '/app/state/.env'),
     versionFile,
     uiDir: env('DG_WEB_UI_DIR', './dist/ui'),
-    profile: env('DEV_GATEWAY_PROFILE', 'local'),
-    projectName: env('DEV_GATEWAY_PROJECT_NAME', 'dev-gateway'),
-    network: env('DEV_GATEWAY_NETWORK', 'dev-gateway'),
-    controlNetwork: env('DEV_GATEWAY_CONTROL_NETWORK', 'dev-gateway-control'),
-    accessNetwork: env('DEV_GATEWAY_ACCESS_NETWORK', 'dev-gateway-access'),
-    webNetwork: env('DEV_GATEWAY_WEB_NETWORK', 'dev-gateway-web'),
-    databaseNetwork: env('DEV_GATEWAY_DB_NETWORK', 'dev-gateway-data'),
+    profile: gateway.profile,
+    projectName: gateway.projectName,
+    network: gateway.network,
+    controlNetwork: gateway.controlNetwork,
+    accessNetwork: gateway.accessNetwork,
+    webNetwork: gateway.webNetwork,
+    databaseNetwork: gateway.databaseNetwork,
     databaseUrl: optional('DG_WEB_DATABASE_URL'),
-    domain: env('DEV_GATEWAY_DOMAIN', 'localhost'),
-    privateDomain: optional('PRIVATE_DOMAIN'),
-    publicDomain: optional('PUBLIC_DOMAIN'),
-    bindAddress: env('DEV_GATEWAY_BIND_ADDRESS', '127.0.0.1'),
-    httpPort: env('DEV_GATEWAY_HTTP_PORT', '80'),
-    httpsPort: env('DEV_GATEWAY_HTTPS_PORT', '443'),
-    tlsEnabled: isTrue(process.env.TLS_ENABLED),
-    tlsMode: env('TLS_MODE', 'local'),
+    domain: gateway.domain,
+    privateDomain: gateway.privateDomain,
+    publicDomain: gateway.publicDomain,
+    bindAddress: gateway.bindAddress,
+    httpPort: String(gateway.httpPort),
+    httpsPort: String(gateway.httpsPort),
+    tlsEnabled: gateway.tlsEnabled,
+    tlsMode: gateway.tlsMode,
     acmeEmailSet: Boolean(optional('ACME_EMAIL')),
     acmeCaServer: env('ACME_CA_SERVER', 'https://acme-v02.api.letsencrypt.org/directory'),
     acmeDnsProvider: env('ACME_DNS_PROVIDER', 'cloudflare'),
-    tailscaleEnabled: isTrue(process.env.TAILSCALE_ENABLED),
+    tailscaleEnabled: gateway.tailscaleEnabled,
     tailscaleHostname: env('TAILSCALE_HOSTNAME', 'dev-gateway'),
-    publicEnabled: isTrue(process.env.PUBLIC_ENABLED),
+    publicEnabled: gateway.publicEnabled,
     cloudflareEnabled: isTrue(process.env.CLOUDFLARE_ENABLED),
     cloudflareZone: optional('CLOUDFLARE_ZONE'),
-    dashboardEnabled: isTrue(process.env.DEV_GATEWAY_DASHBOARD),
+    dashboardEnabled: gateway.dashboardEnabled,
     dashboardBindAddress: env('DEV_GATEWAY_DASHBOARD_BIND_ADDRESS', '127.0.0.1'),
     dashboardPort: env('DEV_GATEWAY_DASHBOARD_PORT', '8080'),
     // Pinned in scripts/lib/discovery.sh; the panel must create the very same

@@ -23,7 +23,9 @@ FROM deps AS build
 WORKDIR /app
 COPY apps/web/tsconfig.json apps/web/tsconfig.server.json apps/web/vite.config.ts ./apps/web/
 COPY apps/web/src ./apps/web/src
-RUN npm run build --workspace=dev-gateway-web
+COPY packages/core/tsconfig.json ./packages/core/
+COPY packages/core/src ./packages/core/src
+RUN npm run build --workspace=@dev-gateway/core && npm run build --workspace=dev-gateway-web
 
 # --- development -------------------------------------------------------------
 # Used by compose.web-dev.yaml, which bind-mounts the source over /app/apps/web
@@ -50,6 +52,7 @@ COPY packages/core/package.json ./packages/core/
 COPY packages/cli/package.json ./packages/cli/
 RUN npm ci --workspace=dev-gateway-web --omit=dev && npm cache clean --force
 COPY --from=build /app/apps/web/dist ./apps/web/dist
+COPY --from=build /app/packages/core/dist ./packages/core/dist
 COPY apps/web/migrations ./apps/web/migrations
 
 WORKDIR /app/apps/web

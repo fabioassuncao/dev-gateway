@@ -1,0 +1,101 @@
+export const TRUTHY = new Set(['1', 'true', 'yes', 'on', 'enabled'])
+
+export function isTrue(value: string | undefined | null): boolean {
+  return TRUTHY.has(String(value ?? '').trim().toLowerCase())
+}
+
+export type GatewayProfile = 'local' | 'remote-private' | 'remote-public'
+
+export interface GatewayConfig {
+  profile: GatewayProfile
+  projectName: string
+  network: string
+  controlNetwork: string
+  accessNetwork: string
+  webNetwork: string
+  databaseNetwork: string
+  domain: string
+  bindAddress: string
+  httpPort: number
+  httpsPort: number
+  tlsEnabled: boolean
+  tlsMode: string
+  tailscaleEnabled: boolean
+  publicEnabled: boolean
+  publicDomain: string | null
+  privateDomain: string | null
+  dashboardEnabled: boolean
+  tcpEnabled: boolean
+  webEnabled: boolean
+  webDev: boolean
+  webExpose: string
+  webPort: number
+  webReadOnly: boolean
+}
+
+function value(env: Record<string, string | undefined>, key: string, fallback: string): string {
+  return env[key] || fallback
+}
+
+function optional(env: Record<string, string | undefined>, key: string): string | null {
+  return env[key] || null
+}
+
+export function loadGatewayConfig(env: Record<string, string | undefined> = process.env): GatewayConfig {
+  const profile = value(env, 'DEV_GATEWAY_PROFILE', 'local')
+  if (!['local', 'remote-private', 'remote-public'].includes(profile)) throw new Error(`unknown profile: ${profile}`)
+  const publicDomain = optional(env, 'PUBLIC_DOMAIN')
+  const privateDomain = optional(env, 'PRIVATE_DOMAIN')
+  let domain = value(env, 'DEV_GATEWAY_DOMAIN', 'localhost')
+  let bindAddress = value(env, 'DEV_GATEWAY_BIND_ADDRESS', '127.0.0.1')
+  if (profile === 'remote-private' && privateDomain) domain = privateDomain
+  if (profile === 'remote-public') {
+    if (!publicDomain) throw new Error('profile remote-public requires PUBLIC_DOMAIN')
+    domain = publicDomain
+    bindAddress = '0.0.0.0'
+  }
+  return {
+    profile: profile as GatewayProfile,
+    projectName: value(env, 'DEV_GATEWAY_PROJECT_NAME', 'dev-gateway'),
+    network: value(env, 'DEV_GATEWAY_NETWORK', 'dev-gateway'),
+    controlNetwork: value(env, 'DEV_GATEWAY_CONTROL_NETWORK', 'dev-gateway-control'),
+    accessNetwork: value(env, 'DEV_GATEWAY_ACCESS_NETWORK', 'dev-gateway-access'),
+    webNetwork: value(env, 'DEV_GATEWAY_WEB_NETWORK', 'dev-gateway-web'),
+    databaseNetwork: value(env, 'DEV_GATEWAY_DB_NETWORK', 'dev-gateway-data'),
+    domain,
+    bindAddress,
+    httpPort: Number(value(env, 'DEV_GATEWAY_HTTP_PORT', '80')),
+    httpsPort: Number(value(env, 'DEV_GATEWAY_HTTPS_PORT', '443')),
+    tlsEnabled: isTrue(env['TLS_ENABLED']),
+    tlsMode: value(env, 'TLS_MODE', 'local'),
+    tailscaleEnabled: isTrue(env['TAILSCALE_ENABLED']),
+    publicEnabled: isTrue(env['PUBLIC_ENABLED']),
+    publicDomain,
+    privateDomain,
+    dashboardEnabled: isTrue(env['DEV_GATEWAY_DASHBOARD']),
+    tcpEnabled: isTrue(env['DEV_GATEWAY_TCP']),
+    webEnabled: isTrue(env['DEV_GATEWAY_WEB']),
+    webDev: isTrue(env['DEV_GATEWAY_WEB_DEV']),
+    webExpose: value(env, 'DEV_GATEWAY_WEB_EXPOSE', 'local'),
+    webPort: Number(value(env, 'DEV_GATEWAY_WEB_PORT', '8081')),
+    webReadOnly: isTrue(env['DEV_GATEWAY_WEB_READ_ONLY']),
+  }
+}
+
+export function composeFiles(config: GatewayConfig): string[] {
+  const attachment = config.profile !== 'local' && config.tailscaleEnabled ? 'tailscale' : 'host'
+  const files = ['compose.yaml', `compose.attach-${attachment}.yaml`]
+  if (config.profile === 'local') {
+    files.push('compose.local.yaml')
+    if (config.tlsEnabled && config.tlsMode === 'local') files.push('compose.local-tls.yaml')
+  } else files.push('compose.remote.yaml')
+  if (config.profile === 'remote-public') files.push('compose.public.yaml')
+  if (config.dashboardEnabled) files.push(attachment === 'tailscale' ? 'compose.dashboard-tailscale.yaml' : 'compose.dashboard.yaml')
+  if (config.tcpEnabled) files.push(attachment === 'tailscale' ? 'compose.tcp-tailscale.yaml' : 'compose.tcp.yaml')
+  if (config.webEnabled) {
+    files.push('compose.web.yaml', 'compose.db.yaml')
+    if (config.webDev) files.push('compose.web-dev.yaml')
+    if (config.webExpose === 'vpn') files.push('compose.web-vpn.yaml')
+  }
+  return files
+}
