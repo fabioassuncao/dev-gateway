@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { GitBranch } from 'lucide-react'
+import { GitBranch, GitPullRequest } from 'lucide-react'
 import { api } from '../lib/api.ts'
 import { relativeTime } from '../lib/format.ts'
 import { Badge } from './ui/badge.tsx'
-import type { ProjectGit } from '../../shared/types.ts'
+import type { ForgePullRequest, ProjectGit } from '../../shared/types.ts'
 
 /**
  * What the host collected about this project's repository.
@@ -28,7 +28,12 @@ export function GitCard({ project }: { project: string }) {
   // degradation: fewer sections, never an error.
   if (!data.git) return null
 
-  return <GitRow data={data} />
+  return (
+    <>
+      <GitRow data={data} />
+      <ForgeRow data={data} />
+    </>
+  )
 }
 
 function NotCollected({ data }: { data: ProjectGit }) {
@@ -38,6 +43,71 @@ function NotCollected({ data }: { data: ProjectGit }) {
       <span>No Git metadata collected for this project.</span>
       <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono">{data.refreshCommand}</code>
     </div>
+  )
+}
+
+/**
+ * Open pull requests, when `git scan --with-prs` could ask `gh`. Absent `gh`,
+ * a signed-out `gh` and a remote on a forge `gh` cannot talk to all render
+ * nothing at all, which is the documented degradation rather than an error.
+ */
+function ForgeRow({ data }: { data: ProjectGit }) {
+  const forge = data.forge
+  if (!forge || !forge.authenticated) return null
+
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line px-4 py-2 text-xs">
+      <span className="flex items-center gap-1.5 text-muted">
+        <GitPullRequest className="h-3.5 w-3.5" />
+        <span className="font-medium text-ink">
+          {forge.pulls.length === 0
+            ? 'No open pull requests'
+            : `${forge.pulls.length} open pull ${forge.pulls.length === 1 ? 'request' : 'requests'}`}
+        </span>
+      </span>
+      {forge.pulls.slice(0, 4).map((pull) => (
+        <PullRequest key={pull.number} pull={pull} />
+      ))}
+    </div>
+  )
+}
+
+function PullRequest({ pull }: { pull: ForgePullRequest }) {
+  const review =
+    pull.reviewDecision === 'APPROVED'
+      ? { tone: 'ok' as const, label: 'approved' }
+      : pull.reviewDecision === 'CHANGES_REQUESTED'
+        ? { tone: 'danger' as const, label: 'changes requested' }
+        : pull.reviewDecision === 'REVIEW_REQUIRED'
+          ? { tone: 'warn' as const, label: 'review requested' }
+          : null
+
+  return (
+    <span className="flex items-center gap-1.5">
+      {pull.url ? (
+        <a
+          className="underline-offset-2 hover:text-accent hover:underline"
+          href={pull.url}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          #{pull.number} {pull.title}
+        </a>
+      ) : (
+        <span>
+          #{pull.number} {pull.title}
+        </span>
+      )}
+      {pull.draft ? <Badge>draft</Badge> : null}
+      {review ? <Badge tone={review.tone}>{review.label}</Badge> : null}
+      {pull.checks === 'failing' ? (
+        <Badge tone="danger">checks failing</Badge>
+      ) : pull.checks === 'pending' ? (
+        <Badge tone="warn">checks pending</Badge>
+      ) : pull.checks === 'passing' ? (
+        <Badge tone="ok">checks passing</Badge>
+      ) : null}
+    </span>
   )
 }
 

@@ -57,6 +57,14 @@ While the version is `0.x`, minor releases may contain breaking changes.
     All four are tested.
   - `dev-gateway git status` says what was collected and when, and
     `dev-gateway git clear` removes it.
+- **Open pull requests, through `gh`.** `git scan --with-prs` adds each
+  project's open pull requests with their review decision and whether checks
+  pass. It reuses the authentication `gh` already has, so there is no token in
+  `.env`, nothing for a routed panel to leak, and no rate limit of ours to
+  account for. Opt-in because it is a network call per project, and cached for
+  `--forge-ttl` seconds. No `gh`, a signed-out `gh` and a forge `gh` cannot talk
+  to all render nothing rather than an error, and the repository link survives
+  all three because it is derived from the remote.
 - **Three optional labels, for the things inference cannot get right.**
   `dev-gateway.project` groups several worktrees under one heading when
   `COMPOSE_PROJECT_NAME` is a per-worktree namespace; `dev-gateway.repo`

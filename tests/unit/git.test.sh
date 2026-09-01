@@ -175,6 +175,87 @@ assert_success sh -c "printf '%s' '$json' | python3 -m json.tool >/dev/null"
 it "and the subject survived intact"
 assert_eq 'a "quoted" subject with \ backslash' "$(field "$json" git.head.subject)"
 
+# ---------------------------------------------------------------------------
+# The forge block
+# ---------------------------------------------------------------------------
+# A stub `gh` on PATH, never the real one: these assert what the collector does
+# with an answer, and a test that needs the network is a test that fails on a
+# train.
+
+fake_gh() { # fake_gh <auth-exit-code> <pr-json>
+  local bin="$WORK/bin"
+  mkdir -p "$bin"
+  cat > "$bin/gh" <<GH
+#!/usr/bin/env bash
+case "\$1" in
+  auth) exit $1 ;;
+  pr) cat <<'PRJSON'
+$2
+PRJSON
+    ;;
+esac
+GH
+  chmod +x "$bin/gh"
+  printf '%s' "$bin"
+}
+
+describe "open pull requests, when gh can answer"
+
+if ! dg_have jq && ! docker info >/dev/null 2>&1; then
+  it "needs jq or docker for the toolbox"; skip "neither available"
+else
+  DG_GIT_WITH_PRS=1
+  repo=$(make_repo prs git@github.com:owner/repo.git)
+
+  bin=$(fake_gh 0 '[{"number":61,"title":"Add invoice totals","state":"OPEN","isDraft":false,"reviewDecision":"REVIEW_REQUIRED","url":"https://github.com/owner/repo/pull/61","headRefName":"feature/59","statusCheckRollup":[{"conclusion":"SUCCESS"}]}]')
+  json=$(PATH="$bin:$PATH" dg_git_json prs-demo "$repo" "")
+
+  it "the record is still valid JSON"
+  assert_success sh -c "printf '%s' '$json' | python3 -m json.tool >/dev/null"
+
+  it "the pull request number survives"
+  assert_eq "61" "$(field "$json" forge.pulls | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["number"])' 2>/dev/null)"
+
+  it "and its review decision"
+  assert_eq "REVIEW_REQUIRED" "$(field "$json" forge.pulls | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["reviewDecision"])' 2>/dev/null)"
+
+  it "checks are reduced to one word"
+  assert_eq "passing" "$(field "$json" forge.pulls | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["checks"])' 2>/dev/null)"
+
+  it "a failing check outranks a passing one"
+  bin=$(fake_gh 0 '[{"number":62,"title":"WIP","state":"OPEN","isDraft":true,"reviewDecision":null,"url":"u","headRefName":"w","statusCheckRollup":[{"conclusion":"SUCCESS"},{"conclusion":"FAILURE"}]}]')
+  json=$(PATH="$bin:$PATH" dg_git_json prs-demo2 "$repo" "")
+  assert_eq "failing" "$(field "$json" forge.pulls | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["checks"])' 2>/dev/null)"
+
+  describe "and when it cannot"
+
+  it "a gh that is signed out reports that, and no pull requests"
+  bin=$(fake_gh 1 '[]')
+  json=$(PATH="$bin:$PATH" dg_git_json prs-demo3 "$repo" "")
+  assert_eq "False" "$(field "$json" forge.authenticated)"
+
+  it "a non-GitHub remote gets no forge block at all"
+  repo=$(make_repo gitlab git@gitlab.com:group/project.git)
+  bin=$(fake_gh 0 '[]')
+  json=$(PATH="$bin:$PATH" dg_git_json prs-demo4 "$repo" "")
+  assert_eq "" "$(field "$json" forge.kind)"
+
+  it "but keeps its branch, so the Git card is unaffected"
+  assert_eq "main" "$(field "$json" git.branch)"
+
+  it "a repository with no remote gets none either"
+  repo=$(make_repo noremote2)
+  json=$(PATH="$bin:$PATH" dg_git_json prs-demo5 "$repo" "")
+  assert_eq "" "$(field "$json" forge.kind)"
+
+  DG_GIT_WITH_PRS=0
+
+  it "and without --with-prs there is no forge block, gh or no gh"
+  repo=$(make_repo noprs git@github.com:owner/repo.git)
+  json=$(PATH="$bin:$PATH" dg_git_json prs-demo6 "$repo" "")
+  assert_eq "" "$(field "$json" forge.kind)"
+fi
+
 describe "the command surface"
 
 it "git answers --help"
@@ -185,6 +266,12 @@ assert_failure "$DG_ROOT/bin/dev-gateway" git definitely-not-a-subcommand
 
 it "an unknown flag on scan fails"
 assert_failure "$DG_ROOT/bin/dev-gateway" git scan --definitely-not-a-flag
+
+it "a non-numeric forge TTL fails"
+assert_failure "$DG_ROOT/bin/dev-gateway" git scan --forge-ttl soon
+
+it "no GitHub token is ever asked for or stored"
+assert_eq "" "$(grep -niE "gh_token|github_token|GITHUB_PAT" "$DG_ROOT/scripts/cmd/git.sh" "$DG_ROOT/.env.example" || true)"
 
 it "the collector writes nowhere but state/git"
 assert_contains "$(cat "$DG_ROOT/scripts/cmd/git.sh")" "printf '%s/git' \"\$DG_STATE_DIR\"" 

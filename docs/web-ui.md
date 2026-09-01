@@ -297,6 +297,31 @@ list beyond HEAD. Nothing is ever written to a repository, and there is no
 checkout, merge or rebase anywhere in the panel or the CLI. See
 [ADR 0010](adr/0010-git-collected-on-the-host.md).
 
+#### Open pull requests
+
+```bash
+./bin/dev-gateway git scan --with-prs
+```
+
+adds the open pull requests, with their review decision and whether checks are
+passing, through `gh`:
+
+```text
+2 open pull requests   #61 Add invoice totals  review requested  checks passing
+                       #62 WIP  draft  checks failing
+```
+
+It reuses the authentication `gh` already has, so **there is no token to put in
+`.env`**, nothing for a routed panel to leak, and no rate limit of ours to
+account for. It is opt-in because it is a network call per project, and the
+result is cached for `--forge-ttl` seconds (five minutes by default) so a scan
+across ten projects does not make ten requests a minute apart.
+
+Three cases render nothing at all rather than an error: `gh` is not installed,
+`gh` is installed but signed out, or the remote is on a forge `gh` cannot talk
+to. In the last case the Git line keeps its repository link, since that is
+derived from the remote and needs nobody's permission.
+
 ### Services
 
 Every service of every integrated project as a flat, filterable list: image,

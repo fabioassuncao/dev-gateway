@@ -29,7 +29,7 @@ dg_cmd_git() {
       cat >&2 <<'DG_HELP'
 dev-gateway git: what each environment is running
 
-  git scan [--project <name>]
+  git scan [--project <name>] [--with-prs] [--forge-ttl <seconds>]
                          Read every running project's working tree and write
                          state/git/<project>.json for the panel
   git status [--json]    What was collected, and how old it is
@@ -39,8 +39,11 @@ The panel reads those files and nothing else: it has no access to any project
 directory, runs no shell commands, and never polls. Run this from `dev-gateway
 up`, from a cron, or by hand.
 
-Local `git` only: no network, no authentication, and nothing is ever written to
-a repository.
+Local `git` only, unless --with-prs adds the open pull requests through `gh`,
+reusing the authentication you already have. There is no token to store, no
+rate limit of ours to account for, and nothing is ever written to a repository.
+Without `gh`, or signed out, the file simply has no forge block and the panel
+shows no GitHub section.
 
 See docs/adr/0010-git-collected-on-the-host.md.
 DG_HELP
@@ -186,8 +189,117 @@ EOF
   printf '    "ahead": %s,\n' "${ahead:-0}"
   printf '    "behind": %s,\n' "${behind:-0}"
   printf '    "remote": %s\n' "$([ -n "$remote" ] && printf '"%s"' "$(dg_json_escape "$remote")" || printf 'null')"
-  printf '  }\n'
-  printf '}\n'
+  printf '  }'
+  dg_git_forge_block "$project" "$remote"
+  printf '\n}\n'
+}
+
+# ---------------------------------------------------------------------------
+# The forge block: open pull requests, through `gh`
+# ---------------------------------------------------------------------------
+# Opt-in, and deliberately not the GitHub API with a token in .env: `gh` is
+# already authenticated on a developer's machine, so there is no new credential
+# to store and none to leak from a panel that may be routed. No `gh`, no forge
+# block, no GitHub section in the UI.
+
+DG_GIT_WITH_PRS=0
+DG_GIT_FORGE_TTL=300
+DG_GIT_FORGE_LIMIT=10
+
+# dg_git_remote_slug <remote>: host<FS>owner/name, or nothing.
+#
+# Mirrors parseRemote in web/src/server/core/forge.ts closely enough for `gh
+# -R host/owner/repo`, which is all this needs.
+dg_git_remote_slug() {
+  local remote="${1:-}" host slug FS
+  FS=$(printf '\037')
+  [ -n "$remote" ] || return 0
+
+  case "$remote" in
+    *://*)
+      host=$(printf '%s' "$remote" | sed -e 's#^[a-z+]*://##' -e 's#^[^@]*@##' -e 's#[/:].*$##')
+      slug=$(printf '%s' "$remote" | sed -e 's#^[a-z+]*://##' -e 's#^[^@]*@##' -e 's#^[^/]*/##') ;;
+    *:*)
+      host=$(printf '%s' "$remote" | sed -e 's#^[^@]*@##' -e 's#:.*$##')
+      slug=$(printf '%s' "$remote" | sed -e 's#^[^:]*:##') ;;
+    */*)
+      # A bare owner/name from a dev-gateway.repo label.
+      host="github.com"; slug="$remote" ;;
+    *) return 0 ;;
+  esac
+
+  slug=$(printf '%s' "$slug" | sed -e 's#\.git$##' -e 's#^/##' -e 's#/$##')
+  [ -n "$host" ] && [ -n "$slug" ] || return 0
+  printf '%s%s%s' "$host" "$FS" "$slug"
+}
+
+# dg_git_forge_fresh <project>: the forge block from the previous scan, when it
+# is younger than the TTL. `gh` is a network call per project, so a scan loop
+# over ten projects should not make ten of them a minute apart.
+dg_git_forge_fresh() {
+  local file now collected
+  file="$(dg_git_state_dir)/$1.json"
+  [ -f "$file" ] || return 1
+  now=$(date +%s)
+  collected=$(printf '%s' "$(cat "$file")" | dg_jq -r '.forge.collectedAt // empty' 2>/dev/null)
+  case "$collected" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$(( now - collected ))" -lt "$DG_GIT_FORGE_TTL" ] || return 1
+  printf '%s' "$(cat "$file")" | dg_jq -c '.forge' 2>/dev/null
+}
+
+dg_git_forge_block() {
+  local project="$1" remote="${2:-}" host slug cached prs FS
+  [ "$DG_GIT_WITH_PRS" = "1" ] || return 0
+  FS=$(printf '\037')
+
+  IFS="$FS" read -r host slug <<EOF
+$(dg_git_remote_slug "$remote")
+EOF
+  [ -n "${host:-}" ] && [ -n "${slug:-}" ] || return 0
+  # Only forges `gh` can talk to. A GitLab or Bitbucket remote keeps its
+  # derived links from the git block and gets no pull requests, which is the
+  # documented degradation rather than a failure.
+  case "$host" in *github*) ;; *) return 0 ;; esac
+
+  if cached=$(dg_git_forge_fresh "$project"); then
+    [ -n "$cached" ] && [ "$cached" != "null" ] && printf ',\n  "forge": %s' "$cached"
+    return 0
+  fi
+
+  local now; now=$(date +%s)
+  if ! gh auth status --hostname "$host" >/dev/null 2>&1; then
+    printf ',\n  "forge": {"kind": "github", "collectedAt": %s, "authenticated": false, "pulls": [], "reason": "gh is not signed in to %s"}' \
+      "$now" "$(dg_json_escape "$host")"
+    return 0
+  fi
+
+  prs=$(gh pr list --repo "$host/$slug" --state open --limit "$DG_GIT_FORGE_LIMIT" \
+    --json number,title,state,isDraft,reviewDecision,url,headRefName,statusCheckRollup 2>/dev/null)
+  if [ -z "$prs" ]; then
+    # A repository nobody can see, a network that is down, or genuinely no
+    # pull requests: reported as an answered query with none, because `gh`
+    # returning nothing at all is indistinguishable from an empty list here.
+    prs='[]'
+  fi
+
+  prs=$(printf '%s' "$prs" | dg_jq -c '[ .[] | {
+      number, title, state,
+      draft: .isDraft,
+      reviewDecision: (.reviewDecision // null),
+      url, headRefName,
+      checks: (
+        if (.statusCheckRollup // []) | length == 0 then null
+        elif [ .statusCheckRollup[] | .conclusion? // .state? ]
+             | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "CANCELLED") then "failing"
+        elif [ .statusCheckRollup[] | .conclusion? // .state? ]
+             | any(. == null or . == "" or . == "PENDING" or . == "IN_PROGRESS" or . == "QUEUED") then "pending"
+        else "passing" end
+      )
+    } ]' 2>/dev/null) || prs='[]'
+  [ -n "$prs" ] || prs='[]'
+
+  printf ',\n  "forge": {"kind": "github", "collectedAt": %s, "authenticated": true, "pulls": %s}' \
+    "$now" "$prs"
 }
 
 # ---------------------------------------------------------------------------
@@ -196,16 +308,30 @@ EOF
 
 dg_git_scan() {
   local project=""
+  DG_GIT_WITH_PRS=0
 
   while [ $# -gt 0 ]; do
     case "$1" in
       --project) shift; project="${1:-}" ;;
       --project=*) project="${1#--project=}" ;;
+      --with-prs) DG_GIT_WITH_PRS=1 ;;
+      --forge-ttl) shift; DG_GIT_FORGE_TTL="${1:-300}" ;;
+      --forge-ttl=*) DG_GIT_FORGE_TTL="${1#--forge-ttl=}" ;;
       -*) die "unknown flag for 'git scan': $1" ;;
       *) die "unexpected argument: $1" ;;
     esac
     shift
   done
+
+  case "$DG_GIT_FORGE_TTL" in
+    ''|*[!0-9]*) die "--forge-ttl must be a number of seconds" ;;
+  esac
+
+  if [ "$DG_GIT_WITH_PRS" = "1" ] && ! dg_have gh; then
+    warn "gh is not installed; collecting Git without pull requests"
+    hint "the panel shows no GitHub section rather than an error"
+    DG_GIT_WITH_PRS=0
+  fi
 
   dg_require_docker || return 1
   dg_have git || {

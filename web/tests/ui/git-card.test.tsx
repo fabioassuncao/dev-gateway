@@ -144,3 +144,83 @@ describe('the Git card', () => {
     expect(await screen.findByText('clean')).toBeInTheDocument()
   })
 })
+
+describe('the GitHub section', () => {
+  const forge = (pulls: unknown[], authenticated = true) => ({
+    kind: 'github',
+    collectedAt: Math.floor(Date.now() / 1000),
+    authenticated,
+    reason: null,
+    pulls,
+  })
+
+  it('lists the open pull requests, with review and checks', async () => {
+    projectGit.mockResolvedValue(
+      collected({
+        forge: forge([
+          {
+            number: 61,
+            title: 'Add invoice totals',
+            state: 'OPEN',
+            draft: false,
+            reviewDecision: 'REVIEW_REQUIRED',
+            checks: 'passing',
+            url: 'https://github.com/owner/repo/pull/61',
+            headRefName: 'feature/59',
+          },
+        ]) as never,
+      }),
+    )
+    renderWithQuery(<GitCard project="alpha" />)
+
+    expect(await screen.findByText('1 open pull request')).toBeInTheDocument()
+    expect(screen.getByText(/#61 Add invoice totals/).closest('a')).toHaveAttribute(
+      'href',
+      'https://github.com/owner/repo/pull/61',
+    )
+    expect(screen.getByText('review requested')).toBeInTheDocument()
+    expect(screen.getByText('checks passing')).toBeInTheDocument()
+  })
+
+  it('says there are none rather than hiding the section', async () => {
+    projectGit.mockResolvedValue(collected({ forge: forge([]) as never }))
+    renderWithQuery(<GitCard project="alpha" />)
+    expect(await screen.findByText('No open pull requests')).toBeInTheDocument()
+  })
+
+  it('renders nothing when gh could not be asked', async () => {
+    projectGit.mockResolvedValue(collected({ forge: forge([], false) as never }))
+    renderWithQuery(<GitCard project="alpha" />)
+    await screen.findByText('feature/59-invoices')
+    expect(screen.queryByText(/pull request/)).toBeNull()
+  })
+
+  it('renders nothing when there is no forge block at all', async () => {
+    projectGit.mockResolvedValue(collected({ forge: null }))
+    renderWithQuery(<GitCard project="alpha" />)
+    await screen.findByText('feature/59-invoices')
+    expect(screen.queryByText(/pull request/)).toBeNull()
+  })
+
+  it('marks a draft, and failing checks', async () => {
+    projectGit.mockResolvedValue(
+      collected({
+        forge: forge([
+          {
+            number: 62,
+            title: 'WIP',
+            state: 'OPEN',
+            draft: true,
+            reviewDecision: null,
+            checks: 'failing',
+            url: null,
+            headRefName: 'wip',
+          },
+        ]) as never,
+      }),
+    )
+    renderWithQuery(<GitCard project="alpha" />)
+    expect(await screen.findByText('draft')).toBeInTheDocument()
+    expect(screen.getByText('checks failing')).toBeInTheDocument()
+  })
+})
