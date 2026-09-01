@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+# ============================================================================
+# E2E: two databases on one host port, told apart by hostname
+# ============================================================================
+# The claim this suite exists to keep honest: two PostgreSQL instances, both
+# listening on 5432 inside their own containers, neither publishing a host
+# port, both reachable through the SAME host port, with the hostname deciding
+# which one answers.
+#
+# One instance would prove nothing here. It would pass with the routing removed
+# entirely, because there would be nothing to route wrongly. So every check
+# uses two, with different data in each, and asserts which one answered.
+#
+# See docs/tcp-routing.md for why PostgreSQL and Redis can do this and MySQL
+# cannot.
+# ============================================================================
+set -uo pipefail
+
+DG_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+. "$DG_TEST_DIR/lib/assert.sh"
+DG_ROOT=$(cd -P "$DG_TEST_DIR/.." && pwd); export DG_ROOT
+. "$DG_ROOT/scripts/lib/common.sh"
+. "$DG_ROOT/scripts/lib/docker.sh"
+. "$DG_ROOT/scripts/lib/toolbox.sh"
+. "$DG_ROOT/scripts/lib/discovery.sh"
+dg_load_env; dg_defaults
+
+GW="$DG_ROOT/bin/dev-gateway"
+export DG_ASSUME_YES=true
+
+dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
+
+# Ports well away from anything the host is likely to be using: this suite is
+# about the mechanism, not about owning 5432 on somebody's machine.
+PG_PORT=15432
+REDIS_PORT=16379
+A=tcproute-a
+B=tcproute-b
+
+# Exported for this process only. The gateway's own .env is never written, so
+# nothing here outlives the suite.
+export DEV_GATEWAY_TCP=true
+export DEV_GATEWAY_TCP_POSTGRES_PORT="$PG_PORT"
+export DEV_GATEWAY_TCP_REDIS_PORT="$REDIS_PORT"
+
+compose_env() {
+  ( cd "$DG_ROOT/examples/demo-a" && COMPOSE_PROJECT_NAME="$1" docker compose \
+      -f compose.yaml -f compose.dev-gateway.yaml -f compose.dev-gateway-tcp.yaml "${@:2}" )
+}
+
+cleanup() {
+  docker rm -f dg-rule-probe >/dev/null 2>&1
+  compose_env "$A" down -v >/dev/null 2>&1
+  compose_env "$B" down -v >/dev/null 2>&1
+  # Put the gateway back the way it was found: TCP off unless .env says
+  # otherwise, which is what the unexported environment gives us.
+  ( unset DEV_GATEWAY_TCP DEV_GATEWAY_TCP_POSTGRES_PORT DEV_GATEWAY_TCP_REDIS_PORT
+    "$GW" up "$DEV_GATEWAY_PROFILE" ) >/dev/null 2>&1
+}
+trap cleanup EXIT INT TERM
+
+# psql_at <hostname> <sslmode> [extra query args]: run a query through the
+# gateway and print the single value, or the error.
+psql_at() {
+  docker run --rm --network host "$DG_TOOLBOX_IMAGE" \
+    psql "postgresql://demo:demo@$1:$PG_PORT/demo?sslmode=$2" -tAc "select name from whoami" 2>&1 | head -1
+}
+
+redis_at() {
+  docker run --rm --network host "$DG_TOOLBOX_IMAGE" \
+    redis-cli -h 127.0.0.1 -p "$REDIS_PORT" --tls --sni "$1" --insecure get whoami 2>&1 | head -1
+}
+
+# answered_by <output> <marker>: did that database answer? A substring check
+# would be wrong here, because psql prints the hostname inside its error text
+# and the hostname contains the project name.
+answered_by() { [ "$1" = "$2" ]; }
+refused() { [ "$1" != "$2" ]; }
+
+# wait_for <hostname> <expected>: Traefik learns about a container from Docker
+# events, which is fast but not instant.
+wait_for() {
+  local host="$1" want="$2" attempt
+  for attempt in $(seq 1 30); do
+    : "$attempt"
+    [ "$(psql_at "$host" require)" = "$want" ] && return 0
+    sleep 1
+  done
+  return 1
+}
+
+describe "the gateway publishes one port per protocol"
+
+"$GW" up "$DEV_GATEWAY_PROFILE" >/dev/null 2>&1
+traefik_ports=$(docker ps --format '{{.Names}} {{.Ports}}' | grep 'dev-gateway-traefik' || true)
+
+it "PostgreSQL has an entrypoint"
+assert_contains "$traefik_ports" ":$PG_PORT->5432"
+
+it "Redis has one too"
+assert_contains "$traefik_ports" ":$REDIS_PORT->6379"
+
+describe "two projects, same internal ports, no published ports"
+
+compose_env "$A" up -d --wait --wait-timeout 180 >/dev/null 2>&1
+compose_env "$B" up -d --wait --wait-timeout 180 >/dev/null 2>&1
+docker exec "$A-postgres-1" psql -U demo -d demo -qc \
+  "create table whoami(name text); insert into whoami values ('$A');" >/dev/null 2>&1
+docker exec "$B-postgres-1" psql -U demo -d demo -qc \
+  "create table whoami(name text); insert into whoami values ('$B');" >/dev/null 2>&1
+docker exec "$A-redis-1" redis-cli set whoami "$A" >/dev/null 2>&1
+docker exec "$B-redis-1" redis-cli set whoami "$B" >/dev/null 2>&1
+
+it "neither database publishes a host port"
+assert_eq "" "$(docker ps --format '{{.Names}} {{.Ports}}' \
+  | grep -E "^($A|$B)-(postgres|redis)-1 " | grep -E '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:' || true)"
+
+it "both still listen on the standard port inside their own container"
+assert_eq "5432
+5432" "$(dg_container_ports "$A-postgres-1"; dg_container_ports "$B-postgres-1")"
+
+it "neither joined the shared HTTP network"
+assert_eq "" "$(docker inspect "$A-postgres-1" "$B-postgres-1" \
+  --format '{{ range $k, $v := .NetworkSettings.Networks }}{{ $k }} {{ end }}' \
+  | tr ' ' '\n' | grep -x "$DEV_GATEWAY_NETWORK" || true)"
+
+describe "the hostname decides which database answers"
+
+it "the first project's data comes back on its own hostname"
+assert_success wait_for "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+
+it "and the second's on its own, through the very same port"
+assert_success wait_for "$B-postgres.$DEV_GATEWAY_DOMAIN" "$B"
+
+it "they really are different databases, queried back to back"
+assert_eq "$A|$B" "$(psql_at "$A-postgres.$DEV_GATEWAY_DOMAIN" require)|$(psql_at "$B-postgres.$DEV_GATEWAY_DOMAIN" require)"
+
+it "Redis does the same on its own single port"
+assert_eq "$A|$B" "$(redis_at "$A-redis.$DEV_GATEWAY_DOMAIN")|$(redis_at "$B-redis.$DEV_GATEWAY_DOMAIN")"
+
+describe "without TLS there is no hostname to route on"
+
+it "sslmode=disable is refused rather than sent somewhere arbitrary"
+assert_success refused "$(psql_at "$A-postgres.$DEV_GATEWAY_DOMAIN" disable)" "$A"
+
+it "and connecting by IP is too, because SNI is never sent for one"
+assert_success refused "$(psql_at "127.0.0.1" require)" "$A"
+
+it "an unknown hostname reaches nothing"
+assert_success refused "$(psql_at "nobody-postgres.$DEV_GATEWAY_DOMAIN" require)" "$A"
+
+describe "routes follow the containers"
+
+it "a restarted database is reachable again"
+docker restart "$A-postgres-1" >/dev/null 2>&1
+assert_success wait_for "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+
+it "stopping one leaves the other alone"
+docker stop "$A-postgres-1" >/dev/null 2>&1
+sleep 2
+assert_eq "$B" "$(psql_at "$B-postgres.$DEV_GATEWAY_DOMAIN" require)"
+
+it "and the stopped one stops answering"
+assert_success refused "$(psql_at "$A-postgres.$DEV_GATEWAY_DOMAIN" require)" "$A"
+
+it "starting it again brings its route back"
+docker start "$A-postgres-1" >/dev/null 2>&1
+assert_success wait_for "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+
+it "recreating it from scratch works too"
+compose_env "$A" up -d --force-recreate --wait --wait-timeout 180 postgres >/dev/null 2>&1
+docker exec "$A-postgres-1" psql -U demo -d demo -qc \
+  "create table if not exists whoami(name text); delete from whoami; insert into whoami values ('$A');" >/dev/null 2>&1
+assert_success wait_for "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+
+describe "restarting the gateway does not lose the routes"
+
+"$GW" restart >/dev/null 2>&1
+
+it "the first database answers again after Traefik restarts"
+assert_success wait_for "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+
+it "and so does the second"
+assert_success wait_for "$B-postgres.$DEV_GATEWAY_DOMAIN" "$B"
+
+describe "the label reader this feature leans on"
+# Docker's inspect templates have no `hasPrefix`, so a template using it parses
+# to nothing and the extraction silently returns empty. Both of these read
+# labels through the shell instead, and both were wrong before TCP routing made
+# it visible.
+
+it "urls lists the HTTP services"
+urls=$("$GW" urls 2>/dev/null)
+assert_contains "$urls" "$A-web.$DEV_GATEWAY_DOMAIN"
+
+it "and does not list a database, which is not reached with a browser"
+assert_not_contains "$urls" "$A-postgres.$DEV_GATEWAY_DOMAIN"
+
+it "an explicit Host() label wins over the derived hostname"
+docker run -d --rm --name dg-rule-probe --network "$DEV_GATEWAY_NETWORK" \
+  --label traefik.enable=true \
+  --label 'traefik.http.routers.probe.rule=Host(`explicit-name.test`)' \
+  --label traefik.http.services.probe.loadbalancer.server.port=9999 \
+  --label com.docker.compose.project=ruleprobe \
+  --label com.docker.compose.service=web \
+  traefik/whoami:v1.12.0 >/dev/null 2>&1
+sleep 2
+assert_contains "$("$GW" urls 2>/dev/null)" "explicit-name.test"
+
+it "and the backend port label is read too"
+assert_contains "$("$GW" urls --json 2>/dev/null)" '"port": "9999"'
+docker rm -f dg-rule-probe >/dev/null 2>&1
+
+describe "the CLI and the registry agree with what just happened"
+
+it "the hostname the CLI derives is the one that worked"
+assert_eq "$A-postgres.$DEV_GATEWAY_DOMAIN" "$(dg_tcp_hostname "$A" postgres)"
+
+it "PostgreSQL is registered as routable"
+assert_eq "starttls-sni" "$(dg_routing_for_kind postgres)"
+
+it "MySQL is registered as not routable, and nothing pretends otherwise"
+assert_eq "unsupported" "$(dg_routing_for_kind mysql)"
+
+it "a protocol nobody verified is not claimed to work"
+assert_eq "unevaluated" "$(dg_routing_for_kind mongodb)"
+
+t_summary

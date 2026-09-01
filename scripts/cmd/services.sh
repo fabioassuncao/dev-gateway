@@ -35,16 +35,17 @@ DG_HELP
 
   if [ "$as_json" = "1" ]; then
     printf '{\n  "services": [\n'
-    local first=1 p s _c img kind ports hostports bport
-    while IFS="$FS" read -r p s _c img kind ports hostports bport; do
+    local first=1 p s c img kind ports hostports bport gateway_addr
+    while IFS="$FS" read -r p s c img kind ports hostports bport; do
       [ -n "${p:-}" ] || continue
       [ "$first" = "1" ] || printf ',\n'
       first=0
-      printf '    {"project": "%s", "service": "%s", "image": "%s", "kind": "%s", "container_ports": "%s", "host_ports": "%s", "http_routed": %s, "bridge_port": "%s"}' \
+      gateway_addr=$(dg_service_gateway_address "$c" "$p" "$s" "$kind")
+      printf '    {"project": "%s", "service": "%s", "image": "%s", "kind": "%s", "container_ports": "%s", "host_ports": "%s", "http_routed": %s, "bridge_port": "%s", "routing": "%s", "gateway_address": "%s"}' \
         "$(dg_json_escape "$p")" "$(dg_json_escape "$s")" "$(dg_json_escape "$img")" \
         "$kind" "$ports" "$(dg_json_escape "$hostports")" \
         "$(printf '%s' "$routed" | grep -qx "$p/$s" && echo true || echo false)" \
-        "$bport"
+        "$bport" "$(dg_routing_for_kind "$kind")" "$(dg_json_escape "$gateway_addr")"
     done <<EOF
 $rows
 EOF
@@ -59,12 +60,15 @@ EOF
 
   printf '%-22s %-14s %-11s %-10s %-9s %s\n' \
     "PROJECT" "SERVICE" "KIND" "PORTS" "HTTP" "ACCESS"
-  local p s _c img kind ports hostports bport http access
-  while IFS="$FS" read -r p s _c img kind ports hostports bport; do
+  local p s c img kind ports hostports bport http access gateway_addr
+  while IFS="$FS" read -r p s c img kind ports hostports bport; do
     [ -n "${p:-}" ] || continue
     if printf '%s' "$routed" | grep -qx "$p/$s"; then http="routed"; else http="-"; fi
 
-    if [ -n "$bport" ]; then
+    gateway_addr=$(dg_service_gateway_address "$c" "$p" "$s" "$kind")
+    if [ -n "$gateway_addr" ]; then
+      access="$gateway_addr"
+    elif [ -n "$bport" ]; then
       access="127.0.0.1:$bport"
     elif [ -n "$hostports" ]; then
       case "$hostports" in
@@ -84,5 +88,24 @@ $rows
 EOF
 
   printf '\n%s\n' "$(dg_dim 'HTTP services are reached by hostname; see dev-gateway urls')"
+  if dg_is_true "${DEV_GATEWAY_TCP:-false}"; then
+    printf '%s\n' "$(dg_dim 'A database showing a hostname is reached with TLS: sslmode=require. See docs/tcp-routing.md')"
+  fi
   printf '%s\n' "$(dg_dim 'Everything else is reached on demand: dev-gateway access open --project <p> --service <s>')"
+}
+
+# dg_service_gateway_address <container> <project> <service> <kind>: the
+# hostname and port a client uses when this service is routed by hostname, or
+# nothing when it is not.
+#
+# Three things have to be true: the gateway has to be publishing the
+# entrypoint, the protocol has to be one that can be told apart by SNI, and the
+# container has to carry the router labels that opt it in.
+dg_service_gateway_address() {
+  dg_is_true "${DEV_GATEWAY_TCP:-false}" || return 0
+  local port
+  port=$(dg_tcp_host_port_for_kind "$4")
+  [ -n "$port" ] || return 0
+  dg_container_tcp_routed "$1" || return 0
+  printf '%s:%s' "$(dg_tcp_hostname "$2" "$3")" "$port"
 }

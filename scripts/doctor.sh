@@ -364,6 +364,55 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Databases by hostname
+# ---------------------------------------------------------------------------
+
+if dg_is_true "$DEV_GATEWAY_TCP"; then
+  if [ "$DEV_GATEWAY_PROFILE" = "remote-public" ]; then
+    check fail tcp.profile "tcp entrypoints" \
+      "enabled on the remote-public profile, where Traefik binds every interface" \
+      "set DEV_GATEWAY_TCP=false; reach databases over the VPN or a loopback bridge"
+  else
+    check pass tcp.profile "tcp entrypoints" \
+      "postgres :$DEV_GATEWAY_TCP_POSTGRES_PORT, redis :$DEV_GATEWAY_TCP_REDIS_PORT on $DEV_GATEWAY_BIND_ADDRESS" ""
+  fi
+
+  # The hostname travels inside the TLS handshake, so a client that does not
+  # ask for TLS cannot be routed at all. Without a configured certificate
+  # Traefik serves a self-signed one, which `sslmode=require` accepts and
+  # `verify-full` does not.
+  if dg_is_true "$TLS_ENABLED"; then
+    check pass tcp.tls "tcp tls" "certificates configured ($TLS_MODE)" ""
+  else
+    check warn tcp.tls "tcp tls" \
+      "no certificate configured; Traefik will serve a self-signed one" \
+      "sslmode=require works; for verify-full run: dev-gateway tls init"
+  fi
+
+  # A routed datastore belongs on the access network. On the shared one it
+  # would be reachable by every HTTP service on the host.
+  tcp_on_shared=""
+  tcp_routed=0
+  for cid in $(docker ps -q 2>/dev/null); do
+    dg_container_tcp_routed "$cid" || continue
+    tcp_routed=$((tcp_routed + 1))
+    docker inspect "$cid" --format '{{ range $k, $v := .NetworkSettings.Networks }}{{ $k }} {{ end }}' 2>/dev/null \
+      | tr ' ' '\n' | grep -qx "$DEV_GATEWAY_NETWORK" || continue
+    tcp_on_shared="$tcp_on_shared $(docker inspect "$cid" --format '{{ .Name }}' 2>/dev/null | sed 's#^/##')"
+  done
+  if [ -n "$tcp_on_shared" ]; then
+    check fail tcp.network "routed datastores" \
+      "on the shared HTTP network:$tcp_on_shared" \
+      "attach them to $DEV_GATEWAY_ACCESS_NETWORK instead; see docs/tcp-routing.md"
+  else
+    check pass tcp.network "routed datastores" \
+      "$tcp_routed routed, none on the shared network" ""
+  fi
+else
+  check pass tcp.profile "tcp entrypoints" "disabled" ""
+fi
+
+# ---------------------------------------------------------------------------
 # Web panel
 # ---------------------------------------------------------------------------
 # The panel can start, stop and remove containers, so where it listens matters

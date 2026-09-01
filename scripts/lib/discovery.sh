@@ -48,6 +48,64 @@ dg_service_kind() {
   esac
 }
 
+# ---------------------------------------------------------------------------
+# Protocol registry
+# ---------------------------------------------------------------------------
+# What a protocol needs in order to be told apart by hostname on a shared port.
+# Every entry was verified with two instances and a real client; see
+# docs/tcp-routing.md. Nothing is listed as routable on the assumption that it
+# behaves like its neighbour.
+#
+#   starttls-sni  client opens in plaintext, asks to upgrade, then sends SNI
+#                 (Traefik has explicit support for the Postgres handshake)
+#   tls-sni       client sends a TLS ClientHello first, so SNI is there at once
+#   unsupported   the server speaks first, so there is no SNI to route on
+#   unevaluated   not tested; treated as unsupported until it is
+#
+# dg_routing_for_kind <kind>
+dg_routing_for_kind() {
+  case "${1:-}" in
+    postgres) printf 'starttls-sni' ;;
+    redis) printf 'tls-sni' ;;
+    mysql) printf 'unsupported' ;;
+    *) printf 'unevaluated' ;;
+  esac
+}
+
+# dg_tcp_entrypoint_for_kind <kind>: the Traefik entrypoint that serves it, or
+# nothing when the protocol cannot be routed by hostname.
+dg_tcp_entrypoint_for_kind() {
+  case "${1:-}" in
+    postgres) printf 'postgres' ;;
+    redis) printf 'redis' ;;
+    *) printf '' ;;
+  esac
+}
+
+# dg_tcp_host_port_for_kind <kind>: the host port that entrypoint is published on.
+dg_tcp_host_port_for_kind() {
+  case "${1:-}" in
+    postgres) printf '%s' "${DEV_GATEWAY_TCP_POSTGRES_PORT:-5432}" ;;
+    redis) printf '%s' "${DEV_GATEWAY_TCP_REDIS_PORT:-6379}" ;;
+    *) printf '' ;;
+  esac
+}
+
+# dg_tcp_hostname <project> <service>: the name a client connects to.
+#
+# Flat on purpose, and the same shape the HTTP routers use: a wildcard
+# certificate covers exactly one label, so `postgres.storefront.<domain>` would
+# need a certificate per project. See docs/tcp-routing.md.
+dg_tcp_hostname() {
+  printf '%s-%s.%s' "$(dg_slug "$1")" "$(dg_slug "$2")" "${DEV_GATEWAY_DOMAIN:-localhost}"
+}
+
+# dg_container_tcp_routed <container>: true when the container carries TCP
+# router labels, which is the only way it gets routed.
+dg_container_tcp_routed() {
+  dg_container_labels "$1" | grep -q '^traefik\.tcp\.routers\.'
+}
+
 # dg_find_container <project> <service>: the running container for a Compose
 # service, or nothing.
 dg_find_container() {

@@ -125,6 +125,17 @@ dg_resolve_profile() {
     return 1
   fi
 
+  # A database is never reachable from the internet. `public enable` is about
+  # HTTP services that opted in; the TCP entrypoints have no such notion, and
+  # on this profile Traefik binds every interface.
+  if dg_is_true "${DEV_GATEWAY_TCP:-false}" && [ "$profile" = "remote-public" ]; then
+    err "TCP entrypoints must not run on the remote-public profile"
+    hint "Traefik binds every interface there, so 5432 and 6379 would face the internet"
+    hint "reach databases over the VPN (remote-private) or a loopback bridge instead"
+    hint "see docs/tcp-routing.md"
+    return 1
+  fi
+
   # ACME cannot issue a certificate without a contact address.
   case "$profile" in
     remote-private|remote-public)
@@ -180,6 +191,15 @@ dg_compose_files() {
       files="$files compose.dashboard-tailscale.yaml"
     else
       files="$files compose.dashboard.yaml"
+    fi
+  fi
+
+  # Hostname routing for databases: one entrypoint per protocol, opt-in.
+  if dg_is_true "${DEV_GATEWAY_TCP:-false}"; then
+    if [ "$attachment" = "tailscale" ]; then
+      files="$files compose.tcp-tailscale.yaml"
+    else
+      files="$files compose.tcp.yaml"
     fi
   fi
 
@@ -310,6 +330,14 @@ dg_discover_http() {
     state=$(dg_container_state "$id")
 
     labels=$(dg_container_labels "$id")
+
+    # A datastore routed by hostname carries TCP router labels and no HTTP
+    # ones. It opted into the gateway, but not into anything `urls` should
+    # list: it is not reached with a browser. See docs/tcp-routing.md.
+    if printf '%s' "$labels" | grep -q '^traefik\.tcp\.routers\.' \
+       && ! printf '%s' "$labels" | grep -q '^traefik\.http\.'; then
+      continue
+    fi
 
     # An explicit Host(`...`) rule label wins over the derived hostname, the
     # same way it does inside Traefik.

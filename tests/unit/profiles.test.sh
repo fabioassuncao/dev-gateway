@@ -95,6 +95,20 @@ assert_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test DEV_GATEWAY_WEB=
 it "and gets no Traefik router"
 assert_not_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test DEV_GATEWAY_WEB=true)" "compose.web-vpn.yaml"
 
+describe "TCP entrypoints are opt-in and never public"
+it "off by default"
+assert_not_contains "$(files_for local)" "compose.tcp.yaml"
+it "enabled by DEV_GATEWAY_TCP"
+assert_contains "$(files_for local DEV_GATEWAY_TCP=true)" "compose.tcp.yaml"
+it "the Tailscale attachment publishes them from the Tailscale container"
+assert_contains "$(files_for remote-private DEV_GATEWAY_TCP=true TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test)" "compose.tcp-tailscale.yaml"
+it "and never both overlays at once"
+assert_not_contains "$(files_for remote-private DEV_GATEWAY_TCP=true TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test)" "compose.tcp.yaml "
+it "a database on the public profile is REFUSED"
+assert_eq "REFUSED" "$(resolve remote-public DEV_GATEWAY_DOMAIN PUBLIC_DOMAIN=d.test DEV_GATEWAY_TCP=true)"
+it "and the public profile still starts without them"
+assert_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test)" "compose.public.yaml"
+
 describe "every profile renders a valid compose configuration"
 if ! docker compose version >/dev/null 2>&1; then
   it "compose validation"; skip "docker compose unavailable"
@@ -116,6 +130,8 @@ else
   it "local with the web panel";    assert_success validate local DEV_GATEWAY_WEB=true
   it "local with the panel in dev"; assert_success validate local DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_DEV=true
   it "remote-private + panel/vpn";  assert_success validate remote-private TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_EXPOSE=vpn
+  it "local with tcp entrypoints";  assert_success validate local DEV_GATEWAY_TCP=true
+  it "remote-private + tcp";        assert_success validate remote-private TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy DEV_GATEWAY_TCP=true
 fi
 
 describe "the private profile never publishes on a public interface"
@@ -123,7 +139,7 @@ if ! docker compose version >/dev/null 2>&1; then
   it "rendered binds"; skip "docker compose unavailable"
 else
   rendered=$(
-    export TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy
+    export TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy DEV_GATEWAY_TCP=true
     dg_defaults; dg_resolve_profile remote-private >/dev/null 2>&1
     dg_compose remote-private config 2>/dev/null
   )

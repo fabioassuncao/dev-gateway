@@ -151,6 +151,13 @@ cmd_up() {
   dg_network_ensure "$DEV_GATEWAY_NETWORK" \
     || die "could not create the shared network '$DEV_GATEWAY_NETWORK'"
 
+  # So must the access network, when databases are routed by hostname. Opted-in
+  # datastores join it; the shared HTTP network never carries one.
+  if dg_is_true "$DEV_GATEWAY_TCP"; then
+    dg_network_ensure "$DEV_GATEWAY_ACCESS_NETWORK" \
+      || die "could not create the access network '$DEV_GATEWAY_ACCESS_NETWORK'"
+  fi
+
   mkdir -p "$DG_STATE_DIR/traefik/acme"
 
   info "starting gateway (profile: $profile, domain: $DEV_GATEWAY_DOMAIN)"
@@ -308,6 +315,9 @@ cmd_status() {
   "tailscale_enabled": $(dg_is_true "$TAILSCALE_ENABLED" && echo true || echo false),
   "public_enabled": $(dg_is_true "$PUBLIC_ENABLED" && echo true || echo false),
   "dashboard_enabled": $(dg_is_true "$DEV_GATEWAY_DASHBOARD" && echo true || echo false),
+  "tcp_enabled": $(dg_is_true "$DEV_GATEWAY_TCP" && echo true || echo false),
+  "tcp_postgres_port": "$DEV_GATEWAY_TCP_POSTGRES_PORT",
+  "tcp_redis_port": "$DEV_GATEWAY_TCP_REDIS_PORT",
   "web_enabled": $(dg_is_true "$DEV_GATEWAY_WEB" && echo true || echo false),
   "web_url": "http://$DEV_GATEWAY_WEB_BIND_ADDRESS:$DEV_GATEWAY_WEB_PORT",
   "web_expose": "$DEV_GATEWAY_WEB_EXPOSE",
@@ -342,6 +352,7 @@ JSON
   printf '  %-18s %s\n' "public domain" "${PUBLIC_DOMAIN:-<unset>}"
   printf '  %-18s %s\n' "public access" "$(dg_is_true "$PUBLIC_ENABLED" && printf 'ENABLED' || printf 'disabled')"
   printf '  %-18s %s\n' "dashboard" "$(dg_is_true "$DEV_GATEWAY_DASHBOARD" && printf 'enabled (%s:%s)' "$DEV_GATEWAY_DASHBOARD_BIND_ADDRESS" "$DEV_GATEWAY_DASHBOARD_PORT" || printf 'disabled')"
+  printf '  %-18s %s\n' "tcp routing" "$(dg_is_true "$DEV_GATEWAY_TCP" && printf 'enabled (postgres :%s, redis :%s)' "$DEV_GATEWAY_TCP_POSTGRES_PORT" "$DEV_GATEWAY_TCP_REDIS_PORT" || printf 'disabled')"
   printf '  %-18s %s\n' "web panel" "$(dg_is_true "$DEV_GATEWAY_WEB" && printf 'enabled (%s:%s, expose: %s)' "$DEV_GATEWAY_WEB_BIND_ADDRESS" "$DEV_GATEWAY_WEB_PORT" "$DEV_GATEWAY_WEB_EXPOSE" || printf 'disabled')"
   printf '  %-18s %s\n' "routed services" "$routes"
 }
@@ -356,7 +367,9 @@ cmd_inspect() {
            DEV_GATEWAY_HTTPS_PORT DEV_GATEWAY_LOG_LEVEL DEV_GATEWAY_ACCESS_LOG \
            DEV_GATEWAY_DASHBOARD DEV_GATEWAY_WEB DEV_GATEWAY_WEB_BIND_ADDRESS \
            DEV_GATEWAY_WEB_PORT DEV_GATEWAY_WEB_EXPOSE DEV_GATEWAY_WEB_DEV \
-           DEV_GATEWAY_WEB_READ_ONLY TLS_ENABLED TLS_MODE TAILSCALE_ENABLED \
+           DEV_GATEWAY_WEB_READ_ONLY DEV_GATEWAY_TCP \
+           DEV_GATEWAY_TCP_POSTGRES_PORT DEV_GATEWAY_TCP_REDIS_PORT \
+           TLS_ENABLED TLS_MODE TAILSCALE_ENABLED \
            PUBLIC_ENABLED PUBLIC_DOMAIN PRIVATE_DOMAIN CLOUDFLARE_ENABLED; do
     printf '  %-32s %s\n' "$v" "${!v:-}"
   done

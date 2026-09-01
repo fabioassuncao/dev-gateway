@@ -182,6 +182,24 @@ jobs:
           echo "ok: access bridges bind loopback only"
           ./bin/dev-gateway access close --all
 
+      - name: TCP entrypoints stay on loopback, and refuse the public profile
+        run: |
+          set -euo pipefail
+          DEV_GATEWAY_TCP=true ./bin/dev-gateway up local
+          binds=$(docker ps --format '{{.Names}} {{.Ports}}' | grep dev-gateway-traefik)
+          echo "$binds"
+          case "$binds" in
+            *0.0.0.0*) echo "a TCP entrypoint is bound beyond loopback"; exit 1 ;;
+          esac
+          echo "$binds" | grep -q '127.0.0.1:5432->5432' || { echo "postgres entrypoint missing"; exit 1; }
+          # A database must never be reachable from the internet, so the public
+          # profile refuses these entrypoints outright rather than warning.
+          if DEV_GATEWAY_TCP=true PUBLIC_DOMAIN=d.test ./bin/dev-gateway up remote-public; then
+            echo "remote-public accepted TCP entrypoints"; exit 1
+          fi
+          echo "ok: TCP entrypoints are loopback-only and refused on the public profile"
+          ./bin/dev-gateway up local
+
       - name: The panel publishes nothing beyond loopback
         run: |
           set -euo pipefail
