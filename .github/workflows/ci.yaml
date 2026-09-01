@@ -24,6 +24,9 @@ jobs:
         os: [ubuntu-24.04, macos-latest]
         node: [22, 24]
     runs-on: ${{ matrix.os }}
+    # A hung step must fail fast and leave readable logs: without this a
+    # deadlocked test run sits for GitHub's six-hour default, reporting nothing.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
@@ -70,6 +73,9 @@ jobs:
     name: Published CLI smoke
     if: github.event_name == 'release'
     runs-on: ubuntu-24.04
+    # A hung step must fail fast and leave readable logs: without this a
+    # deadlocked test run sits for GitHub's six-hour default, reporting nothing.
+    timeout-minutes: 10
     steps:
       - uses: actions/setup-node@v6
         with:
@@ -86,6 +92,9 @@ jobs:
   lint:
     name: Lint and unit tests
     runs-on: ubuntu-24.04
+    # A hung step must fail fast and leave readable logs: without this a
+    # deadlocked test run sits for GitHub's six-hour default, reporting nothing.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
@@ -115,6 +124,9 @@ jobs:
   e2e:
     name: End-to-end (Linux)
     runs-on: ubuntu-24.04
+    # A hung step must fail fast and leave readable logs: without this a
+    # deadlocked test run sits for GitHub's six-hour default, reporting nothing.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
@@ -170,6 +182,9 @@ jobs:
   web:
     name: Web panel
     runs-on: ubuntu-24.04
+    # A hung step must fail fast and leave readable logs: without this a
+    # deadlocked test run sits for GitHub's six-hour default, reporting nothing.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
 
@@ -213,6 +228,9 @@ jobs:
   audit:
     name: Audit invariants
     runs-on: ubuntu-24.04
+    # A hung step must fail fast and leave readable logs: without this a
+    # deadlocked test run sits for GitHub's six-hour default, reporting nothing.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       # No Docker needed: these are static checks on what is tracked.
@@ -222,6 +240,9 @@ jobs:
   exposure:
     name: Exposure regression checks
     runs-on: ubuntu-24.04
+    # A hung step must fail fast and leave readable logs: without this a
+    # deadlocked test run sits for GitHub's six-hour default, reporting nothing.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
