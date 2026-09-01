@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import { api, ApiError } from '../lib/api.ts'
 import type { Issue, WorkflowStatus } from '../../shared/types.ts'
@@ -9,12 +10,13 @@ import { Card, CardHeader } from '../components/ui/card.tsx'
 import { Input, Select } from '../components/ui/field.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
 import { Tabs, TabPanel } from '../components/ui/tabs.tsx'
-import { BoardEmpty, DEFAULT_COLUMNS, IssueBoard } from '../components/issue-board.tsx'
+import { BoardEmpty, IssueBoard } from '../components/issue-board.tsx'
 import { IssueRows } from '../components/issue-list.tsx'
 import { IssueDialog } from '../components/issue-dialog.tsx'
 import { useOptimisticMutation } from '../lib/optimistic.ts'
 import { navigate } from '../lib/router.ts'
 import { useDocumentTitle } from '../lib/title.ts'
+import { useBoardColumns } from '../i18n/use-issue-statuses.ts'
 
 /** Filters that live in the hash, so a filtered board is a link. */
 const FILTERS = ['repository', 'status', 'priority', 'type', 'assignee', 'milestone', 'label', 'q'] as const
@@ -47,15 +49,15 @@ export function BoardPage({
   filters: Partial<Record<FilterKey, string>>
   readOnly?: boolean
 }) {
+  const { t } = useTranslation('issues')
+  const columns = useBoardColumns()
   const view = resolveView(requested)
-  useDocumentTitle(view === 'backlog' ? 'Backlog' : 'Board', slug)
+  useDocumentTitle(view === 'backlog' ? t('backlog') : t('board'), slug)
 
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<Issue | null>(null)
   const [failure, setFailure] = useState<unknown>(null)
 
-  // The backlog is what has no status and no schedule yet; the board is what
-  // does. Two views, one projection.
   const query = {
     ...filters,
     ...(view === 'backlog' ? {} : { state: 'open' }),
@@ -96,15 +98,11 @@ export function BoardPage({
     <>
       <PageHeader
         title={workspace.data?.name ?? slug}
-        description={
-          backlog
-            ? 'Work with no status yet, ordered by priority and last change.'
-            : 'Every open issue of this workspace, by status.'
-        }
+        description={backlog ? t('backlogDescription') : t('boardDescription')}
         actions={
           <>
             <Button size="sm" onClick={() => navigate(`/workspaces/${encodeURIComponent(slug)}`)}>
-              Workspace
+              {t('workspace')}
             </Button>
             <Button
               size="sm"
@@ -113,18 +111,18 @@ export function BoardPage({
               onClick={() => setCreating(true)}
             >
               <Plus className="h-3.5 w-3.5" />
-              New issue
+              {t('newIssue')}
             </Button>
           </>
         }
       />
 
       <Tabs
-        label={`${slug} views`}
+        label={t('viewsLabel', { slug })}
         active={view}
         tabs={[
-          { id: 'board', label: 'Board', href: hashFor(slug, 'board', filters) },
-          { id: 'backlog', label: 'Backlog', href: hashFor(slug, 'backlog', filters) },
+          { id: 'board', label: t('board'), href: hashFor(slug, 'board', filters) },
+          { id: 'backlog', label: t('backlog'), href: hashFor(slug, 'backlog', filters) },
         ]}
       />
 
@@ -133,17 +131,17 @@ export function BoardPage({
           <Input
             value={filters.q ?? ''}
             onChange={(event) => setFilter('q', event.target.value)}
-            placeholder="Filter by number or title"
+            placeholder={t('filterPlaceholder')}
             className="h-8 w-56"
-            aria-label="Filter issues"
+            aria-label={t('filterAria')}
           />
           <Select
             value={filters.repository ?? ''}
             onChange={(event) => setFilter('repository', event.target.value)}
             className="h-8 w-48"
-            aria-label="Repository"
+            aria-label={t('repository')}
           >
-            <option value="">Any repository</option>
+            <option value="">{t('anyRepository')}</option>
             {(workspace.data?.repositories ?? []).map((repository) => (
               <option key={repository.repositoryId} value={repository.fullName}>
                 {repository.fullName}
@@ -154,29 +152,31 @@ export function BoardPage({
             value={filters.priority ?? ''}
             onChange={(event) => setFilter('priority', event.target.value)}
             className="h-8 w-36"
-            aria-label="Priority"
+            aria-label={t('priorityFilter', { defaultValue: 'Priority' })}
           >
-            <option value="">Any priority</option>
-            <option value="urgent">Urgent</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
+            <option value="">{t('anyPriority')}</option>
+            <option value="urgent">{t('priority.urgent')}</option>
+            <option value="high">{t('priority.high')}</option>
+            <option value="medium">{t('priority.medium')}</option>
+            <option value="low">{t('priority.low')}</option>
           </Select>
           <Input
             value={filters.assignee ?? ''}
             onChange={(event) => setFilter('assignee', event.target.value)}
-            placeholder="Assignee"
+            placeholder={t('assignee')}
             className="h-8 w-36"
-            aria-label="Assignee"
+            aria-label={t('assignee')}
           />
           <Input
             value={filters.label ?? ''}
             onChange={(event) => setFilter('label', event.target.value)}
-            placeholder="Label"
+            placeholder={t('label')}
             className="h-8 w-36"
-            aria-label="Label"
+            aria-label={t('label')}
           />
-          {readOnly ? <Badge tone="outline">read-only</Badge> : null}
+          {readOnly ? (
+            <Badge tone="outline">{t('versions.readOnly', { ns: 'gateway' })}</Badge>
+          ) : null}
         </div>
 
         {failure ? (
@@ -188,20 +188,14 @@ export function BoardPage({
         {issues.error ? (
           unavailable ? (
             <Card>
-              <Empty
-                title="The board needs the panel's database"
-                hint="Issues are a projection of GitHub, kept locally so the board answers while GitHub is unreachable."
-              />
+              <Empty title={t('needsDatabase')} hint={t('needsDatabaseHint')} />
             </Card>
           ) : (
             <ErrorBox error={issues.error} />
           )
         ) : backlog ? (
           <Card>
-            <CardHeader
-              title="Backlog"
-              description="Unprioritised and unscheduled work, with sub-issues nested under their parent."
-            />
+            <CardHeader title={t('backlogCard.title')} description={t('backlogCard.description')} />
             <IssueRows issues={shown} onSelect={setEditing} />
           </Card>
         ) : shown.length === 0 ? (
@@ -211,7 +205,7 @@ export function BoardPage({
         ) : (
           <IssueBoard
             issues={shown}
-            columns={DEFAULT_COLUMNS}
+            columns={columns}
             readOnly={readOnly}
             onOpen={setEditing}
             onMove={(issue, status) => {

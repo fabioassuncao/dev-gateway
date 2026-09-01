@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api.ts'
 import type { Issue, IssuePriority, WorkflowStatus } from '../../shared/types.ts'
 import { Badge } from './ui/badge.tsx'
@@ -7,37 +8,15 @@ import { Button } from './ui/button.tsx'
 import { Dialog } from './ui/dialog.tsx'
 import { Input, Select } from './ui/field.tsx'
 import { ErrorBox } from './shell-bits.tsx'
+import { useIssueStatuses } from '../i18n/use-issue-statuses.ts'
 
-const STATUSES: { value: WorkflowStatus | ''; label: string }[] = [
-  { value: '', label: 'No status' },
-  { value: 'backlog', label: 'Backlog' },
-  { value: 'ready', label: 'Ready' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'review', label: 'Review' },
-  { value: 'blocked', label: 'Blocked' },
-  { value: 'done', label: 'Done' },
-]
-
-const PRIORITIES: { value: IssuePriority | ''; label: string }[] = [
-  { value: '', label: 'No priority' },
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-  { value: 'urgent', label: 'Urgent' },
-]
-
-/**
- * Creating and editing, both writing through to GitHub.
- *
- * There is no optimistic row here: the panel never shows an issue GitHub did
- * not confirm, so the dialog waits for the answer and the projection is
- * updated from it.
- */
 export function IssueDialog(
   props:
     | { mode: 'create'; repositories: string[]; open: boolean; onOpenChange: (open: boolean) => void }
     | { mode: 'edit'; issue: Issue; open: boolean; onOpenChange: (open: boolean) => void },
 ) {
+  const { t } = useTranslation('issues')
+  const { statusOptions, priorityOptions } = useIssueStatuses()
   const queryClient = useQueryClient()
   const editing = props.mode === 'edit' ? props.issue : null
 
@@ -89,14 +68,10 @@ export function IssueDialog(
             <span>#{editing.number}</span>
           </span>
         ) : (
-          'New issue'
+          t('dialog.newIssue')
         )
       }
-      description={
-        editing
-          ? 'Changes are written to GitHub, and the panel shows what GitHub confirmed.'
-          : 'The issue is opened on GitHub; the panel projects what GitHub returned.'
-      }
+      description={editing ? t('dialog.editDescription') : t('dialog.createDescription')}
       footer={
         <Button
           variant="primary"
@@ -104,7 +79,7 @@ export function IssueDialog(
           disabled={submit.isPending || (props.mode === 'create' && (title.trim() === '' || repository === ''))}
           onClick={() => submit.mutate()}
         >
-          {props.mode === 'create' ? 'Create on GitHub' : 'Save to GitHub'}
+          {props.mode === 'create' ? t('dialog.createOnGitHub') : t('dialog.saveToGitHub')}
         </Button>
       }
     >
@@ -114,11 +89,11 @@ export function IssueDialog(
         {props.mode === 'create' ? (
           <>
             <label className="block">
-              <span className="text-xs text-subtle">Repository</span>
+              <span className="text-xs text-subtle">{t('dialog.repository')}</span>
               <Select
                 value={repository}
                 onChange={(event) => setRepository(event.target.value)}
-                aria-label="Repository"
+                aria-label={t('dialog.repository')}
               >
                 {props.repositories.map((name) => (
                   <option key={name} value={name}>
@@ -128,12 +103,12 @@ export function IssueDialog(
               </Select>
             </label>
             <label className="block">
-              <span className="text-xs text-subtle">Title</span>
-              <Input value={title} onChange={(event) => setTitle(event.target.value)} aria-label="Title" />
+              <span className="text-xs text-subtle">{t('dialog.title')}</span>
+              <Input value={title} onChange={(event) => setTitle(event.target.value)} aria-label={t('dialog.title')} />
             </label>
             <label className="block">
-              <span className="text-xs text-subtle">Body</span>
-              <Input value={body} onChange={(event) => setBody(event.target.value)} aria-label="Body" />
+              <span className="text-xs text-subtle">{t('dialog.body')}</span>
+              <Input value={body} onChange={(event) => setBody(event.target.value)} aria-label={t('dialog.body')} />
             </label>
           </>
         ) : (
@@ -145,27 +120,26 @@ export function IssueDialog(
               target="_blank"
               rel="noreferrer noopener"
             >
-              Open on GitHub
+              {t('openOnGitHub', { defaultValue: 'Open on GitHub' })}
             </a>
             <IssueEnvironments issue={editing!} />
             {editing!.metadataSource === 'labels' ? (
-              <p className="text-[11px] text-subtle">
-                This issue’s status comes from the <span className="font-mono">status:</span> label
-                convention, so changing it adds one label and removes another — and that shows in the
-                issue’s timeline.
-              </p>
+              <p className="text-[11px] text-subtle">{t('statusFromLabelHint', {
+                defaultValue:
+                  "This issue's status comes from the status: label convention, so changing it adds one label and removes another — and that shows in the issue's timeline.",
+              })}</p>
             ) : null}
           </>
         )}
 
         <label className="block">
-          <span className="text-xs text-subtle">Status</span>
+          <span className="text-xs text-subtle">{t('dialog.status')}</span>
           <Select
             value={status}
             onChange={(event) => setStatus(event.target.value as WorkflowStatus | '')}
-            aria-label="Status"
+            aria-label={t('dialog.status')}
           >
-            {STATUSES.map((entry) => (
+            {statusOptions.map((entry) => (
               <option key={entry.value} value={entry.value}>
                 {entry.label}
               </option>
@@ -174,13 +148,13 @@ export function IssueDialog(
         </label>
 
         <label className="block">
-          <span className="text-xs text-subtle">Priority</span>
+          <span className="text-xs text-subtle">{t('dialog.priority')}</span>
           <Select
             value={priority}
             onChange={(event) => setPriority(event.target.value as IssuePriority | '')}
-            aria-label="Priority"
+            aria-label={t('dialog.priority')}
           >
-            {PRIORITIES.map((entry) => (
+            {priorityOptions.map((entry) => (
               <option key={entry.value} value={entry.value}>
                 {entry.label}
               </option>
@@ -189,12 +163,12 @@ export function IssueDialog(
         </label>
 
         <label className="block">
-          <span className="text-xs text-subtle">Assignees</span>
+          <span className="text-xs text-subtle">{t('dialog.assignees')}</span>
           <Input
             value={assignees}
             onChange={(event) => setAssignees(event.target.value)}
-            placeholder="comma-separated GitHub logins"
-            aria-label="Assignees"
+            placeholder={t('dialog.assigneesPlaceholder')}
+            aria-label={t('dialog.assignees')}
           />
         </label>
       </div>
@@ -202,20 +176,17 @@ export function IssueDialog(
   )
 }
 
-/**
- * Where this issue is being worked, and why.
- *
- * Every component here already exists: the state badge, the endpoints, and a
- * link into the project page's Logs tab. Nothing is duplicated, and nothing
- * here starts, stops or creates anything.
- */
 function IssueEnvironments({ issue }: { issue: Issue }) {
+  const { t } = useTranslation('issues')
+
   if (issue.environments.length === 0) {
     return (
       <div className="rounded-md border border-line bg-surface-2/40 px-3 py-2 text-xs text-subtle">
-        No environment is linked to this issue. Start one on a branch like{' '}
-        <span className="font-mono">fix/{issue.number}-…</span>, label it{' '}
-        <span className="font-mono">dev-gateway.issue</span>, or link one by hand.
+        {t('noEnvironmentIntro', { defaultValue: 'No environment is linked to this issue. Start one on a branch like' })}{' '}
+        <span className="font-mono">fix/{issue.number}-…</span>,{' '}
+        {t('noEnvironmentLabel', { defaultValue: 'label it' })}{' '}
+        <span className="font-mono">dev-gateway.issue</span>,{' '}
+        {t('noEnvironmentOutro', { defaultValue: 'or link one by hand.' })}
       </div>
     )
   }
@@ -232,13 +203,22 @@ function IssueEnvironments({ issue }: { issue: Issue }) {
               {environment.project}
             </a>
             <Badge tone={environment.running ? 'ok' : 'outline'}>
-              {environment.runningCount}/{environment.serviceCount} running
+              {t('environmentRunning', {
+                defaultValue: '{{running}}/{{total}} running',
+                running: environment.runningCount,
+                total: environment.serviceCount,
+              })}
             </Badge>
             {environment.unhealthyCount > 0 ? (
-              <Badge tone="danger">{environment.unhealthyCount} unhealthy</Badge>
+              <Badge tone="danger">
+                {t('environmentUnhealthy', {
+                  defaultValue: '{{count}} unhealthy',
+                  count: environment.unhealthyCount,
+                })}
+              </Badge>
             ) : null}
             <a className="ml-auto text-xs text-accent hover:underline" href={environment.logsUrl}>
-              Logs
+              {t('logsLink', { defaultValue: 'Logs' })}
             </a>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-subtle">
@@ -255,7 +235,10 @@ function IssueEnvironments({ issue }: { issue: Issue }) {
             </div>
           ) : (
             <p className="mt-1 text-[11px] text-subtle">
-              Not running. Start it on the host; the panel never starts an environment for you.
+              {t('environmentNotRunning', {
+                defaultValue:
+                  'Not running. Start it on the host; the panel never starts an environment for you.',
+              })}
             </p>
           )}
         </div>

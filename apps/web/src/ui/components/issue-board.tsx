@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { MoreHorizontal } from 'lucide-react'
 import type { Issue, WorkflowStatus } from '../../shared/types.ts'
@@ -6,6 +7,7 @@ import { Badge } from './ui/badge.tsx'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from './ui/menu.tsx'
 import { Empty } from './shell-bits.tsx'
 import { cn } from '../lib/utils.ts'
+import { useBoardColumns } from '../i18n/use-issue-statuses.ts'
 
 export interface BoardColumn {
   id: string
@@ -39,7 +41,7 @@ export function columnFor(issue: Issue, columns: BoardColumn[]): BoardColumn {
 
 export function IssueBoard({
   issues,
-  columns = DEFAULT_COLUMNS,
+  columns: columnsProp,
   onMove,
   onOpen,
   readOnly = false,
@@ -50,15 +52,23 @@ export function IssueBoard({
   onOpen?: (issue: Issue) => void
   readOnly?: boolean
 }) {
-  // A move announces its result, because a card that silently jumped columns is
-  // not a result anyone using a screen reader can perceive.
+  const { t } = useTranslation('issues')
+  const defaultColumns = useBoardColumns()
+  const columns = columnsProp ?? defaultColumns
   const [announcement, setAnnouncement] = useState('')
 
   function move(issue: Issue, status: WorkflowStatus): void {
     if (readOnly || issue.status === status) return
     onMove(issue, status)
     const column = columns.find((entry) => entry.status === status)
-    setAnnouncement(`${issue.repository}#${issue.number} moved to ${column?.label ?? status}`)
+    setAnnouncement(
+      t('movedAnnouncement', {
+        defaultValue: '{{repo}}#{{number}} moved to {{column}}',
+        repo: issue.repository,
+        number: issue.number,
+        column: column?.label ?? status,
+      }),
+    )
   }
 
   return (
@@ -98,6 +108,7 @@ function BoardColumnView({
   onOpen?: (issue: Issue) => void
   readOnly: boolean
 }) {
+  const { t } = useTranslation('issues')
   const region = useRef<HTMLDivElement>(null)
   const [over, setOver] = useState(false)
 
@@ -122,7 +133,7 @@ function BoardColumnView({
   return (
     <section
       ref={region}
-      aria-label={`${column.label} column`}
+      aria-label={t('columnLabel', { defaultValue: '{{label}} column', label: column.label })}
       className={cn(
         'flex min-w-0 flex-col rounded-lg border border-line bg-surface',
         over && 'border-accent bg-accent/5',
@@ -135,7 +146,9 @@ function BoardColumnView({
 
       <div className="min-h-24 space-y-2 p-2">
         {shown.length === 0 ? (
-          <p className="px-1 py-6 text-center text-xs text-subtle">Nothing here</p>
+          <p className="px-1 py-6 text-center text-xs text-subtle">
+            {t('nothingHere', { defaultValue: 'Nothing here' })}
+          </p>
         ) : (
           shown.map((issue) => (
             <IssueCard
@@ -150,7 +163,10 @@ function BoardColumnView({
         )}
         {issues.length > shown.length ? (
           <p className="px-1 pb-1 text-center text-[11px] text-subtle">
-            {issues.length - shown.length} more; narrow the filters to see them
+            {t('moreHidden', {
+              defaultValue: '{{count}} more; narrow the filters to see them',
+              count: issues.length - shown.length,
+            })}
           </p>
         ) : null}
       </div>
@@ -171,6 +187,8 @@ export function IssueCard({
   onOpen?: (issue: Issue) => void
   readOnly: boolean
 }) {
+  const { t } = useTranslation('issues')
+  const { t: tc } = useTranslation('common')
   const element = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -209,23 +227,26 @@ export function IssueCard({
         </a>
         {issue.issueType ? <Badge tone="neutral">{issue.issueType}</Badge> : null}
 
-        {/* The keyboard and touch path: the same mutation, no drag involved. */}
         <Menu>
           <MenuTrigger
-            aria-label={`Actions for ${issue.repository}#${issue.number}`}
+            aria-label={t('actionsFor', {
+              defaultValue: 'Actions for {{repo}}#{{number}}',
+              repo: issue.repository,
+              number: issue.number,
+            })}
             className="ml-auto rounded p-0.5 text-subtle hover:bg-surface-2 hover:text-ink"
           >
             <MoreHorizontal className="h-3.5 w-3.5" />
           </MenuTrigger>
           <MenuContent>
-            {onOpen ? <MenuItem onSelect={() => onOpen(issue)}>Open</MenuItem> : null}
+            {onOpen ? <MenuItem onSelect={() => onOpen(issue)}>{tc('open')}</MenuItem> : null}
             {columns.map((column) => (
               <MenuItem
                 key={column.id}
                 disabled={readOnly || issue.status === column.status}
                 onSelect={() => onMove(issue, column.status)}
               >
-                Move to {column.label}
+                {t('moveTo', { defaultValue: 'Move to {{label}}', label: column.label })}
               </MenuItem>
             ))}
           </MenuContent>
@@ -236,27 +257,27 @@ export function IssueCard({
 
       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-subtle">
         {issue.priority ? (
-          <Badge tone={PRIORITY_TONE[issue.priority]}>priority: {issue.priority}</Badge>
+          <Badge tone={PRIORITY_TONE[issue.priority]}>
+            {t('priorityBadge', { defaultValue: 'priority: {{priority}}', priority: issue.priority })}
+          </Badge>
         ) : null}
         {issue.childIds.length > 0 ? (
           <span>
-            {issue.childIds.length} sub-{issue.childIds.length === 1 ? 'issue' : 'issues'}
+            {t('subIssues', {
+              defaultValue: '{{count}} sub-{{word}}',
+              count: issue.childIds.length,
+              word: issue.childIds.length === 1 ? 'issue' : 'issues',
+            })}
           </span>
         ) : null}
         {issue.assignees.length > 0 ? <span>@{issue.assignees[0]}</span> : null}
-        {issue.metadataSource === 'labels' ? (
-          <span title="this status comes from the status: label convention">·</span>
-        ) : null}
+        {issue.metadataSource === 'labels' ? <span title={t('status.fromLabel')}>·</span> : null}
       </div>
     </div>
   )
 }
 
 export function BoardEmpty() {
-  return (
-    <Empty
-      title="No issue matches these filters"
-      hint="Issues come from the panel's projection. Press Sync under Settings → GitHub if the board looks empty."
-    />
-  )
+  const { t } = useTranslation('issues')
+  return <Empty title={t('emptyFilters')} hint={t('emptyFiltersHint')} />
 }
