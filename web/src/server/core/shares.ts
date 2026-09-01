@@ -78,10 +78,10 @@ export function renderShares(shares: StoredShare[]): string {
   const lines = [...HEADER, `${MARKER}${JSON.stringify(shares)}`, '']
 
   if (shares.length === 0) {
+    // Comments and nothing else: `http: {}` is invalid to Traefik, and one
+    // invalid file in the directory aborts every other file in it.
     lines.push('# Nothing is shared. "Private" is the absence of a share, not a deny rule.')
-    lines.push('http: {}')
-    lines.push('')
-    return lines.join('\n')
+    return `${lines.join('\n')}\n`
   }
 
   lines.push('http:')
@@ -227,7 +227,7 @@ export function assertShareable(
     )
   }
 
-  const port = container.exposedPorts[0]
+  const port = backendPort(container)
   if (port === undefined) {
     throw new ShareRefused(
       `${container.name} exposes no port for Traefik to reach`,
@@ -235,6 +235,23 @@ export function assertShareable(
     )
   }
   return port
+}
+
+/**
+ * The port Traefik dials for this container.
+ *
+ * A `loadbalancer.server.port` label wins over the exposed port, because the
+ * project already told Traefik which one is right and the image frequently
+ * exposes another (a base image's 80 in front of an application on 3000). The
+ * share has to reach the same backend the project's own router does, or it
+ * answers 502 while looking perfectly configured.
+ */
+export function backendPort(container: ContainerSummary): number | undefined {
+  const label = Object.entries(container.labels)
+    .filter(([key]) => key.startsWith('traefik.http.services.') && key.endsWith('.loadbalancer.server.port'))
+    .map(([, value]) => Number(value))
+    .find((value) => Number.isInteger(value) && value > 0 && value <= 65535)
+  return label ?? container.exposedPorts[0]
 }
 
 // ---------------------------------------------------------------------------

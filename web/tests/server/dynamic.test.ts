@@ -70,8 +70,15 @@ describe('renderPanelAuth', () => {
 
   it('declares nothing when authentication is off, so the router fails closed', () => {
     const yaml = renderPanelAuth(null)
-    expect(yaml).toContain('http: {}')
     expect(yaml).not.toContain(PANEL_AUTH_MIDDLEWARE)
+  })
+
+  it('writes comments and no `http` key at all when there is nothing to declare', () => {
+    // `http: {}` is not an empty configuration to Traefik, it is an invalid
+    // one, and one invalid file aborts every other file in the directory.
+    const yaml = renderPanelAuth(null)
+    expect(yaml).not.toMatch(/^http:/m)
+    expect(yaml.split('\n').filter((line) => line !== '').every((line) => line.startsWith('#'))).toBe(true)
   })
 
   it('says who generated it, in both states', () => {
@@ -112,7 +119,7 @@ describe('reconcilePanelAuth', () => {
   it('treats basic without a credential as no middleware at all', () => {
     const dir = scratch()
     reconcilePanelAuth(dir, { mode: 'basic', user: 'dev', hash: '' })
-    expect(readFileSync(join(dir, GENERATED_FILES.panel), 'utf8')).toContain('http: {}')
+    expect(readFileSync(join(dir, GENERATED_FILES.panel), 'utf8')).not.toMatch(/^http:/m)
   })
 
   it('reports rather than throws when the directory cannot be written', () => {

@@ -73,14 +73,16 @@ export function quote(value: string): string {
 
 export function renderPanelAuth(options: { user: string; hash: string } | null): string {
   if (!options) {
+    // Comments and nothing else. `http: {}` is not an empty configuration to
+    // Traefik, it is an invalid one ("http cannot be a standalone element"),
+    // and one invalid file aborts the whole directory: every other generated
+    // router would stop being served too.
     return [
       ...HEADER,
       '# DEV_GATEWAY_WEB_AUTH is not `basic`, so the panel declares no middleware.',
       '# A router that references one will be rejected by Traefik, which is the',
       '# correct direction to fail.',
-      'http: {}',
-      '',
-    ].join('\n')
+    ].join('\n') + '\n'
   }
 
   return [

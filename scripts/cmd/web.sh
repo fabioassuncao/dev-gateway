@@ -106,10 +106,16 @@ dg_web_auth_configured() {
 }
 
 # dg_web_auth_password: 20 characters over 32 symbols, so about 100 bits.
-# No vowels and no look-alikes: this gets read aloud and typed by hand.
+# No 0, 1, I or O: this gets read aloud and typed by hand.
+#
+# The bounded `head` comes first on purpose. Reading /dev/urandom into `tr` and
+# closing the pipe from the far end kills `tr` with SIGPIPE, and under
+# `set -o pipefail` the whole command then exits 141 having printed nothing.
+# A finite input means every stage reaches EOF and exits cleanly.
 dg_web_auth_password() {
-  LC_ALL=C tr -dc '23456789ABCDEFGHJKLMNPQRSTUVWXYZ' < /dev/urandom \
-    | head -c 20 \
+  LC_ALL=C head -c 4096 /dev/urandom \
+    | LC_ALL=C tr -dc '23456789ABCDEFGHJKLMNPQRSTUVWXYZ' \
+    | cut -c1-20 \
     | sed -e 's/\(.....\)/\1-/g' -e 's/-$//'
 }
 
@@ -158,11 +164,14 @@ DG_BODY
       printf '        realm: "Dev Gateway"\n'
       printf '        removeHeader: true\n'
     else
+      # Comments and no `http` key at all. `http: {}` is not an empty
+      # configuration to Traefik, it is an invalid one, and ONE invalid file
+      # aborts the whole directory: every other generated router stops being
+      # served with it. Found by running it, not by reading the docs.
       cat <<'DG_BODY'
 # DEV_GATEWAY_WEB_AUTH is not `basic`, so the panel declares no middleware.
 # A router that references one will be rejected by Traefik, which is the
 # correct direction to fail.
-http: {}
 DG_BODY
     fi
   } > "$tmp" || { rm -f "$tmp"; err "could not write $file"; return 1; }

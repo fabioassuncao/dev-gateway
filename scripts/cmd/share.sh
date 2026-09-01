@@ -81,11 +81,11 @@ dg_share_render() {
       "# dev-gateway-shares: " + ($shares | tojson),
       ""
     ]
+    # Nothing shared means comments and no `http` key at all: `http: {}` is
+    # invalid to Traefik, and one invalid file aborts every other file in the
+    # directory.
     + (if ($shares | length) == 0 then
-        [
-          "# Nothing is shared. \"Private\" is the absence of a share, not a deny rule.",
-          "http: {}"
-        ]
+        [ "# Nothing is shared. \"Private\" is the absence of a share, not a deny rule." ]
       else
         ["http:", "  routers:"]
         + ([ $shares[] | (. as $s |

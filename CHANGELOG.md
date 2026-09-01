@@ -208,6 +208,21 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Fixed
 
+- **A share answered 502 while looking perfectly configured.** The backend port
+  was taken from the container's exposed ports, but a project that already told
+  Traefik which port to use (`loadbalancer.server.port`) usually exposes
+  another: a base image's 80 in front of an application on 3000. The label now
+  wins, so a share reaches the same backend the project's own router does.
+- **One generated file with nothing in it broke every other file in the
+  directory.** `http: {}` is not an empty configuration to Traefik, it is an
+  invalid one, and `collecting file configs` aborts the whole directory when
+  any file in it fails: with no shares and no panel credential, no generated
+  router was served at all. Both files now carry comments and no `http` key
+  when they have nothing to declare.
+- **`dev-gateway web auth set` exited 141 and printed nothing.** Reading
+  `/dev/urandom` into `tr` and closing the pipe from `head -c` kills `tr` with
+  SIGPIPE, which `set -o pipefail` then reports as a failed command. The input
+  is bounded first, so every stage reaches EOF.
 - **`dev-gateway urls` ignored every explicit `Host()` label and every
   `loadbalancer.server.port`.** Both were read with a Go template using
   `hasPrefix`, which Docker's `inspect --format` does not have: the template

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { buildSnapshot } from '../../src/server/core/inventory.ts'
 import {
   ShareRefused,
+  backendPort,
   collectExpired,
   createShare,
   listShares,
@@ -80,7 +81,11 @@ describe('a share is an additional hostname, and nothing about the project chang
     revokeShare(config, created.share.id)
 
     expect(loadShares(config)).toEqual([])
-    expect(readFileSync(join(dir, 'dev-gateway-shares.yaml'), 'utf8')).toContain('http: {}')
+    // Comments only: `http: {}` is invalid to Traefik and would abort the
+    // whole directory, taking every other generated router with it.
+    const emptied = readFileSync(join(dir, 'dev-gateway-shares.yaml'), 'utf8')
+    expect(emptied).not.toMatch(/^http:/m)
+    expect(emptied).toContain('not a deny rule')
   })
 
   it('round-trips its own state through the file', () => {
@@ -241,5 +246,40 @@ describe('the API', () => {
     const { app } = makeApp({ containers: FULL_HOST }, { dynamicDir: dir, readOnly: true, ...PUBLIC })
     expect((await post(app, '/api/services/a-web/share', { mode: 'public' })).status).toBe(403)
     expect((await del(app, '/api/shares/abcd')).status).toBe(403)
+  })
+})
+
+describe('the port Traefik dials', () => {
+  it('prefers the port the project already told Traefik about', async () => {
+    const { config, snapshot } = await world(PUBLIC)
+    // A base image exposing 80 in front of an application on 3000 is the
+    // common case, and picking the exposed port makes a share that looks
+    // perfectly configured answer 502.
+    const container = {
+      ...(snapshot.containers.find((entry) => entry.id === 'a-web') as ContainerSummary),
+      exposedPorts: [80],
+      labels: { 'traefik.http.services.alpha-web.loadbalancer.server.port': '3000' },
+    }
+    expect(backendPort(container)).toBe(3000)
+
+    createShare(config, snapshot, container, { mode: 'public' })
+    expect(readFileSync(join(dir, 'dev-gateway-shares.yaml'), 'utf8')).toContain(
+      'url: "http://alpha-web-1:3000"',
+    )
+  })
+
+  it('falls back to the exposed port when the project named none', async () => {
+    const { snapshot } = await world()
+    const container = snapshot.containers.find((entry) => entry.id === 'a-web') as ContainerSummary
+    expect(backendPort(container)).toBe(80)
+  })
+
+  it('ignores a port label that is not a port', async () => {
+    const { snapshot } = await world()
+    const container = {
+      ...(snapshot.containers.find((entry) => entry.id === 'a-web') as ContainerSummary),
+      labels: { 'traefik.http.services.x.loadbalancer.server.port': 'auto' },
+    }
+    expect(backendPort(container)).toBe(80)
   })
 })

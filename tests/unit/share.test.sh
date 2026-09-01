@@ -131,8 +131,12 @@ else
   scratch dg_share_gc >/dev/null 2>&1
   assert_eq "[]" "$(scratch dg_share_meta)"
 
-  it "and leaves a file that is still valid for Traefik"
-  assert_contains "$(cat "$SCRATCH/config/traefik/dynamic/dev-gateway-shares.yaml")" "http: {}"
+  it "and leaves a file with no http key at all, which Traefik accepts"
+  # `http: {}` is invalid to Traefik, and one invalid file in the directory
+  # aborts every other file in it, including the panel's own middleware.
+  assert_eq "" "$(grep -n '^http:' "$SCRATCH/config/traefik/dynamic/dev-gateway-shares.yaml" || true)"
+  it "while still saying what it is"
+  assert_contains "$(cat "$SCRATCH/config/traefik/dynamic/dev-gateway-shares.yaml")" "not a deny rule"
 fi
 
 describe "the command surface"
