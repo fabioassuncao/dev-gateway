@@ -224,8 +224,14 @@ matching CLI.
 
 `doctor` also reports the host's development environment — Git and its global
 identity, GitHub CLI and whether it is authenticated, Node, npm, npx, Tailscale
-— and which AI agent CLIs are present. That part is diagnostic only. Portta
-never installs, authenticates or reconfigures any of them.
+— and which AI agent CLIs are present (Claude Code, Codex, Cursor Agent,
+Gemini, Antigravity). That part is diagnostic only. Portta never installs,
+authenticates or reconfigures any of them.
+
+`portta doctor` and `npx portta doctor` give the same answer: the deep checks
+live in one script that every installation carries, and the TypeScript CLI runs
+it rather than keeping a second, thinner copy. A missing optional tool is a
+warning, never a failure.
 
 ## Installing a specific version
 

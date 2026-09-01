@@ -92,6 +92,24 @@ for fn in $(grep -oE '^cmd_[a-z_]+' "$GW" | sed 's/^cmd_//' | sort -u); do
 done
 assert_eq "" "$missing"
 
+describe "one doctor, two surfaces"
+# The deep diagnostics live in scripts/doctor.sh. The TypeScript CLI runs it
+# rather than reimplementing a thinner version, so `portta doctor` and
+# `npx portta doctor` cannot answer differently.
+it "the TypeScript doctor runs the shell one"
+assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" "scripts/doctor.sh"
+if ! docker info >/dev/null 2>&1; then
+  it "shared checks"; skip "docker unavailable"
+else
+  it "and reports the checks only the shell doctor makes"
+  ids=$("$GW" doctor --json 2>/dev/null | python3 -c "import json,sys; print(' '.join(c['id'] for c in json.load(sys.stdin)['checks']))")
+  for id in panel.access agents.claude tools.git vpn.tailscale; do
+    assert_contains "$ids" "$id"
+  done
+  it "and a warning is not a failure"
+  assert_contains "$("$GW" doctor --json 2>/dev/null)" '"status": "warn"'
+fi
+
 describe "the CLI says which installation it is talking to"
 # A CLI installed from npm outlives the installation it addresses in both
 # directions, so `version` reports both and whether they agree.
