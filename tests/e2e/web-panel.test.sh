@@ -56,7 +56,17 @@ describe "the panel starts through the CLI"
 # A container that belongs to nobody: exactly what the Docker page exists for.
 docker run -d --name "$STRAY" --label portta.e2e=true alpine:3.24.1 sleep 600 >/dev/null 2>&1
 
-"$GW" web up >/dev/null 2>&1
+# Kept, not discarded: when `web up` fails, its own output is the only thing
+# that says why, and every assertion below then fails for a reason none of them
+# can explain.
+WEB_UP_LOG=$(mktemp "${TMPDIR:-/tmp}/portta-web-up.XXXXXX")
+"$GW" web up >"$WEB_UP_LOG" 2>&1 || true
+if ! get /api/health >/dev/null 2>&1; then
+  printf '\n--- web up said ---\n%s\n--- end ---\n\n' "$(cat "$WEB_UP_LOG")" >&2
+  docker ps -a --filter 'label=portta.managed=true' --format '{{.Names}} {{.Status}}' >&2
+  docker logs "$(portta_gateway_container db)" 2>&1 | tail -20 >&2 || true
+fi
+rm -f "$WEB_UP_LOG"
 
 it "answers as soon as 'web up' returns"
 # Regression: `web up` used to report success the moment Compose created the
