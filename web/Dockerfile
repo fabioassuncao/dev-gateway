@@ -40,6 +40,7 @@ ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
+COPY migrations ./migrations
 
 USER node
 EXPOSE 8081
