@@ -12,7 +12,9 @@ import type {
   Project,
   ProjectGit,
   RemovalPreview,
+  Share,
   ServiceTraefik,
+  ShareView,
   TraefikVerdict,
 } from '../../shared/types.ts'
 
@@ -103,6 +105,19 @@ export const api = {
   openBridge: (body: { project: string; service: string; port?: number; ttlSeconds?: number }) =>
     request<{ ok: boolean }>('/access', { method: 'POST', body: JSON.stringify(body) }),
   closeBridge: (id: string) => request<{ ok: boolean }>(`/access/${id}`, { method: 'DELETE' }),
+
+  shares: () => request<ShareView>('/shares'),
+  createShare: (id: string, body: { mode: 'public' | 'protected'; ttlSeconds?: number }) =>
+    request<{ ok: boolean; share: Share; password: string | null }>(
+      `/services/${encodeURIComponent(id)}/share`,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+  regenerateShare: (id: string) =>
+    request<{ ok: boolean; share: Share; password: string | null }>(
+      `/shares/${encodeURIComponent(id)}/regenerate`,
+      { method: 'POST', body: '{}' },
+    ),
+  revokeShare: (id: string) => request<{ ok: boolean }>(`/shares/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
   config: () => request<ConfigView>('/config'),
   patchConfig: (values: Record<string, string | null>) =>

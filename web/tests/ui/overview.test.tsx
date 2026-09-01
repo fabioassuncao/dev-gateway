@@ -57,6 +57,8 @@ const data: OverviewData = {
     containersIntegrated: 5,
     containersExternal: 1,
     containersStandalone: 0,
+    shares: 0,
+    sharesStale: 0,
     bridges: 1,
     forwarders: 0,
     routes: 3,

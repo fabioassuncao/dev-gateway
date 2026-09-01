@@ -11,7 +11,7 @@ GW="$DG_ROOT/bin/dev-gateway"
 
 COMMANDS="bootstrap up down restart status logs doctor urls inspect update version
 toolbox network public dns tls remote analyze init namespace access services db redis service
-web git"
+web git share"
 
 describe "every command answers --help"
 for c in $COMMANDS; do
@@ -38,7 +38,7 @@ it "remote bootstrap without a target"; assert_failure "$GW" remote bootstrap
 
 describe "the top-level help lists the commands people need"
 help=$("$GW" --help 2>&1)
-for c in bootstrap up down status doctor urls analyze init access services public dns tls remote web git; do
+for c in bootstrap up down status doctor urls analyze init access services public dns tls remote web git share; do
   it "help mentions $c"; assert_contains "$help" "$c"
 done
 
@@ -46,7 +46,7 @@ describe "--json output parses"
 if ! docker info >/dev/null 2>&1; then
   it "json output"; skip "docker unavailable"
 else
-  for c in "status --json" "urls --json" "doctor --json" "services --json" "access list --json" "web status --json" "git status --json"; do
+  for c in "status --json" "urls --json" "doctor --json" "services --json" "access list --json" "web status --json" "git status --json" "share list --json"; do
     it "dev-gateway $c"
     # shellcheck disable=SC2086
     assert_success sh -c "\"$GW\" $c 2>/dev/null | python3 -m json.tool >/dev/null"

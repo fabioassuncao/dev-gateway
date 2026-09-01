@@ -136,6 +136,13 @@ containers, so it is fenced on three sides.
 - **Traefik configuration.** The panel may write two filenames in
   `config/traefik/dynamic/` and refuses every other path in its own process.
   See [ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md).
+- **Temporary shares.** A share is one additional hostname for one service,
+  with a mandatory expiry, on a network the gateway already answers: it exposes
+  a hostname, never a network. Sharing a datastore, a service off the shared
+  network, anything public without `PUBLIC_ENABLED`, and a password over
+  plaintext on a remote profile are all refused rather than warned about. The
+  password is generated, shown once and stored only as a hash. See
+  [sharing.md](sharing.md).
 - **Docker.** Its own socket proxy, not Traefik's, which stays read-only. It
   grants the read endpoints plus the container lifecycle, and denies images,
   volumes, exec, build, swarm, secrets, plugins and the system endpoints. The

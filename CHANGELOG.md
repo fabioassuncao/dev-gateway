@@ -65,6 +65,31 @@ While the version is `0.x`, minor releases may contain breaking changes.
   `--forge-ttl` seconds. No `gh`, a signed-out `gh` and a forge `gh` cannot talk
   to all render nothing rather than an error, and the repository link survives
   all three because it is derived from the remote.
+- **Sharing one service, temporarily, with one person.** The choices used to be
+  "not routed", "routed on the VPN so everyone on the tailnet can reach it" and
+  "`PUBLIC_ENABLED=true`, so every opted-in service on the host is on the
+  internet". None of those is "show this one thing to this one person until
+  tomorrow". See [docs/sharing.md](docs/sharing.md).
+  - Three states per service, and `private` is the absence of a share rather
+    than a new deny mechanism: `protected` is an additional hostname behind a
+    generated password, `public` one with none.
+  - A share is an **addition**: a router in one generated file, pointing at the
+    container by name because two projects on the shared network can both alias
+    `web`. The project's own router, labels and configuration are never
+    touched, so revoking one deletes a block and changes nothing else.
+  - The password is generated, shown exactly once and stored only as a hash. No
+    response ever carries it again; regenerating replaces the hash and shows a
+    new one.
+  - Every share carries a mandatory expiry, between a minute and a week. Active
+    shares are counted on the Overview and expired or dangling ones show up in
+    the diagnostics, because an exposure nobody remembers is the one worth
+    surfacing.
+  - Refusals rather than warnings, following the `service publish` precedent: a
+    non-HTTP service, a service off the shared network, `public` without
+    `PUBLIC_ENABLED` and `PUBLIC_DOMAIN`, and a password over plaintext HTTP on
+    a remote profile.
+  - `dev-gateway share list | revoke | gc` manages the same objects from the
+    host, the way `access` already does for bridges.
 - **Traefik's own verdict on a route.** Opening a service shows the router
   Traefik actually built, its rule, entrypoints, middlewares and resolved
   backend, and its status with Traefik's own error text when it refused one.

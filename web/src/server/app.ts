@@ -12,8 +12,11 @@ import { accessRoutes } from './routes/access.ts'
 import { gatewayRoutes } from './routes/gateway.ts'
 import { configRoutes } from './routes/config.ts'
 import { eventRoutes } from './routes/events.ts'
+import { shareRoutes } from './routes/shares.ts'
 import { ActionRefused } from './core/actions.ts'
 import { AccessError } from './core/access.ts'
+import { ShareRefused } from './core/shares.ts'
+import { DynamicWriteRefused } from './core/dynamic.ts'
 import { ValidationError } from './core/settings.ts'
 import { DockerApiError } from './docker/client.ts'
 import { DockerAccessDenied } from './docker/allowlist.ts'
@@ -63,6 +66,7 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', dockerRoutes(deps))
   api.route('/', networkRoutes(deps))
   api.route('/', accessRoutes(deps))
+  api.route('/', shareRoutes(deps))
   api.route('/', gatewayRoutes(deps))
   api.route('/', configRoutes(deps))
   api.route('/', eventRoutes(deps))
@@ -79,7 +83,12 @@ export function createApp(deps: AppDeps): Hono {
     if (error instanceof HTTPException) {
       return c.json({ error: error.message }, error.status)
     }
-    if (error instanceof ActionRefused || error instanceof AccessError) {
+    if (
+      error instanceof ActionRefused ||
+      error instanceof AccessError ||
+      error instanceof ShareRefused ||
+      error instanceof DynamicWriteRefused
+    ) {
       return c.json({ error: error.message, hint: error.hint }, error.status as 400)
     }
     if (error instanceof ValidationError) {

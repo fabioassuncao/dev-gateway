@@ -322,6 +322,19 @@ Three cases render nothing at all rather than an error: `gh` is not installed,
 to. In the last case the Git line keeps its repository link, since that is
 derived from the remote and needs nobody's permission.
 
+#### Sharing it, temporarily
+
+The Exposure section on a service offers three states: **private** (the absence
+of a share, and the default), **protected** (an additional hostname behind a
+generated password) and **public** (an additional hostname with none, refused
+unless public access is already on).
+
+Every share carries an expiry, the password is shown exactly once and stored
+only as a hash, and revoking one deletes a block from a generated file. The
+project's own router, labels and configuration are never touched.
+`dev-gateway share list|revoke|gc` manages the same objects from the host. See
+[sharing.md](sharing.md).
+
 #### Why a route behaves like this
 
 Opening a service shows what Traefik itself says about it, next to what its
@@ -660,8 +673,12 @@ Not implemented, and not planned for this version: users, roles and RBAC (the
 panel has one credential, held by Traefik), historical metrics, monitoring,
 Kubernetes, deployments, a Compose editor, a web terminal, image management,
 volume management, network management, arbitrary container creation, arbitrary
-Traefik configuration, an embedded Traefik dashboard, or being a replacement for
-Portainer or Docker Desktop.
+Traefik configuration, an embedded Traefik dashboard, a tunnel service, or
+being a replacement for Portainer or Docker Desktop.
+
+Sharing is deliberately narrow: one additional hostname per service, with an
+expiry, on a network the gateway already answers. It is not authentication for
+a project and never becomes an identity layer.
 
 The panel exists to make the gateway pleasant to use day to day, for people and
 for agents, and to stop there.

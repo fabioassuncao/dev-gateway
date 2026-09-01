@@ -234,6 +234,37 @@ export interface ServiceTraefik {
   fetchedAt: number
 }
 
+/** Three states per service, and `private` is the absence of a share. */
+export type ShareMode = 'public' | 'protected'
+export type ShareState = 'active' | 'expired' | 'dangling'
+
+export interface Share {
+  id: string
+  project: string
+  service: string
+  /** The container the router points at, by name: aliases are not unique. */
+  container: string
+  port: number
+  host: string
+  url: string
+  mode: ShareMode
+  /** The username, for a protected share. The password is never here. */
+  user: string | null
+  createdAt: number
+  expiresAt: number
+  expiresInSeconds: number
+  state: ShareState
+}
+
+export interface ShareView {
+  shares: Share[]
+  /** Where shared hostnames live, kept visibly apart from project ones. */
+  domain: string
+  /** Whether a `public` share would be accepted at all. */
+  publicAllowed: boolean
+  maxTtlSeconds: number
+}
+
 export interface Diagnostic {
   id: string
   status: 'pass' | 'warn' | 'fail'
@@ -290,6 +321,9 @@ export interface OverviewCounts {
   bridges: number
   forwarders: number
   routes: number
+  shares: number
+  /** Shares that expired or whose target container is gone. */
+  sharesStale: number
 }
 
 export interface Overview {

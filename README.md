@@ -316,6 +316,7 @@ Details: **[docs/security.md](docs/security.md)**.
 | [remote-tunnels.md](docs/remote-tunnels.md) | Reaching a VPS's private services |
 | [tailscale-services.md](docs/tailscale-services.md) | A persistent private address |
 | [web-ui.md](docs/web-ui.md) | The administration panel |
+| [sharing.md](docs/sharing.md) | Showing one service to one person, until it expires |
 | [agent-guidelines.md](docs/agent-guidelines.md) | Rules for autonomous agents |
 | [templates/](templates/) | Overlay templates for the usual project shapes |
 | [security.md](docs/security.md) | Threat model and hardening |

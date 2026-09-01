@@ -3,6 +3,7 @@ import type { AppDeps } from './deps.ts'
 import { gatewayStatus } from '../core/gateway.ts'
 import { diagnose, problemsOnly } from '../core/diagnostics.ts'
 import { listBridges, listForwarders } from '../core/access.ts'
+import { listShares } from '../core/shares.ts'
 import type { Overview, OverviewCounts } from '../../shared/types.ts'
 
 export function statusRoutes(deps: AppDeps): Hono {
@@ -19,6 +20,9 @@ export function statusRoutes(deps: AppDeps): Hono {
     const gateway = gatewayStatus(snapshot, deps.config)
     const integrated = snapshot.projects.filter((project) => project.integrated)
     const running = snapshot.containers.filter((container) => container.state === 'running')
+    // Shares are on the Overview so they are visible without being looked
+    // for: an exposure nobody remembers is the failure mode worth catching.
+    const shares = listShares(deps.config, snapshot)
 
     const counts: OverviewCounts = {
       projects: snapshot.projects.length,
@@ -36,6 +40,8 @@ export function statusRoutes(deps: AppDeps): Hono {
       bridges: listBridges(snapshot).filter((bridge) => bridge.state === 'running').length,
       forwarders: listForwarders(snapshot).filter((forwarder) => forwarder.state === 'running').length,
       routes: gateway.routes,
+      shares: shares.filter((share) => share.state === 'active').length,
+      sharesStale: shares.filter((share) => share.state !== 'active').length,
     }
 
     const overview: Overview = {
@@ -44,7 +50,7 @@ export function statusRoutes(deps: AppDeps): Hono {
       urls: snapshot.containers
         .filter((container) => container.ownership !== 'gateway' && container.state === 'running')
         .flatMap((container) => container.urls),
-      problems: problemsOnly(diagnose(snapshot, deps.config)),
+      problems: problemsOnly(diagnose(snapshot, deps.config, null, shares)),
       generatedAt: snapshot.at,
     }
     return c.json(overview)

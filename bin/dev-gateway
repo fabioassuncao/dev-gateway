@@ -75,6 +75,7 @@ NETWORK AND EXPOSURE
   public status          Show internet exposure (disabled by default)
   public enable          Expose HTTP services on the public wildcard domain
   public disable         Stop exposing them
+  share list|revoke|gc   Temporary hostnames the panel handed out, and their expiry
   dns check              Confirm the wildcard record points at this host
   dns status             DNS configuration, and Cloudflare records if enabled
   dns setup              Create or update the wildcard record
@@ -584,6 +585,7 @@ main() {
     access) dg_cmd_access "$@" ;;
     services) dg_cmd_services "$@" ;;
     git) dg_cmd_git "$@" ;;
+    share) dg_cmd_share "$@" ;;
     web) dg_cmd_web "$@" ;;
     db) dg_cmd_db "$@" ;;
     redis) dg_cmd_redis "$@" ;;

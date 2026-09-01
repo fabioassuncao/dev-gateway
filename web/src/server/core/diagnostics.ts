@@ -12,7 +12,7 @@ import { GENERATED_FILES, isDirWritable, readGenerated, renderPanelAuth } from '
 import type { Snapshot } from './inventory.ts'
 import { componentOf } from './gateway.ts'
 import { routersFor } from './traefik.ts'
-import type { Diagnostic, TraefikVerdict } from '../../shared/types.ts'
+import type { Diagnostic, Share, TraefikVerdict } from '../../shared/types.ts'
 
 function check(
   id: string,
@@ -28,6 +28,7 @@ export function diagnose(
   snapshot: Snapshot,
   config: PanelConfig,
   verdict: TraefikVerdict | null = null,
+  shares: Share[] = [],
 ): Diagnostic[] {
   const results: Diagnostic[] = []
 
@@ -214,6 +215,7 @@ export function diagnose(
 
   results.push(...panelChecks(config))
   if (verdict) results.push(...traefikChecks(snapshot, verdict))
+  results.push(...shareChecks(shares))
 
   if (config.tlsEnabled && config.tlsMode === 'acme' && !config.acmeEmailSet) {
     results.push(
@@ -233,6 +235,49 @@ export function diagnose(
     )
   }
 
+  return results
+}
+
+/**
+ * A share that outlives the reason for it, and a share pointing at a container
+ * that is gone. Both are silent otherwise: nobody goes looking for an exposure
+ * they set up on Tuesday.
+ */
+function shareChecks(shares: Share[]): Diagnostic[] {
+  if (shares.length === 0) return []
+
+  const results: Diagnostic[] = []
+  const expired = shares.filter((share) => share.state === 'expired')
+  const dangling = shares.filter((share) => share.state === 'dangling')
+
+  if (expired.length > 0) {
+    results.push(
+      check(
+        'shares-expired',
+        'warn',
+        'Expired shares',
+        expired.map((share) => `${share.host} (${share.mode})`).join(', '),
+        'dev-gateway share gc',
+      ),
+    )
+  }
+  if (dangling.length > 0) {
+    results.push(
+      check(
+        'shares-dangling',
+        'warn',
+        'Shares pointing at a container that is gone',
+        dangling.map((share) => `${share.host} -> ${share.container}`).join(', '),
+        'revoke them, or recreate them against the new container',
+      ),
+    )
+  }
+  const active = shares.filter((share) => share.state === 'active')
+  if (active.length > 0 && results.length === 0) {
+    results.push(
+      check('shares', 'pass', 'Temporary shares', `${active.length} active, all with an expiry`),
+    )
+  }
   return results
 }
 
