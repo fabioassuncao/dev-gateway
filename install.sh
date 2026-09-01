@@ -1023,17 +1023,23 @@ if have git; then
     warn "Git identity — not configured globally"
   fi
 fi
-if have gh; then
-  if gh auth status >/dev/null 2>&1; then good "GitHub CLI — authenticated"; else warn "GitHub CLI — not authenticated"; fi
+if gh_path=$(locate_tool gh); then
+  if "$gh_path" auth status >/dev/null 2>&1; then good "GitHub CLI — authenticated"; else warn "GitHub CLI — not authenticated"; fi
 fi
-if have npx; then good "npx — available"; else warn "npx — not found"; fi
+if have npx; then good "npx — available"
+elif npx_path=$(locate_tool npx); then warn "npx — at $npx_path, but not on this PATH"
+else warn "npx — not found"; fi
 
 step "AI development agents"
 agent_report() { # agent_report <label> <command>
-  local label="$1" cmd="$2" value
-  if have "$cmd"; then
-    value=$("$cmd" --version 2>/dev/null | head -n1 || true)
-    good "$label — ${value:-installed}"
+  local label="$1" cmd="$2" value path
+  if path=$(locate_tool "$cmd"); then
+    value=$("$path" --version 2>/dev/null | head -n1 || true)
+    if have "$cmd"; then
+      good "$label — ${value:-installed}"
+    else
+      good "$label — ${value:-installed} (at $path, not on this PATH)"
+    fi
   else
     warn "$label — not found"
   fi

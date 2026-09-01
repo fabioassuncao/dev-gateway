@@ -138,6 +138,18 @@ it "every agent check is a version probe"
 assert_contains "$SOURCE" 'agent_report "Claude Code"  claude'
 assert_contains "$SOURCE" 'agent_report "Codex CLI"    codex'
 
+it "a tool off this PATH is reported as such, not as missing"
+# nvm in .zshrc, agent CLIs symlinked into ~/.local/bin: a non-interactive
+# shell sees none of it, and "not found" would be a wrong answer.
+assert_contains "$SOURCE" "not on this PATH"
+assert_contains "$SOURCE" '.nvm/versions/node'
+
+it "and the installer and doctor look in the same places"
+for place in '.local/bin' '.nvm/versions/node' '.bun/bin' '.volta/bin'; do
+  assert_contains "$SOURCE" "$place"
+  assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/common.sh")" "$place"
+done
+
 it "nothing is installed or authenticated"
 assert_contains "$SOURCE" 'the installer never installs, authenticates or reconfigures these'
 

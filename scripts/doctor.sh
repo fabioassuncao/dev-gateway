@@ -870,12 +870,19 @@ fi
 # Reported, never changed. Nothing below can fail the run: Portta needs Docker
 # and a shell, and everything here is a convenience on top of that.
 
+# A tool present but off this PATH is a different answer from a tool that is
+# not installed, and the fix for it is different too. Both are reported.
 portta_tool_report() { # portta_tool_report <id> <title> <command> [version-args...]
   local id="$1" title="$2" cmd="$3"; shift 3
-  local value
-  if portta_have "$cmd"; then
-    value=$("$cmd" "$@" 2>/dev/null | head -n1)
-    check pass "$id" "$title" "${value:-installed}" ""
+  local value path
+  if path=$(portta_locate "$cmd"); then
+    value=$("$path" "$@" 2>/dev/null | head -n1)
+    if portta_have "$cmd"; then
+      check pass "$id" "$title" "${value:-installed}" ""
+    else
+      check warn "$id" "$title" "${value:-installed} at $path, but not on this PATH" \
+        "it is wired into your interactive shell only; export PATH in ~/.profile to reach it from scripts"
+    fi
   else
     check warn "$id" "$title" "not found" "optional; install it if you want it"
   fi
@@ -887,8 +894,13 @@ portta_tool_report tools.npm       "npm"           npm --version
 portta_tool_report tools.gh        "github cli"    gh --version
 portta_tool_report tools.tailscale "tailscale"     tailscale version
 
-if portta_have npx; then
-  check pass tools.npx "npx" "available" ""
+if npx_path=$(portta_locate npx); then
+  if portta_have npx; then
+    check pass tools.npx "npx" "available" ""
+  else
+    check warn tools.npx "npx" "at $npx_path, but not on this PATH" \
+      "npx portta will not resolve from a script until PATH includes it"
+  fi
 else
   check warn tools.npx "npx" "not found" "npx ships with npm; the full CLI needs Node 22.12+"
 fi
@@ -931,10 +943,14 @@ fi
 # Diagnostic only. Portta never installs, authenticates or reconfigures these.
 
 portta_agent_report() { # portta_agent_report <id> <title> <command>
-  local id="$1" title="$2" cmd="$3" value
-  if portta_have "$cmd"; then
-    value=$("$cmd" --version 2>/dev/null | head -n1)
-    check pass "$id" "$title" "${value:-installed}" ""
+  local id="$1" title="$2" cmd="$3" value path
+  if path=$(portta_locate "$cmd"); then
+    value=$("$path" --version 2>/dev/null | head -n1)
+    if portta_have "$cmd"; then
+      check pass "$id" "$title" "${value:-installed}" ""
+    else
+      check pass "$id" "$title" "${value:-installed} at $path (not on this PATH)" ""
+    fi
   else
     check warn "$id" "$title" "not found" ""
   fi

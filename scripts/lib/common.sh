@@ -253,6 +253,42 @@ portta_is_true() {
 
 portta_have() { command -v "$1" >/dev/null 2>&1; }
 
+# portta_locate <command>: the command's path, looking beyond PATH.
+#
+# A developer's toolchain is usually wired into an interactive shell — nvm in
+# .zshrc, agent CLIs symlinked into ~/.local/bin — and a non-interactive shell
+# sees none of it. Reporting "not found" for a tool the machine plainly has is
+# worse than saying nothing, so these are the places worth looking before
+# giving that answer. Prints nothing when there is genuinely no such command.
+portta_locate() {
+  local cmd="$1" candidate
+
+  if command -v "$cmd" >/dev/null 2>&1; then
+    command -v "$cmd"
+    return 0
+  fi
+
+  for candidate in \
+    "$HOME/.local/bin/$cmd" \
+    "$HOME/.bun/bin/$cmd" \
+    "$HOME/.cargo/bin/$cmd" \
+    "$HOME/.deno/bin/$cmd" \
+    /usr/local/bin/"$cmd" \
+    /opt/homebrew/bin/"$cmd"; do
+    if [ -x "$candidate" ]; then printf '%s' "$candidate"; return 0; fi
+  done
+
+  # nvm, fnm and volta each keep one directory per installed version.
+  for candidate in \
+    "$HOME"/.nvm/versions/node/*/bin/"$cmd" \
+    "$HOME"/.local/share/fnm/node-versions/*/installation/bin/"$cmd" \
+    "$HOME"/.volta/bin/"$cmd"; do
+    if [ -x "$candidate" ]; then printf '%s' "$candidate"; return 0; fi
+  done
+
+  return 1
+}
+
 # portta_confirm <prompt>: returns 0 on yes. Non-interactive callers must pass
 # --yes explicitly; we never assume consent when there is no tty.
 portta_confirm() {
