@@ -105,6 +105,25 @@ assert_contains "$SOURCE" 'PANEL_ACCESS=$(env_get "$ENV_FILE" PORTTA_WEB_EXPOSE)
 it "a directory that is not a Portta installation is refused, not adopted"
 assert_contains "$SOURCE" 'exists and is not a Portta installation'
 
+describe "the panel database survives an uninstall and reinstall"
+
+# --uninstall keeps the volume and removes PORTTA_HOME, which is where the
+# password lived. A later install generates a new one, PostgreSQL still expects
+# the old, and the panel starts, answers /health and persists nothing: it is
+# designed to run degraded, which is what makes this failure quiet.
+it "the installer makes .env authoritative over the volume"
+assert_contains "$SOURCE" 'ALTER USER portta WITH PASSWORD'
+
+it "and the password never crosses a command line to do it"
+assert_contains "$SOURCE" 'POSTGRES_PASSWORD'
+assert_eq "" "$(printf '%s' "$SOURCE" | grep -n 'PASSWORD '"'"'\$DB_PASSWORD' || true)"
+
+it "the credential is verified over TCP, the way the panel connects"
+assert_contains "$SOURCE" 'the panel database rejects the credential in .env'
+
+it "and uninstall says where that credential went"
+assert_contains "$SOURCE" 'its password lived in the .env just removed'
+
 describe "the installer never builds and never clones"
 
 it "it downloads a tarball rather than cloning"

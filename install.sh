@@ -577,6 +577,7 @@ EOF
   done
   good "removed $PORTTA_HOME"
   note "the panel database volume was kept: docker volume rm portta-db removes it"
+  note "its password lived in the .env just removed; a fresh install resets the role to match"
   note "the shared network was kept: other projects may still be attached"
   exit 0
 fi
@@ -948,6 +949,36 @@ fi
 
 step "Starting Portta"
 
+# The panel database first, and on its own, because the credential in .env has
+# to be reconciled with it before anything tries to use it.
+#
+# The volume outlives PORTTA_HOME by design: --uninstall keeps it so an
+# accidental removal does not take the data with it. But the password lives in
+# .env, which --uninstall does remove, so a later install generates a new one
+# and PostgreSQL still expects the old. The panel then starts, answers /health,
+# and silently persists nothing — persistence is optional at runtime by design
+# (ADR 0013), which is exactly what makes this failure quiet.
+#
+# So .env is made authoritative: the password there is set on the role, over
+# the container's own trusted local socket. Idempotent, and it keeps the data.
+run_compose up -d --wait --wait-timeout 120 db \
+  || die "the panel database did not become healthy. Inspect it with: $PORTTA_HOME/bin/portta logs db"
+
+DB_CONTAINER=$(docker ps -q --filter "label=portta.component=db" | head -n1)
+if [ -n "$DB_CONTAINER" ]; then
+  # Compose already put the password in that container's environment, so it
+  # never crosses a command line here, and psql quotes it as a literal rather
+  # than the shell interpolating it into SQL.
+  if docker exec "$DB_CONTAINER" sh -c \
+       'psql -U portta -d portta -v ON_ERROR_STOP=1 -q -v p="$POSTGRES_PASSWORD" \
+          -c "ALTER USER portta WITH PASSWORD :'"'"'p'"'"'"' >/dev/null 2>&1; then
+    good "panel database credential reconciled"
+  else
+    warn "could not reconcile the panel database credential"
+    note "the panel will run without persistence; $PORTTA_HOME/bin/portta logs db has the detail"
+  fi
+fi
+
 run_compose up -d --remove-orphans --wait --wait-timeout 240 \
   || die "the stack did not become healthy. Inspect it with: $PORTTA_HOME/bin/portta logs"
 good "containers started"
@@ -966,6 +997,24 @@ container_health() { # container_health <component>
 }
 
 HEALTH_OK=true
+
+# The panel keeps running when its database refuses it — persistence is
+# optional at runtime — so a healthy container proves nothing about whether
+# anything will actually be saved. Ask PostgreSQL whether the credential in
+# .env works, which is the thing that breaks.
+if [ -n "${DB_CONTAINER:-}" ]; then
+  # Over TCP with the password, which is the path the panel actually takes;
+  # the local socket is trusted and would prove nothing.
+  if docker exec "$DB_CONTAINER" sh -c \
+       'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U portta -d portta -At -c "select 1"' >/dev/null 2>&1; then
+    good "the panel can authenticate to its database"
+  else
+    bad "the panel database rejects the credential in .env"
+    note "persistence will be unavailable; docker volume rm portta-db starts a fresh one"
+    HEALTH_OK=false
+  fi
+fi
+
 for component in traefik socket-proxy web web-socket-proxy db; do
   state=$(container_health "$component")
   case "$state" in
