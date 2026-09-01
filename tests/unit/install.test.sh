@@ -148,6 +148,16 @@ it "it downloads a tarball rather than cloning"
 assert_contains "$SOURCE" 'codeload.github.com'
 assert_eq "" "$(printf '%s' "$SOURCE" | grep -n 'git clone' || true)"
 
+it "the derived domain and bind address are handed to Compose"
+# Both are derived — the domain from the mode, the bind address from the
+# profile — and an environment variable beats the env-file. Without this the
+# public profile starts bound to loopback, which is the one thing it exists
+# not to do.
+assert_contains "$SOURCE" 'export PORTTA_DOMAIN="$RESOLVED_DOMAIN" PORTTA_BIND_ADDRESS="$RESOLVED_BIND"'
+
+it "and they come from the installed gateway's own resolver"
+assert_contains "$SOURCE" 'portta_resolve_profile "$profile"'
+
 it "it pulls images"
 assert_contains "$SOURCE" 'run_compose pull'
 

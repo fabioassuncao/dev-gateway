@@ -1027,19 +1027,35 @@ portta() { # run the installed CLI against this PORTTA_HOME
 # `external: true` references. bootstrap is idempotent and does exactly that.
 portta bootstrap --skip-pull >/dev/null 2>&1 || true
 
-COMPOSE_ARGS=$(PORTTA_ROOT="$PORTTA_HOME" bash -c '
+# The overlay list and the two values the overlays interpolate that are
+# derived rather than stored: the base domain comes from the mode, and the bind
+# address comes from the profile. Resolved by the installed gateway's own
+# libraries, so the installer cannot disagree with `portta up`.
+COMPOSE_RESOLVED=$(PORTTA_ROOT="$PORTTA_HOME" bash -c '
   set -e
   . "$PORTTA_ROOT/scripts/lib/common.sh"
   . "$PORTTA_ROOT/scripts/lib/docker.sh"
   portta_load_env; portta_defaults
-  portta_compose_files "${PORTTA_PROFILE:-local}"
+  profile="${PORTTA_PROFILE:-local}"
+  portta_resolve_profile "$profile" >/dev/null
+  printf "%s\n%s\n%s\n" "$PORTTA_DOMAIN" "$PORTTA_BIND_ADDRESS" "$(portta_compose_files "$profile")"
 ') || die "the compose configuration could not be resolved"
+
+RESOLVED_DOMAIN=$(printf '%s' "$COMPOSE_RESOLVED" | sed -n 1p)
+RESOLVED_BIND=$(printf '%s' "$COMPOSE_RESOLVED" | sed -n 2p)
+COMPOSE_ARGS=$(printf '%s' "$COMPOSE_RESOLVED" | sed -n 3p)
 
 # `.env` is handed to Compose as a file, never sourced: a value there is data,
 # and the apr1 hash in it is full of characters a shell would happily act on.
+#
+# The two derived values are exported, because an environment variable beats
+# the env-file. Without that, Compose would interpolate the stored
+# PORTTA_BIND_ADDRESS and start the public profile bound to loopback.
 run_compose() {
   # shellcheck disable=SC2086
-  ( cd "$PORTTA_HOME" && docker compose \
+  ( cd "$PORTTA_HOME" \
+    && export PORTTA_DOMAIN="$RESOLVED_DOMAIN" PORTTA_BIND_ADDRESS="$RESOLVED_BIND" \
+    && docker compose \
       --project-directory "$PORTTA_HOME" \
       --env-file "$ENV_FILE" \
       $COMPOSE_ARGS "$@" )
