@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DockerApiError, DockerClient, demultiplex } from '../../src/server/docker/client.ts'
+import {
+  DOCKER_ENGINE_API_VERSION,
+  DockerApiError,
+  DockerClient,
+  demultiplex,
+} from '../../src/server/docker/client.ts'
 
 function frame(stream: 1 | 2, text: string): Buffer {
   const payload = Buffer.from(text, 'utf8')
@@ -68,11 +73,19 @@ describe('the client refuses to widen its own permissions', () => {
     const client = new DockerClient('http://proxy:2375')
     await client.remove('abc123')
     const url = new URL(String(fetchMock.mock.calls[0]?.[0]))
-    expect(url.pathname).toBe('/containers/abc123')
+    expect(url.pathname).toBe(`/${DOCKER_ENGINE_API_VERSION}/containers/abc123`)
     expect(url.searchParams.get('v')).toBe('0')
     expect(url.searchParams.get('link')).toBe('0')
     expect(url.searchParams.get('force')).toBe('0')
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'DELETE' })
+  })
+
+  it('pins every request to the Engine API supported by Docker 24', async () => {
+    stub({ json: async () => [] })
+    const client = new DockerClient('http://proxy:2375/')
+    await client.listContainers()
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]))
+    expect(url.pathname).toBe('/v1.43/containers/json')
   })
 
   it('never issues a call the allowlist does not name', async () => {

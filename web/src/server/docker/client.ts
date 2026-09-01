@@ -1,4 +1,7 @@
-// A very small Docker Engine API client.
+// A very small Docker Engine API client, pinned to Engine API v1.43 (Docker
+// Engine 24, the project's minimum supported version). The reasons for using
+// this narrow client instead of a general Docker SDK are recorded in
+// docs/adr/0017-no-docker-sdk.md.
 //
 // It never opens the Docker socket: it talks to the panel's own socket proxy
 // over the internal control network, and every request passes through the
@@ -16,6 +19,8 @@ import type {
   DockerStats,
   DockerVersion,
 } from './types.ts'
+
+export const DOCKER_ENGINE_API_VERSION = 'v1.43'
 
 export class DockerApiError extends Error {
   status: number
@@ -67,7 +72,7 @@ export class DockerClient {
       }
     }
 
-    const url = new URL(this.base + path)
+    const url = new URL(`${this.base}/${DOCKER_ENGINE_API_VERSION}${path}`)
     for (const [key, value] of Object.entries(options.query ?? {})) {
       if (value !== undefined) url.searchParams.set(key, value)
     }

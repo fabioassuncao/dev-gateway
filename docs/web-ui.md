@@ -61,7 +61,11 @@ paths from the host: `.env`, which its Settings page edits, and `VERSION`.
 Why a second socket proxy rather than Traefik's: Traefik's is read-only and
 must stay that way, while the panel needs the container lifecycle. The two
 permission sets are kept apart, and the panel enforces its own allowlist on top
-of the proxy's. See [ADR 0008](adr/0008-web-panel-socket-proxy.md).
+of the proxy's. Its purpose-built client pins Docker Engine API `v1.43`, the
+API implemented by the project's minimum supported Docker Engine 24, so a
+newer daemon cannot silently change the response contract. See
+[ADR 0008](adr/0008-web-panel-socket-proxy.md) and
+[ADR 0017](adr/0017-no-docker-sdk.md).
 
 ### Technologies
 
