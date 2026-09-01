@@ -1,7 +1,7 @@
 // The gateway's own state, read from the containers it labels as its own.
 
 import type { PanelConfig } from '../config.ts'
-import { schemeFor } from '../config.ts'
+import { isAuthenticated, isRouted, schemeFor } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import type { ContainerSummary, GatewayStatus, Health, ContainerState } from '../../shared/types.ts'
 
@@ -42,6 +42,16 @@ export function gatewayStatus(snapshot: Snapshot, config: PanelConfig): GatewayS
       hostname: config.tailscaleHostname,
     },
     publicAccess: { enabled: config.publicEnabled, domain: config.publicDomain },
+    // The panel's own front door. `authenticated` is derived, never the hash
+    // itself: that value never leaves this process.
+    panel: {
+      expose: config.webExpose,
+      routed: isRouted(config),
+      auth: config.webAuth,
+      authenticated: isAuthenticated(config),
+      user: config.webAuthUser,
+      readOnly: config.readOnly,
+    },
     dashboard: {
       enabled: config.dashboardEnabled,
       bindAddress: config.dashboardBindAddress,

@@ -5,13 +5,31 @@ import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { loadConfig } from './config.ts'
+import { isAuthenticated, loadConfig } from './config.ts'
 import { DockerClient } from './docker/client.ts'
 import { createSnapshotCache } from './core/inventory.ts'
 import { LiveHub } from './core/events.ts'
 import { createApp } from './app.ts'
+import { GENERATED_FILES, reconcilePanelAuth } from './core/dynamic.ts'
 
 const config = loadConfig()
+
+// The panel's own BasicAuth middleware lives in a file Traefik watches. It is
+// rendered here as well as by `dev-gateway web auth set`, so a panel started
+// with a credential in .env is never behind a stale one. A directory the panel
+// cannot write is a diagnostic, not a reason to refuse to start: on Linux it
+// may well belong to another user, and the CLI writes the same file.
+const rendered = reconcilePanelAuth(config.dynamicDir, {
+  mode: config.webAuth,
+  user: config.webAuthUser,
+  hash: config.webAuthHash,
+})
+if (rendered.written) {
+  process.stdout.write(`wrote ${GENERATED_FILES.panel}: ${rendered.reason}\n`)
+} else if (config.webAuth === 'basic' && !isAuthenticated(config)) {
+  process.stdout.write('DEV_GATEWAY_WEB_AUTH=basic without a credential: run dev-gateway web auth set\n')
+}
+
 const client = new DockerClient(config.dockerApi)
 const cache = createSnapshotCache(client, config)
 const hub = new LiveHub(client, cache)

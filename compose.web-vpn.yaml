@@ -6,8 +6,14 @@
 # on the VPS's own loopback.
 #
 # The CLI refuses this overlay on the remote-public profile, where Traefik
-# binds every interface and a router would therefore be public. The panel has
-# no authentication: it must never be reachable from the internet.
+# binds every interface and a router would therefore be public. It must never
+# be reachable from the internet.
+#
+# The router points at a BasicAuth middleware the panel renders into
+# config/traefik/dynamic/dev-gateway-panel.yaml. The credential lives in that
+# file and never in a label, and the CLI refuses this overlay until one exists.
+# A middleware Traefik cannot resolve makes the router fail closed, which is
+# the correct direction to fail. See docs/adr/0012-panel-authentication-is-traefiks.md.
 # ============================================================================
 
 services:
@@ -16,4 +22,5 @@ services:
       traefik.enable: "true"
       traefik.http.routers.dev-gateway-web.rule: >-
         Host(`${DEV_GATEWAY_WEB_HOST:-dev-gateway-web}.${DEV_GATEWAY_DOMAIN:-localhost}`)
+      traefik.http.routers.dev-gateway-web.middlewares: "dev-gateway-web-auth@file"
       traefik.http.services.dev-gateway-web.loadbalancer.server.port: "8081"

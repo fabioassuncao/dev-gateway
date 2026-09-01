@@ -114,6 +114,83 @@ assert_contains "$(./bin/dev-gateway web up --expose public 2>&1)" "never publis
 it "an unknown expose value fails"
 assert_failure ./bin/dev-gateway web up --expose nonsense
 
+describe "the panel is routed only behind a credential"
+
+it "the vpn overlay names a middleware"
+assert_contains "$(cat compose.web-vpn.yaml)" "dev-gateway-web-auth@file"
+
+for key in DEV_GATEWAY_WEB_AUTH DEV_GATEWAY_WEB_AUTH_USER DEV_GATEWAY_WEB_AUTH_HASH; do
+  it "$key is in the example configuration"
+  assert_contains "$(cat .env.example)" "$key="
+done
+
+it "authentication is off by default, because loopback needs none"
+assert_contains "$(cat .env.example)" "DEV_GATEWAY_WEB_AUTH=none"
+
+it "the hash is declared a secret, so the API never returns it"
+assert_contains "$(sed -n '/DEV_GATEWAY_WEB_AUTH_HASH/,/},/p' web/src/server/core/settings.ts)" "secret: true"
+
+it "routing the panel without a credential is refused by the profile resolver"
+assert_contains "$(cat scripts/lib/docker.sh)" "the routed panel has no credential in front of it"
+
+it "and by web up"
+out=$(DEV_GATEWAY_WEB_AUTH=none ./bin/dev-gateway web up --expose vpn 2>&1 || true)
+assert_contains "$out" "a routed panel needs a credential"
+
+it "doctor fails a routed panel without one"
+assert_contains "$(cat scripts/doctor.sh)" "with nothing in front of it"
+
+it "the password never reaches a command line, where ps would show it"
+assert_eq "" "$(grep -n 'passwd -apr1' scripts/cmd/web.sh | grep -v -- '-stdin' || true)"
+
+describe "the panel writes two filenames into Traefik's dynamic directory"
+
+dynamic="web/src/server/core/dynamic.ts"
+
+it "the writer exists"
+assert_success test -f "$dynamic"
+
+it "the allowlist names exactly two files"
+assert_eq "2" "$(grep -cE "^  (panel|shares): 'dev-gateway-[a-z]+\.yaml'," "$dynamic")"
+
+for owned in "middlewares.yaml" "tcp.yaml" "local-tls.yaml" "auth.yaml" "acme.json"; do
+  it "$owned stays the user's"
+  assert_eq "" "$(grep -n "GENERATED_FILES.*$owned" "$dynamic" || true)"
+done
+
+it "the generated files are git-ignored: they carry a password hash"
+assert_contains "$(cat .gitignore)" "config/traefik/dynamic/dev-gateway-panel.yaml"
+
+it "the panel mounts the dynamic directory and nothing wider"
+assert_contains "$(cat compose.web.yaml)" "./config/traefik/dynamic:/app/state/traefik-dynamic"
+
+it "no project directory is mounted into the panel"
+assert_eq "" "$(sed -n '/^    volumes:/,/^    networks:/p' compose.web.yaml | grep -E '^\s+- \./(examples|\.\.)' || true)"
+
+describe "the CLI and the panel render the same middleware, byte for byte"
+
+it "a drift between the two would lock the user out"
+if ! command -v node >/dev/null 2>&1; then
+  skip "node not installed"
+else
+  tmp=$(mktemp -d)
+  (
+    DEV_GATEWAY_WEB_AUTH=basic \
+    DEV_GATEWAY_WEB_AUTH_USER=dev \
+    DEV_GATEWAY_WEB_AUTH_HASH='$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1' \
+    DG_ROOT="$DG_ROOT" bash -c '
+      . scripts/lib/common.sh; . scripts/lib/docker.sh
+      . scripts/lib/toolbox.sh; . scripts/cmd/web.sh
+      dg_web_auth_render && cat "$(dg_web_auth_path)"'
+  ) > "$tmp/cli.yaml" 2>/dev/null
+  ( cd web && node --experimental-strip-types -e "
+      import('./src/server/core/dynamic.ts').then((m) =>
+        process.stdout.write(m.renderPanelAuth({ user: 'dev', hash: '\$apr1\$abcdefgh\$ckT15POyCRlen.h6XtGAZ1' })))
+    " ) > "$tmp/panel.yaml" 2>/dev/null
+  assert_eq "$(cat "$tmp/panel.yaml")" "$(cat "$tmp/cli.yaml")"
+  rm -rf "$tmp"
+fi
+
 describe "the panel is containerised, and the host needs no Node"
 
 it "the image builds the UI and the server"

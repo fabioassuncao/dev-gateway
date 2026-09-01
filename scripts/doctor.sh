@@ -364,6 +364,45 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# The web panel's own front door
+# ---------------------------------------------------------------------------
+# A routed panel can start, stop and remove every container on the host, and
+# since ADR 0010 it also says what is being worked on. This fails rather than
+# warns, matching the non-loopback dashboard above.
+
+if dg_is_true "$DEV_GATEWAY_WEB"; then
+  if [ "$DEV_GATEWAY_WEB_EXPOSE" = "local" ]; then
+    check pass web.auth "panel authentication" \
+      "not routed: loopback only on $DEV_GATEWAY_WEB_BIND_ADDRESS:$DEV_GATEWAY_WEB_PORT" ""
+  elif [ "$DEV_GATEWAY_WEB_AUTH" != "basic" ] \
+       || [ -z "$DEV_GATEWAY_WEB_AUTH_USER" ] || [ -z "$DEV_GATEWAY_WEB_AUTH_HASH" ]; then
+    check fail web.auth "panel authentication" \
+      "the panel is routed (expose: $DEV_GATEWAY_WEB_EXPOSE) with nothing in front of it" \
+      "dev-gateway web auth set"
+  else
+    check pass web.auth "panel authentication" \
+      "traefik basicauth as $DEV_GATEWAY_WEB_AUTH_USER" ""
+
+    # A middleware Traefik cannot resolve makes the router fail closed, so a
+    # missing file locks the user out rather than opening the panel.
+    web_auth_file="$DG_ROOT/config/traefik/dynamic/dev-gateway-panel.yaml"
+    if [ -f "$web_auth_file" ] && grep -q "dev-gateway-web-auth:" "$web_auth_file" 2>/dev/null; then
+      check pass web.auth.file "panel middleware" "rendered in config/traefik/dynamic" ""
+    else
+      check fail web.auth.file "panel middleware" \
+        "the router names dev-gateway-web-auth@file and no such middleware is rendered" \
+        "dev-gateway web auth apply"
+    fi
+  fi
+
+  if [ "$DEV_GATEWAY_WEB_EXPOSE" != "local" ] && ! dg_is_true "$DEV_GATEWAY_WEB_READ_ONLY"; then
+    check warn web.readonly "panel write access" \
+      "routed and writable: whoever gets past the credential can stop containers" \
+      "dev-gateway web up --read-only"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Databases by hostname
 # ---------------------------------------------------------------------------
 

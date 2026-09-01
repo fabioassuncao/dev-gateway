@@ -81,6 +81,16 @@ attached only to Traefik's internal entrypoint, so it is never routed through
 `web`/`websecure` and cannot appear under a public wildcard domain. `doctor`
 fails if it is enabled on a non-loopback address.
 
+The loopback bind constrains the host, not the shared network. Insecure mode
+listens inside a namespace attached to `dev-gateway`, so while the dashboard is
+enabled **any adopted project's container can reach `http://traefik:8080`** and
+read the full routing configuration, including the hostnames and backends of
+every other project on the host. On the Tailscale attachment the same API
+answers at `http://tailscale:8080`. That is the cost of turning it on, it is
+why it is off by default, and it is the same API the panel reads for a router's
+status ([ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md)). Nothing
+sensitive to a project's own users is there, but the inventory of the host is.
+
 ## Databases reached by hostname
 
 Off by default. Turning it on publishes one port per protocol; it does not
@@ -115,6 +125,17 @@ containers, so it is fenced on three sides.
   entrypoints, and `dev-gateway web up --expose public` is refused. Routing it
   over a VPN is a separate overlay, itself refused on the `remote-public`
   profile where Traefik answers the internet.
+- **Authentication, once it is routed.** `--expose vpn` requires
+  `DEV_GATEWAY_WEB_AUTH=basic` and a credential, and is refused without one.
+  The middleware is Traefik's, rendered by the panel into
+  `config/traefik/dynamic/dev-gateway-panel.yaml`: no login form, no session,
+  no user store, and no route handler a bug could let past. The password is
+  generated, shown once, and stored only as a hash. A routed panel also
+  defaults to read-only, and `doctor` fails if either is missing. See
+  [ADR 0012](adr/0012-panel-authentication-is-traefiks.md).
+- **Traefik configuration.** The panel may write two filenames in
+  `config/traefik/dynamic/` and refuses every other path in its own process.
+  See [ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md).
 - **Docker.** Its own socket proxy, not Traefik's, which stays read-only. It
   grants the read endpoints plus the container lifecycle, and denies images,
   volumes, exec, build, swarm, secrets, plugins and the system endpoints. The
@@ -172,9 +193,12 @@ are normalised before being interpolated anywhere.
 - **Firewall.** Docker's published ports bypass UFW, so the bind address is
   the boundary the gateway actually relies on. See
   [firewall.md](firewall.md).
-- **Authentication.** There is no built-in identity layer. Anything routed is
-  reachable by anyone who can reach the gateway. Use the VPN profile for
-  anything that matters.
+- **Authentication for consumer projects.** There is no built-in identity
+  layer. Anything a project routes is reachable by anyone who can reach the
+  gateway. Use the VPN profile for anything that matters, or point
+  `forwardAuth` at your own provider
+  (`config/traefik/dynamic/auth.example.yaml.disabled`). The panel's own
+  BasicAuth is its front door, not a feature projects can adopt.
 - **Multi-tenancy.** Every project on a host shares one Traefik and one shared
   network. This is a single-developer or single-team tool.
 - **Container escape.** The gateway reduces Docker API exposure; it does not

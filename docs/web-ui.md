@@ -157,24 +157,57 @@ The private profile routes it through Traefik, which on that profile listens on
 the tailnet and nowhere else:
 
 ```bash
+./bin/dev-gateway web auth set
 ./bin/dev-gateway web up --expose vpn
 # https://dev-gateway-web.vpn.example.com
 ```
 
-This adds a Traefik router for `DEV_GATEWAY_WEB_HOST.<domain>` and nothing
-more. It is refused on the `remote-public` profile, where Traefik binds every
-interface and a router would therefore be public.
+This adds a Traefik router for `DEV_GATEWAY_WEB_HOST.<domain>` and a BasicAuth
+middleware in front of it. It is refused on the `remote-public` profile, where
+Traefik binds every interface and a router would therefore be public, and it is
+refused without a credential: a routed panel can stop and remove every
+container on the host.
+
+A routed panel also defaults to read-only. `--writable` opts out, deliberately.
+
+### The credential
+
+```bash
+./bin/dev-gateway web auth set
+#   user      dev
+#   password  K7RXQ-M4WPD-J9TCF-B2NHY
+# warn this is the only time the password is shown; only its hash is stored
+```
+
+The password is generated (twenty characters over a thirty-two symbol alphabet,
+so about a hundred bits), shown exactly once, and stored only as an apr1 hash
+in `.env` and in `config/traefik/dynamic/dev-gateway-panel.yaml`. Nothing puts
+it on a command line, where `ps` would show it to every user on the host. Use
+`--password-stdin` to supply your own, and `--user` to change the name.
+
+Traefik hot-reloads the dynamic directory, so a running panel needs no restart.
+
+```bash
+./bin/dev-gateway web auth          # is it protected, and as whom
+./bin/dev-gateway web auth apply    # re-render the middleware from .env
+./bin/dev-gateway web auth clear    # refused while the panel is routed
+```
+
+None of this lives in the panel: there is no login form, no session, no cookie
+and no user store, so no bug in a route handler can let a request past. The
+request either reaches the container or it does not. The trade is that BasicAuth
+is one credential for the whole panel, with no users and no roles. See
+[ADR 0012](adr/0012-panel-authentication-is-traefiks.md).
 
 ### Never on the internet
-
-The panel has no authentication, by design for this version. It is a
-development tool, and the correct boundary for it is the network, not a login
-form.
 
 ```bash
 ./bin/dev-gateway web up --expose public
 # error: the panel is never published on the internet
 ```
+
+BasicAuth over the internet, in front of container lifecycle control on a shared
+development host, is not a boundary worth trusting. The VPN stays the answer.
 
 If you are on a plain VPS without a VPN, an SSH tunnel is the answer:
 
@@ -428,7 +461,23 @@ what it cannot do matters more than what it can.
 
 **Network.** Loopback by default, never routed through the public entrypoints,
 and `--expose public` is refused outright. Routing it over the VPN is a
-separate, explicit overlay, and is refused on the public profile.
+separate, explicit overlay, refused on the public profile and refused without a
+credential.
+
+**Authentication.** Traefik's, not the panel's: a BasicAuth middleware the
+panel renders into `config/traefik/dynamic/dev-gateway-panel.yaml`, referenced
+by the router in `compose.web-vpn.yaml`. The password is generated, shown once
+and stored only as a hash; `DEV_GATEWAY_WEB_AUTH_HASH` is a secret in the
+settings catalogue, so the API reports it as set and never returns it. A
+middleware Traefik cannot resolve makes the router fail closed. `doctor` and the
+panel's own diagnostics fail, not warn, on a routed panel without one. See
+[ADR 0012](adr/0012-panel-authentication-is-traefiks.md).
+
+**Traefik configuration.** The panel mounts `config/traefik/dynamic/`
+read-write and may write exactly two filenames in it,
+`dev-gateway-panel.yaml` and `dev-gateway-shares.yaml`. Any other path is
+refused in its own process, before the write. Everything else in that directory
+is yours. See [ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md).
 
 **Docker.** Its socket proxy grants the read endpoints plus the container
 lifecycle, and denies images, volumes, exec, build, swarm, secrets, plugins and
@@ -514,11 +563,12 @@ about this in the confirmation.
 
 ## Out of scope
 
-Not implemented, and not planned for this version: authentication, users, RBAC,
-historical metrics, monitoring, Kubernetes, deployments, a Compose editor, a
-web terminal, image management, volume management, network management,
-arbitrary container creation, or being a replacement for Portainer or Docker
-Desktop.
+Not implemented, and not planned for this version: users, roles and RBAC (the
+panel has one credential, held by Traefik), historical metrics, monitoring,
+Kubernetes, deployments, a Compose editor, a web terminal, image management,
+volume management, network management, arbitrary container creation, arbitrary
+Traefik configuration, an embedded Traefik dashboard, or being a replacement for
+Portainer or Docker Desktop.
 
 The panel exists to make the gateway pleasant to use day to day, for people and
 for agents, and to stop there.

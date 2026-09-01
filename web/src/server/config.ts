@@ -64,6 +64,18 @@ export interface PanelConfig {
   gatewayVersion: string
   /** Read-only mode refuses every mutating endpoint. */
   readOnly: boolean
+  /** Where the panel can be reached from: `local` or `vpn`. */
+  webExpose: string
+  /** `none`, or `basic` for a Traefik BasicAuth middleware on its own router. */
+  webAuth: string
+  webAuthUser: string
+  /**
+   * The apr1/bcrypt hash guarding the panel. Never leaves this process: the API
+   * reports whether it is set, the same way it treats TS_AUTHKEY.
+   */
+  webAuthHash: string
+  /** Traefik's dynamic configuration directory, mounted read-write. */
+  dynamicDir: string
 }
 
 export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
@@ -112,6 +124,11 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     panelVersion: env('DG_WEB_VERSION', '0.1.0'),
     gatewayVersion: readVersion(versionFile),
     readOnly: isTrue(process.env.DG_WEB_READ_ONLY),
+    webExpose: env('DEV_GATEWAY_WEB_EXPOSE', 'local'),
+    webAuth: env('DEV_GATEWAY_WEB_AUTH', 'none'),
+    webAuthUser: env('DEV_GATEWAY_WEB_AUTH_USER', ''),
+    webAuthHash: env('DEV_GATEWAY_WEB_AUTH_HASH', ''),
+    dynamicDir: env('DG_WEB_DYNAMIC_DIR', '/app/state/traefik-dynamic'),
     ...overrides,
   }
   return config
@@ -124,6 +141,16 @@ function readVersion(file: string): string {
   } catch {
     return 'unknown'
   }
+}
+
+/** True when the panel is reachable beyond the host's own loopback. */
+export function isRouted(config: PanelConfig): boolean {
+  return config.webExpose !== 'local'
+}
+
+/** True when a routed panel is sitting behind Traefik BasicAuth. */
+export function isAuthenticated(config: PanelConfig): boolean {
+  return config.webAuth === 'basic' && config.webAuthUser !== '' && config.webAuthHash !== ''
 }
 
 /** The scheme Traefik answers on, given the resolved TLS settings. */

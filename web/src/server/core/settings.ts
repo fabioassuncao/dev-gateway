@@ -6,6 +6,7 @@
 // values never leave the host.
 
 import type { ConfigField } from '../../shared/types.ts'
+import { isSupportedHash } from './apr1.ts'
 
 export interface FieldSpec {
   key: string
@@ -38,6 +39,24 @@ function bindAddress(value: string): string | null {
   if (value === '') return null
   if (value === 'localhost' || value === '::1') return null
   return IPV4.test(value) ? null : 'must be an IPv4 address'
+}
+
+function username(value: string): string | null {
+  if (value === '') return null
+  return /^[A-Za-z0-9._-]{1,64}$/.test(value)
+    ? null
+    : 'must be 1 to 64 characters of letters, digits, dot, dash or underscore'
+}
+
+/**
+ * A hash, never a password. Refusing anything else is what stops somebody
+ * typing their password into the field and shipping it to Traefik in clear.
+ */
+function passwordHash(value: string): string | null {
+  if (value === '') return null
+  return isSupportedHash(value)
+    ? null
+    : 'must be an apr1, bcrypt or SHA1 hash; run: dev-gateway web auth set'
 }
 
 function email(value: string): string | null {
@@ -274,6 +293,51 @@ export const FIELDS: FieldSpec[] = [
     restartRequired: true,
     validate: bindAddress,
   },
+  {
+    key: 'DEV_GATEWAY_WEB_EXPOSE',
+    group: 'Panel',
+    label: 'Reachable from',
+    help: 'local is loopback only. vpn adds a Traefik router, and requires panel authentication.',
+    kind: 'choice',
+    choices: ['local', 'vpn'],
+    restartRequired: true,
+  },
+  {
+    key: 'DEV_GATEWAY_WEB_READ_ONLY',
+    group: 'Panel',
+    label: 'Read-only',
+    help: 'Refuse every mutating endpoint. The default whenever the panel is routed.',
+    kind: 'boolean',
+    restartRequired: true,
+  },
+  {
+    key: 'DEV_GATEWAY_WEB_AUTH',
+    group: 'Panel',
+    label: 'Panel authentication',
+    help: 'basic puts a Traefik BasicAuth middleware in front of the panel. Required once it is routed.',
+    kind: 'choice',
+    choices: ['none', 'basic'],
+    restartRequired: true,
+  },
+  {
+    key: 'DEV_GATEWAY_WEB_AUTH_USER',
+    group: 'Panel',
+    label: 'Panel username',
+    help: 'The user half of the credential. `dev-gateway web auth set` writes both.',
+    kind: 'string',
+    restartRequired: true,
+    validate: username,
+  },
+  {
+    key: 'DEV_GATEWAY_WEB_AUTH_HASH',
+    group: 'Panel',
+    label: 'Panel password hash',
+    help: 'A hash, never a password. Generate one with `dev-gateway web auth set`.',
+    kind: 'string',
+    secret: true,
+    restartRequired: true,
+    validate: passwordHash,
+  },
 ]
 
 export const FIELDS_BY_KEY = new Map(FIELDS.map((field) => [field.key, field]))
@@ -325,6 +389,20 @@ export function validateCombination(values: Map<string, string>): void {
   if (truthy('TAILSCALE_ENABLED') && get('TS_AUTHKEY') === '' && get('TAILSCALE_HOSTNAME') === '') {
     throw new ValidationError('TAILSCALE_HOSTNAME', 'is required when Tailscale is enabled')
   }
+  // A routed panel can stop containers and, since ADR 0010, says what is being
+  // worked on. The tailnet is a good boundary and a poor last one.
+  if (get('DEV_GATEWAY_WEB_EXPOSE') === 'vpn') {
+    if (get('DEV_GATEWAY_WEB_AUTH') !== 'basic') {
+      throw new ValidationError('DEV_GATEWAY_WEB_AUTH', 'must be basic while the panel is routed')
+    }
+    if (get('DEV_GATEWAY_WEB_AUTH_USER') === '' || get('DEV_GATEWAY_WEB_AUTH_HASH') === '') {
+      throw new ValidationError(
+        'DEV_GATEWAY_WEB_AUTH_USER',
+        'a routed panel needs a credential: run dev-gateway web auth set',
+      )
+    }
+  }
+
   if (get('DEV_GATEWAY_WEB_BIND_ADDRESS') === '0.0.0.0') {
     throw new ValidationError(
       'DEV_GATEWAY_WEB_BIND_ADDRESS',

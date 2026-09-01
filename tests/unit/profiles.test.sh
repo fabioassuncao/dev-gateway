@@ -27,6 +27,10 @@ files_for() {
     dg_compose_files "$profile" | tr ' ' '\n' | grep -v '^-f$' | sed 's#.*/##' | tr '\n' ' ' )
 }
 
+# A routed panel is refused without one, so every case that routes it carries
+# the credential. See docs/adr/0012-panel-authentication-is-traefiks.md.
+DG_WEB_CREDENTIAL="DEV_GATEWAY_WEB_AUTH=basic DEV_GATEWAY_WEB_AUTH_USER=dev DEV_GATEWAY_WEB_AUTH_HASH=\$apr1\$abcdefgh\$ckT15POyCRlen.h6XtGAZ1"
+
 describe "domains follow the profile"
 it "local uses localhost"
 assert_eq "localhost" "$(resolve local DEV_GATEWAY_DOMAIN)"
@@ -87,7 +91,7 @@ assert_contains "$(files_for local DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_DEV=true
 it "and does not add it otherwise"
 assert_not_contains "$(files_for local DEV_GATEWAY_WEB=true)" "compose.web-dev.yaml"
 it "the VPN overlay is opt-in"
-assert_contains "$(files_for remote-private DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_EXPOSE=vpn TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test)" "compose.web-vpn.yaml"
+assert_contains "$(files_for remote-private DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_EXPOSE=vpn TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test $DG_WEB_CREDENTIAL)" "compose.web-vpn.yaml"
 it "routing the panel on remote-public is REFUSED"
 assert_eq "REFUSED" "$(resolve remote-public DEV_GATEWAY_DOMAIN PUBLIC_DOMAIN=d.test DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_EXPOSE=vpn)"
 it "the panel itself still runs there, just not routed"
@@ -129,7 +133,8 @@ else
   it "remote-public + tailscale";   assert_success validate remote-public PUBLIC_DOMAIN=d.test TAILSCALE_ENABLED=true TS_AUTHKEY=dummy TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test
   it "local with the web panel";    assert_success validate local DEV_GATEWAY_WEB=true
   it "local with the panel in dev"; assert_success validate local DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_DEV=true
-  it "remote-private + panel/vpn";  assert_success validate remote-private TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_EXPOSE=vpn
+  # shellcheck disable=SC2086  # the credential is three separate assignments
+  it "remote-private + panel/vpn";  assert_success validate remote-private TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_EXPOSE=vpn $DG_WEB_CREDENTIAL
   it "local with tcp entrypoints";  assert_success validate local DEV_GATEWAY_TCP=true
   it "remote-private + tcp";        assert_success validate remote-private TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy DEV_GATEWAY_TCP=true
 fi

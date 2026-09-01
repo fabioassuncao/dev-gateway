@@ -131,6 +131,14 @@ services:
       DEV_GATEWAY_ACCESS_LOG: ${DEV_GATEWAY_ACCESS_LOG:-false}
       DEV_GATEWAY_WEB_PORT: ${DEV_GATEWAY_WEB_PORT:-8081}
       DEV_GATEWAY_WEB_BIND_ADDRESS: ${DEV_GATEWAY_WEB_BIND_ADDRESS:-127.0.0.1}
+      DEV_GATEWAY_WEB_EXPOSE: ${DEV_GATEWAY_WEB_EXPOSE:-local}
+      # The panel's own front door. The hash is never returned by the API, and
+      # the middleware it belongs to lives in a generated file, not in a label:
+      # a `$` in a Compose label is an interpolation accident waiting to happen.
+      DEV_GATEWAY_WEB_AUTH: ${DEV_GATEWAY_WEB_AUTH:-none}
+      DEV_GATEWAY_WEB_AUTH_USER: ${DEV_GATEWAY_WEB_AUTH_USER:-}
+      DEV_GATEWAY_WEB_AUTH_HASH: ${DEV_GATEWAY_WEB_AUTH_HASH:-}
+      DG_WEB_DYNAMIC_DIR: /app/state/traefik-dynamic
       TLS_ENABLED: ${TLS_ENABLED:-false}
       TLS_MODE: ${TLS_MODE:-local}
       ACME_EMAIL: ${ACME_EMAIL:-}
@@ -144,10 +152,20 @@ services:
       CLOUDFLARE_ENABLED: ${CLOUDFLARE_ENABLED:-false}
       CLOUDFLARE_ZONE: ${CLOUDFLARE_ZONE:-}
     volumes:
-      # Exactly two paths from the host, and nothing else: the configuration
-      # the Settings page edits, and the version string it reports.
+      # Four paths from the host, and nothing else. No project directory is ever
+      # mounted here: see docs/adr/0001-decoupled-infrastructure.md.
+      #
+      #   .env             the configuration the Settings page edits
+      #   VERSION          the version string it reports
+      #   state/git        metadata `dev-gateway git scan` collected, read-only
+      #   traefik/dynamic  read-write, and the ONE place the panel configures
+      #                    Traefik. It may write two generated filenames there
+      #                    and refuses every other path in its own process.
+      #                    See docs/adr/0011-panel-reads-traefik-writes-one-file.md.
       - ./.env:/app/state/.env
       - ./VERSION:/app/state/VERSION:ro
+      - ./state/git:/app/state/git:ro
+      - ./config/traefik/dynamic:/app/state/traefik-dynamic
     networks:
       # `gateway` so the panel can be published and, with the VPN overlay,
       # routed by Traefik. `webcontrol` for the socket proxy.

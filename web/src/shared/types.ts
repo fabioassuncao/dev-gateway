@@ -135,6 +135,15 @@ export interface GatewayStatus {
   tls: { enabled: boolean; mode: string }
   tailscale: { enabled: boolean; running: boolean; hostname: string }
   publicAccess: { enabled: boolean; domain: string | null }
+  /** The panel's own exposure and front door. Never carries the hash. */
+  panel: {
+    expose: string
+    routed: boolean
+    auth: string
+    authenticated: boolean
+    user: string
+    readOnly: boolean
+  }
   dashboard: { enabled: boolean; bindAddress: string; port: string }
   traefik: { containerId: string | null; state: ContainerState | 'absent'; health: Health }
   socketProxy: { containerId: string | null; state: ContainerState | 'absent' }
@@ -332,6 +341,8 @@ export interface ConfigPatchResult {
   saved: string[]
   pendingRestart: boolean
   applyCommand: string
+  /** Present when the save also rewrote a generated Traefik file. */
+  dynamic?: { file: string; written: boolean; reason: string }
   view: ConfigView
 }
 

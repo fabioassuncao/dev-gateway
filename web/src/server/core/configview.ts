@@ -3,6 +3,7 @@
 import type { PanelConfig } from '../config.ts'
 import { parseEnv, readEnvFile, setEnvValue, writeEnvFile, isWritable } from './envfile.ts'
 import { FIELDS, FIELDS_BY_KEY, ValidationError, validateCombination, validateValue } from './settings.ts'
+import { GENERATED_FILES, reconcilePanelAuth } from './dynamic.ts'
 import type { ConfigField, ConfigPatchResult, ConfigView } from '../../shared/types.ts'
 import { existsSync } from 'node:fs'
 
@@ -100,12 +101,28 @@ export function patchConfig(
   for (const [key, value] of applied) next = setEnvValue(next, key, value)
   writeEnvFile(config.envFile, next)
 
+  // The panel's own front door lives in a generated Traefik file, so a saved
+  // credential has to reach it. Traefik hot-reloads the directory, which is why
+  // this one setting takes effect without recreating anything.
+  const touchedAuth = [...applied.keys()].some((key) => key.startsWith('DEV_GATEWAY_WEB_AUTH'))
+  const dynamic = touchedAuth
+    ? {
+        file: GENERATED_FILES.panel,
+        ...reconcilePanelAuth(config.dynamicDir, {
+          mode: merged.get('DEV_GATEWAY_WEB_AUTH') ?? 'none',
+          user: merged.get('DEV_GATEWAY_WEB_AUTH_USER') ?? '',
+          hash: merged.get('DEV_GATEWAY_WEB_AUTH_HASH') ?? '',
+        }),
+      }
+    : null
+
   const view = buildConfigView(config)
   return {
     ok: true,
     saved: [...applied.keys()],
     pendingRestart: view.pendingRestart,
     applyCommand: view.applyCommand,
+    ...(dynamic ? { dynamic } : {}),
     view,
   }
 }

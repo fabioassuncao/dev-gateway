@@ -11,6 +11,35 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Added
 
+- **The panel has a front door, and it is Traefik's.** `--expose vpn` used to
+  put start, stop, restart and remove over every container on the host behind
+  nothing but the tailnet. It now requires a credential and is refused without
+  one.
+  - `dev-gateway web auth set` generates a password (twenty characters over a
+    thirty-two symbol alphabet, so about a hundred bits), shows it exactly once,
+    and stores only its apr1 hash. Nothing puts it on a command line, where `ps`
+    would show it to every user on the host. `--password-stdin` supplies your
+    own; `web auth`, `web auth apply` and `web auth clear` do the rest.
+  - `DEV_GATEWAY_WEB_AUTH`, `_USER` and `_HASH` join the settings catalogue,
+    with the hash marked secret so the API reports it as set and never returns
+    it. The field refuses anything that is not a hash, which is what stops a
+    plaintext password reaching Traefik because somebody filled in the wrong
+    box.
+  - None of it lives in the panel: no login form, no session, no cookie, no user
+    store, and no route handler a bug could let past. The middleware is rendered
+    into `config/traefik/dynamic/dev-gateway-panel.yaml` and referenced by the
+    router in `compose.web-vpn.yaml`. A middleware Traefik cannot resolve makes
+    the router fail closed. The trade is one credential for the whole panel,
+    with no users and no roles ([ADR 0012](docs/adr/0012-panel-authentication-is-traefiks.md)).
+  - A routed panel now defaults to read-only. `--writable` opts out.
+  - `dev-gateway doctor` and the panel's own diagnostics **fail**, not warn, on
+    a routed panel with no credential, matching the existing precedent for a
+    non-loopback dashboard.
+- The panel mounts `config/traefik/dynamic/` read-write and may write exactly
+  two filenames there, refusing every other path in its own process the way it
+  already refuses a Docker call outside its allowlist. Everything else in that
+  directory stays yours
+  ([ADR 0011](docs/adr/0011-panel-reads-traefik-writes-one-file.md)).
 - **A web administration panel, off by default.** `dev-gateway web up` starts a
   small panel on `127.0.0.1:8081` that answers the lookups that come up when
   several environments run at once: which URL a project has today, what is
@@ -119,7 +148,15 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 - The panel is never published on the internet: `--expose public` is refused,
   the VPN overlay is refused on the `remote-public` profile, and the default
-  bind is loopback.
+  bind is loopback. Routing it over the VPN now also requires a credential.
+- **Enabling the Traefik dashboard is broader than its published port
+  suggests, and this is now documented.** Insecure mode listens inside a
+  namespace attached to the shared network, so while the dashboard is on, any
+  adopted project's container can `curl http://traefik:8080/api/rawdata` and
+  read the routing configuration of every other project on the host. The
+  loopback bind constrains the host, not the network. This was already true; it
+  is now in [docs/security.md](docs/security.md) rather than inherited by
+  accident.
 - Mutating requests must come from the panel's own origin, so a page on another
   site cannot drive it through `127.0.0.1`.
 - A removal always sends `v=0&link=0`: volumes, networks and images outlive the

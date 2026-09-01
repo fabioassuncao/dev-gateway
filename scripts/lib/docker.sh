@@ -114,14 +114,29 @@ dg_resolve_profile() {
       ;;
   esac
 
-  # The panel has no authentication, so it is never routed where Traefik
-  # answers the internet.
+  # BasicAuth in front of container lifecycle control is not a boundary worth
+  # trusting on the internet, so the panel is never routed where Traefik
+  # answers it. See docs/adr/0012-panel-authentication-is-traefiks.md.
   if dg_is_true "${DEV_GATEWAY_WEB:-false}" \
      && [ "${DEV_GATEWAY_WEB_EXPOSE:-local}" = "vpn" ] \
      && [ "$profile" = "remote-public" ]; then
     err "the panel must not be routed on the remote-public profile"
     hint "Traefik binds every interface there, so a router for the panel would be public"
     hint "set DEV_GATEWAY_WEB_EXPOSE=local and reach it over SSH or the tailnet"
+    return 1
+  fi
+
+  # A routed panel is one credential away from being an open control plane over
+  # every container on the host, so this is refused here too: `dev-gateway up`
+  # must not be a way around `dev-gateway web up`.
+  if dg_is_true "${DEV_GATEWAY_WEB:-false}" \
+     && [ "${DEV_GATEWAY_WEB_EXPOSE:-local}" = "vpn" ] \
+     && { [ "${DEV_GATEWAY_WEB_AUTH:-none}" != "basic" ] \
+          || [ -z "${DEV_GATEWAY_WEB_AUTH_USER:-}" ] \
+          || [ -z "${DEV_GATEWAY_WEB_AUTH_HASH:-}" ]; }; then
+    err "the routed panel has no credential in front of it"
+    hint "dev-gateway web auth set   generates one and shows it once"
+    hint "or set DEV_GATEWAY_WEB_EXPOSE=local to keep it on loopback"
     return 1
   fi
 

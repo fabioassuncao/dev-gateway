@@ -7,6 +7,8 @@
 // configuration, which is exactly what the panel already has.
 
 import type { PanelConfig } from '../config.ts'
+import { isAuthenticated, isRouted } from '../config.ts'
+import { GENERATED_FILES, isDirWritable, readGenerated, renderPanelAuth } from './dynamic.ts'
 import type { Snapshot } from './inventory.ts'
 import { componentOf } from './gateway.ts'
 import type { Diagnostic } from '../../shared/types.ts'
@@ -205,6 +207,8 @@ export function diagnose(snapshot: Snapshot, config: PanelConfig): Diagnostic[] 
     )
   }
 
+  results.push(...panelChecks(config))
+
   if (config.tlsEnabled && config.tlsMode === 'acme' && !config.acmeEmailSet) {
     results.push(
       check('acme-email', 'fail', 'ACME', 'TLS_MODE=acme without ACME_EMAIL', 'set ACME_EMAIL in Settings'),
@@ -219,6 +223,70 @@ export function diagnose(snapshot: Snapshot, config: PanelConfig): Diagnostic[] 
         'Bind address',
         'the private profile is bound to every interface',
         'set DEV_GATEWAY_BIND_ADDRESS to the VPN address, or enable Tailscale',
+      ),
+    )
+  }
+
+  return results
+}
+
+/**
+ * The panel's own front door. A routed panel can stop containers and, since
+ * ADR 0010, says what is being worked on, so this fails rather than warns:
+ * the same precedent `doctor` already applies to a non-loopback dashboard.
+ */
+function panelChecks(config: PanelConfig): Diagnostic[] {
+  const results: Diagnostic[] = []
+
+  if (!isRouted(config)) {
+    results.push(
+      check('panel-auth', 'pass', 'Panel exposure', 'reachable on loopback only, where a password adds nothing'),
+    )
+    return results
+  }
+
+  if (!isAuthenticated(config)) {
+    results.push(
+      check(
+        'panel-auth',
+        'fail',
+        'Panel authentication',
+        `the panel is routed (expose: ${config.webExpose}) with no credential in front of it`,
+        'dev-gateway web auth set',
+      ),
+    )
+  } else {
+    results.push(
+      check('panel-auth', 'pass', 'Panel authentication', `Traefik BasicAuth as ${config.webAuthUser}`),
+    )
+  }
+
+  if (!config.readOnly) {
+    results.push(
+      check(
+        'panel-read-only',
+        'warn',
+        'Panel is routed and writable',
+        'anyone who gets past the credential can stop and remove containers',
+        'dev-gateway web up --read-only',
+      ),
+    )
+  }
+
+  // A middleware Traefik cannot resolve makes the router fail closed, so this
+  // is about a locked-out user rather than an open panel.
+  const wanted = renderPanelAuth(
+    isAuthenticated(config) ? { user: config.webAuthUser, hash: config.webAuthHash } : null,
+  )
+  if (readGenerated(config.dynamicDir, GENERATED_FILES.panel) !== wanted) {
+    results.push(
+      check(
+        'panel-auth-file',
+        'warn',
+        'Panel middleware is out of step',
+        `${GENERATED_FILES.panel} does not match the current settings` +
+          (isDirWritable(config.dynamicDir) ? '' : ', and the directory is not writable by the panel'),
+        'dev-gateway web auth apply',
       ),
     )
   }

@@ -127,6 +127,19 @@ export function Gateway() {
                   <Badge>disabled</Badge>
                 )}
               </KeyValue>
+              <KeyValue label="This panel">
+                {!gateway.panel.routed ? (
+                  <Badge>loopback only</Badge>
+                ) : gateway.panel.authenticated ? (
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <Badge tone="ok">routed, behind BasicAuth</Badge>
+                    <span className="font-mono text-xs">{gateway.panel.user}</span>
+                  </span>
+                ) : (
+                  <Badge tone="danger">routed with no credential</Badge>
+                )}
+                {gateway.panel.readOnly ? <Badge>read-only</Badge> : null}
+              </KeyValue>
             </dl>
           </CardBody>
         </Card>

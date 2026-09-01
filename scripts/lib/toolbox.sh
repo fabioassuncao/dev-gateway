@@ -62,3 +62,11 @@ dg_jq() {
 dg_dig() {
   if dg_have dig; then dig "$@"; else dg_toolbox_online dig "$@"; fi
 }
+
+# dg_toolbox_stdin <command...>: same as dg_toolbox, with stdin kept open.
+# Used to hash a password without ever putting it on a command line, where
+# `ps` would show it to every user on the host.
+dg_toolbox_stdin() {
+  dg_toolbox_ensure --quiet || return 1
+  docker run --rm -i --network none "$DG_TOOLBOX_IMAGE" "$@"
+}

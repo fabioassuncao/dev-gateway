@@ -227,3 +227,92 @@ describe('the config endpoints', () => {
     expect(readFileSync(envFile, 'utf8')).not.toContain('eighty')
   })
 })
+
+describe('the panel refuses to be routed without a credential', () => {
+  const routed = (extra: Record<string, string> = {}) =>
+    new Map(
+      Object.entries({
+        DEV_GATEWAY_WEB_EXPOSE: 'vpn',
+        DEV_GATEWAY_WEB_AUTH: 'basic',
+        DEV_GATEWAY_WEB_AUTH_USER: 'dev',
+        DEV_GATEWAY_WEB_AUTH_HASH: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
+        ...extra,
+      }),
+    )
+
+  it('accepts a routed panel with a full credential', () => {
+    expect(() => validateCombination(routed())).not.toThrow()
+  })
+
+  it('refuses the routed panel with authentication off', () => {
+    expect(() => validateCombination(routed({ DEV_GATEWAY_WEB_AUTH: 'none' }))).toThrow(ValidationError)
+  })
+
+  it('refuses a mode of basic with nothing behind it', () => {
+    expect(() => validateCombination(routed({ DEV_GATEWAY_WEB_AUTH_HASH: '' }))).toThrow(ValidationError)
+    expect(() => validateCombination(routed({ DEV_GATEWAY_WEB_AUTH_USER: '' }))).toThrow(ValidationError)
+  })
+
+  it('asks for none of it on loopback, where it would protect nothing', () => {
+    expect(() =>
+      validateCombination(
+        new Map([
+          ['DEV_GATEWAY_WEB_EXPOSE', 'local'],
+          ['DEV_GATEWAY_WEB_AUTH', 'none'],
+        ]),
+      ),
+    ).not.toThrow()
+  })
+})
+
+describe('the password hash field takes a hash, never a password', () => {
+  it('accepts what Traefik accepts', () => {
+    expect(() =>
+      validateValue('DEV_GATEWAY_WEB_AUTH_HASH', '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1'),
+    ).not.toThrow()
+  })
+
+  it('refuses a plaintext password typed into the field', () => {
+    expect(() => validateValue('DEV_GATEWAY_WEB_AUTH_HASH', 'hunter2')).toThrow(ValidationError)
+  })
+
+  it('refuses a username that could break the generated YAML', () => {
+    expect(() => validateValue('DEV_GATEWAY_WEB_AUTH_USER', 'dev"user')).toThrow(ValidationError)
+    expect(() => validateValue('DEV_GATEWAY_WEB_AUTH_USER', 'dev:admin')).toThrow(ValidationError)
+  })
+})
+
+describe('saving a credential rewrites the middleware Traefik reads', () => {
+  it('renders the generated file next to .env', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dg-settings-'))
+    const config = testConfig({ envFile: join(dir, '.env'), dynamicDir: dir })
+    writeFileSync(config.envFile, 'DEV_GATEWAY_WEB_EXPOSE=local\n')
+
+    const result = patchConfig(config, {
+      DEV_GATEWAY_WEB_AUTH: 'basic',
+      DEV_GATEWAY_WEB_AUTH_USER: 'dev',
+      DEV_GATEWAY_WEB_AUTH_HASH: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
+    })
+
+    expect(result.dynamic?.written).toBe(true)
+    const rendered = readFileSync(join(dir, 'dev-gateway-panel.yaml'), 'utf8')
+    expect(rendered).toContain('dev-gateway-web-auth:')
+    expect(rendered).toContain('dev:$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1')
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('never returns the hash it just stored', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dg-settings-'))
+    const config = testConfig({ envFile: join(dir, '.env'), dynamicDir: dir })
+    writeFileSync(config.envFile, '')
+
+    const result = patchConfig(config, {
+      DEV_GATEWAY_WEB_AUTH_HASH: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
+    })
+    const field = result.view.fields.find((item) => item.key === 'DEV_GATEWAY_WEB_AUTH_HASH')
+    expect(field?.isSet).toBe(true)
+    expect(field?.value).toBeNull()
+    expect(JSON.stringify(result)).not.toContain('ckT15POyCRlen')
+    rmSync(dir, { recursive: true, force: true })
+  })
+})
