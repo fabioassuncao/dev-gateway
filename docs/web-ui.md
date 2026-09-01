@@ -260,6 +260,43 @@ disagrees with the project name, which is what
 
 ![The Projects page: checkout with an unhealthy worker, storefront with four healthy services, and a second worktree of storefront running beside it, each with its own URLs](../.github/images/panel-projects.png)
 
+#### What the environment is running
+
+Each project carries a line of Git: the branch, HEAD with its subject, how much
+is uncommitted, and how far it has drifted from the remote. The branch, the
+commit and the repository are links when the remote is one whose shape is
+known.
+
+```text
+Git   feature/59-invoices · 9f2c1ab "Add invoice totals"
+      7 uncommitted changes · 3 ahead        owner/repo · collected 4 min ago
+```
+
+**None of it is live, and the line always says how old it is.** The panel
+cannot read a working tree: it has no project directory mounted, no `git`, and
+no way to run a command. What it reads is a file the host wrote:
+
+```bash
+./bin/dev-gateway git scan          # every running project
+./bin/dev-gateway git scan --project storefront-issue59
+./bin/dev-gateway git status        # what was collected, and when
+```
+
+`dev-gateway up` and `dev-gateway web up` run a scan for you. For anything more
+frequent, a cron entry is the honest answer; the panel never polls, and a scan
+that is too old to trust is marked rather than quietly shown as current.
+
+Four absences all render as fewer things rather than an error: a project
+without Git gets no line, a repository without a remote keeps its branch and
+loses the links, a remote on a forge nobody recognises keeps the repository
+link and loses the commit one, and a project nobody has scanned shows the
+command that would fix that.
+
+Nothing beyond metadata is collected: no diffs, no file contents, no commit
+list beyond HEAD. Nothing is ever written to a repository, and there is no
+checkout, merge or rebase anywhere in the panel or the CLI. See
+[ADR 0010](adr/0010-git-collected-on-the-host.md).
+
 ### Services
 
 Every service of every integrated project as a flat, filterable list: image,

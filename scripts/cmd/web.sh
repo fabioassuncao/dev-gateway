@@ -395,6 +395,13 @@ dg_web_up() {
     return 1
   }
 
+  # The panel reads state/git and never collects it. One scan here means the
+  # Git cards are populated the first time somebody opens the panel, rather
+  # than empty with an instruction.
+  if dg_have git; then
+    dg_git_scan >/dev/null 2>&1 || true
+  fi
+
   ok "panel is up"
   printf '\n  %-14s %s\n' "url" "$(dg_bold "$(dg_web_url)")"
   if [ "$DEV_GATEWAY_WEB_EXPOSE" = "vpn" ]; then

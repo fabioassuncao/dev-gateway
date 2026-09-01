@@ -87,6 +87,10 @@ REMOTE HOSTS
   remote status|doctor|urls <user@host>
   remote exec <user@host> -- <command>
 
+WHAT AN ENVIRONMENT IS RUNNING
+  git scan               Collect each project's branch, HEAD and dirty state
+  git status             What was collected, and how old it is
+
 ADOPTING A PROJECT
   analyze <path>         Read-only report on how a project would adopt the gateway
   init <path>            Generate the integration overlay (asks before writing)
@@ -165,6 +169,12 @@ cmd_up() {
     dg_compose "$profile" up -d --remove-orphans
   else
     dg_compose "$profile" up --remove-orphans
+  fi
+
+  # Best effort, and never fatal: the panel reads what this collects, and a
+  # host without git simply has nothing to read. See docs/adr/0010.
+  if dg_have git; then
+    dg_git_scan >/dev/null 2>&1 || true
   fi
 
   ok "gateway is up"
@@ -573,6 +583,7 @@ main() {
     namespace|ns) dg_cmd_namespace "$@" ;;
     access) dg_cmd_access "$@" ;;
     services) dg_cmd_services "$@" ;;
+    git) dg_cmd_git "$@" ;;
     web) dg_cmd_web "$@" ;;
     db) dg_cmd_db "$@" ;;
     redis) dg_cmd_redis "$@" ;;

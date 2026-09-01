@@ -35,6 +35,28 @@ While the version is `0.x`, minor releases may contain breaking changes.
   - `dev-gateway doctor` and the panel's own diagnostics **fail**, not warn, on
     a routed panel with no credential, matching the existing precedent for a
     non-loopback dashboard.
+- **The panel says what each environment is running.** Each project carries its
+  branch, HEAD with the commit subject, how much is uncommitted, and how far it
+  has drifted from the remote, with the branch, commit and repository as links
+  derived from the remote by string work alone.
+  - `dev-gateway git scan` collects it on the host, where `git` already is and
+    where the Compose labels already say which directory belongs to which
+    project, and writes `state/git/<project>.json` (mode `600`) into a
+    directory the panel mounts **read-only**. The panel gains no new access at
+    all: no project directory is mounted into it, `EXEC` stays off, and it
+    still runs no shell commands
+    ([ADR 0010](docs/adr/0010-git-collected-on-the-host.md)).
+  - Nothing polls. The card always says how old the scan is, marks anything
+    past the threshold as stale, and shows the exact host command to refresh
+    it. `dev-gateway up` and `dev-gateway web up` run one for you.
+  - Read-only in both directions: no checkout, merge, rebase, fetch or push, no
+    diffs, no file contents, and nothing beyond HEAD.
+  - A project with no Git gets no card; a repository with no remote keeps its
+    branch and loses the links; a forge nobody recognises keeps the repository
+    link and loses the commit one; a project nobody scanned shows the command.
+    All four are tested.
+  - `dev-gateway git status` says what was collected and when, and
+    `dev-gateway git clear` removes it.
 - **Three optional labels, for the things inference cannot get right.**
   `dev-gateway.project` groups several worktrees under one heading when
   `COMPOSE_PROJECT_NAME` is a per-worktree namespace; `dev-gateway.repo`

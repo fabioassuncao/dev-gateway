@@ -76,6 +76,10 @@ export interface PanelConfig {
   webAuthHash: string
   /** Traefik's dynamic configuration directory, mounted read-write. */
   dynamicDir: string
+  /** Where `dev-gateway git scan` writes, mounted read-only. */
+  gitDir: string
+  /** Past this age, collected Git metadata is marked stale rather than shown. */
+  gitStaleSeconds: number
 }
 
 export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
@@ -129,6 +133,8 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     webAuthUser: env('DEV_GATEWAY_WEB_AUTH_USER', ''),
     webAuthHash: env('DEV_GATEWAY_WEB_AUTH_HASH', ''),
     dynamicDir: env('DG_WEB_DYNAMIC_DIR', '/app/state/traefik-dynamic'),
+    gitDir: env('DG_WEB_GIT_DIR', '/app/state/git'),
+    gitStaleSeconds: Number(env('DG_WEB_GIT_STALE_SECONDS', '600')),
     ...overrides,
   }
   return config

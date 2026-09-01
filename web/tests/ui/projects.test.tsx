@@ -16,6 +16,9 @@ vi.mock('../../src/ui/lib/api.ts', () => ({
     logs: vi.fn().mockResolvedValue({ lines: [] }),
     removalPreview: vi.fn().mockResolvedValue({ allowed: true, warnings: [], namedVolumes: [] }),
     stats: vi.fn().mockResolvedValue({ cpuPercent: null }),
+    // Nothing collected: the card renders one subtle line and the page is
+    // unchanged, which is what a project without a scan should look like.
+    projectGit: vi.fn().mockResolvedValue({ collected: false, git: null, refreshCommand: 'git scan' }),
   },
 }))
 

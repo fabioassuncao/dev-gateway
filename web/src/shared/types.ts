@@ -124,6 +124,77 @@ export interface Project {
   uptimeSeconds: number | null
 }
 
+export interface GitHead {
+  sha: string
+  shortSha: string
+  subject: string
+  author: string
+  /** Unix seconds. */
+  date: number
+}
+
+export interface GitInfo {
+  /** Null on a detached HEAD, which `detached` then explains. */
+  branch: string | null
+  detached: boolean
+  head: GitHead
+  staged: number
+  unstaged: number
+  untracked: number
+  unmerged: number
+  dirty: boolean
+  upstream: string | null
+  ahead: number
+  behind: number
+  /** The remote URL as Git reports it, or the `dev-gateway.repo` label. */
+  remote: string | null
+}
+
+export interface ForgePullRequest {
+  number: number
+  title: string
+  state: string
+  draft: boolean
+  reviewDecision: string | null
+  checks: string | null
+  url: string | null
+  headRefName: string | null
+}
+
+export interface Forge {
+  kind: string
+  collectedAt: number
+  /** False when `gh` was present but not signed in. */
+  authenticated: boolean
+  reason: string | null
+  pulls: ForgePullRequest[]
+}
+
+/**
+ * What `dev-gateway git scan` collected for one project, as the panel reads it.
+ * Everything is optional by design: no Git, no remote, no `gh` and no scan at
+ * all are four different absences, and each renders as fewer sections rather
+ * than an error.
+ */
+export interface ProjectGit {
+  project: string
+  /** Whether a file exists at all. False means nobody has run a scan. */
+  collected: boolean
+  collectedAt: number | null
+  ageSeconds: number | null
+  stale: boolean
+  staleAfterSeconds: number
+  workingDir: string | null
+  git: GitInfo | null
+  remote: { url: string; host: string; slug: string; kind: string; repoUrl: string } | null
+  links: { repo: string | null; commit: string | null; branch: string | null }
+  forge: Forge | null
+  /** Why there is no Git here, when the collector could say. */
+  reason: string | null
+  /** The exact host command that refreshes this. The panel never runs it. */
+  refreshCommand: string
+}
+
 export interface Diagnostic {
   id: string
   status: 'pass' | 'warn' | 'fail'

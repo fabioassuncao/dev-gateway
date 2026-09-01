@@ -16,6 +16,7 @@ import { ContainerDetails } from '../components/container-details.tsx'
 import { shortImage, uptime } from '../lib/format.ts'
 import { navigate } from '../lib/router.ts'
 import { ServiceIcon } from '../components/service-icon.tsx'
+import { GitCard } from '../components/git-card.tsx'
 
 export function Projects({ selected }: { selected: string | null }) {
   const [search, setSearch] = useState('')
@@ -134,6 +135,8 @@ function ProjectCard({ project }: { project: Project }) {
           </Button>
         }
       />
+
+      <GitCard project={project.name} />
 
       {urls.length > 0 ? (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-line bg-surface-2/40 px-4 py-2">

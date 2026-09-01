@@ -10,6 +10,7 @@ import type {
   NetworkView,
   Overview,
   Project,
+  ProjectGit,
   RemovalPreview,
 } from '../../shared/types.ts'
 
@@ -60,6 +61,7 @@ export const api = {
 
   projects: () => request<{ projects: Project[] }>('/projects').then((data) => data.projects),
   project: (name: string) => request<Project>(`/projects/${encodeURIComponent(name)}`),
+  projectGit: (name: string) => request<ProjectGit>(`/projects/${encodeURIComponent(name)}/git`),
   services: () => request<{ services: ContainerSummary[] }>('/services').then((data) => data.services),
 
   containers: (params: { ownership?: string; state?: string; q?: string } = {}) => {
