@@ -855,6 +855,25 @@ if [ -n "$DOMAIN" ]; then
   note "recorded only; applications stay unexposed until you publish them"
 fi
 
+# The address this host is reached on, detected once and written to .env so no
+# later command has to make a network call to know what a project hostname
+# should be. Needed for the panel summary and for the auto domain mode below.
+PUBLIC_IP=$(env_get "$ENV_FILE" PORTTA_PUBLIC_IP)
+if [ "$PANEL_ACCESS" != "local" ] || [ "$DOMAIN_MODE" = "auto" ]; then
+  DETECTED_IP=$(public_ip)
+  [ -n "$DETECTED_IP" ] && PUBLIC_IP="$DETECTED_IP"
+fi
+
+# On a tailnet host, the address that matters is the tailnet one. sslip.io
+# resolves it like any other, so project hostnames end up reachable over the
+# VPN and nowhere else — the same boundary the panel already has here, and no
+# public exposure at all.
+if [ "$PANEL_ACCESS" = "tailscale" ] && [ -n "$TAILSCALE_IP" ]; then
+  PUBLIC_IP="$TAILSCALE_IP"
+fi
+
+[ -n "$PUBLIC_IP" ] && env_set "$ENV_FILE" PORTTA_PUBLIC_IP "$PUBLIC_IP"
+
 # ---------------------------------------------------------------------------
 # Project hostnames
 # ---------------------------------------------------------------------------
@@ -916,25 +935,6 @@ case "$DOMAIN_MODE" in
     note "that only resolves on this machine; --domain-mode auto gives one that resolves anywhere"
     ;;
 esac
-
-# The address this host is reached on, detected once and written to .env so no
-# later command has to make a network call to know what a project hostname
-# should be. Needed for the panel summary and for the auto domain mode below.
-PUBLIC_IP=$(env_get "$ENV_FILE" PORTTA_PUBLIC_IP)
-if [ "$PANEL_ACCESS" != "local" ] || [ "$DOMAIN_MODE" = "auto" ]; then
-  DETECTED_IP=$(public_ip)
-  [ -n "$DETECTED_IP" ] && PUBLIC_IP="$DETECTED_IP"
-fi
-
-# On a tailnet host, the address that matters is the tailnet one. sslip.io
-# resolves it like any other, so project hostnames end up reachable over the
-# VPN and nowhere else — the same boundary the panel already has here, and no
-# public exposure at all.
-if [ "$PANEL_ACCESS" = "tailscale" ] && [ -n "$TAILSCALE_IP" ]; then
-  PUBLIC_IP="$TAILSCALE_IP"
-fi
-
-[ -n "$PUBLIC_IP" ] && env_set "$ENV_FILE" PORTTA_PUBLIC_IP "$PUBLIC_IP"
 
 # The panel's own address, for the summary and for `portta web status`. This
 # binds nothing: it is the address a human types.

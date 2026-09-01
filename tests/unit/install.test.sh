@@ -46,6 +46,13 @@ sw_vers"
 missing=$(comm -23 <(printf '%s\n' "$called") <(printf '%s\n%s\n' "$defined" "$allowed" | sort -u) | tr '\n' ' ')
 assert_eq "" "$(printf '%s' "$missing" | sed 's/[[:space:]]*$//')"
 
+it "no top-level variable is used before it is assigned"
+# `set -u` turns one of these into "unbound variable" at the moment the line
+# runs — a long way from the mistake, and a long way into a run that has already
+# changed the machine. bash -n and shellcheck both accept it: the code is
+# syntactically fine and the variable is assigned, just too late.
+assert_success python3 "$PORTTA_TEST_DIR/lib/assignment-order.py" "$INSTALLER"
+
 describe "arguments are validated before anything is detected"
 
 it "an unknown flag fails"
