@@ -106,6 +106,17 @@ function ProjectCard({ project }: { project: Project }) {
               <Badge tone="danger">{project.unhealthyCount} unhealthy</Badge>
             ) : null}
             {project.namespace ? <Badge tone="outline">worktree: {project.namespace}</Badge> : null}
+            {project.group ? <Badge tone="outline">part of {project.group}</Badge> : null}
+            {project.repoUrl ? (
+              <a
+                className="text-xs text-muted underline-offset-2 hover:text-accent hover:underline"
+                href={project.repoUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                {project.repo}
+              </a>
+            ) : null}
           </span>
         }
         description={

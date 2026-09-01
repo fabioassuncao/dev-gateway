@@ -35,6 +35,15 @@ While the version is `0.x`, minor releases may contain breaking changes.
   - `dev-gateway doctor` and the panel's own diagnostics **fail**, not warn, on
     a routed panel with no credential, matching the existing precedent for a
     non-loopback dashboard.
+- **Three optional labels, for the things inference cannot get right.**
+  `dev-gateway.project` groups several worktrees under one heading when
+  `COMPOSE_PROJECT_NAME` is a per-worktree namespace; `dev-gateway.repo`
+  (`owner/name` or a remote URL) gives repository links with no host-side Git at
+  all; `dev-gateway.git.root` says where the repository starts when the Compose
+  file is not at its root. A project that sets none behaves exactly as it did
+  before they existed, and the test suite asserts that rather than the
+  documentation promising it. `dev-gateway analyze` reports which ones a project
+  sets ([ADR 0010](docs/adr/0010-git-collected-on-the-host.md)).
 - The panel mounts `config/traefik/dynamic/` read-write and may write exactly
   two filenames there, refusing every other path in its own process the way it
   already refuses a Docker call outside its allowlist. Everything else in that

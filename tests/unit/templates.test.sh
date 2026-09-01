@@ -127,4 +127,26 @@ for ov in "$DG_ROOT"/examples/*/compose.dev-gateway.yaml; do
   assert_eq "" "$(grep -oE 'traefik\.http\.services\.[^.]*\.' "$ov" | grep -v '\${COMPOSE_PROJECT_NAME' || true)"
 done
 
+describe "the optional identity labels stay optional"
+
+it "the monorepo template shows them, commented out"
+assert_contains "$(cat templates/overlays/06-monorepo.yaml)" "dev-gateway.repo="
+
+it "the worktree template explains the grouping label"
+assert_contains "$(cat templates/overlays/07-worktree.env)" "dev-gateway.project="
+
+it "no template requires one"
+assert_eq "" "$(grep -rn '^ *- "dev-gateway\.\(project\|repo\|git\)' templates/overlays/ || true)"
+
+it "the example that declares them is the monorepo, where inference cannot"
+assert_contains "$(cat examples/demo-monorepo/compose.dev-gateway.yaml)" "dev-gateway.git.root="
+
+for demo in demo-a demo-b demo-site demo-shop; do
+  it "$demo declares none, and needs none"
+  assert_eq "" "$(grep -n 'dev-gateway\.\(project\|repo\|git\.root\)' "examples/$demo/compose.dev-gateway.yaml" 2>/dev/null || true)"
+done
+
+it "analyze reports them, and says so plainly when there are none"
+assert_contains "$(./bin/dev-gateway analyze examples/demo-a 2>&1)" "none (inferred from the Compose labels)"
+
 t_summary

@@ -143,6 +143,36 @@ to run a second copy. The rules stay here.
 Nothing changes: a monorepo is one Compose project with more services in it.
 See [monorepos.md](monorepos.md).
 
+## Optional: declaring what cannot be inferred
+
+The panel works out a project's identity from the labels Compose already
+injects: the project name, the working directory, and a worktree namespace when
+the directory basename disagrees with the project name. Three optional labels
+settle what that inference cannot. **All of them are optional, and a project
+that sets none behaves exactly as it does today**, which is asserted in the test
+suite rather than promised here.
+
+| Label | When it helps |
+|---|---|
+| `dev-gateway.project` | `COMPOSE_PROJECT_NAME` is a per-worktree namespace and five worktrees should group under one heading |
+| `dev-gateway.repo` | `owner/name` or a remote URL. Gives repository and commit links with no host-side Git at all |
+| `dev-gateway.git.root` | The repository root, when the Compose file is not at it (see [monorepos.md](monorepos.md)) |
+
+```yaml
+services:
+  web:
+    labels:
+      - "dev-gateway.project=base-empresarial"
+      - "dev-gateway.repo=owner/base-empresarial"
+```
+
+Declare them on any one service; the first that does wins for the whole
+project. `dev-gateway analyze` reports which ones a project sets, and says
+"none (inferred from the Compose labels)" when it sets none, because that is
+the normal answer rather than a finding.
+
+See [ADR 0010](adr/0010-git-collected-on-the-host.md).
+
 ## Keeping the project runnable without the gateway
 
 The overlay adds only networks and labels, so `docker compose up -d` on its own

@@ -29,6 +29,13 @@ services:
   web:
     networks: [default, dev-gateway]
     labels:
+      # Optional, and only useful because inference cannot get them right here:
+      # `dev-gateway.git.root` says where the repository actually starts when
+      # the Compose file is not at its root, and `dev-gateway.repo` gives the
+      # panel a repository link with no host-side Git at all. Delete both and
+      # everything behaves exactly as it does now.
+      # - "dev-gateway.repo=owner/monorepo"
+      # - "dev-gateway.git.root=/srv/dev/monorepo"
       - "traefik.enable=true"
       - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-web.loadbalancer.server.port=3000"

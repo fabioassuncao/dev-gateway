@@ -167,6 +167,30 @@ EOF
   printf '  %-22s %s\n' "gateway overlay" "${overlay:-none}"
   printf '  %-22s %s (%s)\n' "project namespace" "$pname" "$psource"
 
+  # The optional identity labels. Absent is the normal answer, and the panel
+  # infers the same things without them; declaring one only settles what
+  # inference cannot. See docs/adr/0010-git-collected-on-the-host.md.
+  # The overlay is where these are written, and `$json` is the base file alone
+  # (analyze reports on a project as it is, before adoption). Render both when
+  # an overlay exists, and fall back to the base file when that fails.
+  local ident_json declared
+  ident_json="$json"
+  if [ -n "$overlay" ]; then
+    ident_json=$( cd "$dir" && docker compose -f "$file" -f "$overlay" config --format json 2>/dev/null ) \
+      || ident_json="$json"
+  fi
+  declared=$(printf '%s' "$ident_json" | dg_jq -r '
+    [ .services[]? | (.labels // {}) | to_entries[]?
+      | select(.key | startswith("dev-gateway.project")
+                   or startswith("dev-gateway.repo")
+                   or startswith("dev-gateway.git.root"))
+      | "\(.key)=\(.value)" ] | unique | .[]' 2>/dev/null)
+  if [ -n "$declared" ]; then
+    printf '  %-22s %s\n' "declared identity" "$(printf '%s' "$declared" | tr '\n' ' ')"
+  else
+    printf '  %-22s %s\n' "declared identity" "none (inferred from the Compose labels)"
+  fi
+
   # ---- services --------------------------------------------------------
   printf '\n%s\n' "$(dg_bold 'Services')"
   printf '  %-16s %-30s %-10s %-10s %s\n' "SERVICE" "IMAGE" "KIND" "HOSTPORTS" "NETWORKS"

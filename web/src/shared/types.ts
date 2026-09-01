@@ -79,6 +79,14 @@ export interface ContainerSummary {
   service: string | null
   workingDir: string | null
   namespace: string | null
+  /** `dev-gateway.project`: the logical project several worktrees share. */
+  group: string | null
+  /** `dev-gateway.repo`: `owner/name` or a remote URL, as the project wrote it. */
+  repo: string | null
+  /** The repository's web address, derived from `repo` by string work alone. */
+  repoUrl: string | null
+  /** `dev-gateway.git.root`, when the Compose file is not at the repo root. */
+  gitRoot: string | null
   networks: string[]
   onGatewayNetwork: boolean
   traefikEnabled: boolean
@@ -99,6 +107,11 @@ export interface Project {
   integrated: boolean
   workingDir: string | null
   namespace: string | null
+  /** All four are null unless the project declared them. Never required. */
+  group: string | null
+  repo: string | null
+  repoUrl: string | null
+  gitRoot: string | null
   services: ContainerSummary[]
   serviceCount: number
   runningCount: number

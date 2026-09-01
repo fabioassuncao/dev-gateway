@@ -18,6 +18,7 @@ import { LABELS, relevantLabels } from './labels.ts'
 import { serviceKind } from './kinds.ts'
 import { resolveServiceTech } from './tech.ts'
 import { slug } from './slug.ts'
+import { parseRemote } from './forge.ts'
 import type {
   ContainerState,
   ContainerSummary,
@@ -207,6 +208,11 @@ export function summarise(
   const project = labels[LABELS.composeProject] ?? null
   const service = labels[LABELS.composeService] ?? null
   const workingDir = labels[LABELS.composeWorkingDir] ?? null
+  // Declared identity, when a project bothered to declare it. Never required:
+  // `namespace` below is the same inference the panel has always made.
+  const declaredProject = labels[LABELS.project] ?? null
+  const declaredRepo = labels[LABELS.repo] ?? null
+  const gitRoot = labels[LABELS.gitRoot] ?? null
   const image = inspect?.Config.Image ?? item.Image
   const startedAt = epoch(inspect?.State.StartedAt)
   const state = toState(inspect?.State.Status ?? item.State)
@@ -230,6 +236,10 @@ export function summarise(
     service,
     workingDir,
     namespace: dirName && project && dirName !== project ? dirName : null,
+    group: declaredProject,
+    repo: declaredRepo,
+    repoUrl: declaredRepo ? (parseRemote(declaredRepo)?.repoUrl ?? null) : null,
+    gitRoot,
     networks,
     onGatewayNetwork,
     traefikEnabled: labels[LABELS.traefikEnable] === 'true',
@@ -283,11 +293,19 @@ export function groupProjects(containers: ContainerSummary[], now: number): Proj
       .filter((value): value is number => value !== null)
     const startedAt = started.length ? Math.min(...started) : null
     const withDir = services.find((service) => service.workingDir)
+    const declared = services.find((service) => service.group)
+    const withRepo = services.find((service) => service.repo)
     projects.push({
       name,
       integrated,
       workingDir: withDir?.workingDir ?? null,
       namespace: services.find((service) => service.namespace)?.namespace ?? null,
+      // A project declares these once, on any of its services. The first that
+      // does wins, and none of them doing so is the normal case.
+      group: declared?.group ?? null,
+      repo: withRepo?.repo ?? null,
+      repoUrl: withRepo?.repoUrl ?? null,
+      gitRoot: services.find((service) => service.gitRoot)?.gitRoot ?? null,
       services,
       serviceCount: services.length,
       runningCount: services.filter((service) => service.state === 'running').length,

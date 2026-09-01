@@ -8,6 +8,10 @@
 #   -> http://demo-monorepo-admin.localhost
 #   -> http://demo-monorepo-api.localhost
 #   -> http://demo-monorepo-mailpit.localhost
+#
+# It also declares the optional identity labels, because a monorepo is where
+# they earn their keep: the panel cannot infer a repository from a directory
+# name. Delete them and everything still works; nothing depends on them.
 # ============================================================================
 
 services:
@@ -16,6 +20,8 @@ services:
       - default
       - dev-gateway
     labels:
+      - "dev-gateway.repo=fabioassuncao/dev-gateway"
+      - "dev-gateway.git.root=/srv/dev/demo-monorepo"
       - "traefik.enable=true"
       - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-monorepo}-web.loadbalancer.server.port=3000"

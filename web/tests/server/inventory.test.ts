@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildSnapshot, collectPorts, hostsFromRules, scopeForHost, urlsFor } from '../../src/server/core/inventory.ts'
-import { fakeDocker, testConfig } from './helpers.ts'
+import { fakeDocker, testConfig, type FakeContainer } from './helpers.ts'
 import { BRIDGE, EXTERNAL, FULL_HOST, GATEWAY, PROJECT_A, STANDALONE } from './fixtures.ts'
 
 const config = testConfig()
@@ -252,5 +252,100 @@ describe('the snapshot cache', () => {
     const cache = createSnapshotCache(docker.client, config, 1000)
     await Promise.all([cache.get(), cache.get(), cache.get()])
     expect(docker.calls.filter((call) => call.method === 'listContainers')).toHaveLength(1)
+  })
+})
+
+describe('the optional identity labels', () => {
+  const declaring: FakeContainer[] = [
+    {
+      id: 'w-web',
+      name: 'storefront-issue59-web-1',
+      image: 'nginx:1.31.4-alpine',
+      networks: ['dev-gateway'],
+      labels: {
+        'com.docker.compose.project': 'storefront-issue59',
+        'com.docker.compose.service': 'web',
+        'com.docker.compose.project.working_dir': '/srv/dev/storefront-issue59',
+        'traefik.enable': 'true',
+        'dev-gateway.project': 'storefront',
+        'dev-gateway.repo': 'owner/storefront',
+        'dev-gateway.git.root': '/srv/dev/storefront-issue59',
+      },
+    },
+    {
+      // The datastore declares nothing, which is the normal case.
+      id: 'w-pg',
+      name: 'storefront-issue59-postgres-1',
+      image: 'postgres:18.6-alpine',
+      networks: ['storefront_default'],
+      labels: {
+        'com.docker.compose.project': 'storefront-issue59',
+        'com.docker.compose.service': 'postgres',
+      },
+    },
+  ]
+
+  it('reads them onto the container and up onto the project', async () => {
+    const { client } = fakeDocker({ containers: declaring })
+    const snapshot = await buildSnapshot(client, config)
+    const project = snapshot.projects.find((item) => item.name === 'storefront-issue59')
+
+    expect(project?.group).toBe('storefront')
+    expect(project?.repo).toBe('owner/storefront')
+    expect(project?.repoUrl).toBe('https://github.com/owner/storefront')
+    expect(project?.gitRoot).toBe('/srv/dev/storefront-issue59')
+  })
+
+  it('takes them from whichever service declared them', async () => {
+    const { client } = fakeDocker({ containers: declaring })
+    const snapshot = await buildSnapshot(client, config)
+    const postgres = snapshot.containers.find((item) => item.id === 'w-pg')
+    // The container itself declared nothing, and says so.
+    expect(postgres?.group).toBeNull()
+    expect(snapshot.projects[0]?.group).toBe('storefront')
+  })
+
+  it('keeps inferring the worktree namespace alongside them', async () => {
+    const { client } = fakeDocker({ containers: declaring })
+    const snapshot = await buildSnapshot(client, config)
+    // The directory basename agrees with the project name here, so there is no
+    // namespace to infer: the declared group is what groups the worktrees.
+    expect(snapshot.projects[0]?.namespace).toBeNull()
+    expect(snapshot.projects[0]?.group).toBe('storefront')
+  })
+
+  it('leaves a project that declares none exactly as it was', async () => {
+    // The guarantee ADR 0010 makes, asserted rather than promised.
+    const { client } = fakeDocker({ containers: FULL_HOST })
+    const snapshot = await buildSnapshot(client, config)
+    for (const project of snapshot.projects) {
+      expect(project.group).toBeNull()
+      expect(project.repo).toBeNull()
+      expect(project.repoUrl).toBeNull()
+      expect(project.gitRoot).toBeNull()
+    }
+    expect(snapshot.projects.find((item) => item.name === 'beta')?.namespace).toBe('beta-issue59')
+  })
+
+  it('derives no repository link from a label it cannot parse', async () => {
+    const { client } = fakeDocker({
+      containers: [
+        {
+          id: 'bad',
+          name: 'x-web-1',
+          image: 'nginx:1.31.4-alpine',
+          networks: ['dev-gateway'],
+          labels: {
+            'com.docker.compose.project': 'x',
+            'com.docker.compose.service': 'web',
+            'traefik.enable': 'true',
+            'dev-gateway.repo': 'not a remote at all',
+          },
+        },
+      ],
+    })
+    const snapshot = await buildSnapshot(client, config)
+    expect(snapshot.projects[0]?.repo).toBe('not a remote at all')
+    expect(snapshot.projects[0]?.repoUrl).toBeNull()
   })
 })
