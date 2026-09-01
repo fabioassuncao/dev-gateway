@@ -158,6 +158,11 @@ assert_contains "$SOURCE" 'DOMAIN_MODE="auto"'
 it "and a machine you are sitting at keeps localhost"
 assert_contains "$SOURCE" 'good "projects will answer on *.localhost"'
 
+it "a tailnet host builds the name from its tailnet address, not its public one"
+# sslip.io resolves a 100.64/10 address like any other, so the names lead over
+# the VPN and nowhere else: reachable, with no public exposure at all.
+assert_contains "$SOURCE" 'if [ "$PANEL_ACCESS" = "tailscale" ] && [ -n "$TAILSCALE_IP" ]; then'
+
 it "an existing mode is kept on an update"
 assert_contains "$SOURCE" 'DOMAIN_MODE=$(env_get "$ENV_FILE" PORTTA_DOMAIN_MODE)'
 
