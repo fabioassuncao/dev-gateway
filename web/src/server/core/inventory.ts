@@ -110,12 +110,24 @@ export function scopeForHost(host: string, config: PanelConfig): UrlScope {
  * Mirrors dg_discover_http: an explicit Host() rule wins, otherwise Traefik's
  * default rule derives the hostname from the Compose labels.
  */
+/** A container carries TCP router labels and no HTTP ones. */
+export function isTcpOnly(labels: Record<string, string>): boolean {
+  const keys = Object.keys(labels)
+  return (
+    keys.some((key) => key.startsWith('traefik.tcp.routers.')) &&
+    !keys.some((key) => key.startsWith('traefik.http.'))
+  )
+}
+
 export function urlsFor(
   labels: Record<string, string>,
   containerName: string,
   config: PanelConfig,
 ): RouteUrl[] {
   if (labels[LABELS.traefikEnable] !== 'true') return []
+  // A datastore routed by hostname opted into the gateway, but it is not
+  // reached with a browser and has no URL. See docs/tcp-routing.md.
+  if (isTcpOnly(labels)) return []
   const scheme = schemeFor(config)
   let hosts = hostsFromRules(labels)
   if (hosts.length === 0) {

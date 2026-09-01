@@ -51,6 +51,84 @@ describe('GET /api/access', () => {
   })
 })
 
+describe('reaching a database by hostname', () => {
+  const tcp = { ...fast, tcpEnabled: true, tcpPorts: { postgres: 5432, redis: 6379 } }
+
+  const routedPostgres = {
+    id: 'routed-pg',
+    name: 'alpha-postgres-1',
+    image: 'postgres:18.6-alpine',
+    networks: ['alpha_default', 'dev-gateway-access'],
+    exposed: [5432],
+    labels: {
+      'com.docker.compose.project': 'alpha',
+      'com.docker.compose.service': 'postgres',
+      'traefik.enable': 'true',
+      'traefik.tcp.routers.alpha-postgres.rule': 'HostSNIRegexp(`^alpha-postgres\\..+$`)',
+      'traefik.tcp.routers.alpha-postgres.tls': 'true',
+    },
+  }
+
+  it('gives a routed datastore its address and a TLS connection string', async () => {
+    const { app } = makeApp({ containers: [...GATEWAY, routedPostgres] }, tcp)
+    const view = (await (await app.request('/api/access')).json()) as AccessView
+
+    const service = view.services.find((item) => item.service === 'postgres')
+    expect(view.tcpRoutingEnabled).toBe(true)
+    expect(service?.routing).toBe('starttls-sni')
+    expect(service?.routed).toBe(true)
+    expect(service?.gatewayAddress).toBe('alpha-postgres.localhost:5432')
+    expect(service?.gatewayConnectionString).toBe(
+      'postgresql://<user>@alpha-postgres.localhost:5432/<database>?sslmode=require',
+    )
+  })
+
+  it('never puts a password in it', async () => {
+    const { app } = makeApp({ containers: [...GATEWAY, routedPostgres] }, tcp)
+    const body = await (await app.request('/api/access')).text()
+    expect(body).not.toMatch(/password|secret/i)
+  })
+
+  it('offers no address when the project has not opted in', async () => {
+    const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, tcp)
+    const view = (await (await app.request('/api/access')).json()) as AccessView
+    const service = view.services.find((item) => item.service === 'postgres')
+    expect(service?.routed).toBe(false)
+    expect(service?.gatewayAddress).toBeNull()
+  })
+
+  it('offers none when the gateway is not publishing the entrypoints', async () => {
+    const { app } = makeApp({ containers: [...GATEWAY, routedPostgres] }, fast)
+    const view = (await (await app.request('/api/access')).json()) as AccessView
+    expect(view.tcpRoutingEnabled).toBe(false)
+    expect(view.services.find((item) => item.service === 'postgres')?.gatewayAddress).toBeNull()
+  })
+
+  it('tells Redis apart from PostgreSQL, and both from MySQL', async () => {
+    const { app } = makeApp(
+      {
+        containers: [
+          ...GATEWAY,
+          { ...routedPostgres, id: 'r', name: 'alpha-redis-1', image: 'redis:8.10.1-alpine',
+            exposed: [6379],
+            labels: { ...routedPostgres.labels, 'com.docker.compose.service': 'redis' } },
+          { id: 'm', name: 'alpha-mysql-1', image: 'mariadb:11.4', networks: ['alpha_default'],
+            exposed: [3306],
+            labels: { 'com.docker.compose.project': 'alpha', 'com.docker.compose.service': 'mysql' } },
+        ],
+      },
+      tcp,
+    )
+    const view = (await (await app.request('/api/access')).json()) as AccessView
+    const byService = Object.fromEntries(view.services.map((s) => [s.service, s]))
+
+    expect(byService['redis']?.routing).toBe('tls-sni')
+    expect(byService['redis']?.gatewayConnectionString).toContain('--sni alpha-redis.localhost')
+    expect(byService['mysql']?.routing).toBe('unsupported')
+    expect(byService['mysql']?.gatewayAddress).toBeNull()
+  })
+})
+
 describe('POST /api/access', () => {
   it('creates the same bridge the CLI creates', async () => {
     const { app, docker } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, fast)

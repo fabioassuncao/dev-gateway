@@ -10,7 +10,13 @@ import type { DockerClient } from '../docker/client.ts'
 import type { PanelConfig } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import { LABELS } from './labels.ts'
-import { connectionString, defaultPortForImage, serviceKind } from './kinds.ts'
+import {
+  connectionString,
+  defaultPortForImage,
+  gatewayConnectionString,
+  serviceKind,
+  tcpRouting,
+} from './kinds.ts'
 import { slug } from './slug.ts'
 import type {
   Bridge,
@@ -91,6 +97,36 @@ export function privateNetworks(container: ContainerSummary, config: PanelConfig
   return container.networks.filter((name) => !ours.has(name))
 }
 
+/**
+ * The address a client uses when a datastore is routed by hostname, or null.
+ *
+ * Three things have to line up: the gateway is publishing the entrypoint, the
+ * protocol is one that can be told apart by SNI, and the container carries the
+ * router labels that opt it in. Being visible to the panel is not being
+ * routed.
+ */
+export function gatewayAddressFor(
+  container: ContainerSummary,
+  kind: ServiceKind,
+  config: PanelConfig,
+): { address: string; connectionString: string } | null {
+  if (!config.tcpEnabled) return null
+  const port = config.tcpPorts[kind]
+  if (!port) return null
+  if (!isTcpRouted(container)) return null
+
+  const host = `${slug(container.project ?? '')}-${slug(container.service ?? '')}.${config.domain}`
+  return {
+    address: `${host}:${port}`,
+    connectionString: gatewayConnectionString(kind, host, port),
+  }
+}
+
+/** A container opts in by carrying TCP router labels, and no other way. */
+export function isTcpRouted(container: ContainerSummary): boolean {
+  return Object.keys(container.labels).some((key) => key.startsWith('traefik.tcp.routers.'))
+}
+
 export function listTcpServices(snapshot: Snapshot, config: PanelConfig): TcpService[] {
   const bridges = listBridges(snapshot)
   const forwarders = listForwarders(snapshot)
@@ -101,7 +137,10 @@ export function listTcpServices(snapshot: Snapshot, config: PanelConfig): TcpSer
         container.ownership !== 'gateway' &&
         container.project !== null &&
         container.service !== null &&
-        !container.traefikEnabled,
+        // Reached over HTTP, so a bridge is not how you get to it. Opting into
+        // TCP routing also sets traefik.enable, which is why this asks whether
+        // the container ended up with a URL rather than whether it is labelled.
+        container.urls.length === 0,
     )
     .map((container) => {
       const kind = serviceKind(container.image)
@@ -111,12 +150,17 @@ export function listTcpServices(snapshot: Snapshot, config: PanelConfig): TcpSer
       const forwarder = forwarders.find(
         (item) => item.project === container.project && item.service === container.service,
       )
+      const gateway = gatewayAddressFor(container, kind, config)
       return {
         containerId: container.id,
         project: container.project ?? '',
         service: container.service ?? '',
         image: container.image,
         kind,
+        routing: tcpRouting(kind),
+        routed: isTcpRouted(container),
+        gatewayAddress: gateway?.address ?? null,
+        gatewayConnectionString: gateway?.connectionString ?? null,
         state: container.state,
         health: container.health,
         ports: container.exposedPorts,

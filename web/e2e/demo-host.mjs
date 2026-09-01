@@ -101,13 +101,23 @@ export function initialState() {
       name: 'storefront-postgres-1',
       image: POSTGRES,
       health: 'healthy',
-      networks: ['storefront_default'],
+      networks: ['storefront_default', 'dev-gateway-access'],
       exposed: [5432],
-      labels: composeLabels({
-        project: 'storefront',
-        service: 'postgres',
-        workingDir: '/Projects/storefront',
-      }),
+      labels: {
+        ...composeLabels({
+          project: 'storefront',
+          service: 'postgres',
+          workingDir: '/Projects/storefront',
+        }),
+        // Opted into hostname routing: reachable at
+        // storefront-postgres.localhost:5432 without publishing a port.
+        'traefik.enable': 'true',
+        'traefik.docker.network': 'dev-gateway-access',
+        'traefik.tcp.routers.storefront-postgres.rule':
+          'HostSNIRegexp(`^storefront-postgres\\..+$`)',
+        'traefik.tcp.routers.storefront-postgres.tls': 'true',
+        'traefik.tcp.routers.storefront-postgres.tls.options': 'postgres@file',
+      },
       mounts: [volume('storefront_pgdata', '/var/lib/postgresql')],
       upSeconds: 3 * HOUR,
     }),
@@ -116,13 +126,19 @@ export function initialState() {
       name: 'storefront-redis-1',
       image: REDIS,
       health: 'healthy',
-      networks: ['storefront_default'],
+      networks: ['storefront_default', 'dev-gateway-access'],
       exposed: [6379],
-      labels: composeLabels({
-        project: 'storefront',
-        service: 'redis',
-        workingDir: '/Projects/storefront',
-      }),
+      labels: {
+        ...composeLabels({
+          project: 'storefront',
+          service: 'redis',
+          workingDir: '/Projects/storefront',
+        }),
+        'traefik.enable': 'true',
+        'traefik.docker.network': 'dev-gateway-access',
+        'traefik.tcp.routers.storefront-redis.rule': 'HostSNIRegexp(`^storefront-redis\\..+$`)',
+        'traefik.tcp.routers.storefront-redis.tls': 'true',
+      },
       upSeconds: 3 * HOUR,
     }),
 
@@ -217,6 +233,22 @@ export function initialState() {
         workingDir: '/Projects/checkout',
       }),
       mounts: [volume('checkout_pgdata', '/var/lib/postgresql')],
+      upSeconds: 26 * HOUR,
+    }),
+
+    makeContainer({
+      id: 'cklegacy',
+      name: 'checkout-mysql-1',
+      image: 'mariadb:11.4.9',
+      health: 'healthy',
+      networks: ['checkout_default'],
+      exposed: [3306],
+      labels: composeLabels({
+        project: 'checkout',
+        service: 'mysql',
+        workingDir: '/Projects/checkout',
+      }),
+      mounts: [volume('checkout_mysqldata', '/var/lib/mysql')],
       upSeconds: 26 * HOUR,
     }),
 

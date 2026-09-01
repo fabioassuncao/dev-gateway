@@ -2,7 +2,7 @@
 // scripts/lib/discovery.sh. The CLI and the panel must agree on what a service
 // is, or `access open` from one would contradict the other.
 
-import type { ServiceKind } from '../../shared/types.ts'
+import type { ServiceKind, TcpRouting } from '../../shared/types.ts'
 
 const KIND_RULES: { match: RegExp; kind: ServiceKind; port: number }[] = [
   { match: /postgres|postgis|timescale/, kind: 'postgres', port: 5432 },
@@ -37,6 +37,48 @@ export const SENSITIVE_KINDS: ServiceKind[] = [
   'amqp',
   'clickhouse',
 ]
+
+/**
+ * Whether a protocol can be told apart by hostname on a shared port, and how.
+ * The CLI has the same table in scripts/lib/discovery.sh; both were filled in
+ * from tests with two live instances, never from what a neighbouring protocol
+ * happens to do. See docs/tcp-routing.md.
+ *
+ *   starttls-sni  client opens in plaintext, asks to upgrade, then sends SNI
+ *   tls-sni       client sends a TLS ClientHello first, so SNI is there at once
+ *   unsupported   the server speaks first, so there is no SNI to route on
+ *   unevaluated   not tested, and therefore not offered
+ */
+const TCP_ROUTING: Partial<Record<ServiceKind, TcpRouting>> = {
+  postgres: 'starttls-sni',
+  redis: 'tls-sni',
+  mysql: 'unsupported',
+}
+
+export function tcpRouting(kind: ServiceKind): TcpRouting {
+  return TCP_ROUTING[kind] ?? 'unevaluated'
+}
+
+export function isHostnameRoutable(kind: ServiceKind): boolean {
+  const routing = tcpRouting(kind)
+  return routing === 'starttls-sni' || routing === 'tls-sni'
+}
+
+/**
+ * How a client is told which instance it wants. PostgreSQL puts it in the
+ * connection string; redis-cli needs an explicit flag, because it does not
+ * derive SNI from -h.
+ */
+export function gatewayConnectionString(kind: ServiceKind, host: string, port: number): string {
+  switch (kind) {
+    case 'postgres':
+      return `postgresql://<user>@${host}:${port}/<database>?sslmode=require`
+    case 'redis':
+      return `redis-cli -h 127.0.0.1 -p ${port} --tls --sni ${host}`
+    default:
+      return `${host}:${port}`
+  }
+}
 
 /** A connection string template. Credentials come from the project, never from here. */
 export function connectionString(kind: ServiceKind, host: string, port: number): string {

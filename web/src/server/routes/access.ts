@@ -25,6 +25,7 @@ export function accessRoutes(deps: AppDeps): Hono {
       bridges: listBridges(snapshot),
       forwarders: listForwarders(snapshot),
       bridgeImageHint: deps.config.bridgeImage,
+      tcpRoutingEnabled: deps.config.tcpEnabled,
     }
     return c.json(view)
   })

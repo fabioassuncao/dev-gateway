@@ -34,7 +34,7 @@ const SHOTS = [
   // The sections below the fold are the point of the page: what the gateway
   // does not manage, and which container is holding the port you need.
   { name: 'panel-docker-external', route: '/#/docker', height: 940, scrollTo: 1500 },
-  { name: 'panel-access', route: '/#/access', height: 900 },
+  { name: 'panel-access', route: '/#/access', height: 980 },
   { name: 'panel-network', route: '/#/network', height: 920 },
   {
     name: 'panel-gateway',
@@ -70,6 +70,9 @@ const harness = spawn(process.execPath, [join(here, 'harness.mjs')], {
   env: {
     ...process.env,
     DG_E2E_FIXTURE: './demo-host.mjs',
+    // The documentation host has hostname routing switched on, so the Access
+    // page shows both what it offers and where it cannot.
+    DEV_GATEWAY_TCP: 'true',
     DG_E2E_DOCKER_PORT: String(DOCKER_PORT),
     DG_E2E_PANEL_PORT: String(PANEL_PORT),
   },

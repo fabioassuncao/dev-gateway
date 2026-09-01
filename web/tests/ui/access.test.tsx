@@ -21,6 +21,7 @@ const { Access } = await import('../../src/ui/pages/Access.tsx')
 
 const view: AccessView = {
   bridgeImageHint: 'alpine/socat:1.8.1.3',
+  tcpRoutingEnabled: true,
   forwarders: [],
   bridges: [
     {
@@ -55,6 +56,11 @@ const view: AccessView = {
       bridge: null,
       forwarder: null,
       integrated: true,
+      routing: 'starttls-sni',
+      routed: true,
+      gatewayAddress: 'storefront-postgres.localhost:5432',
+      gatewayConnectionString:
+        'postgresql://<user>@storefront-postgres.localhost:5432/<database>?sslmode=require',
     },
     {
       containerId: 'a-redis',
@@ -71,6 +77,10 @@ const view: AccessView = {
       bridge: null,
       forwarder: null,
       integrated: true,
+      routing: 'tls-sni',
+      routed: false,
+      gatewayAddress: null,
+      gatewayConnectionString: null,
     },
   ],
 }
@@ -149,6 +159,64 @@ describe('the Access page', () => {
     renderWithQuery(<Access />)
     const button = await screen.findByRole('button', { name: /Open local access/ })
     expect(button).toBeDisabled()
+  })
+})
+
+describe('reaching a database by hostname', () => {
+  it('shows the address and says TLS is required', async () => {
+    renderWithQuery(<Access />)
+    const services = within(await screen.findByRole('table', { name: 'TCP services' }))
+
+    expect(services.getByText('storefront-postgres.localhost:5432')).toBeInTheDocument()
+    expect(services.getByText(/TLS required: sslmode=require/)).toBeInTheDocument()
+  })
+
+  it('copies the address and the connection string separately', async () => {
+    renderWithQuery(<Access />)
+    await screen.findByText('storefront-postgres.localhost:5432')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Copy address' }))
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('storefront-postgres.localhost:5432')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Copy gateway connection string' }))
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      'postgresql://<user>@storefront-postgres.localhost:5432/<database>?sslmode=require',
+    )
+  })
+
+  it('says plainly when a project has not opted in', async () => {
+    renderWithQuery(<Access />)
+    const services = within(await screen.findByRole('table', { name: 'TCP services' }))
+    expect(services.getByText('not opted in')).toBeInTheDocument()
+  })
+
+  it('does not hide that MySQL cannot share a port by hostname', async () => {
+    access.mockResolvedValue({
+      ...view,
+      services: [
+        {
+          ...view.services[0]!,
+          service: 'mysql',
+          kind: 'mysql' as const,
+          image: 'mariadb:11.4',
+          routing: 'unsupported' as const,
+          routed: false,
+          gatewayAddress: null,
+          gatewayConnectionString: null,
+        },
+      ],
+    })
+    renderWithQuery(<Access />)
+    expect(await screen.findByText('no hostname sharing')).toBeInTheDocument()
+    expect(screen.getByText(/the server speaks first/)).toBeInTheDocument()
+  })
+
+  it('says so when hostname routing is switched off entirely', async () => {
+    access.mockResolvedValue({ ...view, tcpRoutingEnabled: false, services: [
+      { ...view.services[0]!, routed: false, gatewayAddress: null, gatewayConnectionString: null },
+    ] })
+    renderWithQuery(<Access />)
+    expect(await screen.findByText('hostname routing is off')).toBeInTheDocument()
   })
 })
 

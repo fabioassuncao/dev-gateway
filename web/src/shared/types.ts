@@ -17,6 +17,9 @@ export type Health = 'healthy' | 'unhealthy' | 'starting' | 'none'
 
 export type UrlScope = 'local' | 'vpn' | 'public'
 
+/** Whether a TCP protocol can be told apart by hostname on a shared port. */
+export type TcpRouting = 'starttls-sni' | 'tls-sni' | 'unsupported' | 'unevaluated'
+
 export type ServiceKind =
   | 'http'
   | 'postgres'
@@ -231,6 +234,13 @@ export interface TcpService {
   bridge: Bridge | null
   forwarder: Forwarder | null
   integrated: boolean
+  /** How, or whether, this protocol can be reached by hostname. */
+  routing: TcpRouting
+  /** True when the container carries the TCP router labels that opt it in. */
+  routed: boolean
+  /** `<project>-<service>.<domain>:<port>`, when the gateway is serving it. */
+  gatewayAddress: string | null
+  gatewayConnectionString: string | null
 }
 
 export interface AccessView {
@@ -238,6 +248,8 @@ export interface AccessView {
   bridges: Bridge[]
   forwarders: Forwarder[]
   bridgeImageHint: string
+  /** Whether the gateway is publishing the TCP entrypoints at all. */
+  tcpRoutingEnabled: boolean
 }
 
 export interface NetworkView {

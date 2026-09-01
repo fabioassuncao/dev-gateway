@@ -12,6 +12,60 @@ import { CopyButton } from '../components/copy.tsx'
 import { StateBadge } from '../components/status.tsx'
 import { expiresIn, shortImage } from '../lib/format.ts'
 
+/**
+ * What the gateway can offer for this protocol. The point is to be plain about
+ * the limits rather than hide them: MySQL cannot share a port by hostname, and
+ * saying so beats leaving somebody to find out.
+ */
+function GatewayAddress({ service, enabled }: { service: TcpService; enabled: boolean }) {
+  const { gatewayAddress, gatewayConnectionString, routing } = service
+
+  if (gatewayAddress) {
+    return (
+      <div>
+        <div className="flex items-center gap-1">
+          <span className="font-mono text-xs text-ink">{gatewayAddress}</span>
+          <CopyButton value={gatewayAddress} label="Copy address" />
+          {gatewayConnectionString ? (
+            <CopyButton value={gatewayConnectionString} label="Copy gateway connection string" />
+          ) : null}
+        </div>
+        <div className="text-[11px] text-subtle">
+          {routing === 'tls-sni'
+            ? 'TLS required, and the client must send the hostname'
+            : 'TLS required: sslmode=require'}
+        </div>
+      </div>
+    )
+  }
+
+  if (routing === 'unsupported') {
+    return (
+      <div>
+        <Badge tone="neutral">no hostname sharing</Badge>
+        <div className="text-[11px] text-subtle">
+          the server speaks first, so there is no hostname to route on
+        </div>
+      </div>
+    )
+  }
+
+  if (routing === 'unevaluated') {
+    return <span className="text-xs text-subtle">not evaluated for this protocol</span>
+  }
+
+  return (
+    <div>
+      <span className="text-xs text-subtle">
+        {enabled ? 'not opted in' : 'hostname routing is off'}
+      </span>
+      <div className="text-[11px] text-subtle">
+        {enabled ? 'add the TCP overlay to this project' : 'DEV_GATEWAY_TCP=false'}
+      </div>
+    </div>
+  )
+}
+
 export function Access() {
   const queryClient = useQueryClient()
   const [error, setError] = useState<unknown>(null)
@@ -46,7 +100,7 @@ export function Access() {
     <>
       <PageHeader
         title="Access"
-        description="Databases, caches and other TCP services, reached on demand over a loopback bridge."
+        description="Databases, caches and other TCP services: by hostname where the protocol allows it, and by a bridge opened on demand everywhere else."
       />
 
       {error ? (
@@ -134,7 +188,11 @@ export function Access() {
       <Card className="mt-4">
         <CardHeader
           title="TCP services"
-          description="Nothing here is published permanently: a bridge exists only while you need it."
+          description={
+            query.data.tcpRoutingEnabled
+              ? 'Reached by hostname where the protocol allows it, and by a temporary loopback bridge everywhere else.'
+              : 'Nothing here is published permanently: a bridge exists only while you need it.'
+          }
         />
         {services.length === 0 ? (
           <Empty title="No TCP service is running" />
@@ -148,7 +206,8 @@ export function Access() {
                 <Th>Image</Th>
                 <Th>Port</Th>
                 <Th>Status</Th>
-                <Th className="text-right">Access</Th>
+                <Th>Gateway address</Th>
+                <Th className="text-right">Local access</Th>
               </tr>
             </thead>
             <tbody>
@@ -165,6 +224,9 @@ export function Access() {
                   </Td>
                   <Td>
                     <StateBadge state={service.state} health={service.health} />
+                  </Td>
+                  <Td>
+                    <GatewayAddress service={service} enabled={query.data.tcpRoutingEnabled} />
                   </Td>
                   <Td className="text-right">
                     {service.bridge ? (

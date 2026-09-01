@@ -55,6 +55,8 @@ export interface PanelConfig {
   dashboardEnabled: boolean
   dashboardBindAddress: string
   dashboardPort: string
+  tcpEnabled: boolean
+  tcpPorts: Record<string, number>
   bridgeImage: string
   /** How long to wait before checking a new bridge actually stayed up. */
   bridgeSettleMs: number
@@ -100,6 +102,11 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     dashboardPort: env('DEV_GATEWAY_DASHBOARD_PORT', '8080'),
     // Pinned in scripts/lib/discovery.sh; the panel must create the very same
     // bridge the CLI creates, or `dev-gateway access list` would not see it.
+    tcpEnabled: isTrue(process.env.DEV_GATEWAY_TCP),
+    tcpPorts: {
+      postgres: Number(env('DEV_GATEWAY_TCP_POSTGRES_PORT', '5432')),
+      redis: Number(env('DEV_GATEWAY_TCP_REDIS_PORT', '6379')),
+    },
     bridgeImage: env('DG_WEB_BRIDGE_IMAGE', 'alpine/socat:1.8.1.3'),
     bridgeSettleMs: Number(env('DG_WEB_BRIDGE_SETTLE_MS', '800')),
     panelVersion: env('DG_WEB_VERSION', '0.1.0'),

@@ -106,6 +106,36 @@ describe('URLs', () => {
     expect(urlsFor({ 'com.docker.compose.project': 'alpha' }, 'x', config)).toEqual([])
   })
 
+  it('gives no URL to a database routed by hostname, which has no browser address', () => {
+    expect(
+      urlsFor(
+        {
+          'traefik.enable': 'true',
+          'com.docker.compose.project': 'alpha',
+          'com.docker.compose.service': 'postgres',
+          'traefik.tcp.routers.alpha-postgres.rule': 'HostSNIRegexp(`^alpha-postgres\\..+$`)',
+        },
+        'alpha-postgres-1',
+        config,
+      ),
+    ).toEqual([])
+  })
+
+  it('still gives one to a service that is routed over both', () => {
+    const urls = urlsFor(
+      {
+        'traefik.enable': 'true',
+        'com.docker.compose.project': 'alpha',
+        'com.docker.compose.service': 'web',
+        'traefik.tcp.routers.alpha-web.rule': 'HostSNI(`x`)',
+        'traefik.http.routers.alpha-web.rule': 'Host(`alpha-web.test`)',
+      },
+      'alpha-web-1',
+      config,
+    )
+    expect(urls.map((url) => url.host)).toEqual(['alpha-web.test'])
+  })
+
   it('switches to https when TLS is on', () => {
     const urls = urlsFor(
       { 'traefik.enable': 'true', 'com.docker.compose.project': 'a', 'com.docker.compose.service': 'w' },
