@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
+import { renderWithQuery } from './render.tsx'
 import { useSidebarCollapsed } from '../../src/ui/lib/sidebar.ts'
 import { useDocumentTitle } from '../../src/ui/lib/title.ts'
 
@@ -22,7 +23,7 @@ beforeEach(() => {
 
 describe('document titles', () => {
   it('joins known context and updates when a page learns more', () => {
-    const view = render(<TitleProbe parts={['Projects', null]} />)
+    const view = renderWithQuery(<TitleProbe parts={['Projects', null]} />)
     expect(document.title).toBe('Projects · Dev Gateway')
 
     view.rerender(<TitleProbe parts={['Logs', 'alpha']} />)
@@ -32,13 +33,13 @@ describe('document titles', () => {
 
 describe('the sidebar preference', () => {
   it('writes and reads dg-sidebar', async () => {
-    const first = render(<SidebarProbe />)
+    const first = renderWithQuery(<SidebarProbe />)
     await userEvent.click(screen.getByRole('button', { name: 'expanded' }))
     expect(screen.getByRole('button', { name: 'collapsed' })).toBeInTheDocument()
     expect(localStorage.getItem('dg-sidebar')).toBe('collapsed')
 
     first.unmount()
-    render(<SidebarProbe />)
+    renderWithQuery(<SidebarProbe />)
     expect(screen.getByRole('button', { name: 'collapsed' })).toBeInTheDocument()
   })
 
@@ -50,7 +51,7 @@ describe('the sidebar preference', () => {
       throw new Error('storage disabled')
     })
 
-    render(<SidebarProbe />)
+    renderWithQuery(<SidebarProbe />)
     const toggle = screen.getByRole('button', { name: 'expanded' })
     await userEvent.click(toggle)
     expect(screen.getByRole('button', { name: 'collapsed' })).toBeInTheDocument()

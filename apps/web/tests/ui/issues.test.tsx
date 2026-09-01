@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
+import { renderWithQuery } from './render.tsx'
 import { IssueRows, nest } from '../../src/ui/components/issue-list.tsx'
 
 vi.mock('../../src/ui/lib/api.ts', () => ({
@@ -69,7 +70,7 @@ describe('nesting sub-issues', () => {
 
 describe('the issue rows', () => {
   it('badges the repository and links the number to GitHub', () => {
-    render(<IssueRows issues={[issue()]} />)
+    renderWithQuery(<IssueRows issues={[issue()]} />)
     const row = screen.getByRole('group', { name: 'acme/produto-api#123' })
     expect(within(row).getByText('produto-api')).toBeInTheDocument()
     expect(within(row).getByRole('link', { name: '#123' })).toHaveAttribute(
@@ -79,27 +80,27 @@ describe('the issue rows', () => {
   })
 
   it('says where a status came from, because it changes what a write does', () => {
-    render(<IssueRows issues={[issue()]} />)
+    renderWithQuery(<IssueRows issues={[issue()]} />)
     expect(screen.getByTitle('from the status: label convention')).toBeInTheDocument()
   })
 
   it('marks a native field differently from a label', () => {
-    render(<IssueRows issues={[issue({ metadataSource: 'fields' })]} />)
+    renderWithQuery(<IssueRows issues={[issue({ metadataSource: 'fields' })]} />)
     expect(screen.getByTitle('from a native GitHub field')).toBeInTheDocument()
   })
 
   it('counts sub-issues only when there are any', () => {
-    render(<IssueRows issues={[issue({ childIds: ['2', '3'] }), issue({ id: '2', number: 124 })]} />)
+    renderWithQuery(<IssueRows issues={[issue({ childIds: ['2', '3'] }), issue({ id: '2', number: 124 })]} />)
     expect(screen.getByText('2 sub-issues')).toBeInTheDocument()
   })
 
   it('shows the sync age when the projection is stale', () => {
-    render(<IssueRows issues={[issue({ stale: true })]} />)
+    renderWithQuery(<IssueRows issues={[issue({ stale: true })]} />)
     expect(screen.getByText(/^synced /)).toBeInTheDocument()
   })
 
   it('explains an empty list rather than showing nothing', () => {
-    render(<IssueRows issues={[]} />)
+    renderWithQuery(<IssueRows issues={[]} />)
     expect(screen.getByText('No issue matches')).toBeInTheDocument()
   })
 })
@@ -107,14 +108,14 @@ describe('the issue rows', () => {
 describe('the environments an issue is worked in', () => {
   it('says how to link one when nothing is', async () => {
     const { IssueDialog } = await import('../../src/ui/components/issue-dialog.tsx')
-    render(<IssueDialog mode="edit" issue={issue()} open onOpenChange={() => {}} />)
+    renderWithQuery(<IssueDialog mode="edit" issue={issue()} open onOpenChange={() => {}} />)
     expect(screen.getByText(/No environment is linked to this issue/)).toBeInTheDocument()
     expect(screen.getByText('dev-gateway.issue')).toBeInTheDocument()
   })
 
   it('explains why each environment is linked, and offers its logs', async () => {
     const { IssueDialog } = await import('../../src/ui/components/issue-dialog.tsx')
-    render(
+    renderWithQuery(
       <IssueDialog
         mode="edit"
         issue={issue({
@@ -155,7 +156,7 @@ describe('the environments an issue is worked in', () => {
 
   it('says how to start an environment that is linked but not running', async () => {
     const { IssueDialog } = await import('../../src/ui/components/issue-dialog.tsx')
-    render(
+    renderWithQuery(
       <IssueDialog
         mode="edit"
         issue={issue({

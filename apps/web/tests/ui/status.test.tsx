@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
+import { renderWithQuery } from './render.tsx'
 import { OwnershipBadge, ScopeBadge, StateBadge } from '../../src/ui/components/status.tsx'
 
 describe('the badges that carry the whole distinction', () => {
   it('names what the gateway manages and what it does not', () => {
-    render(
+    renderWithQuery(
       <>
         <OwnershipBadge ownership="gateway" />
         <OwnershipBadge ownership="integrated" />
@@ -19,7 +20,7 @@ describe('the badges that carry the whole distinction', () => {
   })
 
   it('folds health into the state when there is one', () => {
-    const { rerender } = render(<StateBadge state="running" health="healthy" />)
+    const { rerender } = renderWithQuery(<StateBadge state="running" health="healthy" />)
     expect(screen.getByText('running · healthy')).toBeInTheDocument()
 
     rerender(<StateBadge state="running" health="none" />)
@@ -30,7 +31,7 @@ describe('the badges that carry the whole distinction', () => {
   })
 
   it('spells VPN in capitals, because that is what people look for', () => {
-    render(
+    renderWithQuery(
       <>
         <ScopeBadge scope="local" />
         <ScopeBadge scope="vpn" />
