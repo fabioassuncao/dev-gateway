@@ -79,6 +79,14 @@ export function gatewayContext(options: { root?: string; profile?: string; requi
   if (options.profile) env['PORTTA_PROFILE'] = options.profile
   env['PORTTA_ROOT'] = root
   const config = loadGatewayConfig(env)
+  // The resolved values go back into the environment Compose is handed, the
+  // same way portta_resolve_profile exports them. Traefik bakes PORTTA_DOMAIN
+  // into its default rule and publishes PORTTA_BIND_ADDRESS, and both are
+  // derived here — from the domain mode and from the profile — so leaving the
+  // raw .env values in place would start a gateway that disagrees with every
+  // command that describes it.
+  env['PORTTA_DOMAIN'] = config.domain
+  env['PORTTA_BIND_ADDRESS'] = config.bindAddress
   const files = composeFiles(config)
   for (const fileName of files) {
     if (!existsSync(join(root, fileName))) throw new PreconditionError(`missing compose file: ${fileName}`)
