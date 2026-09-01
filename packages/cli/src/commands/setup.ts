@@ -74,7 +74,7 @@ export async function setupCommand(options: SetupOptions, command: Command): Pro
   const envFile = join(target, '.env')
   if (existsSync(envFile)) record('environment', 'skipped', '.env already exists')
   else { copyFileSync(join(target, '.env.example'), envFile); record('environment', 'created', '.env from .env.example') }
-  for (const directory of ['state', 'state/git', 'config/tls', 'config/traefik/dynamic']) mkdirSync(join(target, directory), { recursive: true })
+  for (const directory of ['state', 'state/git', 'state/github', 'config/tls', 'config/traefik/dynamic']) mkdirSync(join(target, directory), { recursive: true })
   record('directories', 'ok', 'gateway state directories')
   const context = gatewayContext({ root: target, profile })
   const network = await ensureNetwork(context.config.network)

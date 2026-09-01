@@ -1,4 +1,5 @@
 import { DatabaseClient } from './client.ts'
+import { GitHubRepository } from './github.ts'
 import { ProjectsRepository } from './projects.ts'
 import { SettingsRepository } from './settings.ts'
 
@@ -22,6 +23,7 @@ export class DatabaseUnavailable extends Error {
 export class Database {
   readonly projects: ProjectsRepository
   readonly settings: SettingsRepository
+  readonly github: GitHubRepository
   private readonly client: DatabaseClient
   private initializing: Promise<void> | null = null
   private state: DatabaseStatus = {
@@ -36,6 +38,7 @@ export class Database {
     this.client = client
     this.projects = new ProjectsRepository(client)
     this.settings = new SettingsRepository(client)
+    this.github = new GitHubRepository(client)
   }
 
   static open(url: string): Database {

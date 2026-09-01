@@ -11,6 +11,7 @@ import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.t
 import { CopyButton } from '../components/copy.tsx'
 import { SettingsGroup } from '../components/settings/settings-group.tsx'
 import { SettingsNav } from '../components/settings/settings-nav.tsx'
+import { GitHubStatusCard } from '../components/github-status.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 
 export function Settings({ group }: { group: string | null }) {
@@ -123,7 +124,10 @@ export function Settings({ group }: { group: string | null }) {
       <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-start">
         <SettingsNav groups={view.groups} active={activeGroup ?? null} dirtyCounts={dirtyCounts} />
         {activeGroup ? (
-          <SettingsGroup name={activeGroup} fields={fields} valueOf={valueOf} onChange={setValue} />
+          <div className="min-w-0 flex-1 space-y-4">
+            <SettingsGroup name={activeGroup} fields={fields} valueOf={valueOf} onChange={setValue} />
+            {activeGroup === 'GitHub' ? <GitHubStatusCard /> : null}
+          </div>
         ) : (
           <div className="min-w-0 flex-1 rounded-lg border border-line bg-surface">
             <Empty

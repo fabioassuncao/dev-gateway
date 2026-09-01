@@ -13,7 +13,7 @@ import { GENERATED_FILES, isDirWritable, readGenerated, renderPanelAuth } from '
 import type { Snapshot } from './inventory.ts'
 import { componentOf } from './gateway.ts'
 import { routersFor } from './traefik.ts'
-import type { Diagnostic, Share, TraefikVerdict } from '../../shared/types.ts'
+import type { Diagnostic, GitHubStatus, Share, TraefikVerdict } from '../../shared/types.ts'
 import type { DatabaseStatus } from '../db/index.ts'
 
 function check(
@@ -33,8 +33,35 @@ export function diagnose(
   shares: Share[] = [],
   database: DatabaseStatus | null = null,
   aliases: StoredAlias[] = [],
+  github: GitHubStatus | null = null,
 ): Diagnostic[] {
   const results: Diagnostic[] = []
+
+  // Not configured is silence, not a warning: the integration is off by
+  // default and a panel that never wanted it should see nothing about it.
+  if (github?.configured) {
+    if (github.available) {
+      const budget = github.rateLimit.remaining
+      results.push(
+        check(
+          'github',
+          'pass',
+          'GitHub App',
+          budget === null ? `connected as app ${github.appId}` : `connected as app ${github.appId}, ${budget} requests left`,
+        ),
+      )
+    } else {
+      results.push(
+        check(
+          'github',
+          'warn',
+          'GitHub App',
+          github.reason ?? 'GitHub is unreachable; the projection is still readable',
+          'see docs/github.md',
+        ),
+      )
+    }
+  }
 
   if (database?.configured) {
     if (database.available) {

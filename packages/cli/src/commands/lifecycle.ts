@@ -35,7 +35,7 @@ export async function bootstrapCommand(options: { skipPull?: boolean }, command:
     copyFileSync(join(context.root, '.env.example'), join(context.root, '.env'))
     output.progress('created  .env from .env.example')
   }
-  for (const directory of ['state', 'state/git', 'config/tls', 'config/traefik/dynamic']) mkdirSync(join(context.root, directory), { recursive: true })
+  for (const directory of ['state', 'state/git', 'state/github', 'config/tls', 'config/traefik/dynamic']) mkdirSync(join(context.root, directory), { recursive: true })
   const network = await ensureNetwork(context.config.network)
   output.progress(`${network.padEnd(8)} shared network ${context.config.network}`)
   if (!options.skipPull) await compose(command, ['pull'])

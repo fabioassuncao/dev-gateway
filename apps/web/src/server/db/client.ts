@@ -1,5 +1,7 @@
 import postgres, { type JSONValue, type Sql } from 'postgres'
 import { migrate, type AppliedMigration } from './migrate.ts'
+import type { InstallationRecord, RepositoryRecord } from '../integrations/github/repositories.ts'
+import type { StoredInstallation, StoredRepository, SyncState } from './github.ts'
 
 export interface ProjectRecord {
   id: string
@@ -204,6 +206,145 @@ export class DatabaseClient {
     const record = rows[0]
     if (record === undefined) throw new Error(`database did not return project ${project.composeProject}`)
     return record
+  }
+
+  // ---- the GitHub projection ---------------------------------------------
+  //
+  // Idempotent by construction: running a sync twice leaves the same rows and
+  // moves `synced_at`, which is what lets the UI say how old an answer is.
+
+  async upsertGitHubInstallation(installation: InstallationRecord): Promise<void> {
+    await this.sql`
+      INSERT INTO github_installations (
+        installation_id, account_login, account_type, target_id, suspended, permissions, synced_at
+      ) VALUES (
+        ${installation.installationId}, ${installation.accountLogin}, ${installation.accountType},
+        ${installation.targetId}, ${installation.suspended},
+        ${this.sql.json(installation.permissions as JSONValue)}, now()
+      )
+      ON CONFLICT (installation_id) DO UPDATE SET
+        account_login = EXCLUDED.account_login,
+        account_type = EXCLUDED.account_type,
+        target_id = EXCLUDED.target_id,
+        suspended = EXCLUDED.suspended,
+        permissions = EXCLUDED.permissions,
+        synced_at = now()
+    `
+  }
+
+  async upsertGitHubRepository(repository: RepositoryRecord): Promise<void> {
+    await this.sql`
+      INSERT INTO github_repositories (
+        github_id, node_id, installation_id, owner, name, full_name,
+        default_branch, private, html_url, archived, synced_at
+      ) VALUES (
+        ${repository.githubId}, ${repository.nodeId}, ${repository.installationId},
+        ${repository.owner}, ${repository.name}, ${repository.fullName},
+        ${repository.defaultBranch}, ${repository.private}, ${repository.htmlUrl},
+        ${repository.archived}, now()
+      )
+      ON CONFLICT (github_id) DO UPDATE SET
+        node_id = EXCLUDED.node_id,
+        installation_id = EXCLUDED.installation_id,
+        owner = EXCLUDED.owner,
+        name = EXCLUDED.name,
+        full_name = EXCLUDED.full_name,
+        default_branch = EXCLUDED.default_branch,
+        private = EXCLUDED.private,
+        html_url = EXCLUDED.html_url,
+        archived = EXCLUDED.archived,
+        synced_at = now()
+    `
+  }
+
+  async listGitHubInstallations(): Promise<StoredInstallation[]> {
+    return this.sql<StoredInstallation[]>`
+      SELECT
+        installation_id AS "installationId",
+        account_login AS "accountLogin",
+        account_type AS "accountType",
+        target_id AS "targetId",
+        suspended,
+        permissions,
+        synced_at AS "syncedAt"
+      FROM github_installations
+      ORDER BY account_login
+    `
+  }
+
+  async listGitHubRepositories(): Promise<StoredRepository[]> {
+    return this.sql<StoredRepository[]>`
+      SELECT
+        id::text AS id,
+        github_id AS "githubId",
+        node_id AS "nodeId",
+        installation_id AS "installationId",
+        owner, name,
+        full_name AS "fullName",
+        default_branch AS "defaultBranch",
+        private,
+        html_url AS "htmlUrl",
+        archived,
+        synced_at AS "syncedAt"
+      FROM github_repositories
+      ORDER BY full_name
+    `
+  }
+
+  async findGitHubRepository(fullName: string): Promise<StoredRepository | null> {
+    const rows = await this.sql<StoredRepository[]>`
+      SELECT
+        id::text AS id,
+        github_id AS "githubId",
+        node_id AS "nodeId",
+        installation_id AS "installationId",
+        owner, name,
+        full_name AS "fullName",
+        default_branch AS "defaultBranch",
+        private,
+        html_url AS "htmlUrl",
+        archived,
+        synced_at AS "syncedAt"
+      FROM github_repositories WHERE full_name = ${fullName}
+    `
+    return rows[0] ?? null
+  }
+
+  async pruneGitHubRepositories(installationId: number, keep: number[]): Promise<number> {
+    const rows = await this.sql<{ githubId: number }[]>`
+      DELETE FROM github_repositories
+      WHERE installation_id = ${installationId}
+        AND ${keep.length === 0 ? this.sql`true` : this.sql`github_id <> ALL(${keep})`}
+      RETURNING github_id AS "githubId"
+    `
+    return rows.length
+  }
+
+  async pruneGitHubInstallations(keep: number[]): Promise<number> {
+    const rows = await this.sql<{ installationId: number }[]>`
+      DELETE FROM github_installations
+      WHERE ${keep.length === 0 ? this.sql`true` : this.sql`installation_id <> ALL(${keep})`}
+      RETURNING installation_id AS "installationId"
+    `
+    return rows.length
+  }
+
+  async recordGitHubSync(scope: string, cursor: string | null, error: string | null): Promise<void> {
+    await this.sql`
+      INSERT INTO github_sync_state (scope, cursor, last_synced_at, last_error)
+      VALUES (${scope}, ${cursor}, now(), ${error})
+      ON CONFLICT (scope) DO UPDATE SET
+        cursor = EXCLUDED.cursor,
+        last_synced_at = EXCLUDED.last_synced_at,
+        last_error = EXCLUDED.last_error
+    `
+  }
+
+  async listGitHubSyncState(): Promise<SyncState[]> {
+    return this.sql<SyncState[]>`
+      SELECT scope, cursor, last_synced_at AS "lastSyncedAt", last_error AS "lastError"
+      FROM github_sync_state ORDER BY scope
+    `
   }
 
   async listProjects(): Promise<ProjectRecord[]> {

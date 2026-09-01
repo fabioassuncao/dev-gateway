@@ -13,6 +13,7 @@ import { createVerdictCache } from './core/traefik.ts'
 import { createApp } from './app.ts'
 import { GENERATED_FILES, reconcilePanelAuth } from './core/dynamic.ts'
 import { Database } from './db/index.ts'
+import { GitHubIntegration } from './integrations/github/index.ts'
 
 const config = loadConfig()
 
@@ -44,11 +45,33 @@ if (config.databaseUrl !== null) {
   }
 }
 
+// Off by default. Configured but unreachable is a status the panel reports,
+// never a reason to fail to start or to slow a Docker-backed page down.
+const github = new GitHubIntegration({
+  enabled: config.githubEnabled,
+  appId: config.githubAppId,
+  privateKeyFile: config.githubPrivateKeyFile,
+  apiUrl: config.githubApiUrl,
+  timeoutMs: config.githubTimeoutMs,
+})
+if (github.status().configured) {
+  if (!github.keyIsPrivate()) {
+    process.stdout.write(`${config.githubPrivateKeyFile} is readable by more than its owner: chmod 600 it\n`)
+  }
+  void github.check().then((status) => {
+    process.stdout.write(
+      status.available
+        ? `github: connected as app ${status.appId}\n`
+        : `github temporarily unavailable; the projection is still readable: ${status.reason}\n`,
+    )
+  })
+}
+
 const cache = createSnapshotCache(client, config, 1000, (snapshot) => db?.recordSeen(snapshot.projects))
 const hub = new LiveHub(client, cache)
 const verdict = createVerdictCache(config)
 
-const app = createApp({ config, client, cache, hub, verdict, db })
+const app = createApp({ config, client, cache, hub, verdict, db, github })
 
 const indexHtml = join(config.uiDir, 'index.html')
 if (existsSync(indexHtml)) {

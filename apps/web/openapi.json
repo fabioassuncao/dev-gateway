@@ -58,6 +58,10 @@
       "description": "Server-sent runtime events."
     },
     {
+      "name": "Integrations",
+      "description": "Outbound integrations and their projections."
+    },
+    {
       "name": "Documentation",
       "description": "The machine contract and its offline browser."
     }
@@ -618,6 +622,115 @@
         ],
         "additionalProperties": false
       },
+      "RateLimit": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resetAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "readAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "limit",
+          "remaining",
+          "resetAt",
+          "readAt"
+        ],
+        "additionalProperties": false
+      },
+      "GitHubStatus": {
+        "type": "object",
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "description": "False when GITHUB_APP_ENABLED is off"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "checkedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "appId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "apiUrl": {
+            "type": "string"
+          },
+          "rateLimit": {
+            "$ref": "#/components/schemas/RateLimit"
+          }
+        },
+        "required": [
+          "configured",
+          "available",
+          "reason",
+          "checkedAt",
+          "appId",
+          "apiUrl",
+          "rateLimit"
+        ],
+        "additionalProperties": false
+      },
       "Overview": {
         "type": "object",
         "properties": {
@@ -642,6 +755,9 @@
           "generatedAt": {
             "type": "number",
             "description": "Unix timestamp in seconds"
+          },
+          "github": {
+            "$ref": "#/components/schemas/GitHubStatus"
           }
         },
         "required": [
@@ -3399,6 +3515,216 @@
         ],
         "additionalProperties": false,
         "description": "Schema of the JSON value in each SSE data frame. Keepalive ping frames contain a Unix timestamp string."
+      },
+      "GitHubInstallation": {
+        "type": "object",
+        "properties": {
+          "installationId": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "accountLogin": {
+            "type": "string"
+          },
+          "accountType": {
+            "type": "string"
+          },
+          "suspended": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "syncedAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          }
+        },
+        "required": [
+          "installationId",
+          "accountLogin",
+          "accountType",
+          "suspended",
+          "permissions",
+          "syncedAt"
+        ],
+        "additionalProperties": false
+      },
+      "GitHubSyncScope": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string"
+          },
+          "lastSyncedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastError": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "scope",
+          "lastSyncedAt",
+          "lastError"
+        ],
+        "additionalProperties": false
+      },
+      "GitHubIntegrationView": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/GitHubStatus"
+          },
+          "installations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GitHubInstallation"
+            }
+          },
+          "repositoryCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "sync": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GitHubSyncScope"
+            }
+          },
+          "projectionAvailable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "installations",
+          "repositoryCount",
+          "sync",
+          "projectionAvailable"
+        ],
+        "additionalProperties": false
+      },
+      "GitHubRepositoryView": {
+        "type": "object",
+        "properties": {
+          "githubId": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "installationId": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "owner": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "defaultBranch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "private": {
+            "type": "boolean"
+          },
+          "htmlUrl": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "syncedAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          }
+        },
+        "required": [
+          "githubId",
+          "installationId",
+          "owner",
+          "name",
+          "fullName",
+          "defaultBranch",
+          "private",
+          "htmlUrl",
+          "archived",
+          "syncedAt"
+        ],
+        "additionalProperties": false
+      },
+      "GitHubRepositoriesResponse": {
+        "type": "object",
+        "properties": {
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GitHubRepositoryView"
+            }
+          }
+        },
+        "required": [
+          "repositories"
+        ],
+        "additionalProperties": false
+      },
+      "GitHubSyncResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "installations": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "repositories": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "removed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Rows dropped because an installation no longer grants them"
+          }
+        },
+        "required": [
+          "ok",
+          "installations",
+          "repositories",
+          "removed"
+        ],
+        "additionalProperties": false
       },
       "OpenApiDocument": {
         "type": "object",
@@ -6811,6 +7137,150 @@
           },
           "502": {
             "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/integrations/github": {
+      "get": {
+        "operationId": "getGitHubIntegration",
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Report the GitHub App connection",
+        "description": "Reports configuration, reachability, installations, repository count, rate-limit budget and last sync. Secrets never appear here.",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubIntegrationView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/integrations/github/repositories": {
+      "get": {
+        "operationId": "listGitHubRepositories",
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "List the repositories the App was granted",
+        "description": "Served from the projection, so it answers while GitHub is unreachable. This list is also the authorisation boundary for every later operation.",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubRepositoriesResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/integrations/github/sync": {
+      "post": {
+        "operationId": "syncGitHubIntegration",
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Project installations and repositories",
+        "description": "Idempotent: two runs leave the same rows and move syncedAt. Repositories an installation no longer grants are removed.",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubSyncResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
             "content": {
               "application/json": {
                 "schema": {

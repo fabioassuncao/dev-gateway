@@ -161,20 +161,34 @@ services:
       PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-}
       CLOUDFLARE_ENABLED: ${CLOUDFLARE_ENABLED:-false}
       CLOUDFLARE_ZONE: ${CLOUDFLARE_ZONE:-}
+      # The panel's only outbound integration, and its only long-lived secret
+      # that is not a Traefik credential. Off by default: with this false the
+      # panel makes no request to github.com. The private key is passed as a
+      # PATH, never as a value, because the panel can write this .env and must
+      # not be able to write the key that authenticates it.
+      # See docs/github.md and docs/security.md.
+      GITHUB_APP_ENABLED: ${GITHUB_APP_ENABLED:-false}
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_PRIVATE_KEY_FILE: /app/state/github/app.pem
+      GITHUB_APP_WEBHOOK_SECRET: ${GITHUB_APP_WEBHOOK_SECRET:-}
+      GITHUB_API_URL: ${GITHUB_API_URL:-https://api.github.com}
     volumes:
-      # Four paths from the host, and nothing else. No project directory is ever
+      # Five paths from the host, and nothing else. No project directory is ever
       # mounted here: see docs/adr/0001-decoupled-infrastructure.md.
       #
       #   .env             the configuration the Settings page edits
       #   VERSION          the version string it reports
       #   state/git        metadata `dev-gateway git scan` collected, read-only
+      #   state/github     the GitHub App private key, read-only
       #   traefik/dynamic  read-write, and the ONE place the panel configures
-      #                    Traefik. It may write two generated filenames there
+      #                    Traefik. It may write three generated filenames there
       #                    and refuses every other path in its own process.
       #                    See docs/adr/0011-panel-reads-traefik-writes-one-file.md.
       - ./.env:/app/state/.env
       - ./VERSION:/app/state/VERSION:ro
       - ./state/git:/app/state/git:ro
+      # The GitHub App private key, read-only. Empty unless you put one there.
+      - ./state/github:/app/state/github:ro
       - ./config/traefik/dynamic:/app/state/traefik-dynamic
     networks:
       # `gateway` so the panel can be published and, with the VPN overlay,

@@ -38,6 +38,7 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   if (!initial.env['DG_WEB_DB_PASSWORD']) values['DG_WEB_DB_PASSWORD'] = randomBytes(32).toString('hex')
   setValues(initial.root, values)
   mkdirSync(join(initial.root, 'state/git'), { recursive: true })
+  mkdirSync(join(initial.root, 'state/github'), { recursive: true })
   mkdirSync(join(initial.root, 'config/traefik/dynamic'), { recursive: true })
   const context = gatewayContext({ profile: globals(command).profile })
   await ensureNetwork(context.config.network)

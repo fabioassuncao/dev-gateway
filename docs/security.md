@@ -222,3 +222,27 @@ are normalised before being interpolated anywhere.
 
 Found something? Open a private security advisory on the repository rather than
 a public issue.
+
+## Outbound network access
+
+Until the GitHub App existed, the panel made exactly one outbound request, to
+Traefik's API on an internal address. With `GITHUB_APP_ENABLED=true` it also
+talks to `api.github.com` (or your Enterprise Server root).
+
+This is worth saying plainly on a VPS: **a panel that may be routed over a VPN
+now reaches the internet.** It does so on the `gateway` network it is already
+attached to; `webcontrol` and `webdata` stay `internal: true`, so neither the
+Docker socket proxy nor the database gains a route out.
+
+The panel holds one long-lived secret for this — the App's private key — and it
+holds it as a **file it cannot write**: `state/github/app.pem`, mounted
+read-only at mode 600, passed by path rather than as a `.env` value precisely
+because the panel can write `.env`. `dev-gateway doctor` fails, rather than
+warns, on a key that is missing, unreadable, or readable by more than its
+owner.
+
+Installation tokens live for an hour in memory and are never persisted. No
+token, key or webhook secret appears in any API response, and tests assert it.
+
+With the integration off — the default — none of the above applies: the panel
+makes no request to github.com at all. See [github.md](github.md).

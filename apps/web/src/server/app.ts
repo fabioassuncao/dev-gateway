@@ -13,6 +13,7 @@ import { accessRoutes } from './routes/access.ts'
 import { gatewayRoutes } from './routes/gateway.ts'
 import { configRoutes } from './routes/config.ts'
 import { eventRoutes } from './routes/events.ts'
+import { integrationRoutes } from './routes/integrations.ts'
 import { shareRoutes } from './routes/shares.ts'
 import { ActionRefused } from './core/actions.ts'
 import { AccessError } from './core/access.ts'
@@ -24,6 +25,7 @@ import { DockerApiError } from './docker/client.ts'
 import { DockerAccessDenied } from './docker/allowlist.ts'
 import { registerOpenApiRoutes } from './openapi.ts'
 import { DatabaseUnavailable } from './db/index.ts'
+import { GitHubForbidden, GitHubUnavailable } from './integrations/github/index.ts'
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
@@ -75,6 +77,7 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', gatewayRoutes(deps))
   api.route('/', configRoutes(deps))
   api.route('/', eventRoutes(deps))
+  api.route('/', integrationRoutes(deps))
   registerOpenApiRoutes(api, deps.config)
 
   api.all('*', (c) => c.json({ error: `no such endpoint: ${c.req.path}` }, 404))
@@ -106,6 +109,14 @@ export function createApp(deps: AppDeps): Hono {
         { error: error.message, hint: 'existing Docker-backed pages remain available; run dev-gateway db status' },
         503,
       )
+    }
+    // GitHub degrades the way the database does: a 503 with a hint on the
+    // GitHub routes, and no effect anywhere else.
+    if (error instanceof GitHubUnavailable) {
+      return c.json({ error: error.message, hint: error.hint }, 503)
+    }
+    if (error instanceof GitHubForbidden) {
+      return c.json({ error: error.message, hint: error.hint }, 403)
     }
     if (error instanceof DockerAccessDenied) {
       return c.json({ error: error.message, hint: 'this is a panel limit, not a Docker one' }, 403)

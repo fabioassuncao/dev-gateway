@@ -444,6 +444,85 @@ export const OverviewCounts = named(
 )
 export type OverviewCounts = z.infer<typeof OverviewCounts>
 
+export const RateLimit = named(
+  z.object({
+    limit: z.number().int().nullable(),
+    remaining: z.number().int().nullable(),
+    resetAt: unixSeconds.nullable(),
+    readAt: unixSeconds.nullable(),
+  }).strict(),
+  'RateLimit',
+)
+export type RateLimit = z.infer<typeof RateLimit>
+
+/** Never a token, a key or a webhook secret: only whether it works, and how old. */
+export const GitHubStatus = named(
+  z.object({
+    configured: z.boolean().describe('False when GITHUB_APP_ENABLED is off'),
+    available: z.boolean(),
+    reason: z.string().nullable(),
+    checkedAt: unixSeconds.nullable(),
+    appId: z.string().nullable(),
+    apiUrl: z.string(),
+    rateLimit: RateLimit,
+  }).strict(),
+  'GitHubStatus',
+)
+export type GitHubStatus = z.infer<typeof GitHubStatus>
+
+export const GitHubInstallation = named(
+  z.object({
+    installationId: z.number().int(),
+    accountLogin: z.string(),
+    accountType: z.string(),
+    suspended: z.boolean(),
+    permissions: z.record(z.string(), z.string()),
+    syncedAt: unixSeconds,
+  }).strict(),
+  'GitHubInstallation',
+)
+export type GitHubInstallation = z.infer<typeof GitHubInstallation>
+
+export const GitHubRepositoryView = named(
+  z.object({
+    githubId: z.number().int(),
+    installationId: z.number().int(),
+    owner: z.string(),
+    name: z.string(),
+    fullName: z.string(),
+    defaultBranch: z.string().nullable(),
+    private: z.boolean(),
+    htmlUrl: z.string(),
+    archived: z.boolean(),
+    syncedAt: unixSeconds,
+  }).strict(),
+  'GitHubRepositoryView',
+)
+export type GitHubRepositoryView = z.infer<typeof GitHubRepositoryView>
+
+export const GitHubSyncScope = named(
+  z.object({
+    scope: z.string(),
+    lastSyncedAt: unixSeconds.nullable(),
+    lastError: z.string().nullable(),
+  }).strict(),
+  'GitHubSyncScope',
+)
+export type GitHubSyncScope = z.infer<typeof GitHubSyncScope>
+
+export const GitHubIntegrationView = named(
+  z.object({
+    status: GitHubStatus,
+    installations: z.array(GitHubInstallation),
+    repositoryCount: z.number().int(),
+    sync: z.array(GitHubSyncScope),
+    /** True when the projection cannot be read, not when GitHub is down. */
+    projectionAvailable: z.boolean(),
+  }).strict(),
+  'GitHubIntegrationView',
+)
+export type GitHubIntegrationView = z.infer<typeof GitHubIntegrationView>
+
 export const Overview = named(
   z.object({
     gateway: GatewayStatus,
@@ -451,6 +530,7 @@ export const Overview = named(
     urls: z.array(RouteUrl),
     problems: z.array(Diagnostic),
     generatedAt: unixSeconds,
+    github: GitHubStatus.optional().describe('Absent on a panel built before the integration existed'),
   }).strict(),
   'Overview',
 )

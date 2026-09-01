@@ -42,6 +42,23 @@ While the version is `0.x`, minor releases may contain breaking changes.
   one whose container is gone. With PostgreSQL stopped every project renders
   exactly as before and the override endpoints answer 503.
 
+- **A GitHub App, and the repository projection behind it.** The panel can
+  authenticate as a GitHub App, list the installations and repositories it was
+  granted, and hold them in `github_installations`, `github_repositories` and
+  `github_sync_state` — the projection every later phase hangs from, and the
+  authorisation boundary every later operation is checked against.
+  `GET /api/integrations/github` reports configuration, reachability,
+  installations, repository count, rate-limit budget and last sync; the
+  projected list answers from PostgreSQL while GitHub is unreachable; and
+  `POST .../sync` is idempotent. Off by default, so a panel that never sets
+  `GITHUB_APP_ENABLED` behaves exactly as before and makes no outbound request.
+  **Added runtime dependencies: zero** — App authentication is RS256 on
+  `node:crypto`, not Octokit. The private key is a file the panel mounts
+  read-only and cannot write, installation tokens live an hour in memory and
+  are never persisted, and no token, key or webhook secret appears in any API
+  response. `doctor` fails on a missing, unreadable or world-readable key. See
+  [docs/github.md](docs/github.md) and [docs/security.md](docs/security.md).
+
 ## [0.2.0] — 2026-09-01
 
 ### Added

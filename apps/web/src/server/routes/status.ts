@@ -9,6 +9,7 @@ import { listShares } from '../core/shares.ts'
 import { Overview, OverviewCounts } from '../../shared/types.ts'
 import { documentRoute } from '../openapi.ts'
 import { unavailableDatabaseStatus } from '../db/index.ts'
+import { githubStatusOf } from './integrations.ts'
 
 export const HealthResponse = z.object({
   ok: z.literal(true),
@@ -76,9 +77,11 @@ export function statusRoutes(deps: AppDeps): Hono {
           deps.db?.status() ??
             unavailableDatabaseStatus(deps.config.databaseUrl !== null, 'PostgreSQL was unavailable at startup'),
           loadAliases(deps.config),
+          githubStatusOf(deps),
         ),
       ),
       generatedAt: snapshot.at,
+      github: githubStatusOf(deps),
     }
     return c.json(overview)
   })

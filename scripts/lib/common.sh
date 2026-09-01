@@ -286,3 +286,10 @@ dg_slug() {
 dg_json_escape() {
   printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g'
 }
+
+# Octal permission bits of a file, portable between GNU and BSD stat. Empty
+# when the file is gone or neither form works, so callers say "unknown" rather
+# than guessing a mode is safe.
+dg_file_mode() {
+  stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null || printf ''
+}

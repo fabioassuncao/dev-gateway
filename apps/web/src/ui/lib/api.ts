@@ -11,6 +11,7 @@ import type {
   Overview,
   Project,
   ProjectGit,
+  GitHubIntegrationView,
   ProjectLogsResponse,
   ProjectOverrides,
   ServiceOverrides,
@@ -103,6 +104,13 @@ export const api = {
   serviceOverrides: (name: string, service: string) =>
     request<ServiceOverrides>(
       `/projects/${encodeURIComponent(name)}/services/${encodeURIComponent(service)}/overrides`,
+    ),
+
+  github: () => request<GitHubIntegrationView>('/integrations/github'),
+  syncGitHub: () =>
+    request<{ ok: boolean; installations: number; repositories: number; removed: number }>(
+      '/integrations/github/sync',
+      { method: 'POST', body: '{}' },
     ),
 
   services: () => request<{ services: ContainerSummary[] }>('/services').then((data) => data.services),

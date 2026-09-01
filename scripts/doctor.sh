@@ -453,6 +453,49 @@ if dg_is_true "$DEV_GATEWAY_WEB"; then
 fi
 
 # ---------------------------------------------------------------------------
+# The GitHub App
+# ---------------------------------------------------------------------------
+# Off by default, and silent when off. Enabled without an id, or with a key
+# file that is missing, unreadable, or readable by more than its owner, is a
+# failure: the panel would authenticate as nobody, or hold a key anyone on the
+# host can copy.
+
+if dg_is_true "${GITHUB_APP_ENABLED:-false}"; then
+  if [ -z "${GITHUB_APP_ID:-}" ]; then
+    check fail github.app "github app" "enabled with no GITHUB_APP_ID" \
+      "set GITHUB_APP_ID from the App's settings page; see docs/github.md"
+  else
+    github_key="${GITHUB_APP_PRIVATE_KEY_FILE:-$DG_ROOT/state/github/app.pem}"
+    case "$github_key" in
+      /app/state/github/*) github_key="$DG_ROOT/state/github/${github_key##*/}" ;;
+    esac
+
+    if [ ! -f "$github_key" ]; then
+      check fail github.key "github app key" "no private key at $github_key" \
+        "download the .pem from the App's settings page into state/github/ and chmod 600 it"
+    elif [ ! -r "$github_key" ]; then
+      check fail github.key "github app key" "$github_key cannot be read" \
+        "chown it to the user the panel runs as"
+    else
+      github_mode="$(dg_file_mode "$github_key")"
+      case "$github_mode" in
+        600|400)
+          check pass github.key "github app key" "app $GITHUB_APP_ID, key at mode $github_mode" "" ;;
+        *)
+          check fail github.key "github app key" \
+            "$github_key is mode ${github_mode:-unknown}: readable by more than its owner" \
+            "chmod 600 $github_key" ;;
+      esac
+    fi
+  fi
+
+  case "${GITHUB_API_URL:-https://api.github.com}" in
+    https://*) check pass github.api "github api" "${GITHUB_API_URL:-https://api.github.com}" "" ;;
+    *) check fail github.api "github api" "GITHUB_API_URL is not https" "use an https:// API root" ;;
+  esac
+fi
+
+# ---------------------------------------------------------------------------
 # Databases by hostname
 # ---------------------------------------------------------------------------
 

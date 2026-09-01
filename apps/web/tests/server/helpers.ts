@@ -8,6 +8,7 @@ import { createSnapshotCache } from '../../src/server/core/inventory.ts'
 import { LiveHub } from '../../src/server/core/events.ts'
 import { createVerdictCache } from '../../src/server/core/traefik.ts'
 import type { Database } from '../../src/server/db/index.ts'
+import type { GitHubIntegration } from '../../src/server/integrations/github/index.ts'
 import type { DockerClient, LogLine } from '../../src/server/docker/client.ts'
 import type {
   DockerContainerInspect,
@@ -293,14 +294,15 @@ export function makeApp(
   options: FakeDockerOptions = {},
   configOverrides: Partial<PanelConfig> = {},
   db: Database | null = null,
+  github: GitHubIntegration | null = null,
 ) {
   const docker = fakeDocker(options)
   const config = testConfig(configOverrides)
   const cache = createSnapshotCache(docker.client, config, 0)
   const hub = new LiveHub(docker.client, cache)
   const verdict = createVerdictCache(config, 0)
-  const app: Hono = createApp({ config, client: docker.client, cache, hub, verdict, db })
-  return { app, docker, config, cache, hub, verdict, db }
+  const app: Hono = createApp({ config, client: docker.client, cache, hub, verdict, db, github })
+  return { app, docker, config, cache, hub, verdict, db, github }
 }
 
 /** Same-origin by default: the API refuses cross-origin writes. */

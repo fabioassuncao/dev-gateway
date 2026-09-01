@@ -20,6 +20,7 @@ export type ApiTag =
   | 'Gateway'
   | 'Configuration'
   | 'Events'
+  | 'Integrations'
   | 'Documentation'
 
 export type ErrorStatus = 400 | 403 | 404 | 409 | 500 | 502 | 503
@@ -170,6 +171,7 @@ export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
       { name: 'Gateway', description: 'Gateway components, diagnostics and logs.' },
       { name: 'Configuration', description: 'The closed settings catalogue.' },
       { name: 'Events', description: 'Server-sent runtime events.' },
+      { name: 'Integrations', description: 'Outbound integrations and their projections.' },
       { name: 'Documentation', description: 'The machine contract and its offline browser.' },
     ],
     components: {
