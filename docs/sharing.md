@@ -88,7 +88,7 @@ way. The panel cannot rewrite a container's labels, and would not if it could:
 that is the project's configuration, not the gateway's
 ([ADR 0001](adr/0001-decoupled-infrastructure.md)).
 
-The panel may write exactly two filenames in that directory and refuses every
+The panel may write exactly three filenames in that directory and refuses every
 other path in its own process, so `middlewares.yaml`, `tcp.yaml` and anything
 you put there yourself are never touched
 ([ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md)).

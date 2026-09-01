@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { RotateCw } from 'lucide-react'
+import { RotateCw, SlidersHorizontal } from 'lucide-react'
 import { api, ApiError } from '../lib/api.ts'
 import type { ContainerSummary, Project } from '../../shared/types.ts'
 import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
@@ -16,6 +16,8 @@ import { StateBadge } from '../components/status.tsx'
 import { TraefikVerdictRow } from '../components/traefik-verdict.tsx'
 import { SharePanel } from '../components/share-panel.tsx'
 import { GitDetails } from '../components/git-details.tsx'
+import { ProjectSettingsDialog } from '../components/project-settings.tsx'
+import { ServiceAlias } from '../components/service-alias.tsx'
 import { ProjectLogs } from '../components/project-logs.tsx'
 import { Mono } from '../components/copy.tsx'
 import { uptime, shortImage } from '../lib/format.ts'
@@ -98,6 +100,7 @@ export function ProjectPage({ project: name, tab: requested, service }: {
 
 function ProjectHeader({ project }: { project: Project }) {
   const queryClient = useQueryClient()
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const restart = useMutation({
     mutationFn: async () => {
@@ -109,29 +112,43 @@ function ProjectHeader({ project }: { project: Project }) {
     onSuccess: () => void queryClient.invalidateQueries(),
   })
 
+  const shown = project.overrides?.displayName ?? project.name
+
   return (
-    <PageHeader
-      title={project.name}
-      description={
-        [
-          project.uptimeSeconds !== null ? `up ${uptime(project.uptimeSeconds)}` : null,
-          project.workingDir,
-        ]
-          .filter(Boolean)
-          .join(' · ') || undefined
-      }
-      actions={
-        <>
-          <Button size="sm" onClick={() => navigate('/projects')}>
-            All projects
-          </Button>
-          <Button size="sm" disabled={restart.isPending} onClick={() => restart.mutate()}>
-            <RotateCw className={restart.isPending ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
-            Restart services
-          </Button>
-        </>
-      }
-    />
+    <>
+      <PageHeader
+        title={shown}
+        description={
+          [
+            // The derived name is never replaced, only accompanied.
+            project.overrides?.displayName ? `derived name ${project.name}` : null,
+            project.overrides?.description ?? null,
+            project.uptimeSeconds !== null ? `up ${uptime(project.uptimeSeconds)}` : null,
+            project.workingDir,
+          ]
+            .filter(Boolean)
+            .join(' · ') || undefined
+        }
+        actions={
+          <>
+            <Button size="sm" onClick={() => navigate('/projects')}>
+              All projects
+            </Button>
+            <Button size="sm" onClick={() => setSettingsOpen(true)}>
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Settings
+            </Button>
+            <Button size="sm" disabled={restart.isPending} onClick={() => restart.mutate()}>
+              <RotateCw className={restart.isPending ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
+              Restart services
+            </Button>
+          </>
+        }
+      />
+      {settingsOpen ? (
+        <ProjectSettingsDialog project={project} open={settingsOpen} onOpenChange={setSettingsOpen} />
+      ) : null}
+    </>
   )
 }
 
@@ -302,7 +319,12 @@ function ServicesTab({ project }: { project: Project }) {
     <>
       <div className="space-y-4">
         {project.services.map((service) => (
-          <ServiceDetailCard key={service.id} service={service} onShowDetails={() => setDetails(service)} />
+          <ServiceDetailCard
+            key={service.id}
+            project={project}
+            service={service}
+            onShowDetails={() => setDetails(service)}
+          />
         ))}
       </div>
       {details ? (
@@ -317,13 +339,17 @@ function ServicesTab({ project }: { project: Project }) {
 }
 
 function ServiceDetailCard({
+  project,
   service,
   onShowDetails,
 }: {
+  project: Project
   service: ContainerSummary
   onShowDetails: () => void
 }) {
   const name = service.service ?? service.name
+  const primary = project.overrides?.primaryService === name
+  const collapsed = project.overrides?.hiddenServices?.includes(name) ?? false
 
   return (
     <Card>
@@ -341,9 +367,15 @@ function ServiceDetailCard({
             {service.state !== 'running' && service.exitCode !== null ? (
               <Badge tone="danger">exit {service.exitCode}</Badge>
             ) : null}
+            {primary ? <Badge tone="accent">primary</Badge> : null}
+            {collapsed ? <Badge tone="outline">collapsed in the list</Badge> : null}
           </span>
         }
-        description={`${shortImage(service.image)} · ${service.name}`}
+        description={
+          [service.overrides?.note, `${shortImage(service.image)} · ${service.name}`]
+            .filter(Boolean)
+            .join(' · ')
+        }
         actions={<ContainerActions container={service} onShowDetails={onShowDetails} />}
       />
       <CardBody>
@@ -392,6 +424,11 @@ function ServiceDetailCard({
           {service.urls.length > 0 ? (
             <KeyValue label="Exposure">
               <SharePanel container={service} />
+            </KeyValue>
+          ) : null}
+          {service.kind === 'http' ? (
+            <KeyValue label="Hostname alias">
+              <ServiceAlias project={project.name} service={service} />
             </KeyValue>
           ) : null}
         </dl>

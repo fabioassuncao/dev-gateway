@@ -84,6 +84,36 @@ export const MountSummary = named(
 )
 export type MountSummary = z.infer<typeof MountSummary>
 
+/**
+ * What the gateway decided about a project, as opposed to what the project
+ * declared. Always additive: the derived name and hostname stay where they
+ * were, so nothing is ever only-renamed.
+ */
+export const ProjectOverrides = named(
+  z.object({
+    displayName: z.string().optional(),
+    description: z.string().optional(),
+    color: z.string().optional(),
+    pinned: z.boolean().optional(),
+    archived: z.boolean().optional(),
+    primaryService: z.string().optional(),
+    hiddenServices: z.array(z.string()).optional(),
+    serviceOrder: z.array(z.string()).optional(),
+  }).strict(),
+  'ProjectOverrides',
+)
+export type ProjectOverrides = z.infer<typeof ProjectOverrides>
+
+export const ServiceOverrides = named(
+  z.object({
+    alias: z.string().optional().describe('An additional hostname, routed by Traefik'),
+    note: z.string().optional(),
+    hidden: z.boolean().optional(),
+  }).strict(),
+  'ServiceOverrides',
+)
+export type ServiceOverrides = z.infer<typeof ServiceOverrides>
+
 export const ContainerSummary = named(
   z.object({
     id: z.string().describe('Docker container id'),
@@ -117,6 +147,7 @@ export const ContainerSummary = named(
     labels: z.record(z.string(), z.string()),
     restartCount: z.number().int(),
     exitCode: z.number().int().nullable(),
+    overrides: ServiceOverrides.optional().describe('Absent when nothing was overridden'),
   }).strict(),
   'ContainerSummary',
 )
@@ -142,6 +173,7 @@ export const Project = named(
     scopes: z.array(UrlScope),
     startedAt: unixSeconds.nullable(),
     uptimeSeconds: z.number().nullable(),
+    overrides: ProjectOverrides.optional().describe('Absent when nothing was overridden'),
   }).strict(),
   'Project',
 )

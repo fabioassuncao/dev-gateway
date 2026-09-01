@@ -1,4 +1,4 @@
-# 0011. The panel reads Traefik's API, and writes exactly two generated files
+# 0011. The panel reads Traefik's API, and writes exactly three generated files
 
 **Status:** Accepted
 
@@ -65,16 +65,17 @@ endpoint, which means an exporter and a store, which is a monitoring stack.
 `DEV_GATEWAY_ACCESS_LOG=true` plus the existing log viewer is the proportionate
 answer when a request needs tracing.
 
-### Writing: two generated files, and nothing else in the directory
+### Writing: three generated files, and nothing else in the directory
 
 `config/traefik/dynamic/` is mounted read-write into the panel. The capability
 is real, so it is bounded by name rather than by intention. The panel may write
-exactly two paths:
+exactly three paths:
 
 | File | Contents |
 |---|---|
 | `dev-gateway-panel.yaml` | The BasicAuth middleware guarding the panel's own router ([ADR 0012](0012-panel-authentication-is-traefiks.md)) |
 | `dev-gateway-shares.yaml` | The routers, services and middlewares for temporary shares |
+| `dev-gateway-aliases.yaml` | One router and service per hostname alias set from the panel |
 
 Any other path is refused in the panel's own process, the way
 `apps/web/src/server/docker/allowlist.ts` refuses a Docker call: the check is on the
@@ -128,6 +129,68 @@ never `public` unless `PUBLIC_ENABLED` is on and `PUBLIC_DOMAIN` is set, and
 never `protected` when TLS is off on a remote profile, because BasicAuth over
 plaintext is theatre.
 
+### Amendment: hostname aliases, and why an alias must be a file
+
+A cloned third-party project shows up as whatever it was named, on
+`awesome-thing-svc-1.localhost`, and the only way to shorten that is to edit a
+`traefik.http.routers.*.rule` label in somebody else's repository — which is
+exactly what this gateway promises not to require. So the panel gains a
+hostname alias, and it is stored in the gateway's own database.
+
+**A stored alias that did not route would be worse than no feature at all**:
+the panel would display an address that answers nothing. The alias therefore
+has to reach Traefik, and there are only two ways to do that. A **label** would
+be the natural home — [ADR 0005](0005-hostname-convention.md) already derives
+hostnames from labels — but Docker has no API to change a label on a running
+container, and recreating one means driving Compose, which
+[ADR 0001](0001-decoupled-infrastructure.md) forbids and which would restart
+someone's environment to change a nickname. That leaves the file provider,
+which is already watched, already hot-reloaded, and already the panel's bounded
+write surface.
+
+```yaml
+http:
+  routers:
+    dg-alias-storefront-web:
+      rule: "Host(`shop.localhost`)"
+      entryPoints: [web]
+      service: dg-alias-storefront-web
+  services:
+    dg-alias-storefront-web:
+      loadBalancer:
+        servers:
+          - url: "http://storefront-web-1:3000"
+```
+
+Three properties follow from the mechanism and are not negotiable:
+
+- **An alias is additive, never a rename.** The project's own router stays, so
+  both hostnames answer. The UI shows the derived hostname beside the alias
+  everywhere, and the documentation says so, because a user who expected a
+  replacement would otherwise read correct behaviour as a bug.
+- **The backend is the container name**, for the same reason a share's is: two
+  projects on the shared network can both alias `web`.
+- **The target port comes from the project's own
+  `traefik.http.services.*.loadbalancer.server.port` label**, falling back to a
+  single exposed port. An ambiguous port is refused with the reason rather than
+  guessed, because a guessed port produces a router that silently 502s.
+
+Aliasing **refuses** rather than warns, in the same style as sharing, and every
+refusal happens before a byte is written: a hostname a container already
+derives, a hostname another alias took, a hostname outside
+`DEV_GATEWAY_DOMAIN` / `PRIVATE_DOMAIN` / `PUBLIC_DOMAIN`, a non-HTTP service, a
+service off the shared network, and anything the YAML quoter would refuse.
+
+The row and the file are written as one operation: the file is rendered whole
+from the stored state through the existing atomic temp-file write, and a failed
+write rolls the row back, so the database and Traefik cannot disagree about
+what answers. The CLI reads the same file, so `dev-gateway urls` lists aliases
+marked as such and `doctor` flags one whose target container is gone.
+
+Everything else an override can set — display name, description, primary
+service, collapsed services, order, pin, archive, per-service note — is
+presentation, stays in the database, and never reaches this directory.
+
 ### Hashing: apr1 on `node:crypto`, and no new dependency
 
 Traefik accepts MD5 (apr1), SHA1 and bcrypt in `basicAuth.users`. The panel
@@ -153,13 +216,19 @@ openssl is on the machine.
 
 The panel can configure Traefik. That is a genuinely new power for a component
 that may be reachable over a VPN, and the reason this is an ADR: the bound is
-two filenames and two schemas, asserted by the build, and everything else in
-the directory stays the user's.
+three filenames and three schemas, asserted by the build, and everything else
+in the directory stays the user's. Each addition is one more thing the panel
+can do to routing, and each one costs an amendment here — which is the check
+working rather than an obstacle to route around.
 
 Exposure becomes per service, expires on its own, and leaves the project's own
 configuration alone. A password is generated, shown exactly once, and only its
 hash is at rest: no API response ever contains it, which is the discipline
 `settings.ts` already applies to `TS_AUTHKEY`.
+
+An alias shares the share mechanism's failure modes and its mitigations: it
+pins a container name, so an environment recreated under a different namespace
+leaves a dangling router, and a diagnostic in the panel and in `doctor` says so.
 
 Three failure modes are real and are handled by diagnostics rather than
 prevented. A share can outlive its reason, so expiry is mandatory and expired

@@ -23,4 +23,8 @@ export class ProjectsRepository {
   list(): Promise<ProjectRecord[]> {
     return this.client.listProjects()
   }
+
+  find(composeProject: string): Promise<ProjectRecord | null> {
+    return this.client.findProject(composeProject)
+  }
 }

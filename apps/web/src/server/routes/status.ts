@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppDeps } from './deps.ts'
 import { gatewayStatus } from '../core/gateway.ts'
+import { loadAliases } from '../core/overrides.ts'
 import { diagnose, problemsOnly } from '../core/diagnostics.ts'
 import { listBridges, listForwarders } from '../core/access.ts'
 import { listShares } from '../core/shares.ts'
@@ -74,6 +75,7 @@ export function statusRoutes(deps: AppDeps): Hono {
           shares,
           deps.db?.status() ??
             unavailableDatabaseStatus(deps.config.databaseUrl !== null, 'PostgreSQL was unavailable at startup'),
+          loadAliases(deps.config),
         ),
       ),
       generatedAt: snapshot.at,

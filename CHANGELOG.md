@@ -29,6 +29,19 @@ While the version is `0.x`, minor releases may contain breaking changes.
   whatever it logged. The Logs tab on the project page renders it through the
   existing log viewer, with a service selector whose choice lives in the URL.
 
+- **Per-project overrides that never touch the project.** A display name,
+  description, primary service, collapsed services, ordering, pin, archive and
+  per-service note are set from the panel and kept in the gateway's own
+  database; the derived name and hostname stay on screen beside every override,
+  so nothing is ever only-renamed. A **hostname alias** genuinely resolves: it
+  becomes one router in `dev-gateway-aliases.yaml`, the third generated file the
+  panel may write ([ADR 0011](docs/adr/0011-panel-reads-traefik-writes-one-file.md)),
+  is additive to the project's own hostname, and is refused before any write
+  when it collides, sits outside a served domain, targets a non-HTTP service or
+  has no unambiguous port. `dev-gateway urls` lists aliases and `doctor` flags
+  one whose container is gone. With PostgreSQL stopped every project renders
+  exactly as before and the override endpoints answer 503.
+
 ## [0.2.0] — 2026-09-01
 
 ### Added

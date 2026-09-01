@@ -12,6 +12,8 @@ import type {
   Project,
   ProjectGit,
   ProjectLogsResponse,
+  ProjectOverrides,
+  ServiceOverrides,
   RemovalPreview,
   Share,
   ServiceTraefik,
@@ -76,6 +78,33 @@ export const api = {
       `/projects/${encodeURIComponent(name)}/logs${suffix ? `?${suffix}` : ''}`,
     )
   },
+  projectSettings: (name: string) =>
+    request<ProjectOverrides>(`/projects/${encodeURIComponent(name)}/settings`),
+  setProjectSettings: (name: string, body: Record<string, unknown>) =>
+    request<ProjectOverrides>(`/projects/${encodeURIComponent(name)}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  clearProjectSettings: (name: string) =>
+    request<{ ok: boolean; cleared: string[] }>(`/projects/${encodeURIComponent(name)}/settings`, {
+      method: 'DELETE',
+      body: '{}',
+    }),
+  serviceAlias: (name: string, service: string, alias: string) =>
+    request<{ host: string; derivedHosts: string[]; port: number }>(
+      `/projects/${encodeURIComponent(name)}/services/${encodeURIComponent(service)}/alias`,
+      { method: 'PUT', body: JSON.stringify({ alias }) },
+    ),
+  clearServiceAlias: (name: string, service: string) =>
+    request<{ ok: boolean; removed: string | null }>(
+      `/projects/${encodeURIComponent(name)}/services/${encodeURIComponent(service)}/alias`,
+      { method: 'DELETE', body: '{}' },
+    ),
+  serviceOverrides: (name: string, service: string) =>
+    request<ServiceOverrides>(
+      `/projects/${encodeURIComponent(name)}/services/${encodeURIComponent(service)}/overrides`,
+    ),
+
   services: () => request<{ services: ContainerSummary[] }>('/services').then((data) => data.services),
   serviceTraefik: (id: string) => request<ServiceTraefik>(`/services/${encodeURIComponent(id)}/traefik`),
   traefik: () => request<TraefikVerdict>('/gateway/traefik'),

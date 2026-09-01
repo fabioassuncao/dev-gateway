@@ -20,7 +20,13 @@ export function Projects() {
   const query = useQuery({ queryKey: ['projects'], queryFn: api.projects })
 
   const projects = useMemo(() => {
-    const all = query.data ?? []
+    // Pinned first, archived last, then the derived order. Both are overrides
+    // stored by the gateway; neither changes anything about the project.
+    const all = [...(query.data ?? [])].sort((left, right) => {
+      const rank = (project: Project) =>
+        (project.overrides?.pinned ? -1 : 0) + (project.overrides?.archived ? 2 : 0)
+      return rank(left) - rank(right)
+    })
     if (search.trim() === '') return all
     const needle = search.toLowerCase()
     return all.filter((project) =>
@@ -82,6 +88,11 @@ function ProjectCard({ project }: { project: Project }) {
     onSuccess: () => void queryClient.invalidateQueries(),
   })
 
+  // Collapsed, never removed: a hidden service is still one keystroke away.
+  const hidden = new Set(project.overrides?.hiddenServices ?? [])
+  const visible = project.services.filter((service) => !hidden.has(service.service ?? service.name))
+  const collapsed = project.services.filter((service) => hidden.has(service.service ?? service.name))
+
   return (
     <Card>
       <CardHeader
@@ -90,9 +101,12 @@ function ProjectCard({ project }: { project: Project }) {
             <a
               href={`#/projects/${encodeURIComponent(project.name)}`}
               className="underline-offset-2 hover:text-accent hover:underline"
+              title={project.overrides?.displayName ? `derived name: ${project.name}` : undefined}
             >
-              {project.name}
+              {project.overrides?.displayName ?? project.name}
             </a>
+            {project.overrides?.pinned ? <Badge tone="accent">pinned</Badge> : null}
+            {project.overrides?.archived ? <Badge tone="outline">archived</Badge> : null}
             <Badge tone={project.runningCount === project.serviceCount ? 'ok' : 'warn'}>
               {project.runningCount}/{project.serviceCount} running
             </Badge>
@@ -115,6 +129,8 @@ function ProjectCard({ project }: { project: Project }) {
         }
         description={
           [
+            project.overrides?.displayName ? project.name : null,
+            project.overrides?.description ?? null,
             project.uptimeSeconds !== null ? `up ${uptime(project.uptimeSeconds)}` : null,
             project.workingDir,
           ]
@@ -132,10 +148,23 @@ function ProjectCard({ project }: { project: Project }) {
       <GitCard project={project.name} />
 
       <div>
-        {project.services.map((service) => (
+        {visible.map((service) => (
           <ServiceRow key={service.id} service={service} onShowDetails={() => setDetails(service)} />
         ))}
       </div>
+
+      {collapsed.length > 0 ? (
+        <details className="border-t border-line px-4 py-2">
+          <summary className="cursor-pointer text-xs text-subtle">
+            {collapsed.length} collapsed {collapsed.length === 1 ? 'service' : 'services'}
+          </summary>
+          <div className="-mx-4 mt-2">
+            {collapsed.map((service) => (
+              <ServiceRow key={service.id} service={service} onShowDetails={() => setDetails(service)} />
+            ))}
+          </div>
+        </details>
+      ) : null}
 
       {details ? (
         <ContainerDetails

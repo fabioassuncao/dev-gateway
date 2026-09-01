@@ -448,6 +448,83 @@ ordering between services is approximate rather than pretending otherwise.
 indexing, structured-log parsing, level filtering and download-as-file. This is
 a bounded tail on a three-second poll, and it is meant to stay one.
 
+#### Naming a project without touching it
+
+A cloned third-party repository arrives as `awesome-thing-svc-1` on
+`awesome-thing-svc-1.localhost`, with five services listed flat. **Settings** on
+the project page adjusts all of that from the panel, and writes nothing inside
+the project — no file, no label, no dependency, no commit. `git status` in the
+clone stays clean after using every control here.
+
+| Override | Effect |
+|---|---|
+| Display name | The heading and the sort key. The derived name is still shown beside it |
+| Description | A line under the heading |
+| Primary service | The service the project's Open button targets |
+| Collapsed services | Folded away by default, never removed |
+| Pinned / archived | Ordering and default filtering in the list |
+| Service note | A line on the service row |
+| **Hostname alias** | **An additional hostname, routed by Traefik** |
+
+Everything except the alias is presentation, kept in the gateway's own
+database. **Nothing is ever only-renamed**: the derived name and the derived
+hostname stay on screen next to the override, so a hostname that behaves oddly
+can still be traced back to the label that produced it.
+
+Overrides key on `COMPOSE_PROJECT_NAME`, so `storefront` and
+`storefront-issue59` are two environments with two sets of overrides, and a new
+worktree starts blank. That is deliberate: two worktrees must never contend for
+one hostname.
+
+With PostgreSQL stopped, every project renders exactly as it does without any
+persistence at all, and the override endpoints answer `503` with a hint. The
+feature disappears; nothing else notices.
+
+#### A hostname alias is a nickname, not a rename
+
+```text
+alpha-web.localhost      derived, still answering
+shop.localhost           alias, answering too
+```
+
+Setting an alias writes one router into `dev-gateway-aliases.yaml`, the third
+and last file the panel may write in Traefik's dynamic directory
+([ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md)). Traefik
+hot-reloads it: no container is recreated and the gateway is not restarted.
+
+**Both hostnames answer.** The panel cannot rewrite a label on a running
+container, and would not restart someone's environment to change a nickname, so
+an alias can only ever be additional. The UI shows both, everywhere.
+
+Aliasing **refuses** rather than warns, and every refusal happens before
+anything is written:
+
+- a hostname a running container already derives or declares;
+- a hostname another alias already took;
+- a hostname outside `DEV_GATEWAY_DOMAIN`, `PRIVATE_DOMAIN` or `PUBLIC_DOMAIN`
+  — the gateway will not mint an address it cannot serve;
+- a service whose `kind` is not `http`: a database is reached through
+  [tcp-routing.md](tcp-routing.md), not by an HTTP router;
+- a service off the shared network, or one that never enabled Traefik;
+- a service with no unambiguous HTTP port. The project's own
+  `traefik.http.services.*.loadbalancer.server.port` label is used when present
+  and a single exposed port otherwise; anything else is refused rather than
+  guessed, because a guessed port produces a router that silently 502s.
+
+The database row and the generated file are written as one operation, and a
+failed file write rolls the row back, so the panel and Traefik cannot disagree
+about what answers.
+
+The CLI reads the same file, so the two tools never contradict each other:
+
+```bash
+dev-gateway urls          # aliases are listed and marked as such
+dev-gateway doctor        # flags an alias whose target container is gone
+```
+
+Anything the panel refuses can still be written by hand into
+`config/traefik/dynamic/` — that file is yours, and the panel never touches it.
+
 #### Sharing it, temporarily
 
 The Exposure section on a service offers three states: **private** (the absence
@@ -710,9 +787,10 @@ panel's own diagnostics fail, not warn, on a routed panel without one. See
 [ADR 0012](adr/0012-panel-authentication-is-traefiks.md).
 
 **Traefik configuration.** The panel mounts `config/traefik/dynamic/`
-read-write and may write exactly two filenames in it,
-`dev-gateway-panel.yaml` and `dev-gateway-shares.yaml`. Any other path is
-refused in its own process, before the write. Everything else in that directory
+read-write and may write exactly three filenames in it,
+`dev-gateway-panel.yaml`, `dev-gateway-shares.yaml` and
+`dev-gateway-aliases.yaml`. Any other path is refused in its own process,
+before the write. Everything else in that directory
 is yours. See [ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md).
 
 **Docker.** Its socket proxy grants the read endpoints plus the container

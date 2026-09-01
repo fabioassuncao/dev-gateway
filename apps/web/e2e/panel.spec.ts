@@ -119,6 +119,15 @@ test.describe('the panel end to end', () => {
     await expect(page.getByLabel('Service')).toHaveValue('web')
   })
 
+  test('a project can be named from the panel without a database', async ({ page }) => {
+    await page.goto('/#/projects/alpha')
+    await page.getByRole('button', { name: 'Settings' }).click()
+    await expect(page.getByText(/Nothing is written inside the project/)).toBeVisible()
+    // No PostgreSQL in the demo host: the dialog says so rather than pretending.
+    await expect(page.getByText('panel persistence is unavailable')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
+  })
+
   test('an unknown project says so instead of failing', async ({ page }) => {
     await page.goto('/#/projects/ghost')
     await expect(page.getByText("No project 'ghost' is running")).toBeVisible()

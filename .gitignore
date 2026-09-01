@@ -16,6 +16,7 @@ config/traefik/dynamic/auth.yaml
 # hash, and their contents are derived from .env.
 config/traefik/dynamic/dev-gateway-panel.yaml
 config/traefik/dynamic/dev-gateway-shares.yaml
+config/traefik/dynamic/dev-gateway-aliases.yaml
 config/tls/*
 !config/tls/.gitkeep
 !config/tls/README.md

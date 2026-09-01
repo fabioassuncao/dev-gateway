@@ -5,6 +5,7 @@ import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from './routes/deps.ts'
 import { statusRoutes } from './routes/status.ts'
 import { projectRoutes } from './routes/projects.ts'
+import { overrideRoutes } from './routes/overrides.ts'
 import { serviceRoutes } from './routes/services.ts'
 import { dockerRoutes } from './routes/docker.ts'
 import { networkRoutes } from './routes/network.ts'
@@ -16,6 +17,7 @@ import { shareRoutes } from './routes/shares.ts'
 import { ActionRefused } from './core/actions.ts'
 import { AccessError } from './core/access.ts'
 import { ShareRefused } from './core/shares.ts'
+import { OverrideRefused } from './core/overrides.ts'
 import { DynamicWriteRefused } from './core/dynamic.ts'
 import { ValidationError } from './core/settings.ts'
 import { DockerApiError } from './docker/client.ts'
@@ -64,6 +66,7 @@ export function createApi(deps: AppDeps): Hono {
 
   api.route('/', statusRoutes(deps))
   api.route('/', projectRoutes(deps))
+  api.route('/', overrideRoutes(deps))
   api.route('/', serviceRoutes(deps))
   api.route('/', dockerRoutes(deps))
   api.route('/', networkRoutes(deps))
@@ -90,6 +93,7 @@ export function createApp(deps: AppDeps): Hono {
       error instanceof ActionRefused ||
       error instanceof AccessError ||
       error instanceof ShareRefused ||
+      error instanceof OverrideRefused ||
       error instanceof DynamicWriteRefused
     ) {
       return c.json({ error: error.message, hint: error.hint }, error.status as 400)

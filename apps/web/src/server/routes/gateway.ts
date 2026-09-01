@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from './deps.ts'
 import { componentOf, gatewayStatus, RESTARTABLE_COMPONENTS } from '../core/gateway.ts'
+import { loadAliases } from '../core/overrides.ts'
 import { diagnose } from '../core/diagnostics.ts'
 import { readLogs } from './services.ts'
 import { Diagnostic, GatewayStatus, LogsResponse, TraefikVerdict } from '../../shared/types.ts'
@@ -51,6 +52,7 @@ export function gatewayRoutes(deps: AppDeps): Hono {
       [],
       deps.db?.status() ??
         unavailableDatabaseStatus(deps.config.databaseUrl !== null, 'PostgreSQL was unavailable at startup'),
+      loadAliases(deps.config),
     )
     return c.json({
       checks,

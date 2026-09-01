@@ -1,5 +1,5 @@
 import type { JSONValue } from 'postgres'
-import type { DatabaseClient } from './client.ts'
+import type { DatabaseClient, ProjectSettingRow, ServiceSettingRow } from './client.ts'
 import {
   globalSchema,
   projectSchema,
@@ -58,5 +58,22 @@ export class SettingsRepository {
   ): Promise<void> {
     const parsed = serviceSchema(key).parse(value) as JSONValue
     await this.client.setServiceSetting(projectId, service, key, parsed)
+  }
+
+  async clearProject(projectId: string, key: ProjectSettingKey): Promise<void> {
+    await this.client.deleteProjectSetting(projectId, key)
+  }
+
+  async clearService(projectId: string, service: string, key: ServiceSettingKey): Promise<void> {
+    await this.client.deleteServiceSetting(projectId, service, key)
+  }
+
+  /** Every stored override, in two queries rather than two per project. */
+  listAllProject(): Promise<ProjectSettingRow[]> {
+    return this.client.listProjectSettings()
+  }
+
+  listAllService(): Promise<ServiceSettingRow[]> {
+    return this.client.listServiceSettings()
   }
 }

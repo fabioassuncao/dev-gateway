@@ -196,3 +196,13 @@ and requires TLS on the client. Read [tcp-routing.md](tcp-routing.md) first: it
 explains what each protocol can and cannot do, and why MySQL is not on the
 list.
 
+
+## Presentation needs no change to the project
+
+Once a project is running, its name, description, primary service, collapsed
+services, ordering and a short hostname are all adjustable from the panel's
+**Settings** control, and none of it touches the project. The values live in the
+gateway's own database, and a hostname alias becomes one router in a file the
+gateway owns. `git status` inside the clone stays clean.
+
+See [Naming a project without touching it](web-ui.md#naming-a-project-without-touching-it).

@@ -4,6 +4,7 @@ import type { AppDeps } from './deps.ts'
 import { HTTPException } from 'hono/http-exception'
 import { readProjectGit } from '../core/git.ts'
 import { mergeLogSources, type LogSourceLines } from '../core/projectlogs.ts'
+import { applyOverrides, loadOverrides } from '../core/overrides.ts'
 import { Project, ProjectGit, ProjectLogsResponse, type ProjectLogSource } from '../../shared/types.ts'
 import { documentRoute, projectParameter, tailParameter } from '../openapi.ts'
 
@@ -38,7 +39,9 @@ export function projectRoutes(deps: AppDeps): Hono {
     const snapshot = await deps.cache.get()
     const all = c.req.query('all') === 'true'
     const projects = all ? snapshot.projects : snapshot.projects.filter((project) => project.integrated)
-    return c.json({ projects })
+    // With no database, or none reachable, this is the identity function and
+    // the response is byte-identical to a panel with no persistence at all.
+    return c.json({ projects: applyOverrides(projects, await loadOverrides(deps.db)) })
   })
 
   app.get('/projects/:project', documentRoute({
@@ -49,7 +52,7 @@ export function projectRoutes(deps: AppDeps): Hono {
     const name = c.req.param('project')
     const project = snapshot.projects.find((item) => item.name === name)
     if (!project) throw new HTTPException(404, { message: `no project '${name}' is running` })
-    return c.json(project)
+    return c.json(applyOverrides([project], await loadOverrides(deps.db))[0]!)
   })
 
   /**

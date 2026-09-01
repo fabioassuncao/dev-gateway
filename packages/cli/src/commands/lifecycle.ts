@@ -1,6 +1,6 @@
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { projectsFor, routesFor } from '@dev-gateway/core'
+import { parseAliases, projectsFor, routesFor, type StoredAlias } from '@dev-gateway/core'
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
 import { ensureNetwork, inspectContainers, networkExists, requireDocker } from '../docker.js'
@@ -124,6 +124,16 @@ export async function doctorCommand(command: Command): Promise<void> {
   checks.push({ id: 'env', status: existsSync(join(context.root, '.env')) ? 'pass' : 'fail', message: existsSync(join(context.root, '.env')) ? '.env exists' : '.env is missing', fix: 'copy .env.example to .env' })
   if (docker.exitCode === 0) checks.push({ id: 'network', status: await networkExists(context.config.network) ? 'pass' : 'fail', message: `shared network ${context.config.network}`, fix: 'run dev-gateway bootstrap' })
   for (const file of context.composeFiles) checks.push({ id: `compose:${file}`, status: existsSync(join(context.root, file)) ? 'pass' : 'fail', message: `${file} exists` })
+  // An alias pins a container name, so a recreated environment leaves a router
+  // pointing at nothing. Traefik reports no error for that; this does.
+  const aliases = readAliases(context.root)
+  if (aliases.length > 0) {
+    const running = new Set((await inspectContainers()).map((container) => container.name))
+    const dangling = aliases.filter((alias) => !running.has(alias.container))
+    checks.push(dangling.length === 0
+      ? { id: 'aliases', status: 'pass', message: `${aliases.length} hostname alias(es) routed` }
+      : { id: 'aliases', status: 'fail', message: `alias target missing: ${dangling.map((alias) => `${alias.host} -> ${alias.container}`).join(', ')}`, fix: 'remove the alias in the panel, or start the environment again' })
+  }
   const failed = checks.filter((check) => check.status === 'fail')
   const output = new Output(options)
   if (output.json) output.data({ ok: failed.length === 0, instance: { name: context.config.projectName }, checks })
@@ -134,11 +144,36 @@ export async function doctorCommand(command: Command): Promise<void> {
   if (failed.length) throw new CliError(`${failed.length} doctor check(s) failed`)
 }
 
+/**
+ * Panel-created aliases live in a generated Traefik file, so the CLI can read
+ * the same routing the panel wrote instead of disagreeing with it.
+ */
+export function readAliases(root: string): StoredAlias[] {
+  const path = join(root, 'config/traefik/dynamic/dev-gateway-aliases.yaml')
+  if (!existsSync(path)) return []
+  try { return parseAliases(readFileSync(path, 'utf8')) } catch { return [] }
+}
+
 export async function urlsCommand(options: { project?: string }, command: Command): Promise<void> {
   const global = globals(command)
   const context = gatewayContext({ profile: global.profile })
-  const routes = routesFor(await inspectContainers(), context.config.domain, context.config.tlsEnabled ? 'https' : 'http').filter((route) => !options.project || route.project === options.project)
+  const scheme = context.config.tlsEnabled ? 'https' : 'http'
+  const derived = routesFor(await inspectContainers(), context.config.domain, scheme)
+    .map((route) => ({ ...route, alias: false }))
+  const aliases = readAliases(context.root).map((alias) => ({
+    project: alias.project,
+    service: alias.service,
+    container: alias.container,
+    hostname: alias.host,
+    url: `${scheme}://${alias.host}`,
+    port: String(alias.port),
+    state: 'alias',
+    alias: true,
+  }))
+  const routes = [...derived, ...aliases]
+    .filter((route) => !options.project || route.project === options.project)
+    .sort((left, right) => left.hostname.localeCompare(right.hostname))
   const output = new Output(global)
   if (output.json) output.data({ instance: { name: context.config.projectName }, routes, urls: routes })
-  else for (const route of routes) output.line(`${route.url}\t${route.project ?? '-'}\t${route.service ?? route.container}`)
+  else for (const route of routes) output.line(`${route.url}\t${route.project ?? '-'}\t${route.service ?? route.container}${route.alias ? '\talias' : ''}`)
 }

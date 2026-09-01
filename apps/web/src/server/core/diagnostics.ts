@@ -6,6 +6,7 @@
 // disk). What is here is everything derivable from Docker and the resolved
 // configuration, which is exactly what the panel already has.
 
+import type { StoredAlias } from '@dev-gateway/core'
 import type { PanelConfig } from '../config.ts'
 import { isAuthenticated, isRouted } from '../config.ts'
 import { GENERATED_FILES, isDirWritable, readGenerated, renderPanelAuth } from './dynamic.ts'
@@ -31,6 +32,7 @@ export function diagnose(
   verdict: TraefikVerdict | null = null,
   shares: Share[] = [],
   database: DatabaseStatus | null = null,
+  aliases: StoredAlias[] = [],
 ): Diagnostic[] {
   const results: Diagnostic[] = []
 
@@ -236,6 +238,7 @@ export function diagnose(
   results.push(...panelChecks(config))
   if (verdict) results.push(...traefikChecks(snapshot, verdict))
   results.push(...shareChecks(shares))
+  results.push(...aliasChecks(snapshot, aliases))
 
   if (config.tlsEnabled && config.tlsMode === 'acme' && !config.acmeEmailSet) {
     results.push(
@@ -256,6 +259,34 @@ export function diagnose(
   }
 
   return results
+}
+
+/**
+ * An alias pins a container name, so an environment recreated under a different
+ * namespace leaves a router pointing at nothing. Traefik reports no error for
+ * that: the hostname simply stops answering, which is exactly the class of
+ * silence a diagnostic exists for.
+ */
+function aliasChecks(snapshot: Snapshot, aliases: StoredAlias[]): Diagnostic[] {
+  if (aliases.length === 0) return []
+
+  const names = new Set(snapshot.containers.map((container) => container.name))
+  const dangling = aliases.filter((alias) => !names.has(alias.container))
+
+  if (dangling.length === 0) {
+    return [
+      check('aliases', 'pass', 'Hostname aliases', `${aliases.length} routed beside their derived hostname`),
+    ]
+  }
+  return [
+    check(
+      'aliases-dangling',
+      'warn',
+      'Aliases pointing at a container that is gone',
+      dangling.map((alias) => `${alias.host} -> ${alias.container}`).join(', '),
+      'remove the alias, or set it again once the environment is back',
+    ),
+  ]
 }
 
 /**

@@ -6,15 +6,18 @@ export function Switch({
   onCheckedChange,
   disabled,
   id,
+  'aria-label': label,
 }: {
   checked: boolean
   onCheckedChange: (checked: boolean) => void
   disabled?: boolean
   id?: string
+  'aria-label'?: string
 }) {
   return (
     <Primitive.Root
       id={id}
+      aria-label={label}
       checked={checked}
       onCheckedChange={onCheckedChange}
       disabled={disabled}

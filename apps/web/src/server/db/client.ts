@@ -27,6 +27,19 @@ interface ValueRow {
   value: unknown
 }
 
+export interface ProjectSettingRow {
+  composeProject: string
+  key: string
+  value: unknown
+}
+
+export interface ServiceSettingRow {
+  composeProject: string
+  service: string
+  key: string
+  value: unknown
+}
+
 export class DatabaseClient {
   private readonly sql: Sql
 
@@ -104,6 +117,59 @@ export class DatabaseClient {
       ON CONFLICT (project_id, service, key)
       DO UPDATE SET value = EXCLUDED.value, updated_at = now()
     `
+  }
+
+  async deleteProjectSetting(projectId: string, key: string): Promise<void> {
+    await this.sql`DELETE FROM project_settings WHERE project_id = ${projectId} AND key = ${key}`
+  }
+
+  async deleteServiceSetting(projectId: string, service: string, key: string): Promise<void> {
+    await this.sql`
+      DELETE FROM service_settings
+      WHERE project_id = ${projectId} AND service = ${service} AND key = ${key}
+    `
+  }
+
+  /**
+   * Every override in one round trip, keyed by Compose project name.
+   *
+   * Decorating a snapshot must not cost one query per project: the panel
+   * rebuilds the snapshot on every Docker event, and a per-project fan-out
+   * would turn a quiet host into a busy database.
+   */
+  async listProjectSettings(): Promise<ProjectSettingRow[]> {
+    return this.sql<ProjectSettingRow[]>`
+      SELECT p.compose_project AS "composeProject", s.key, s.value
+      FROM project_settings s
+      JOIN projects p ON p.id = s.project_id
+    `
+  }
+
+  async listServiceSettings(): Promise<ServiceSettingRow[]> {
+    return this.sql<ServiceSettingRow[]>`
+      SELECT p.compose_project AS "composeProject", s.service, s.key, s.value
+      FROM service_settings s
+      JOIN projects p ON p.id = s.project_id
+    `
+  }
+
+  async findProject(composeProject: string): Promise<ProjectRecord | null> {
+    const rows = await this.sql<ProjectRecord[]>`
+      SELECT
+        id::text AS id,
+        compose_project AS "composeProject",
+        working_dir AS "workingDir",
+        repo_url AS "repoUrl",
+        repo_subpath AS "repoSubpath",
+        slug,
+        display_name AS "displayName",
+        archived,
+        first_seen_at AS "firstSeenAt",
+        last_seen_at AS "lastSeenAt",
+        updated_at AS "updatedAt"
+      FROM projects WHERE compose_project = ${composeProject}
+    `
+    return rows[0] ?? null
   }
 
   async upsertSeen(project: SeenProject): Promise<ProjectRecord> {

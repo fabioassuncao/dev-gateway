@@ -7,6 +7,7 @@ import { loadConfig, type PanelConfig } from '../../src/server/config.ts'
 import { createSnapshotCache } from '../../src/server/core/inventory.ts'
 import { LiveHub } from '../../src/server/core/events.ts'
 import { createVerdictCache } from '../../src/server/core/traefik.ts'
+import type { Database } from '../../src/server/db/index.ts'
 import type { DockerClient, LogLine } from '../../src/server/docker/client.ts'
 import type {
   DockerContainerInspect,
@@ -234,14 +235,72 @@ export function testConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
   })
 }
 
-export function makeApp(options: FakeDockerOptions = {}, configOverrides: Partial<PanelConfig> = {}) {
+/**
+ * Enough of `Database` to exercise the override endpoints without PostgreSQL.
+ *
+ * The point of these tests is the refusal and rollback logic, not the SQL, so
+ * the store is a map and `available` is a flag the test can turn off to prove
+ * the 503 path.
+ */
+export function fakeDatabase(options: { available?: boolean } = {}): Database & {
+  projectValues: Map<string, unknown>
+  serviceValues: Map<string, unknown>
+  failWrites?: boolean
+} {
+  const projectValues = new Map<string, unknown>()
+  const serviceValues = new Map<string, unknown>()
+  const available = options.available ?? true
+  const record = {
+    id: 'p1', composeProject: 'alpha', workingDir: null, repoUrl: null, repoSubpath: null,
+    slug: null, displayName: null, archived: false,
+    firstSeenAt: new Date(0), lastSeenAt: new Date(0), updatedAt: new Date(0),
+  }
+
+  const database = {
+    projectValues,
+    serviceValues,
+    status: () => ({ configured: true, available, reason: available ? null : 'connection refused', checkedAt: 0, migrations: [] }),
+    projects: {
+      find: async (composeProject: string) => ({ ...record, composeProject }),
+      upsertSeen: async () => record,
+      list: async () => [record],
+    },
+    settings: {
+      getProject: async (_id: string, key: string) => projectValues.get(key) ?? null,
+      setProject: async (_id: string, key: string, value: unknown) => void projectValues.set(key, value),
+      clearProject: async (_id: string, key: string) => void projectValues.delete(key),
+      getService: async (_id: string, service: string, key: string) => serviceValues.get(`${service}:${key}`) ?? null,
+      setService: async (_id: string, service: string, key: string, value: unknown) =>
+        void serviceValues.set(`${service}:${key}`, value),
+      clearService: async (_id: string, service: string, key: string) =>
+        void serviceValues.delete(`${service}:${key}`),
+      listAllProject: async () =>
+        [...projectValues].map(([key, value]) => ({ composeProject: 'alpha', key, value })),
+      listAllService: async () =>
+        [...serviceValues].map(([composite, value]) => {
+          const [service, key] = composite.split(':')
+          return { composeProject: 'alpha', service: service!, key: key!, value }
+        }),
+    },
+  }
+  return database as unknown as Database & {
+    projectValues: Map<string, unknown>
+    serviceValues: Map<string, unknown>
+  }
+}
+
+export function makeApp(
+  options: FakeDockerOptions = {},
+  configOverrides: Partial<PanelConfig> = {},
+  db: Database | null = null,
+) {
   const docker = fakeDocker(options)
   const config = testConfig(configOverrides)
   const cache = createSnapshotCache(docker.client, config, 0)
   const hub = new LiveHub(docker.client, cache)
   const verdict = createVerdictCache(config, 0)
-  const app: Hono = createApp({ config, client: docker.client, cache, hub, verdict, db: null })
-  return { app, docker, config, cache, hub, verdict }
+  const app: Hono = createApp({ config, client: docker.client, cache, hub, verdict, db })
+  return { app, docker, config, cache, hub, verdict, db }
 }
 
 /** Same-origin by default: the API refuses cross-origin writes. */

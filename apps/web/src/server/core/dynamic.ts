@@ -1,4 +1,4 @@
-// The only two files the panel is allowed to write into Traefik's dynamic
+// The only three files the panel is allowed to write into Traefik's dynamic
 // configuration directory.
 //
 // The directory is mounted read-write, which makes the panel able to configure
@@ -32,6 +32,7 @@ import {
 export const GENERATED_FILES = {
   panel: 'dev-gateway-panel.yaml',
   shares: 'dev-gateway-shares.yaml',
+  aliases: 'dev-gateway-aliases.yaml',
 } as const
 
 export type GeneratedFile = (typeof GENERATED_FILES)[keyof typeof GENERATED_FILES]
@@ -53,7 +54,7 @@ export class DynamicWriteRefused extends Error {
 export function assertGenerated(name: string): asserts name is GeneratedFile {
   if (!ALLOWED.includes(name)) {
     throw new DynamicWriteRefused(
-      `the panel only writes ${ALLOWED.join(' and ')} in Traefik's dynamic directory`,
+      `the panel only writes ${ALLOWED.join(', ')} in Traefik's dynamic directory`,
     )
   }
 }
