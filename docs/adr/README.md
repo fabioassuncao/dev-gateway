@@ -14,7 +14,7 @@ context, the decision, and what it costs us.
 | [0007](0007-tailscale-sidecar.md) | Traefik runs inside the Tailscale container's network namespace | Accepted |
 | [0008](0008-web-panel-socket-proxy.md) | The web panel gets its own Docker socket proxy | Accepted |
 | [0009](0009-tcp-routing-by-hostname.md) | Databases are told apart by hostname, with TLS terminated at the gateway | Accepted |
-| [0010](0010-git-collected-on-the-host.md) | Git is collected on the host, and the panel only reads the result | Accepted |
+| [0010](0010-git-collected-on-the-host.md) | Git is collected on the host, and the panel only reads the result | Accepted, amended by 0018 |
 | [0011](0011-panel-reads-traefik-writes-one-file.md) | The panel reads Traefik's API, and writes exactly two generated files | Accepted |
 | [0012](0012-panel-authentication-is-traefiks.md) | The panel's authentication is Traefik's, and public stays refused | Accepted |
 | [0013](0013-what-the-panel-persists.md) | The panel persists decisions, never runtime observations | Accepted |
@@ -22,3 +22,4 @@ context, the decision, and what it costs us.
 | [0015](0015-node-on-the-host.md) | Node is not required for the core commands | Accepted |
 | [0016](0016-state-that-could-be-shared.md) | State that could be shared, and what must never be | Accepted |
 | [0017](0017-no-docker-sdk.md) | The panel speaks the Docker Engine API directly, without a general SDK | Accepted |
+| [0018](0018-github-access-lives-in-the-panel.md) | GitHub access lives in the panel, through a GitHub App | Accepted |

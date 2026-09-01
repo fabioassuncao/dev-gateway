@@ -60,3 +60,6 @@ CREATE TABLE integrations (
 
 -- Persist decisions, never observations: container state, health, ports,
 -- networks, URLs, logs and Git/Traefik snapshots deliberately have no table.
+-- A cache of a remote source of truth (GitHub issues, later) is a third
+-- category: it may exist only when a later migration introduces it, every
+-- projected row records origin and collected_at, and it is never the only copy.

@@ -27,6 +27,11 @@ filenames are recorded in `schema_migrations`. Startup takes a transaction
 scoped advisory lock and runs every pending migration in filename order, so
 concurrent starts cannot partially apply one.
 
+A later GitHub issue cache, if it is added, is a third category: not a
+decision and not a Docker observation. [ADR 0018](adr/0018-github-access-lives-in-the-panel.md)
+requires every projected row to record origin and age, and forbids treating
+the cache as the only copy.
+
 ## Isolation and lifecycle
 
 PostgreSQL uses the pinned image in `compose.db.yaml`, a named volume and the

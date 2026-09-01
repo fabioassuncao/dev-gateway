@@ -739,6 +739,11 @@ volume management, network management, arbitrary container creation, arbitrary
 Traefik configuration, an embedded Traefik dashboard, a tunnel service, or
 being a replacement for Portainer or Docker Desktop.
 
+GitHub issues, a board and write-back are designed in
+[ADR 0018](adr/0018-github-access-lives-in-the-panel.md) and summarised in
+[github.md](github.md). They are not in the panel yet. Local Git stays
+host-collected ([ADR 0010](adr/0010-git-collected-on-the-host.md)).
+
 Sharing is deliberately narrow: one additional hostname per service, with an
 expiry, on a network the gateway already answers. It is not authentication for
 a project and never becomes an identity layer.

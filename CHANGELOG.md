@@ -25,6 +25,12 @@ While the version is `0.x`, minor releases may contain breaking changes.
   rule. No synchronisation is implemented. Issue #4 already shipped the
   schema seams this page validates.
 
+- **GitHub access is decided, not built.**
+  [ADR 0018](docs/adr/0018-github-access-lives-in-the-panel.md) puts issues
+  behind a GitHub App in the panel, keeps local `git` on the host, and names
+  the cost of egress, webhooks, secrets and a projection cache.
+  [docs/github.md](docs/github.md) holds the source-of-truth table.
+
 
 
 - **Private, degradable persistence for the panel.** A pinned PostgreSQL 18

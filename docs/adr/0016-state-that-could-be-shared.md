@@ -57,11 +57,11 @@ Share records (temporary extra hostnames with expiry) are instance-scoped:
 they bind a live container name to a host-specific domain. They are not
 project decisions.
 
-A future GitHub issue projection (issue #17) is a cache of a remote source
-of truth, not a decision and not a Docker observation. It is not shared
-between instances by copying rows; each instance talks to GitHub itself.
-Two panels holding the same App installation is a concurrency problem for
-issue #20, not a sync feature.
+A future GitHub issue projection ([ADR 0018](0018-github-access-lives-in-the-panel.md))
+is a cache of a remote source of truth, not a decision and not a Docker
+observation. It is not shared between instances by copying rows; each
+instance talks to GitHub itself. Two panels holding the same App
+installation is a concurrency problem for issue #20, not a sync feature.
 
 `COMPOSE_PROJECT_NAME` of a *consumer* environment is local identity, not
 shareable on its own: `storefront` on the laptop and `storefront` on the VPS

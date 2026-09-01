@@ -1,6 +1,12 @@
 # 0010. Git is collected on the host, and the panel only reads the result
 
-**Status:** Accepted
+**Status:** Accepted, amended by [ADR 0018](0018-github-access-lives-in-the-panel.md)
+
+ADR 0018 supersedes the sentences that forbade GitHub API access, webhooks
+and writes to issues from the panel. Local `git` collection, the
+`state/git/` snapshot, the refusal to mount project directories, and
+read-only working trees are unchanged. The sentence-by-sentence split is
+in ADR 0018.
 
 ## Context
 

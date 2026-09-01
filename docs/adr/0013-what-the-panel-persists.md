@@ -23,7 +23,11 @@ delivered by issue #4.
 
 The shorter review rule is: **persist a decision, never an observation**. If
 Docker, Git or Traefik can answer a fact now, the panel asks that owner rather
-than storing a copy.
+than storing a copy. The panel may also cache what a remote source of truth
+owns, provided every projected row records origin and age, the UI shows that
+age, and nothing cached is ever the only copy. That third category is empty
+today; [ADR 0018](0018-github-access-lives-in-the-panel.md) is what may fill
+it.
 
 ### The three buckets
 
