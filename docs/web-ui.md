@@ -309,6 +309,14 @@ shared network. The worktree is shown when the Compose working directory
 disagrees with the project name, which is what
 [`dev-gateway namespace`](monorepos.md) produces.
 
+Each service row owns its endpoints, so several local, VPN or public addresses
+remain grouped with the container that serves them. The row also keeps image,
+kind, ports, uptime, state, logs, details and lifecycle actions. A database or
+cache points to the Access page instead of leaving an empty URL cell; a stopped
+service hides stale endpoints, and an HTTP service with routing enabled but no
+discovered URL is called out as a routing problem. The rows wrap rather than
+turning the project card into a horizontally scrolling table.
+
 ![The Projects page: checkout with an unhealthy worker, storefront with four healthy services, and a second worktree of storefront running beside it, each with its own URLs](../.github/images/panel-projects.png)
 
 #### What the environment is running
