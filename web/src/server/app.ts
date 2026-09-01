@@ -20,6 +20,7 @@ import { DynamicWriteRefused } from './core/dynamic.ts'
 import { ValidationError } from './core/settings.ts'
 import { DockerApiError } from './docker/client.ts'
 import { DockerAccessDenied } from './docker/allowlist.ts'
+import { registerOpenApiRoutes } from './openapi.ts'
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
@@ -70,6 +71,7 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', gatewayRoutes(deps))
   api.route('/', configRoutes(deps))
   api.route('/', eventRoutes(deps))
+  registerOpenApiRoutes(api, deps.config.gatewayVersion)
 
   api.all('*', (c) => c.json({ error: `no such endpoint: ${c.req.path}` }, 404))
 

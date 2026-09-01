@@ -1,0 +1,136 @@
+import { readFileSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+import type { z } from 'zod'
+import { makeApp } from './helpers.ts'
+import { FULL_HOST } from './fixtures.ts'
+import {
+  AccessView,
+  ConfigView,
+  ContainerSummary,
+  DockerHost,
+  GatewayStatus,
+  LogsResponse,
+  NetworkView,
+  Overview,
+  Project,
+  ProjectGit,
+  RemovalPreview,
+  ServiceTraefik,
+  ShareView,
+  TraefikVerdict,
+} from '../../src/shared/types.ts'
+import { OpenApiDocument } from '../../src/server/openapi.ts'
+import { HealthResponse } from '../../src/server/routes/status.ts'
+import { ProjectsResponse } from '../../src/server/routes/projects.ts'
+import { ServicesResponse } from '../../src/server/routes/services.ts'
+import { ContainersResponse, StatsResponse } from '../../src/server/routes/docker.ts'
+
+type OpenApi = {
+  openapi: string
+  paths: Record<string, Record<string, {
+    operationId?: string
+    parameters?: { name?: string; in?: string }[]
+    requestBody?: unknown
+    responses?: Record<string, { content?: Record<string, { schema?: { $ref?: string } }> }>
+  }>>
+}
+
+async function contract() {
+  const { app } = makeApp({ containers: FULL_HOST })
+  const response = await app.request('/api/openapi.json')
+  expect(response.status).toBe(200)
+  return { app, spec: await response.json() as OpenApi }
+}
+
+describe('the OpenAPI contract', () => {
+  it('is OpenAPI 3.1 and includes every registered API operation', async () => {
+    const { app, spec } = await contract()
+    expect(spec.openapi).toBe('3.1.0')
+
+    const documented = new Set(
+      Object.entries(spec.paths).flatMap(([path, item]) =>
+        Object.keys(item).map((method) => `${method.toUpperCase()} ${path}`),
+      ),
+    )
+    const registered = app.routes
+      .filter((route) => route.path.startsWith('/api/') && route.method !== 'ALL')
+      .map((route) => `${route.method} ${route.path.slice(4).replace(/:([^/]+)/g, '{$1}')}`)
+
+    for (const route of registered) expect(documented, route).toContain(route)
+    for (const item of Object.values(spec.paths)) {
+      for (const operation of Object.values(item)) {
+        expect(operation.operationId).toBeTruthy()
+        expect(Object.keys(operation.responses ?? {})).not.toHaveLength(0)
+      }
+    }
+  })
+
+  it('documents query strings, request bodies, SSE and write refusals', async () => {
+    const { spec } = await contract()
+    const names = (path: string, method: string) =>
+      (spec.paths[path]?.[method]?.parameters ?? []).map((parameter) => parameter.name)
+
+    expect(names('/projects', 'get')).toContain('all')
+    expect(names('/docker/containers', 'get')).toEqual(expect.arrayContaining(['ownership', 'state', 'q']))
+    expect(names('/gateway/logs', 'get')).toEqual(expect.arrayContaining(['component', 'tail']))
+    expect(spec.paths['/config']?.patch?.requestBody).toBeDefined()
+    expect(spec.paths['/access']?.post?.requestBody).toBeDefined()
+    expect(spec.paths['/events']?.get?.responses?.['200']?.content).toHaveProperty('text/event-stream')
+
+    for (const item of Object.values(spec.paths)) {
+      for (const [method, operation] of Object.entries(item)) {
+        if (['post', 'patch', 'delete', 'put'].includes(method)) {
+          expect(operation.responses).toHaveProperty('403')
+        }
+        for (const [status, response] of Object.entries(operation.responses ?? {})) {
+          if (Number(status) >= 400) {
+            expect(response.content?.['application/json']?.schema?.$ref).toBe('#/components/schemas/ApiError')
+          }
+        }
+      }
+    }
+  })
+
+  it('matches the checked-in snapshot byte for byte', async () => {
+    const { spec } = await contract()
+    const checkedIn = readFileSync(new URL('../../openapi.json', import.meta.url), 'utf8')
+    expect(`${JSON.stringify(spec, null, 2)}\n`).toBe(checkedIn)
+  })
+})
+
+describe('response contracts against the realistic host fixture', () => {
+  it('accepts every representative JSON response', async () => {
+    const { app } = makeApp({ containers: FULL_HOST })
+    const serviceId = 'a-web'
+
+    const cases: [string, z.ZodType][] = [
+      ['/api/health', HealthResponse],
+      ['/api/status', Overview],
+      ['/api/projects', ProjectsResponse],
+      ['/api/projects/alpha', Project],
+      ['/api/projects/alpha/git', ProjectGit],
+      ['/api/services', ServicesResponse],
+      [`/api/services/${serviceId}`, ContainerSummary],
+      [`/api/services/${serviceId}/logs`, LogsResponse],
+      [`/api/services/${serviceId}/traefik`, ServiceTraefik],
+      ['/api/docker/containers', ContainersResponse],
+      [`/api/docker/containers/${serviceId}/stats`, StatsResponse],
+      [`/api/docker/containers/${serviceId}/removal-preview`, RemovalPreview],
+      ['/api/docker/host', DockerHost],
+      ['/api/network', NetworkView],
+      ['/api/access', AccessView],
+      ['/api/shares', ShareView],
+      ['/api/gateway', GatewayStatus],
+      ['/api/gateway/traefik', TraefikVerdict],
+      ['/api/config', ConfigView],
+      ['/api/openapi.json', OpenApiDocument],
+    ]
+
+    for (const [path, schema] of cases) {
+      const response = await app.request(path)
+      expect(response.status, path).toBe(200)
+      const parsed = schema.safeParse(await response.json())
+      expect(parsed.success, parsed.success ? path : `${path}: ${parsed.error.message}`).toBe(true)
+    }
+  })
+})

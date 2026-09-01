@@ -1,21 +1,36 @@
 import { Hono } from 'hono'
+import { z } from 'zod'
 import type { AppDeps } from './deps.ts'
 import { gatewayStatus } from '../core/gateway.ts'
 import { diagnose, problemsOnly } from '../core/diagnostics.ts'
 import { listBridges, listForwarders } from '../core/access.ts'
 import { listShares } from '../core/shares.ts'
-import type { Overview, OverviewCounts } from '../../shared/types.ts'
+import { Overview, OverviewCounts } from '../../shared/types.ts'
+import { documentRoute } from '../openapi.ts'
+
+export const HealthResponse = z.object({
+  ok: z.literal(true),
+  panelVersion: z.string(),
+  gatewayVersion: z.string(),
+}).strict().meta({ ref: 'HealthResponse' })
 
 export function statusRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
   // Liveness: answers even when Docker is unreachable, which is exactly when
   // somebody needs to know the panel itself is up.
-  app.get('/health', (c) =>
+  app.get('/health', documentRoute({
+    tag: 'Status', operationId: 'getHealth', summary: 'Check panel liveness', response: HealthResponse,
+    responseDescription: 'Answers even when Docker is unreachable.',
+    example: { ok: true, panelVersion: '0.1.1', gatewayVersion: '0.1.1' },
+  }), (c) =>
     c.json({ ok: true, panelVersion: deps.config.panelVersion, gatewayVersion: deps.config.gatewayVersion }),
   )
 
-  app.get('/status', async (c) => {
+  app.get('/status', documentRoute({
+    tag: 'Status', operationId: 'getStatus', summary: 'Get the gateway overview', response: Overview,
+    errors: [500, 502],
+  }), async (c) => {
     const snapshot = await deps.cache.get()
     const gateway = gatewayStatus(snapshot, deps.config)
     const integrated = snapshot.projects.filter((project) => project.integrated)

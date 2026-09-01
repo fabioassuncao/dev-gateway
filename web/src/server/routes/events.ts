@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import type { AppDeps } from './deps.ts'
 import type { LiveEvent } from '../../shared/types.ts'
+import { documentRoute, eventStreamResponse } from '../openapi.ts'
 
 const KEEPALIVE_MS = 20_000
 
@@ -10,7 +11,12 @@ export function eventRoutes(deps: AppDeps): Hono {
 
   // Server-sent events, not a WebSocket: the traffic is one-way and the
   // browser reconnects on its own.
-  app.get('/events', (c) =>
+  app.get('/events', documentRoute({
+    tag: 'Events', operationId: 'streamEvents', summary: 'Stream runtime events',
+    description: 'Server-sent events. Each non-ping data frame is a JSON LiveEvent; clients reconnect normally.',
+    response: eventStreamResponse, mediaType: 'text/event-stream', responseDescription: 'An open SSE stream.',
+    errors: [500, 502],
+  }), (c) =>
     streamSSE(c, async (stream) => {
       const pending: LiveEvent[] = []
       let wake: (() => void) | null = null

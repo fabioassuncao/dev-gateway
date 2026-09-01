@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from './deps.ts'
 import { closeBridge, listBridges, listForwarders, listTcpServices, openBridge } from '../core/access.ts'
-import type { AccessView } from '../../shared/types.ts'
+import { AccessView, Bridge } from '../../shared/types.ts'
+import { documentRoute, shareIdParameter } from '../openapi.ts'
 
 const openBody = z
   .object({
@@ -15,10 +16,16 @@ const openBody = z
   })
   .strict()
 
+export const OpenBridgeResponse = z.object({ ok: z.literal(true), bridge: Bridge.nullable() }).strict().meta({ ref: 'OpenBridgeResponse' })
+export const CloseBridgeResponse = z.object({ ok: z.literal(true), message: z.string() }).strict().meta({ ref: 'CloseBridgeResponse' })
+
 export function accessRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
-  app.get('/access', async (c) => {
+  app.get('/access', documentRoute({
+    tag: 'Access', operationId: 'getAccess', summary: 'List private TCP services and temporary bridges',
+    response: AccessView, errors: [500, 502],
+  }), async (c) => {
     const snapshot = await deps.cache.get()
     const view: AccessView = {
       services: listTcpServices(snapshot, deps.config),
@@ -32,7 +39,11 @@ export function accessRoutes(deps: AppDeps): Hono {
 
   // Opens the same loopback bridge `dev-gateway access open` creates. The
   // panel offers no way to bind it anywhere but 127.0.0.1.
-  app.post('/access', async (c) => {
+  app.post('/access', documentRoute({
+    tag: 'Access', operationId: 'openAccess', summary: 'Open a loopback bridge to a TCP service',
+    description: 'The panel always binds the bridge to 127.0.0.1.', response: OpenBridgeResponse,
+    status: 201, request: openBody, errors: [400, 403, 404, 409, 500, 502],
+  }), async (c) => {
     const body = await c.req.json().catch(() => null)
     const parsed = openBody.safeParse(body)
     if (!parsed.success) {
@@ -50,7 +61,10 @@ export function accessRoutes(deps: AppDeps): Hono {
     return c.json({ ok: true, bridge }, 201)
   })
 
-  app.delete('/access/:id', async (c) => {
+  app.delete('/access/:id', documentRoute({
+    tag: 'Access', operationId: 'closeAccess', summary: 'Close a gateway-owned bridge',
+    response: CloseBridgeResponse, parameters: [shareIdParameter], errors: [400, 403, 404, 500, 502],
+  }), async (c) => {
     const snapshot = await deps.cache.get(true)
     await closeBridge(deps.client, snapshot, c.req.param('id'))
     deps.cache.invalidate()

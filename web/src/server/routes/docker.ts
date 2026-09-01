@@ -4,7 +4,8 @@ import { z } from 'zod'
 import type { AppDeps } from './deps.ts'
 import { findContainer, removalPreview, removeContainer, runContainerAction } from '../core/actions.ts'
 import { readLogs } from './services.ts'
-import type { DockerHost, Ownership } from '../../shared/types.ts'
+import { ActionResult, ContainerSummary, DockerHost, LogsResponse, Ownership, RemovalPreview } from '../../shared/types.ts'
+import { containerIdParameter, documentRoute, tailParameter } from '../openapi.ts'
 
 const ownershipFilter = z.enum(['all', 'gateway', 'integrated', 'external', 'standalone'])
 const stateFilter = z.enum(['all', 'running', 'stopped', 'unhealthy'])
@@ -13,12 +14,27 @@ const removeBody = z
   .object({ confirm: z.literal(true), force: z.boolean().optional() })
   .strict()
 
+export const ContainersResponse = z.object({
+  containers: z.array(ContainerSummary), total: z.number().int(),
+}).strict().meta({ ref: 'ContainersResponse' })
+export const StatsResponse = z.object({
+  cpuPercent: z.number().nullable(), memoryBytes: z.number().nullable(), memoryLimit: z.number().nullable(),
+}).strict().meta({ ref: 'ContainerStatsResponse' })
+
 export function dockerRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
   // Every container on the host, gateway-owned or not. The classification
   // travels with each row so the UI never has to guess.
-  app.get('/docker/containers', async (c) => {
+  app.get('/docker/containers', documentRoute({
+    tag: 'Docker', operationId: 'listContainers', summary: 'List every container on the host',
+    response: ContainersResponse,
+    parameters: [
+      { name: 'ownership', in: 'query', required: false, description: 'Filter by gateway ownership class.', schema: { type: 'string', enum: ownershipFilter.options, default: 'all' } },
+      { name: 'state', in: 'query', required: false, description: 'Filter by runtime state.', schema: { type: 'string', enum: stateFilter.options, default: 'all' } },
+      { name: 'q', in: 'query', required: false, description: 'Case-insensitive search over name, image, project, service and hosts.', schema: { type: 'string' } },
+    ], errors: [500, 502],
+  }), async (c) => {
     const snapshot = await deps.cache.get()
     const ownership = ownershipFilter.catch('all').parse(c.req.query('ownership'))
     const state = stateFilter.catch('all').parse(c.req.query('state'))
@@ -47,17 +63,26 @@ export function dockerRoutes(deps: AppDeps): Hono {
     return c.json({ containers, total: snapshot.containers.length })
   })
 
-  app.get('/docker/containers/:id', async (c) => {
+  app.get('/docker/containers/:id', documentRoute({
+    tag: 'Docker', operationId: 'getContainer', summary: 'Get one container', response: ContainerSummary,
+    parameters: [containerIdParameter], errors: [404, 500, 502],
+  }), async (c) => {
     const snapshot = await deps.cache.get()
     return c.json(findContainer(snapshot, c.req.param('id')))
   })
 
-  app.get('/docker/containers/:id/logs', async (c) =>
+  app.get('/docker/containers/:id/logs', documentRoute({
+    tag: 'Docker', operationId: 'getContainerLogs', summary: 'Read recent container logs', response: LogsResponse,
+    parameters: [containerIdParameter, tailParameter], errors: [404, 500, 502],
+  }), async (c) =>
     c.json(await readLogs(deps, c.req.param('id'), c.req.query('tail'))),
   )
 
   // Optional and cheap: one shot, never a stream. Nothing else depends on it.
-  app.get('/docker/containers/:id/stats', async (c) => {
+  app.get('/docker/containers/:id/stats', documentRoute({
+    tag: 'Docker', operationId: 'getContainerStats', summary: 'Get a one-shot resource sample', response: StatsResponse,
+    parameters: [containerIdParameter], errors: [404, 500, 502],
+  }), async (c) => {
     const snapshot = await deps.cache.get()
     const container = findContainer(snapshot, c.req.param('id'))
     if (container.state !== 'running') return c.json({ cpuPercent: null, memoryBytes: null, memoryLimit: null })
@@ -82,13 +107,19 @@ export function dockerRoutes(deps: AppDeps): Hono {
   })
 
   // What a removal would take with it, so the confirmation can be specific.
-  app.get('/docker/containers/:id/removal-preview', async (c) => {
+  app.get('/docker/containers/:id/removal-preview', documentRoute({
+    tag: 'Docker', operationId: 'previewContainerRemoval', summary: 'Preview a bounded container removal',
+    response: RemovalPreview, parameters: [containerIdParameter], errors: [400, 404, 500, 502],
+  }), async (c) => {
     const snapshot = await deps.cache.get()
     return c.json(removalPreview(snapshot, c.req.param('id')))
   })
 
   for (const action of ['start', 'stop', 'restart'] as const) {
-    app.post(`/docker/containers/:id/${action}`, async (c) => {
+    app.post(`/docker/containers/:id/${action}`, documentRoute({
+      tag: 'Docker', operationId: `${action}Container`, summary: `${action[0]?.toUpperCase()}${action.slice(1)} a container`,
+      response: ActionResult, parameters: [containerIdParameter], errors: [400, 403, 404, 409, 500, 502],
+    }), async (c) => {
       const snapshot = await deps.cache.get()
       const container = await runContainerAction(deps.client, snapshot, c.req.param('id'), action)
       deps.cache.invalidate()
@@ -101,7 +132,11 @@ export function dockerRoutes(deps: AppDeps): Hono {
     })
   }
 
-  app.delete('/docker/containers/:id', async (c) => {
+  app.delete('/docker/containers/:id', documentRoute({
+    tag: 'Docker', operationId: 'removeContainer', summary: 'Remove a gateway-allowed container only',
+    description: 'Volumes, networks, links and images are always kept.', response: ActionResult,
+    request: removeBody, parameters: [containerIdParameter], errors: [400, 403, 404, 409, 500, 502],
+  }), async (c) => {
     const body = await c.req.json().catch(() => ({}))
     const parsed = removeBody.safeParse(body)
     if (!parsed.success) {
@@ -123,7 +158,10 @@ export function dockerRoutes(deps: AppDeps): Hono {
     })
   })
 
-  app.get('/docker/host', async (c) => {
+  app.get('/docker/host', documentRoute({
+    tag: 'Docker', operationId: 'getDockerHost', summary: 'Get Docker Engine and host summary', response: DockerHost,
+    errors: [500, 502],
+  }), async (c) => {
     const snapshot = await deps.cache.get()
     const count = (ownership: Ownership) =>
       snapshot.containers.filter((container) => container.ownership === ownership).length

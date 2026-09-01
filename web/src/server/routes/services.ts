@@ -1,18 +1,25 @@
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from './deps.ts'
 import { findContainer } from '../core/actions.ts'
 import { dashboardRouterUrl, routersFor } from '../core/traefik.ts'
-import type { LogsResponse, ServiceTraefik } from '../../shared/types.ts'
+import { ContainerSummary, LogsResponse, ServiceTraefik } from '../../shared/types.ts'
+import { containerIdParameter, documentRoute, tailParameter } from '../openapi.ts'
 
 const MAX_TAIL = 2000
+export const ServicesResponse = z.object({ services: z.array(ContainerSummary) }).strict().meta({ ref: 'ServicesResponse' })
 
 export function serviceRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
   // A "service" is a container that belongs to an integrated project. It is the
   // same object the Docker page shows, filtered to what the gateway manages.
-  app.get('/services', async (c) => {
+  app.get('/services', documentRoute({
+    tag: 'Services', operationId: 'listServices', summary: 'List services in adopted projects', response: ServicesResponse,
+    parameters: [{ name: 'project', in: 'query', required: false, description: 'Filter by COMPOSE_PROJECT_NAME.', schema: { type: 'string' } }],
+    errors: [500, 502],
+  }), async (c) => {
     const snapshot = await deps.cache.get()
     const project = c.req.query('project')
     const integrated = new Set(
@@ -27,20 +34,29 @@ export function serviceRoutes(deps: AppDeps): Hono {
     return c.json({ services })
   })
 
-  app.get('/services/:id', async (c) => {
+  app.get('/services/:id', documentRoute({
+    tag: 'Services', operationId: 'getService', summary: 'Get one service container', response: ContainerSummary,
+    parameters: [containerIdParameter], errors: [404, 500, 502],
+  }), async (c) => {
     const snapshot = await deps.cache.get()
     const container = findContainer(snapshot, c.req.param('id'))
     return c.json(container)
   })
 
-  app.get('/services/:id/logs', async (c) => c.json(await readLogs(deps, c.req.param('id'), c.req.query('tail'))))
+  app.get('/services/:id/logs', documentRoute({
+    tag: 'Services', operationId: 'getServiceLogs', summary: 'Read recent service logs', response: LogsResponse,
+    parameters: [containerIdParameter, tailParameter], errors: [404, 500, 502],
+  }), async (c) => c.json(await readLogs(deps, c.req.param('id'), c.req.query('tail'))))
 
   /**
    * What Traefik says about this service, beside what its labels say. Off its
    * own cache and its own timeout: an unreachable Traefik API answers
    * `available: false` with the reason, and the rest of the panel is unaffected.
    */
-  app.get('/services/:id/traefik', async (c) => {
+  app.get('/services/:id/traefik', documentRoute({
+    tag: 'Services', operationId: 'getServiceTraefik', summary: "Get Traefik's verdict for a service", response: ServiceTraefik,
+    parameters: [containerIdParameter], errors: [404, 500, 502],
+  }), async (c) => {
     const snapshot = await deps.cache.get()
     const container = findContainer(snapshot, c.req.param('id'))
     const verdict = await deps.verdict.get()

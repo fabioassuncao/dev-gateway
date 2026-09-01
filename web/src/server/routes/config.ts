@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from './deps.ts'
 import { buildConfigView, patchConfig } from '../core/configview.ts'
+import { ConfigPatchResult, ConfigView } from '../../shared/types.ts'
+import { documentRoute } from '../openapi.ts'
 
 const patchBody = z
   .object({ values: z.record(z.string(), z.union([z.string().max(4096), z.null()])) })
@@ -13,9 +15,16 @@ export function configRoutes(deps: AppDeps): Hono {
 
   // Secret values never appear here: the response says whether a token is set,
   // and nothing more.
-  app.get('/config', (c) => c.json(buildConfigView(deps.config)))
+  app.get('/config', documentRoute({
+    tag: 'Configuration', operationId: 'getConfig', summary: 'Get the managed settings catalogue',
+    description: 'Secret values are never returned; only whether they are set.', response: ConfigView,
+    errors: [500],
+  }), (c) => c.json(buildConfigView(deps.config)))
 
-  app.patch('/config', async (c) => {
+  app.patch('/config', documentRoute({
+    tag: 'Configuration', operationId: 'patchConfig', summary: 'Save managed settings',
+    response: ConfigPatchResult, request: patchBody, errors: [400, 403, 500],
+  }), async (c) => {
     const body = await c.req.json().catch(() => null)
     const parsed = patchBody.safeParse(body)
     if (!parsed.success) {

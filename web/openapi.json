@@ -1,0 +1,5750 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dev Gateway panel API",
+    "description": "The API used by the panel UI and by local agents. Writes can be refused by read-only mode or the same-origin guard. Authentication, when enabled, is enforced by Traefik before a request reaches this application.",
+    "version": "0.1.1",
+    "summary": "Runtime inventory and bounded control for Dev Gateway.",
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "servers": [
+    {
+      "url": "/api",
+      "description": "This panel instance"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Status",
+      "description": "Liveness and overview."
+    },
+    {
+      "name": "Projects",
+      "description": "Compose projects adopted by the gateway."
+    },
+    {
+      "name": "Services",
+      "description": "Containers belonging to adopted projects."
+    },
+    {
+      "name": "Docker",
+      "description": "Bounded host inventory and lifecycle operations."
+    },
+    {
+      "name": "Network",
+      "description": "Routes, networks, DNS, TLS and VPN state."
+    },
+    {
+      "name": "Access",
+      "description": "Temporary loopback bridges to private TCP services."
+    },
+    {
+      "name": "Shares",
+      "description": "Expiring per-service Traefik routes."
+    },
+    {
+      "name": "Gateway",
+      "description": "Gateway components, diagnostics and logs."
+    },
+    {
+      "name": "Configuration",
+      "description": "The closed settings catalogue."
+    },
+    {
+      "name": "Events",
+      "description": "Server-sent runtime events."
+    },
+    {
+      "name": "Documentation",
+      "description": "The machine contract and its offline browser."
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Optional at the application level. When DEV_GATEWAY_WEB_AUTH=basic, Traefik enforces this credential before forwarding the request."
+      }
+    },
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "panelVersion": {
+            "type": "string"
+          },
+          "gatewayVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "panelVersion",
+          "gatewayVersion"
+        ],
+        "additionalProperties": false
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false,
+        "description": "Uniform error envelope returned by the panel API"
+      },
+      "ContainerState": {
+        "type": "string",
+        "enum": [
+          "created",
+          "running",
+          "paused",
+          "restarting",
+          "removing",
+          "exited",
+          "dead"
+        ]
+      },
+      "Health": {
+        "type": "string",
+        "enum": [
+          "healthy",
+          "unhealthy",
+          "starting",
+          "none"
+        ]
+      },
+      "GatewayStatus": {
+        "type": "object",
+        "properties": {
+          "gatewayVersion": {
+            "type": "string"
+          },
+          "panelVersion": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "privateDomain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publicDomain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bindAddress": {
+            "type": "string"
+          },
+          "httpPort": {
+            "type": "string"
+          },
+          "httpsPort": {
+            "type": "string"
+          },
+          "scheme": {
+            "type": "string",
+            "enum": [
+              "http",
+              "https"
+            ]
+          },
+          "up": {
+            "type": "boolean"
+          },
+          "reachable": {
+            "type": "boolean"
+          },
+          "tls": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "mode": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "enabled",
+              "mode"
+            ],
+            "additionalProperties": false
+          },
+          "tailscale": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "running": {
+                "type": "boolean"
+              },
+              "hostname": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "enabled",
+              "running",
+              "hostname"
+            ],
+            "additionalProperties": false
+          },
+          "publicAccess": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "domain": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "enabled",
+              "domain"
+            ],
+            "additionalProperties": false
+          },
+          "panel": {
+            "type": "object",
+            "properties": {
+              "expose": {
+                "type": "string"
+              },
+              "routed": {
+                "type": "boolean"
+              },
+              "auth": {
+                "type": "string"
+              },
+              "authenticated": {
+                "type": "boolean"
+              },
+              "user": {
+                "type": "string"
+              },
+              "readOnly": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "expose",
+              "routed",
+              "auth",
+              "authenticated",
+              "user",
+              "readOnly"
+            ],
+            "additionalProperties": false,
+            "description": "Panel exposure and authentication without the secret hash"
+          },
+          "dashboard": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "bindAddress": {
+                "type": "string"
+              },
+              "port": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "enabled",
+              "bindAddress",
+              "port"
+            ],
+            "additionalProperties": false
+          },
+          "traefik": {
+            "type": "object",
+            "properties": {
+              "containerId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "state": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ContainerState"
+                  },
+                  {
+                    "type": "string",
+                    "const": "absent"
+                  }
+                ]
+              },
+              "health": {
+                "$ref": "#/components/schemas/Health"
+              }
+            },
+            "required": [
+              "containerId",
+              "state",
+              "health"
+            ],
+            "additionalProperties": false
+          },
+          "socketProxy": {
+            "type": "object",
+            "properties": {
+              "containerId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "state": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ContainerState"
+                  },
+                  {
+                    "type": "string",
+                    "const": "absent"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "containerId",
+              "state"
+            ],
+            "additionalProperties": false
+          },
+          "network": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "exists": {
+                "type": "boolean"
+              },
+              "attached": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "internal": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "exists",
+              "attached",
+              "internal"
+            ],
+            "additionalProperties": false
+          },
+          "routes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "gatewayVersion",
+          "panelVersion",
+          "profile",
+          "domain",
+          "privateDomain",
+          "publicDomain",
+          "bindAddress",
+          "httpPort",
+          "httpsPort",
+          "scheme",
+          "up",
+          "reachable",
+          "tls",
+          "tailscale",
+          "publicAccess",
+          "panel",
+          "dashboard",
+          "traefik",
+          "socketProxy",
+          "network",
+          "routes"
+        ],
+        "additionalProperties": false
+      },
+      "OverviewCounts": {
+        "type": "object",
+        "properties": {
+          "projects": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "integratedProjects": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "services": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "servicesRunning": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "servicesHealthy": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "servicesUnhealthy": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "containersTotal": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "containersRunning": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "containersGateway": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "containersIntegrated": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "containersExternal": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "containersStandalone": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "bridges": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "forwarders": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "routes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "shares": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "sharesStale": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Shares that expired or whose target is gone"
+          }
+        },
+        "required": [
+          "projects",
+          "integratedProjects",
+          "services",
+          "servicesRunning",
+          "servicesHealthy",
+          "servicesUnhealthy",
+          "containersTotal",
+          "containersRunning",
+          "containersGateway",
+          "containersIntegrated",
+          "containersExternal",
+          "containersStandalone",
+          "bridges",
+          "forwarders",
+          "routes",
+          "shares",
+          "sharesStale"
+        ],
+        "additionalProperties": false
+      },
+      "UrlScope": {
+        "type": "string",
+        "enum": [
+          "local",
+          "vpn",
+          "public"
+        ],
+        "description": "Where a routed URL can be reached from"
+      },
+      "RouteUrl": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Absolute URL served by Traefik"
+          },
+          "host": {
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/UrlScope"
+          },
+          "scheme": {
+            "type": "string",
+            "enum": [
+              "http",
+              "https"
+            ]
+          }
+        },
+        "required": [
+          "url",
+          "host",
+          "scope",
+          "scheme"
+        ],
+        "additionalProperties": false
+      },
+      "Diagnostic": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "warn",
+              "fail"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "fix": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "title",
+          "detail",
+          "fix"
+        ],
+        "additionalProperties": false
+      },
+      "Overview": {
+        "type": "object",
+        "properties": {
+          "gateway": {
+            "$ref": "#/components/schemas/GatewayStatus"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/OverviewCounts"
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RouteUrl"
+            }
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Diagnostic"
+            }
+          },
+          "generatedAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          }
+        },
+        "required": [
+          "gateway",
+          "counts",
+          "urls",
+          "problems",
+          "generatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "Ownership": {
+        "type": "string",
+        "enum": [
+          "gateway",
+          "integrated",
+          "external",
+          "standalone"
+        ],
+        "description": "How the gateway classifies a container"
+      },
+      "PublishedPort": {
+        "type": "object",
+        "properties": {
+          "ip": {
+            "type": "string"
+          },
+          "hostPort": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "containerPort": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "protocol": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ip",
+          "hostPort",
+          "containerPort",
+          "protocol"
+        ],
+        "additionalProperties": false
+      },
+      "ServiceKind": {
+        "type": "string",
+        "enum": [
+          "http",
+          "postgres",
+          "mysql",
+          "redis",
+          "mongodb",
+          "memcached",
+          "search",
+          "amqp",
+          "clickhouse",
+          "smtp",
+          "tcp"
+        ]
+      },
+      "ServiceTech": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable key used to pick an icon, for example postgres, nginx or docker"
+          },
+          "label": {
+            "type": "string",
+            "description": "Short human label shown next to the icon"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "additionalProperties": false
+      },
+      "MountSummary": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          },
+          "rw": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "source",
+          "destination",
+          "rw"
+        ],
+        "additionalProperties": false
+      },
+      "ContainerSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Docker container id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ContainerState"
+          },
+          "status": {
+            "type": "string"
+          },
+          "health": {
+            "$ref": "#/components/schemas/Health"
+          },
+          "createdAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "uptimeSeconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "ownership": {
+            "$ref": "#/components/schemas/Ownership"
+          },
+          "gatewayComponent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project": {
+            "description": "Compose project name",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service": {
+            "description": "Compose service name",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workingDir": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "namespace": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "group": {
+            "description": "Optional dev-gateway.project logical project label",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "repo": {
+            "description": "Optional dev-gateway.repo label as supplied by the project",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "repoUrl": {
+            "description": "Repository web address derived from repo",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gitRoot": {
+            "description": "Optional dev-gateway.git.root label",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "networks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "onGatewayNetwork": {
+            "type": "boolean"
+          },
+          "traefikEnabled": {
+            "type": "boolean"
+          },
+          "ports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublishedPort"
+            }
+          },
+          "exposedPorts": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ServiceKind"
+          },
+          "tech": {
+            "$ref": "#/components/schemas/ServiceTech"
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RouteUrl"
+            }
+          },
+          "mounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MountSummary"
+            }
+          },
+          "labels": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "restartCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "exitCode": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "image",
+          "state",
+          "status",
+          "health",
+          "createdAt",
+          "startedAt",
+          "uptimeSeconds",
+          "ownership",
+          "gatewayComponent",
+          "project",
+          "service",
+          "workingDir",
+          "namespace",
+          "group",
+          "repo",
+          "repoUrl",
+          "gitRoot",
+          "networks",
+          "onGatewayNetwork",
+          "traefikEnabled",
+          "ports",
+          "exposedPorts",
+          "kind",
+          "tech",
+          "urls",
+          "mounts",
+          "labels",
+          "restartCount",
+          "exitCode"
+        ],
+        "additionalProperties": false
+      },
+      "Project": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "COMPOSE_PROJECT_NAME; the key used by project endpoints"
+          },
+          "integrated": {
+            "type": "boolean"
+          },
+          "workingDir": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "namespace": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "group": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "repo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "repoUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gitRoot": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContainerSummary"
+            }
+          },
+          "serviceCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "runningCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "healthyCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "unhealthyCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "networks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RouteUrl"
+            }
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UrlScope"
+            }
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "uptimeSeconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "integrated",
+          "workingDir",
+          "namespace",
+          "group",
+          "repo",
+          "repoUrl",
+          "gitRoot",
+          "services",
+          "serviceCount",
+          "runningCount",
+          "healthyCount",
+          "unhealthyCount",
+          "networks",
+          "urls",
+          "scopes",
+          "startedAt",
+          "uptimeSeconds"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectsResponse": {
+        "type": "object",
+        "properties": {
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            }
+          }
+        },
+        "required": [
+          "projects"
+        ],
+        "additionalProperties": false
+      },
+      "GitHead": {
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string"
+          },
+          "shortSha": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "date": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          }
+        },
+        "required": [
+          "sha",
+          "shortSha",
+          "subject",
+          "author",
+          "date"
+        ],
+        "additionalProperties": false
+      },
+      "GitInfo": {
+        "type": "object",
+        "properties": {
+          "branch": {
+            "description": "Null on a detached HEAD",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "detached": {
+            "type": "boolean"
+          },
+          "head": {
+            "$ref": "#/components/schemas/GitHead"
+          },
+          "staged": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "unstaged": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "untracked": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "unmerged": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "dirty": {
+            "type": "boolean"
+          },
+          "upstream": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ahead": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "behind": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "remote": {
+            "description": "Remote as Git reports it, or the dev-gateway.repo label",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "branch",
+          "detached",
+          "head",
+          "staged",
+          "unstaged",
+          "untracked",
+          "unmerged",
+          "dirty",
+          "upstream",
+          "ahead",
+          "behind",
+          "remote"
+        ],
+        "additionalProperties": false
+      },
+      "ForgePullRequest": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "title": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "draft": {
+            "type": "boolean"
+          },
+          "reviewDecision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "checks": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "headRefName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "number",
+          "title",
+          "state",
+          "draft",
+          "reviewDecision",
+          "checks",
+          "url",
+          "headRefName"
+        ],
+        "additionalProperties": false
+      },
+      "Forge": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "collectedAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          },
+          "authenticated": {
+            "type": "boolean",
+            "description": "False when gh was present but not signed in"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pulls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ForgePullRequest"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "collectedAt",
+          "authenticated",
+          "reason",
+          "pulls"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectGit": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "collected": {
+            "type": "boolean",
+            "description": "False when no scan file exists"
+          },
+          "collectedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ageSeconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "staleAfterSeconds": {
+            "type": "number"
+          },
+          "workingDir": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "git": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GitInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remote": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  },
+                  "host": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "repoUrl": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "url",
+                  "host",
+                  "slug",
+                  "kind",
+                  "repoUrl"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "links": {
+            "type": "object",
+            "properties": {
+              "repo": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "commit": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "branch": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "repo",
+              "commit",
+              "branch"
+            ],
+            "additionalProperties": false
+          },
+          "forge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Forge"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "description": "Why Git metadata is absent, when known",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "refreshCommand": {
+            "type": "string",
+            "description": "Exact host command that refreshes this snapshot"
+          }
+        },
+        "required": [
+          "project",
+          "collected",
+          "collectedAt",
+          "ageSeconds",
+          "stale",
+          "staleAfterSeconds",
+          "workingDir",
+          "git",
+          "remote",
+          "links",
+          "forge",
+          "reason",
+          "refreshCommand"
+        ],
+        "additionalProperties": false,
+        "description": "Metadata collected by dev-gateway git scan for one project"
+      },
+      "ServicesResponse": {
+        "type": "object",
+        "properties": {
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContainerSummary"
+            }
+          }
+        },
+        "required": [
+          "services"
+        ],
+        "additionalProperties": false
+      },
+      "LogsResponse": {
+        "type": "object",
+        "properties": {
+          "containerId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "stream": {
+                  "type": "string",
+                  "enum": [
+                    "stdout",
+                    "stderr"
+                  ]
+                },
+                "timestamp": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "stream",
+                "timestamp",
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "containerId",
+          "name",
+          "lines",
+          "truncated"
+        ],
+        "additionalProperties": false
+      },
+      "ServiceTraefik": {
+        "type": "object",
+        "properties": {
+          "containerId": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expectedHosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Hostnames derived from labels, for comparison"
+          },
+          "routers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "rule": {
+                  "type": "string"
+                },
+                "hosts": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Every Host rule name, lowercased"
+                },
+                "entryPoints": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "middlewares": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "service": {
+                  "type": "string"
+                },
+                "provider": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "description": "Traefik verdict: enabled, disabled or warning"
+                },
+                "errors": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Traefik error text when it rejected the router"
+                },
+                "servers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Backends Traefik resolved for this router"
+                },
+                "dashboardUrl": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "rule",
+                "hosts",
+                "entryPoints",
+                "middlewares",
+                "service",
+                "provider",
+                "status",
+                "errors",
+                "servers",
+                "dashboardUrl"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "fetchedAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          }
+        },
+        "required": [
+          "containerId",
+          "available",
+          "reason",
+          "expectedHosts",
+          "routers",
+          "fetchedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ContainersResponse": {
+        "type": "object",
+        "properties": {
+          "containers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContainerSummary"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "containers",
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "ContainerStatsResponse": {
+        "type": "object",
+        "properties": {
+          "cpuPercent": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memoryBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memoryLimit": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "cpuPercent",
+          "memoryBytes",
+          "memoryLimit"
+        ],
+        "additionalProperties": false
+      },
+      "RemovalPreview": {
+        "type": "object",
+        "properties": {
+          "containerId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "ownership": {
+            "$ref": "#/components/schemas/Ownership"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ContainerState"
+          },
+          "project": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MountSummary"
+            }
+          },
+          "namedVolumes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "networks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "containerId",
+          "name",
+          "image",
+          "ownership",
+          "state",
+          "project",
+          "mounts",
+          "namedVolumes",
+          "networks",
+          "warnings",
+          "allowed"
+        ],
+        "additionalProperties": false
+      },
+      "ActionResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "action": {
+            "type": "string"
+          },
+          "containerId": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "action",
+          "containerId",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "NetworkSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "driver": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "internal": {
+            "type": "boolean"
+          },
+          "containerCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "managed": {
+            "type": "boolean"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "shared",
+              "control",
+              "access",
+              "project",
+              "other"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "driver",
+          "scope",
+          "internal",
+          "containerCount",
+          "managed",
+          "role"
+        ],
+        "additionalProperties": false
+      },
+      "PortUsage": {
+        "type": "object",
+        "properties": {
+          "hostPort": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "bindings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ip": {
+                  "type": "string"
+                },
+                "containerId": {
+                  "type": "string"
+                },
+                "containerName": {
+                  "type": "string"
+                },
+                "ownership": {
+                  "$ref": "#/components/schemas/Ownership"
+                },
+                "containerPort": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "ip",
+                "containerId",
+                "containerName",
+                "ownership",
+                "containerPort"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "conflict": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "hostPort",
+          "protocol",
+          "bindings",
+          "conflict"
+        ],
+        "additionalProperties": false
+      },
+      "DockerHost": {
+        "type": "object",
+        "properties": {
+          "engine": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "string"
+              },
+              "apiVersion": {
+                "type": "string"
+              },
+              "os": {
+                "type": "string"
+              },
+              "arch": {
+                "type": "string"
+              },
+              "cpus": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "memoryBytes": {
+                "type": "number"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "version",
+              "apiVersion",
+              "os",
+              "arch",
+              "cpus",
+              "memoryBytes",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "containers": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "running": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "paused": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "stopped": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "total",
+              "running",
+              "paused",
+              "stopped"
+            ],
+            "additionalProperties": false
+          },
+          "byOwnership": {
+            "type": "object",
+            "properties": {
+              "gateway": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "integrated": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "external": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "standalone": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "gateway",
+              "integrated",
+              "external",
+              "standalone"
+            ],
+            "additionalProperties": false
+          },
+          "networks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NetworkSummary"
+            }
+          },
+          "ports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PortUsage"
+            }
+          }
+        },
+        "required": [
+          "engine",
+          "containers",
+          "byOwnership",
+          "networks",
+          "ports"
+        ],
+        "additionalProperties": false
+      },
+      "NetworkView": {
+        "type": "object",
+        "properties": {
+          "gateway": {
+            "$ref": "#/components/schemas/GatewayStatus"
+          },
+          "domains": {
+            "type": "object",
+            "properties": {
+              "local": {
+                "type": "string"
+              },
+              "private": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "public": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "scheme": {
+                "type": "string",
+                "enum": [
+                  "http",
+                  "https"
+                ]
+              }
+            },
+            "required": [
+              "local",
+              "private",
+              "public",
+              "scheme"
+            ],
+            "additionalProperties": false
+          },
+          "routes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "project": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "service": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "containerId": {
+                  "type": "string"
+                },
+                "containerName": {
+                  "type": "string"
+                },
+                "state": {
+                  "$ref": "#/components/schemas/ContainerState"
+                },
+                "urls": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RouteUrl"
+                  }
+                },
+                "port": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "project",
+                "service",
+                "containerId",
+                "containerName",
+                "state",
+                "urls",
+                "port"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "networks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NetworkSummary"
+            }
+          },
+          "tailscale": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "running": {
+                "type": "boolean"
+              },
+              "hostname": {
+                "type": "string"
+              },
+              "state": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ContainerState"
+                  },
+                  {
+                    "type": "string",
+                    "const": "absent"
+                  }
+                ]
+              },
+              "health": {
+                "$ref": "#/components/schemas/Health"
+              }
+            },
+            "required": [
+              "enabled",
+              "running",
+              "hostname",
+              "state",
+              "health"
+            ],
+            "additionalProperties": false
+          },
+          "dns": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "cloudflareEnabled": {
+                "type": "boolean"
+              },
+              "zone": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "provider",
+              "cloudflareEnabled",
+              "zone"
+            ],
+            "additionalProperties": false
+          },
+          "tls": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "mode": {
+                "type": "string"
+              },
+              "acmeEmailSet": {
+                "type": "boolean"
+              },
+              "caServer": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "enabled",
+              "mode",
+              "acmeEmailSet",
+              "caServer"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "gateway",
+          "domains",
+          "routes",
+          "networks",
+          "tailscale",
+          "dns",
+          "tls"
+        ],
+        "additionalProperties": false
+      },
+      "Bridge": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "containerId": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "targetPort": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "localPort": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bindIp": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ServiceKind"
+          },
+          "network": {
+            "type": "string"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContainerState"
+              },
+              {
+                "type": "string",
+                "const": "absent"
+              }
+            ]
+          },
+          "connectionString": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "containerId",
+          "project",
+          "service",
+          "targetPort",
+          "localPort",
+          "bindIp",
+          "kind",
+          "network",
+          "createdAt",
+          "expiresAt",
+          "state",
+          "connectionString"
+        ],
+        "additionalProperties": false
+      },
+      "Forwarder": {
+        "type": "object",
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "containerId": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ServiceKind"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContainerState"
+              },
+              {
+                "type": "string",
+                "const": "absent"
+              }
+            ]
+          },
+          "networks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "alias",
+          "containerId",
+          "project",
+          "service",
+          "port",
+          "kind",
+          "state",
+          "networks"
+        ],
+        "additionalProperties": false
+      },
+      "TcpRouting": {
+        "type": "string",
+        "enum": [
+          "starttls-sni",
+          "tls-sni",
+          "unsupported",
+          "unevaluated"
+        ],
+        "description": "How this protocol can be routed by hostname"
+      },
+      "TcpService": {
+        "type": "object",
+        "properties": {
+          "containerId": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ServiceKind"
+          },
+          "tech": {
+            "$ref": "#/components/schemas/ServiceTech"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ContainerState"
+          },
+          "health": {
+            "$ref": "#/components/schemas/Health"
+          },
+          "ports": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "defaultPort": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "publishedPorts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublishedPort"
+            }
+          },
+          "privateNetworks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bridge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Bridge"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "forwarder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Forwarder"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "integrated": {
+            "type": "boolean"
+          },
+          "routing": {
+            "$ref": "#/components/schemas/TcpRouting"
+          },
+          "routed": {
+            "type": "boolean",
+            "description": "Whether the container opted into a TCP router"
+          },
+          "gatewayAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gatewayConnectionString": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "containerId",
+          "project",
+          "service",
+          "image",
+          "kind",
+          "tech",
+          "state",
+          "health",
+          "ports",
+          "defaultPort",
+          "publishedPorts",
+          "privateNetworks",
+          "bridge",
+          "forwarder",
+          "integrated",
+          "routing",
+          "routed",
+          "gatewayAddress",
+          "gatewayConnectionString"
+        ],
+        "additionalProperties": false
+      },
+      "AccessView": {
+        "type": "object",
+        "properties": {
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TcpService"
+            }
+          },
+          "bridges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Bridge"
+            }
+          },
+          "forwarders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Forwarder"
+            }
+          },
+          "bridgeImageHint": {
+            "type": "string"
+          },
+          "tcpRoutingEnabled": {
+            "type": "boolean",
+            "description": "Whether TCP entrypoints are currently published"
+          }
+        },
+        "required": [
+          "services",
+          "bridges",
+          "forwarders",
+          "bridgeImageHint",
+          "tcpRoutingEnabled"
+        ],
+        "additionalProperties": false
+      },
+      "OpenBridgeResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "bridge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Bridge"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "ok",
+          "bridge"
+        ],
+        "additionalProperties": false
+      },
+      "CloseBridgeResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "ShareMode": {
+        "type": "string",
+        "enum": [
+          "public",
+          "protected"
+        ]
+      },
+      "ShareState": {
+        "type": "string",
+        "enum": [
+          "active",
+          "expired",
+          "dangling"
+        ]
+      },
+      "Share": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "container": {
+            "type": "string",
+            "description": "Unique container name used as the Traefik backend"
+          },
+          "port": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "host": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ShareMode"
+          },
+          "user": {
+            "description": "Username for a protected share; never a password",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          },
+          "expiresAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          },
+          "expiresInSeconds": {
+            "type": "number"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ShareState"
+          }
+        },
+        "required": [
+          "id",
+          "project",
+          "service",
+          "container",
+          "port",
+          "host",
+          "url",
+          "mode",
+          "user",
+          "createdAt",
+          "expiresAt",
+          "expiresInSeconds",
+          "state"
+        ],
+        "additionalProperties": false
+      },
+      "ShareView": {
+        "type": "object",
+        "properties": {
+          "shares": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Share"
+            }
+          },
+          "domain": {
+            "type": "string",
+            "description": "Domain reserved for temporary share hostnames"
+          },
+          "publicAllowed": {
+            "type": "boolean",
+            "description": "Whether a public share would be accepted"
+          },
+          "maxTtlSeconds": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "shares",
+          "domain",
+          "publicAllowed",
+          "maxTtlSeconds"
+        ],
+        "additionalProperties": false
+      },
+      "CreatedShareResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "share": {
+            "$ref": "#/components/schemas/Share"
+          },
+          "password": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "share",
+          "password",
+          "note"
+        ],
+        "additionalProperties": false
+      },
+      "RevokeShareResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "DoctorResponse": {
+        "type": "object",
+        "properties": {
+          "checks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Diagnostic"
+            }
+          },
+          "failures": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "warnings": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "ranAt": {
+            "type": "number"
+          },
+          "hostCommand": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "checks",
+          "failures",
+          "warnings",
+          "ranAt",
+          "hostCommand"
+        ],
+        "additionalProperties": false
+      },
+      "RestartResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "restarted": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "note": {
+            "type": "string"
+          },
+          "applyCommand": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "restarted",
+          "missing",
+          "note",
+          "applyCommand"
+        ],
+        "additionalProperties": false
+      },
+      "TraefikRouter": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          },
+          "hosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Every Host rule name, lowercased"
+          },
+          "entryPoints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "middlewares": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "service": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "Traefik verdict: enabled, disabled or warning"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Traefik error text when it rejected the router"
+          },
+          "servers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Backends Traefik resolved for this router"
+          }
+        },
+        "required": [
+          "name",
+          "rule",
+          "hosts",
+          "entryPoints",
+          "middlewares",
+          "service",
+          "provider",
+          "status",
+          "errors",
+          "servers"
+        ],
+        "additionalProperties": false
+      },
+      "TraefikVerdict": {
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "False when the API is off or unreachable"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "baseUrl": {
+            "type": "string"
+          },
+          "dashboardUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "routers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraefikRouter"
+            }
+          },
+          "fetchedAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          }
+        },
+        "required": [
+          "available",
+          "reason",
+          "baseUrl",
+          "dashboardUrl",
+          "routers",
+          "fetchedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ConfigField": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "description": "Never populated for a secret",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runtimeValue": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "secret": {
+            "type": "boolean"
+          },
+          "isSet": {
+            "type": "boolean"
+          },
+          "pending": {
+            "type": "boolean",
+            "description": "Saved value differs from the running process"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "boolean",
+              "string",
+              "number",
+              "choice"
+            ]
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "group": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "help": {
+            "type": "string"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "runtimeValue",
+          "secret",
+          "isSet",
+          "pending",
+          "kind",
+          "group",
+          "label",
+          "help",
+          "restartRequired"
+        ],
+        "additionalProperties": false
+      },
+      "ConfigView": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigField"
+            }
+          },
+          "envFile": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "exists": {
+                "type": "boolean"
+              },
+              "writable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "path",
+              "exists",
+              "writable"
+            ],
+            "additionalProperties": false
+          },
+          "pendingRestart": {
+            "type": "boolean"
+          },
+          "applyCommand": {
+            "type": "string",
+            "description": "Host command that applies saved changes"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "fields",
+          "envFile",
+          "pendingRestart",
+          "applyCommand",
+          "groups"
+        ],
+        "additionalProperties": false
+      },
+      "ConfigPatchResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "saved": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pendingRestart": {
+            "type": "boolean"
+          },
+          "applyCommand": {
+            "type": "string"
+          },
+          "dynamic": {
+            "description": "Present when saving also rewrote a generated Traefik file",
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "written": {
+                "type": "boolean"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file",
+              "written",
+              "reason"
+            ],
+            "additionalProperties": false
+          },
+          "view": {
+            "$ref": "#/components/schemas/ConfigView"
+          }
+        },
+        "required": [
+          "ok",
+          "saved",
+          "pendingRestart",
+          "applyCommand",
+          "view"
+        ],
+        "additionalProperties": false
+      },
+      "LiveEventKind": {
+        "type": "string",
+        "enum": [
+          "container",
+          "network",
+          "bridge",
+          "health",
+          "project",
+          "config",
+          "hello"
+        ]
+      },
+      "LiveEvent": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/LiveEventKind"
+          },
+          "action": {
+            "type": "string"
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ownership": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Ownership"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "at": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          }
+        },
+        "required": [
+          "kind",
+          "action",
+          "id",
+          "name",
+          "project",
+          "ownership",
+          "at"
+        ],
+        "additionalProperties": false,
+        "description": "Schema of the JSON value in each SSE data frame. Keepalive ping frames contain a Unix timestamp string."
+      },
+      "OpenApiDocument": {
+        "type": "object",
+        "properties": {
+          "openapi": {
+            "type": "string",
+            "const": "3.1.0"
+          },
+          "info": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "version"
+            ],
+            "additionalProperties": {}
+          },
+          "paths": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "components": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "openapi",
+          "info",
+          "paths"
+        ],
+        "additionalProperties": {}
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "tags": [
+          "Status"
+        ],
+        "summary": "Check panel liveness",
+        "responses": {
+          "200": {
+            "description": "Answers even when Docker is unreachable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                },
+                "example": {
+                  "ok": true,
+                  "panelVersion": "0.1.1",
+                  "gatewayVersion": "0.1.1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/status": {
+      "get": {
+        "operationId": "getStatus",
+        "tags": [
+          "Status"
+        ],
+        "summary": "Get the gateway overview",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "tags": [
+          "Projects"
+        ],
+        "summary": "List Compose projects",
+        "parameters": [
+          {
+            "name": "all",
+            "in": "query",
+            "required": false,
+            "description": "Include Compose projects that have not adopted the gateway.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectsResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/projects/{project}": {
+      "get": {
+        "operationId": "getProject",
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Get one running project",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "COMPOSE_PROJECT_NAME of a running project.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/projects/{project}/git": {
+      "get": {
+        "operationId": "getProjectGit",
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Get collected Git metadata",
+        "description": "Reads a host-collected snapshot. No scan, repository or remote is represented as a smaller 200 response.",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "COMPOSE_PROJECT_NAME of a running project.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectGit"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/services": {
+      "get": {
+        "operationId": "listServices",
+        "tags": [
+          "Services"
+        ],
+        "summary": "List services in adopted projects",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "query",
+            "required": false,
+            "description": "Filter by COMPOSE_PROJECT_NAME.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicesResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/services/{id}": {
+      "get": {
+        "operationId": "getService",
+        "tags": [
+          "Services"
+        ],
+        "summary": "Get one service container",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Docker container id, not a Compose service name.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/services/{id}/logs": {
+      "get": {
+        "operationId": "getServiceLogs",
+        "tags": [
+          "Services"
+        ],
+        "summary": "Read recent service logs",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Docker container id, not a Compose service name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tail",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of log lines, clamped to 1–2000.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2000,
+              "default": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/services/{id}/traefik": {
+      "get": {
+        "operationId": "getServiceTraefik",
+        "tags": [
+          "Services"
+        ],
+        "summary": "Get Traefik's verdict for a service",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Docker container id, not a Compose service name.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceTraefik"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/docker/containers": {
+      "get": {
+        "operationId": "listContainers",
+        "tags": [
+          "Docker"
+        ],
+        "summary": "List every container on the host",
+        "parameters": [
+          {
+            "name": "ownership",
+            "in": "query",
+            "required": false,
+            "description": "Filter by gateway ownership class.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "gateway",
+                "integrated",
+                "external",
+                "standalone"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "description": "Filter by runtime state.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "running",
+                "stopped",
+                "unhealthy"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Case-insensitive search over name, image, project, service and hosts.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainersResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/docker/containers/{id}": {
+      "get": {
+        "operationId": "getContainer",
+        "tags": [
+          "Docker"
+        ],
+        "summary": "Get one container",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Docker container id, not a Compose service name.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "removeContainer",
+        "tags": [
+          "Docker"
+        ],
+        "summary": "Remove a gateway-allowed container only",
+        "description": "Volumes, networks, links and images are always kept.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Docker container id, not a Compose service name.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The requested operation conflicts with the current runtime state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "confirm": {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  "force": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "confirm"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/docker/containers/{id}/logs": {
+      "get": {
+        "operationId": "getContainerLogs",
+        "tags": [
+          "Docker"
+        ],
+        "summary": "Read recent container logs",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Docker container id, not a Compose service name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tail",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of log lines, clamped to 1–2000.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2000,
+              "default": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/docker/containers/{id}/stats": {
+      "get": {
+        "operationId": "getContainerStats",
+        "tags": [
+          "Docker"
+        ],
+        "summary": "Get a one-shot resource sample",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Docker container id, not a Compose service name.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerStatsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/docker/containers/{id}/removal-preview": {
+      "get": {
+        "operationId": "previewContainerRemoval",
+        "tags": [
+          "Docker"
+        ],
+        "summary": "Preview a bounded container removal",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Docker container id, not a Compose service name.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovalPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/docker/containers/{id}/start": {
+      "post": {
+        "operationId": "startContainer",
+        "tags": [
+          "Docker"
+        ],
+        "summary": "Start a container",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Docker container id, not a Compose service name.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The requested operation conflicts with the current runtime state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/docker/containers/{id}/stop": {
+      "post": {
+        "operationId": "stopContainer",
+        "tags": [
+          "Docker"
+        ],
+        "summary": "Stop a container",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Docker container id, not a Compose service name.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The requested operation conflicts with the current runtime state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/docker/containers/{id}/restart": {
+      "post": {
+        "operationId": "restartContainer",
+        "tags": [
+          "Docker"
+        ],
+        "summary": "Restart a container",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Docker container id, not a Compose service name.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The requested operation conflicts with the current runtime state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/docker/host": {
+      "get": {
+        "operationId": "getDockerHost",
+        "tags": [
+          "Docker"
+        ],
+        "summary": "Get Docker Engine and host summary",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerHost"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/network": {
+      "get": {
+        "operationId": "getNetwork",
+        "tags": [
+          "Network"
+        ],
+        "summary": "Get routes, networks, DNS, TLS and VPN state",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetworkView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/access": {
+      "get": {
+        "operationId": "getAccess",
+        "tags": [
+          "Access"
+        ],
+        "summary": "List private TCP services and temporary bridges",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "openAccess",
+        "tags": [
+          "Access"
+        ],
+        "summary": "Open a loopback bridge to a TCP service",
+        "description": "The panel always binds the bridge to 127.0.0.1.",
+        "responses": {
+          "201": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenBridgeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The requested operation conflicts with the current runtime state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "project": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                  },
+                  "service": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "localPort": {
+                    "type": "integer",
+                    "minimum": 1024,
+                    "maximum": 65535
+                  },
+                  "ttlSeconds": {
+                    "type": "integer",
+                    "minimum": 30,
+                    "maximum": 86400
+                  }
+                },
+                "required": [
+                  "project",
+                  "service"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/access/{id}": {
+      "delete": {
+        "operationId": "closeAccess",
+        "tags": [
+          "Access"
+        ],
+        "summary": "Close a gateway-owned bridge",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Opaque share id returned when the share was created.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloseBridgeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/shares": {
+      "get": {
+        "operationId": "listShares",
+        "tags": [
+          "Shares"
+        ],
+        "summary": "List temporary service shares",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/services/{id}/share": {
+      "post": {
+        "operationId": "createShare",
+        "tags": [
+          "Shares"
+        ],
+        "summary": "Create an expiring route for one service",
+        "description": "The generated password appears in this response once; only its hash is stored.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Docker container id, not a Compose service name.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedShareResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The requested operation conflicts with the current runtime state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "public",
+                      "protected"
+                    ]
+                  },
+                  "ttlSeconds": {
+                    "type": "integer",
+                    "minimum": 60,
+                    "maximum": 604800
+                  },
+                  "user": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[A-Za-z0-9._-]+$"
+                  }
+                },
+                "required": [
+                  "mode"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shares/{id}/regenerate": {
+      "post": {
+        "operationId": "regenerateShare",
+        "tags": [
+          "Shares"
+        ],
+        "summary": "Replace a protected share password",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Opaque share id returned when the share was created.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedShareResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/shares/{id}": {
+      "delete": {
+        "operationId": "revokeShare",
+        "tags": [
+          "Shares"
+        ],
+        "summary": "Revoke a temporary share",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Opaque share id returned when the share was created.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokeShareResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/gateway": {
+      "get": {
+        "operationId": "getGateway",
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Get gateway component status",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayStatus"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/gateway/doctor": {
+      "post": {
+        "operationId": "runGatewayDoctor",
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Run container-visible diagnostics",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/gateway/restart": {
+      "post": {
+        "operationId": "restartGateway",
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Restart selected gateway components",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The requested operation conflicts with the current runtime state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "components": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "traefik",
+                        "socket-proxy",
+                        "tailscale"
+                      ]
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gateway/traefik": {
+      "get": {
+        "operationId": "getTraefikVerdict",
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Get Traefik's routing table",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraefikVerdict"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/gateway/logs": {
+      "get": {
+        "operationId": "getGatewayLogs",
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Read gateway component logs",
+        "parameters": [
+          {
+            "name": "component",
+            "in": "query",
+            "required": false,
+            "description": "Gateway component name.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "traefik",
+                "socket-proxy",
+                "tailscale"
+              ],
+              "default": "traefik"
+            }
+          },
+          {
+            "name": "tail",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of log lines, clamped to 1–2000.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2000,
+              "default": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/config": {
+      "get": {
+        "operationId": "getConfig",
+        "tags": [
+          "Configuration"
+        ],
+        "summary": "Get the managed settings catalogue",
+        "description": "Secret values are never returned; only whether they are set.",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchConfig",
+        "tags": [
+          "Configuration"
+        ],
+        "summary": "Save managed settings",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigPatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "values": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 4096
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "values"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events": {
+      "get": {
+        "operationId": "streamEvents",
+        "tags": [
+          "Events"
+        ],
+        "summary": "Stream runtime events",
+        "description": "Server-sent events. Each non-ping data frame is a JSON LiveEvent; clients reconnect normally.",
+        "responses": {
+          "200": {
+            "description": "An open SSE stream.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveEvent"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "getOpenApiDocument",
+        "tags": [
+          "Documentation"
+        ],
+        "summary": "Return the OpenAPI 3.1 contract",
+        "responses": {
+          "200": {
+            "description": "The contract generated from the registered routes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenApiDocument"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    }
+  }
+}

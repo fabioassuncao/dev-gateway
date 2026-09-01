@@ -11,7 +11,8 @@ import {
   regenerateShare,
   revokeShare,
 } from '../core/shares.ts'
-import type { ShareView } from '../../shared/types.ts'
+import { Share, ShareView } from '../../shared/types.ts'
+import { containerIdParameter, documentRoute, shareIdParameter } from '../openapi.ts'
 
 const createBody = z
   .object({
@@ -26,10 +27,18 @@ const createBody = z
   })
   .strict()
 
+export const CreatedShareResponse = z.object({
+  ok: z.literal(true), share: Share, password: z.string(), note: z.string(),
+}).strict().meta({ ref: 'CreatedShareResponse' })
+export const RevokeShareResponse = z.object({ ok: z.literal(true), message: z.string() }).strict().meta({ ref: 'RevokeShareResponse' })
+
 export function shareRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
-  app.get('/shares', async (c) => {
+  app.get('/shares', documentRoute({
+    tag: 'Shares', operationId: 'listShares', summary: 'List temporary service shares', response: ShareView,
+    errors: [500],
+  }), async (c) => {
     const snapshot = await deps.cache.get()
     const view: ShareView = {
       shares: listShares(deps.config, snapshot),
@@ -45,7 +54,12 @@ export function shareRoutes(deps: AppDeps): Hono {
    * router is untouched, the expiry is mandatory, and the password is in this
    * response and nowhere else, ever.
    */
-  app.post('/services/:id/share', async (c) => {
+  app.post('/services/:id/share', documentRoute({
+    tag: 'Shares', operationId: 'createShare', summary: 'Create an expiring route for one service',
+    description: 'The generated password appears in this response once; only its hash is stored.',
+    response: CreatedShareResponse, status: 201, request: createBody, parameters: [containerIdParameter],
+    errors: [400, 403, 404, 409, 500],
+  }), async (c) => {
     const body = await c.req.json().catch(() => null)
     const parsed = createBody.safeParse(body)
     if (!parsed.success) {
@@ -69,7 +83,10 @@ export function shareRoutes(deps: AppDeps): Hono {
     )
   })
 
-  app.post('/shares/:id/regenerate', async (c) => {
+  app.post('/shares/:id/regenerate', documentRoute({
+    tag: 'Shares', operationId: 'regenerateShare', summary: 'Replace a protected share password',
+    response: CreatedShareResponse, parameters: [shareIdParameter], errors: [400, 403, 404, 500],
+  }), async (c) => {
     const snapshot = await deps.cache.get()
     const created = regenerateShare(deps.config, snapshot, c.req.param('id'))
     return c.json({
@@ -80,7 +97,10 @@ export function shareRoutes(deps: AppDeps): Hono {
     })
   })
 
-  app.delete('/shares/:id', (c) => {
+  app.delete('/shares/:id', documentRoute({
+    tag: 'Shares', operationId: 'revokeShare', summary: 'Revoke a temporary share',
+    response: RevokeShareResponse, parameters: [shareIdParameter], errors: [400, 403, 404, 500],
+  }), (c) => {
     revokeShare(deps.config, c.req.param('id'))
     return c.json({ ok: true, message: 'share revoked; the project itself was not touched' })
   })

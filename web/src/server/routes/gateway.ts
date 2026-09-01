@@ -5,15 +5,29 @@ import type { AppDeps } from './deps.ts'
 import { componentOf, gatewayStatus, RESTARTABLE_COMPONENTS } from '../core/gateway.ts'
 import { diagnose } from '../core/diagnostics.ts'
 import { readLogs } from './services.ts'
+import { Diagnostic, GatewayStatus, LogsResponse, TraefikVerdict } from '../../shared/types.ts'
+import { documentRoute, tailParameter } from '../openapi.ts'
 
 const restartBody = z
   .object({ components: z.array(z.enum(RESTARTABLE_COMPONENTS)).min(1).optional() })
   .strict()
 
+export const DoctorResponse = z.object({
+  checks: z.array(Diagnostic), failures: z.number().int(), warnings: z.number().int(),
+  ranAt: z.number(), hostCommand: z.string(),
+}).strict().meta({ ref: 'DoctorResponse' })
+export const RestartResponse = z.object({
+  ok: z.literal(true), restarted: z.array(z.string()), missing: z.array(z.string()),
+  note: z.string(), applyCommand: z.string(),
+}).strict().meta({ ref: 'RestartResponse' })
+
 export function gatewayRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
-  app.get('/gateway', async (c) => {
+  app.get('/gateway', documentRoute({
+    tag: 'Gateway', operationId: 'getGateway', summary: 'Get gateway component status',
+    response: GatewayStatus, errors: [500, 502],
+  }), async (c) => {
     const snapshot = await deps.cache.get()
     return c.json(gatewayStatus(snapshot, deps.config))
   })
@@ -21,7 +35,10 @@ export function gatewayRoutes(deps: AppDeps): Hono {
   // The diagnostics a container can make honestly. `dev-gateway doctor` stays
   // the deeper, host-level tool: it sees PATH, listening sockets, DNS and the
   // certificate files, which this process cannot.
-  app.post('/gateway/doctor', async (c) => {
+  app.post('/gateway/doctor', documentRoute({
+    tag: 'Gateway', operationId: 'runGatewayDoctor', summary: 'Run container-visible diagnostics',
+    response: DoctorResponse, errors: [403, 500, 502],
+  }), async (c) => {
     const snapshot = await deps.cache.get(true)
     // Traefik's verdict is worth a network call here, where the user asked for
     // diagnostics, and never on a page render.
@@ -42,7 +59,10 @@ export function gatewayRoutes(deps: AppDeps): Hono {
    * change still needs `dev-gateway up` on the host: the response says so
    * rather than pretending otherwise.
    */
-  app.post('/gateway/restart', async (c) => {
+  app.post('/gateway/restart', documentRoute({
+    tag: 'Gateway', operationId: 'restartGateway', summary: 'Restart selected gateway components',
+    response: RestartResponse, request: restartBody, errors: [400, 403, 409, 500, 502],
+  }), async (c) => {
     const body = await c.req.json().catch(() => ({}))
     const parsed = restartBody.safeParse(body)
     if (!parsed.success) throw new HTTPException(400, { message: 'unknown restart request' })
@@ -82,9 +102,18 @@ export function gatewayRoutes(deps: AppDeps): Hono {
    * Traefik's own routing table. The panel links into the dashboard rather than
    * rebuilding it: this is the verdict, not a replacement view.
    */
-  app.get('/gateway/traefik', async (c) => c.json(await deps.verdict.get()))
+  app.get('/gateway/traefik', documentRoute({
+    tag: 'Gateway', operationId: 'getTraefikVerdict', summary: "Get Traefik's routing table", response: TraefikVerdict,
+    errors: [500, 502],
+  }), async (c) => c.json(await deps.verdict.get()))
 
-  app.get('/gateway/logs', async (c) => {
+  app.get('/gateway/logs', documentRoute({
+    tag: 'Gateway', operationId: 'getGatewayLogs', summary: 'Read gateway component logs', response: LogsResponse,
+    parameters: [
+      { name: 'component', in: 'query', required: false, description: 'Gateway component name.', schema: { type: 'string', enum: [...RESTARTABLE_COMPONENTS], default: 'traefik' } },
+      tailParameter,
+    ], errors: [400, 404, 500, 502],
+  }), async (c) => {
     const component = c.req.query('component') ?? 'traefik'
     const allowed: readonly string[] = RESTARTABLE_COMPONENTS
     if (!allowed.includes(component)) {

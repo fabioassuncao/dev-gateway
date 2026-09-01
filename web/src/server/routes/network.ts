@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import type { AppDeps } from './deps.ts'
 import { gatewayStatus, componentOf } from '../core/gateway.ts'
 import { schemeFor } from '../config.ts'
-import type { NetworkView } from '../../shared/types.ts'
+import { NetworkView } from '../../shared/types.ts'
+import { documentRoute } from '../openapi.ts'
 
 export function networkRoutes(deps: AppDeps): Hono {
   const app = new Hono()
@@ -10,7 +11,10 @@ export function networkRoutes(deps: AppDeps): Hono {
   // Domains, routes, networks, Tailscale and DNS in one place. Everything is
   // read from Docker labels and the resolved configuration, so it matches what
   // Traefik is actually serving.
-  app.get('/network', async (c) => {
+  app.get('/network', documentRoute({
+    tag: 'Network', operationId: 'getNetwork', summary: 'Get routes, networks, DNS, TLS and VPN state',
+    response: NetworkView, errors: [500, 502],
+  }), async (c) => {
     const snapshot = await deps.cache.get()
     const tailscale = componentOf(snapshot, 'tailscale')
 
