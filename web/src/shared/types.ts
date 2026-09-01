@@ -1,557 +1,724 @@
-// The contract between the API and the UI. Everything here is derived from
-// Docker and the gateway's own configuration at request time: the panel keeps
-// no second source of truth.
+// The contract between the API and the UI. Zod is the single source of truth:
+// every exported type is inferred from the schema that also documents the API.
+// Responses are validated in tests, not on the production hot path.
 
-export type Ownership = 'gateway' | 'integrated' | 'external' | 'standalone'
+import { z } from 'zod'
 
-/** Brand or runtime identity behind a container, used to pick a panel icon. */
-export interface ServiceTech {
-  /** Stable key used to pick an icon, e.g. `postgres`, `nginx`, `docker`. */
-  id: string
-  /** Short human label shown next to the icon. */
-  label: string
-}
+const named = <T extends z.ZodType>(schema: T, ref: string): T => schema.meta({ ref }) as T
+const unixSeconds = z.number().describe('Unix timestamp in seconds')
 
-export type ContainerState =
-  | 'created'
-  | 'running'
-  | 'paused'
-  | 'restarting'
-  | 'removing'
-  | 'exited'
-  | 'dead'
+export const Ownership = named(
+  z.enum(['gateway', 'integrated', 'external', 'standalone']).describe('How the gateway classifies a container'),
+  'Ownership',
+)
+export type Ownership = z.infer<typeof Ownership>
 
-export type Health = 'healthy' | 'unhealthy' | 'starting' | 'none'
+export const ServiceTech = named(
+  z.object({
+    id: z.string().describe('Stable key used to pick an icon, for example postgres, nginx or docker'),
+    label: z.string().describe('Short human label shown next to the icon'),
+  }).strict(),
+  'ServiceTech',
+)
+export type ServiceTech = z.infer<typeof ServiceTech>
 
-export type UrlScope = 'local' | 'vpn' | 'public'
+export const ContainerState = named(
+  z.enum(['created', 'running', 'paused', 'restarting', 'removing', 'exited', 'dead']),
+  'ContainerState',
+)
+export type ContainerState = z.infer<typeof ContainerState>
 
-/** Whether a TCP protocol can be told apart by hostname on a shared port. */
-export type TcpRouting = 'starttls-sni' | 'tls-sni' | 'unsupported' | 'unevaluated'
+export const Health = named(z.enum(['healthy', 'unhealthy', 'starting', 'none']), 'Health')
+export type Health = z.infer<typeof Health>
 
-export type ServiceKind =
-  | 'http'
-  | 'postgres'
-  | 'mysql'
-  | 'redis'
-  | 'mongodb'
-  | 'memcached'
-  | 'search'
-  | 'amqp'
-  | 'clickhouse'
-  | 'smtp'
-  | 'tcp'
+export const UrlScope = named(
+  z.enum(['local', 'vpn', 'public']).describe('Where a routed URL can be reached from'),
+  'UrlScope',
+)
+export type UrlScope = z.infer<typeof UrlScope>
 
-export interface PublishedPort {
-  ip: string
-  hostPort: number
-  containerPort: number
-  protocol: string
-}
+export const TcpRouting = named(
+  z.enum(['starttls-sni', 'tls-sni', 'unsupported', 'unevaluated'])
+    .describe('Whether a TCP protocol can be told apart by hostname on a shared port'),
+  'TcpRouting',
+)
+export type TcpRouting = z.infer<typeof TcpRouting>
 
-export interface RouteUrl {
-  url: string
-  host: string
-  scope: UrlScope
-  scheme: 'http' | 'https'
-}
+export const ServiceKind = named(
+  z.enum(['http', 'postgres', 'mysql', 'redis', 'mongodb', 'memcached', 'search', 'amqp', 'clickhouse', 'smtp', 'tcp']),
+  'ServiceKind',
+)
+export type ServiceKind = z.infer<typeof ServiceKind>
 
-export interface MountSummary {
-  type: string
-  name: string | null
-  source: string
-  destination: string
-  rw: boolean
-}
+export const PublishedPort = named(
+  z.object({
+    ip: z.string(),
+    hostPort: z.number().int(),
+    containerPort: z.number().int(),
+    protocol: z.string(),
+  }).strict(),
+  'PublishedPort',
+)
+export type PublishedPort = z.infer<typeof PublishedPort>
 
-export interface ContainerSummary {
-  id: string
-  name: string
-  image: string
-  state: ContainerState
-  status: string
-  health: Health
-  createdAt: number
-  startedAt: number | null
-  uptimeSeconds: number | null
-  ownership: Ownership
-  gatewayComponent: string | null
-  project: string | null
-  service: string | null
-  workingDir: string | null
-  namespace: string | null
-  /** `dev-gateway.project`: the logical project several worktrees share. */
-  group: string | null
-  /** `dev-gateway.repo`: `owner/name` or a remote URL, as the project wrote it. */
-  repo: string | null
-  /** The repository's web address, derived from `repo` by string work alone. */
-  repoUrl: string | null
-  /** `dev-gateway.git.root`, when the Compose file is not at the repo root. */
-  gitRoot: string | null
-  networks: string[]
-  onGatewayNetwork: boolean
-  traefikEnabled: boolean
-  ports: PublishedPort[]
-  exposedPorts: number[]
-  kind: ServiceKind
-  /** Brand/runtime identity for the panel icon. Never replaces the name. */
-  tech: ServiceTech
-  urls: RouteUrl[]
-  mounts: MountSummary[]
-  labels: Record<string, string>
-  restartCount: number
-  exitCode: number | null
-}
+export const RouteUrl = named(
+  z.object({
+    url: z.string().describe('Absolute URL served by Traefik'),
+    host: z.string(),
+    scope: UrlScope,
+    scheme: z.enum(['http', 'https']),
+  }).strict(),
+  'RouteUrl',
+)
+export type RouteUrl = z.infer<typeof RouteUrl>
 
-export interface Project {
-  name: string
-  integrated: boolean
-  workingDir: string | null
-  namespace: string | null
-  /** All four are null unless the project declared them. Never required. */
-  group: string | null
-  repo: string | null
-  repoUrl: string | null
-  gitRoot: string | null
-  services: ContainerSummary[]
-  serviceCount: number
-  runningCount: number
-  healthyCount: number
-  unhealthyCount: number
-  networks: string[]
-  urls: RouteUrl[]
-  scopes: UrlScope[]
-  startedAt: number | null
-  uptimeSeconds: number | null
-}
+export const MountSummary = named(
+  z.object({
+    type: z.string(),
+    name: z.string().nullable(),
+    source: z.string(),
+    destination: z.string(),
+    rw: z.boolean(),
+  }).strict(),
+  'MountSummary',
+)
+export type MountSummary = z.infer<typeof MountSummary>
 
-export interface GitHead {
-  sha: string
-  shortSha: string
-  subject: string
-  author: string
-  /** Unix seconds. */
-  date: number
-}
+export const ContainerSummary = named(
+  z.object({
+    id: z.string().describe('Docker container id'),
+    name: z.string(),
+    image: z.string(),
+    state: ContainerState,
+    status: z.string(),
+    health: Health,
+    createdAt: unixSeconds,
+    startedAt: unixSeconds.nullable(),
+    uptimeSeconds: z.number().nullable(),
+    ownership: Ownership,
+    gatewayComponent: z.string().nullable(),
+    project: z.string().nullable().describe('Compose project name'),
+    service: z.string().nullable().describe('Compose service name'),
+    workingDir: z.string().nullable(),
+    namespace: z.string().nullable(),
+    group: z.string().nullable().describe('Optional dev-gateway.project logical project label'),
+    repo: z.string().nullable().describe('Optional dev-gateway.repo label as supplied by the project'),
+    repoUrl: z.string().nullable().describe('Repository web address derived from repo'),
+    gitRoot: z.string().nullable().describe('Optional dev-gateway.git.root label'),
+    networks: z.array(z.string()),
+    onGatewayNetwork: z.boolean(),
+    traefikEnabled: z.boolean(),
+    ports: z.array(PublishedPort),
+    exposedPorts: z.array(z.number().int()),
+    kind: ServiceKind,
+    tech: ServiceTech,
+    urls: z.array(RouteUrl),
+    mounts: z.array(MountSummary),
+    labels: z.record(z.string(), z.string()),
+    restartCount: z.number().int(),
+    exitCode: z.number().int().nullable(),
+  }).strict(),
+  'ContainerSummary',
+)
+export type ContainerSummary = z.infer<typeof ContainerSummary>
 
-export interface GitInfo {
-  /** Null on a detached HEAD, which `detached` then explains. */
-  branch: string | null
-  detached: boolean
-  head: GitHead
-  staged: number
-  unstaged: number
-  untracked: number
-  unmerged: number
-  dirty: boolean
-  upstream: string | null
-  ahead: number
-  behind: number
-  /** The remote URL as Git reports it, or the `dev-gateway.repo` label. */
-  remote: string | null
-}
+export const Project = named(
+  z.object({
+    name: z.string().describe('COMPOSE_PROJECT_NAME; the key used by project endpoints'),
+    integrated: z.boolean(),
+    workingDir: z.string().nullable(),
+    namespace: z.string().nullable(),
+    group: z.string().nullable(),
+    repo: z.string().nullable(),
+    repoUrl: z.string().nullable(),
+    gitRoot: z.string().nullable(),
+    services: z.array(ContainerSummary),
+    serviceCount: z.number().int(),
+    runningCount: z.number().int(),
+    healthyCount: z.number().int(),
+    unhealthyCount: z.number().int(),
+    networks: z.array(z.string()),
+    urls: z.array(RouteUrl),
+    scopes: z.array(UrlScope),
+    startedAt: unixSeconds.nullable(),
+    uptimeSeconds: z.number().nullable(),
+  }).strict(),
+  'Project',
+)
+export type Project = z.infer<typeof Project>
 
-export interface ForgePullRequest {
-  number: number
-  title: string
-  state: string
-  draft: boolean
-  reviewDecision: string | null
-  checks: string | null
-  url: string | null
-  headRefName: string | null
-}
+export const GitHead = named(
+  z.object({
+    sha: z.string(),
+    shortSha: z.string(),
+    subject: z.string(),
+    author: z.string(),
+    date: unixSeconds,
+  }).strict(),
+  'GitHead',
+)
+export type GitHead = z.infer<typeof GitHead>
 
-export interface Forge {
-  kind: string
-  collectedAt: number
-  /** False when `gh` was present but not signed in. */
-  authenticated: boolean
-  reason: string | null
-  pulls: ForgePullRequest[]
-}
+export const GitInfo = named(
+  z.object({
+    branch: z.string().nullable().describe('Null on a detached HEAD'),
+    detached: z.boolean(),
+    head: GitHead,
+    staged: z.number().int(),
+    unstaged: z.number().int(),
+    untracked: z.number().int(),
+    unmerged: z.number().int(),
+    dirty: z.boolean(),
+    upstream: z.string().nullable(),
+    ahead: z.number().int(),
+    behind: z.number().int(),
+    remote: z.string().nullable().describe('Remote as Git reports it, or the dev-gateway.repo label'),
+  }).strict(),
+  'GitInfo',
+)
+export type GitInfo = z.infer<typeof GitInfo>
 
-/**
- * What `dev-gateway git scan` collected for one project, as the panel reads it.
- * Everything is optional by design: no Git, no remote, no `gh` and no scan at
- * all are four different absences, and each renders as fewer sections rather
- * than an error.
- */
-export interface ProjectGit {
-  project: string
-  /** Whether a file exists at all. False means nobody has run a scan. */
-  collected: boolean
-  collectedAt: number | null
-  ageSeconds: number | null
-  stale: boolean
-  staleAfterSeconds: number
-  workingDir: string | null
-  git: GitInfo | null
-  remote: { url: string; host: string; slug: string; kind: string; repoUrl: string } | null
-  links: { repo: string | null; commit: string | null; branch: string | null }
-  forge: Forge | null
-  /** Why there is no Git here, when the collector could say. */
-  reason: string | null
-  /** The exact host command that refreshes this. The panel never runs it. */
-  refreshCommand: string
-}
+export const ForgePullRequest = named(
+  z.object({
+    number: z.number().int(),
+    title: z.string(),
+    state: z.string(),
+    draft: z.boolean(),
+    reviewDecision: z.string().nullable(),
+    checks: z.string().nullable(),
+    url: z.string().nullable(),
+    headRefName: z.string().nullable(),
+  }).strict(),
+  'ForgePullRequest',
+)
+export type ForgePullRequest = z.infer<typeof ForgePullRequest>
 
-/** One router as Traefik itself reports it, not as the labels imply. */
-export interface TraefikRouter {
-  name: string
-  rule: string
-  /** Every Host(`...`) the rule names, lowercased. */
-  hosts: string[]
-  entryPoints: string[]
-  middlewares: string[]
-  service: string
-  provider: string
-  /** Traefik's own verdict: `enabled`, `disabled`, or `warning`. */
-  status: string
-  /** Traefik's own error text when it rejected the router. */
-  errors: string[]
-  /** The backends Traefik resolved for this router's service. */
-  servers: string[]
-}
+export const Forge = named(
+  z.object({
+    kind: z.string(),
+    collectedAt: unixSeconds,
+    authenticated: z.boolean().describe('False when gh was present but not signed in'),
+    reason: z.string().nullable(),
+    pulls: z.array(ForgePullRequest),
+  }).strict(),
+  'Forge',
+)
+export type Forge = z.infer<typeof Forge>
 
-export interface TraefikVerdict {
-  /** False when the API is off or unreachable. Not the same as "no problem". */
-  available: boolean
-  reason: string | null
-  baseUrl: string
-  dashboardUrl: string | null
-  routers: TraefikRouter[]
-  fetchedAt: number
-}
+const ProjectRemote = z.object({
+  url: z.string(),
+  host: z.string(),
+  slug: z.string(),
+  kind: z.string(),
+  repoUrl: z.string(),
+}).strict()
 
-/** What Traefik says about one service, beside what its labels say. */
-export interface ServiceTraefik {
-  containerId: string
-  available: boolean
-  reason: string | null
-  /** Hostnames the panel derived from the labels, for comparison. */
-  expectedHosts: string[]
-  routers: (TraefikRouter & { dashboardUrl: string | null })[]
-  fetchedAt: number
-}
+const ProjectGitLinks = z.object({
+  repo: z.string().nullable(),
+  commit: z.string().nullable(),
+  branch: z.string().nullable(),
+}).strict()
 
-/** Three states per service, and `private` is the absence of a share. */
-export type ShareMode = 'public' | 'protected'
-export type ShareState = 'active' | 'expired' | 'dangling'
+export const ProjectGit = named(
+  z.object({
+    project: z.string(),
+    collected: z.boolean().describe('False when no scan file exists'),
+    collectedAt: unixSeconds.nullable(),
+    ageSeconds: z.number().nullable(),
+    stale: z.boolean(),
+    staleAfterSeconds: z.number(),
+    workingDir: z.string().nullable(),
+    git: GitInfo.nullable(),
+    remote: ProjectRemote.nullable(),
+    links: ProjectGitLinks,
+    forge: Forge.nullable(),
+    reason: z.string().nullable().describe('Why Git metadata is absent, when known'),
+    refreshCommand: z.string().describe('Exact host command that refreshes this snapshot'),
+  }).strict().describe('Metadata collected by dev-gateway git scan for one project'),
+  'ProjectGit',
+)
+export type ProjectGit = z.infer<typeof ProjectGit>
 
-export interface Share {
-  id: string
-  project: string
-  service: string
-  /** The container the router points at, by name: aliases are not unique. */
-  container: string
-  port: number
-  host: string
-  url: string
-  mode: ShareMode
-  /** The username, for a protected share. The password is never here. */
-  user: string | null
-  createdAt: number
-  expiresAt: number
-  expiresInSeconds: number
-  state: ShareState
-}
+export const TraefikRouter = named(
+  z.object({
+    name: z.string(),
+    rule: z.string(),
+    hosts: z.array(z.string()).describe('Every Host rule name, lowercased'),
+    entryPoints: z.array(z.string()),
+    middlewares: z.array(z.string()),
+    service: z.string(),
+    provider: z.string(),
+    status: z.string().describe('Traefik verdict: enabled, disabled or warning'),
+    errors: z.array(z.string()).describe('Traefik error text when it rejected the router'),
+    servers: z.array(z.string()).describe('Backends Traefik resolved for this router'),
+  }).strict(),
+  'TraefikRouter',
+)
+export type TraefikRouter = z.infer<typeof TraefikRouter>
 
-export interface ShareView {
-  shares: Share[]
-  /** Where shared hostnames live, kept visibly apart from project ones. */
-  domain: string
-  /** Whether a `public` share would be accepted at all. */
-  publicAllowed: boolean
-  maxTtlSeconds: number
-}
+export const TraefikVerdict = named(
+  z.object({
+    available: z.boolean().describe('False when the API is off or unreachable'),
+    reason: z.string().nullable(),
+    baseUrl: z.string(),
+    dashboardUrl: z.string().nullable(),
+    routers: z.array(TraefikRouter),
+    fetchedAt: unixSeconds,
+  }).strict(),
+  'TraefikVerdict',
+)
+export type TraefikVerdict = z.infer<typeof TraefikVerdict>
 
-export interface Diagnostic {
-  id: string
-  status: 'pass' | 'warn' | 'fail'
-  title: string
-  detail: string
-  fix: string
-}
+export const ServiceTraefik = named(
+  z.object({
+    containerId: z.string(),
+    available: z.boolean(),
+    reason: z.string().nullable(),
+    expectedHosts: z.array(z.string()).describe('Hostnames derived from labels, for comparison'),
+    routers: z.array(TraefikRouter.extend({ dashboardUrl: z.string().nullable() }).strict()),
+    fetchedAt: unixSeconds,
+  }).strict(),
+  'ServiceTraefik',
+)
+export type ServiceTraefik = z.infer<typeof ServiceTraefik>
 
-export interface GatewayStatus {
-  gatewayVersion: string
-  panelVersion: string
-  profile: string
-  domain: string
-  privateDomain: string | null
-  publicDomain: string | null
-  bindAddress: string
-  httpPort: string
-  httpsPort: string
-  scheme: 'http' | 'https'
-  up: boolean
-  reachable: boolean
-  tls: { enabled: boolean; mode: string }
-  tailscale: { enabled: boolean; running: boolean; hostname: string }
-  publicAccess: { enabled: boolean; domain: string | null }
-  /** The panel's own exposure and front door. Never carries the hash. */
-  panel: {
-    expose: string
-    routed: boolean
-    auth: string
-    authenticated: boolean
-    user: string
-    readOnly: boolean
-  }
-  dashboard: { enabled: boolean; bindAddress: string; port: string }
-  traefik: { containerId: string | null; state: ContainerState | 'absent'; health: Health }
-  socketProxy: { containerId: string | null; state: ContainerState | 'absent' }
-  network: { name: string; exists: boolean; attached: number; internal: boolean }
-  routes: number
-}
+export const ShareMode = named(z.enum(['public', 'protected']), 'ShareMode')
+export type ShareMode = z.infer<typeof ShareMode>
 
-export interface OverviewCounts {
-  projects: number
-  integratedProjects: number
-  services: number
-  servicesRunning: number
-  servicesHealthy: number
-  servicesUnhealthy: number
-  containersTotal: number
-  containersRunning: number
-  containersGateway: number
-  containersIntegrated: number
-  containersExternal: number
-  containersStandalone: number
-  bridges: number
-  forwarders: number
-  routes: number
-  shares: number
-  /** Shares that expired or whose target container is gone. */
-  sharesStale: number
-}
+export const ShareState = named(z.enum(['active', 'expired', 'dangling']), 'ShareState')
+export type ShareState = z.infer<typeof ShareState>
 
-export interface Overview {
-  gateway: GatewayStatus
-  counts: OverviewCounts
-  urls: RouteUrl[]
-  problems: Diagnostic[]
-  generatedAt: number
-}
+export const Share = named(
+  z.object({
+    id: z.string(),
+    project: z.string(),
+    service: z.string(),
+    container: z.string().describe('Unique container name used as the Traefik backend'),
+    port: z.number().int(),
+    host: z.string(),
+    url: z.string(),
+    mode: ShareMode,
+    user: z.string().nullable().describe('Username for a protected share; never a password'),
+    createdAt: unixSeconds,
+    expiresAt: unixSeconds,
+    expiresInSeconds: z.number(),
+    state: ShareState,
+  }).strict(),
+  'Share',
+)
+export type Share = z.infer<typeof Share>
 
-export interface NetworkSummary {
-  id: string
-  name: string
-  driver: string
-  scope: string
-  internal: boolean
-  containerCount: number
-  managed: boolean
-  role: 'shared' | 'control' | 'access' | 'project' | 'other'
-}
+export const ShareView = named(
+  z.object({
+    shares: z.array(Share),
+    domain: z.string().describe('Domain reserved for temporary share hostnames'),
+    publicAllowed: z.boolean().describe('Whether a public share would be accepted'),
+    maxTtlSeconds: z.number().int(),
+  }).strict(),
+  'ShareView',
+)
+export type ShareView = z.infer<typeof ShareView>
 
-export interface PortUsage {
-  hostPort: number
-  protocol: string
-  bindings: { ip: string; containerId: string; containerName: string; ownership: Ownership; containerPort: number }[]
-  conflict: boolean
-}
+export const Diagnostic = named(
+  z.object({
+    id: z.string(),
+    status: z.enum(['pass', 'warn', 'fail']),
+    title: z.string(),
+    detail: z.string(),
+    fix: z.string(),
+  }).strict(),
+  'Diagnostic',
+)
+export type Diagnostic = z.infer<typeof Diagnostic>
 
-export interface DockerHost {
-  engine: {
-    version: string
-    apiVersion: string
-    os: string
-    arch: string
-    cpus: number
-    memoryBytes: number
-    name: string
-  }
-  containers: { total: number; running: number; paused: number; stopped: number }
-  byOwnership: { gateway: number; integrated: number; external: number; standalone: number }
-  networks: NetworkSummary[]
-  ports: PortUsage[]
-}
+const GatewayTls = z.object({ enabled: z.boolean(), mode: z.string() }).strict()
+const GatewayTailscale = z.object({ enabled: z.boolean(), running: z.boolean(), hostname: z.string() }).strict()
+const GatewayPublicAccess = z.object({ enabled: z.boolean(), domain: z.string().nullable() }).strict()
+const GatewayPanel = z.object({
+  expose: z.string(),
+  routed: z.boolean(),
+  auth: z.string(),
+  authenticated: z.boolean(),
+  user: z.string(),
+  readOnly: z.boolean(),
+}).strict()
+const GatewayDashboard = z.object({ enabled: z.boolean(), bindAddress: z.string(), port: z.string() }).strict()
+const GatewayComponent = z.object({
+  containerId: z.string().nullable(),
+  state: ContainerState.or(z.literal('absent')),
+  health: Health,
+}).strict()
+const GatewaySocketProxy = z.object({
+  containerId: z.string().nullable(),
+  state: ContainerState.or(z.literal('absent')),
+}).strict()
+const GatewayNetwork = z.object({
+  name: z.string(),
+  exists: z.boolean(),
+  attached: z.number().int(),
+  internal: z.boolean(),
+}).strict()
 
-export interface Bridge {
-  id: string
-  containerId: string
-  project: string
-  service: string
-  targetPort: number
-  localPort: number | null
-  bindIp: string
-  kind: ServiceKind
-  network: string
-  createdAt: number | null
-  expiresAt: number | null
-  state: ContainerState | 'absent'
-  connectionString: string
-}
+export const GatewayStatus = named(
+  z.object({
+    gatewayVersion: z.string(),
+    panelVersion: z.string(),
+    profile: z.string(),
+    domain: z.string(),
+    privateDomain: z.string().nullable(),
+    publicDomain: z.string().nullable(),
+    bindAddress: z.string(),
+    httpPort: z.string(),
+    httpsPort: z.string(),
+    scheme: z.enum(['http', 'https']),
+    up: z.boolean(),
+    reachable: z.boolean(),
+    tls: GatewayTls,
+    tailscale: GatewayTailscale,
+    publicAccess: GatewayPublicAccess,
+    panel: GatewayPanel.describe('Panel exposure and authentication without the secret hash'),
+    dashboard: GatewayDashboard,
+    traefik: GatewayComponent,
+    socketProxy: GatewaySocketProxy,
+    network: GatewayNetwork,
+    routes: z.number().int(),
+  }).strict(),
+  'GatewayStatus',
+)
+export type GatewayStatus = z.infer<typeof GatewayStatus>
 
-export interface Forwarder {
-  alias: string
-  containerId: string
-  project: string
-  service: string
-  port: number
-  kind: ServiceKind
-  state: ContainerState | 'absent'
-  networks: string[]
-}
+export const OverviewCounts = named(
+  z.object({
+    projects: z.number().int(),
+    integratedProjects: z.number().int(),
+    services: z.number().int(),
+    servicesRunning: z.number().int(),
+    servicesHealthy: z.number().int(),
+    servicesUnhealthy: z.number().int(),
+    containersTotal: z.number().int(),
+    containersRunning: z.number().int(),
+    containersGateway: z.number().int(),
+    containersIntegrated: z.number().int(),
+    containersExternal: z.number().int(),
+    containersStandalone: z.number().int(),
+    bridges: z.number().int(),
+    forwarders: z.number().int(),
+    routes: z.number().int(),
+    shares: z.number().int(),
+    sharesStale: z.number().int().describe('Shares that expired or whose target is gone'),
+  }).strict(),
+  'OverviewCounts',
+)
+export type OverviewCounts = z.infer<typeof OverviewCounts>
 
-export interface TcpService {
-  containerId: string
-  project: string
-  service: string
-  image: string
-  kind: ServiceKind
-  tech: ServiceTech
-  state: ContainerState
-  health: Health
-  ports: number[]
-  defaultPort: number | null
-  publishedPorts: PublishedPort[]
-  privateNetworks: string[]
-  bridge: Bridge | null
-  forwarder: Forwarder | null
-  integrated: boolean
-  /** How, or whether, this protocol can be reached by hostname. */
-  routing: TcpRouting
-  /** True when the container carries the TCP router labels that opt it in. */
-  routed: boolean
-  /** `<project>-<service>.<domain>:<port>`, when the gateway is serving it. */
-  gatewayAddress: string | null
-  gatewayConnectionString: string | null
-}
+export const Overview = named(
+  z.object({
+    gateway: GatewayStatus,
+    counts: OverviewCounts,
+    urls: z.array(RouteUrl),
+    problems: z.array(Diagnostic),
+    generatedAt: unixSeconds,
+  }).strict(),
+  'Overview',
+)
+export type Overview = z.infer<typeof Overview>
 
-export interface AccessView {
-  services: TcpService[]
-  bridges: Bridge[]
-  forwarders: Forwarder[]
-  bridgeImageHint: string
-  /** Whether the gateway is publishing the TCP entrypoints at all. */
-  tcpRoutingEnabled: boolean
-}
+export const NetworkSummary = named(
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    driver: z.string(),
+    scope: z.string(),
+    internal: z.boolean(),
+    containerCount: z.number().int(),
+    managed: z.boolean(),
+    role: z.enum(['shared', 'control', 'access', 'project', 'other']),
+  }).strict(),
+  'NetworkSummary',
+)
+export type NetworkSummary = z.infer<typeof NetworkSummary>
 
-export interface NetworkView {
-  gateway: GatewayStatus
-  domains: {
-    local: string
-    private: string | null
-    public: string | null
-    scheme: 'http' | 'https'
-  }
-  routes: {
-    project: string | null
-    service: string | null
-    containerId: string
-    containerName: string
-    state: ContainerState
-    urls: RouteUrl[]
-    port: string
-  }[]
-  networks: NetworkSummary[]
-  tailscale: {
-    enabled: boolean
-    running: boolean
-    hostname: string
-    state: ContainerState | 'absent'
-    health: Health
-  }
-  dns: {
-    provider: string
-    cloudflareEnabled: boolean
-    zone: string | null
-  }
-  tls: {
-    enabled: boolean
-    mode: string
-    acmeEmailSet: boolean
-    caServer: string
-  }
-}
+const PortBinding = z.object({
+  ip: z.string(),
+  containerId: z.string(),
+  containerName: z.string(),
+  ownership: Ownership,
+  containerPort: z.number().int(),
+}).strict()
 
-export interface ConfigField {
-  key: string
-  /** Never populated for a secret: the panel reports only whether it is set. */
-  value: string | null
-  runtimeValue: string | null
-  secret: boolean
-  isSet: boolean
-  /** The saved value differs from what the running gateway was started with. */
-  pending: boolean
-  kind: 'boolean' | 'string' | 'number' | 'choice'
-  choices?: string[]
-  group: string
-  label: string
-  help: string
-  restartRequired: boolean
-}
+export const PortUsage = named(
+  z.object({
+    hostPort: z.number().int(),
+    protocol: z.string(),
+    bindings: z.array(PortBinding),
+    conflict: z.boolean(),
+  }).strict(),
+  'PortUsage',
+)
+export type PortUsage = z.infer<typeof PortUsage>
 
-export interface ConfigView {
-  fields: ConfigField[]
-  envFile: { path: string; exists: boolean; writable: boolean }
-  pendingRestart: boolean
-  /** What to run on the host to make saved changes take effect. */
-  applyCommand: string
-  groups: string[]
-}
+export const DockerHost = named(
+  z.object({
+    engine: z.object({
+      version: z.string(),
+      apiVersion: z.string(),
+      os: z.string(),
+      arch: z.string(),
+      cpus: z.number().int(),
+      memoryBytes: z.number(),
+      name: z.string(),
+    }).strict(),
+    containers: z.object({
+      total: z.number().int(),
+      running: z.number().int(),
+      paused: z.number().int(),
+      stopped: z.number().int(),
+    }).strict(),
+    byOwnership: z.object({
+      gateway: z.number().int(),
+      integrated: z.number().int(),
+      external: z.number().int(),
+      standalone: z.number().int(),
+    }).strict(),
+    networks: z.array(NetworkSummary),
+    ports: z.array(PortUsage),
+  }).strict(),
+  'DockerHost',
+)
+export type DockerHost = z.infer<typeof DockerHost>
 
-export interface ConfigPatchResult {
-  ok: boolean
-  saved: string[]
-  pendingRestart: boolean
-  applyCommand: string
-  /** Present when the save also rewrote a generated Traefik file. */
-  dynamic?: { file: string; written: boolean; reason: string }
-  view: ConfigView
-}
+export const Bridge = named(
+  z.object({
+    id: z.string(),
+    containerId: z.string(),
+    project: z.string(),
+    service: z.string(),
+    targetPort: z.number().int(),
+    localPort: z.number().int().nullable(),
+    bindIp: z.string(),
+    kind: ServiceKind,
+    network: z.string(),
+    createdAt: unixSeconds.nullable(),
+    expiresAt: unixSeconds.nullable(),
+    state: ContainerState.or(z.literal('absent')),
+    connectionString: z.string(),
+  }).strict(),
+  'Bridge',
+)
+export type Bridge = z.infer<typeof Bridge>
 
-export interface LogsResponse {
-  containerId: string
-  name: string
-  lines: { stream: 'stdout' | 'stderr'; timestamp: string | null; text: string }[]
-  truncated: boolean
-}
+export const Forwarder = named(
+  z.object({
+    alias: z.string(),
+    containerId: z.string(),
+    project: z.string(),
+    service: z.string(),
+    port: z.number().int(),
+    kind: ServiceKind,
+    state: ContainerState.or(z.literal('absent')),
+    networks: z.array(z.string()),
+  }).strict(),
+  'Forwarder',
+)
+export type Forwarder = z.infer<typeof Forwarder>
 
-export interface ActionResult {
-  ok: boolean
-  action: string
-  containerId: string
-  message: string
-}
+export const TcpService = named(
+  z.object({
+    containerId: z.string(),
+    project: z.string(),
+    service: z.string(),
+    image: z.string(),
+    kind: ServiceKind,
+    tech: ServiceTech,
+    state: ContainerState,
+    health: Health,
+    ports: z.array(z.number().int()),
+    defaultPort: z.number().int().nullable(),
+    publishedPorts: z.array(PublishedPort),
+    privateNetworks: z.array(z.string()),
+    bridge: Bridge.nullable(),
+    forwarder: Forwarder.nullable(),
+    integrated: z.boolean(),
+    routing: TcpRouting.describe('How this protocol can be routed by hostname'),
+    routed: z.boolean().describe('Whether the container opted into a TCP router'),
+    gatewayAddress: z.string().nullable(),
+    gatewayConnectionString: z.string().nullable(),
+  }).strict(),
+  'TcpService',
+)
+export type TcpService = z.infer<typeof TcpService>
 
-export interface RemovalPreview {
-  containerId: string
-  name: string
-  image: string
-  ownership: Ownership
-  state: ContainerState
-  project: string | null
-  mounts: MountSummary[]
-  namedVolumes: string[]
-  networks: string[]
-  warnings: string[]
-  allowed: boolean
-}
+export const AccessView = named(
+  z.object({
+    services: z.array(TcpService),
+    bridges: z.array(Bridge),
+    forwarders: z.array(Forwarder),
+    bridgeImageHint: z.string(),
+    tcpRoutingEnabled: z.boolean().describe('Whether TCP entrypoints are currently published'),
+  }).strict(),
+  'AccessView',
+)
+export type AccessView = z.infer<typeof AccessView>
 
-export type LiveEventKind =
-  | 'container'
-  | 'network'
-  | 'bridge'
-  | 'health'
-  | 'project'
-  | 'config'
-  | 'hello'
+const NetworkRoute = z.object({
+  project: z.string().nullable(),
+  service: z.string().nullable(),
+  containerId: z.string(),
+  containerName: z.string(),
+  state: ContainerState,
+  urls: z.array(RouteUrl),
+  port: z.string(),
+}).strict()
 
-export interface LiveEvent {
-  kind: LiveEventKind
-  action: string
-  id: string | null
-  name: string | null
-  project: string | null
-  ownership: Ownership | null
-  at: number
-}
+export const NetworkView = named(
+  z.object({
+    gateway: GatewayStatus,
+    domains: z.object({
+      local: z.string(),
+      private: z.string().nullable(),
+      public: z.string().nullable(),
+      scheme: z.enum(['http', 'https']),
+    }).strict(),
+    routes: z.array(NetworkRoute),
+    networks: z.array(NetworkSummary),
+    tailscale: z.object({
+      enabled: z.boolean(),
+      running: z.boolean(),
+      hostname: z.string(),
+      state: ContainerState.or(z.literal('absent')),
+      health: Health,
+    }).strict(),
+    dns: z.object({
+      provider: z.string(),
+      cloudflareEnabled: z.boolean(),
+      zone: z.string().nullable(),
+    }).strict(),
+    tls: z.object({
+      enabled: z.boolean(),
+      mode: z.string(),
+      acmeEmailSet: z.boolean(),
+      caServer: z.string(),
+    }).strict(),
+  }).strict(),
+  'NetworkView',
+)
+export type NetworkView = z.infer<typeof NetworkView>
 
-export interface ApiError {
-  error: string
-  detail?: string
-  hint?: string
-}
+export const ConfigField = named(
+  z.object({
+    key: z.string(),
+    value: z.string().nullable().describe('Never populated for a secret'),
+    runtimeValue: z.string().nullable(),
+    secret: z.boolean(),
+    isSet: z.boolean(),
+    pending: z.boolean().describe('Saved value differs from the running process'),
+    kind: z.enum(['boolean', 'string', 'number', 'choice']),
+    choices: z.array(z.string()).optional(),
+    group: z.string(),
+    label: z.string(),
+    help: z.string(),
+    restartRequired: z.boolean(),
+  }).strict(),
+  'ConfigField',
+)
+export type ConfigField = z.infer<typeof ConfigField>
+
+export const ConfigView = named(
+  z.object({
+    fields: z.array(ConfigField),
+    envFile: z.object({ path: z.string(), exists: z.boolean(), writable: z.boolean() }).strict(),
+    pendingRestart: z.boolean(),
+    applyCommand: z.string().describe('Host command that applies saved changes'),
+    groups: z.array(z.string()),
+  }).strict(),
+  'ConfigView',
+)
+export type ConfigView = z.infer<typeof ConfigView>
+
+export const ConfigPatchResult = named(
+  z.object({
+    ok: z.boolean(),
+    saved: z.array(z.string()),
+    pendingRestart: z.boolean(),
+    applyCommand: z.string(),
+    dynamic: z.object({
+      file: z.string(),
+      written: z.boolean(),
+      reason: z.string(),
+    }).strict().optional().describe('Present when saving also rewrote a generated Traefik file'),
+    view: ConfigView,
+  }).strict(),
+  'ConfigPatchResult',
+)
+export type ConfigPatchResult = z.infer<typeof ConfigPatchResult>
+
+const LogLine = z.object({
+  stream: z.enum(['stdout', 'stderr']),
+  timestamp: z.string().nullable(),
+  text: z.string(),
+}).strict()
+
+export const LogsResponse = named(
+  z.object({
+    containerId: z.string(),
+    name: z.string(),
+    lines: z.array(LogLine),
+    truncated: z.boolean(),
+  }).strict(),
+  'LogsResponse',
+)
+export type LogsResponse = z.infer<typeof LogsResponse>
+
+export const ActionResult = named(
+  z.object({ ok: z.boolean(), action: z.string(), containerId: z.string(), message: z.string() }).strict(),
+  'ActionResult',
+)
+export type ActionResult = z.infer<typeof ActionResult>
+
+export const RemovalPreview = named(
+  z.object({
+    containerId: z.string(),
+    name: z.string(),
+    image: z.string(),
+    ownership: Ownership,
+    state: ContainerState,
+    project: z.string().nullable(),
+    mounts: z.array(MountSummary),
+    namedVolumes: z.array(z.string()),
+    networks: z.array(z.string()),
+    warnings: z.array(z.string()),
+    allowed: z.boolean(),
+  }).strict(),
+  'RemovalPreview',
+)
+export type RemovalPreview = z.infer<typeof RemovalPreview>
+
+export const LiveEventKind = named(
+  z.enum(['container', 'network', 'bridge', 'health', 'project', 'config', 'hello']),
+  'LiveEventKind',
+)
+export type LiveEventKind = z.infer<typeof LiveEventKind>
+
+export const LiveEvent = named(
+  z.object({
+    kind: LiveEventKind,
+    action: z.string(),
+    id: z.string().nullable(),
+    name: z.string().nullable(),
+    project: z.string().nullable(),
+    ownership: Ownership.nullable(),
+    at: unixSeconds,
+  }).strict(),
+  'LiveEvent',
+)
+export type LiveEvent = z.infer<typeof LiveEvent>
+
+export const ApiError = named(
+  z.object({
+    error: z.string(),
+    detail: z.string().optional(),
+    hint: z.string().optional(),
+  }).strict().describe('Uniform error envelope returned by the panel API'),
+  'ApiError',
+)
+export type ApiError = z.infer<typeof ApiError>
