@@ -48,10 +48,21 @@ async function writeSetting(key: string, value: string, command: Command): Promi
 export async function publicEnable(command: Command): Promise<void> {
   const global = globals(command)
   const context = gatewayContext({ profile: global.profile })
-  if (!context.config.publicDomain) throw new PreconditionError('PUBLIC_DOMAIN is required before public access can be enabled')
+  // A derived base is a domain. Requiring PUBLIC_DOMAIN on top of it would mean
+  // buying one to publish on a name that already resolves here.
+  // See docs/adr/0022-project-domain-modes.md.
+  const publicDomain = context.config.publicDomain
+    ?? (context.config.domainMode !== 'local' && context.config.domain !== 'localhost' ? context.config.domain : null)
+  if (!publicDomain) {
+    throw new PreconditionError(
+      'public access needs a domain, and this host has only localhost',
+      'portta config set domain.mode auto   derives one from this host\'s address',
+    )
+  }
   if (context.config.tcpEnabled) throw new RefusedError('public access cannot be enabled while TCP entrypoints are active')
-  await confirm(`expose opted-in HTTP services on *.${context.config.publicDomain}?`, global.yes === true)
+  await confirm(`expose opted-in HTTP services on *.${publicDomain}?`, global.yes === true)
   await writeSetting('PUBLIC_ENABLED', 'true', command)
+  if (!context.config.publicDomain) await writeSetting('PUBLIC_DOMAIN', publicDomain, command)
   await writeSetting('PORTTA_PROFILE', 'remote-public', command)
   const refreshed = gatewayContext({ profile: 'remote-public' })
   await runProcess('docker', ['compose', ...refreshed.composeFiles.flatMap((file) => ['-f', join(refreshed.root, file)]), 'up', '-d'], { cwd: refreshed.root, env: refreshed.env, stdio: 'inherit' })

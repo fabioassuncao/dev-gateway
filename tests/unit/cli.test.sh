@@ -103,6 +103,18 @@ for c in status doctor urls inspect; do
   assert_not_contains "$("$GW" "$c" 2>/dev/null | head -2)" "EPIPE"
 done
 
+describe "public access accepts a derived base domain"
+
+# Requiring PUBLIC_DOMAIN on top of an auto base would mean buying a domain to
+# publish on a name that already resolves here.
+it "the derived base is offered when PUBLIC_DOMAIN is unset"
+assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/network.ts")" "context.config.domainMode !== 'local'"
+
+it "and localhost is still refused, with the way out named"
+network="$(cat "$PORTTA_ROOT/packages/cli/src/commands/network.ts")"
+assert_contains "$network" 'public access needs a domain, and this host has only localhost'
+assert_contains "$network" 'portta config set domain.mode auto'
+
 describe "one doctor, two surfaces"
 # The deep diagnostics live in scripts/doctor.sh. The TypeScript CLI runs it
 # rather than reimplementing a thinner version, so `portta doctor` and
