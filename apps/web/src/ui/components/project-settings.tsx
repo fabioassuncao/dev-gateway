@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../lib/api.ts'
 import type { Project } from '../../shared/types.ts'
 import { Dialog } from './ui/dialog.tsx'
@@ -8,14 +9,6 @@ import { Input, Select } from './ui/field.tsx'
 import { ErrorBox } from './shell-bits.tsx'
 import { Switch } from './ui/switch.tsx'
 
-/**
- * What the gateway decided about this project.
- *
- * Everything here is presentation, stored in the gateway's own database. Not a
- * byte is written inside the project: no file, no label, no dependency, no
- * commit. The derived name is shown beside the override rather than replaced,
- * so nobody ever debugs a project the panel quietly renamed.
- */
 export function ProjectSettingsDialog({
   project,
   open,
@@ -25,6 +18,8 @@ export function ProjectSettingsDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'settings.overrides' })
+  const { t: tc } = useTranslation('common')
   const queryClient = useQueryClient()
   const query = useQuery({
     queryKey: ['project-settings', project.name],
@@ -81,12 +76,12 @@ export function ProjectSettingsDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={`Settings for ${project.name}`}
-      description="Kept in the gateway's own database. Nothing is written inside the project."
+      title={t('title', { defaultValue: 'Settings for {{name}}', name: project.name })}
+      description={t('description')}
       footer={
         <>
           <Button size="sm" disabled={reset.isPending || unavailable} onClick={() => reset.mutate()}>
-            Reset
+            {t('reset', { defaultValue: 'Reset' })}
           </Button>
           <Button
             size="sm"
@@ -94,7 +89,7 @@ export function ProjectSettingsDialog({
             disabled={save.isPending || unavailable}
             onClick={() => save.mutate()}
           >
-            Save
+            {tc('save')}
           </Button>
         </>
       }
@@ -103,35 +98,38 @@ export function ProjectSettingsDialog({
 
       <div className="space-y-3">
         <label className="block">
-          <span className="text-xs text-subtle">Display name</span>
+          <span className="text-xs text-subtle">{t('displayName')}</span>
           <Input
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
             placeholder={project.name}
-            aria-label="Display name"
+            aria-label={t('displayName')}
           />
           <span className="mt-0.5 block text-[11px] text-subtle">
-            Derived name stays {project.name}, and is always shown beside this.
+            {t('derivedNameHint', {
+              defaultValue: 'Derived name stays {{name}}, and is always shown beside this.',
+              name: project.name,
+            })}
           </span>
         </label>
 
         <label className="block">
-          <span className="text-xs text-subtle">Description</span>
+          <span className="text-xs text-subtle">{t('descriptionLabel')}</span>
           <Input
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            aria-label="Description"
+            aria-label={t('descriptionLabel')}
           />
         </label>
 
         <label className="block">
-          <span className="text-xs text-subtle">Primary service</span>
+          <span className="text-xs text-subtle">{t('primaryService')}</span>
           <Select
             value={primaryService}
             onChange={(event) => setPrimaryService(event.target.value)}
-            aria-label="Primary service"
+            aria-label={t('primaryService')}
           >
-            <option value="">None</option>
+            <option value="">{t('none', { defaultValue: 'None' })}</option>
             {names.map((name) => (
               <option key={name} value={name}>
                 {name}
@@ -141,8 +139,10 @@ export function ProjectSettingsDialog({
         </label>
 
         <fieldset className="space-y-1">
-          <legend className="text-xs text-subtle">Collapsed services</legend>
-          <p className="text-[11px] text-subtle">Collapsed by default, never removed.</p>
+          <legend className="text-xs text-subtle">{t('collapsedServices', { defaultValue: 'Collapsed services' })}</legend>
+          <p className="text-[11px] text-subtle">
+            {t('collapsedServicesHint', { defaultValue: 'Collapsed by default, never removed.' })}
+          </p>
           {names.map((name) => (
             <label key={name} className="flex items-center gap-2 text-sm">
               <input
@@ -162,12 +162,12 @@ export function ProjectSettingsDialog({
         </fieldset>
 
         <div className="flex items-center justify-between gap-3">
-          <span className="text-sm">Pinned</span>
-          <Switch checked={pinned} onCheckedChange={setPinned} aria-label="Pinned" />
+          <span className="text-sm">{t('pinned')}</span>
+          <Switch checked={pinned} onCheckedChange={setPinned} aria-label={t('pinned')} />
         </div>
         <div className="flex items-center justify-between gap-3">
-          <span className="text-sm">Archived</span>
-          <Switch checked={archived} onCheckedChange={setArchived} aria-label="Archived" />
+          <span className="text-sm">{t('archived')}</span>
+          <Switch checked={archived} onCheckedChange={setArchived} aria-label={t('archived')} />
         </div>
       </div>
     </Dialog>

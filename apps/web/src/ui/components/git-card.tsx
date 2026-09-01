@@ -1,22 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { GitBranch, GitPullRequest } from 'lucide-react'
 import { api } from '../lib/api.ts'
-import { relativeTime } from '../lib/format.ts'
+import { useFormat } from '../lib/use-format.ts'
 import { Badge } from './ui/badge.tsx'
 import type { ForgePullRequest, ProjectGit } from '../../shared/types.ts'
 
-/**
- * What the host collected about this project's repository.
- *
- * Nothing here is live, and the card never implies otherwise: the age of the
- * scan is always on screen, anything past the threshold says so, and the
- * command that refreshes it is right there. The panel cannot run it.
- */
 export function GitCard({ project }: { project: string }) {
   const query = useQuery({
     queryKey: ['project-git', project],
     queryFn: () => api.projectGit(project),
-    // A file on a mount, read on request. There is nothing to poll.
     staleTime: 30_000,
   })
 
@@ -24,8 +17,6 @@ export function GitCard({ project }: { project: string }) {
   if (!data) return null
 
   if (!data.collected) return <NotCollected data={data} />
-  // A project without Git gets no Git block, which is the whole point of the
-  // degradation: fewer sections, never an error.
   if (!data.git) return null
 
   return (
@@ -37,21 +28,19 @@ export function GitCard({ project }: { project: string }) {
 }
 
 export function NotCollected({ data }: { data: ProjectGit }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'project.git' })
+
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line px-4 py-2 text-xs text-subtle">
       <GitBranch className="h-3.5 w-3.5" />
-      <span>No Git metadata collected for this project.</span>
+      <span>{t('empty')}.</span>
       <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono">{data.refreshCommand}</code>
     </div>
   )
 }
 
-/**
- * Open pull requests, when `git scan --with-prs` could ask `gh`. Absent `gh`,
- * a signed-out `gh` and a remote on a forge `gh` cannot talk to all render
- * nothing at all, which is the documented degradation rather than an error.
- */
 export function ForgeRow({ data }: { data: ProjectGit }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'project.git' })
   const forge = data.forge
   if (!forge || !forge.authenticated) return null
 
@@ -61,8 +50,13 @@ export function ForgeRow({ data }: { data: ProjectGit }) {
         <GitPullRequest className="h-3.5 w-3.5" />
         <span className="font-medium text-ink">
           {forge.pulls.length === 0
-            ? 'No open pull requests'
-            : `${forge.pulls.length} open pull ${forge.pulls.length === 1 ? 'request' : 'requests'}`}
+            ? t('noOpenPullRequests', { defaultValue: 'No open pull requests' })
+            : forge.pulls.length === 1
+              ? t('oneOpenPullRequest', { defaultValue: '1 open pull request' })
+              : t('openPullRequests', {
+                  defaultValue: '{{count}} open pull requests',
+                  count: forge.pulls.length,
+                })}
         </span>
       </span>
       {forge.pulls.slice(0, 4).map((pull) => (
@@ -73,13 +67,14 @@ export function ForgeRow({ data }: { data: ProjectGit }) {
 }
 
 export function PullRequest({ pull }: { pull: ForgePullRequest }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'project.git' })
   const review =
     pull.reviewDecision === 'APPROVED'
-      ? { tone: 'ok' as const, label: 'approved' }
+      ? { tone: 'ok' as const, label: t('approved', { defaultValue: 'approved' }) }
       : pull.reviewDecision === 'CHANGES_REQUESTED'
-        ? { tone: 'danger' as const, label: 'changes requested' }
+        ? { tone: 'danger' as const, label: t('changesRequested', { defaultValue: 'changes requested' }) }
         : pull.reviewDecision === 'REVIEW_REQUIRED'
-          ? { tone: 'warn' as const, label: 'review requested' }
+          ? { tone: 'warn' as const, label: t('reviewRequested', { defaultValue: 'review requested' }) }
           : null
 
   return (
@@ -98,20 +93,22 @@ export function PullRequest({ pull }: { pull: ForgePullRequest }) {
           #{pull.number} {pull.title}
         </span>
       )}
-      {pull.draft ? <Badge>draft</Badge> : null}
+      {pull.draft ? <Badge>{t('draft', { defaultValue: 'draft' })}</Badge> : null}
       {review ? <Badge tone={review.tone}>{review.label}</Badge> : null}
       {pull.checks === 'failing' ? (
-        <Badge tone="danger">checks failing</Badge>
+        <Badge tone="danger">{t('checksFailing', { defaultValue: 'checks failing' })}</Badge>
       ) : pull.checks === 'pending' ? (
-        <Badge tone="warn">checks pending</Badge>
+        <Badge tone="warn">{t('checksPending', { defaultValue: 'checks pending' })}</Badge>
       ) : pull.checks === 'passing' ? (
-        <Badge tone="ok">checks passing</Badge>
+        <Badge tone="ok">{t('checksPassing', { defaultValue: 'checks passing' })}</Badge>
       ) : null}
     </span>
   )
 }
 
 export function GitRow({ data }: { data: ProjectGit }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'project.git' })
+  const { relativeTime } = useFormat()
   const git = data.git!
   const head = git.head
   const changed = git.staged + git.unstaged + git.untracked + git.unmerged
@@ -121,7 +118,7 @@ export function GitRow({ data }: { data: ProjectGit }) {
       <span className="flex items-center gap-1.5 text-muted">
         <GitBranch className="h-3.5 w-3.5" />
         {git.detached ? (
-          <Badge tone="warn">detached HEAD</Badge>
+          <Badge tone="warn">{t('detachedHead', { defaultValue: 'detached HEAD' })}</Badge>
         ) : data.links.branch ? (
           <a
             className="font-medium text-ink underline-offset-2 hover:text-accent hover:underline"
@@ -157,13 +154,20 @@ export function GitRow({ data }: { data: ProjectGit }) {
       <span className="flex items-center gap-1.5">
         {changed > 0 ? (
           <Badge tone="warn">
-            {changed} uncommitted {changed === 1 ? 'change' : 'changes'}
+            {t('uncommittedChanges', {
+              defaultValue: '{{count}} uncommitted changes',
+              count: changed,
+            })}
           </Badge>
         ) : (
-          <Badge tone="ok">clean</Badge>
+          <Badge tone="ok">{t('clean', { defaultValue: 'clean' })}</Badge>
         )}
-        {git.ahead > 0 ? <Badge tone="outline">{git.ahead} ahead</Badge> : null}
-        {git.behind > 0 ? <Badge tone="outline">{git.behind} behind</Badge> : null}
+        {git.ahead > 0 ? (
+          <Badge tone="outline">{t('ahead', { defaultValue: '{{count}} ahead', count: git.ahead })}</Badge>
+        ) : null}
+        {git.behind > 0 ? (
+          <Badge tone="outline">{t('behind', { defaultValue: '{{count}} behind', count: git.behind })}</Badge>
+        ) : null}
       </span>
 
       <span className="ml-auto flex items-center gap-2 text-subtle">
@@ -177,11 +181,21 @@ export function GitRow({ data }: { data: ProjectGit }) {
             {data.remote.slug}
           </a>
         ) : null}
-        <span title={data.stale ? `older than ${data.staleAfterSeconds}s` : undefined}>
+        <span title={data.stale ? t('staleHint', { seconds: data.staleAfterSeconds, defaultValue: 'older than {{seconds}}s' }) : undefined}>
           {data.stale ? (
-            <Badge tone="warn">collected {relativeTime(data.collectedAt)}</Badge>
+            <Badge tone="warn">
+              {t('collectedAgo', {
+                defaultValue: 'collected {{time}}',
+                time: relativeTime(data.collectedAt),
+              })}
+            </Badge>
           ) : (
-            <>collected {relativeTime(data.collectedAt)}</>
+            <>
+              {t('collectedAgo', {
+                defaultValue: 'collected {{time}}',
+                time: relativeTime(data.collectedAt),
+              })}
+            </>
           )}
         </span>
       </span>

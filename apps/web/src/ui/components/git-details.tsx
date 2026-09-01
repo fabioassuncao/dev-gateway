@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { GitBranch } from 'lucide-react'
 import { api } from '../lib/api.ts'
-import { relativeTime } from '../lib/format.ts'
+import { useFormat } from '../lib/use-format.ts'
 import { Badge } from './ui/badge.tsx'
 import { Card, CardBody, CardHeader } from './ui/card.tsx'
 import { Empty, KeyValue, Loading } from './shell-bits.tsx'
@@ -9,21 +10,15 @@ import { Mono } from './copy.tsx'
 import { NotCollected, PullRequest } from './git-card.tsx'
 import type { ProjectGit } from '../../shared/types.ts'
 
-/**
- * The whole of `ProjectGit`, with the room the project card never had.
- *
- * Still not live, and still not refreshable from here: ADR 0010 puts the scan
- * on the host, so the age and the exact host command stay on screen and there
- * is deliberately no button that would appear to run one.
- */
 export function GitDetails({ project }: { project: string }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'project.git' })
   const query = useQuery({
     queryKey: ['project-git', project],
     queryFn: () => api.projectGit(project),
     staleTime: 30_000,
   })
 
-  if (query.isPending) return <Loading label="Reading collected Git metadata" />
+  if (query.isPending) return <Loading label={t('reading')} />
 
   const data = query.data
   if (!data) return null
@@ -38,8 +33,8 @@ export function GitDetails({ project }: { project: string }) {
     return (
       <Card>
         <Empty
-          title="This project has no Git repository"
-          hint={data.reason ?? 'Nothing was found to scan under this project’s working directory.'}
+          title={t('noRepository', { defaultValue: 'This project has no Git repository' })}
+          hint={data.reason ?? t('noRepositoryHint', { defaultValue: 'Nothing was found to scan under this project\'s working directory.' })}
         />
       </Card>
     )
@@ -54,6 +49,8 @@ export function GitDetails({ project }: { project: string }) {
 }
 
 function RepositoryCard({ data }: { data: ProjectGit }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'project.git' })
+  const { relativeTime } = useFormat()
   const git = data.git!
   const head = git.head
   const changed = git.staged + git.unstaged + git.untracked + git.unmerged
@@ -65,7 +62,7 @@ function RepositoryCard({ data }: { data: ProjectGit }) {
           <span className="flex flex-wrap items-center gap-2">
             <GitBranch className="h-4 w-4 text-muted" />
             {git.detached ? (
-              <Badge tone="warn">detached HEAD</Badge>
+              <Badge tone="warn">{t('detachedHead', { defaultValue: 'detached HEAD' })}</Badge>
             ) : data.links.branch ? (
               <a
                 className="underline-offset-2 hover:text-accent hover:underline"
@@ -80,17 +77,27 @@ function RepositoryCard({ data }: { data: ProjectGit }) {
             )}
             {changed > 0 ? (
               <Badge tone="warn">
-                {changed} uncommitted {changed === 1 ? 'change' : 'changes'}
+                {t('uncommittedChanges', {
+                  defaultValue: '{{count}} uncommitted changes',
+                  count: changed,
+                })}
               </Badge>
             ) : (
-              <Badge tone="ok">clean</Badge>
+              <Badge tone="ok">{t('clean', { defaultValue: 'clean' })}</Badge>
             )}
           </span>
         }
         description={
           data.stale
-            ? `Collected ${relativeTime(data.collectedAt)} · older than ${data.staleAfterSeconds}s`
-            : `Collected ${relativeTime(data.collectedAt)}`
+            ? t('collectedStale', {
+                defaultValue: 'Collected {{time}} · older than {{seconds}}s',
+                time: relativeTime(data.collectedAt),
+                seconds: data.staleAfterSeconds,
+              })
+            : t('collectedAt', {
+                defaultValue: 'Collected {{time}}',
+                time: relativeTime(data.collectedAt),
+              })
         }
       />
       <CardBody>
@@ -110,28 +117,40 @@ function RepositoryCard({ data }: { data: ProjectGit }) {
             )}
             {head.subject ? <span className="ml-2 text-muted">{head.subject}</span> : null}
           </KeyValue>
-          {head.author ? <KeyValue label="Author">{head.author}</KeyValue> : null}
-          <KeyValue label="Working tree">
+          {head.author ? <KeyValue label={t('author', { defaultValue: 'Author' })}>{head.author}</KeyValue> : null}
+          <KeyValue label={t('workingTree', { defaultValue: 'Working tree' })}>
             <span className="flex flex-wrap items-center gap-1.5">
-              <Badge tone={git.staged > 0 ? 'warn' : 'outline'}>{git.staged} staged</Badge>
-              <Badge tone={git.unstaged > 0 ? 'warn' : 'outline'}>{git.unstaged} unstaged</Badge>
-              <Badge tone={git.untracked > 0 ? 'warn' : 'outline'}>{git.untracked} untracked</Badge>
-              <Badge tone={git.unmerged > 0 ? 'danger' : 'outline'}>{git.unmerged} unmerged</Badge>
+              <Badge tone={git.staged > 0 ? 'warn' : 'outline'}>
+                {t('staged', { defaultValue: '{{count}} staged', count: git.staged })}
+              </Badge>
+              <Badge tone={git.unstaged > 0 ? 'warn' : 'outline'}>
+                {t('unstaged', { defaultValue: '{{count}} unstaged', count: git.unstaged })}
+              </Badge>
+              <Badge tone={git.untracked > 0 ? 'warn' : 'outline'}>
+                {t('untracked', { defaultValue: '{{count}} untracked', count: git.untracked })}
+              </Badge>
+              <Badge tone={git.unmerged > 0 ? 'danger' : 'outline'}>
+                {t('unmerged', { defaultValue: '{{count}} unmerged', count: git.unmerged })}
+              </Badge>
             </span>
           </KeyValue>
-          <KeyValue label="Upstream">
+          <KeyValue label={t('upstream', { defaultValue: 'Upstream' })}>
             {git.upstream ? (
               <span className="flex flex-wrap items-center gap-1.5">
                 <span className="font-mono text-xs">{git.upstream}</span>
-                <Badge tone={git.ahead > 0 ? 'accent' : 'outline'}>{git.ahead} ahead</Badge>
-                <Badge tone={git.behind > 0 ? 'warn' : 'outline'}>{git.behind} behind</Badge>
+                <Badge tone={git.ahead > 0 ? 'accent' : 'outline'}>
+                  {t('ahead', { defaultValue: '{{count}} ahead', count: git.ahead })}
+                </Badge>
+                <Badge tone={git.behind > 0 ? 'warn' : 'outline'}>
+                  {t('behind', { defaultValue: '{{count}} behind', count: git.behind })}
+                </Badge>
               </span>
             ) : (
-              <span className="text-subtle">No upstream branch</span>
+              <span className="text-subtle">{t('noUpstream', { defaultValue: 'No upstream branch' })}</span>
             )}
           </KeyValue>
           {data.remote ? (
-            <KeyValue label="Remote">
+            <KeyValue label={t('remote', { defaultValue: 'Remote' })}>
               <a
                 className="underline-offset-2 hover:text-accent hover:underline"
                 href={data.remote.repoUrl}
@@ -144,11 +163,11 @@ function RepositoryCard({ data }: { data: ProjectGit }) {
             </KeyValue>
           ) : null}
           {data.workingDir ? (
-            <KeyValue label="Scanned directory">
+            <KeyValue label={t('scannedDirectory', { defaultValue: 'Scanned directory' })}>
               <Mono value={data.workingDir} />
             </KeyValue>
           ) : null}
-          <KeyValue label="Refresh on the host">
+          <KeyValue label={t('refreshOnHost', { defaultValue: 'Refresh on the host' })}>
             <Mono value={data.refreshCommand} />
           </KeyValue>
         </dl>
@@ -157,26 +176,38 @@ function RepositoryCard({ data }: { data: ProjectGit }) {
   )
 }
 
-/** Every open pull request, not the first four the card had room for. */
 function PullRequestsCard({ data }: { data: ProjectGit }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'project.git' })
+  const { relativeTime } = useFormat()
   const forge = data.forge
 
   return (
     <Card>
       <CardHeader
-        title="Open pull requests"
-        description={forge ? `Collected ${relativeTime(forge.collectedAt)} from ${forge.kind}` : undefined}
+        title={t('openPullRequestsTitle', { defaultValue: 'Open pull requests' })}
+        description={
+          forge
+            ? t('collectedFrom', {
+                defaultValue: 'Collected {{time}} from {{kind}}',
+                time: relativeTime(forge.collectedAt),
+                kind: forge.kind,
+              })
+            : undefined
+        }
       />
       {!forge || !forge.authenticated ? (
         <Empty
-          title="No pull requests were collected"
+          title={t('noPullRequestsCollected', { defaultValue: 'No pull requests were collected' })}
           hint={
             forge?.reason ??
-            'Run dev-gateway git scan --with-prs on the host with gh installed and signed in.'
+            t('noPullRequestsHint', {
+              defaultValue:
+                'Run dev-gateway git scan --with-prs on the host with gh installed and signed in.',
+            })
           }
         />
       ) : forge.pulls.length === 0 ? (
-        <Empty title="No open pull requests" />
+        <Empty title={t('noOpenPullRequests', { defaultValue: 'No open pull requests' })} />
       ) : (
         <div>
           {forge.pulls.map((pull) => (

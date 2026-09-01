@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { RotateCw, SlidersHorizontal } from 'lucide-react'
 import { api, ApiError } from '../lib/api.ts'
 import type { ContainerSummary, Project } from '../../shared/types.ts'
@@ -20,21 +21,14 @@ import { ProjectSettingsDialog } from '../components/project-settings.tsx'
 import { ServiceAlias } from '../components/service-alias.tsx'
 import { ProjectLogs } from '../components/project-logs.tsx'
 import { Mono } from '../components/copy.tsx'
-import { uptime, shortImage } from '../lib/format.ts'
+import { useFormat } from '../lib/use-format.ts'
 import { useDocumentTitle } from '../lib/title.ts'
 import { navigate } from '../lib/router.ts'
+import { useIssueStatuses } from '../i18n/use-issue-statuses.ts'
 
 const TABS = ['overview', 'services', 'git', 'logs'] as const
 export type ProjectTab = (typeof TABS)[number]
 
-const LABELS: Record<ProjectTab, string> = {
-  overview: 'Overview',
-  services: 'Services',
-  git: 'Git',
-  logs: 'Logs',
-}
-
-/** An unknown tab is not an error: it falls back to the first one. */
 export function resolveTab(requested: string | null): ProjectTab {
   return TABS.includes(requested as ProjectTab) ? (requested as ProjectTab) : 'overview'
 }
@@ -44,8 +38,9 @@ export function ProjectPage({ project: name, tab: requested, service }: {
   tab: string | null
   service: string | null
 }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'project' })
   const tab = resolveTab(requested)
-  useDocumentTitle(tab === 'overview' ? null : LABELS[tab], name)
+  useDocumentTitle(tab === 'overview' ? null : t(`tabs.${tab}`), name)
 
   const query = useQuery({
     queryKey: ['project', name],
@@ -55,8 +50,6 @@ export function ProjectPage({ project: name, tab: requested, service }: {
 
   if (query.isPending) return <Loading />
 
-  // A project can stop between the list and this page. The endpoint says so
-  // with a 404 and a sentence; render that as a state, never as a stack.
   if (query.error) {
     const missing = query.error instanceof ApiError && query.error.status === 404
     if (!missing) return <ErrorBox error={query.error} />
@@ -65,10 +58,10 @@ export function ProjectPage({ project: name, tab: requested, service }: {
         <PageHeader title={name} />
         <Card>
           <Empty
-            title={`No project '${name}' is running`}
+            title={t('notFound', { name })}
             hint={
               <a className="text-accent hover:underline" href="#/projects">
-                Back to all projects
+                {t('backToAll', { defaultValue: 'Back to all projects' })}
               </a>
             }
           />
@@ -80,7 +73,7 @@ export function ProjectPage({ project: name, tab: requested, service }: {
   const project = query.data!
   const tabs: TabDefinition[] = TABS.map((id) => ({
     id,
-    label: LABELS[id],
+    label: t(`tabs.${id}`),
     href: `/projects/${encodeURIComponent(name)}/${id}`,
   }))
 
@@ -99,6 +92,9 @@ export function ProjectPage({ project: name, tab: requested, service }: {
 }
 
 function ProjectHeader({ project }: { project: Project }) {
+  const { t: tp } = useTranslation('projects')
+  const { t: tn } = useTranslation('nav')
+  const { uptime } = useFormat()
   const queryClient = useQueryClient()
   const [settingsOpen, setSettingsOpen] = useState(false)
 
@@ -120,10 +116,9 @@ function ProjectHeader({ project }: { project: Project }) {
         title={shown}
         description={
           [
-            // The derived name is never replaced, only accompanied.
-            project.overrides?.displayName ? `derived name ${project.name}` : null,
+            project.overrides?.displayName ? tp('derivedName', { name: project.name }) : null,
             project.overrides?.description ?? null,
-            project.uptimeSeconds !== null ? `up ${uptime(project.uptimeSeconds)}` : null,
+            project.uptimeSeconds !== null ? tp('up', { time: uptime(project.uptimeSeconds) }) : null,
             project.workingDir,
           ]
             .filter(Boolean)
@@ -132,15 +127,15 @@ function ProjectHeader({ project }: { project: Project }) {
         actions={
           <>
             <Button size="sm" onClick={() => navigate('/projects')}>
-              All projects
+              {tp('allProjects', { defaultValue: 'All projects' })}
             </Button>
             <Button size="sm" onClick={() => setSettingsOpen(true)}>
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              Settings
+              {tn('settings')}
             </Button>
             <Button size="sm" disabled={restart.isPending} onClick={() => restart.mutate()}>
               <RotateCw className={restart.isPending ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
-              Restart services
+              {tp('restartServices')}
             </Button>
           </>
         }
@@ -153,23 +148,27 @@ function ProjectHeader({ project }: { project: Project }) {
 }
 
 function OverviewTab({ project }: { project: Project }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'project' })
+  const { t: tc } = useTranslation('common')
+  const { uptime } = useFormat()
+
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
-          label="Services"
+          label={t('stats.services')}
           value={`${project.runningCount}/${project.serviceCount}`}
           tone={project.runningCount === project.serviceCount ? 'ok' : 'warn'}
-          hint="running"
+          hint={t('stats.running')}
         />
         <StatTile
-          label="Unhealthy"
+          label={t('stats.unhealthy')}
           value={project.unhealthyCount}
           tone={project.unhealthyCount > 0 ? 'danger' : undefined}
         />
-        <StatTile label="Routed URLs" value={project.urls.length} />
+        <StatTile label={t('stats.routedUrls')} value={project.urls.length} />
         <StatTile
-          label="Uptime"
+          label={t('stats.uptime')}
           value={project.uptimeSeconds === null ? '—' : uptime(project.uptimeSeconds)}
         />
       </div>
@@ -177,28 +176,36 @@ function OverviewTab({ project }: { project: Project }) {
       {project.issue ? <IssueBlock issue={project.issue} /> : null}
 
       <Card>
-        <CardHeader title="Environment" description="What this Compose project is, and where it lives." />
+        <CardHeader title={t('environment.title')} description={t('environment.description')} />
         <CardBody>
           <dl className="divide-y divide-line/60">
-            <KeyValue label="Host directory">
-              {project.workingDir ? <Mono value={project.workingDir} /> : <span className="text-subtle">unknown</span>}
-            </KeyValue>
-            <KeyValue label="Integrated">
-              {project.integrated ? (
-                <Badge tone="ok">on the gateway</Badge>
+            <KeyValue label={t('environment.hostDirectory')}>
+              {project.workingDir ? (
+                <Mono value={project.workingDir} />
               ) : (
-                <Badge tone="outline">not routed by the gateway</Badge>
+                <span className="text-subtle">{t('unknown', { defaultValue: 'unknown' })}</span>
               )}
             </KeyValue>
-            {project.namespace ? <KeyValue label="Worktree">{project.namespace}</KeyValue> : null}
-            {project.group ? <KeyValue label="Logical project">{project.group}</KeyValue> : null}
+            <KeyValue label={t('environment.integrated')}>
+              {project.integrated ? (
+                <Badge tone="ok">{t('onGateway', { defaultValue: 'on the gateway' })}</Badge>
+              ) : (
+                <Badge tone="outline">{t('notRouted', { defaultValue: 'not routed by the gateway' })}</Badge>
+              )}
+            </KeyValue>
+            {project.namespace ? (
+              <KeyValue label={t('environment.worktree')}>{project.namespace}</KeyValue>
+            ) : null}
+            {project.group ? (
+              <KeyValue label={t('environment.logicalProject')}>{project.group}</KeyValue>
+            ) : null}
             {project.gitRoot ? (
-              <KeyValue label="Git root">
+              <KeyValue label={t('environment.gitRoot')}>
                 <Mono value={project.gitRoot} />
               </KeyValue>
             ) : null}
             {project.repo ? (
-              <KeyValue label="Repository">
+              <KeyValue label={t('environment.repository')}>
                 {project.repoUrl ? (
                   <a
                     className="underline-offset-2 hover:text-accent hover:underline"
@@ -213,9 +220,9 @@ function OverviewTab({ project }: { project: Project }) {
                 )}
               </KeyValue>
             ) : null}
-            <KeyValue label="Networks">
+            <KeyValue label={t('environment.networks')}>
               <span className="font-mono text-xs text-muted">
-                {project.networks.length > 0 ? project.networks.join(', ') : 'none'}
+                {project.networks.length > 0 ? project.networks.join(', ') : tc('none', { defaultValue: 'none' })}
               </span>
             </KeyValue>
           </dl>
@@ -223,12 +230,9 @@ function OverviewTab({ project }: { project: Project }) {
       </Card>
 
       <Card>
-        <CardHeader
-          title="Endpoints"
-          description="Every address this project answers on, grouped by service."
-        />
+        <CardHeader title={t('endpoints.title')} description={t('endpoints.description')} />
         {project.services.length === 0 ? (
-          <Empty title="This project has no services" />
+          <Empty title={t('endpoints.empty')} />
         ) : (
           <div>
             {project.services.map((service) => (
@@ -250,14 +254,14 @@ function OverviewTab({ project }: { project: Project }) {
 
       <Card>
         <CardHeader
-          title="Repository"
-          description="Collected on the host; see the Git tab for the whole snapshot."
+          title={t('repository.title')}
+          description={t('repository.description')}
           actions={
             <a
               className="text-xs text-accent hover:underline"
               href={`#/projects/${encodeURIComponent(project.name)}/git`}
             >
-              Open Git tab
+              {t('openGitTab', { defaultValue: 'Open Git tab' })}
             </a>
           }
         />
@@ -268,6 +272,7 @@ function OverviewTab({ project }: { project: Project }) {
 }
 
 function GitSummary({ project }: { project: string }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'project' })
   const query = useQuery({
     queryKey: ['project-git', project],
     queryFn: () => api.projectGit(project),
@@ -275,11 +280,11 @@ function GitSummary({ project }: { project: string }) {
   })
 
   const data = query.data
-  if (!data) return <Empty title="Reading collected Git metadata" />
+  if (!data) return <Empty title={t('git.reading')} />
   if (!data.collected || !data.git) {
     return (
       <Empty
-        title="No Git metadata collected for this project"
+        title={t('git.empty')}
         hint={<code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono">{data.refreshCommand}</code>}
       />
     )
@@ -289,14 +294,27 @@ function GitSummary({ project }: { project: string }) {
   const changed = git.staged + git.unstaged + git.untracked + git.unmerged
   return (
     <div className="flex flex-wrap items-center gap-2 px-4 py-3 text-xs">
-      <Badge tone="outline">{git.detached ? 'detached HEAD' : git.branch}</Badge>
+      <Badge tone="outline">
+        {git.detached ? t('detachedHead', { defaultValue: 'detached HEAD' }) : git.branch}
+      </Badge>
       <span className="font-mono text-subtle">{git.head.shortSha}</span>
-      <Badge tone={changed > 0 ? 'warn' : 'ok'}>{changed > 0 ? `${changed} uncommitted` : 'clean'}</Badge>
-      {git.ahead > 0 ? <Badge tone="outline">{git.ahead} ahead</Badge> : null}
-      {git.behind > 0 ? <Badge tone="outline">{git.behind} behind</Badge> : null}
+      <Badge tone={changed > 0 ? 'warn' : 'ok'}>
+        {changed > 0
+          ? t('uncommitted', { defaultValue: '{{count}} uncommitted', count: changed })
+          : t('clean', { defaultValue: 'clean' })}
+      </Badge>
+      {git.ahead > 0 ? (
+        <Badge tone="outline">{t('ahead', { defaultValue: '{{count}} ahead', count: git.ahead })}</Badge>
+      ) : null}
+      {git.behind > 0 ? (
+        <Badge tone="outline">{t('behind', { defaultValue: '{{count}} behind', count: git.behind })}</Badge>
+      ) : null}
       {data.forge?.authenticated ? (
         <Badge tone="outline">
-          {data.forge.pulls.length} open pull {data.forge.pulls.length === 1 ? 'request' : 'requests'}
+          {t('openPullRequests', {
+            defaultValue: '{{count}} open pull requests',
+            count: data.forge.pulls.length,
+          })}
         </Badge>
       ) : null}
     </div>
@@ -304,15 +322,13 @@ function GitSummary({ project }: { project: string }) {
 }
 
 function ServicesTab({ project }: { project: Project }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'project' })
   const [details, setDetails] = useState<ContainerSummary | null>(null)
 
   if (project.services.length === 0) {
     return (
       <Card>
-        <Empty
-          title="This project has no services"
-          hint="A project joins by adding the gateway overlay: see docs/adopting-projects.md."
-        />
+        <Empty title={t('servicesEmpty')} hint={t('servicesEmptyHint')} />
       </Card>
     )
   }
@@ -349,6 +365,9 @@ function ServiceDetailCard({
   service: ContainerSummary
   onShowDetails: () => void
 }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'project' })
+  const { t: tc } = useTranslation('common')
+  const { shortImage } = useFormat()
   const name = service.service ?? service.name
   const primary = project.overrides?.primaryService === name
   const collapsed = project.overrides?.hiddenServices?.includes(name) ?? false
@@ -363,14 +382,18 @@ function ServiceDetailCard({
             <StateBadge state={service.state} health={service.health} />
             {service.restartCount > 0 ? (
               <Badge tone={service.restartCount > 3 ? 'danger' : 'warn'}>
-                {service.restartCount} restarts
+                {t('restarts', { defaultValue: '{{count}} restarts', count: service.restartCount })}
               </Badge>
             ) : null}
             {service.state !== 'running' && service.exitCode !== null ? (
-              <Badge tone="danger">exit {service.exitCode}</Badge>
+              <Badge tone="danger">
+                {t('exitCode', { defaultValue: 'exit {{code}}', code: service.exitCode })}
+              </Badge>
             ) : null}
-            {primary ? <Badge tone="accent">primary</Badge> : null}
-            {collapsed ? <Badge tone="outline">collapsed in the list</Badge> : null}
+            {primary ? <Badge tone="accent">{t('primary', { defaultValue: 'primary' })}</Badge> : null}
+            {collapsed ? (
+              <Badge tone="outline">{t('collapsedInList', { defaultValue: 'collapsed in the list' })}</Badge>
+            ) : null}
           </span>
         }
         description={
@@ -382,16 +405,18 @@ function ServiceDetailCard({
       />
       <CardBody>
         <dl className="divide-y divide-line/60">
-          <KeyValue label="Endpoints">
+          <KeyValue label={tc('container.endpoints')}>
             <ServiceEndpoints service={service} />
           </KeyValue>
-          <KeyValue label="Container ports">
+          <KeyValue label={tc('container.containerPorts')}>
             <span className="font-mono text-xs text-muted">
-              {service.exposedPorts.length > 0 ? service.exposedPorts.join(', ') : 'none exposed'}
+              {service.exposedPorts.length > 0
+                ? service.exposedPorts.join(', ')
+                : t('noneExposed', { defaultValue: 'none exposed' })}
             </span>
           </KeyValue>
           {service.ports.length > 0 ? (
-            <KeyValue label="Published ports">
+            <KeyValue label={tc('container.publishedPorts')}>
               <div className="space-y-0.5 font-mono text-xs text-muted">
                 {service.ports.map((port) => (
                   <div key={`${port.ip}:${port.hostPort}`}>
@@ -401,13 +426,13 @@ function ServiceDetailCard({
               </div>
             </KeyValue>
           ) : null}
-          <KeyValue label="Networks">
+          <KeyValue label={tc('container.networks')}>
             <span className="font-mono text-xs text-muted">
-              {service.networks.length > 0 ? service.networks.join(', ') : 'none'}
+              {service.networks.length > 0 ? service.networks.join(', ') : tc('none', { defaultValue: 'none' })}
             </span>
           </KeyValue>
           {service.mounts.length > 0 ? (
-            <KeyValue label="Mounts">
+            <KeyValue label={tc('container.mounts')}>
               <div className="space-y-0.5 font-mono text-xs text-muted">
                 {service.mounts.map((mount) => (
                   <div key={mount.destination}>
@@ -419,17 +444,17 @@ function ServiceDetailCard({
             </KeyValue>
           ) : null}
           {service.urls.length > 0 ? (
-            <KeyValue label="Traefik">
+            <KeyValue label={tc('container.traefik')}>
               <TraefikVerdictRow container={service} enabled />
             </KeyValue>
           ) : null}
           {service.urls.length > 0 ? (
-            <KeyValue label="Exposure">
+            <KeyValue label={tc('container.exposure')}>
               <SharePanel container={service} />
             </KeyValue>
           ) : null}
           {service.kind === 'http' ? (
-            <KeyValue label="Hostname alias">
+            <KeyValue label={tc('container.hostnameAlias')}>
               <ServiceAlias project={project.name} service={service} />
             </KeyValue>
           ) : null}
@@ -439,13 +464,10 @@ function ServiceDetailCard({
   )
 }
 
-/**
- * The issue this environment is running for, when the panel can tell.
- *
- * The link is inferred from conventions already in use and can be corrected by
- * hand; either way the card says which, so an association is never mysterious.
- */
 function IssueBlock({ issue }: { issue: NonNullable<Project['issue']> }) {
+  const { statusLabel, priorityLabel } = useIssueStatuses()
+  const { t: ti } = useTranslation('issues')
+
   return (
     <Card>
       <CardHeader
@@ -462,9 +484,13 @@ function IssueBlock({ issue }: { issue: NonNullable<Project['issue']> }) {
             </a>
             <span className="min-w-0 truncate">{issue.title}</span>
             {issue.issueType ? <Badge tone="neutral">{issue.issueType}</Badge> : null}
-            {issue.status ? <Badge tone="accent">{issue.status.replace('_', ' ')}</Badge> : null}
-            {issue.priority ? <Badge tone="warn">priority: {issue.priority}</Badge> : null}
-            {issue.state === 'closed' ? <Badge tone="ok">closed</Badge> : null}
+            {issue.status ? <Badge tone="accent">{statusLabel(issue.status)}</Badge> : null}
+            {issue.priority ? (
+              <Badge tone="warn">{priorityLabel(issue.priority)}</Badge>
+            ) : null}
+            {issue.state === 'closed' ? (
+              <Badge tone="ok">{ti('state.closed')}</Badge>
+            ) : null}
           </span>
         }
         description={issue.reason}

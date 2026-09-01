@@ -3,7 +3,7 @@
   "description": "The gateway's .env, edited through a fixed list of keys.",
   "saved": "Saved. Traefik reads its static configuration at startup, so these values take effect once the gateway containers are recreated on the host:",
   "notWritable": "The panel cannot write {{path}}. Edit it on the host instead.",
-  "sectionNotFound": "Settings section \"{{group}}\" does not exist",
+  "sectionNotFound": "Settings section “{{group}}” does not exist",
   "chooseGroup": "Choose one of the available groups.",
   "secretsNote": "Secrets are never returned by the API: the panel only reports whether a token is set. Values are written to {{path}} with mode 600.",
   "groups": {

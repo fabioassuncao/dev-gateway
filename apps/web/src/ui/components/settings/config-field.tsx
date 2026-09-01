@@ -1,4 +1,5 @@
 import type { ConfigField as ConfigFieldView } from '../../../shared/types.ts'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '../ui/badge.tsx'
 import { Button } from '../ui/button.tsx'
 import { Input, Select } from '../ui/field.tsx'
@@ -13,14 +14,17 @@ export function ConfigField({
   value: string
   onChange: (value: string | null) => void
 }) {
+  const { t } = useTranslation('settings')
+  const { t: tc } = useTranslation('common')
+
   return (
     <div className="grid gap-1.5">
       <div className="flex items-center justify-between gap-3">
         <label htmlFor={field.key} className="text-sm font-medium text-ink">
-          {field.label}
+          {t(`fields.${field.key}.label`, { defaultValue: field.label })}
           {field.pending ? (
             <Badge tone="warn" className="ml-2">
-              pending restart
+              {tc('pendingRestart')}
             </Badge>
           ) : null}
         </label>
@@ -50,14 +54,14 @@ export function ConfigField({
               id={field.key}
               type="password"
               autoComplete="off"
-              placeholder={field.isSet ? '•••••••• (unchanged)' : 'not set'}
+              placeholder={field.isSet ? tc('unchanged') : tc('notSet')}
               value={value}
               onChange={(event) => onChange(event.target.value)}
             />
-            <Badge tone={field.isSet ? 'ok' : 'neutral'}>{field.isSet ? 'set' : 'unset'}</Badge>
+            <Badge tone={field.isSet ? 'ok' : 'neutral'}>{field.isSet ? tc('set') : tc('unset')}</Badge>
             {field.isSet ? (
               <Button size="sm" variant="ghost" onClick={() => onChange(null)}>
-                Clear
+                {tc('clear')}
               </Button>
             ) : null}
           </div>
@@ -71,7 +75,9 @@ export function ConfigField({
         )
       ) : null}
 
-      <p className="text-xs text-muted">{field.help}</p>
+      <p className="text-xs text-muted">
+        {t(`fields.${field.key}.help`, { defaultValue: field.help })}
+      </p>
       <p className="font-mono text-[10px] text-subtle">{field.key}</p>
     </div>
   )
