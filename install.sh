@@ -1157,7 +1157,18 @@ note "diagnostic only: the installer never installs, authenticates or reconfigur
 # 14. Result
 # ---------------------------------------------------------------------------
 
-PANEL_URL="http://${ADVERTISED}:${PANEL_PORT}"
+if [ "$PANEL_ACCESS" = "vpn" ]; then
+  # Routed by name, not reached by address: the port is Traefik's, and the
+  # hostname is the one the router matches.
+  PANEL_HOST=$(env_get "$ENV_FILE" PORTTA_WEB_HOST); [ -n "$PANEL_HOST" ] || PANEL_HOST="portta-web"
+  PANEL_SCHEME=http
+  [ "$(env_get "$ENV_FILE" TLS_ENABLED)" = "true" ] && PANEL_SCHEME=https
+  PANEL_DOMAIN=$(env_get "$ENV_FILE" PRIVATE_DOMAIN)
+  [ -n "$PANEL_DOMAIN" ] || PANEL_DOMAIN=$(env_get "$ENV_FILE" PORTTA_DOMAIN)
+  PANEL_URL="${PANEL_SCHEME}://${PANEL_HOST}.${PANEL_DOMAIN:-localhost}"
+else
+  PANEL_URL="http://${ADVERTISED}:${PANEL_PORT}"
+fi
 
 step "Portta is ready"
 
