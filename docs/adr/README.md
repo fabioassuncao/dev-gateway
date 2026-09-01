@@ -26,3 +26,4 @@ context, the decision, and what it costs us.
 | [0019](0019-compose-files-live-under-docker.md) | The compose files live under `docker/compose/`, one directory per axis | Accepted |
 | [0020](0020-installer-and-portta-home.md) | Installing means one directory and published images, not a checkout | Accepted |
 | [0021](0021-panel-access-modes.md) | Panel access is its own decision, and a public panel gets its own entrypoint | Accepted, amends 0012 |
+| [0022](0022-project-domain-modes.md) | The base domain is a mode, and a host with no domain gets one from its address | Accepted |

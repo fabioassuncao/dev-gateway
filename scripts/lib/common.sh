@@ -119,6 +119,93 @@ portta_load_env() {
   done < "$file"
 }
 
+# ---------------------------------------------------------------------------
+# Project domain
+# ---------------------------------------------------------------------------
+# Mirrors resolveDomain in packages/core/src/domain.ts. The two implementations
+# have to agree, because Traefik bakes the resolved base into its default rule
+# and the panel derives the same hostnames for display.
+# See docs/adr/0022-project-domain-modes.md.
+
+# portta_auto_domain <ipv4> [provider]: the wildcard-DNS name for an address.
+#
+# The dashed form keeps the address to one DNS label, which leaves
+# <project>-<service> as its own label and makes *.1-2-3-4.sslip.io a name a
+# certificate can cover.
+portta_auto_domain() {
+  local ip="$1" provider="${2:-sslip.io}"
+  case "$ip" in
+    ''|*[!0-9.]*) return 1 ;;
+  esac
+  # Four octets, each 0-255. Rejecting anything else keeps a stray value out of
+  # a hostname that ends up in a Traefik rule.
+  #
+  # The status is carried in a variable rather than `exit 1` from a rule: an
+  # `exit` inside a rule runs END anyway, and an `exit 0` there would overwrite
+  # it — which is how 203.0.113.999 became a hostname the first time.
+  printf '%s' "$ip" | awk -F. '
+    BEGIN { bad = 0 }
+    NF != 4 { bad = 1 }
+    {
+      for (i = 1; i <= 4; i++) {
+        if ($i == "" || $i ~ /[^0-9]/ || length($i) > 3 || $i + 0 > 255) bad = 1
+      }
+    }
+    END { exit bad }' || return 1
+  printf '%s.%s' "$(printf '%s' "$ip" | tr '.' '-')" "$provider"
+}
+
+# portta_detect_public_ip: this host's address as the internet sees it.
+#
+# One outbound request, to services that answer with nothing but the address.
+# Never called to resolve a hostname — that reads the stored PORTTA_PUBLIC_IP —
+# only when something deliberately asks to detect or re-check it, because a
+# command that pauses on a network call is a command nobody trusts.
+portta_detect_public_ip() {
+  local url ip=""
+  portta_have curl || return 1
+  for url in https://api.ipify.org https://ifconfig.me/ip https://icanhazip.com; do
+    ip=$(curl -fsS --max-time 5 "$url" 2>/dev/null | tr -d '[:space:]' || true)
+    case "$ip" in
+      ''|*[!0-9.]*) ip="" ;;
+      *) break ;;
+    esac
+  done
+  [ -n "$ip" ] || return 1
+  printf '%s' "$ip"
+}
+
+# portta_resolve_domain: set PORTTA_DOMAIN from PORTTA_DOMAIN_MODE.
+#
+# A mode that cannot be honoured falls back to localhost and warns, rather than
+# failing: an unreachable hostname is a nuisance, and a gateway that refuses to
+# start over one is worse. PORTTA_DOMAIN_PROBLEM carries the reason so `status`
+# and `doctor` can report it.
+portta_resolve_domain() {
+  PORTTA_DOMAIN_PROBLEM=""
+  case "${PORTTA_DOMAIN_MODE:-local}" in
+    custom)
+      if [ -z "${PORTTA_DOMAIN:-}" ]; then
+        PORTTA_DOMAIN="localhost"
+        PORTTA_DOMAIN_PROBLEM="domain mode is custom and no domain is set"
+      fi
+      ;;
+    auto)
+      if [ -z "${PORTTA_PUBLIC_IP:-}" ]; then
+        PORTTA_DOMAIN="localhost"
+        PORTTA_DOMAIN_PROBLEM="domain mode is auto and no public address has been detected"
+      elif ! PORTTA_DOMAIN=$(portta_auto_domain "$PORTTA_PUBLIC_IP" "${PORTTA_AUTO_DOMAIN_PROVIDER:-sslip.io}"); then
+        PORTTA_DOMAIN="localhost"
+        PORTTA_DOMAIN_PROBLEM="domain mode is auto and $PORTTA_PUBLIC_IP is not an IPv4 address"
+      fi
+      ;;
+    *)
+      PORTTA_DOMAIN="localhost"
+      ;;
+  esac
+  export PORTTA_DOMAIN PORTTA_DOMAIN_PROBLEM
+}
+
 # portta_defaults: fill in every value the CLI relies on.
 # Runs after portta_load_env so an empty (or missing) .env still yields a usable
 # local gateway. Keep these in sync with .env.example.
@@ -128,6 +215,9 @@ portta_defaults() {
   : "${PORTTA_NETWORK:=portta}"
   : "${PORTTA_CONTROL_NETWORK:=portta-control}"
   : "${PORTTA_ACCESS_NETWORK:=portta-access}"
+  : "${PORTTA_DOMAIN_MODE:=local}"
+  : "${PORTTA_AUTO_DOMAIN_PROVIDER:=sslip.io}"
+  : "${PORTTA_PUBLIC_IP:=}"
   : "${PORTTA_DOMAIN:=localhost}"
   : "${PORTTA_BIND_ADDRESS:=127.0.0.1}"
   : "${PORTTA_HTTP_PORT:=80}"
@@ -181,6 +271,7 @@ portta_defaults() {
 
   export PORTTA_PROFILE PORTTA_PROJECT_NAME PORTTA_NETWORK \
     PORTTA_CONTROL_NETWORK PORTTA_ACCESS_NETWORK PORTTA_DOMAIN \
+    PORTTA_DOMAIN_MODE PORTTA_AUTO_DOMAIN_PROVIDER PORTTA_PUBLIC_IP \
     PORTTA_BIND_ADDRESS PORTTA_HTTP_PORT PORTTA_HTTPS_PORT \
     PORTTA_LOG_LEVEL PORTTA_ACCESS_LOG PORTTA_ALIAS_HEADERS_STRATEGY \
     PORTTA_DASHBOARD \

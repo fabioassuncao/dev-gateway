@@ -38,6 +38,11 @@ export interface PanelConfig {
   /** Bootstrap connection string. Null keeps persistence entirely optional. */
   databaseUrl: string | null
   domain: string
+  /** How the base domain was chosen: local, auto or custom. */
+  domainMode: string
+  domainProblem: string | null
+  publicIp: string | null
+  autoDomainProvider: string
   privateDomain: string | null
   publicDomain: string | null
   bindAddress: string
@@ -117,6 +122,10 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     databaseNetwork: gateway.databaseNetwork,
     databaseUrl: optional('PORTTA_RUNTIME_DATABASE_URL'),
     domain: gateway.domain,
+    domainMode: gateway.domainMode,
+    domainProblem: gateway.domainProblem,
+    publicIp: gateway.publicIp,
+    autoDomainProvider: env('PORTTA_AUTO_DOMAIN_PROVIDER', 'sslip.io'),
     privateDomain: gateway.privateDomain,
     publicDomain: gateway.publicDomain,
     bindAddress: gateway.bindAddress,

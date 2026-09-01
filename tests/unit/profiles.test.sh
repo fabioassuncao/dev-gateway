@@ -183,6 +183,58 @@ assert_contains "$(cat "$PORTTA_ROOT/bin/portta")" 'portta_network_ensure "$PORT
 it "and so does the TypeScript one"
 assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" 'ensureNetwork(context.config.accessNetwork)'
 
+describe "the base domain comes from the mode"
+
+# See docs/adr/0022-project-domain-modes.md. `localhost` is right for a machine
+# you are sitting at and useless from anywhere else, which is why a mode exists
+# at all.
+it "local is localhost"
+assert_eq "localhost" "$(resolve local PORTTA_DOMAIN PORTTA_DOMAIN_MODE=local)"
+
+it "and stays localhost even with a domain configured, because the mode decides"
+assert_eq "localhost" "$(resolve local PORTTA_DOMAIN PORTTA_DOMAIN_MODE=local PORTTA_DOMAIN=dev.example.test)"
+
+it "auto builds one from the detected address"
+assert_eq "203-0-113-10.sslip.io" \
+  "$(resolve local PORTTA_DOMAIN PORTTA_DOMAIN_MODE=auto PORTTA_PUBLIC_IP=203.0.113.10)"
+
+it "auto honours the other provider"
+assert_eq "203-0-113-10.nip.io" \
+  "$(resolve local PORTTA_DOMAIN PORTTA_DOMAIN_MODE=auto PORTTA_PUBLIC_IP=203.0.113.10 PORTTA_AUTO_DOMAIN_PROVIDER=nip.io)"
+
+it "custom uses the configured domain"
+assert_eq "dev.example.test" \
+  "$(resolve local PORTTA_DOMAIN PORTTA_DOMAIN_MODE=custom PORTTA_DOMAIN=dev.example.test)"
+
+# A gateway that refuses to start over an unreachable hostname is worse than the
+# hostname, so every failure falls back to localhost and reports why.
+it "auto without an address falls back rather than failing"
+assert_eq "localhost" "$(resolve local PORTTA_DOMAIN PORTTA_DOMAIN_MODE=auto)"
+assert_contains "$(resolve local PORTTA_DOMAIN_PROBLEM PORTTA_DOMAIN_MODE=auto)" "no public address"
+
+it "auto with a value that is not an address falls back rather than failing"
+assert_eq "localhost" "$(resolve local PORTTA_DOMAIN PORTTA_DOMAIN_MODE=auto PORTTA_PUBLIC_IP=nonsense)"
+
+it "custom without a domain falls back rather than failing"
+assert_eq "localhost" "$(resolve local PORTTA_DOMAIN PORTTA_DOMAIN_MODE=custom)"
+
+it "an octet out of range is not turned into a hostname"
+assert_eq "localhost" "$(resolve local PORTTA_DOMAIN PORTTA_DOMAIN_MODE=auto PORTTA_PUBLIC_IP=203.0.113.999)"
+
+describe "a domain mode can satisfy the public profile"
+
+# Going public used to mean buying a domain first; an auto base is a domain.
+it "remote-public accepts an auto base when PUBLIC_DOMAIN is unset"
+assert_eq "203-0-113-10.sslip.io" \
+  "$(resolve remote-public PORTTA_DOMAIN PORTTA_DOMAIN_MODE=auto PORTTA_PUBLIC_IP=203.0.113.10)"
+
+it "and an explicit PUBLIC_DOMAIN still wins"
+assert_eq "dev.example.test" \
+  "$(resolve remote-public PORTTA_DOMAIN PORTTA_DOMAIN_MODE=auto PORTTA_PUBLIC_IP=203.0.113.10 PUBLIC_DOMAIN=dev.example.test)"
+
+it "remote-public is still refused with nothing but localhost"
+assert_eq "REFUSED" "$(resolve remote-public PORTTA_DOMAIN PORTTA_DOMAIN_MODE=local)"
+
 describe "the shell and the TypeScript CLI select the same overlays"
 
 # ADR 0015: the core commands must run without Node, so the selection logic has
@@ -198,6 +250,32 @@ else
         catch { process.stdout.write("REFUSED") }
       ' 2>/dev/null )
   }
+
+  ts_domain_for() {
+    ( for kv in "$@"; do export "${kv?}"; done
+      node --input-type=module -e '
+        import { loadGatewayConfig } from "'"$PORTTA_ROOT"'/packages/core/dist/config.js"
+        try { process.stdout.write(loadGatewayConfig(process.env).domain) }
+        catch { process.stdout.write("REFUSED") }
+      ' 2>/dev/null )
+  }
+
+  # The base domain is baked into Traefik's default rule by whichever surface
+  # started the gateway, so the two resolvers have to agree exactly.
+  for domain_case in \
+    "PORTTA_DOMAIN_MODE=local" \
+    "PORTTA_DOMAIN_MODE=auto PORTTA_PUBLIC_IP=203.0.113.10" \
+    "PORTTA_DOMAIN_MODE=auto PORTTA_PUBLIC_IP=203.0.113.10 PORTTA_AUTO_DOMAIN_PROVIDER=nip.io" \
+    "PORTTA_DOMAIN_MODE=auto" \
+    "PORTTA_DOMAIN_MODE=auto PORTTA_PUBLIC_IP=nonsense" \
+    "PORTTA_DOMAIN_MODE=custom PORTTA_DOMAIN=dev.example.test" \
+    "PORTTA_DOMAIN_MODE=custom"
+  do
+    it "same domain for: $domain_case"
+    # shellcheck disable=SC2086
+    assert_eq "$(resolve local PORTTA_DOMAIN $domain_case)" "$(ts_domain_for PORTTA_PROFILE=local $domain_case)"
+  done
+
   for case_env in \
     "PORTTA_PROFILE=local" \
     "PORTTA_PROFILE=local PORTTA_TCP=true" \

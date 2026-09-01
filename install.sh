@@ -224,6 +224,7 @@ PANEL_ACCESS=""
 PANEL_PORT=""
 PANEL_USER=""
 DOMAIN=""
+DOMAIN_MODE=""
 ACTION="install"
 SKIP_DEPS=false
 PULL_ONLY=false
@@ -245,6 +246,8 @@ OPTIONS
   --panel-port <port>     Host port for the panel            (default: 8081)
   --panel-user <name>     Panel username                     (default: admin)
   --domain <domain>       Base domain for routed services    (optional)
+  --domain-mode <mode>    Project hostnames: local | auto | custom
+                          (default: auto on a server, local otherwise)
   --version <ref>         Tag, branch or commit to install   (default: main)
   --registry <namespace>  Image namespace  (default: ghcr.io/fabioassuncao)
   --skip-deps             Never offer to install Docker
@@ -279,6 +282,8 @@ while [ $# -gt 0 ]; do
     --panel-user=*) PANEL_USER="${1#*=}" ;;
     --domain) shift; DOMAIN="${1:-}" ;;
     --domain=*) DOMAIN="${1#*=}" ;;
+    --domain-mode) shift; DOMAIN_MODE="${1:-}" ;;
+    --domain-mode=*) DOMAIN_MODE="${1#*=}" ;;
     --version) shift; PORTTA_REF="${1:-}" ;;
     --version=*) PORTTA_REF="${1#*=}" ;;
     --registry) shift; PORTTA_REGISTRY="${1:-}" ;;
@@ -297,6 +302,10 @@ done
 case "$PANEL_ACCESS" in
   ''|public|tailscale|local) ;;
   *) die "--panel-access must be public, tailscale or local (got: $PANEL_ACCESS)" ;;
+esac
+case "$DOMAIN_MODE" in
+  ''|local|auto|custom) ;;
+  *) die "--domain-mode must be local, auto or custom (got: $DOMAIN_MODE)" ;;
 esac
 case "$PANEL_PORT" in
   ''|*[!0-9]*) [ -z "$PANEL_PORT" ] || die "--panel-port must be a number" ;;
@@ -840,16 +849,86 @@ env_set "$ENV_FILE" PORTTA_WEB_USER "${CURRENT_UID}:${CURRENT_GID}"
 
 if [ -n "$DOMAIN" ]; then
   env_set "$ENV_FILE" PUBLIC_DOMAIN "$DOMAIN"
+  env_set "$ENV_FILE" PORTTA_DOMAIN "$DOMAIN"
+  [ -n "$DOMAIN_MODE" ] || DOMAIN_MODE="custom"
   good "base domain recorded: $DOMAIN"
   note "recorded only; applications stay unexposed until you publish them"
 fi
 
+# ---------------------------------------------------------------------------
+# Project hostnames
+# ---------------------------------------------------------------------------
+# Projects get <project>-<service>.<base>. `localhost` is right for a machine
+# you are sitting at and useless from anywhere else, so a host whose panel is
+# reached from elsewhere gets a base that resolves from elsewhere too.
+#
+# This is a name and nothing more: it does not publish a single service. See
+# docs/adr/0022-project-domain-modes.md.
+
+if [ -z "$DOMAIN_MODE" ]; then
+  DOMAIN_MODE=$(env_get "$ENV_FILE" PORTTA_DOMAIN_MODE)
+fi
+if [ -z "$DOMAIN_MODE" ]; then
+  # The panel access mode already asked the question this needs answered:
+  # anything but `local` means "I reach this machine from somewhere else".
+  if [ "$PANEL_ACCESS" != "local" ] && [ -n "$PUBLIC_IP" ]; then
+    DOMAIN_MODE="auto"
+  else
+    DOMAIN_MODE="local"
+  fi
+fi
+
+env_set "$ENV_FILE" PORTTA_DOMAIN_MODE "$DOMAIN_MODE"
+AUTO_PROVIDER=$(env_get "$ENV_FILE" PORTTA_AUTO_DOMAIN_PROVIDER)
+[ -n "$AUTO_PROVIDER" ] || AUTO_PROVIDER="sslip.io"
+env_set "$ENV_FILE" PORTTA_AUTO_DOMAIN_PROVIDER "$AUTO_PROVIDER"
+
+PROJECT_DOMAIN="localhost"
+case "$DOMAIN_MODE" in
+  auto)
+    if [ -n "$PUBLIC_IP" ]; then
+      PROJECT_DOMAIN="$(printf '%s' "$PUBLIC_IP" | tr '.' '-').${AUTO_PROVIDER}"
+      env_set "$ENV_FILE" PORTTA_DOMAIN "$PROJECT_DOMAIN"
+      good "projects will answer on *.${PROJECT_DOMAIN}"
+      note "${AUTO_PROVIDER} resolves any name embedding this address; no DNS record is needed"
+    else
+      warn "domain mode auto was asked for and no public address was detected"
+      note "falling back to *.localhost; set one later with: portta config set domain.publicIp <address>"
+      DOMAIN_MODE="local"
+      env_set "$ENV_FILE" PORTTA_DOMAIN_MODE local
+      env_set "$ENV_FILE" PORTTA_DOMAIN localhost
+    fi
+    ;;
+  custom)
+    PROJECT_DOMAIN=$(env_get "$ENV_FILE" PORTTA_DOMAIN)
+    if [ -z "$PROJECT_DOMAIN" ] || [ "$PROJECT_DOMAIN" = "localhost" ]; then
+      die "domain mode custom needs a domain: pass --domain dev.example.com"
+    fi
+    good "projects will answer on *.${PROJECT_DOMAIN}"
+    note "*.${PROJECT_DOMAIN} must resolve to this host"
+    ;;
+  local)
+    env_set "$ENV_FILE" PORTTA_DOMAIN localhost
+    good "projects will answer on *.localhost"
+    note "that only resolves on this machine; --domain-mode auto gives one that resolves anywhere"
+    ;;
+esac
+
+# This host's address as the internet sees it. Detected once and written to
+# .env, so no later command has to make a network call to know what a project
+# hostname should be. Needed for the panel summary and, more importantly, for
+# the auto domain mode below.
+PUBLIC_IP=$(env_get "$ENV_FILE" PORTTA_PUBLIC_IP)
+if [ "$PANEL_ACCESS" != "local" ] || [ "$DOMAIN_MODE" = "auto" ]; then
+  DETECTED_IP=$(public_ip)
+  [ -n "$DETECTED_IP" ] && PUBLIC_IP="$DETECTED_IP"
+fi
+[ -n "$PUBLIC_IP" ] && env_set "$ENV_FILE" PORTTA_PUBLIC_IP "$PUBLIC_IP"
+
 # The panel's own address, for the summary and for `portta web status`. This
 # binds nothing: it is the address a human types.
-PUBLIC_IP=""
 case "$PANEL_ACCESS" in
   public)
-    PUBLIC_IP=$(public_ip)
     ADVERTISED="${PUBLIC_IP:-${LOCAL_IP:-$HOST_NAME}}"
     ;;
   tailscale) ADVERTISED="$TAILSCALE_IP" ;;
@@ -1176,6 +1255,7 @@ printf '  %-14s %s\n' "version" "$NEW_VERSION" >&2
 printf '  %-14s %s\n' "home" "$PORTTA_HOME" >&2
 printf '  %-14s %s\n' "panel access" "$PANEL_ACCESS" >&2
 printf '  %-14s %s\n' "panel" "$PANEL_URL" >&2
+printf '  %-14s %s\n' "projects" "*.${PROJECT_DOMAIN}" >&2
 
 if [ "$PANEL_AUTH_MODE" = "basic" ]; then
   printf '  %-14s %s\n' "user" "$PANEL_USER" >&2
@@ -1220,6 +1300,11 @@ esac
 printf '\n' >&2
 say "applications stay unexposed: publishing the panel published nothing else"
 say "each project chooses its own exposure from the panel or the CLI"
+if [ "$PROJECT_DOMAIN" != "localhost" ]; then
+  say ""
+  say "a project called web would answer on  web.${PROJECT_DOMAIN}"
+  note "the name resolves already; 'portta public enable' is what makes Traefik answer there"
+fi
 
 printf '\n' >&2
 say "CLI:"

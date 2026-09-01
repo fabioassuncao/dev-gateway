@@ -904,9 +904,32 @@ export const ConfigField = named(
 )
 export type ConfigField = z.infer<typeof ConfigField>
 
+/**
+ * What the chosen domain mode actually produces, resolved on the server so the
+ * settings page shows the hostname a project will get rather than the raw
+ * variables it was assembled from.
+ */
+export const ProjectDomain = named(
+  z.object({
+    mode: z.enum(['local', 'auto', 'custom']),
+    domain: z.string().describe('The base every project hostname is built on'),
+    publicIp: z.string().nullable(),
+    provider: z.string(),
+    examples: z.array(z.string()).describe('Hostnames a project would get'),
+    problem: z.string().nullable().describe('Set when the mode could not be honoured'),
+    reachable: z
+      .boolean()
+      .describe('Whether Traefik listens somewhere these names can actually reach it'),
+    advice: z.string().nullable().describe('What to do about it, when something is off'),
+  }).strict(),
+  'ProjectDomain',
+)
+export type ProjectDomain = z.infer<typeof ProjectDomain>
+
 export const ConfigView = named(
   z.object({
     fields: z.array(ConfigField),
+    projectDomain: ProjectDomain,
     envFile: z.object({ path: z.string(), exists: z.boolean(), writable: z.boolean() }).strict(),
     pendingRestart: z.boolean(),
     applyCommand: z.string().describe('Host command that applies saved changes'),

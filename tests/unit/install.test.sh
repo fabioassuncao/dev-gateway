@@ -147,6 +147,32 @@ assert_contains "$SOURCE" 'run_compose pull'
 it "and never asks Compose to build"
 assert_eq "" "$(printf '%s' "$SOURCE" | grep -nE 'compose[^\n]*build|--build' || true)"
 
+describe "project hostnames get a base that resolves where the panel is read"
+
+# The failure this fixes: a VPS installed with a public panel handed out
+# *.localhost URLs, which only resolve on the machine nobody was sitting at.
+it "a host reached from elsewhere defaults to the auto mode"
+assert_contains "$SOURCE" 'if [ "$PANEL_ACCESS" != "local" ] && [ -n "$PUBLIC_IP" ]; then'
+assert_contains "$SOURCE" 'DOMAIN_MODE="auto"'
+
+it "and a machine you are sitting at keeps localhost"
+assert_contains "$SOURCE" 'good "projects will answer on *.localhost"'
+
+it "an existing mode is kept on an update"
+assert_contains "$SOURCE" 'DOMAIN_MODE=$(env_get "$ENV_FILE" PORTTA_DOMAIN_MODE)'
+
+it "the detected address is written down, so no later command has to look it up"
+assert_contains "$SOURCE" 'env_set "$ENV_FILE" PORTTA_PUBLIC_IP "$PUBLIC_IP"'
+
+it "auto without an address falls back rather than building a broken hostname"
+assert_contains "$SOURCE" 'domain mode auto was asked for and no public address was detected'
+
+it "--domain-mode is validated before anything is detected"
+assert_failure bash "$INSTALLER" --domain-mode nonsense
+
+it "the name is not an exposure, and the installer says so"
+assert_contains "$SOURCE" "the name resolves already; 'portta public enable' is what makes Traefik answer there"
+
 describe "the installer configures panel access, and nothing else"
 
 it "it pins the gateway to the local profile, so applications stay unexposed"

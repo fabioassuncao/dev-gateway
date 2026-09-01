@@ -3703,6 +3703,68 @@
         ],
         "additionalProperties": false
       },
+      "ProjectDomain": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "local",
+              "auto",
+              "custom"
+            ]
+          },
+          "domain": {
+            "type": "string",
+            "description": "The base every project hostname is built on"
+          },
+          "publicIp": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          },
+          "examples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Hostnames a project would get"
+          },
+          "problem": {
+            "description": "Set when the mode could not be honoured",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reachable": {
+            "type": "boolean",
+            "description": "Whether Traefik listens somewhere these names can actually reach it"
+          },
+          "advice": {
+            "description": "What to do about it, when something is off",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "mode",
+          "domain",
+          "publicIp",
+          "provider",
+          "examples",
+          "problem",
+          "reachable",
+          "advice"
+        ],
+        "additionalProperties": false
+      },
       "ConfigView": {
         "type": "object",
         "properties": {
@@ -3711,6 +3773,9 @@
             "items": {
               "$ref": "#/components/schemas/ConfigField"
             }
+          },
+          "projectDomain": {
+            "$ref": "#/components/schemas/ProjectDomain"
           },
           "envFile": {
             "type": "object",
@@ -3748,6 +3813,7 @@
         },
         "required": [
           "fields",
+          "projectDomain",
           "envFile",
           "pendingRestart",
           "applyCommand",

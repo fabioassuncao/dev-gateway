@@ -178,6 +178,35 @@ export function diagnose(
     results.push(check('hostname-collision', 'pass', 'Hostnames', 'no collisions'))
   }
 
+  // The URLs this panel hands out have to be openable by whoever is reading
+  // them. Both halves of that are configuration, so this is answerable here
+  // without a single network call: the name resolves off this machine or it
+  // does not, and Traefik answers off this machine or it does not.
+  const localName = config.domain === 'localhost' || config.domain.endsWith('.localhost')
+  const loopbackOnly = ['127.0.0.1', 'localhost', '::1'].includes(config.bindAddress)
+  if (config.domainProblem) {
+    results.push(
+      check('project-domain', 'fail', 'Project hostnames', config.domainProblem,
+        'portta config set domain.mode auto'),
+    )
+  } else if (localName && config.webExpose !== 'local') {
+    // Whoever is reading this panel is not on the machine, so every project URL
+    // it shows them is unopenable. This is the failure ADR 0022 exists for.
+    results.push(
+      check('project-domain', 'warn', 'Project hostnames',
+        `projects answer on *.${config.domain}, which only resolves on this host, and this panel is reached from elsewhere`,
+        'portta config set domain.mode auto'),
+    )
+  } else if (!localName && loopbackOnly) {
+    results.push(
+      check('project-domain', 'warn', 'Project hostnames',
+        `*.${config.domain} points here, but Traefik listens on ${config.bindAddress} only, so nothing answers from outside`,
+        'portta public enable'),
+    )
+  } else {
+    results.push(check('project-domain', 'pass', 'Project hostnames', `projects answer on *.${config.domain}`))
+  }
+
   const conflicts = snapshot.ports.filter((usage) => usage.conflict)
   if (conflicts.length > 0) {
     results.push(

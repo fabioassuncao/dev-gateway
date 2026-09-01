@@ -79,9 +79,13 @@ portta_resolve_profile() {
 
   PORTTA_PROFILE="$profile"
 
+  # The base every project hostname is built on, resolved from the mode before
+  # the profile has its say. Mirrors resolveDomain in packages/core/src/domain.ts;
+  # see docs/adr/0022-project-domain-modes.md.
+  portta_resolve_domain
+
   case "$profile" in
     local)
-      : "${PORTTA_DOMAIN:=localhost}"
       : "${PORTTA_BIND_ADDRESS:=127.0.0.1}"
       ;;
 
@@ -103,9 +107,19 @@ portta_resolve_profile() {
       ;;
 
     remote-public)
+      # An auto or custom base fills in for PUBLIC_DOMAIN where none is set, so
+      # going public no longer means buying a domain first. `local` does not:
+      # publishing *.localhost to the internet would serve nobody.
+      if [ -z "${PUBLIC_DOMAIN:-}" ] \
+         && [ "${PORTTA_DOMAIN_MODE:-local}" != "local" ] \
+         && [ -n "${PORTTA_DOMAIN:-}" ] && [ "$PORTTA_DOMAIN" != "localhost" ]; then
+        PUBLIC_DOMAIN="$PORTTA_DOMAIN"
+        export PUBLIC_DOMAIN
+      fi
       if [ -z "${PUBLIC_DOMAIN:-}" ]; then
-        err "profile remote-public requires PUBLIC_DOMAIN"
+        err "profile remote-public requires PUBLIC_DOMAIN, or a project domain mode that yields one"
         hint "set PUBLIC_DOMAIN in .env, e.g. PUBLIC_DOMAIN=dev.example.com"
+        hint "or: portta config set domain.mode auto   (derives one from this host's public address)"
         return 1
       fi
       PORTTA_DOMAIN="$PUBLIC_DOMAIN"

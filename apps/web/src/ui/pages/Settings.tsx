@@ -13,6 +13,7 @@ import { CopyButton } from '../components/copy.tsx'
 import { SettingsGroup } from '../components/settings/settings-group.tsx'
 import { SettingsNav } from '../components/settings/settings-nav.tsx'
 import { GitHubStatusCard } from '../components/github-status.tsx'
+import { ProjectDomainCard } from '../components/project-domain.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 
 export function Settings({ group }: { group: string | null }) {
@@ -126,6 +127,7 @@ export function Settings({ group }: { group: string | null }) {
           <div className="min-w-0 flex-1 space-y-4">
             <SettingsGroup name={activeGroup} fields={fields} valueOf={valueOf} onChange={setValue} />
             {activeGroup === 'GitHub' ? <GitHubStatusCard /> : null}
+            {activeGroup === 'Project domain' ? <ProjectDomainCard domain={view.projectDomain} /> : null}
           </div>
         ) : (
           <div className="min-w-0 flex-1 rounded-lg border border-line bg-surface">

@@ -6,6 +6,19 @@
   "sectionNotFound": "Settings section “{{group}}” does not exist",
   "chooseGroup": "Choose one of the available groups.",
   "secretsNote": "Secrets are never returned by the API: the panel only reports whether a token is set. Values are written to {{path}} with mode 600.",
+  "projectDomain": {
+    "title": "Project hostnames",
+    "description": "Every project gets <project>-<service>.<base>. This is the base in use right now.",
+    "mode": "Mode",
+    "base": "Base domain",
+    "publicIp": "Public address",
+    "provider": "Wildcard DNS",
+    "examples": "A project called web, api or mail would answer on:",
+    "stateOk": "usable",
+    "stateLimited": "needs attention",
+    "stateBroken": "not resolvable",
+    "note": "This chooses the name only. Which services are reachable, and from where, stays with public access and each project."
+  },
   "groups": {
     "Gateway": "Gateway",
     "Traefik": "Traefik",
@@ -14,7 +27,8 @@
     "Public access": "Public access",
     "DNS": "DNS",
     "Panel": "Panel",
-    "GitHub": "GitHub"
+    "GitHub": "GitHub",
+    "Project domain": "Project domain"
   },
   "fields": {
     "PORTTA_PROFILE": {

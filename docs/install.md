@@ -72,6 +72,56 @@ Removing Portta is `install.sh --uninstall`, which stops its containers and
 deletes `PORTTA_HOME`. It keeps the database volume and the shared network,
 because other projects may still be attached to the latter.
 
+## Project hostnames
+
+Every project gets `<project>-<service>.<base>`, and the base depends on where
+you will be reading the panel from. The installer picks from the answer you
+already gave it: a panel reachable from elsewhere means the hostnames have to be
+too.
+
+| Mode | Base | For |
+|---|---|---|
+| `local` | `localhost` | a machine you are sitting at |
+| `auto` | `<ip-with-dashes>.sslip.io` | a server with a public address and no domain |
+| `custom` | your own wildcard | a domain you control |
+
+`auto` is the interesting one. `sslip.io` (and `nip.io`, the other supported
+choice) answers for any name embedding an address, so a project on a VPS at
+203.0.113.10 answers on:
+
+```
+web.203-0-113-10.sslip.io
+api.203-0-113-10.sslip.io
+```
+
+with no DNS record to create, no account and nothing to buy. Change it at any
+time, without reinstalling and without touching a project:
+
+```bash
+portta config set domain.mode auto
+portta config set domain.mode custom     # after: portta config set gateway.domain dev.example.com
+portta config set domain.mode local
+```
+
+Hostnames are derived rather than stored, so switching re-labels every project
+at once. Nothing is migrated and no route is rewritten by hand.
+
+**This chooses the name, not who can reach it.** An auto domain on a default
+installation resolves to your server and reaches a Traefik that listens on
+loopback only — correct, and not yet useful. `portta public enable` is the
+separate, deliberate step that makes the HTTP services which opted in answer
+there. `portta doctor` and the panel both say so when the two disagree:
+
+```
+[warn] project hostnames  *.203-0-113-10.sslip.io points here, but Traefik listens on 127.0.0.1 only
+   -> portta public enable   exposes the HTTP services that opted in
+```
+
+HTTPS on an auto domain is not automatic: a wildcard certificate needs a DNS-01
+challenge, and neither service offers an API for one. Auto domains serve HTTP.
+Use a custom domain for TLS. The reasoning is in
+[ADR 0022](adr/0022-project-domain-modes.md).
+
 ## Panel access
 
 This is the one decision with security consequences, so it is worth being clear
@@ -184,6 +234,7 @@ curl -fsSL .../install.sh | bash -s -- \
 | `--panel-port <port>` | host port for the panel |
 | `--panel-user <name>` | panel username |
 | `--domain <domain>` | base domain, recorded but not activated |
+| `--domain-mode <mode>` | project hostnames: `local`, `auto` or `custom` |
 | `--version <ref>` | tag, branch or commit to install |
 | `--registry <ns>` | image namespace |
 | `--skip-deps` | never offer to install Docker |

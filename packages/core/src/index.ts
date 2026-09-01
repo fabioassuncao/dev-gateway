@@ -1,5 +1,6 @@
 export * from './aliases.ts'
 export * from './config.ts'
+export * from './domain.ts'
 export * from './dynamic.ts'
 export * from './env.ts'
 export * from './inventory.ts'

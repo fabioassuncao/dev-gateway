@@ -638,6 +638,13 @@ fi
 # DNS and TLS
 # ---------------------------------------------------------------------------
 
+check pass domain.mode "project domain mode" \
+  "${PORTTA_DOMAIN_MODE:-local} (*.${PORTTA_DOMAIN})" ""
+if [ -n "${PORTTA_DOMAIN_PROBLEM:-}" ]; then
+  check fail domain.resolved "project domain" "$PORTTA_DOMAIN_PROBLEM" \
+    "portta config set domain.mode auto"
+fi
+
 case "$PORTTA_DOMAIN" in
   localhost|*.localhost)
     # RFC 6761 reserves `localhost`; resolvers must map it to loopback.
@@ -647,6 +654,13 @@ case "$PORTTA_DOMAIN" in
       check warn dns.local "local DNS" "could not confirm *.localhost resolution" \
         "see docs/local-development.md if hostnames do not resolve"
     fi
+    # A loopback name on a host reached from elsewhere is a URL nobody can
+    # open, which is the failure docs/adr/0022 exists to catch.
+    if [ "${PORTTA_WEB_EXPOSE:-local}" != "local" ]; then
+      check warn domain.reachable "project hostnames" \
+        "*.localhost only resolves on this machine, and the panel is reached from elsewhere" \
+        "portta config set domain.mode auto"
+    fi
     ;;
   *)
     check pass dns.domain "domain" "$PORTTA_DOMAIN" ""
@@ -654,12 +668,38 @@ case "$PORTTA_DOMAIN" in
     # make a broken wildcard look healthy.
     probe_host="portta-probe.$PORTTA_DOMAIN"
     resolved=$(portta_dig +short "$probe_host" A 2>/dev/null | grep -E '^[0-9]+\.' | head -1)
-    if [ -n "$resolved" ]; then
-      check pass dns.wildcard "wildcard DNS" "*.$PORTTA_DOMAIN -> $resolved" ""
-    else
+    if [ -z "$resolved" ]; then
       check fail dns.wildcard "wildcard DNS" "*.$PORTTA_DOMAIN does not resolve" \
         "portta dns setup"
+    else
+      # Resolving is not the same as resolving here. A wildcard pointed at a
+      # machine that is no longer this one produces URLs that load somebody
+      # else's site, which is worse than a URL that fails.
+      expected="${PORTTA_PUBLIC_IP:-}"
+      if [ -z "$expected" ]; then
+        check pass dns.wildcard "wildcard DNS" "*.$PORTTA_DOMAIN -> $resolved" ""
+      elif [ "$resolved" = "$expected" ]; then
+        check pass dns.wildcard "wildcard DNS" "*.$PORTTA_DOMAIN -> $resolved (this host)" ""
+      else
+        check fail dns.wildcard "wildcard DNS" \
+          "*.$PORTTA_DOMAIN -> $resolved, and this host is $expected" \
+          "point the wildcard here, or refresh the address: portta config set domain.mode auto"
+      fi
     fi
+
+    # A name that reaches this host is only useful if Traefik answers where it
+    # points. Exposure is a separate, deliberate decision, so this warns.
+    case "${PORTTA_BIND_ADDRESS:-127.0.0.1}" in
+      127.0.0.1|localhost|::1)
+        check warn domain.reachable "project hostnames" \
+          "*.$PORTTA_DOMAIN points here, but Traefik listens on $PORTTA_BIND_ADDRESS only" \
+          "portta public enable   exposes the HTTP services that opted in"
+        ;;
+      *)
+        check pass domain.reachable "project hostnames" \
+          "*.$PORTTA_DOMAIN, served on $PORTTA_BIND_ADDRESS" ""
+        ;;
+    esac
     ;;
 esac
 

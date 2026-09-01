@@ -1,3 +1,5 @@
+import { resolveDomain, type DomainMode } from './domain.ts'
+
 export const TRUTHY = new Set(['1', 'true', 'yes', 'on', 'enabled'])
 
 export function isTrue(value: string | undefined | null): boolean {
@@ -47,6 +49,10 @@ export interface GatewayConfig {
   webDev: boolean
   webBuild: boolean
   webExpose: PanelAccess
+  /** How the base domain was chosen, and what it could not honour. */
+  domainMode: DomainMode
+  domainProblem: string | null
+  publicIp: string | null
   webPort: number
   webReadOnly: boolean
 }
@@ -66,12 +72,30 @@ export function loadGatewayConfig(env: Record<string, string | undefined> = proc
   if (!isPanelAccess(webExpose)) throw new Error(`unknown panel access mode: ${webExpose}`)
   const publicDomain = optional(env, 'PUBLIC_DOMAIN')
   const privateDomain = optional(env, 'PRIVATE_DOMAIN')
-  let domain = value(env, 'PORTTA_DOMAIN', 'localhost')
+
+  // The base every project hostname is built on, from the mode rather than a
+  // bare value. `custom` keeps PORTTA_DOMAIN as the value it always was, so an
+  // installation that predates the modes resolves exactly as before.
+  const domainMode = value(env, 'PORTTA_DOMAIN_MODE', 'local')
+  const resolution = resolveDomain({
+    mode: domainMode,
+    publicIp: optional(env, 'PORTTA_PUBLIC_IP'),
+    provider: optional(env, 'PORTTA_AUTO_DOMAIN_PROVIDER'),
+    configured: optional(env, 'PORTTA_DOMAIN'),
+  })
+  let domain = resolution.domain
   let bindAddress = value(env, 'PORTTA_BIND_ADDRESS', '127.0.0.1')
-  if (profile === 'remote-private' && privateDomain) domain = privateDomain
+
+  // The per-profile domains stay what they were: a wildcard the operator owns
+  // for that audience. An auto or custom base fills in where one is unset, so
+  // going public no longer means buying a domain first.
+  if (profile === 'remote-private') domain = privateDomain ?? domain
   if (profile === 'remote-public') {
-    if (!publicDomain) throw new Error('profile remote-public requires PUBLIC_DOMAIN')
-    domain = publicDomain
+    const effective = publicDomain ?? (resolution.mode === 'local' ? null : resolution.domain)
+    if (!effective) {
+      throw new Error('profile remote-public requires PUBLIC_DOMAIN, or a project domain mode that yields one')
+    }
+    domain = effective
     bindAddress = '0.0.0.0'
   }
   // The `public` panel entrypoint is a port on the Traefik container. Under the
@@ -104,6 +128,9 @@ export function loadGatewayConfig(env: Record<string, string | undefined> = proc
     webDev: isTrue(env['PORTTA_WEB_DEV']),
     webBuild: isTrue(env['PORTTA_WEB_BUILD']),
     webExpose,
+    domainMode: resolution.mode,
+    domainProblem: resolution.problem,
+    publicIp: optional(env, 'PORTTA_PUBLIC_IP'),
     webPort: Number(value(env, 'PORTTA_WEB_PORT', '8081')),
     webReadOnly: isTrue(env['PORTTA_WEB_READ_ONLY']),
   }

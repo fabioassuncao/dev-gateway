@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { PANEL_ACCESS_MODES, isPanelAccess, readEnvFile, renderPanelAuth, setEnvValue, writeEnvFile } from 'portta-core'
+import { AUTO_DOMAIN_PROVIDERS, DOMAIN_MODES, PANEL_ACCESS_MODES, autoDomainFor, exampleHostnames, isAutoDomainProvider, isDomainMode, isPanelAccess, readEnvFile, renderPanelAuth, setEnvValue, writeEnvFile } from 'portta-core'
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
 import { PreconditionError, RefusedError, UsageError } from '../errors.js'
@@ -31,7 +31,10 @@ const SETTINGS: Record<string, Setting> = {
   'panel.readOnly': { key: 'PORTTA_WEB_READ_ONLY', description: 'refuse every mutating panel endpoint', allowed: ['true', 'false'] },
   'panel.image': { key: 'PORTTA_WEB_IMAGE', description: 'published panel image' },
   'gateway.profile': { key: 'PORTTA_PROFILE', description: 'local, remote-private or remote-public', allowed: ['local', 'remote-private', 'remote-public'] },
-  'gateway.domain': { key: 'PORTTA_DOMAIN', description: 'base domain for generated hostnames' },
+  'domain.mode': { key: 'PORTTA_DOMAIN_MODE', description: 'how project hostnames get their base domain', allowed: DOMAIN_MODES },
+  'domain.provider': { key: 'PORTTA_AUTO_DOMAIN_PROVIDER', description: 'wildcard DNS service used by the auto mode', allowed: AUTO_DOMAIN_PROVIDERS },
+  'domain.publicIp': { key: 'PORTTA_PUBLIC_IP', description: 'address the auto mode builds a hostname from' },
+  'gateway.domain': { key: 'PORTTA_DOMAIN', description: 'base domain, when the mode is custom' },
   'gateway.bindAddress': { key: 'PORTTA_BIND_ADDRESS', description: 'interface Traefik publishes 80/443 on' },
   'public.domain': { key: 'PUBLIC_DOMAIN', description: 'public wildcard namespace' },
   'public.enabled': { key: 'PUBLIC_ENABLED', description: 'whether HTTP services may be published', allowed: ['true', 'false'] },
@@ -99,6 +102,75 @@ async function apply(root: string, profile: string | undefined, values: Record<s
   const context = gatewayContext({ root, profile, overrides: values })
   output.progress('recreating gateway components')
   await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', '--remove-orphans', '--wait', '--wait-timeout', '180'], { cwd: context.root, env: context.env, stdio: 'inherit' })
+}
+
+/**
+ * This host's address as the internet sees it. One outbound request, made only
+ * when somebody deliberately asks for the auto mode — resolving a hostname
+ * reads the stored value and never reaches the network.
+ */
+async function detectPublicIp(): Promise<string | null> {
+  for (const url of ['https://api.ipify.org', 'https://ifconfig.me/ip', 'https://icanhazip.com']) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(5000) })
+      if (!response.ok) continue
+      const address = (await response.text()).trim()
+      if (/^(\d{1,3}\.){3}\d{1,3}$/.test(address)) return address
+    } catch { /* try the next one */ }
+  }
+  return null
+}
+
+/**
+ * The base domain is a name, and nothing here changes who can reach a service.
+ * Switching the mode re-labels every project at once, because hostnames are
+ * derived rather than persisted: no project is touched and nothing migrates.
+ */
+async function setDomainMode(root: string, value: string, output: Output): Promise<Record<string, string>> {
+  if (!isDomainMode(value)) throw new UsageError(`domain.mode must be one of: ${DOMAIN_MODES.join(', ')}`)
+  const context = gatewayContext({ root })
+  const values: Record<string, string> = { PORTTA_DOMAIN_MODE: value }
+
+  if (value === 'auto') {
+    // Re-detect rather than trust a stored address: a VPS can be rebuilt, and a
+    // hostname built from yesterday's address resolves somewhere else entirely.
+    output.progress('detecting this host\'s public address')
+    const detected = (await detectPublicIp()) ?? context.env['PORTTA_PUBLIC_IP'] ?? null
+    if (!detected) {
+      throw new PreconditionError(
+        'no public address could be detected for this host',
+        'set it yourself: portta config set domain.publicIp <address>',
+      )
+    }
+    values['PORTTA_PUBLIC_IP'] = detected
+    const provider = context.env['PORTTA_AUTO_DOMAIN_PROVIDER']
+    const domain = autoDomainFor(detected, provider && isAutoDomainProvider(provider) ? provider : 'sslip.io')
+    if (!domain) throw new PreconditionError(`${detected} is not an IPv4 address`)
+    values['PORTTA_DOMAIN'] = domain
+    output.progress(`projects will answer on *.${domain}`)
+    for (const example of exampleHostnames(domain)) output.progress(`  ${example}`)
+    if (context.config.bindAddress === '127.0.0.1') {
+      output.warning('Traefik still listens on 127.0.0.1, so these names resolve here but nothing answers from outside')
+      output.hint('portta public enable   exposes the HTTP services that opted in')
+    }
+  }
+
+  if (value === 'custom') {
+    const configured = context.env['PORTTA_DOMAIN']
+    if (!configured || configured === 'localhost') {
+      throw new PreconditionError(
+        'domain mode custom needs a domain',
+        'set it first: portta config set gateway.domain dev.example.com',
+      )
+    }
+    output.hint(`*.${configured} must resolve to this host; portta dns check confirms it`)
+  }
+
+  if (value === 'local') {
+    values['PORTTA_DOMAIN'] = 'localhost'
+    output.hint('projects will answer on *.localhost, which only resolves on this machine')
+  }
+  return values
 }
 
 async function tailscaleAddress(): Promise<string | null> {
@@ -174,9 +246,17 @@ export async function configSet(name: string, value: string, options: { apply?: 
   if (SECRETS.has(item.key)) throw new RefusedError(`${name} is a secret and is not set this way`, 'portta web auth set writes the panel credential')
   if (item.allowed && !item.allowed.includes(value)) throw new UsageError(`${name} must be one of: ${item.allowed.join(', ')}`)
 
-  const values = name === 'panel.access'
-    ? await setPanelAccess(context.root, value, output)
-    : { [item.key]: value }
+  let values: Record<string, string>
+  if (name === 'panel.access') values = await setPanelAccess(context.root, value, output)
+  else if (name === 'domain.mode') values = await setDomainMode(context.root, value, output)
+  else values = { [item.key]: value }
+
+  // A custom base only takes effect through the mode, so setting one without
+  // switching would write a value nothing reads.
+  if (name === 'gateway.domain' && value && context.config.domainMode !== 'custom') {
+    output.hint('domain.mode is not custom, so this value is not in use yet')
+    output.hint('portta config set domain.mode custom   applies it')
+  }
 
   write(context.root, values)
   output.progress(`${name} = ${value}`)
