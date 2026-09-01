@@ -75,6 +75,13 @@ export function WorkspacePage({ slug }: { slug: string }) {
             <Button size="sm" onClick={() => navigate('/workspaces')}>
               All workspaces
             </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => navigate(`/board/${encodeURIComponent(workspace.slug)}/board`)}
+            >
+              Board
+            </Button>
             <Button size="sm" onClick={() => setAttaching(true)}>
               <Plus className="h-3.5 w-3.5" />
               Repositories

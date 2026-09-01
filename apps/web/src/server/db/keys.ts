@@ -7,10 +7,24 @@ export class UnknownSettingKey extends Error {
   }
 }
 
+/**
+ * The board's columns are data, not code.
+ *
+ * Configuring them is not in scope; **being able to** is, and that costs one
+ * key and one schema now instead of a refactor later. The default is the six
+ * statuses `WorkflowStatus` defines.
+ */
+export const BoardColumn = z.object({
+  id: z.string().min(1).max(64),
+  label: z.string().min(1).max(64),
+  status: z.enum(['backlog', 'ready', 'in_progress', 'review', 'blocked', 'done']),
+}).strict()
+
 export const GLOBAL_KEYS = {
   theme: z.enum(['system', 'light', 'dark']),
-  defaultPage: z.enum(['overview', 'projects', 'docker', 'access', 'network', 'gateway', 'settings']),
+  defaultPage: z.enum(['overview', 'workspaces', 'projects', 'docker', 'access', 'network', 'gateway', 'settings']),
   tableDensity: z.enum(['comfortable', 'compact']),
+  boardColumns: z.array(BoardColumn).min(1).max(12),
 } as const
 
 export const PROJECT_KEYS = {

@@ -89,6 +89,18 @@ While the version is `0.x`, minor releases may contain breaking changes.
   requests now have one stated source: the App when it is configured and the
   repository authorised, the host `gh` scan otherwise.
 
+- **A backlog and a board that write back to GitHub.** `#/board/<workspace>`
+  puts a workspace's open issues in six configurable-by-design columns, each card
+  badged with its repository. A card moves by drag **or** through a
+  keyboard-reachable actions menu using the same mutation; the move is optimistic
+  and a refusal rolls it back visibly with the reason, announced in a live
+  region. Filters live in the hash, so a filtered board is a link. The backlog is
+  a separate list of work with no status yet, with sub-issues nested. Issues can
+  be created and edited from the panel, and the panel shows only what GitHub
+  confirmed. Read-only mode disables the affordances rather than failing on use.
+  Drag support is a **devDependency**; the runtime image's package count is
+  unchanged.
+
 ## [0.2.0] — 2026-09-01
 
 ### Added

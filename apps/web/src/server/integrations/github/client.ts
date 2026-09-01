@@ -93,7 +93,16 @@ export class GitHubClient {
     return this.request<T>(url, `Bearer ${token}`)
   }
 
-  /** The one write. GitHub's answer is what the projection is updated from. */
+  async postAsInstallation<T>(
+    installationId: number,
+    path: string,
+    body: unknown,
+  ): Promise<GitHubResponse<T>> {
+    const token = await this.auth.installationToken(installationId)
+    return this.request<T>(path, `Bearer ${token}`, { method: 'POST', body })
+  }
+
+  /** The writes. GitHub's answer is what the projection is updated from. */
   async patchAsInstallation<T>(
     installationId: number,
     path: string,

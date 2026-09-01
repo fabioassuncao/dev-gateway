@@ -319,6 +319,42 @@ that instead of failing, and every Docker-backed page keeps working.
 
 See [github.md](github.md#workspaces-repositories-and-the-environments-that-belong-to-them).
 
+### The board and the backlog
+
+`#/board/<workspace>/board` puts the workspace's open issues in six columns —
+Backlog, Ready, In Progress, Review, Blocked, Done — with the repository badged
+on every card, so a multi-repository product reads as one board.
+
+The columns are **data, not code**: a `boardColumns` setting with a schema and a
+default. Configuring them is not in scope; being able to is, and that cost one
+key rather than a later refactor.
+
+**Moving a card.** Drag it, or use the card's actions menu — the same mutation,
+reachable from the keyboard, and the honest path on a touch screen where
+dragging is awkward. Either way the card moves immediately, the write goes to
+GitHub, and a refusal rolls it back **visibly** with the reason on screen. A
+move announces its result in a live region.
+
+A status that came from the `status:` label convention rather than a native
+field carries a discreet marker, because changing it adds one label and removes
+another and that shows in the issue's timeline.
+
+**The backlog** is a list rather than a board: work with no status yet, with
+sub-issues nested under their parent, each row opening the same edit dialog. A
+persisted manual order is deliberately not offered — it would be Dev Gateway
+state GitHub cannot see.
+
+**Filters** — repository, priority, assignee, label and free text — live in the
+hash, so a filtered board is a link somebody can paste.
+
+**Creating and editing** writes to GitHub and shows what GitHub confirmed. The
+panel never displays an issue GitHub did not acknowledge, so there is no
+optimistic row here — only on the move, where the rollback is visible.
+
+Read-only mode disables the affordances rather than failing on use; an
+unavailable database and an unreachable GitHub each say so and leave the
+projection readable.
+
 ### Projects
 
 Compose projects with **at least one** service on the gateway, grouped by

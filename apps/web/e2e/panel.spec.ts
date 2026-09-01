@@ -44,6 +44,24 @@ test.describe('the panel end to end', () => {
     await expect(page.getByRole('button', { name: 'New workspace' })).toBeDisabled()
   })
 
+  test('the board explains itself before the projection exists', async ({ page }) => {
+    await page.goto('/#/board/produto/board')
+    // No PostgreSQL in the demo host: the board is a projection, and says so.
+    await expect(page.getByText("The board needs the panel's database")).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Board' })).toHaveAttribute('aria-selected', 'true')
+
+    await page.getByRole('tab', { name: 'Backlog' }).click()
+    await expect(page).toHaveURL(/#\/board\/produto\/backlog$/)
+    await expect(page).toHaveTitle('Backlog · produto · Dev Gateway')
+  })
+
+  test('a filtered board is a link somebody can paste', async ({ page }) => {
+    await page.goto('/#/board/produto/board?priority=urgent&repository=acme%2Fapi')
+    await expect(page.getByLabel('Priority')).toHaveValue('urgent')
+    await page.reload()
+    await expect(page.getByLabel('Priority')).toHaveValue('urgent')
+  })
+
   test('the favicon is a built local SVG', async ({ request }) => {
     const response = await request.get('/favicon.svg')
     expect(response.ok()).toBe(true)

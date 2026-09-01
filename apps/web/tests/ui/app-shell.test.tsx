@@ -23,7 +23,12 @@ beforeEach(() => {
   localStorage.clear()
   window.location.hash = '/overview'
   overview.mockReset().mockResolvedValue({
-    gateway: { up: true, gatewayVersion: '0.1.0', profile: 'local' },
+    gateway: {
+      up: true,
+      gatewayVersion: '0.1.0',
+      profile: 'local',
+      panel: { expose: 'local', routed: false, auth: 'none', authenticated: false, user: '', readOnly: false },
+    },
   })
 })
 

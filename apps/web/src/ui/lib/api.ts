@@ -129,6 +129,11 @@ export const api = {
     ).then((data) => data.issues)
   },
   issue: (id: string) => request<Issue>(`/issues/${encodeURIComponent(id)}`),
+  createIssue: (fullName: string, body: Record<string, unknown>) =>
+    request<Issue>(`/repositories/${fullName.split('/').map(encodeURIComponent).join('/')}/issues`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   patchIssue: (id: string, body: Record<string, unknown>) =>
     request<Issue>(`/issues/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
 

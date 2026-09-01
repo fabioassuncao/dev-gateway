@@ -32,6 +32,18 @@ const PatchIssueBody = z
   .strict()
   .meta({ ref: 'PatchIssueBody' })
 
+const CreateIssueBody = z
+  .object({
+    title: z.string().min(1).max(256),
+    body: z.string().max(65536).optional(),
+    status: z.enum(['backlog', 'ready', 'in_progress', 'review', 'blocked', 'done']).optional(),
+    priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+    labels: z.array(z.string().min(1)).max(100).optional(),
+    assignees: z.array(z.string().min(1)).max(10).optional(),
+  })
+  .strict()
+  .meta({ ref: 'CreateIssueBody' })
+
 const issueIdParameter = {
   name: 'id',
   in: 'path' as const,
@@ -255,6 +267,68 @@ export function issueRoutes(deps: AppDeps): Hono {
       at: Math.floor(Date.now() / 1000),
     })
     return c.json(view(fresh ?? issue, relationships, Math.floor(Date.now() / 1000)))
+  })
+
+  /**
+   * Creates an issue on GitHub, then projects what GitHub returned.
+   *
+   * The panel never shows an issue GitHub did not confirm, so there is no
+   * optimistic row here: the response is the projection.
+   */
+  app.post('/repositories/:owner/:repo/issues', documentRoute({
+    tag: 'Issues', operationId: 'createIssue', summary: 'Open an issue on GitHub',
+    request: CreateIssueBody, response: Issue, status: 201,
+    parameters: [
+      {
+        name: 'owner', in: 'path', required: true,
+        description: 'Repository owner; it must be one the installation granted.',
+        schema: { type: 'string' },
+      },
+      {
+        name: 'repo', in: 'path', required: true,
+        description: 'Repository name.',
+        schema: { type: 'string' },
+      },
+    ],
+    errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const github = deps.github
+    if (github === null || !github.status().configured) {
+      throw new OverrideRefused(
+        'the GitHub App is not configured, so nothing can be created',
+        'see docs/github.md',
+      )
+    }
+
+    const fullName = `${c.req.param('owner')}/${c.req.param('repo')}`
+    const repository = await db.github.findRepository(fullName)
+    if (!repository) {
+      throw new OverrideRefused(`${fullName} is not a repository this gateway was granted`)
+    }
+
+    const body = CreateIssueBody.parse(await c.req.json())
+    const labels = labelsAfter(body.labels ?? [], {
+      ...(body.status === undefined ? {} : { status: body.status }),
+      ...(body.priority === undefined ? {} : { priority: body.priority }),
+    })
+
+    const created = await github.require().postAsInstallation<RawIssue>(
+      repository.installationId,
+      `/repos/${fullName}/issues`,
+      {
+        title: body.title,
+        ...(body.body === undefined ? {} : { body: body.body }),
+        ...(labels.length === 0 ? {} : { labels }),
+        ...(body.assignees === undefined ? {} : { assignees: body.assignees }),
+      },
+    )
+
+    const record = normaliseIssue(created.data, repository.id)
+    const id = await db.github.upsertIssue(record)
+    const fresh = await db.github.findIssue(id)
+    const relationships = await db.github.listRelationships()
+    return c.json(view(fresh!, relationships, Math.floor(Date.now() / 1000)), 201)
   })
 
   return app

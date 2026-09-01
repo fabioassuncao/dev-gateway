@@ -309,6 +309,17 @@ what GitHub returned** — never from what was requested. The panel never shows 
 issue GitHub did not confirm. It is refused in read-only mode, refused when no
 App is configured, and refused for a repository outside the installation.
 
+### What a status change actually does
+
+| Provider | Moving a card to *Done* |
+|---|---|
+| Native fields | Sets the field. Nothing appears in the issue's timeline |
+| Labels | Adds `status:done` and removes the previous `status:` label. **Both show in the timeline** |
+
+The panel marks a label-derived status so the difference is visible before you
+move anything, and only the dimension being changed is cleared: setting a
+priority never silently drops a status.
+
 ### Pull requests: one source, stated
 
 The host `gh` scan and the App can both report open pull requests. **When the

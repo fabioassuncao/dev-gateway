@@ -26,6 +26,7 @@ import { Projects } from './pages/Projects.tsx'
 import { ProjectPage } from './pages/Project.tsx'
 import { Workspaces } from './pages/Workspaces.tsx'
 import { WorkspacePage } from './pages/Workspace.tsx'
+import { BoardPage } from './pages/Board.tsx'
 import { Services } from './pages/Services.tsx'
 import { DockerPage } from './pages/Docker.tsx'
 import { NetworkPage } from './pages/Network.tsx'
@@ -58,7 +59,10 @@ export function App() {
   const live = useLive()
   const status = useQuery({ queryKey: ['status'], queryFn: api.overview })
 
-  const root = `/${segments(path)[0] ?? 'overview'}`
+  // The board belongs to a workspace, so the sidebar keeps Workspaces marked
+  // while you are on one rather than highlighting nothing.
+  const first = segments(path)[0] ?? 'overview'
+  const root = `/${first === 'board' ? 'workspaces' : first}`
   const gateway = status.data?.gateway
 
   return (
@@ -166,7 +170,7 @@ export function App() {
 
       <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6 scroll-thin">
         <div className="mx-auto max-w-[1400px]">
-          <Page path={path} />
+          <Page path={path} readOnly={gateway?.panel.readOnly ?? false} />
         </div>
       </main>
     </div>
@@ -181,7 +185,14 @@ function decode(segment: string): string {
   }
 }
 
-function Page({ path }: { path: string }) {
+/** Board filters live in the hash, so a filtered board is a link to paste. */
+function boardFilters(path: string): Record<string, string> {
+  const start = path.indexOf('?')
+  if (start < 0) return {}
+  return Object.fromEntries(new URLSearchParams(path.slice(start + 1)))
+}
+
+function Page({ path, readOnly = false }: { path: string; readOnly?: boolean }) {
   const parts = segments(path)
   switch (parts[0]) {
     case 'projects':
@@ -192,6 +203,17 @@ function Page({ path }: { path: string }) {
         : <Projects />
     case 'workspaces':
       return parts[1] ? <WorkspacePage slug={decode(parts[1])} /> : <Workspaces />
+    case 'board':
+      return parts[1] ? (
+        <BoardPage
+          slug={decode(parts[1])}
+          view={parts[2] ?? null}
+          filters={boardFilters(path)}
+          readOnly={readOnly}
+        />
+      ) : (
+        <Workspaces />
+      )
     case 'services':
       return <Services />
     case 'docker':
