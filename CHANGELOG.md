@@ -36,6 +36,8 @@ While the version is `0.x`, minor releases may contain breaking changes.
   - Live updates over server-sent events, fed by Docker's own event stream. No
     polling.
 - `dev-gateway web up | down | disable | restart | status | open | logs | build | dev`.
+  `up` waits for the panel to answer before it reports success, so the URL it
+  prints is never dead by the time you open it.
 - The panel's own Docker socket proxy, so Traefik's stays read-only
   ([ADR 0008](docs/adr/0008-web-panel-socket-proxy.md)). It grants the read
   endpoints plus the container lifecycle and denies images, volumes, exec,

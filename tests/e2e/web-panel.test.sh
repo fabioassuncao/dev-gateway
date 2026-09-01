@@ -53,14 +53,12 @@ describe "the panel starts through the CLI"
 docker run -d --name "$STRAY" --label dg.e2e=true alpine:3.24.1 sleep 600 >/dev/null 2>&1
 
 "$GW" web up >/dev/null 2>&1
-ready=0
-for _ in $(seq 1 30); do
-  get /api/health >/dev/null 2>&1 && { ready=1; break; }
-  sleep 1
-done
 
-it "answers on loopback"
-assert_eq "1" "$ready"
+it "answers as soon as 'web up' returns"
+# Regression: `web up` used to report success the moment Compose created the
+# container, so the URL it printed was dead for the first few seconds and every
+# caller had to guess how long to sleep. It now waits for the healthcheck.
+assert_success get /api/health
 
 it "reports the gateway version it is running beside"
 assert_eq "$(dg_version)" "$(get /api/health | jq_py "d['gatewayVersion']")"

@@ -154,8 +154,16 @@ dg_web_up() {
   services=$(dg_web_services)
 
   info "starting the panel (profile: $DEV_GATEWAY_PROFILE, expose: $DEV_GATEWAY_WEB_EXPOSE)"
+  # `--wait`, so "panel is up" means the panel answers, not that a container was
+  # created. The image declares a healthcheck; without this the URL printed
+  # below is dead for the first few seconds and every caller has to guess how
+  # long to sleep.
   # shellcheck disable=SC2086  # deliberate word splitting over the service list
-  dg_compose "$DEV_GATEWAY_PROFILE" up -d --build $services || return 1
+  dg_compose "$DEV_GATEWAY_PROFILE" up -d --build --wait --wait-timeout 180 $services || {
+    err "the panel did not become healthy"
+    hint "dev-gateway web logs"
+    return 1
+  }
 
   ok "panel is up"
   printf '\n  %-14s %s\n' "url" "$(dg_bold "$(dg_web_url)")"
