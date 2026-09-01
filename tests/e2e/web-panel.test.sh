@@ -27,6 +27,9 @@ WEB_WAS_ENABLED="$DEV_GATEWAY_WEB"
 STRAY="dg-web-e2e-stray"
 
 cleanup() {
+  [ -z "$DB_CONTAINER" ] || docker start "$DB_CONTAINER" >/dev/null 2>&1
+  [ -z "$DB_CONTAINER" ] || docker exec "$DB_CONTAINER" psql -U devgateway -d devgateway \
+    -c "DELETE FROM integrations WHERE kind = 'web-e2e-persistence';" >/dev/null 2>&1
   curl -s -X DELETE "$BASE/api/access/$BRIDGE_ID" >/dev/null 2>&1
   "$GW" access close --all >/dev/null 2>&1
   docker rm -f "$STRAY" >/dev/null 2>&1
@@ -35,6 +38,7 @@ cleanup() {
   dg_is_true "$WEB_WAS_ENABLED" || "$GW" web disable >/dev/null 2>&1
 }
 BRIDGE_ID=""
+DB_CONTAINER=""
 trap cleanup EXIT INT TERM
 
 # get <path>: the panel's JSON, or nothing.
@@ -62,6 +66,57 @@ assert_success get /api/health
 
 it "reports the gateway version it is running beside"
 assert_eq "$(dg_version)" "$(get /api/health | jq_py "d['gatewayVersion']")"
+
+describe "its PostgreSQL is private, migratable and optional at runtime"
+
+DB_CONTAINER=$(dg_gateway_container db)
+
+it "the database starts healthy"
+assert_eq "healthy" "$(dg_container_health "$DB_CONTAINER")"
+
+it "it publishes no host port"
+assert_eq "" "$(docker inspect "$DB_CONTAINER" \
+  --format '{{ range $p, $c := .NetworkSettings.Ports }}{{ range $c }}{{ .HostIp }}:{{ .HostPort }} {{ end }}{{ end }}' 2>/dev/null)"
+
+it "its only network is the internal data network"
+assert_eq "$DEV_GATEWAY_DB_NETWORK" "$(docker inspect "$DB_CONTAINER" \
+  --format '{{ range $name, $_ := .NetworkSettings.Networks }}{{ println $name }}{{ end }}' 2>/dev/null \
+  | tr -d '[:space:]')"
+
+it "the data network has no external route"
+assert_eq "true" "$(docker network inspect "$DEV_GATEWAY_DB_NETWORK" --format '{{ .Internal }}')"
+
+it "the initial migration is recorded"
+assert_eq "0001_initial.sql" "$(docker exec "$DB_CONTAINER" psql -U devgateway -d devgateway \
+  -At -c 'SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1')"
+
+docker stop "$DB_CONTAINER" >/dev/null
+sleep 2
+
+it "health remains available while PostgreSQL is down"
+assert_success get /api/health
+
+it "Docker-backed project discovery remains available too"
+assert_contains "$(get /api/projects)" '"projects"'
+
+it "the degraded database is an explicit warning"
+db_status=""
+for _ in $(seq 1 10); do
+  db_status=$(get /api/status)
+  case "$db_status" in *'"id":"database","status":"warn"'*) break ;; esac
+  sleep 1
+done
+assert_contains "$db_status" '"id":"database","status":"warn"'
+
+docker start "$DB_CONTAINER" >/dev/null
+for _ in $(seq 1 30); do
+  [ "$(dg_container_health "$DB_CONTAINER")" = "healthy" ] && break
+  sleep 1
+done
+
+docker exec "$DB_CONTAINER" psql -U devgateway -d devgateway -v ON_ERROR_STOP=1 \
+  -c "DELETE FROM integrations WHERE kind = 'web-e2e-persistence';
+      INSERT INTO integrations (kind, config) VALUES ('web-e2e-persistence', '{}');" >/dev/null
 
 describe "it describes the host the way the CLI does"
 
@@ -189,5 +244,21 @@ assert_eq "running" "$(dg_container_state dev-gateway-traefik-1)"
 
 it "so is the project"
 assert_eq "running" "$(dg_container_state demo-a-web-1)"
+
+describe "the named volume survives a complete panel down/up"
+
+"$GW" web up >/dev/null 2>&1
+DB_CONTAINER=$(dg_gateway_container db)
+
+it "the persisted marker comes back"
+assert_eq "1" "$(docker exec "$DB_CONTAINER" psql -U devgateway -d devgateway -At \
+  -c "SELECT count(*) FROM integrations WHERE kind = 'web-e2e-persistence'")"
+
+it "the migration is still recorded exactly once"
+assert_eq "1" "$(docker exec "$DB_CONTAINER" psql -U devgateway -d devgateway -At \
+  -c "SELECT count(*) FROM schema_migrations WHERE version = '0001_initial.sql'")"
+
+docker exec "$DB_CONTAINER" psql -U devgateway -d devgateway \
+  -c "DELETE FROM integrations WHERE kind = 'web-e2e-persistence';" >/dev/null
 
 t_summary
