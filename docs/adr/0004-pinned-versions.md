@@ -20,7 +20,7 @@ Every image pins an explicit version tag. As of this writing:
 | `tailscale/tailscale` | `v1.102.3` | current stable |
 | `alpine/socat` | `1.8.1.3` | TCP access bridges |
 | `traefik/whoami` | `v1.12.0` | fixtures only |
-| `postgres` | `18.6-alpine` | fixtures only |
+| `postgres` | `18.6-alpine` | panel persistence and fixtures |
 | `redis` | `8.10.1-alpine` | fixtures only |
 | `nginx` | `1.31.4-alpine` | fixtures only |
 | `mysql` | `8.4.7` | fixtures only (`demo-shop`) |
