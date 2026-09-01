@@ -7,6 +7,7 @@ import { ensureNetwork, inspectContainers, networkExists, requireDocker } from '
 import { CliError, EXIT, RefusedError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
+import { CLI_VERSION } from '../version.js'
 import { confirm } from '../confirm.js'
 
 function globals(command: Command) {
@@ -19,9 +20,70 @@ async function compose(command: Command, args: string[], stdio: 'inherit' | 'pip
   return runProcess('docker', ['compose', ...composeArguments(context), ...args], { cwd: context.root, env: context.env, stdio })
 }
 
+/** major.minor, which is the granularity the API contract moves at. */
+function series(version: string): string {
+  const parts = version.split('.')
+  return `${parts[0] ?? '0'}.${parts[1] ?? '0'}`
+}
+
+/**
+ * The panel's own version, read from the API it serves. Unauthenticated on
+ * loopback and over the tailnet; behind BasicAuth in `public` mode, where a
+ * 401 is a perfectly good answer to "is it there" and no answer at all to
+ * "which version" — so that case reports the image tag instead, which is what
+ * the installation pinned.
+ */
+async function panelReport(context: ReturnType<typeof gatewayContext>): Promise<{ version: string | null; detail: string }> {
+  const image = context.env['PORTTA_WEB_IMAGE'] ?? ''
+  const tag = image.includes(':') ? image.slice(image.lastIndexOf(':') + 1) : null
+  if (!context.config.webEnabled) return { version: null, detail: 'disabled' }
+  const host = context.config.webExpose === 'public' ? '127.0.0.1' : (context.env['PORTTA_WEB_BIND_ADDRESS'] ?? '127.0.0.1')
+  try {
+    const response = await fetch(`http://${host}:${context.config.webPort}/api/health`, { signal: AbortSignal.timeout(3000) })
+    if (response.status === 401) return { version: tag, detail: tag ? `${tag} (from the image tag; the API is behind authentication)` : 'behind authentication' }
+    if (!response.ok) return { version: tag, detail: `unreachable (HTTP ${response.status})` }
+    const body = await response.json() as { panelVersion?: string }
+    return { version: body.panelVersion ?? tag, detail: body.panelVersion ?? 'unknown' }
+  } catch {
+    return { version: tag, detail: tag ? `${tag} (from the image tag; the panel did not answer)` : 'not running' }
+  }
+}
+
 export async function versionCommand(command: Command): Promise<void> {
+  const global = globals(command)
+  const output = new Output(global)
   const context = gatewayContext({ required: false })
-  new Output(globals(command)).data(`portta ${context.version}`)
+  const cli = CLI_VERSION
+  const gateway = context.version
+  // A CLI installed from npm outlives the installation it is pointed at in
+  // both directions, so it says which one it is talking to and whether the
+  // two agree, rather than failing obscurely three commands later.
+  const compatible = series(cli) === series(gateway)
+
+  if (!output.json && !context.composeFiles.length) {
+    output.data(`portta ${cli}`)
+    return
+  }
+
+  const panel = await panelReport(context)
+  if (output.json) {
+    output.data({
+      cli,
+      gateway,
+      panel: panel.version,
+      root: context.root,
+      compatible,
+      apiSeries: series(gateway),
+    })
+    return
+  }
+  output.line(`portta ${cli}`)
+  output.line(`  gateway  ${gateway}  (${context.root})`)
+  output.line(`  panel    ${panel.detail}`)
+  if (!compatible) {
+    output.warning(`this CLI is ${cli} and the installation is ${gateway}`)
+    output.hint('update the installation by re-running the installer, or install the matching CLI: npm i -g portta@' + gateway)
+  }
 }
 
 export async function bootstrapCommand(options: { skipPull?: boolean }, command: Command): Promise<void> {

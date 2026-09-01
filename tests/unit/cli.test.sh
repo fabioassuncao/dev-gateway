@@ -74,6 +74,25 @@ assert_contains "$("$GW" --version 2>&1)" "portta"
 it "VERSION and the CLI agree"
 assert_contains "$("$GW" version)" "$(tr -d '[:space:]' < "$PORTTA_ROOT/VERSION")"
 
+describe "the CLI says which installation it is talking to"
+# A CLI installed from npm outlives the installation it addresses in both
+# directions, so `version` reports both and whether they agree.
+it "it names the gateway it resolved"
+assert_contains "$("$GW" version 2>&1)" "gateway"
+it "and the root it found"
+assert_contains "$("$GW" version 2>&1)" "$PORTTA_ROOT"
+it "the JSON form carries a compatibility verdict"
+assert_success sh -c "'$GW' version --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert set([\"cli\",\"gateway\",\"panel\",\"compatible\",\"apiSeries\"]) <= set(d)'"
+it "and this checkout is self-consistent"
+assert_success sh -c "'$GW' version --json | python3 -c 'import json,sys; assert json.load(sys.stdin)[\"compatible\"] is True'"
+it "a mismatched installation is reported, not ignored"
+mismatch=$(mktemp -d "${TMPDIR:-/tmp}/portta-version.XXXXXX")
+mkdir -p "$mismatch/docker/compose/attach" "$mismatch/docker/compose/profiles"
+printf '9.9.9\n' > "$mismatch/VERSION"
+for f in compose.yaml attach/host.yaml profiles/local.yaml; do printf '{}\n' > "$mismatch/docker/compose/$f"; done
+assert_contains "$(PORTTA_ROOT="$mismatch" "$GW" version 2>&1)" "installation is 9.9.9"
+rm -rf "$mismatch"
+
 describe "exit codes have a stable machine contract"
 it "success is 0"; assert_success "$GW" version
 failure_root=$(mktemp -d "${TMPDIR:-/tmp}/portta-cli-exit.XXXXXX")

@@ -203,7 +203,24 @@ npx portta doctor      # the same, from anywhere, with Node 22.12+
 
 `npx portta` finds an installation without being told where it is: it checks
 `PORTTA_HOME`, then `/opt/portta`, `~/.portta` and `/var/lib/portta`, after
-walking up from the working directory.
+walking up from the working directory. A custom `--install-dir` is not in that
+list, so export `PORTTA_HOME` for it — the `portta` the installer links onto
+PATH always addresses its own installation and needs nothing.
+
+A CLI installed from npm outlives the installation it is pointed at in both
+directions, so it says which one it found and whether the two agree:
+
+```console
+$ portta version
+portta 0.2.0
+  gateway  0.2.0  (/opt/portta)
+  panel    0.2.0 (from the image tag; the API is behind authentication)
+```
+
+`portta version --json` carries the same as `cli`, `gateway`, `panel`,
+`apiSeries` and a `compatible` boolean. When the major and minor disagree it
+says so and names the two ways to fix it: re-run the installer, or install the
+matching CLI.
 
 `doctor` also reports the host's development environment — Git and its global
 identity, GitHub CLI and whether it is authenticated, Node, npm, npx, Tailscale
