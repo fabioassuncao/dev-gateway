@@ -1,15 +1,8 @@
 # Dev Gateway
 
-A technical arrangement I am experimenting with to organise my own development
-flow across several containerised projects, locally and on a VPS: everything I
-work on runs at the same time, on the same machine, without ever renumbering a
-port or killing somebody else's containers.
+A personal, experimental gateway for running many Docker projects at once — locally, on a VPS or in a homelab — each on a predictable URL instead of a port to remember.
 
-It is not a product, and it is shaped around one person's habits. The
-repository is public because there is no reason for it not to be. If it fits
-how you work, help yourself.
-
-```
+```text
 $ dev-gateway urls
 PROJECT                      SERVICE        URL
 base-empresarial             api            http://base-empresarial-api.localhost
@@ -19,98 +12,96 @@ base-empresarial-issue59     web            http://base-empresarial-issue59-web.
 issue-flow                   web            http://issue-flow-web.localhost
 ```
 
-All of those run `web` on internal port 3000 and `api` on 8000. Each has its
-own Postgres on 5432 and Redis on 6379. None of them publishes a host port.
+All of those can use the same internal ports. None needs to publish one on the host.
 
-The same host, in the optional web panel:
+## Why
 
-![The Dev Gateway panel: three projects on the gateway with their services and URLs, how many containers are running outside it, and the two problems it found](.github/images/panel-overview.png)
+I keep several side projects, experiments and prototypes alive at once. An idea may be written down today and picked up whenever there is time.
 
-Off by default, published on loopback: `dev-gateway web up`, then
-<http://127.0.0.1:8081>. See [the panel](#web-panel).
+The work is not always on one machine: there is a laptop, a development VPS, a homelab, and increasingly agents such as Claude Code and Codex doing work while I am elsewhere. I still want to see what is running from a browser or phone.
 
----
+Everything runs in containers on purpose. Dependencies stay isolated, the host stays clean, and a stack can be started or discarded without becoming part of the machine.
 
-## The problem
+That creates a different set of problems: port conflicts, ports nobody remembers, remote access, testing on a phone, and occasionally sharing one URL with someone else. Dev Gateway is the arrangement I use to solve those for my own workflow; it is public because there is no reason for it not to be.
 
-A host port can only be held by one process. So the moment two projects both
-want `3000:3000` (or you check out a second worktree of the same project), you
-have to pick one:
+## What it does
 
-- stop the other environment, which interrupts whoever was using it;
-- renumber ports inside the project, so development stops resembling production;
-- keep a spreadsheet of who owns which port.
+A host port can only be held by one process, but many containers can listen on the same internal port. Dev Gateway therefore publishes almost nothing. One Traefik instance holds 80 and 443, HTTP services join one shared Docker network, and each gets a hostname derived from its Compose project and service names.
 
-None of those scale past a couple of projects, and all of them get worse when
-several agents work in parallel.
+Databases and caches stay on each project's private network. A temporary loopback bridge, or optional TLS/SNI routing on a private entrypoint, reaches them when a human needs to. The optional panel shows projects, routes and problems, manages the permitted container lifecycle, and persists only durable decisions and identity in its private PostgreSQL.
 
-## The idea
+This is host infrastructure installed once, not a parent Compose project. It does not move projects, own their volumes, or participate in their lifecycle. See [ADR 0001](docs/adr/0001-decoupled-infrastructure.md).
 
-Container ports and host ports are different things. Two containers can both
-listen on 3000 forever; the conflict only exists because something publishes
-that port on the host.
+## Screenshots
 
-So publish nothing. One shared router holds 80 and 443, every project attaches
-its HTTP services to one shared Docker network, and each service gets a
-hostname derived from the name its Compose project already has. Databases and
-caches stay on the project's own private network and are reached, when a human
-actually needs them, through a temporary loopback bridge.
+<table>
+  <tr>
+    <td width="50%"><a href=".github/images/panel-overview.png"><img src=".github/images/panel-overview.png" alt="Overview showing projects, services, routed URLs and detected problems"></a><br><sub><b>Overview</b> — what is running and what is wrong</sub></td>
+    <td width="50%"><a href=".github/images/panel-projects.png"><img src=".github/images/panel-projects.png" alt="Projects grouped with their services, health, uptime and endpoints"></a><br><sub><b>Projects</b> — Compose projects, databases included</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><a href=".github/images/panel-services.png"><img src=".github/images/panel-services.png" alt="Services with state, technology, addresses and lifecycle actions"></a><br><sub><b>Services</b> — every routed and private service</sub></td>
+    <td width="50%"><a href=".github/images/panel-docker.png"><img src=".github/images/panel-docker.png" alt="Docker inventory separating integrated, gateway-owned and external containers"></a><br><sub><b>Docker</b> — the whole host, ownership made explicit</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><a href=".github/images/panel-access.png"><img src=".github/images/panel-access.png" alt="Private TCP services and a temporary loopback database bridge"></a><br><sub><b>Access</b> — databases without published ports</sub></td>
+    <td width="50%"><a href=".github/images/panel-overview-dark.png"><img src=".github/images/panel-overview-dark.png" alt="Overview page using the dark colour theme"></a><br><sub><b>Dark theme</b> — the same live overview</sub></td>
+  </tr>
+</table>
 
-## What it is not
+The panel is optional and loopback-only by default. Run `dev-gateway web up`, then open <http://127.0.0.1:8081>. The complete walkthrough and all ten images are in [the panel documentation](docs/web-ui.md).
 
-The Dev Gateway is host infrastructure, installed once. It is **not** a parent
-Compose project.
+## How it works
 
-It does not move your projects, clone them, mount their directories, own their
-volumes or databases, or take part in their lifecycle. It never stops a
-container it did not create, never removes a volume it does not own, and never
-runs `docker system prune`. Your projects stay exactly where they are, in their
-own repositories, started and stopped from their own directories.
-
-See [ADR 0001](docs/adr/0001-decoupled-infrastructure.md).
-
-## Architecture
+This is the `local` profile with the optional panel enabled:
 
 ```mermaid
 flowchart TB
-    client([browser / curl])
+    user([browser / phone / agent])
     subgraph host [Host]
-        traefik[Traefik<br/>:80 :443]
-        proxy[docker-socket-proxy<br/>read-only, no host port]
-        socket[/var/run/docker.sock/]
-        subgraph shared [dev-gateway network: shared]
-            aweb[demo-a web :3000]
-            aapi[demo-a api :8000]
-            bweb[demo-b web :3000]
+        traefik[Traefik :80 :443]
+        proxy[read-only socket proxy]
+        panel[web panel :8081]
+        panelproxy[panel socket proxy]
+        paneldb[(panel PostgreSQL)]
+        subgraph shared [dev-gateway: shared HTTP network]
+            aweb[project-a web :3000]
+            aapi[project-a api :8000]
+            bweb[project-b web :3000]
         end
-        subgraph pa [demo-a_default: private]
+        subgraph private [project-a_default: private]
             apg[(postgres :5432)]
-            ard[(redis :6379)]
         end
-        subgraph pb [demo-b_default: private]
-            bpg[(postgres :5432)]
+        subgraph access [dev-gateway-access: optional TCP routing]
+            routeddb[(opted-in datastore)]
         end
     end
-    client -->|"*.localhost"| traefik
+    user -->|"*.localhost"| traefik
+    user -->|127.0.0.1:8081| panel
     traefik --> aweb & aapi & bweb
-    traefik -. "discovery only" .-> proxy
-    proxy -. ro .-> socket
-    aweb --- apg & ard
-    aapi --- apg
-    bweb --- bpg
+    traefik -. discovery .-> proxy
+    panel -. lifecycle .-> panelproxy
+    panel --> paneldb
+    aweb --- apg
+    traefik -. "TLS / SNI" .-> routeddb
 ```
 
-Traefik only ever reaches services on the shared network. It has no route to
-any project's private network, and never needs one.
+Traefik reaches HTTP services only on the shared network; it has no route into a project's private network. `remote-private` adds the Tailscale sidecar and `remote-public` deliberately binds the public interface. The exact networks, profiles and persistence boundary are in [Architecture](docs/architecture.md).
 
 ## Requirements
 
-**macOS**: [OrbStack](https://orbstack.dev) (recommended) or Docker Desktop,
-Git, and a shell. **Linux**: Docker Engine 24+, the Compose v2 plugin, Git,
-and a shell.
+**Required on the host:** Docker Engine 24+ with Compose v2, Git, and a POSIX shell. The CLI targets bash 3.2, including the version shipped by macOS.
 
-Nothing else is required on the host. `jq`, `socat`, database clients and other
-tooling run in containers the gateway manages.
+**Run by the gateway:** Traefik, filtered Docker socket proxies, `jq`, `socat`, OpenSSL, database clients, access bridges, and the panel's Node runtime. The host does not need Node to run the gateway or panel.
+
+**Only for developing Dev Gateway:** Node 22+, ShellCheck, and Playwright's browser dependencies.
+
+| Verified environment | Evidence |
+|---|---|
+| macOS 15+ arm64 with OrbStack | Full suite run during development |
+| Ubuntu 24.04 amd64 with Docker Engine | Full suite in CI |
+
+Other platforms may work but are not claimed as verified. See the complete [compatibility matrix](docs/compatibility.md).
 
 ## Quick start
 
@@ -124,29 +115,19 @@ cp .env.example .env
 ./bin/dev-gateway doctor
 ```
 
-Then try the bundled examples, two unrelated stacks that both use ports 3000
-and 8000 internally:
+Then start the two bundled stacks, which deliberately reuse internal ports:
 
 ```bash
 make demo-up
 ```
 
-```
-http://demo-a-web.localhost
-http://demo-a-api.localhost
-http://demo-b-web.localhost
-http://demo-b-api.localhost
-```
-
-Add `./bin` to your `PATH`, or symlink `bin/dev-gateway` somewhere on it, to
-drop the `./bin/` prefix.
+They answer at `demo-a-web.localhost`, `demo-a-api.localhost`, `demo-b-web.localhost`, and `demo-b-api.localhost`. Add `./bin` to `PATH` to drop the prefix.
 
 ## Adopting a project
 
-Your project stays where it is. You add one file to it:
+The project stays in its own repository. Add an overlay that joins only its HTTP service to the shared network and opts it into Traefik:
 
 ```yaml
-# compose.dev-gateway.yaml: the entire integration
 services:
   web:
     networks: [default, dev-gateway]
@@ -154,195 +135,27 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=dev-gateway"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-web.loadbalancer.server.port=3000"
-
 networks:
-  dev-gateway:
-    external: true
-    name: dev-gateway
+  dev-gateway: { external: true, name: dev-gateway }
 ```
 
-```bash
-docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
-```
-
-Start with `dev-gateway analyze /path/to/project`, which reads the project and
-reports what it would take. It never writes anything.
-
-Full walkthrough: **[docs/adopting-projects.md](docs/adopting-projects.md)**.
-
-## Working in parallel
-
-`COMPOSE_PROJECT_NAME` is the namespace. Change it and you get a completely
-independent environment, with its own containers, network, volumes and
-hostnames:
-
-```bash
-COMPOSE_PROJECT_NAME=base-empresarial-issue59 \
-  docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
-# -> http://base-empresarial-issue59-web.localhost
-```
-
-The first environment keeps running. Nothing inside the project changed.
-
-## Databases, Redis and other TCP services
-
-They are never published on the host and never joined to the shared network.
-When a human needs one (TablePlus, `psql`, `redis-cli`), the gateway opens a
-temporary bridge on a free loopback port:
-
-```bash
-dev-gateway access open --project base-empresarial --service postgres
-# -> 127.0.0.1:55431
-```
-
-See [docs/tcp-access.md](docs/tcp-access.md).
-
-Optionally, they can be told apart by hostname instead, on a single shared
-port, with nothing published per container:
-
-```bash
-dev-gateway web up                 # or just set DEV_GATEWAY_TCP=true
-psql "postgresql://demo@base-empresarial-postgres.localhost:5432/demo?sslmode=require"
-psql "postgresql://demo@base-eleicoes-postgres.localhost:5432/demo?sslmode=require"
-```
-
-Both of those are 5432. Both containers still listen on 5432 internally.
-Neither publishes a port. Traefik picks the backend from the hostname in the
-TLS handshake, which is why `sslmode=require` is not optional.
-
-This works for PostgreSQL and Redis and **not** for MySQL, whose protocol has
-the server speak first and so offers no hostname to route on. The measured
-cost, the certificate rules and the exact limits are in
-**[docs/tcp-routing.md](docs/tcp-routing.md)**.
-
-## Web panel
-
-Optional, off by default, loopback only. It answers the lookups that come up
-when several environments are running at once: which URL does this project have
-today, what is holding that port, which containers are still up from last week,
-and how do I point a GUI client at this database.
-
-```bash
-dev-gateway web up
-dev-gateway web open      # http://127.0.0.1:8081
-```
-
-**Projects, not a list of containers.** Services are grouped by
-`COMPOSE_PROJECT_NAME`, databases included, with every address one click from
-the clipboard.
-
-![The Projects page: each Compose project with its services, health, uptime and URLs, including a second worktree of the same project running beside it](.github/images/panel-projects.png)
-
-**Everything else on the host, kept separate.** Containers the gateway does not
-manage are shown for diagnosis, never mixed in with the projects it does, and
-the port that is already taken has a name next to it.
-
-![The Docker page: External Docker and Standalone sections, and the published ports table flagging 5432 as claimed twice](.github/images/panel-docker-external.png)
-
-**Databases without publishing a port.** A bridge on a free loopback port,
-opened when you need it and closed when you do not, with the connection string
-ready to copy and no password in it.
-
-![The Access page: an open bridge to storefront/postgres on 127.0.0.1:55431, and the other TCP services with an Open local access button](.github/images/panel-access.png)
-
-It also offers logs, start, stop, restart, a careful removal, gateway
-diagnostics and the common settings, and nothing more: it is not a Docker
-management tool.
-
-The panel runs in containers (the host still needs no Node), reads Docker
-through its own filtered socket proxy, and is never published on the internet.
-
-See **[docs/web-ui.md](docs/web-ui.md)** for the rest of it.
-
-## Commands
-
-| | |
-|---|---|
-| `dev-gateway bootstrap` | Prepare the host: runtime checks, shared network, state |
-| `dev-gateway up [profile]` | Start the gateway |
-| `dev-gateway down` | Stop it; applications keep running |
-| `dev-gateway status` | Compact overview |
-| `dev-gateway doctor` | Deep diagnostics with suggested fixes |
-| `dev-gateway urls` | Hostnames currently being served |
-| `dev-gateway inspect` | Resolved configuration and compose files |
-| `dev-gateway update` | Pull pinned images and recreate |
-| `dev-gateway web up` | Start the administration panel on loopback |
-| `dev-gateway db status` | Inspect the panel PostgreSQL health and migration |
-| `dev-gateway db dump` | Stream a restorable panel database backup |
-
-`--json` is available on `status`, `doctor` and `urls`. `make` targets mirror
-these for convenience; Make is never required.
-
-## Security
-
-Short version: nothing is exposed unless you ask for it.
-
-- Traefik never sees the Docker socket. A read-only, endpoint-filtered proxy on
-  an `internal` network does discovery ([ADR 0002](docs/adr/0002-docker-socket-proxy.md)).
-- `exposedByDefault=false`, so a service is routed only when it opts in.
-- The local profile binds to `127.0.0.1`.
-- The dashboard is off; when enabled it is loopback-only and never routed
-  through the public entrypoints.
-- Databases, caches and the Docker API are never published publicly, and
-  `doctor` fails if they are.
-- Databases are never routed by hostname unless both the gateway and the
-  project opt in, and the TCP entrypoints are refused outright on the public
-  profile ([ADR 0009](docs/adr/0009-tcp-routing-by-hostname.md)).
-- The web panel is off by default, binds loopback, and refuses to be published
-  on the internet. It reaches Docker through a socket proxy of its own, so
-  Traefik's stays read-only ([ADR 0008](docs/adr/0008-web-panel-socket-proxy.md)).
-
-Details: **[docs/security.md](docs/security.md)**.
+`dev-gateway analyze /path/to/project` reports the required changes without writing; `dev-gateway init /path/to/project` can generate the overlay. Follow the [adoption checklist](docs/adopting-projects.md).
 
 ## Documentation
 
-| | |
-|---|---|
-| [architecture.md](docs/architecture.md) | How the pieces fit together |
-| [networking.md](docs/networking.md) | Networks, ports, and what talks to what |
-| [configuration.md](docs/configuration.md) | Every setting in `.env` |
-| [local-development.md](docs/local-development.md) | macOS and Linux workstations |
-| [remote-development.md](docs/remote-development.md) | Running on a VPS |
-| [tailscale.md](docs/tailscale.md) | VPN-only access |
-| [dns-and-tls.md](docs/dns-and-tls.md) | Wildcard DNS and certificates |
-| [public-access.md](docs/public-access.md) | Opting in to internet exposure |
-| [cloudflare.md](docs/cloudflare.md) | Optional DNS automation |
-| [firewall.md](docs/firewall.md) | Minimal rules, and why Docker bypasses UFW |
-| [remote-bootstrap.md](docs/remote-bootstrap.md) | Preparing a host over SSH |
-| [adopting-projects.md](docs/adopting-projects.md) | Adapting a project, with a checklist |
-| [monorepos.md](docs/monorepos.md) | Monorepos and worktrees |
-| [tcp-access.md](docs/tcp-access.md) | Why databases need a different mechanism |
-| [tcp-routing.md](docs/tcp-routing.md) | Reaching databases by hostname, and which protocols can |
-| [database-access.md](docs/database-access.md) | Reaching a database, by situation |
-| [redis-access.md](docs/redis-access.md) | Reaching Redis |
-| [remote-tunnels.md](docs/remote-tunnels.md) | Reaching a VPS's private services |
-| [tailscale-services.md](docs/tailscale-services.md) | A persistent private address |
-| [web-ui.md](docs/web-ui.md) | The administration panel |
-| [persistence.md](docs/persistence.md) | Panel PostgreSQL, migrations, backup and degraded operation |
-| [sharing.md](docs/sharing.md) | Showing one service to one person, until it expires |
-| [agent-guidelines.md](docs/agent-guidelines.md) | Rules for autonomous agents |
-| [templates/](templates/) | Overlay templates for the usual project shapes |
-| [security.md](docs/security.md) | Threat model and hardening |
-| [troubleshooting.md](docs/troubleshooting.md) | When something does not route |
-| [compatibility.md](docs/compatibility.md) | Platforms verified, and measured overhead |
-| [adr/](docs/adr/) | Why things are the way they are |
+The categorised documentation index, command reference, ADRs and project templates live in **[docs/README.md](docs/README.md)**.
+
+## Security
+
+Nothing is exposed by default. Datastores stay private, Docker access is filtered, public and VPN modes require explicit configuration, and destructive operations are constrained by ownership. Read the [threat model and hardening details](docs/security.md).
 
 ## Status
 
-Experimental (`v0.x`), and honest about it.
+Experimental (`v0.x`), personal, and without a support promise. The local profile, panel, persistence, parallel environments and TCP access are exercised end to end. Remote profiles render and are checked for unsafe binds, but the tailnet and ACME paths require real credentials and are not automated.
 
-The local profile is exercised end to end on every change: four environments at
-once, adopting an unknown project, TCP bridges to four databases, and the
-lifecycle guarantees. The remote profiles are covered by configuration tests
-(every profile renders, the private one never binds `0.0.0.0`), but the tailnet
-and ACME paths need real credentials and are **not** exercised automatically.
+The unpublished TypeScript CLI, cross-host synchronisation and task orchestration are future work, not current features. More mature tools exist; use one of them if this particular set of trade-offs is not useful to you. Issues, pull requests and forks are welcome.
 
-See [compatibility.md](docs/compatibility.md) for what is verified where, and
-[CHANGELOG.md](CHANGELOG.md) for the release notes.
-
-Since this is a personal tool kept in the open, it changes when my own workflow
-needs it to, and comes with no support promise. Issues and pull requests are
-welcome; so is forking it and taking it somewhere else entirely.
+See [compatibility](docs/compatibility.md) and the [changelog](CHANGELOG.md).
 
 ## License
 
