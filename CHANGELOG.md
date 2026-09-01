@@ -11,6 +11,16 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Added
 
+- **A decided monorepo and a decided answer on Node.** [ADR 0014](docs/adr/0014-monorepo-and-the-typescript-cli.md)
+  records the workspace layout (`apps/web`, `packages/core`, `packages/cli`),
+  the CLI / API / Core rule, the npm name `@fabioassuncao/dev-gateway`, and the
+  file-by-file Bash migration map. [ADR 0015](docs/adr/0015-node-on-the-host.md)
+  keeps `bootstrap`, `up`, `down`, `status` and `doctor` working without Node.
+  [docs/monorepo.md](docs/monorepo.md) is the contributor map. No package is
+  created yet; issue #8 performs the move.
+
+
+
 - **Private, degradable persistence for the panel.** A pinned PostgreSQL 18
   container now stores only durable decisions and identity on its own internal
   network and named volume; it publishes no host port and never joins the

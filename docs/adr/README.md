@@ -18,4 +18,6 @@ context, the decision, and what it costs us.
 | [0011](0011-panel-reads-traefik-writes-one-file.md) | The panel reads Traefik's API, and writes exactly two generated files | Accepted |
 | [0012](0012-panel-authentication-is-traefiks.md) | The panel's authentication is Traefik's, and public stays refused | Accepted |
 | [0013](0013-what-the-panel-persists.md) | The panel persists decisions, never runtime observations | Accepted |
+| [0014](0014-monorepo-and-the-typescript-cli.md) | The repository is a small npm workspace, with a shared core | Accepted |
+| [0015](0015-node-on-the-host.md) | Node is not required for the core commands | Accepted |
 | [0017](0017-no-docker-sdk.md) | The panel speaks the Docker Engine API directly, without a general SDK | Accepted |

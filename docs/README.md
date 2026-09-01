@@ -13,6 +13,7 @@ is the complete operator and contributor index. Historical build briefs under
 ## How it works
 
 - [Architecture](architecture.md) — components, networks, profiles, and lifecycle boundaries.
+- [Monorepo layout](monorepo.md) — where new code goes, and how to add a command.
 - [Networking](networking.md) — ports, Docker networks, hostname derivation, and reachability.
 - [Persistence](persistence.md) — panel PostgreSQL, migrations, backup, restore, and degraded operation.
 - [Architecture decision records](adr/) — decisions that are expensive to reverse.
