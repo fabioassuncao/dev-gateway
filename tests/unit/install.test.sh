@@ -152,8 +152,22 @@ assert_contains "$SOURCE" 'the panel database volume was kept'
 it "it keeps the shared network, because projects may still be attached"
 assert_contains "$SOURCE" 'the shared network was kept'
 
+it "it finds the installation when no directory is given"
+assert_contains "$SOURCE" 'no installation found at $PORTTA_HOME, and none in the usual places'
+
+it "and honours an explicit --install-dir exactly"
+assert_contains "$SOURCE" 'if [ -z "$INSTALL_DIR_EXPLICIT" ] && [ ! -f "$PORTTA_HOME/VERSION" ]; then'
+
 it "it never prunes"
 assert_eq "" "$(printf '%s' "$SOURCE" | grep -n 'system prune' || true)"
+
+describe "one host runs one Portta"
+
+it "a second installation is refused, with the first one named"
+assert_contains "$SOURCE" 'Portta is already installed at $err_home and running'
+
+it "and it is detected from the label Compose already writes"
+assert_contains "$SOURCE" 'com.docker.compose.project.working_dir'
 
 describe "the runtime layout the installer writes is a valid gateway root"
 

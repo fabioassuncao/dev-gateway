@@ -485,7 +485,10 @@ default_home() {
 }
 
 step "Portta home"
-if [ -z "$INSTALL_DIR" ]; then INSTALL_DIR="${PORTTA_HOME:-}"; fi
+# A directory the caller named is honoured exactly. One we defaulted to is a
+# guess, and --uninstall is allowed to look elsewhere before giving up.
+INSTALL_DIR_EXPLICIT="$INSTALL_DIR"
+if [ -z "$INSTALL_DIR" ]; then INSTALL_DIR="${PORTTA_HOME:-}"; INSTALL_DIR_EXPLICIT="$INSTALL_DIR"; fi
 if [ -z "$INSTALL_DIR" ]; then
   say "Where should Portta keep its data and configuration?"
   say ""
@@ -504,9 +507,40 @@ case "$INSTALL_DIR" in
 esac
 PORTTA_HOME="$INSTALL_DIR"
 
+# Where an installation could be, in the order the CLI looks. Used by
+# --uninstall, and to notice a second installation competing for the port.
+portta_home_candidates() {
+  printf '%s\n' "/opt/portta" "$HOME/.portta" "/var/lib/portta"
+}
+
+# The directory a running Portta was started from, read from the label Compose
+# puts on every container it creates. Empty when nothing is running.
+running_home() {
+  local cid
+  cid=$(docker ps -q --filter "label=portta.managed=true" 2>/dev/null | head -n1)
+  [ -n "$cid" ] || return 0
+  docker inspect "$cid" --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' 2>/dev/null
+}
+
 if [ "$ACTION" = "uninstall" ]; then
   step "Uninstall"
-  [ -d "$PORTTA_HOME" ] || die "no installation found at $PORTTA_HOME"
+  # Only the explicitly given directory is trusted. Without one, look where an
+  # installation can be rather than assuming the default and refusing.
+  if [ -z "$INSTALL_DIR_EXPLICIT" ] && [ ! -f "$PORTTA_HOME/VERSION" ]; then
+    found=$(running_home)
+    if [ -z "$found" ] || [ ! -f "$found/VERSION" ]; then
+      found=""
+      while IFS= read -r candidate; do
+        if [ -f "$candidate/VERSION" ]; then found="$candidate"; break; fi
+      done <<EOF
+$(portta_home_candidates)
+EOF
+    fi
+    [ -n "$found" ] || die "no installation found at $PORTTA_HOME, and none in the usual places. Pass --install-dir"
+    PORTTA_HOME="$found"
+    good "found an installation at $PORTTA_HOME"
+  fi
+  [ -f "$PORTTA_HOME/VERSION" ] || die "no installation found at $PORTTA_HOME"
   say "this stops Portta's own containers and removes $PORTTA_HOME"
   say "named volumes (the panel database) are kept, and no project is touched"
   confirm "Continue?" || die "aborted"
@@ -588,6 +622,17 @@ fi
 if [ -z "$PANEL_PORT" ]; then
   PANEL_PORT=$(env_get "$ENV_FILE" PORTTA_WEB_PORT)
   [ -n "$PANEL_PORT" ] || PANEL_PORT="8081"
+fi
+
+# One host, one Portta. A second installation would fight this one for the
+# panel port, the shared network and the container names, and the failure would
+# surface as an unrelated port collision three steps later.
+if [ "$MODE" = "install" ]; then
+  other=$(running_home)
+  if [ -n "$other" ] && [ "$other" != "$PORTTA_HOME" ] && [ -f "$other/VERSION" ]; then
+    err_home="$other"
+    die "Portta is already installed at $err_home and running. Update it by running this without --install-dir, or remove it first: install.sh --uninstall --install-dir $err_home"
+  fi
 fi
 
 # A port already held by something else fails late and confusingly inside
