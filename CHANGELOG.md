@@ -11,6 +11,18 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Added
 
+- **Private, degradable persistence for the panel.** A pinned PostgreSQL 18
+  container now stores only durable decisions and identity on its own internal
+  network and named volume; it publishes no host port and never joins the
+  shared HTTP network. Ordered transactional migrations establish the stable
+  instance, portable project coordinates, typed settings and integrations,
+  while Docker, Git and Traefik remain the sources of runtime observations.
+  The panel still starts and all existing Docker-backed routes remain healthy
+  when PostgreSQL is down, with an explicit diagnostic warning. `doctor`
+  enforces the isolation, and `dev-gateway db status|shell|dump|restore`
+  provides password-safe operations through the toolbox, including a
+  confirmation-gated restorable custom-format backup.
+
 - **A discoverable API contract for people and agents.** The panel now serves
   an OpenAPI 3.1 document at `/api/openapi.json`, generated from the registered
   Hono routes and the same Zod schemas that define the TypeScript contracts.

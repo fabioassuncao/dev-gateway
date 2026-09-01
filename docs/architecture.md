@@ -19,8 +19,9 @@ network.
 | `bin/dev-gateway` | — | The operational contract: bootstrap, up/down, doctor, urls, access. |
 | Web panel | `dev-gateway-web:local` | Optional. Read-mostly administration UI on loopback. |
 | Panel socket proxy | `tecnativa/docker-socket-proxy:v0.5.0` | Optional. The panel's own filtered Docker API. |
+| Panel PostgreSQL | `postgres:18.6-alpine` | Optional. Durable decisions and identity, never runtime observations. |
 
-That is the whole permanent footprint: two small containers, or four with the
+That is the whole permanent footprint: two small containers, or five with the
 panel enabled. Bridges and toolbox containers are created on demand and removed
 when done.
 
@@ -58,6 +59,12 @@ the Docker API away from anything that handles network traffic.
 The two proxies are separate because their permission sets are:
 Traefik's is read-only, the panel's adds the container lifecycle
 ([ADR 0008](adr/0008-web-panel-socket-proxy.md)).
+
+**`dev-gateway-data`** also exists only with the panel. It is `internal: true`
+and carries only the panel and PostgreSQL. The database has no published port,
+never joins `dev-gateway`, and keeps data in a named volume. It persists typed
+preferences and stable identity while Docker, Git and Traefik remain the live
+sources of runtime observations. See [Panel persistence](persistence.md).
 
 **`<project>_default`** is each project's own network, created by its own
 Compose file. Postgres, Redis, queues and search live here and nowhere else.

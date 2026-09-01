@@ -267,6 +267,8 @@ See **[docs/web-ui.md](docs/web-ui.md)** for the rest of it.
 | `dev-gateway inspect` | Resolved configuration and compose files |
 | `dev-gateway update` | Pull pinned images and recreate |
 | `dev-gateway web up` | Start the administration panel on loopback |
+| `dev-gateway db status` | Inspect the panel PostgreSQL health and migration |
+| `dev-gateway db dump` | Stream a restorable panel database backup |
 
 `--json` is available on `status`, `doctor` and `urls`. `make` targets mirror
 these for convenience; Make is never required.
@@ -316,6 +318,7 @@ Details: **[docs/security.md](docs/security.md)**.
 | [remote-tunnels.md](docs/remote-tunnels.md) | Reaching a VPS's private services |
 | [tailscale-services.md](docs/tailscale-services.md) | A persistent private address |
 | [web-ui.md](docs/web-ui.md) | The administration panel |
+| [persistence.md](docs/persistence.md) | Panel PostgreSQL, migrations, backup and degraded operation |
 | [sharing.md](docs/sharing.md) | Showing one service to one person, until it expires |
 | [agent-guidelines.md](docs/agent-guidelines.md) | Rules for autonomous agents |
 | [templates/](templates/) | Overlay templates for the usual project shapes |

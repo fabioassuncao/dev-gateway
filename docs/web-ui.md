@@ -41,17 +41,19 @@ create an arbitrary container. See [Out of scope](#out-of-scope).
 Browser
    |                              http, loopback by default
 Panel (Hono + React, one container)
-   |                              filtered Docker API, internal network
+   |-- filtered Docker API, internal control network
 Panel socket proxy
    |                              read-only bind of the socket
 Docker
+Panel -- durable decisions --> PostgreSQL (private data network, no host port)
 ```
 
-The panel is a single container. In production the Node process serves both the
+The panel application is a single container. In production the Node process serves both the
 JSON API and the built UI, so there is one address to remember. It joins two
 networks: the gateway's shared network (so it can be published, and routed by
 Traefik when that is asked for) and its own `internal` control network, where
-its socket proxy lives.
+its socket proxy lives. A third, dedicated internal network connects only the
+panel and its PostgreSQL database.
 
 It never sees the Docker socket, has no Docker CLI, and reads exactly two
 paths from the host: `.env`, which its Settings page edits, and `VERSION`.
@@ -67,13 +69,17 @@ of the proxy's. See [ADR 0008](adr/0008-web-panel-socket-proxy.md).
 |---|---|
 | API | Node 24, TypeScript, [Hono](https://hono.dev/), Zod for input validation |
 | UI | React 19, Vite 8, Tailwind CSS 4, Radix primitives, TanStack Query |
+| Persistence | PostgreSQL 18, SQL migrations, typed repositories |
 | Live updates | Server-sent events, fed by Docker's own event stream |
 | Tests | Vitest (API, core, components), Playwright (end to end) |
 
-There is no database. Everything on screen (projects, services, URLs, networks,
-ports, health, bridges) is read from Docker at request time, so a container
-that disappears simply stops appearing. The only persistent state is the
-gateway's own `.env`, which already existed.
+PostgreSQL stores decisions and identity, not observations. Everything live on
+screen (services, URLs, networks, ports, health and bridges) is still read from
+Docker at request time, so a container that disappears simply stops appearing.
+The database keeps the gateway instance, project identity, typed preferences
+and integration configuration. If it is down, the panel and its Docker-backed
+pages remain available and diagnostics report the degraded state. See
+[Panel persistence](persistence.md).
 
 ---
 
@@ -87,6 +93,7 @@ gateway's own `.env`, which already existed.
 ./bin/dev-gateway web restart
 ./bin/dev-gateway web down        # stop it; the gateway keeps running
 ./bin/dev-gateway web disable     # stop it and take it out of `dev-gateway up`
+./bin/dev-gateway db status       # database health, migration and size
 ```
 
 `web up` writes `DEV_GATEWAY_WEB=true` to `.env`, so from then on

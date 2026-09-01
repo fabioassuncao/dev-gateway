@@ -100,13 +100,20 @@ See [tcp-routing.md](tcp-routing.md).
 | `DEV_GATEWAY_WEB_DEV_PORT` | `5173` | Vite's host port in development mode |
 | `DEV_GATEWAY_WEB_NETWORK` | `dev-gateway-web` | The panel's own internal control network |
 | `DEV_GATEWAY_WEB_USER` | `node` | User the container runs as |
+| `DEV_GATEWAY_DB_NETWORK` | `dev-gateway-data` | Internal panel-to-PostgreSQL network |
+| `DEV_GATEWAY_DB_VOLUME` | `dev-gateway-db` | Named volume holding panel data |
+| `DG_WEB_DB_PASSWORD` | generated | **Secret.** Panel PostgreSQL credential |
+| `DG_WEB_DATABASE_URL` | empty | Development/test bootstrap override; normally Compose supplies it |
 
 The panel has no authentication, so it binds loopback and is never routed
 through the public entrypoints. `DEV_GATEWAY_WEB_EXPOSE=vpn` is refused on the
 `remote-public` profile. On a Linux host set `DEV_GATEWAY_WEB_USER` to
 `$(id -u):$(id -g)` if you want the Settings page to be able to write `.env`.
 
-`dev-gateway web up` sets these for you. See [web-ui.md](web-ui.md).
+`dev-gateway web up` sets these for you and generates the database credential
+without printing it. PostgreSQL publishes no host port and remains a soft
+dependency: the Docker-backed panel still starts if it is unavailable. See
+[web-ui.md](web-ui.md) and [persistence.md](persistence.md).
 
 ## TLS
 

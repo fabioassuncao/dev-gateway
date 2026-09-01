@@ -25,6 +25,9 @@ The realistic risks are, in order:
 - Databases and caches are never published and never joined to the shared
   network. `doctor` fails on a datastore published on `0.0.0.0` and warns on
   one attached to the shared network.
+- The panel's own PostgreSQL is stricter: it publishes no port at all, joins
+  only an `internal` data network, and makes `doctor` fail if it appears on the
+  shared HTTP network.
 
 ## The Docker socket
 
@@ -172,6 +175,10 @@ refuses every write, which is the right setting when an agent is driving it.
 - The web panel's API never returns a secret value, in whole or in part. It
   reports whether one is set, and writing `.env` goes through a temporary file
   with mode `0600`.
+- Panel database clients run in the ephemeral toolbox on the private data
+  network. Docker inherits `PGPASSWORD`; the credential is never interpolated
+  into a connection URL or command argument. Dumps contain database objects,
+  not the `.env` credential.
 
 For Cloudflare, use a scoped API Token limited to `Zone:DNS:Edit` on one zone.
 Never the Global API Key: it authenticates everything in the account and cannot
