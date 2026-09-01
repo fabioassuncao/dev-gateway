@@ -621,12 +621,17 @@ main() {
     down) cmd_down "$@" ;;
     status) cmd_status "$@" ;;
     doctor) cmd_doctor "$@" ;;
+    restart) cmd_restart "$@" ;;
+    logs) cmd_logs "$@" ;;
+    urls) cmd_urls "$@" ;;
+    inspect) cmd_inspect "$@" ;;
+    update) cmd_update "$@" ;;
     toolbox) cmd_toolbox "$@" ;;
     tls) portta_cmd_tls "$@" ;;
     remote) portta_cmd_remote "$@" ;;
-    restart|logs|urls|inspect|update|network|public|dns|analyze|analyse|init|adapt|namespace|ns|access|services|git|share|web|db|redis|service|project|setup|config)
-      err "'$cmd' requires Node 22.12 or newer and the built TypeScript CLI"
-      hint "run npm ci && npm run build --workspace=portta"
+    network|public|dns|analyze|analyse|init|adapt|namespace|ns|access|services|git|share|web|db|redis|service|project|setup|config)
+      err "'$cmd' requires Node 22.12 or newer and the full CLI"
+      hint "npm install -g portta   (or run it inside a built checkout)"
       exit 3
       ;;
     *)

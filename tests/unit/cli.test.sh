@@ -74,6 +74,24 @@ assert_contains "$("$GW" --version 2>&1)" "portta"
 it "VERSION and the CLI agree"
 assert_contains "$("$GW" version)" "$(tr -d '[:space:]' < "$PORTTA_ROOT/VERSION")"
 
+describe "the host needs no Node for the commands the shell implements"
+# ADR 0015. The installer ships this entry point and nothing else on a host
+# without Node, so a command it implements must be reachable there: every
+# cmd_* defined in bin/portta has to have a dispatch arm.
+for c in version bootstrap up down status doctor restart logs urls inspect update toolbox; do
+  it "PORTTA_FORCE_BASH portta $c is dispatched, not refused"
+  out=$(PORTTA_FORCE_BASH=true "$GW" "$c" --help 2>&1)
+  assert_not_contains "$out" "requires Node"
+done
+
+it "every cmd_* in bin/portta has a dispatch arm"
+missing=""
+for fn in $(grep -oE '^cmd_[a-z_]+' "$GW" | sed 's/^cmd_//' | sort -u); do
+  case "$fn" in help_for) continue ;; esac
+  grep -qE "^\s+([a-z|]*\|)?$fn\)" "$GW" || missing="$missing $fn"
+done
+assert_eq "" "$missing"
+
 describe "the CLI says which installation it is talking to"
 # A CLI installed from npm outlives the installation it addresses in both
 # directions, so `version` reports both and whether they agree.
