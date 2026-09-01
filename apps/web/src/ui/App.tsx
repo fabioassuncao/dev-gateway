@@ -6,6 +6,7 @@ import {
   Briefcase,
   Container,
   Globe,
+  Languages,
   LayoutDashboard,
   Moon,
   Network,
@@ -22,6 +23,8 @@ import { useLive } from './lib/live.ts'
 import { useSidebarCollapsed } from './lib/sidebar.ts'
 import { api } from './lib/api.ts'
 import { cn } from './lib/utils.ts'
+import { useLocale, type Locale } from './i18n/use-locale.ts'
+import { Menu, MenuContent, MenuItem, MenuTrigger } from './components/ui/menu.tsx'
 import { Overview } from './pages/Overview.tsx'
 import { Projects } from './pages/Projects.tsx'
 import { ProjectPage } from './pages/Project.tsx'
@@ -35,9 +38,20 @@ import { Access } from './pages/Access.tsx'
 import { Gateway } from './pages/Gateway.tsx'
 import { Settings } from './pages/Settings.tsx'
 
+type NavLabelKey =
+  | 'overview'
+  | 'workspaces'
+  | 'projects'
+  | 'services'
+  | 'docker'
+  | 'network'
+  | 'access'
+  | 'gateway'
+  | 'settings'
+
 interface NavItem {
   path: string
-  labelKey: string
+  labelKey: NavLabelKey
   icon: ComponentType<{ className?: string }>
 }
 
@@ -55,6 +69,8 @@ const NAV: NavItem[] = [
 
 export function App() {
   const { t } = useTranslation('nav')
+  const { t: tc } = useTranslation('common')
+  const [locale, setLocale] = useLocale()
   const [path, go] = useRoute()
   const [theme, toggleTheme] = useTheme()
   const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
@@ -143,6 +159,23 @@ export function App() {
             <span className={cn(sidebarCollapsed && 'md:sr-only')}>{t(`live.${live.state}`)}</span>
           </span>
           <div className={cn('flex items-center gap-1', sidebarCollapsed && 'md:flex-col')}>
+            <Menu>
+              <MenuTrigger
+                className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"
+                aria-label={tc('languageSelector')}
+                title={tc('languageSelectorTitle')}
+              >
+                <Languages className="h-3.5 w-3.5" />
+              </MenuTrigger>
+              <MenuContent align={sidebarCollapsed ? 'start' : 'end'}>
+                {(['en', 'pt-BR'] as Locale[]).map((option) => (
+                  <MenuItem key={option} onSelect={() => setLocale(option)}>
+                    {option === 'pt-BR' ? tc('portuguese') : tc('english')}
+                    {locale === option ? ' ✓' : ''}
+                  </MenuItem>
+                ))}
+              </MenuContent>
+            </Menu>
             <button
               onClick={toggleTheme}
               className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"
