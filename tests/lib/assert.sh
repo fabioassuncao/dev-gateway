@@ -64,6 +64,13 @@ assert_failure() { # assert_failure <command...>
   if out=$("$@" 2>&1); then _t_fail "expected failure but the command succeeded: $*"; else _t_pass; fi
 }
 
+assert_exit() { # assert_exit <code> <command...>
+  local expected="$1" out actual; shift
+  out=$("$@" 2>&1); actual=$?
+  if [ "$actual" -eq "$expected" ]; then _t_pass
+  else _t_fail "expected exit $expected, got $actual: $* -> $(printf '%s' "$out" | tail -3)"; fi
+}
+
 t_summary() {
   printf '\n'
   if [ "$DG_T_FAILED" -eq 0 ]; then

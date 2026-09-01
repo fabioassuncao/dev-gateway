@@ -9,18 +9,31 @@ DG_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 DG_ROOT=$(cd -P "$DG_TEST_DIR/.." && pwd); export DG_ROOT
 GW="$DG_ROOT/bin/dev-gateway"
 
-COMMANDS="bootstrap up down restart status logs doctor urls inspect update version
-toolbox network public dns tls remote analyze init namespace access services db redis service
-web git share"
+COMMAND_PATHS=(
+  setup bootstrap up down restart status logs doctor urls inspect update version toolbox
+  project "project list" "project show" "project services" "project analyze" "project init" "project namespace"
+  network "network status" public "public status" "public enable" "public disable"
+  dns "dns check" "dns status" "dns setup" tls "tls status" "tls init" "tls trust" "tls untrust"
+  remote analyze init namespace access "access open" "access list" "access close" "access inspect" "access gc"
+  services service "service publish" "service list" "service unpublish"
+  db "db status" "db shell" "db dump" "db restore" "db open" "db close" "db url" "db psql" "db mysql"
+  redis "redis open" "redis close" "redis cli"
+  web "web up" "web dev" "web down" "web disable" "web restart" "web status" "web open" "web logs" "web build"
+  "web auth" "web auth status" "web auth set" "web auth clear" "web auth apply"
+  git "git scan" "git status" "git clear" share "share list" "share revoke" "share gc"
+)
 
-describe "every command answers --help"
-for c in $COMMANDS; do
+describe "every command and subcommand answers --help and --version"
+for c in "${COMMAND_PATHS[@]}"; do
   it "$c --help"
-  out=$("$GW" "$c" --help 2>&1 | head -1)
+  read -r -a words <<< "$c"
+  out=$("$GW" "${words[@]}" --help 2>&1 | head -1)
   case "$out" in
     dev-gateway*|Usage:*) _t_pass ;;
     *) _t_fail "got: $out" ;;
   esac
+  it "$c --version"
+  assert_contains "$("$GW" "${words[@]}" --version 2>&1)" "dev-gateway"
 done
 
 describe "unknown input fails clearly instead of doing something"
@@ -60,5 +73,29 @@ it "--version works too"
 assert_contains "$("$GW" --version 2>&1)" "dev-gateway"
 it "VERSION and the CLI agree"
 assert_contains "$("$GW" version)" "$(tr -d '[:space:]' < "$DG_ROOT/VERSION")"
+
+describe "exit codes have a stable machine contract"
+it "success is 0"; assert_success "$GW" version
+failure_root=$(mktemp -d "${TMPDIR:-/tmp}/dg-cli-exit.XXXXXX")
+mkdir -p "$failure_root/state/git"
+printf '0.1.1\n' > "$failure_root/VERSION"
+printf '{}\n' > "$failure_root/compose.yaml"
+printf '{}\n' > "$failure_root/compose.attach-host.yaml"
+printf '{}\n' > "$failure_root/compose.local.yaml"
+printf '{broken\n' > "$failure_root/state/git/broken.json"
+it "an operational failure is 1"; assert_exit 1 env DG_ROOT="$failure_root" "$GW" git status
+rm -rf "$failure_root"
+it "usage is 2"; assert_exit 2 "$GW" definitely-not-a-command
+it "a missing runtime precondition is 3"
+assert_exit 3 sh -c "cd /tmp && env -u DG_ROOT '$GW' inspect >/dev/null 2>&1"
+it "a refused unsafe operation is 4"
+assert_exit 4 "$GW" service publish --public --project demo --service db
+
+describe "checkout-local read commands emit one JSON document on stdout"
+for c in "inspect" "git status" "share list" "tls status" "public status" "dns status" "project namespace --no-check"; do
+  it "$c --json"
+  read -r -a words <<< "$c"
+  assert_success sh -c "'$GW' ${words[*]} --json 2>/dev/null | python3 -m json.tool >/dev/null"
+done
 
 t_summary

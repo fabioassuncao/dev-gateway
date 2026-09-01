@@ -1,27 +1,45 @@
 {
   "name": "@fabioassuncao/dev-gateway",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Dev Gateway CLI. Unpublished until issue #9.",
+  "version": "0.2.0",
+  "description": "Machine-first CLI for a shared Docker development gateway",
   "license": "MIT",
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+  "bin": {
+    "dev-gateway": "./dist/cli.js"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm test",
+    "preversion": "node scripts/git-version.mjs check",
+    "version": "node scripts/git-version.mjs sync",
+    "postversion": "node scripts/git-version.mjs verify"
   },
   "engines": {
     "node": ">=22.12.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fabioassuncao/dev-gateway.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/fabioassuncao/dev-gateway#readme",
+  "bugs": "https://github.com/fabioassuncao/dev-gateway/issues",
+  "dependencies": {
+    "commander": "14.0.2",
+    "execa": "9.6.1",
+    "zod": "4.5.4"
+  },
   "devDependencies": {
-    "typescript": "7.0.2"
+    "@dev-gateway/core": "0.1.0",
+    "@types/node": "24.13.3",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
   }
 }

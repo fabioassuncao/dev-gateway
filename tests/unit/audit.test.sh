@@ -164,23 +164,12 @@ assert_contains "$(cat apps/web/Dockerfile)" "COPY package.json package-lock.jso
 assert_contains "$(cat compose.web.yaml)" "dockerfile: apps/web/Dockerfile"
 
 
-describe "helpers that feed an assignment never fail on 'nothing found'"
+describe "the TypeScript CLI never constructs a shell command from input"
 
-# Regression: dg_analyze_port_holder returned the exit status of its last
-# probe, so on a host without lsof it returned 1. The caller assigns its
-# output, and under `set -e` that aborted the whole analyze report: which is
-# what happened on Linux, where the runner has no lsof.
-. "$DG_ROOT/scripts/lib/common.sh"
-. "$DG_ROOT/scripts/cmd/analyze.sh"
+it "the process primitive disables shell execution"
+assert_contains "$(cat packages/cli/src/process.ts)" "shell: false"
 
-it "dg_analyze_port_holder succeeds when the port is free"
-# 1 is never a listening port, and PATH is emptied so no probe tool is found.
-assert_success sh -c '
-  . "'"$DG_ROOT"'/scripts/lib/common.sh"
-  . "'"$DG_ROOT"'/scripts/cmd/analyze.sh"
-  PATH=/nonexistent dg_analyze_port_holder 1 >/dev/null'
-
-it "and reports nothing rather than an error"
-assert_eq "" "$(PATH=/nonexistent dg_analyze_port_holder 1 2>/dev/null)"
+it "commands call the primitive with argument arrays"
+assert_eq "" "$(grep -rn "from 'node:child_process'" packages/cli/src --include='*.ts' | grep -v '\.test\.ts:' || true)"
 
 t_summary

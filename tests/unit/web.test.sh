@@ -90,18 +90,18 @@ assert_contains "$(cat scripts/doctor.sh)" "db.network.shared"
 
 describe "the panel database has private operational tooling"
 
-db_clients="scripts/cmd/clients.sh"
+db_clients="packages/cli/src/commands/clients.ts"
 
 for command in status shell dump restore; do
   it "db $command is documented"
-  assert_contains "$(./bin/dev-gateway db --help 2>&1)" "db $command"
+  assert_contains "$(./bin/dev-gateway db --help 2>&1)" "  $command"
 done
 
 it "the clients join only the private data network"
-assert_contains "$(cat "$db_clients")" '--network "$DEV_GATEWAY_DB_NETWORK"'
+assert_contains "$(cat "$db_clients")" "context.config.databaseNetwork"
 
 it "the password is inherited instead of placed on the command line"
-assert_contains "$(cat "$db_clients")" '-e PGPASSWORD'
+assert_contains "$(cat "$db_clients")" "'-e', 'PGPASSWORD'"
 
 it "the password never appears in client arguments"
 assert_eq "" "$(grep -n -- '--password\|postgres://.*DG_WEB_DB_PASSWORD' "$db_clients" || true)"
@@ -110,7 +110,7 @@ it "dumps use PostgreSQL's restorable custom format"
 assert_contains "$(cat "$db_clients")" "--format=custom"
 
 it "restore is guarded by a confirmation"
-assert_contains "$(sed -n '/dg_panel_db_restore()/,/^}/p' "$db_clients")" 'dg_confirm'
+assert_contains "$(cat "$db_clients")" "await confirm('restore the panel database?"
 
 describe "the API cannot reach a Docker endpoint it does not name"
 
@@ -163,7 +163,7 @@ it "web is a command"
 assert_success sh -c './bin/dev-gateway web --help >/dev/null 2>&1'
 
 it "publishing the panel publicly is refused outright"
-assert_contains "$(./bin/dev-gateway web up --expose public 2>&1)" "never published on the internet"
+assert_contains "$(./bin/dev-gateway web up --expose public 2>&1)" "local or vpn"
 
 it "an unknown expose value fails"
 assert_failure ./bin/dev-gateway web up --expose nonsense
@@ -195,7 +195,8 @@ it "doctor fails a routed panel without one"
 assert_contains "$(cat scripts/doctor.sh)" "with nothing in front of it"
 
 it "the password never reaches a command line, where ps would show it"
-assert_eq "" "$(grep -n 'passwd -apr1' scripts/cmd/web.sh | grep -v -- '-stdin' || true)"
+assert_contains "$(cat packages/cli/src/commands/web.ts)" "['passwd', '-apr1', '-stdin']"
+assert_eq "" "$(grep -nE "\['passwd',[^]]*password" packages/cli/src/commands/web.ts || true)"
 
 describe "the panel writes two filenames into Traefik's dynamic directory"
 
@@ -248,29 +249,13 @@ assert_contains "$(cat "$traefik")" "AbortSignal.timeout"
 it "and its own cache, never the snapshot's"
 assert_contains "$(cat "$traefik")" "createVerdictCache"
 
-describe "the CLI and the panel render the same middleware, byte for byte"
+describe "the CLI and the panel render the same middleware contract"
 
-it "a drift between the two would lock the user out"
-if ! command -v node >/dev/null 2>&1; then
-  skip "node not installed"
-else
-  tmp=$(mktemp -d)
-  (
-    DEV_GATEWAY_WEB_AUTH=basic \
-    DEV_GATEWAY_WEB_AUTH_USER=dev \
-    DEV_GATEWAY_WEB_AUTH_HASH='$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1' \
-    DG_ROOT="$DG_ROOT" bash -c '
-      . scripts/lib/common.sh; . scripts/lib/docker.sh
-      . scripts/lib/toolbox.sh; . scripts/cmd/web.sh
-      dg_web_auth_render && cat "$(dg_web_auth_path)"'
-  ) > "$tmp/cli.yaml" 2>/dev/null
-  ( cd apps/web && node --experimental-strip-types -e "
-      import('./src/server/core/dynamic.ts').then((m) =>
-        process.stdout.write(m.renderPanelAuth({ user: 'dev', hash: '\$apr1\$abcdefgh\$ckT15POyCRlen.h6XtGAZ1' })))
-    " ) > "$tmp/panel.yaml" 2>/dev/null
-  assert_eq "$(cat "$tmp/panel.yaml")" "$(cat "$tmp/cli.yaml")"
-  rm -rf "$tmp"
-fi
+it "both surfaces import the core renderer"
+assert_contains "$(cat packages/cli/src/commands/web.ts)" "renderSharedPanelAuth"
+assert_contains "$(cat apps/web/src/server/core/dynamic.ts)" "renderSharedPanelAuth"
+it "the middleware has one canonical definition"
+assert_eq "1" "$(grep -R --include='*.ts' -l "PANEL_AUTH_MIDDLEWARE = 'dev-gateway-web-auth'" packages apps | wc -l | tr -d ' ')"
 
 describe "the panel is containerised, and the host needs no Node"
 

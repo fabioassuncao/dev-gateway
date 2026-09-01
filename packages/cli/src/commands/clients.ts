@@ -1,0 +1,109 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import type { Command } from 'commander'
+import { accessClose, accessOpen } from './access.js'
+import { gatewayContext } from '../context.js'
+import { inspectContainers } from '../docker.js'
+import { PreconditionError, UsageError } from '../errors.js'
+import { Output } from '../output.js'
+import { runProcess } from '../process.js'
+import { confirm } from '../confirm.js'
+
+const TOOLBOX = 'dev-gateway/toolbox:0.1.0'
+function globals(command: Command) { return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string } }
+
+async function ensureToolbox(command: Command): Promise<void> {
+  const present = await runProcess('docker', ['image', 'inspect', TOOLBOX], { reject: false })
+  if (present.exitCode === 0) return
+  const context = gatewayContext({ profile: globals(command).profile })
+  await runProcess('docker', ['build', '-q', '-t', TOOLBOX, join(context.root, 'toolbox')], { stdio: 'inherit' })
+}
+
+async function containerEnvironment(id: string): Promise<Record<string, string>> {
+  const result = await runProcess('docker', ['inspect', id, '--format', '{{ range .Config.Env }}{{ println . }}{{ end }}'])
+  return Object.fromEntries(result.stdout.split('\n').map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]).filter(([key]) => key))
+}
+
+function defaultPort(image: string): number | null {
+  if (/postgres|postgis|timescale/i.test(image)) return 5432
+  if (/mysql|mariadb|percona/i.test(image)) return 3306
+  if (/redis|valkey|keydb/i.test(image)) return 6379
+  return null
+}
+
+export interface ClientOptions { project: string; service: string; port?: string; user?: string; database?: string }
+export async function clientExec(client: 'psql' | 'mysql' | 'redis-cli', options: ClientOptions, passthrough: string[], command: Command): Promise<void> {
+  if (passthrough[0] === '--') passthrough = passthrough.slice(1)
+  const context = gatewayContext({ profile: globals(command).profile })
+  const containers = await inspectContainers(false)
+  const target = containers.find((container) => container.labels['com.docker.compose.project'] === options.project && container.labels['com.docker.compose.service'] === options.service)
+  if (!target) throw new UsageError(`no running container for ${options.project}/${options.service}`)
+  const network = target.networks.find((name) => ![context.config.network, context.config.accessNetwork, context.config.controlNetwork].includes(name))
+  if (!network) throw new PreconditionError(`${options.project}/${options.service} has no private network`)
+  const port = Number(options.port ?? defaultPort(target.image))
+  if (!port) throw new UsageError('cannot determine the service port', 'pass --port')
+  const targetEnv = await containerEnvironment(target.id)
+  const env: NodeJS.ProcessEnv = { ...process.env }
+  const envArgs: string[] = []
+  const args: string[] = ['run', '--rm', '-i', ...(process.stdin.isTTY && process.stdout.isTTY ? ['-t'] : []), '--network', network]
+  if (client === 'psql' && targetEnv['POSTGRES_PASSWORD']) { env['PGPASSWORD'] = targetEnv['POSTGRES_PASSWORD']; envArgs.push('-e', 'PGPASSWORD') }
+  if (client === 'mysql' && targetEnv['MYSQL_PASSWORD']) { env['MYSQL_PWD'] = targetEnv['MYSQL_PASSWORD']; envArgs.push('-e', 'MYSQL_PWD') }
+  args.push(...envArgs, TOOLBOX, client)
+  if (client === 'psql') args.push('-h', options.service, '-p', String(port), ...(options.user ?? targetEnv['POSTGRES_USER'] ? ['-U', options.user ?? targetEnv['POSTGRES_USER']!] : []), ...(options.database ?? targetEnv['POSTGRES_DB'] ? ['-d', options.database ?? targetEnv['POSTGRES_DB']!] : []))
+  if (client === 'mysql') args.push('-h', options.service, '-P', String(port), ...(options.user ?? targetEnv['MYSQL_USER'] ? ['-u', options.user ?? targetEnv['MYSQL_USER']!] : []), ...(options.database ?? targetEnv['MYSQL_DATABASE'] ? [options.database ?? targetEnv['MYSQL_DATABASE']!] : []))
+  if (client === 'redis-cli') args.push('-h', options.service, '-p', String(port))
+  args.push(...passthrough)
+  await ensureToolbox(command)
+  await runProcess('docker', args, { env, stdio: 'inherit' })
+}
+
+export async function dbOpen(options: { project: string; service?: string; port?: string; localPort?: string }, command: Command): Promise<void> {
+  await accessOpen({ project: options.project, service: options.service ?? 'postgres', port: options.port, localPort: options.localPort }, command)
+}
+export async function redisOpen(options: { project: string; service?: string; port?: string; localPort?: string }, command: Command): Promise<void> {
+  await accessOpen({ project: options.project, service: options.service ?? 'redis', port: options.port, localPort: options.localPort }, command)
+}
+export async function clientClose(options: { project: string }, command: Command): Promise<void> { await accessClose(undefined, { project: options.project }, command) }
+
+export async function dbUrl(options: { project: string; service?: string }, command: Command): Promise<void> {
+  const service = options.service ?? 'postgres'
+  const bridge = (await inspectContainers()).find((container) => container.labels['dev-gateway.component'] === 'access-bridge' && container.labels['dev-gateway.access.project'] === options.project && container.labels['dev-gateway.access.service'] === service)
+  if (!bridge) throw new UsageError(`no bridge is open for ${options.project}/${service}`)
+  const binding = bridge.ports.find((port) => port.publicPort !== null)
+  if (!binding?.publicPort) throw new PreconditionError('bridge has no host port')
+  const kind = bridge.labels['dev-gateway.access.kind']
+  const url = kind === 'postgres' ? `postgresql://<user>@127.0.0.1:${binding.publicPort}/<database>` : kind === 'mysql' ? `mysql://<user>@127.0.0.1:${binding.publicPort}/<database>` : kind === 'redis' ? `redis://127.0.0.1:${binding.publicPort}` : `127.0.0.1:${binding.publicPort}`
+  new Output(globals(command)).data(url)
+}
+
+function panelDb(containers: Awaited<ReturnType<typeof inspectContainers>>) { return containers.find((container) => container.labels['dev-gateway.component'] === 'db') }
+export async function dbStatus(command: Command): Promise<void> {
+  const database = panelDb(await inspectContainers())
+  const result = { state: database?.state ?? 'absent', container: database?.name ?? null, network: gatewayContext({ profile: globals(command).profile }).config.databaseNetwork }
+  const output = new Output(globals(command)); if (output.json) output.data(result); else output.line(`Panel database: ${result.state}${result.container ? ` (${result.container})` : ''}\nPrivate network: ${result.network}`)
+  if (!database || database.state !== 'running') throw new PreconditionError('the panel database is not running', 'run dev-gateway web up')
+}
+
+async function panelDbClient(program: 'psql' | 'pg_dump' | 'pg_restore', args: string[], command: Command, options: { input?: Uint8Array; inherit?: boolean; tty?: boolean } = {}) {
+  const context = gatewayContext({ profile: globals(command).profile })
+  if (!context.env['DG_WEB_DB_PASSWORD']) throw new PreconditionError('the panel database credential is not configured')
+  await ensureToolbox(command)
+  const env = { ...process.env, PGPASSWORD: context.env['DG_WEB_DB_PASSWORD'] }
+  return runProcess('docker', ['run', '--rm', '-i', ...(options.tty && process.stdin.isTTY ? ['-t'] : []), '--network', context.config.databaseNetwork, '-e', 'PGPASSWORD', TOOLBOX, program, '-h', 'db', '-U', 'devgateway', '-d', 'devgateway', ...args], { env, input: options.input, stdio: options.inherit ? 'inherit' : 'pipe' })
+}
+
+export async function dbShell(command: Command): Promise<void> {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) throw new PreconditionError('db shell needs an interactive terminal')
+  await panelDbClient('psql', [], command, { inherit: true, tty: true })
+}
+export async function dbDump(command: Command): Promise<void> {
+  await panelDbClient('pg_dump', ['--format=custom', '--no-owner', '--no-privileges'], command, { inherit: true })
+}
+export async function dbRestore(file: string | undefined, command: Command): Promise<void> {
+  if (file && !existsSync(file)) throw new UsageError(`backup not found: ${file}`)
+  if (!file && process.stdin.isTTY) throw new UsageError('db restore needs a backup file or stdin')
+  await confirm('restore the panel database? Existing persisted panel data may be replaced.', globals(command).yes === true)
+  const input = file ? readFileSync(file) : readFileSync(0)
+  await panelDbClient('pg_restore', ['--clean', '--if-exists', '--no-owner', '--no-privileges', '--exit-on-error'], command, { input })
+  new Output(globals(command)).progress('panel database restored')
+}

@@ -103,7 +103,7 @@ describe "label reading does not depend on a function Docker does not have"
 # `docker inspect --format` runs Go templates with Docker's own function map,
 # which has none of Traefik's sprig additions. A template using hasPrefix fails
 # to parse and prints nothing, so the extraction silently returns empty.
-# scripts/cmd/clients.sh has said so since it was written; dg_discover_http
+# The TypeScript client command has said so since migration; dg_discover_http
 # used it anyway, and quietly ignored every explicit Host() label until TCP
 # routing made the failure visible.
 it "no shipped script uses hasPrefix in a Docker template"

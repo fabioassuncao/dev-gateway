@@ -14,5 +14,9 @@
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "jsdom": "28.1.0"
   }
 }

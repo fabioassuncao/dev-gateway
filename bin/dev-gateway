@@ -10,6 +10,18 @@
 set -euo pipefail
 
 DG_BIN_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+# The full CLI is TypeScript. Keep this tiny entry point because a bare host
+# must still be able to bootstrap, start, stop, inspect status and run doctor
+# without Node (ADR 0015). Shell-native drivers can deliberately set
+# DG_FORCE_BASH when the TypeScript command delegates to openssl/ssh/toolbox.
+DG_TS_CLI="$DG_BIN_DIR/../packages/cli/dist/cli.js"
+if [ "${DG_FORCE_BASH:-false}" != "true" ] \
+   && command -v node >/dev/null 2>&1 \
+   && [ -f "$DG_TS_CLI" ] \
+   && node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=12)?0:1)' >/dev/null 2>&1; then
+  exec node "$DG_TS_CLI" "$@"
+fi
 # shellcheck source=../scripts/lib/common.sh
 . "$DG_BIN_DIR/../scripts/lib/common.sh"
 # shellcheck source=../scripts/lib/docker.sh
@@ -570,30 +582,16 @@ main() {
     bootstrap) cmd_bootstrap "$@" ;;
     up) cmd_up "$@" ;;
     down) cmd_down "$@" ;;
-    restart) cmd_restart "$@" ;;
     status) cmd_status "$@" ;;
-    logs) cmd_logs "$@" ;;
     doctor) cmd_doctor "$@" ;;
-    urls) cmd_urls "$@" ;;
-    inspect) cmd_inspect "$@" ;;
-    update) cmd_update "$@" ;;
     toolbox) cmd_toolbox "$@" ;;
-    network) dg_cmd_network "$@" ;;
-    public) dg_cmd_public "$@" ;;
-    dns) dg_cmd_dns "$@" ;;
     tls) dg_cmd_tls "$@" ;;
     remote) dg_cmd_remote "$@" ;;
-    analyze|analyse) dg_cmd_analyze "$@" ;;
-    init|adapt) dg_cmd_init "$@" ;;
-    namespace|ns) dg_cmd_namespace "$@" ;;
-    access) dg_cmd_access "$@" ;;
-    services) dg_cmd_services "$@" ;;
-    git) dg_cmd_git "$@" ;;
-    share) dg_cmd_share "$@" ;;
-    web) dg_cmd_web "$@" ;;
-    db) dg_cmd_db "$@" ;;
-    redis) dg_cmd_redis "$@" ;;
-    service) dg_cmd_service "$@" ;;
+    restart|logs|urls|inspect|update|network|public|dns|analyze|analyse|init|adapt|namespace|ns|access|services|git|share|web|db|redis|service|project|setup)
+      err "'$cmd' requires Node 22.12 or newer and the built TypeScript CLI"
+      hint "run npm ci && npm run build --workspace=@fabioassuncao/dev-gateway"
+      exit 3
+      ;;
     *)
       err "unknown command: $cmd"
       hint "run 'dev-gateway --help' for the command list"

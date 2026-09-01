@@ -6,8 +6,14 @@
 # disappears.
 
 # Pinned; see docs/adr/0004-pinned-versions.md.
-# shellcheck disable=SC2034  # consumed by scripts/cmd/access.sh
+# shellcheck disable=SC2034  # consumed by doctor and remote-access fallbacks
 DG_BRIDGE_IMAGE="alpine/socat:1.8.1.3"
+
+# Used by the zero-Node remote-access SSH driver. Local access bridges moved
+# to packages/cli, but this shell-native driver still needs a short id.
+dg_access_id() {
+  printf '%s' "$$$(date +%s)" | cksum | awk '{printf "%x", $1}' | cut -c1-6
+}
 
 # Well-known ports, used only when a container exposes several and we have to
 # guess. `--port` always wins.
