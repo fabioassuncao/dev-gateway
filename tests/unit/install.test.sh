@@ -42,6 +42,7 @@ called=$(grep -v '^[[:space:]]*#' "$INSTALLER" \
 allowed="portta_compose_files
 portta_defaults
 portta_load_env
+portta_resolve_profile
 sw_vers"
 missing=$(comm -23 <(printf '%s\n' "$called") <(printf '%s\n%s\n' "$defined" "$allowed" | sort -u) | tr '\n' ' ')
 assert_eq "" "$(printf '%s' "$missing" | sed 's/[[:space:]]*$//')"
