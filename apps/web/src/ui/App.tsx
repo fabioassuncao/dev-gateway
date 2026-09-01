@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   Activity,
   Boxes,
@@ -36,31 +37,30 @@ import { Settings } from './pages/Settings.tsx'
 
 interface NavItem {
   path: string
-  label: string
+  labelKey: string
   icon: ComponentType<{ className?: string }>
 }
 
 const NAV: NavItem[] = [
-  { path: '/overview', label: 'Overview', icon: LayoutDashboard },
-  { path: '/workspaces', label: 'Workspaces', icon: Briefcase },
-  { path: '/projects', label: 'Projects', icon: Boxes },
-  { path: '/services', label: 'Services', icon: Container },
-  { path: '/docker', label: 'Docker', icon: Activity },
-  { path: '/network', label: 'Network', icon: Network },
-  { path: '/access', label: 'Access', icon: PlugZap },
-  { path: '/gateway', label: 'Gateway', icon: Globe },
-  { path: '/settings', label: 'Settings', icon: SettingsIcon },
+  { path: '/overview', labelKey: 'overview', icon: LayoutDashboard },
+  { path: '/workspaces', labelKey: 'workspaces', icon: Briefcase },
+  { path: '/projects', labelKey: 'projects', icon: Boxes },
+  { path: '/services', labelKey: 'services', icon: Container },
+  { path: '/docker', labelKey: 'docker', icon: Activity },
+  { path: '/network', labelKey: 'network', icon: Network },
+  { path: '/access', labelKey: 'access', icon: PlugZap },
+  { path: '/gateway', labelKey: 'gateway', icon: Globe },
+  { path: '/settings', labelKey: 'settings', icon: SettingsIcon },
 ]
 
 export function App() {
+  const { t } = useTranslation('nav')
   const [path, go] = useRoute()
   const [theme, toggleTheme] = useTheme()
   const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
   const live = useLive()
   const status = useQuery({ queryKey: ['status'], queryFn: api.overview })
 
-  // The board belongs to a workspace, so the sidebar keeps Workspaces marked
-  // while you are on one rather than highlighting nothing.
   const first = segments(path)[0] ?? 'overview'
   const root = `/${first === 'board' ? 'workspaces' : first}`
   const gateway = status.data?.gateway
@@ -85,10 +85,10 @@ export function App() {
               'h-2 w-2 rounded-full',
               gateway?.up ? 'bg-ok' : status.isPending ? 'bg-subtle' : 'bg-danger',
             )}
-            title={gateway?.up ? 'Gateway up' : 'Gateway down'}
+            title={gateway?.up ? t('gatewayUp') : t('gatewayDown')}
           />
           <div className={cn('min-w-0', sidebarCollapsed && 'md:hidden')}>
-            <div className="text-sm font-semibold tracking-tight">Dev Gateway</div>
+            <div className="text-sm font-semibold tracking-tight">{t('appName')}</div>
             <div className="truncate font-mono text-[11px] text-subtle">
               {gateway ? `${gateway.gatewayVersion} · ${gateway.profile}` : '…'}
             </div>
@@ -97,19 +97,20 @@ export function App() {
 
         <nav
           id="section-navigation"
-          aria-label="Sections"
+          aria-label={t('sections')}
           className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:overflow-visible scroll-thin"
         >
           {NAV.map((item) => {
             const Icon = item.icon
             const active = root === item.path
+            const label = t(item.labelKey)
             return (
               <button
                 key={item.path}
                 onClick={() => go(item.path)}
-                aria-label={item.label}
+                aria-label={label}
                 aria-current={active ? 'page' : undefined}
-                title={item.label}
+                title={label}
                 className={cn(
                   'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors',
                   sidebarCollapsed && 'md:justify-center md:px-0',
@@ -117,7 +118,7 @@ export function App() {
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                <span className={cn(sidebarCollapsed && 'md:sr-only')}>{item.label}</span>
+                <span className={cn(sidebarCollapsed && 'md:sr-only')}>{label}</span>
               </button>
             )
           })}
@@ -131,7 +132,7 @@ export function App() {
         >
           <span
             className="flex items-center gap-1.5 text-[11px] text-subtle"
-            title="Live updates come from Docker events"
+            title={t('liveUpdatesHint')}
           >
             <span
               className={cn(
@@ -139,14 +140,14 @@ export function App() {
                 live.state === 'live' ? 'bg-ok' : live.state === 'connecting' ? 'bg-warn' : 'bg-danger',
               )}
             />
-            <span className={cn(sidebarCollapsed && 'md:sr-only')}>{live.state}</span>
+            <span className={cn(sidebarCollapsed && 'md:sr-only')}>{t(`live.${live.state}`)}</span>
           </span>
           <div className={cn('flex items-center gap-1', sidebarCollapsed && 'md:flex-col')}>
             <button
               onClick={toggleTheme}
               className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"
-              aria-label="Toggle theme"
-              title="Toggle theme"
+              aria-label={t('toggleTheme')}
+              title={t('toggleTheme')}
             >
               {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
             </button>
@@ -155,8 +156,8 @@ export function App() {
               className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"
               aria-controls="section-navigation"
               aria-expanded={!sidebarCollapsed}
-              aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-label={sidebarCollapsed ? t('expandSidebar') : t('collapseSidebar')}
+              title={sidebarCollapsed ? t('expandSidebar') : t('collapseSidebar')}
             >
               {sidebarCollapsed ? (
                 <PanelLeftOpen className="h-3.5 w-3.5" />
@@ -185,7 +186,6 @@ function decode(segment: string): string {
   }
 }
 
-/** Board filters live in the hash, so a filtered board is a link to paste. */
 function boardFilters(path: string): Record<string, string> {
   const start = path.indexOf('?')
   if (start < 0) return {}
@@ -196,8 +196,6 @@ function Page({ path, readOnly = false }: { path: string; readOnly?: boolean }) 
   const parts = segments(path)
   switch (parts[0]) {
     case 'projects':
-      // #/projects/:project[/:tab] is a page of its own; the list keeps the
-      // bare path. Segments arrive percent-encoded, so decode before matching.
       return parts[1]
         ? <ProjectPage project={decode(parts[1])} tab={parts[2] ?? null} service={queryParam(path, 'service')} />
         : <Projects />

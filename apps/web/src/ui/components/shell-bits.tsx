@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { cn } from '../lib/utils.ts'
+import { translateApiError } from '../i18n/translate-error.ts'
 
 export function PageHeader({
   title,
@@ -22,25 +24,31 @@ export function PageHeader({
   )
 }
 
-export function Loading({ label = 'Loading' }: { label?: string }) {
+export function Loading({ label }: { label?: string }) {
+  const { t } = useTranslation('common')
   return (
     <div className="flex items-center gap-2 px-4 py-8 text-sm text-muted">
       <Loader2 className="h-4 w-4 animate-spin" />
-      {label}
+      {label ?? t('loading')}
     </div>
   )
 }
 
 export function ErrorBox({ error }: { error: unknown }) {
-  const message = error instanceof Error ? error.message : String(error)
+  const { t } = useTranslation()
+  const raw = error instanceof Error ? error.message : String(error)
   const hint = (error as { hint?: string })?.hint
+  const message = translateApiError(raw, hint, t)
+  const translatedHint = hint ? translateApiHint(hint, t) : undefined
   return (
     <div className="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
       <div className="flex items-center gap-2 font-medium">
         <AlertTriangle className="h-4 w-4" />
         {message}
       </div>
-      {hint ? <p className="mt-1 pl-6 text-xs opacity-80">{hint}</p> : null}
+      {translatedHint && translatedHint !== message ? (
+        <p className="mt-1 pl-6 text-xs opacity-80">{translatedHint}</p>
+      ) : null}
     </div>
   )
 }

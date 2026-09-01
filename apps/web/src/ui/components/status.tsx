@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { ContainerState, Health, Ownership, UrlScope } from '../../shared/types.ts'
 import { Badge } from './ui/badge.tsx'
 import { cn } from '../lib/utils.ts'
@@ -14,29 +15,28 @@ const STATE_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'neutral'> = {
 }
 
 export function StateDot({ state, health }: { state: ContainerState | 'absent'; health?: Health }) {
+  const { t } = useTranslation('common')
   const tone = health === 'unhealthy' ? 'danger' : health === 'starting' ? 'warn' : STATE_TONE[state] ?? 'neutral'
   const color =
     tone === 'ok' ? 'bg-ok' : tone === 'warn' ? 'bg-warn' : tone === 'danger' ? 'bg-danger' : 'bg-subtle'
+  const stateLabel = t(`state.${state}`, { defaultValue: state })
+  const healthLabel = health && health !== 'none' ? t(`health.${health}`, { defaultValue: health }) : null
   return (
     <span
       className={cn('inline-block h-2 w-2 shrink-0 rounded-full', color)}
-      title={health && health !== 'none' ? `${state} (${health})` : state}
+      title={healthLabel ? `${stateLabel} (${healthLabel})` : stateLabel}
     />
   )
 }
 
 export function StateBadge({ state, health }: { state: ContainerState | 'absent'; health?: Health }) {
-  const label = health && health !== 'none' && state === 'running' ? `${state} · ${health}` : state
+  const { t } = useTranslation('common')
+  const stateLabel = t(`state.${state}`, { defaultValue: state })
+  const healthLabel = health && health !== 'none' ? t(`health.${health}`, { defaultValue: health }) : null
+  const label = healthLabel && state === 'running' ? `${stateLabel} · ${healthLabel}` : stateLabel
   const tone =
     health === 'unhealthy' ? 'danger' : health === 'starting' ? 'warn' : STATE_TONE[state] ?? 'neutral'
   return <Badge tone={tone}>{label}</Badge>
-}
-
-const OWNERSHIP_LABEL: Record<Ownership, string> = {
-  gateway: 'Dev Gateway',
-  integrated: 'Integrated',
-  external: 'External',
-  standalone: 'Standalone',
 }
 
 /**
@@ -44,9 +44,10 @@ const OWNERSHIP_LABEL: Record<Ownership, string> = {
  * and what merely happens to be running on the same host.
  */
 export function OwnershipBadge({ ownership }: { ownership: Ownership }) {
+  const { t } = useTranslation('common')
   const tone =
     ownership === 'gateway' ? 'accent' : ownership === 'integrated' ? 'info' : ownership === 'external' ? 'neutral' : 'outline'
-  return <Badge tone={tone}>{OWNERSHIP_LABEL[ownership]}</Badge>
+  return <Badge tone={tone}>{t(`ownership.${ownership}`)}</Badge>
 }
 
 const SCOPE_TONE: Record<UrlScope, 'neutral' | 'info' | 'warn'> = {
@@ -56,5 +57,6 @@ const SCOPE_TONE: Record<UrlScope, 'neutral' | 'info' | 'warn'> = {
 }
 
 export function ScopeBadge({ scope }: { scope: UrlScope }) {
-  return <Badge tone={SCOPE_TONE[scope]}>{scope === 'vpn' ? 'VPN' : scope}</Badge>
+  const { t } = useTranslation('common')
+  return <Badge tone={SCOPE_TONE[scope]}>{t(`scope.${scope}`)}</Badge>
 }
