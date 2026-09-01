@@ -77,13 +77,20 @@ redis_at() {
 answered_by() { [ "$1" = "$2" ]; }
 refused() { [ "$1" != "$2" ]; }
 
-# wait_for <hostname> <expected>: Traefik learns about a container from Docker
-# events, which is fast but not instant.
+psql_require() { psql_at "$1" require; }
+
+# wait_for <probe> <hostname> <expected>: Traefik learns about a container from
+# Docker events, which is fast but not instant. Each protocol gets its own
+# router, and they do not necessarily go live together, so waiting on the
+# PostgreSQL one says nothing about Redis.
+#
+# Until a router matches, Traefik answers the connection over HTTP rather than
+# closing it, so the failure looks like a protocol error rather than a timeout.
 wait_for() {
-  local host="$1" want="$2" attempt
+  local probe="$1" host="$2" want="$3" attempt
   for attempt in $(seq 1 30); do
     : "$attempt"
-    [ "$(psql_at "$host" require)" = "$want" ] && return 0
+    [ "$("$probe" "$host")" = "$want" ] && return 0
     sleep 1
   done
   return 1
@@ -127,13 +134,19 @@ assert_eq "" "$(docker inspect "$A-postgres-1" "$B-postgres-1" \
 describe "the hostname decides which database answers"
 
 it "the first project's data comes back on its own hostname"
-assert_success wait_for "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+assert_success wait_for psql_require "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
 
 it "and the second's on its own, through the very same port"
-assert_success wait_for "$B-postgres.$DEV_GATEWAY_DOMAIN" "$B"
+assert_success wait_for psql_require "$B-postgres.$DEV_GATEWAY_DOMAIN" "$B"
 
 it "they really are different databases, queried back to back"
 assert_eq "$A|$B" "$(psql_at "$A-postgres.$DEV_GATEWAY_DOMAIN" require)|$(psql_at "$B-postgres.$DEV_GATEWAY_DOMAIN" require)"
+
+# The Redis routers are separate from the PostgreSQL ones, so they need their
+# own wait. Without it this asserts against whichever router happened to be
+# live first, and fails on a loaded machine.
+wait_for redis_at "$A-redis.$DEV_GATEWAY_DOMAIN" "$A" || true
+wait_for redis_at "$B-redis.$DEV_GATEWAY_DOMAIN" "$B" || true
 
 it "Redis does the same on its own single port"
 assert_eq "$A|$B" "$(redis_at "$A-redis.$DEV_GATEWAY_DOMAIN")|$(redis_at "$B-redis.$DEV_GATEWAY_DOMAIN")"
@@ -149,11 +162,14 @@ assert_success refused "$(psql_at "127.0.0.1" require)" "$A"
 it "an unknown hostname reaches nothing"
 assert_success refused "$(psql_at "nobody-postgres.$DEV_GATEWAY_DOMAIN" require)" "$A"
 
+it "and gets Traefik's HTTP 404, because an unmatched TCP entrypoint falls back to HTTP"
+assert_contains "$(redis_at "nobody-redis.$DEV_GATEWAY_DOMAIN")" "Protocol error"
+
 describe "routes follow the containers"
 
 it "a restarted database is reachable again"
 docker restart "$A-postgres-1" >/dev/null 2>&1
-assert_success wait_for "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+assert_success wait_for psql_require "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
 
 it "stopping one leaves the other alone"
 docker stop "$A-postgres-1" >/dev/null 2>&1
@@ -165,23 +181,23 @@ assert_success refused "$(psql_at "$A-postgres.$DEV_GATEWAY_DOMAIN" require)" "$
 
 it "starting it again brings its route back"
 docker start "$A-postgres-1" >/dev/null 2>&1
-assert_success wait_for "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+assert_success wait_for psql_require "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
 
 it "recreating it from scratch works too"
 compose_env "$A" up -d --force-recreate --wait --wait-timeout 180 postgres >/dev/null 2>&1
 docker exec "$A-postgres-1" psql -U demo -d demo -qc \
   "create table if not exists whoami(name text); delete from whoami; insert into whoami values ('$A');" >/dev/null 2>&1
-assert_success wait_for "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+assert_success wait_for psql_require "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
 
 describe "restarting the gateway does not lose the routes"
 
 "$GW" restart >/dev/null 2>&1
 
 it "the first database answers again after Traefik restarts"
-assert_success wait_for "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+assert_success wait_for psql_require "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
 
 it "and so does the second"
-assert_success wait_for "$B-postgres.$DEV_GATEWAY_DOMAIN" "$B"
+assert_success wait_for psql_require "$B-postgres.$DEV_GATEWAY_DOMAIN" "$B"
 
 describe "the label reader this feature leans on"
 # Docker's inspect templates have no `hasPrefix`, so a template using it parses

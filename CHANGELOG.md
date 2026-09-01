@@ -110,6 +110,10 @@ While the version is `0.x`, minor releases may contain breaking changes.
   kind was read from that label alone, so PostgreSQL was listed as `http`. It
   is now derived from whether the container actually ended up with a URL, the
   same question `urls` and the Access page already ask.
+- The TCP routing suite waited for the PostgreSQL routes and then asserted
+  against Redis, which has routers of its own that do not necessarily go live
+  at the same moment. It passed on a quiet machine and failed on a loaded CI
+  runner. Each protocol now waits for its own routes.
 
 ### Security
 

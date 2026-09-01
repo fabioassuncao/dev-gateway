@@ -297,6 +297,32 @@ entrypoints keep the same rule.
 Credentials are unaffected: the gateway routes bytes and never reads a
 project's `.env`. Authentication stays PostgreSQL's and Redis's own.
 
+### What a hostname that matches nothing gets
+
+Not a closed connection. A Traefik entrypoint serves HTTP as well as TCP, and
+when no TCP router matches the SNI the connection falls through to the HTTP
+side, which answers `HTTP/1.1 404 Not Found`. Verified:
+
+```
+$ printf 'GET / HTTP/1.0\r\n\r\n' \
+    | openssl s_client -connect 127.0.0.1:5432 -servername nobody.localhost -quiet
+HTTP/1.0 404 Not Found
+```
+
+No database is reached, so this is not a security hole. It is a diagnostic
+one: the client reports whatever it makes of an HTTP response rather than
+"unknown host", and the message names neither the hostname nor Traefik.
+
+```
+$ redis-cli -h 127.0.0.1 -p 6379 --tls --sni typo-redis.localhost get k
+Error: Protocol error, got "H" as reply type byte
+```
+
+`H` is the first byte of `HTTP`. Read that error as *the hostname matched no
+router* — a typo, a project that is not running, or a container whose route
+Traefik has not picked up yet. `dev-gateway urls` and the panel's Access page
+show the hostnames that do exist.
+
 ---
 
 ## Local, on macOS with Docker Desktop or OrbStack
