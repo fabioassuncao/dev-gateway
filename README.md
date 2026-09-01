@@ -115,13 +115,13 @@ cp .env.example .env
 ./bin/dev-gateway doctor
 ```
 
-Then start the two bundled stacks, which deliberately reuse internal ports:
+Then start the bundled demo stacks, which deliberately reuse internal ports:
 
 ```bash
 make demo-up
 ```
 
-They answer at `demo-a-web.localhost`, `demo-a-api.localhost`, `demo-b-web.localhost`, and `demo-b-api.localhost`. Add `./bin` to `PATH` to drop the prefix.
+Among their routes are `demo-a-web.localhost`, `demo-a-api.localhost`, `demo-b-web.localhost`, and `demo-b-api.localhost`. Add `./bin` to `PATH` to drop the prefix.
 
 ## Adopting a project
 
