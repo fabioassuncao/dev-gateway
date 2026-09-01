@@ -180,10 +180,25 @@ if [ "$RUN_E2E" = "1" ]; then
     bash "$t" || FAILED=1
   done
 
+  # The package being installed says nothing about the browser being present,
+  # and the suite cannot pass without one: it starts, reports "1 passed" out of
+  # forty, and fails. Look for the browser itself.
+  playwright_browser_present() {
+    ( cd apps/web && npx --no-install playwright --version >/dev/null 2>&1 ) || return 1
+    local cache="${PLAYWRIGHT_BROWSERS_PATH:-}"
+    if [ -z "$cache" ]; then
+      case "$(uname -s)" in
+        Darwin) cache="$HOME/Library/Caches/ms-playwright" ;;
+        *) cache="$HOME/.cache/ms-playwright" ;;
+      esac
+    fi
+    ls -d "$cache"/chromium-* >/dev/null 2>&1
+  }
+
   bold "== web panel end to end =="
   if [ ! -d node_modules ] && [ ! -d apps/web/node_modules ]; then
     echo "  skip node_modules missing (run: npm ci)"
-  elif ! ( cd apps/web && npx --no-install playwright --version >/dev/null 2>&1 ); then
+  elif ! playwright_browser_present; then
     echo "  skip playwright browsers not installed (npx --workspace=portta-web playwright install chromium)"
   else
     if ( cd apps/web && npm run --silent test:e2e ); then
