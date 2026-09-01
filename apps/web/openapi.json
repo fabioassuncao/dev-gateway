@@ -619,6 +619,18 @@
           },
           "fix": {
             "type": "string"
+          },
+          "params": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
           }
         },
         "required": [

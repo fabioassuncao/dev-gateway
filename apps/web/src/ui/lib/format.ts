@@ -58,10 +58,12 @@ export function bytes(
     size /= 1024
     unit += 1
   }
-  const unitLabel = t ? t(`format.bytes.${unitKeys[unit]}`) : unitKeys[unit]
+  const unitLabel = t
+    ? t(`format.bytes.${unitKeys[unit]}` as 'format.bytes.B')
+    : unitKeys[unit]
   const formatted =
     size < 10 && unit > 0
-      ? new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(size)
+      ? new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(size)
       : new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(Math.round(size))
   return `${formatted} ${unitLabel}`
 }

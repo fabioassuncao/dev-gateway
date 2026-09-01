@@ -2,35 +2,35 @@ import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import './types.ts'
 
-import enCommon from './locales/en/common.json'
-import enNav from './locales/en/nav.json'
-import enOverview from './locales/en/overview.json'
-import enProjects from './locales/en/projects.json'
-import enWorkspaces from './locales/en/workspaces.json'
-import enIssues from './locales/en/issues.json'
-import enServices from './locales/en/services.json'
-import enDocker from './locales/en/docker.json'
-import enNetwork from './locales/en/network.json'
-import enAccess from './locales/en/access.json'
-import enGateway from './locales/en/gateway.json'
-import enSettings from './locales/en/settings.json'
-import enDiagnostics from './locales/en/diagnostics.json'
-import enErrors from './locales/en/errors.json'
+import enCommon from './locales/en/common.json' with { type: 'json' }
+import enNav from './locales/en/nav.json' with { type: 'json' }
+import enOverview from './locales/en/overview.json' with { type: 'json' }
+import enProjects from './locales/en/projects.json' with { type: 'json' }
+import enWorkspaces from './locales/en/workspaces.json' with { type: 'json' }
+import enIssues from './locales/en/issues.json' with { type: 'json' }
+import enServices from './locales/en/services.json' with { type: 'json' }
+import enDocker from './locales/en/docker.json' with { type: 'json' }
+import enNetwork from './locales/en/network.json' with { type: 'json' }
+import enAccess from './locales/en/access.json' with { type: 'json' }
+import enGateway from './locales/en/gateway.json' with { type: 'json' }
+import enSettings from './locales/en/settings.json' with { type: 'json' }
+import enDiagnostics from './locales/en/diagnostics.json' with { type: 'json' }
+import enErrors from './locales/en/errors.json' with { type: 'json' }
 
-import ptCommon from './locales/pt-BR/common.json'
-import ptNav from './locales/pt-BR/nav.json'
-import ptOverview from './locales/pt-BR/overview.json'
-import ptProjects from './locales/pt-BR/projects.json'
-import ptWorkspaces from './locales/pt-BR/workspaces.json'
-import ptIssues from './locales/pt-BR/issues.json'
-import ptServices from './locales/pt-BR/services.json'
-import ptDocker from './locales/pt-BR/docker.json'
-import ptNetwork from './locales/pt-BR/network.json'
-import ptAccess from './locales/pt-BR/access.json'
-import ptGateway from './locales/pt-BR/gateway.json'
-import ptSettings from './locales/pt-BR/settings.json'
-import ptDiagnostics from './locales/pt-BR/diagnostics.json'
-import ptErrors from './locales/pt-BR/errors.json'
+import ptCommon from './locales/pt-BR/common.json' with { type: 'json' }
+import ptNav from './locales/pt-BR/nav.json' with { type: 'json' }
+import ptOverview from './locales/pt-BR/overview.json' with { type: 'json' }
+import ptProjects from './locales/pt-BR/projects.json' with { type: 'json' }
+import ptWorkspaces from './locales/pt-BR/workspaces.json' with { type: 'json' }
+import ptIssues from './locales/pt-BR/issues.json' with { type: 'json' }
+import ptServices from './locales/pt-BR/services.json' with { type: 'json' }
+import ptDocker from './locales/pt-BR/docker.json' with { type: 'json' }
+import ptNetwork from './locales/pt-BR/network.json' with { type: 'json' }
+import ptAccess from './locales/pt-BR/access.json' with { type: 'json' }
+import ptGateway from './locales/pt-BR/gateway.json' with { type: 'json' }
+import ptSettings from './locales/pt-BR/settings.json' with { type: 'json' }
+import ptDiagnostics from './locales/pt-BR/diagnostics.json' with { type: 'json' }
+import ptErrors from './locales/pt-BR/errors.json' with { type: 'json' }
 
 import { applyLocale } from './use-locale.ts'
 

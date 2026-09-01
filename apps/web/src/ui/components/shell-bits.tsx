@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { cn } from '../lib/utils.ts'
-import { translateApiError } from '../i18n/translate-error.ts'
+import { translateApiError, translateApiHint } from '../i18n/translate-error.ts'
 
 export function PageHeader({
   title,

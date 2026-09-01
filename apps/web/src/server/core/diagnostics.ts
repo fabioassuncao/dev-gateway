@@ -22,8 +22,9 @@ function check(
   title: string,
   detail: string,
   fix = '',
+  params?: Record<string, string | number>,
 ): Diagnostic {
-  return { id, status, title, detail, fix }
+  return { id, status, title, detail, fix, ...(params ? { params } : {}) }
 }
 
 export function diagnose(

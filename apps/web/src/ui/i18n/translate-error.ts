@@ -1,48 +1,53 @@
 import type { TFunction } from 'i18next'
 
 const VALIDATION_MAP: Record<string, string> = {
-  'must be a hostname, for example dev.example.com': 'settings.validation.mustBeHostname',
-  'must be a port between 1 and 65535': 'settings.validation.mustBePort',
-  'must be an IPv4 address': 'settings.validation.mustBeIpv4',
-  'must be 1 to 64 characters of letters, digits, dot, dash or underscore': 'settings.validation.mustBeUsername',
-  'must be an apr1, bcrypt or SHA1 hash; run: dev-gateway web auth set': 'settings.validation.mustBePasswordHash',
-  'must be an email address': 'settings.validation.mustBeEmail',
-  'must be an https URL': 'settings.validation.mustBeHttpsUrl',
-  'must be a URL': 'settings.validation.mustBeUrl',
-  'must be the numeric App id': 'settings.validation.mustBeNumericAppId',
-  'must be an absolute path': 'settings.validation.mustBeAbsolutePath',
-  'is not a setting the panel manages': 'settings.validation.notManaged',
-  'must be true or false': 'settings.validation.mustBeBoolean',
-  'is required by the remote-public profile': 'settings.validation.publicDomainRequired',
-  'the remote-private profile must not bind 0.0.0.0': 'settings.validation.bindAddressPrivate',
-  'is required when TLS_MODE is acme': 'settings.validation.acmeEmailRequired',
-  'is required when Tailscale is enabled': 'settings.validation.tailscaleHostnameRequired',
-  'must be basic while the panel is routed': 'settings.validation.authBasicRequired',
-  'a routed panel needs a credential: run dev-gateway web auth set': 'settings.validation.credentialRequired',
+  'must be a hostname, for example dev.example.com': 'validation.mustBeHostname',
+  'must be a port between 1 and 65535': 'validation.mustBePort',
+  'must be an IPv4 address': 'validation.mustBeIpv4',
+  'must be 1 to 64 characters of letters, digits, dot, dash or underscore': 'validation.mustBeUsername',
+  'must be an apr1, bcrypt or SHA1 hash; run: dev-gateway web auth set': 'validation.mustBePasswordHash',
+  'must be an email address': 'validation.mustBeEmail',
+  'must be an https URL': 'validation.mustBeHttpsUrl',
+  'must be a URL': 'validation.mustBeUrl',
+  'must be the numeric App id': 'validation.mustBeNumericAppId',
+  'must be an absolute path': 'validation.mustBeAbsolutePath',
+  'is not a setting the panel manages': 'validation.notManaged',
+  'must be true or false': 'validation.mustBeBoolean',
+  'is required by the remote-public profile': 'validation.publicDomainRequired',
+  'the remote-private profile must not bind 0.0.0.0': 'validation.bindAddressPrivate',
+  'is required when TLS_MODE is acme': 'validation.acmeEmailRequired',
+  'is required when Tailscale is enabled': 'validation.tailscaleHostnameRequired',
+  'must be basic while the panel is routed': 'validation.authBasicRequired',
+  'a routed panel needs a credential: run dev-gateway web auth set': 'validation.credentialRequired',
   'the panel is not published on every interface; reach it over the VPN instead':
-    'settings.validation.panelNotOnEveryInterface',
+    'validation.panelNotOnEveryInterface',
 }
 
 const HINT_MAP: Record<string, string> = {
-  'the value was not saved': 'errors.hints.notSaved',
-  'existing Docker-backed pages remain available; run dev-gateway db status': 'errors.hints.databaseUnavailable',
-  'this is a panel limit, not a Docker one': 'errors.hints.panelLimit',
-  'unexpected failure': 'errors.hints.unexpected',
+  'the value was not saved': 'hints.notSaved',
+  'existing Docker-backed pages remain available; run dev-gateway db status': 'hints.databaseUnavailable',
+  'this is a panel limit, not a Docker one': 'hints.panelLimit',
+  'unexpected failure': 'hints.unexpected',
 }
 
 const ERROR_MAP: Record<string, string> = {
-  'the panel is running in read-only mode': 'errors.readOnly',
-  'cross-origin writes are refused': 'errors.crossOrigin',
-  'bridge closed; the service itself was not touched': 'errors.bridgeClosed',
+  'the panel is running in read-only mode': 'readOnly',
+  'cross-origin writes are refused': 'crossOrigin',
+  'bridge closed; the service itself was not touched': 'bridgeClosed',
 }
 
-type TranslateFn = TFunction
+type LooseT = TFunction | ((key: string, options?: Record<string, unknown>) => string)
+
+function loose(t: LooseT, key: string, options?: Record<string, unknown>): string {
+  return (t as (key: string, options?: Record<string, unknown>) => string)(key, options)
+}
 
 /** Translates known API error strings; falls back to the original text. */
-export function translateApiError(error: string, hint?: string, t?: TranslateFn): string {
+export function translateApiError(error: string, _hint?: string, t?: LooseT): string {
   if (!t) return error
 
-  if (ERROR_MAP[error]) return t(ERROR_MAP[error], { ns: 'errors' })
+  const mapped = ERROR_MAP[error]
+  if (mapped) return loose(t, mapped, { ns: 'errors' })
 
   const colon = error.indexOf(': ')
   if (colon > 0) {
@@ -50,20 +55,17 @@ export function translateApiError(error: string, hint?: string, t?: TranslateFn)
     const reason = error.slice(colon + 2)
     if (reason.startsWith('must be one of ')) {
       const choices = reason.slice('must be one of '.length)
-      return `${key}: ${t('validation.mustBeOneOf', { ns: 'settings', choices })}`
+      return `${key}: ${loose(t, 'validation.mustBeOneOf', { ns: 'settings', choices })}`
     }
     const validationKey = VALIDATION_MAP[reason]
-    if (validationKey) {
-      const msgKey = validationKey.replace('settings.', '')
-      return `${key}: ${t(msgKey, { ns: 'settings' })}`
-    }
+    if (validationKey) return `${key}: ${loose(t, validationKey, { ns: 'settings' })}`
   }
 
   return error
 }
 
-export function translateApiHint(hint: string, t?: TranslateFn): string {
+export function translateApiHint(hint: string, t?: LooseT): string {
   if (!t) return hint
   const key = HINT_MAP[hint]
-  return key ? t(key.replace('errors.', ''), { ns: 'errors' }) : hint
+  return key ? loose(t, key, { ns: 'errors' }) : hint
 }
