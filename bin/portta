@@ -9,7 +9,19 @@
 
 set -euo pipefail
 
-PORTTA_BIN_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# Resolved through symlinks: the installer puts one in /usr/local/bin, and
+# without this the libraries would be looked for next to the link.
+_portta_entry="${BASH_SOURCE[0]}"
+while [ -L "$_portta_entry" ]; do
+  _portta_dir=$(cd -P "$(dirname "$_portta_entry")" && pwd)
+  _portta_entry=$(readlink "$_portta_entry")
+  case "$_portta_entry" in
+    /*) ;;
+    *) _portta_entry="$_portta_dir/$_portta_entry" ;;
+  esac
+done
+PORTTA_BIN_DIR=$(cd -P "$(dirname "$_portta_entry")" && pwd)
+unset _portta_entry _portta_dir
 
 # The full CLI is TypeScript. Keep this tiny entry point because a bare host
 # must still be able to bootstrap, start, stop, inspect status and run doctor

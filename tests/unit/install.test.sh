@@ -165,6 +165,17 @@ assert_contains "$SOURCE" 'for path in VERSION'
 it "and so is docker/compose"
 assert_contains "$SOURCE" 'docker/compose'
 
+it "the CLI still finds its libraries through that symlink"
+# The installer links PORTTA_HOME/bin/portta into a bin directory on PATH, so
+# bin/portta has to resolve the link before looking for scripts/lib beside it.
+link=$(mktemp -u "${TMPDIR:-/tmp}/portta-link.XXXXXX")
+ln -sf "$PORTTA_ROOT/bin/portta" "$link"
+assert_contains "$("$link" version 2>&1)" "portta "
+rm -f "$link"
+
+it "and it links only into a directory already on PATH"
+assert_contains "$SOURCE" 'for candidate in /usr/local/bin "$HOME/.local/bin"'
+
 it "the CLI looks in the directories the installer defaults to"
 context="$(cat "$PORTTA_ROOT/packages/cli/src/context.ts")"
 assert_contains "$context" "'/opt/portta'"
