@@ -9,6 +9,19 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The panel started in development mode and the production image did not
+  build at all.** Four defects in the same path, each dating from the workspace
+  conversion: the dev image never received `packages/core`, so `@dev-gateway/core`
+  could not resolve and the panel crashed on boot; the dev command restated
+  `node --watch` and dropped `--conditions=development`, which pointed the same
+  import at a `dist/` that stage does not build; the build stage never copied
+  `tsconfig.build.json`, so `docker build` failed on the shared package; and
+  leaving development mode left the Vite container serving a stale panel on its
+  own port. `dev-gateway web` also reported `:8081` in development, where the
+  server serves no UI, and `doctor` printed a fix under checks that had passed.
+
 ### Added
 
 - **A page per project, organised in tabs.** `#/projects/<name>` is now a

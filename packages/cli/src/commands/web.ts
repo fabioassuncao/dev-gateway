@@ -45,13 +45,30 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   await runProcess('docker', ['pull', 'alpine/socat:1.8.1.3'], { reject: false })
   await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', 'db'], { cwd: context.root, env: context.env, reject: false })
   const services = options.dev ? ['web', 'web-ui', 'web-socket-proxy'] : ['web', 'web-socket-proxy']
-  await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', '--build', '--wait', '--wait-timeout', '180', ...services], { cwd: context.root, env: context.env, stdio: 'inherit' })
-  new Output(globals(command)).data(webUrl(context))
+  // `--remove-orphans`, as `dev-gateway up` already does: leaving development
+  // mode drops compose.web-dev.yaml from the file list, and without this the
+  // Vite container keeps serving a stale panel on its own port.
+  await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', '--build', '--remove-orphans', '--wait', '--wait-timeout', '180', ...services], { cwd: context.root, env: context.env, stdio: 'inherit' })
+  // The context was resolved before .env was rewritten, so `web dev` would
+  // otherwise report the URL the previous mode used.
+  new Output(globals(command)).data(webUrl(gatewayContext({ profile: globals(command).profile })))
 }
 
-function webUrl(context: ReturnType<typeof gatewayContext>): string {
+/**
+ * Where the panel actually answers.
+ *
+ * In development Vite owns the port and proxies `/api` to the server beside
+ * it; the server's own port serves no UI at all, because the dev image never
+ * builds one. Reporting 8081 there sends people to a page that only explains
+ * itself.
+ */
+export function webUrl(context: ReturnType<typeof gatewayContext>): string {
   if (context.config.webExpose === 'vpn') return `${context.config.tlsEnabled ? 'https' : 'http'}://${context.env['DEV_GATEWAY_WEB_HOST'] ?? 'dev-gateway-web'}.${context.config.domain}`
-  return `http://${context.env['DEV_GATEWAY_WEB_BIND_ADDRESS'] ?? '127.0.0.1'}:${context.config.webPort}`
+  const host = context.env['DEV_GATEWAY_WEB_BIND_ADDRESS'] ?? '127.0.0.1'
+  const port = context.config.webDev
+    ? (context.env['DEV_GATEWAY_WEB_DEV_PORT'] ?? '5173')
+    : context.config.webPort
+  return `http://${host}:${port}`
 }
 
 export async function webDown(command: Command): Promise<void> {

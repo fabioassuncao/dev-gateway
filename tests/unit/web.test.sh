@@ -268,4 +268,31 @@ assert_contains "$(cat apps/web/Dockerfile)" "COPY --from=build /app/apps/web/di
 it "and no Docker CLI"
 assert_eq "" "$(grep -n 'docker-cli\|docker.sock' apps/web/Dockerfile || true)"
 
+# The shared package is a workspace symlink, so every stage that resolves
+# @dev-gateway/core needs its files. Each assertion below stands for a way the
+# panel has actually failed to start or to build.
+
+it "the build stage copies the config the shared package builds through"
+assert_contains "$(cat apps/web/Dockerfile)" "packages/core/tsconfig.build.json"
+
+it "the dev stage carries the shared package's source, which it never builds"
+assert_contains "$(sed -n '/AS dev/,/AS runtime/p' apps/web/Dockerfile)" "COPY packages/core/src ./packages/core/src"
+
+it "the dev stage starts through the package script, which owns the export condition"
+assert_contains "$(sed -n '/AS dev/,/AS runtime/p' apps/web/Dockerfile)" 'CMD ["npm", "run", "dev"]'
+
+it "the dev script resolves the development export condition"
+assert_contains "$(cat apps/web/package.json)" "--conditions=development"
+
+describe "the panel in development mode"
+
+it "runs the package script rather than restating its flags"
+assert_contains "$(cat compose.web-dev.yaml)" 'command: ["npm", "run", "dev"]'
+
+it "mounts the shared package so editing it reloads the panel"
+assert_contains "$(cat compose.web-dev.yaml)" "./packages/core/src:/app/packages/core/src"
+
+it "publishes the UI on its own port, which is where the panel answers"
+assert_contains "$(cat compose.web-dev.yaml)" "DEV_GATEWAY_WEB_DEV_PORT:-5173"
+
 t_summary

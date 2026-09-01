@@ -39,12 +39,13 @@ it "no consumer directory is mounted into the gateway"
 #   ./config, ./state          the gateway's own directories
 #   ./.env, ./VERSION          the configuration the panel's Settings page edits
 #   ./apps/web/                the panel's own source, in development mode
+#   ./packages/core/           the workspace the panel imports, in development mode
 #   /var/run/docker.sock       read-only, into a socket proxy and nothing else
 #   /dev/net/tun               Tailscale's kernel networking
 # Anything else would be reaching into somebody's project.
 # A bind mount is `src:dst`; a tmpfs entry has no colon, so require one.
 assert_eq "" "$(grep -hE '^\s+- [./][^ ]*:' compose*.yaml \
-  | grep -vE '\./(config|state|apps)/' \
+  | grep -vE '\./(config|state|apps|packages)/' \
   | grep -vE '\./(\.env|VERSION):' \
   | grep -vE '/var/run/docker\.sock:/var/run/docker\.sock:ro' \
   | grep -vE '/dev/net/tun:/dev/net/tun' || true)"

@@ -23,7 +23,9 @@ FROM deps AS build
 WORKDIR /app
 COPY apps/web/tsconfig.json apps/web/tsconfig.server.json apps/web/vite.config.ts ./apps/web/
 COPY apps/web/src ./apps/web/src
-COPY packages/core/tsconfig.json ./packages/core/
+# Both configs: the package builds through tsconfig.build.json, which extends
+# tsconfig.json to drop the tests from the published output.
+COPY packages/core/tsconfig.json packages/core/tsconfig.build.json ./packages/core/
 COPY packages/core/src ./packages/core/src
 RUN npm run build --workspace=@dev-gateway/core && npm run build --workspace=dev-gateway-web
 
@@ -34,13 +36,20 @@ FROM deps AS dev
 WORKDIR /app
 ENV NODE_ENV=development
 COPY apps/web ./apps/web
+# The workspace symlink npm ci created points at packages/core, so the shared
+# package's source has to be here too: this stage never builds it, and the
+# `development` export condition resolves it as TypeScript.
+COPY packages/core/tsconfig.json ./packages/core/
+COPY packages/core/src ./packages/core/src
 WORKDIR /app/apps/web
 # The container runs as an unprivileged user, and Vite writes a temporary
 # config next to vite.config.ts and a cache under node_modules.
 RUN chown -R node:node /app
 USER node
 EXPOSE 8081 5173
-CMD ["node", "--watch", "src/server/index.ts"]
+# Through the package script, so `--conditions=development` is declared once.
+# Dropping it resolves @dev-gateway/core to a dist/ this stage does not build.
+CMD ["npm", "run", "dev"]
 
 # --- runtime -----------------------------------------------------------------
 FROM node:24.20.0-alpine AS runtime

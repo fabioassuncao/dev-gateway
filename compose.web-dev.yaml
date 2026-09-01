@@ -4,8 +4,8 @@
 # Applied when DEV_GATEWAY_WEB_DEV=true, or by `dev-gateway web dev`.
 #
 # Two containers from the same image: the API with `node --watch`, and Vite
-# with HMR in front of it. Only ./apps/web/src is bind-mounted, so the image's
-# node_modules stay in place and the host never needs Node installed.
+# with HMR in front of it. Only source directories are bind-mounted, so the
+# image's node_modules stay in place and the host never needs Node installed.
 # ============================================================================
 
 services:
@@ -15,11 +15,16 @@ services:
       dockerfile: apps/web/Dockerfile
       target: dev
     image: dev-gateway-web:dev
-    command: ["node", "--watch", "src/server/index.ts"]
+    # The package script, never a restated command line: it carries
+    # `--conditions=development`, without which @dev-gateway/core resolves to a
+    # dist/ the dev image does not build.
+    command: ["npm", "run", "dev"]
     environment:
       NODE_ENV: development
     volumes:
       - ./apps/web/src:/app/apps/web/src
+      # The shared package, so editing it reloads the panel like its own source.
+      - ./packages/core/src:/app/packages/core/src
       - ./.env:/app/state/.env
       - ./VERSION:/app/state/VERSION:ro
 

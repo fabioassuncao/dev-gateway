@@ -111,7 +111,20 @@ export async function statusCommand(command: Command): Promise<void> {
   }
 }
 
-interface Check { id: string; status: 'pass' | 'fail'; message: string; fix?: string }
+export interface Check { id: string; status: 'pass' | 'fail'; message: string; fix?: string }
+
+/**
+ * What `doctor` prints, as data.
+ *
+ * A fix belongs to a check that did not pass: printed under `ok` it reads as an
+ * instruction to repair something that is already right.
+ */
+export function doctorReport(checks: Check[]): { line: string; hint?: string }[] {
+  return checks.map((check) => ({
+    line: `${check.status === 'pass' ? 'ok  ' : 'FAIL'} ${check.message}`,
+    ...(check.fix && check.status !== 'pass' ? { hint: check.fix } : {}),
+  }))
+}
 
 export async function doctorCommand(command: Command): Promise<void> {
   const options = globals(command)
@@ -137,9 +150,9 @@ export async function doctorCommand(command: Command): Promise<void> {
   const failed = checks.filter((check) => check.status === 'fail')
   const output = new Output(options)
   if (output.json) output.data({ ok: failed.length === 0, instance: { name: context.config.projectName }, checks })
-  else for (const check of checks) {
-    output.line(`${check.status === 'pass' ? 'ok  ' : 'FAIL'} ${check.message}`)
-    if (check.fix) output.hint(check.fix)
+  else for (const entry of doctorReport(checks)) {
+    output.line(entry.line)
+    if (entry.hint) output.hint(entry.hint)
   }
   if (failed.length) throw new CliError(`${failed.length} doctor check(s) failed`)
 }
