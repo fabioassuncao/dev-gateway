@@ -1,25 +1,36 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Save, ShieldCheck } from 'lucide-react'
-import { api } from '../lib/api.ts'
 import type { ConfigField } from '../../shared/types.ts'
-import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
+import { slug } from '../../shared/slug.ts'
+import { api } from '../lib/api.ts'
+import { navigate } from '../lib/router.ts'
 import { Badge } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
-import { Input, Select } from '../components/ui/field.tsx'
-import { Switch } from '../components/ui/switch.tsx'
-import { ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
+import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
 import { CopyButton } from '../components/copy.tsx'
+import { SettingsGroup } from '../components/settings/settings-group.tsx'
+import { SettingsNav } from '../components/settings/settings-nav.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 
-export function Settings() {
-  useDocumentTitle('Settings')
+export function Settings({ group }: { group: string | null }) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState<Record<string, string | null>>({})
   const [error, setError] = useState<unknown>(null)
   const [saved, setSaved] = useState(false)
-
   const query = useQuery({ queryKey: ['config'], queryFn: api.config })
+
+  const view = query.data
+  const activeGroup =
+    view?.groups.find((name) => slug(name) === group) ??
+    (group === null ? view?.groups[0] : undefined)
+
+  useDocumentTitle(activeGroup, 'Settings')
+
+  useEffect(() => {
+    const first = view?.groups[0]
+    if (group === null && first) navigate(`/settings/${slug(first)}`)
+  }, [group, view?.groups])
 
   const save = useMutation({
     mutationFn: () => api.patchConfig(draft),
@@ -35,31 +46,34 @@ export function Settings() {
     },
   })
 
-  const groups = useMemo(() => {
-    const byGroup = new Map<string, ConfigField[]>()
-    for (const field of query.data?.fields ?? []) {
-      const list = byGroup.get(field.group)
-      if (list) list.push(field)
-      else byGroup.set(field.group, [field])
+  const dirtyCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    if (!view) return counts
+    const fieldGroups = new Map(view.fields.map((field) => [field.key, field.group]))
+    for (const key of Object.keys(draft)) {
+      const fieldGroup = fieldGroups.get(key)
+      if (fieldGroup) counts.set(fieldGroup, (counts.get(fieldGroup) ?? 0) + 1)
     }
-    return [...byGroup.entries()]
-  }, [query.data])
+    return counts
+  }, [draft, view])
 
   if (query.isPending) return <Loading />
   if (query.error) return <ErrorBox error={query.error} />
-  if (!query.data) return null
+  if (!view) return null
 
   const dirty = Object.keys(draft).length > 0
-  const view = query.data
+  const fields = activeGroup ? view.fields.filter((field) => field.group === activeGroup) : []
 
   const valueOf = (field: ConfigField): string => {
     const pending = draft[field.key]
     if (pending !== undefined) return pending ?? ''
-    return field.value ?? ''
+    return field.secret ? '' : (field.value ?? '')
   }
 
-  const setValue = (key: string, value: string | null) =>
+  const setValue = (key: string, value: string | null) => {
+    setSaved(false)
     setDraft((current) => ({ ...current, [key]: value }))
+  }
 
   return (
     <>
@@ -106,82 +120,18 @@ export function Settings() {
         </div>
       ) : null}
 
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        {groups.map(([group, fields]) => (
-          <Card key={group}>
-            <CardHeader title={group} />
-            <CardBody className="space-y-4">
-              {fields.map((field) => (
-                <div key={field.key} className="grid gap-1.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <label htmlFor={field.key} className="text-sm font-medium text-ink">
-                      {field.label}
-                      {field.pending ? (
-                        <Badge tone="warn" className="ml-2">
-                          pending restart
-                        </Badge>
-                      ) : null}
-                    </label>
-                    {field.kind === 'boolean' ? (
-                      <Switch
-                        id={field.key}
-                        checked={valueOf(field) === 'true'}
-                        onCheckedChange={(checked) => setValue(field.key, checked ? 'true' : 'false')}
-                      />
-                    ) : null}
-                  </div>
-
-                  {field.kind === 'choice' ? (
-                    <Select
-                      id={field.key}
-                      value={valueOf(field)}
-                      onChange={(event) => setValue(field.key, event.target.value)}
-                    >
-                      {(field.choices ?? []).map((choice) => (
-                        <option key={choice} value={choice}>
-                          {choice}
-                        </option>
-                      ))}
-                    </Select>
-                  ) : null}
-
-                  {field.kind === 'string' || field.kind === 'number' ? (
-                    field.secret ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id={field.key}
-                          type="password"
-                          autoComplete="off"
-                          placeholder={field.isSet ? '•••••••• (unchanged)' : 'not set'}
-                          value={draft[field.key] ?? ''}
-                          onChange={(event) => setValue(field.key, event.target.value)}
-                        />
-                        <Badge tone={field.isSet ? 'ok' : 'neutral'}>
-                          {field.isSet ? 'set' : 'unset'}
-                        </Badge>
-                        {field.isSet ? (
-                          <Button size="sm" variant="ghost" onClick={() => setValue(field.key, null)}>
-                            Clear
-                          </Button>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <Input
-                        id={field.key}
-                        inputMode={field.kind === 'number' ? 'numeric' : undefined}
-                        value={valueOf(field)}
-                        onChange={(event) => setValue(field.key, event.target.value)}
-                      />
-                    )
-                  ) : null}
-
-                  <p className="text-xs text-muted">{field.help}</p>
-                  <p className="font-mono text-[10px] text-subtle">{field.key}</p>
-                </div>
-              ))}
-            </CardBody>
-          </Card>
-        ))}
+      <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-start">
+        <SettingsNav groups={view.groups} active={activeGroup ?? null} dirtyCounts={dirtyCounts} />
+        {activeGroup ? (
+          <SettingsGroup name={activeGroup} fields={fields} valueOf={valueOf} onChange={setValue} />
+        ) : (
+          <div className="min-w-0 flex-1 rounded-lg border border-line bg-surface">
+            <Empty
+              title={`Settings section “${group ?? ''}” does not exist`}
+              hint="Choose one of the available groups."
+            />
+          </div>
+        )}
       </div>
 
       <p className="mt-4 text-xs text-subtle">

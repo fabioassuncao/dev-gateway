@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
 import type { ConfigView } from '../../src/shared/types.ts'
@@ -20,7 +20,7 @@ const { Settings } = await import('../../src/ui/pages/Settings.tsx')
 const view: ConfigView = {
   applyCommand: './bin/dev-gateway up local',
   pendingRestart: false,
-  groups: ['Gateway', 'VPN'],
+  groups: ['Gateway', 'TLS', 'VPN'],
   envFile: { path: '/app/state/.env', exists: true, writable: true },
   fields: [
     {
@@ -44,7 +44,7 @@ const view: ConfigView = {
       isSet: true,
       pending: false,
       kind: 'boolean',
-      group: 'Gateway',
+      group: 'TLS',
       label: 'HTTPS',
       help: 'Master switch.',
       restartRequired: true,
@@ -66,13 +66,15 @@ const view: ConfigView = {
 }
 
 beforeEach(() => {
+  window.location.hash = ''
+  document.title = 'Dev Gateway'
   config.mockReset().mockResolvedValue(view)
   patchConfig.mockReset().mockResolvedValue({ ok: true, saved: [], pendingRestart: true, applyCommand: view.applyCommand, view })
 })
 
 describe('Settings', () => {
   it('never shows a secret, only whether it is set', async () => {
-    renderWithQuery(<Settings />)
+    renderWithQuery(<Settings group="vpn" />)
     await screen.findByLabelText('Tailscale auth key')
 
     const input = screen.getByLabelText('Tailscale auth key') as HTMLInputElement
@@ -83,7 +85,7 @@ describe('Settings', () => {
   })
 
   it('sends only what was edited', async () => {
-    renderWithQuery(<Settings />)
+    renderWithQuery(<Settings group="gateway" />)
     const domain = await screen.findByLabelText('Local domain')
 
     await userEvent.clear(domain)
@@ -94,13 +96,13 @@ describe('Settings', () => {
   })
 
   it('will not save when nothing changed', async () => {
-    renderWithQuery(<Settings />)
+    renderWithQuery(<Settings group="gateway" />)
     await screen.findByLabelText('Local domain')
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
   })
 
   it('clears a secret only on an explicit request', async () => {
-    renderWithQuery(<Settings />)
+    renderWithQuery(<Settings group="vpn" />)
     await screen.findByLabelText('Tailscale auth key')
 
     await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
@@ -110,7 +112,7 @@ describe('Settings', () => {
 
   it('says what to run on the host after saving', async () => {
     config.mockResolvedValue({ ...view, pendingRestart: true })
-    renderWithQuery(<Settings />)
+    renderWithQuery(<Settings group="gateway" />)
     expect(await screen.findByText('./bin/dev-gateway up local')).toBeInTheDocument()
     expect(screen.getByText(/take effect once the gateway containers are recreated/)).toBeInTheDocument()
   })
@@ -121,7 +123,7 @@ describe('Settings', () => {
         hint: 'the value was not saved',
       }),
     )
-    renderWithQuery(<Settings />)
+    renderWithQuery(<Settings group="gateway" />)
     const domain = await screen.findByLabelText('Local domain')
     await userEvent.type(domain, 'x')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -135,8 +137,58 @@ describe('Settings', () => {
       ...view,
       envFile: { path: '/app/state/.env', exists: true, writable: false },
     })
-    renderWithQuery(<Settings />)
+    renderWithQuery(<Settings group="gateway" />)
     expect(await screen.findByText(/cannot write/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+  })
+
+  it('renders only the selected group and gives it a contextual title', async () => {
+    renderWithQuery(<Settings group="tls" />)
+
+    expect(await screen.findByLabelText('HTTPS')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Local domain')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Tailscale auth key')).not.toBeInTheDocument()
+    expect(document.title).toBe('TLS · Settings · Dev Gateway')
+    expect(screen.getByRole('link', { name: 'TLS' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('keeps one draft across groups and saves all changes together', async () => {
+    const rendered = renderWithQuery(<Settings group="gateway" />)
+    const domain = await screen.findByLabelText('Local domain')
+    await userEvent.clear(domain)
+    await userEvent.type(domain, 'dev.test')
+
+    rendered.rerender(<Settings group="vpn" />)
+    const token = await screen.findByLabelText('Tailscale auth key')
+    await userEvent.type(token, 'new-secret')
+
+    const nav = screen.getByRole('navigation', { name: 'Settings groups' })
+    expect(
+      within(screen.getByRole('link', { name: 'Gateway, 1 unsaved' })).getByText('1'),
+    ).toBeInTheDocument()
+    expect(within(screen.getByRole('link', { name: 'VPN, 1 unsaved' })).getByText('1')).toBeInTheDocument()
+    expect(within(nav).getAllByText('1')).toHaveLength(2)
+    expect(screen.getByText('2 unsaved')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(patchConfig).toHaveBeenCalledWith({
+        DEV_GATEWAY_DOMAIN: 'dev.test',
+        TS_AUTHKEY: 'new-secret',
+      }),
+    )
+  })
+
+  it('redirects the settings root to the first server-defined group', async () => {
+    renderWithQuery(<Settings group={null} />)
+    await screen.findByLabelText('Local domain')
+    await waitFor(() => expect(window.location.hash).toBe('#/settings/gateway'))
+  })
+
+  it('shows an empty state for an unknown group without hiding the navigation', async () => {
+    renderWithQuery(<Settings group="missing" />)
+    expect(await screen.findByText('Settings section “missing” does not exist')).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Settings groups' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Local domain')).not.toBeInTheDocument()
   })
 })

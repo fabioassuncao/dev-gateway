@@ -21,11 +21,15 @@ test.describe('the panel end to end', () => {
   test('every section owns its title and project context can refine it', async ({ page }) => {
     await page.goto('/#/overview')
 
-    const sections = ['Overview', 'Projects', 'Services', 'Docker', 'Network', 'Access', 'Gateway', 'Settings']
+    const sections = ['Overview', 'Projects', 'Services', 'Docker', 'Network', 'Access', 'Gateway']
     for (const section of sections) {
       await page.getByRole('button', { name: section, exact: true }).click()
       await expect(page).toHaveTitle(`${section} · Dev Gateway`)
     }
+
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await expect(page).toHaveURL(/#\/settings\/gateway$/)
+    await expect(page).toHaveTitle('Gateway · Settings · Dev Gateway')
 
     await page.goto('/#/projects/alpha')
     await expect(page).toHaveTitle('alpha · Dev Gateway')
@@ -202,12 +206,61 @@ test.describe('the panel end to end', () => {
   })
 
   test('settings never reveal a secret', async ({ page }) => {
-    await page.goto('/#/settings')
+    await page.goto('/#/settings/vpn')
 
     const token = page.getByLabel('Tailscale auth key')
     await expect(token).toHaveAttribute('type', 'password')
     await expect(token).toHaveValue('')
     await expect(page.locator('body')).not.toContainText('fixture-value-never-returned')
+  })
+
+  test('settings groups remain deep-linkable in the mobile navigation strip', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 700 })
+    await page.goto('/#/settings/public-access')
+
+    await expect(page).toHaveTitle('Public access · Settings · Dev Gateway')
+    await expect(page.getByRole('link', { name: 'Public access' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    const nav = page.getByRole('navigation', { name: 'Settings groups' })
+    expect(await nav.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      ),
+    ).toBe(false)
+  })
+
+  test('settings keep one draft while moving between deep-linked groups', async ({ page, request }) => {
+    try {
+      await page.goto('/#/settings/gateway')
+      await expect(page).toHaveTitle('Gateway · Settings · Dev Gateway')
+      await page.getByLabel('Local domain').fill('e2e.localhost')
+
+      await page.getByRole('link', { name: 'TLS' }).click()
+      await expect(page).toHaveURL(/#\/settings\/tls$/)
+      await page.getByLabel('HTTPS').click()
+      await expect(page.getByRole('link', { name: 'Gateway, 1 unsaved' })).toBeVisible()
+      await expect(page.getByText('2 unsaved')).toBeVisible()
+
+      const patch = page.waitForRequest(
+        (candidate) => candidate.url().endsWith('/api/config') && candidate.method() === 'PATCH',
+      )
+      await page.getByRole('button', { name: 'Save' }).click()
+      expect((await patch).postDataJSON()).toEqual({
+        values: { DEV_GATEWAY_DOMAIN: 'e2e.localhost', TLS_ENABLED: 'true' },
+      })
+
+      await page.getByRole('link', { name: 'Gateway' }).click()
+      await expect(page.getByLabel('Local domain')).toHaveValue('e2e.localhost')
+      await page.reload()
+      await expect(page.getByLabel('Local domain')).toHaveValue('e2e.localhost')
+    } finally {
+      await request.patch('/api/config', {
+        data: { values: { DEV_GATEWAY_DOMAIN: 'localhost', TLS_ENABLED: 'false' } },
+      })
+    }
   })
 
   test('the offline API browser filters operations and tries a GET', async ({ page }) => {

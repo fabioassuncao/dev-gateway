@@ -17,7 +17,7 @@ import {
   serviceKind,
   tcpRouting,
 } from './kinds.ts'
-import { slug } from './slug.ts'
+import { slug } from '../../shared/slug.ts'
 import type {
   Bridge,
   ContainerSummary,

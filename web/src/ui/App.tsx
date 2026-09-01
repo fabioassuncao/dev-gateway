@@ -184,7 +184,7 @@ function Page({ path }: { path: string }) {
     case 'gateway':
       return <Gateway />
     case 'settings':
-      return <Settings />
+      return <Settings group={parts[1] ?? null} />
     default:
       return <Overview />
   }

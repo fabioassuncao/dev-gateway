@@ -15,7 +15,7 @@ import type { PanelConfig } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import { apr1, generatePassword } from './apr1.ts'
 import { GENERATED_FILES, quote, readGenerated, writeGenerated } from './dynamic.ts'
-import { slug } from './slug.ts'
+import { slug } from '../../shared/slug.ts'
 import type { ContainerSummary, Share, ShareMode, ShareState } from '../../shared/types.ts'
 
 /** The one line of state, in a comment the file provider never reads. */

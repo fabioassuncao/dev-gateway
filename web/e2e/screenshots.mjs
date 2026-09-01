@@ -45,7 +45,7 @@ const SHOTS = [
       await page.getByText('Traefik', { exact: true }).first().waitFor()
     },
   },
-  { name: 'panel-settings', route: '/#/settings', height: 880 },
+  { name: 'panel-settings', route: '/#/settings/gateway', height: 880 },
   { name: 'panel-overview-dark', route: '/#/overview', height: 820, theme: 'dark' },
 ]
 
