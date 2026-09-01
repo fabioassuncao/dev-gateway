@@ -123,7 +123,10 @@ test.describe('the panel end to end', () => {
 
     await page.reload()
     await expect(page.getByRole('tab', { name: 'Git' })).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByRole('button', { name: 'Projects' })).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('button', { name: 'Projects', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
 
     await page.goBack()
     await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true')
@@ -138,17 +141,20 @@ test.describe('the panel end to end', () => {
     const services = new Set(origins.map((origin) => origin.replace('|', '').trim()))
     expect(services.size).toBeGreaterThan(1)
 
-    await page.getByLabel('Service').selectOption('web')
+    // `Services` is also a sidebar button, so the selector is exact.
+    const selector = page.getByLabel('Service', { exact: true })
+    await selector.selectOption('web')
     await expect(page).toHaveURL(/#\/projects\/alpha\/logs\?service=web$/)
-    await expect(page.getByLabel('Service')).toHaveValue('web')
+    await expect(selector).toHaveValue('web')
 
     await page.reload()
-    await expect(page.getByLabel('Service')).toHaveValue('web')
+    await expect(page.getByLabel('Service', { exact: true })).toHaveValue('web')
   })
 
   test('a project can be named from the panel without a database', async ({ page }) => {
     await page.goto('/#/projects/alpha')
-    await page.getByRole('button', { name: 'Settings' }).click()
+    // `Settings` is also a sidebar section, so this is scoped to the page.
+    await page.getByRole('main').getByRole('button', { name: 'Settings' }).click()
     await expect(page.getByText(/Nothing is written inside the project/)).toBeVisible()
     // No PostgreSQL in the demo host: the dialog says so rather than pretending.
     await expect(page.getByText('panel persistence is unavailable')).toBeVisible()
