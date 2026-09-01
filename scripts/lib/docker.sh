@@ -252,6 +252,17 @@ dg_network_endpoints() {
 # Ownership
 # ---------------------------------------------------------------------------
 
+# dg_container_labels <container>: every label as `key=value`, one per line.
+#
+# Docker's `inspect --format` runs Go templates with Docker's own small
+# function map, which has no `hasPrefix`: a template using it fails to parse
+# and prints nothing, so filtering has to happen out here. Getting this wrong
+# is silent, which is exactly why it is worth a helper.
+dg_container_labels() {
+  docker inspect "$1" --format '{{ range $k, $v := .Config.Labels }}{{ $k }}={{ $v }}
+{{ end }}' 2>/dev/null
+}
+
 # dg_container_is_managed <container>: true only for gateway-created
 # containers. Every destructive code path must gate on this.
 dg_container_is_managed() {
@@ -290,7 +301,7 @@ dg_gateway_container() {
 #   project  service  container  hostname  port  state
 dg_discover_http() {
   local want_project="${1:-}"
-  local id project service name rule host port state
+  local id project service name labels rule host port state
 
   for id in $(docker ps -q --filter "label=traefik.enable=true" 2>/dev/null); do
     project=$(docker inspect "$id" --format '{{ index .Config.Labels "com.docker.compose.project" }}' 2>/dev/null)
@@ -298,11 +309,12 @@ dg_discover_http() {
     name=$(docker inspect "$id" --format '{{ .Name }}' 2>/dev/null | sed 's#^/##')
     state=$(dg_container_state "$id")
 
+    labels=$(dg_container_labels "$id")
+
     # An explicit Host(`...`) rule label wins over the derived hostname, the
     # same way it does inside Traefik.
-    rule=$(docker inspect "$id" --format \
-      '{{ range $k, $v := .Config.Labels }}{{ if and (hasPrefix $k "traefik.http.routers.") (hasSuffix $k ".rule") }}{{ $v }}{{ "\n" }}{{ end }}{{ end }}' \
-      2>/dev/null | head -1)
+    rule=$(printf '%s' "$labels" \
+      | sed -n 's/^traefik\.http\.routers\..*\.rule=//p' | head -1)
 
     host=""
     if [ -n "$rule" ]; then
@@ -316,9 +328,8 @@ dg_discover_http() {
       fi
     fi
 
-    port=$(docker inspect "$id" --format \
-      '{{ range $k, $v := .Config.Labels }}{{ if and (hasPrefix $k "traefik.http.services.") (hasSuffix $k ".loadbalancer.server.port") }}{{ $v }}{{ end }}{{ end }}' \
-      2>/dev/null)
+    port=$(printf '%s' "$labels" \
+      | sed -n 's/^traefik\.http\.services\..*\.loadbalancer\.server\.port=//p' | head -1)
     [ -n "$port" ] || port="auto"
 
     [ -z "$want_project" ] || [ "$want_project" = "$project" ] || continue
