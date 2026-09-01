@@ -2,7 +2,9 @@
 
 A small administration panel for the gateway: what is routed, what is running,
 where to reach it, and what is in the way. It complements the CLI rather than
-replacing it, and both read the same Docker labels, so they can never disagree.
+replacing it. Both read Docker and Traefik for live routing facts; the panel
+additionally keeps gateway-owned preferences and metadata that the CLI does
+not display. See [ADR 0013](adr/0013-what-the-panel-persists.md).
 
 It is off by default.
 

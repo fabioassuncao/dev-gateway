@@ -17,4 +17,5 @@ context, the decision, and what it costs us.
 | [0010](0010-git-collected-on-the-host.md) | Git is collected on the host, and the panel only reads the result | Accepted |
 | [0011](0011-panel-reads-traefik-writes-one-file.md) | The panel reads Traefik's API, and writes exactly two generated files | Accepted |
 | [0012](0012-panel-authentication-is-traefiks.md) | The panel's authentication is Traefik's, and public stays refused | Accepted |
+| [0013](0013-what-the-panel-persists.md) | The panel persists decisions, never runtime observations | Accepted |
 | [0017](0017-no-docker-sdk.md) | The panel speaks the Docker Engine API directly, without a general SDK | Accepted |
