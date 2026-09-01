@@ -34,7 +34,14 @@ function projectDomainOf(config: PanelConfig): ProjectDomain {
     // wrong base: whoever is reading this cannot open any of these URLs.
     advice = 'This panel is reachable beyond this host, so *.localhost project URLs will not open. Switch the mode to auto.'
   } else if (!isLocalName && isLoopbackOnly) {
-    advice = 'These names resolve to this host, but Traefik only listens on loopback, so nothing answers from outside. Enable public access to serve them.'
+    // A name resolving to a tailnet or LAN address is served by binding that
+    // address; suggesting public exposure there would be a far larger change
+    // than the one needed.
+    const ip = config.publicIp ?? ''
+    const isPrivate = /^(10\.|192\.168\.|127\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(ip)
+    advice = isPrivate
+      ? `These names resolve to ${ip}, but Traefik only listens on loopback. Set the bind address to ${ip} to serve them on that network alone.`
+      : 'These names resolve to this host, but Traefik only listens on loopback, so nothing answers from outside. Enable public access to serve them.'
   }
 
   return {

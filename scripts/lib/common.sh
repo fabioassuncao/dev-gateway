@@ -175,6 +175,22 @@ portta_detect_public_ip() {
   printf '%s' "$ip"
 }
 
+# portta_ip_is_private <ipv4>: RFC 1918, plus the CGNAT range Tailscale uses.
+#
+# The distinction matters for advice, not for policy: a name that resolves to a
+# tailnet address is served by binding that address, and telling somebody to
+# publish on every interface instead would be a much larger change than the one
+# they need.
+portta_ip_is_private() {
+  case "${1:-}" in
+    10.*|192.168.*) return 0 ;;
+    172.1[6-9].*|172.2[0-9].*|172.3[01].*) return 0 ;;
+    100.6[4-9].*|100.[7-9][0-9].*|100.1[01][0-9].*|100.12[0-7].*) return 0 ;;
+    127.*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # portta_resolve_domain: set PORTTA_DOMAIN from PORTTA_DOMAIN_MODE.
 #
 # A mode that cannot be honoured falls back to localhost and warns, rather than

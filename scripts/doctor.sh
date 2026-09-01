@@ -691,9 +691,17 @@ case "$PORTTA_DOMAIN" in
     # points. Exposure is a separate, deliberate decision, so this warns.
     case "${PORTTA_BIND_ADDRESS:-127.0.0.1}" in
       127.0.0.1|localhost|::1)
+        # A name that resolves to a tailnet or LAN address is served by binding
+        # that address. Suggesting public exposure there would be a far larger
+        # change than the one actually needed.
+        if portta_ip_is_private "${PORTTA_PUBLIC_IP:-}"; then
+          domain_fix="portta config set gateway.bindAddress $PORTTA_PUBLIC_IP   serves them on that network only"
+        else
+          domain_fix="portta public enable   exposes the HTTP services that opted in"
+        fi
         check warn domain.reachable "project hostnames" \
           "*.$PORTTA_DOMAIN points here, but Traefik listens on $PORTTA_BIND_ADDRESS only" \
-          "portta public enable   exposes the HTTP services that opted in"
+          "$domain_fix"
         ;;
       *)
         check pass domain.reachable "project hostnames" \

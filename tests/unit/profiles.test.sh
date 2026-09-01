@@ -244,6 +244,20 @@ assert_eq "localhost" "$(resolve local PORTTA_DOMAIN PORTTA_DOMAIN_MODE=custom)"
 it "an octet out of range is not turned into a hostname"
 assert_eq "localhost" "$(resolve local PORTTA_DOMAIN PORTTA_DOMAIN_MODE=auto PORTTA_PUBLIC_IP=203.0.113.999)"
 
+describe "private and public addresses are told apart"
+
+# Only for advice, never for policy: a name resolving to a tailnet address is
+# served by binding that address, and suggesting public exposure instead would
+# be a far larger change than the one needed.
+for ip in 10.0.0.1 192.168.1.5 172.16.0.1 172.31.255.1 100.64.0.1 100.87.243.7 100.127.255.1 127.0.0.1; do
+  it "$ip is private"
+  assert_success portta_ip_is_private "$ip"
+done
+for ip in 2.28.24.129 8.8.8.8 100.63.255.1 100.128.0.1 172.15.0.1 172.32.0.1; do
+  it "$ip is not"
+  assert_failure portta_ip_is_private "$ip"
+done
+
 describe "a domain mode can satisfy the public profile"
 
 # Going public used to mean buying a domain first; an auto base is a domain.
