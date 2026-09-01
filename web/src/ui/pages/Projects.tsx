@@ -7,17 +7,13 @@ import { Card, CardHeader } from '../components/ui/card.tsx'
 import { Badge } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/field.tsx'
-import { Table, Td, Th, Tr } from '../components/ui/table.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
-import { AddressLine } from '../components/copy.tsx'
-import { ScopeBadge, StateBadge } from '../components/status.tsx'
-import { ContainerActions } from '../components/container-actions.tsx'
 import { ContainerDetails } from '../components/container-details.tsx'
-import { shortImage, uptime } from '../lib/format.ts'
+import { uptime } from '../lib/format.ts'
 import { navigate } from '../lib/router.ts'
-import { ServiceIcon } from '../components/service-icon.tsx'
 import { GitCard } from '../components/git-card.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
+import { ServiceRow } from '../components/project-services.tsx'
 
 export function Projects({ selected }: { selected: string | null }) {
   useDocumentTitle(selected ?? 'Projects')
@@ -95,13 +91,17 @@ function ProjectCard({ project }: { project: Project }) {
     onSuccess: () => void queryClient.invalidateQueries(),
   })
 
-  const urls = project.urls
   return (
     <Card>
       <CardHeader
         title={
           <span className="flex flex-wrap items-center gap-2">
-            <span>{project.name}</span>
+            <a
+              href={`#/projects/${project.name}`}
+              className="underline-offset-2 hover:text-accent hover:underline"
+            >
+              {project.name}
+            </a>
             <Badge tone={project.runningCount === project.serviceCount ? 'ok' : 'warn'}>
               {project.runningCount}/{project.serviceCount} running
             </Badge>
@@ -140,58 +140,11 @@ function ProjectCard({ project }: { project: Project }) {
 
       <GitCard project={project.name} />
 
-      {urls.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-line bg-surface-2/40 px-4 py-2">
-          {urls.map((url) => (
-            <span key={url.url} className="flex items-center gap-1.5">
-              <ScopeBadge scope={url.scope} />
-              <AddressLine value={url.url} href={url.url} />
-            </span>
-          ))}
-        </div>
-      ) : null}
-
-      <Table>
-        <thead>
-          <tr>
-            <Th>Service</Th>
-            <Th>Image</Th>
-            <Th>Status</Th>
-            <Th>Ports</Th>
-            <Th>Uptime</Th>
-            <Th className="text-right">Actions</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {project.services.map((service) => (
-            <Tr key={service.id}>
-              <Td>
-                <button
-                  className="flex items-center gap-1.5 text-left font-medium text-ink hover:text-accent"
-                  onClick={() => setDetails(service)}
-                >
-                  <ServiceIcon tech={service.tech} />
-                  <span>{service.service ?? service.name}</span>
-                </button>
-                <div className="text-[11px] text-subtle">
-                  {service.kind}
-                </div>
-              </Td>
-              <Td className="font-mono text-xs text-muted">{shortImage(service.image)}</Td>
-              <Td>
-                <StateBadge state={service.state} health={service.health} />
-              </Td>
-              <Td className="font-mono text-xs text-muted">
-                {service.exposedPorts.length ? service.exposedPorts.join(', ') : '-'}
-              </Td>
-              <Td className="text-xs text-muted tabular-nums">{uptime(service.uptimeSeconds)}</Td>
-              <Td>
-                <ContainerActions container={service} onShowDetails={() => setDetails(service)} />
-              </Td>
-            </Tr>
-          ))}
-        </tbody>
-      </Table>
+      <div>
+        {project.services.map((service) => (
+          <ServiceRow key={service.id} service={service} onShowDetails={() => setDetails(service)} />
+        ))}
+      </div>
 
       {details ? (
         <ContainerDetails

@@ -68,8 +68,27 @@ test.describe('the panel end to end', () => {
     await page.goto('/#/projects')
 
     await expect(page.getByText('alpha', { exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'web', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'postgres', exact: true })).toBeVisible()
+    const web = page.getByRole('group', { name: 'web service' })
+    await expect(web.getByRole('button', { name: 'web', exact: true })).toBeVisible()
+    await expect(web).toContainText('http://alpha-web.localhost')
+    await expect(web).toContainText('http://alpha-preview.localhost')
+    await expect(web.getByRole('link', { name: 'Open' })).toHaveCount(2)
+
+    const postgres = page.getByRole('group', { name: 'postgres service' })
+    await expect(postgres.getByRole('button', { name: 'postgres', exact: true })).toBeVisible()
+    await expect(postgres.getByRole('link', { name: 'Access page' })).toBeVisible()
+  })
+
+  test('project service rows never make the page scroll sideways', async ({ page }) => {
+    for (const width of [375, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto('/#/projects')
+      await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible()
+      const overflows = await page.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      )
+      expect(overflows, `${width}px viewport`).toBe(false)
+    }
   })
 
   test('the Docker page keeps external containers apart from the projects', async ({ page }) => {

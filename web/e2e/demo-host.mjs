@@ -72,13 +72,17 @@ export function initialState() {
       health: 'healthy',
       networks: ['dev-gateway', 'storefront_default'],
       exposed: [3000],
-      labels: composeLabels({
-        project: 'storefront',
-        service: 'web',
-        workingDir: '/Projects/storefront',
-        routed: true,
-        port: 3000,
-      }),
+      labels: {
+        ...composeLabels({
+          project: 'storefront',
+          service: 'web',
+          workingDir: '/Projects/storefront',
+          routed: true,
+          port: 3000,
+        }),
+        'traefik.http.routers.storefront-web.rule':
+          'Host(`storefront-web.localhost`) || Host(`storefront-preview.localhost`)',
+      },
       upSeconds: 3 * HOUR,
     }),
     makeContainer({
@@ -260,13 +264,17 @@ export function initialState() {
       health: 'healthy',
       networks: ['dev-gateway', 'checkout_default'],
       exposed: [8025, 1025],
-      labels: composeLabels({
-        project: 'checkout',
-        service: 'mailpit',
-        workingDir: '/Projects/checkout',
-        routed: true,
-        port: 8025,
-      }),
+      labels: {
+        ...composeLabels({
+          project: 'checkout',
+          service: 'mailpit',
+          workingDir: '/Projects/checkout',
+          routed: true,
+          port: 8025,
+        }),
+        'traefik.http.routers.checkout-mailpit.rule':
+          'Host(`checkout-mailpit.localhost`) || Host(`mail.checkout.localhost`)',
+      },
       upSeconds: 26 * HOUR,
     }),
     makeContainer({

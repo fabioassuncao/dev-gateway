@@ -34,12 +34,16 @@ export function initialState() {
       health: 'healthy',
       networks: ['dev-gateway', 'alpha_default'],
       exposed: [80],
-      labels: composeLabels({
-        project: 'alpha',
-        service: 'web',
-        workingDir: '/srv/dev/alpha',
-        routed: true,
-      }),
+      labels: {
+        ...composeLabels({
+          project: 'alpha',
+          service: 'web',
+          workingDir: '/srv/dev/alpha',
+          routed: true,
+        }),
+        'traefik.http.routers.alpha-web.rule':
+          'Host(`alpha-web.localhost`) || Host(`alpha-preview.localhost`)',
+      },
     }),
     makeContainer({
       id: 'alphapg',

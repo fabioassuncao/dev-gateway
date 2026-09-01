@@ -16,6 +16,8 @@ vi.mock('../../src/ui/lib/api.ts', () => ({
     logs: vi.fn().mockResolvedValue({ lines: [] }),
     removalPreview: vi.fn().mockResolvedValue({ allowed: true, warnings: [], namedVolumes: [] }),
     stats: vi.fn().mockResolvedValue({ cpuPercent: null }),
+    shares: vi.fn().mockResolvedValue([]),
+    serviceTraefik: vi.fn().mockResolvedValue({ available: false, reason: 'not configured' }),
     // Nothing collected: the card renders one subtle line and the page is
     // unchanged, which is what a project without a scan should look like.
     projectGit: vi.fn().mockResolvedValue({ collected: false, git: null, refreshCommand: 'git scan' }),
@@ -23,6 +25,35 @@ vi.mock('../../src/ui/lib/api.ts', () => ({
 }))
 
 const { Projects } = await import('../../src/ui/pages/Projects.tsx')
+const { orderedEndpoints } = await import('../../src/ui/components/project-services.tsx')
+
+const WEB_URL = {
+  url: 'http://alpha-web.localhost',
+  host: 'alpha-web.localhost',
+  scope: 'local' as const,
+  scheme: 'http' as const,
+}
+
+const API_URLS = [
+  {
+    url: 'https://alpha-api.vpn.example.test',
+    host: 'alpha-api.vpn.example.test',
+    scope: 'vpn' as const,
+    scheme: 'https' as const,
+  },
+  {
+    url: 'http://alpha-api.localhost',
+    host: 'alpha-api.localhost',
+    scope: 'local' as const,
+    scheme: 'http' as const,
+  },
+  {
+    url: 'https://alpha-api.localhost',
+    host: 'alpha-api.localhost',
+    scope: 'local' as const,
+    scheme: 'https' as const,
+  },
+]
 
 const alpha: Project = {
   name: 'alpha',
@@ -41,14 +72,12 @@ const alpha: Project = {
   startedAt: 1_700_000_000,
   uptimeSeconds: 7200,
   scopes: ['local'],
-  urls: [
-    { url: 'http://alpha-web.localhost', host: 'alpha-web.localhost', scope: 'local', scheme: 'http' },
-  ],
+  urls: [WEB_URL, ...API_URLS],
   services: [
-    makeContainer({ id: 'a-web', name: 'alpha-web-1', project: 'alpha', service: 'web', ownership: 'integrated', traefikEnabled: true, kind: 'http' }),
+    makeContainer({ id: 'a-web', name: 'alpha-web-1', project: 'alpha', service: 'web', ownership: 'integrated', traefikEnabled: true, kind: 'http', exposedPorts: [3000], uptimeSeconds: 7200, urls: [WEB_URL] }),
     makeContainer({ id: 'a-postgres', name: 'alpha-postgres-1', image: 'postgres:18.6-alpine', project: 'alpha', service: 'postgres', ownership: 'integrated', kind: 'postgres', exposedPorts: [5432] }),
     makeContainer({ id: 'a-redis', name: 'alpha-redis-1', image: 'redis:8.10.1-alpine', project: 'alpha', service: 'redis', ownership: 'integrated', kind: 'redis', exposedPorts: [6379] }),
-    makeContainer({ id: 'a-api', name: 'alpha-api-1', project: 'alpha', service: 'api', ownership: 'integrated', traefikEnabled: true, kind: 'http' }),
+    makeContainer({ id: 'a-api', name: 'alpha-api-1', project: 'alpha', service: 'api', ownership: 'integrated', traefikEnabled: true, kind: 'http', urls: API_URLS }),
   ],
 }
 
@@ -60,7 +89,7 @@ const beta: Project = {
   runningCount: 1,
   unhealthyCount: 1,
   urls: [],
-  services: [makeContainer({ id: 'b-web', name: 'beta-web-1', project: 'beta', service: 'web', ownership: 'integrated', health: 'unhealthy' })],
+  services: [makeContainer({ id: 'b-web', name: 'beta-web-1', project: 'beta', service: 'web', ownership: 'integrated', health: 'unhealthy', traefikEnabled: true, kind: 'http' })],
 }
 
 beforeEach(() => {
@@ -74,17 +103,15 @@ describe('the Projects page', () => {
     await screen.findByText('alpha')
 
     expect(screen.getByText('4/4 running')).toBeInTheDocument()
-    const services = screen.getAllByRole('table')[0] as HTMLElement
     for (const service of ['web', 'postgres', 'redis', 'api']) {
-      expect(within(services).getByRole('button', { name: service })).toBeInTheDocument()
+      expect(screen.getAllByRole('group', { name: `${service} service` }).length).toBeGreaterThan(0)
     }
   })
 
   it('keeps the service name next to a technology icon', async () => {
     renderWithQuery(<Projects selected={null} />)
     await screen.findByText('alpha')
-    const services = screen.getAllByRole('table')[0] as HTMLElement
-    const postgres = within(services).getByRole('button', { name: 'postgres' })
+    const postgres = within(screen.getByRole('group', { name: 'postgres service' })).getByRole('button', { name: 'postgres' })
     expect(postgres.querySelector('svg')).not.toBeNull()
     expect(postgres).toHaveTextContent('postgres')
   })
@@ -123,9 +150,134 @@ describe('the Projects page', () => {
 
   it('offers the project URLs for copying', async () => {
     renderWithQuery(<Projects selected={null} />)
-    await screen.findByText('http://alpha-web.localhost')
-    await userEvent.click(screen.getAllByRole('button', { name: 'Copy' })[0] as HTMLElement)
+    const web = (await screen.findAllByRole('group', { name: 'web service' }))[0] as HTMLElement
+    expect(within(web).getByText('http://alpha-web.localhost')).toBeInTheDocument()
+    await userEvent.click(within(web).getByRole('button', { name: 'Copy' }))
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://alpha-web.localhost')
+  })
+
+  it('orders and groups every endpoint under its service', async () => {
+    expect(orderedEndpoints(API_URLS).map((endpoint) => endpoint.url)).toEqual([
+      'https://alpha-api.localhost',
+      'http://alpha-api.localhost',
+      'https://alpha-api.vpn.example.test',
+    ])
+
+    renderWithQuery(<Projects selected={null} />)
+    const api = await screen.findByRole('group', { name: 'api service' })
+    const addresses = [...api.querySelectorAll('a[target="_blank"]')]
+      .map((link) => link.textContent)
+      .filter(Boolean)
+    expect(addresses).toEqual([
+      'https://alpha-api.localhost',
+      'http://alpha-api.localhost',
+      'https://alpha-api.vpn.example.test',
+    ])
+    expect(within(api).getAllByText('local')).toHaveLength(2)
+    expect(within(api).getByText('VPN')).toBeInTheDocument()
+  })
+
+  it('explains TCP access and flags an HTTP routing problem', async () => {
+    renderWithQuery(<Projects selected={null} />)
+
+    const postgres = await screen.findByRole('group', { name: 'postgres service' })
+    expect(within(postgres).getByText(/reachable through the/)).toBeInTheDocument()
+    expect(within(postgres).getByRole('link', { name: 'Access page' })).toHaveAttribute('href', '#/access')
+
+    const broken = screen.getAllByRole('group', { name: 'web service' })[1] as HTMLElement
+    expect(within(broken).getByText('routing problem')).toBeInTheDocument()
+    expect(within(broken).getByText(/no endpoint was discovered/)).toBeInTheDocument()
+  })
+
+  it('does not present stale endpoints for a stopped service', async () => {
+    projects.mockResolvedValue([
+      {
+        ...alpha,
+        serviceCount: 1,
+        runningCount: 0,
+        urls: [WEB_URL],
+        services: [
+          makeContainer({
+            id: 'a-web',
+            name: 'alpha-web-1',
+            project: 'alpha',
+            service: 'web',
+            ownership: 'integrated',
+            state: 'exited',
+            kind: 'http',
+            traefikEnabled: true,
+            urls: [WEB_URL],
+          }),
+        ],
+      },
+    ])
+
+    renderWithQuery(<Projects selected={null} />)
+    const web = (await screen.findAllByRole('group', { name: 'web service' }))[0] as HTMLElement
+    expect(within(web).getByText(/No live endpoint while web is exited/)).toBeInTheDocument()
+    expect(within(web).queryByText(WEB_URL.url)).not.toBeInTheDocument()
+  })
+
+  it('keeps image, kind, ports, uptime, details and actions in the service row', async () => {
+    renderWithQuery(<Projects selected={null} />)
+    const web = (await screen.findAllByRole('group', { name: 'web service' }))[0] as HTMLElement
+
+    expect(web).toHaveTextContent('http')
+    expect(web).toHaveTextContent('nginx:1.31.4-alpine')
+    expect(web).toHaveTextContent('ports 3000')
+    expect(web).toHaveTextContent('up 2h 0m')
+    expect(within(web).getByRole('button', { name: 'web' })).toBeInTheDocument()
+    expect(within(web).getByRole('button', { name: 'Actions for alpha-web-1' })).toBeInTheDocument()
+  })
+
+  it('keeps a project with only TCP services useful without a URL strip', async () => {
+    projects.mockResolvedValue([
+      {
+        ...alpha,
+        serviceCount: 1,
+        runningCount: 1,
+        urls: [],
+        services: [alpha.services[1]!],
+      },
+    ])
+
+    renderWithQuery(<Projects selected={null} />)
+    const postgres = await screen.findByRole('group', { name: 'postgres service' })
+    expect(within(postgres).getByRole('link', { name: 'Access page' })).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('does not promise Access for a generic service with no exposed port', async () => {
+    projects.mockResolvedValue([
+      {
+        ...alpha,
+        serviceCount: 1,
+        runningCount: 1,
+        urls: [],
+        services: [
+          makeContainer({
+            id: 'a-worker',
+            name: 'alpha-worker-1',
+            image: 'python:3.13-alpine',
+            project: 'alpha',
+            service: 'worker',
+            ownership: 'integrated',
+            kind: 'tcp',
+            exposedPorts: [],
+          }),
+        ],
+      },
+    ])
+
+    renderWithQuery(<Projects selected={null} />)
+    const worker = await screen.findByRole('group', { name: 'worker service' })
+    expect(within(worker).getByText(/No exposed TCP port/)).toBeInTheDocument()
+    expect(within(worker).queryByRole('link', { name: 'Access page' })).not.toBeInTheDocument()
+  })
+
+  it('links the project heading to its contextual route', async () => {
+    renderWithQuery(<Projects selected={null} />)
+    expect(await screen.findByRole('link', { name: 'alpha' })).toHaveAttribute('href', '#/projects/alpha')
   })
 
   it('restarts every running service of one project only', async () => {
