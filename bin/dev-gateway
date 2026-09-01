@@ -66,6 +66,8 @@ TCP SERVICES (databases, caches, queues)
   services               Every service of every running project, and how to reach it
   access open            Open a loopback bridge to a private TCP service
   access list|close|gc   Manage those bridges
+  db status|shell        Inspect or open the panel's private PostgreSQL
+  db dump|restore        Back up or restore persisted panel data
   db psql | redis cli    Run a client inside the project's own network
   db open | redis open   Open a bridge for a GUI client
   service publish        Give a TCP service a persistent private address

@@ -88,6 +88,30 @@ it "doctor refuses a published or shared database"
 assert_contains "$(cat scripts/doctor.sh)" "db.exposure"
 assert_contains "$(cat scripts/doctor.sh)" "db.network.shared"
 
+describe "the panel database has private operational tooling"
+
+db_clients="scripts/cmd/clients.sh"
+
+for command in status shell dump restore; do
+  it "db $command is documented"
+  assert_contains "$(./bin/dev-gateway db --help 2>&1)" "db $command"
+done
+
+it "the clients join only the private data network"
+assert_contains "$(cat "$db_clients")" '--network "$DEV_GATEWAY_DB_NETWORK"'
+
+it "the password is inherited instead of placed on the command line"
+assert_contains "$(cat "$db_clients")" '-e PGPASSWORD'
+
+it "the password never appears in client arguments"
+assert_eq "" "$(grep -n -- '--password\|postgres://.*DG_WEB_DB_PASSWORD' "$db_clients" || true)"
+
+it "dumps use PostgreSQL's restorable custom format"
+assert_contains "$(cat "$db_clients")" "--format=custom"
+
+it "restore is guarded by a confirmation"
+assert_contains "$(sed -n '/dg_panel_db_restore()/,/^}/p' "$db_clients")" 'dg_confirm'
+
 describe "the API cannot reach a Docker endpoint it does not name"
 
 allowlist="web/src/server/docker/allowlist.ts"

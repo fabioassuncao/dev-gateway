@@ -12,6 +12,10 @@
 dg_cmd_db() {
   local sub="${1:-}"; [ $# -gt 0 ] && shift || true
   case "$sub" in
+    status) dg_panel_db_status "$@" ;;
+    shell) dg_panel_db_shell "$@" ;;
+    dump) dg_panel_db_dump "$@" ;;
+    restore) dg_panel_db_restore "$@" ;;
     open)  dg_access_open --service "${DG_DB_SERVICE:-postgres}" "$@" ;;
     close) dg_access_close "$@" ;;
     url)   dg_db_url "$@" ;;
@@ -19,7 +23,20 @@ dg_cmd_db() {
     mysql) dg_client_exec mysql "$@" ;;
     ''|-h|--help|help)
       cat >&2 <<'DG_HELP'
-dev-gateway db: reach a project's database
+dev-gateway db: operate the panel database or reach a project's database
+
+  db status
+        Show the panel PostgreSQL state, health, migration and database size.
+
+  db shell
+        Open psql for the panel's private PostgreSQL through the toolbox.
+
+  db dump > dev-gateway.dump
+        Write a restorable custom-format backup to stdout.
+
+  db restore [--yes] < dev-gateway.dump
+  db restore [--yes] dev-gateway.dump
+        Restore a panel backup after an explicit confirmation.
 
   db open  --project <p> [--service postgres] [--port N]
         Open a loopback bridge for a GUI client (TablePlus, DBeaver, DataGrip).
@@ -41,6 +58,151 @@ DG_HELP
       # `db open <project> <service>` reads naturally, so accept it.
       dg_access_open "$sub" "$@" ;;
   esac
+}
+
+DG_PANEL_DB_HOST="db"
+DG_PANEL_DB_USER="devgateway"
+DG_PANEL_DB_NAME="devgateway"
+
+dg_panel_db_container() {
+  dg_gateway_container db
+}
+
+# The panel database is intentionally unreachable from the host. Operational
+# clients join only its internal network in an ephemeral toolbox container.
+# Docker inherits PGPASSWORD from this process, so the secret is absent from
+# argv, logs and `ps` output.
+dg_panel_db_run() {
+  local tty="${1:-}"; shift
+  [ -n "${DG_WEB_DB_PASSWORD:-}" ] || {
+    err "the panel database credential is not configured"
+    hint "dev-gateway web up generates it in .env"
+    return 1
+  }
+  dg_toolbox_ensure || return 1
+  export PGPASSWORD="$DG_WEB_DB_PASSWORD"
+  if [ "$tty" = "tty" ]; then
+    docker run --rm -it --network "$DEV_GATEWAY_DB_NETWORK" -e PGPASSWORD \
+      "$DG_TOOLBOX_IMAGE" "$@"
+  else
+    docker run --rm -i --network "$DEV_GATEWAY_DB_NETWORK" -e PGPASSWORD \
+      "$DG_TOOLBOX_IMAGE" "$@"
+  fi
+}
+
+dg_panel_db_require_running() {
+  dg_require_docker || return 1
+  local container state
+  container=$(dg_panel_db_container)
+  [ -n "$container" ] || {
+    err "the panel database container is absent"
+    hint "dev-gateway web up"
+    return 1
+  }
+  state=$(dg_container_state "$container")
+  [ "$state" = "running" ] || {
+    err "the panel database is $state"
+    hint "dev-gateway web up"
+    return 1
+  }
+  dg_network_exists "$DEV_GATEWAY_DB_NETWORK" || {
+    err "the panel data network is absent: $DEV_GATEWAY_DB_NETWORK"
+    hint "dev-gateway web up"
+    return 1
+  }
+}
+
+dg_panel_db_status() {
+  [ $# -eq 0 ] || { err "unknown flag for 'db status': $1"; return 1; }
+  dg_require_docker || return 1
+
+  local container state health details migration size
+  container=$(dg_panel_db_container)
+  if [ -z "$container" ]; then
+    printf 'Panel database: absent\n'
+    hint "dev-gateway web up"
+    return 1
+  fi
+
+  state=$(dg_container_state "$container")
+  health=$(dg_container_health "$container")
+  printf 'Panel database: %s (%s, health: %s)\n' "${container:0:12}" "$state" "$health"
+  printf 'Private network: %s\n' "$DEV_GATEWAY_DB_NETWORK"
+  [ "$state" = "running" ] || return 1
+
+  details=$(dg_panel_db_run plain psql \
+    -h "$DG_PANEL_DB_HOST" -U "$DG_PANEL_DB_USER" -d "$DG_PANEL_DB_NAME" \
+    -v ON_ERROR_STOP=1 -At -F '|' \
+    -c "SELECT COALESCE(max(version), 'none'), pg_size_pretty(pg_database_size(current_database())) FROM schema_migrations" \
+  ) || {
+    warn "PostgreSQL is running, but its schema could not be read"
+    return 1
+  }
+  migration=${details%%|*}
+  size=${details#*|}
+  printf 'Latest migration: %s\n' "$migration"
+  printf 'Database size: %s\n' "$size"
+}
+
+dg_panel_db_shell() {
+  [ $# -eq 0 ] || { err "unknown flag for 'db shell': $1"; return 1; }
+  dg_panel_db_require_running || return 1
+  [ -t 0 ] && [ -t 1 ] || {
+    err "db shell needs an interactive terminal"
+    hint "use 'dev-gateway db dump' for a non-interactive backup"
+    return 1
+  }
+  dg_panel_db_run tty psql \
+    -h "$DG_PANEL_DB_HOST" -U "$DG_PANEL_DB_USER" -d "$DG_PANEL_DB_NAME"
+}
+
+dg_panel_db_dump() {
+  [ $# -eq 0 ] || { err "unknown flag for 'db dump': $1"; return 1; }
+  dg_panel_db_require_running || return 1
+  # stdout is exclusively the custom-format archive; diagnostics remain on
+  # stderr, so ordinary shell redirection produces a valid backup.
+  dg_panel_db_run plain pg_dump \
+    -h "$DG_PANEL_DB_HOST" -U "$DG_PANEL_DB_USER" -d "$DG_PANEL_DB_NAME" \
+    --format=custom --no-owner --no-privileges
+}
+
+dg_panel_db_restore() {
+  local source=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -y|--yes) DG_ASSUME_YES=true ;;
+      -*) err "unknown flag for 'db restore': $1"; return 1 ;;
+      *)
+        [ -z "$source" ] || { err "db restore accepts at most one backup file"; return 1; }
+        source="$1"
+        ;;
+    esac
+    shift
+  done
+  export DG_ASSUME_YES
+
+  dg_panel_db_require_running || return 1
+  if [ -n "$source" ]; then
+    [ -f "$source" ] || { err "backup not found: $source"; return 1; }
+  elif [ -t 0 ]; then
+    err "db restore needs a custom-format backup file or stdin"
+    hint "dev-gateway db restore backup.dump"
+    return 1
+  fi
+
+  dg_confirm "Restore the panel database from backup? Existing persisted panel data may be replaced." \
+    || { info "aborted; nothing was changed"; return 1; }
+
+  if [ -n "$source" ]; then
+    dg_panel_db_run plain pg_restore \
+      -h "$DG_PANEL_DB_HOST" -U "$DG_PANEL_DB_USER" -d "$DG_PANEL_DB_NAME" \
+      --clean --if-exists --no-owner --no-privileges --exit-on-error < "$source"
+  else
+    dg_panel_db_run plain pg_restore \
+      -h "$DG_PANEL_DB_HOST" -U "$DG_PANEL_DB_USER" -d "$DG_PANEL_DB_NAME" \
+      --clean --if-exists --no-owner --no-privileges --exit-on-error
+  fi
+  info "panel database restored"
 }
 
 dg_cmd_redis() {
