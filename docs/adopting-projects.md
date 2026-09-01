@@ -144,3 +144,21 @@ See [monorepos.md](monorepos.md).
 The overlay adds only networks and labels, so `docker compose up -d` on its own
 still works; you just lose hostname routing. If a developer needs a published
 port for a one-off, that is their `compose.override.yaml`, not the shared file.
+
+## Optional: reaching this project's database by hostname
+
+Everything above is about HTTP. A project can additionally opt its datastores
+into hostname routing, so they are reachable on the gateway's shared port
+without publishing one:
+
+```bash
+cp templates/overlays/09-tcp-routing.yaml compose.dev-gateway-tcp.yaml
+docker compose -f compose.yaml -f compose.dev-gateway.yaml \
+               -f compose.dev-gateway-tcp.yaml up -d
+```
+
+It needs `DEV_GATEWAY_TCP=true` on the gateway, works for PostgreSQL and Redis,
+and requires TLS on the client. Read [tcp-routing.md](tcp-routing.md) first: it
+explains what each protocol can and cannot do, and why MySQL is not on the
+list.
+

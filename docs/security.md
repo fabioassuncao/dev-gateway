@@ -81,6 +81,31 @@ attached only to Traefik's internal entrypoint, so it is never routed through
 `web`/`websecure` and cannot appear under a public wildcard domain. `doctor`
 fails if it is enabled on a non-loopback address.
 
+## Databases reached by hostname
+
+Off by default. Turning it on publishes one port per protocol; it does not
+publish a database. Three things have to line up before one answers:
+`DEV_GATEWAY_TCP=true` on the gateway, `traefik.enable=true` plus TCP router
+labels on the container, and the container on the access network. Being visible
+to the gateway is not being routed.
+
+- **Never public.** The TCP entrypoints are refused on the `remote-public`
+  profile, where Traefik binds every interface. That is a refusal at profile
+  resolution, not a warning, and `doctor` fails if the combination is ever
+  reached another way.
+- **Where they listen** follows the profile, like everything else: loopback
+  locally, the tailnet address with Tailscale, an interface you named
+  otherwise.
+- **Not on the HTTP network.** An opted-in datastore joins
+  `dev-gateway-access`. The shared network still carries no database, and
+  `tests/unit/templates.test.sh` fails the build if a template puts one there.
+- **TLS is mandatory**, since the hostname lives in the handshake. Without a
+  configured certificate Traefik serves a self-signed one, which
+  `sslmode=require` accepts and `verify-full` does not; `doctor` says so.
+
+Authentication is unchanged and is still the database's own. The gateway routes
+bytes and never reads a project's credentials.
+
 ## The web panel
 
 Off by default. It is the one component that can start, stop and remove

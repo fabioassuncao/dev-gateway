@@ -72,6 +72,20 @@ never through the `web`/`websecure` entrypoints, so it can never appear under
 the public wildcard domain. `doctor` fails if it is enabled on a non-loopback
 address.
 
+## Databases by hostname
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DEV_GATEWAY_TCP` | `false` | Publish one entrypoint per protocol and route on the hostname |
+| `DEV_GATEWAY_TCP_POSTGRES_PORT` | `5432` | Host port for the PostgreSQL entrypoint |
+| `DEV_GATEWAY_TCP_REDIS_PORT` | `6379` | Host port for the Redis entrypoint |
+
+Off by default, and opt-in twice: the gateway publishes the entrypoints, and a
+project's datastore has to carry the router labels before anything routes to
+it. Refused on the `remote-public` profile. TLS is required, because the
+hostname travels in the TLS handshake. PostgreSQL and Redis work; MySQL cannot.
+See [tcp-routing.md](tcp-routing.md).
+
 ## Web panel
 
 | Variable | Default | Meaning |

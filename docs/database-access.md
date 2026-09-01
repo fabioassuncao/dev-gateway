@@ -135,3 +135,16 @@ is silent until it is not.
 
 **Do not publish a database on `0.0.0.0`.** `doctor` fails on it, and
 `service publish --public` refuses outright.
+
+## Reaching it by hostname instead
+
+If the gateway has `DEV_GATEWAY_TCP=true` and the project opted in, its
+PostgreSQL has a stable address that needs no bridge and no free port:
+
+```bash
+psql "postgresql://demo@base-empresarial-postgres.localhost:5432/demo?sslmode=require"
+```
+
+The `sslmode` is not decoration: the hostname travels inside the TLS handshake,
+and without TLS there is nothing for the gateway to route on. MySQL cannot do
+this at all. See [tcp-routing.md](tcp-routing.md).

@@ -197,6 +197,24 @@ dev-gateway access open --project base-empresarial --service postgres
 
 See [docs/tcp-access.md](docs/tcp-access.md).
 
+Optionally, they can be told apart by hostname instead, on a single shared
+port, with nothing published per container:
+
+```bash
+dev-gateway web up                 # or just set DEV_GATEWAY_TCP=true
+psql "postgresql://demo@base-empresarial-postgres.localhost:5432/demo?sslmode=require"
+psql "postgresql://demo@base-eleicoes-postgres.localhost:5432/demo?sslmode=require"
+```
+
+Both of those are 5432. Both containers still listen on 5432 internally.
+Neither publishes a port. Traefik picks the backend from the hostname in the
+TLS handshake, which is why `sslmode=require` is not optional.
+
+This works for PostgreSQL and Redis and **not** for MySQL, whose protocol has
+the server speak first and so offers no hostname to route on. The measured
+cost, the certificate rules and the exact limits are in
+**[docs/tcp-routing.md](docs/tcp-routing.md)**.
+
 ## Web panel
 
 Optional, off by default, loopback only. It answers the lookups that come up
@@ -265,6 +283,9 @@ Short version: nothing is exposed unless you ask for it.
   through the public entrypoints.
 - Databases, caches and the Docker API are never published publicly, and
   `doctor` fails if they are.
+- Databases are never routed by hostname unless both the gateway and the
+  project opt in, and the TCP entrypoints are refused outright on the public
+  profile ([ADR 0009](docs/adr/0009-tcp-routing-by-hostname.md)).
 - The web panel is off by default, binds loopback, and refuses to be published
   on the internet. It reaches Docker through a socket proxy of its own, so
   Traefik's stays read-only ([ADR 0008](docs/adr/0008-web-panel-socket-proxy.md)).
@@ -289,6 +310,7 @@ Details: **[docs/security.md](docs/security.md)**.
 | [adopting-projects.md](docs/adopting-projects.md) | Adapting a project, with a checklist |
 | [monorepos.md](docs/monorepos.md) | Monorepos and worktrees |
 | [tcp-access.md](docs/tcp-access.md) | Why databases need a different mechanism |
+| [tcp-routing.md](docs/tcp-routing.md) | Reaching databases by hostname, and which protocols can |
 | [database-access.md](docs/database-access.md) | Reaching a database, by situation |
 | [redis-access.md](docs/redis-access.md) | Reaching Redis |
 | [remote-tunnels.md](docs/remote-tunnels.md) | Reaching a VPS's private services |

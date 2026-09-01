@@ -5,6 +5,14 @@ number of web services share port 443.
 
 Databases are not. This page explains why, and what the gateway does instead.
 
+
+> **There is now a second way.** With `DEV_GATEWAY_TCP=true` the gateway can
+> tell databases apart by hostname on a single shared port, so a project's
+> Postgres is reachable at `<project>-postgres.<domain>:5432` without a bridge
+> at all. It works for PostgreSQL and Redis, not for MySQL, and it requires
+> TLS. See [tcp-routing.md](tcp-routing.md). Everything below still works, and
+> is still the answer for protocols that cannot do it.
+
 ## Why hostnames do not work for PostgreSQL
 
 Routing many services onto one port needs the connection to say which service

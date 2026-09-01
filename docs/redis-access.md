@@ -65,3 +65,16 @@ dev-gateway access list
 
 `dev-gateway redis cli --project <name>` is safer for exactly this reason: the
 project is in the command.
+
+## Reaching it by hostname instead
+
+With `DEV_GATEWAY_TCP=true` and the project opted in, Redis has a stable
+address on the shared port:
+
+```bash
+redis-cli -h 127.0.0.1 -p 6379 --tls --sni base-empresarial-redis.localhost
+```
+
+`--sni` is mandatory: `redis-cli` does not derive it from `-h`, and without it
+the connection reaches nothing. Most client libraries do set it from the host
+they are given. See [tcp-routing.md](tcp-routing.md).

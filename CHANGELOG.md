@@ -51,6 +51,48 @@ While the version is `0.x`, minor releases may contain breaking changes.
   taken by hand, so they stay in step with the UI and never contain whatever
   happened to be running on the machine that produced them.
 
+- **Databases told apart by hostname, on one shared port.** With
+  `DEV_GATEWAY_TCP=true` the gateway publishes one entrypoint per protocol and
+  picks the backend from the TLS Server Name Indication, so two projects can
+  both run PostgreSQL on 5432 inside their own containers and neither has to
+  publish a port or renumber anything:
+
+  ```
+  base-empresarial-postgres.localhost:5432  ->  base-empresarial's postgres
+  base-eleicoes-postgres.localhost:5432     ->  base-eleicoes's postgres
+  ```
+
+  Verified with two live instances and distinct data, for PostgreSQL and Redis.
+  **MySQL cannot do this**: its protocol has the server send the first packet,
+  so there is no hostname to route on before a backend must be chosen, and no
+  substitute was invented for it. It keeps the loopback bridge, which still
+  works for every protocol. The analysis, the measurements and the exact limits
+  are in [docs/tcp-routing.md](docs/tcp-routing.md) and
+  [ADR 0009](docs/adr/0009-tcp-routing-by-hostname.md).
+  - TLS is terminated at the gateway, so consumer projects need no certificate,
+    no `ssl = on` and no renewal. `sslmode=require` is enough.
+  - Opted-in datastores join the access network, never the shared HTTP one.
+  - Hostnames stay flat, `<project>-<service>.<domain>`, because a wildcard
+    certificate covers exactly one label and the gateway already issues one.
+  - Refused on the `remote-public` profile: a database is never reachable from
+    the internet.
+- `templates/overlays/09-tcp-routing.yaml` and
+  `examples/demo-a/compose.dev-gateway-tcp.yaml`, so a project opts in by
+  copying a file.
+- `dev-gateway services` and the panel's Access page show the hostname address
+  where a protocol supports it, and say plainly when one does not.
+
+### Fixed
+
+- **`dev-gateway urls` ignored every explicit `Host()` label and every
+  `loadbalancer.server.port`.** Both were read with a Go template using
+  `hasPrefix`, which Docker's `inspect --format` does not have: the template
+  failed to parse, printed nothing, and the code fell back to the derived
+  hostname and `auto` without a word. `scripts/cmd/clients.sh` had documented
+  that exact trap since it was written. Labels are now read out of the template
+  and filtered in the shell, and a test fails the build if `hasPrefix` reappears
+  in a shipped script.
+
 ### Security
 
 - The panel is never published on the internet: `--expose public` is refused,

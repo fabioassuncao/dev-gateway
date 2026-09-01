@@ -299,6 +299,12 @@ reachable at once without one of them having to give up 5432.
 The connection string is a template. It never contains a password: the gateway
 does not read a project's `.env` to be helpful.
 
+The **Gateway address** column is the other way in, when
+[hostname routing](tcp-routing.md) is enabled: a stable
+`<project>-<service>.<domain>:<port>` that needs no bridge at all. Where a
+protocol cannot do it the column says so rather than leaving a blank, and where
+a project has not opted in it says that too.
+
 ![The Access page: an open bridge to storefront/postgres on 127.0.0.1:55431 with its connection string, and the other TCP services each with an Open local access button](../.github/images/panel-access.png)
 
 This page also lists persistent forwarders created with
