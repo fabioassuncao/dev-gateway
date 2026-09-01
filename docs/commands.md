@@ -8,6 +8,7 @@ and points to the detailed guides.
 
 | Command | Purpose |
 |---|---|
+| `dev-gateway setup` | Provision or update a checkout idempotently; `--dry-run` prints the plan. |
 | `dev-gateway bootstrap` | Check the runtime, create gateway state and the shared network, then run diagnostics. |
 | `dev-gateway up [profile]` | Start `local`, `remote-private` or `remote-public`. |
 | `dev-gateway down` | Stop gateway components; consumer projects keep running. |
@@ -92,7 +93,9 @@ See [Database access](database-access.md), [TCP access](tcp-access.md), and
 
 `--profile <name>` selects a profile for the invocation, `-y` / `--yes`
 accepts confirmation prompts, and `--json` provides machine-readable output on
-the status and inventory commands that advertise it in `--help`.
+every read command. `--quiet` suppresses progress, `--verbose` adds diagnostics,
+and data stays on stdout while warnings and progress stay on stderr. The stable
+JSON shapes and exit codes are specified in [the CLI contract](cli.md).
 
 ```bash
 dev-gateway bootstrap

@@ -90,9 +90,9 @@ Traefik reaches HTTP services only on the shared network; it has no route into a
 
 ## Requirements
 
-**Required on the host:** Docker Engine 24+ with Compose v2, Git, and a POSIX shell. The CLI targets bash 3.2, including the version shipped by macOS.
+**Required on the host:** Docker Engine 24+ with Compose v2, Git, and a POSIX shell. Node is not required for the core commands (`bootstrap`, `up`, `down`, `status`, `doctor`); the full CLI needs Node 22.12+.
 
-**Run by the gateway:** Traefik, filtered Docker socket proxies, `jq`, `socat`, OpenSSL, database clients, access bridges, and the panel's Node runtime. The host does not need Node to run the gateway or panel.
+**Run by the gateway:** Traefik, filtered Docker socket proxies, `jq`, `socat`, OpenSSL, database clients, access bridges, and the panel's Node runtime.
 
 **Only for developing Dev Gateway:** Node 22+, ShellCheck, and Playwright's browser dependencies.
 
@@ -104,6 +104,15 @@ Traefik reaches HTTP services only on the shared network; it has no route into a
 Other platforms may work but are not claimed as verified. See the complete [compatibility matrix](docs/compatibility.md).
 
 ## Quick start
+
+With Node 22.12+ already installed, the package can provision the checkout:
+
+```bash
+npx @fabioassuncao/dev-gateway setup --dry-run
+npx @fabioassuncao/dev-gateway setup --yes
+```
+
+On a bare host without Node, the zero-dependency path remains:
 
 ```bash
 git clone git@github.com:fabioassuncao/dev-gateway.git
@@ -153,7 +162,7 @@ Nothing is exposed by default. Datastores stay private, Docker access is filtere
 
 Experimental (`v0.x`), personal, and without a support promise. The local profile, panel, persistence, parallel environments and TCP access are exercised end to end. Remote profiles render and are checked for unsafe binds, but the tailnet and ACME paths require real credentials and are not automated.
 
-The unpublished TypeScript CLI, cross-host synchronisation and task orchestration are future work, not current features. More mature tools exist; use one of them if this particular set of trade-offs is not useful to you. Issues, pull requests and forks are welcome.
+Cross-host synchronisation and task orchestration are future work, not current features. The TypeScript CLI is published as `@fabioassuncao/dev-gateway`; the binary remains `dev-gateway`. More mature tools exist; use one of them if this particular set of trade-offs is not useful to you. Issues, pull requests and forks are welcome.
 
 See [compatibility](docs/compatibility.md) and the [changelog](CHANGELOG.md).
 

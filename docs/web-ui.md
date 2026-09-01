@@ -121,8 +121,9 @@ pages remain available and diagnostics report the degraded state. See
 `dev-gateway up` brings the panel along with the rest of the gateway.
 `web disable` undoes that.
 
-The host needs Docker, Git and a shell, the same as the gateway itself.
-**Node is not required on the host**: the image builds the UI and the server.
+The panel image still builds its own Node runtime. Starting it through the full
+CLI requires Node 22.12+ on the host; the core zero-Node fallbacks remain
+`bootstrap`, `up`, `down`, `status` and `doctor`.
 
 ### Development, with hot reloading
 

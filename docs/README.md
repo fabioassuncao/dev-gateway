@@ -21,6 +21,7 @@ is the complete operator and contributor index. Historical build briefs under
 ## Operating the gateway
 
 - [Command reference](commands.md) — the CLI surface grouped by purpose.
+- [TypeScript CLI contract](cli.md) — npm installation, flags, JSON shapes and exit codes.
 - [Security](security.md) — threat model, defaults, isolation, secrets, and residual risks.
 - [Troubleshooting](troubleshooting.md) — diagnose routes, DNS, TLS, ports, and containers.
 - [Compatibility](compatibility.md) — verified platforms and measured overhead.
