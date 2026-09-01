@@ -15,6 +15,7 @@ import { gatewayRoutes } from './routes/gateway.ts'
 import { configRoutes } from './routes/config.ts'
 import { eventRoutes } from './routes/events.ts'
 import { integrationRoutes } from './routes/integrations.ts'
+import { issueRoutes } from './routes/issues.ts'
 import { shareRoutes } from './routes/shares.ts'
 import { ActionRefused } from './core/actions.ts'
 import { AccessError } from './core/access.ts'
@@ -58,9 +59,14 @@ export function createApi(deps: AppDeps): Hono {
       if (deps.config.readOnly) {
         throw new HTTPException(403, { message: 'the panel is running in read-only mode' })
       }
+      // GitHub sends no Origin header, so the one route that receives its
+      // deliveries is exempt from this guard — narrowly, by exact path, and
+      // only because an HMAC signature over the raw body replaces it. Nothing
+      // else is exempt, and read-only mode above still refuses it.
+      const isWebhook = c.req.path === '/integrations/github/webhook'
       const origin = c.req.header('origin') ?? ''
       const host = c.req.header('host') ?? ''
-      if (!originAllowed(origin, host)) {
+      if (!isWebhook && !originAllowed(origin, host)) {
         throw new HTTPException(403, { message: 'cross-origin writes are refused' })
       }
     }
@@ -80,6 +86,7 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', configRoutes(deps))
   api.route('/', eventRoutes(deps))
   api.route('/', integrationRoutes(deps))
+  api.route('/', issueRoutes(deps))
   registerOpenApiRoutes(api, deps.config)
 
   api.all('*', (c) => c.json({ error: `no such endpoint: ${c.req.path}` }, 404))

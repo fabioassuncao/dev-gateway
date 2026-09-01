@@ -13,6 +13,7 @@ import type {
   ProjectGit,
   GitHubIntegrationView,
   GitHubRepositoryView,
+  Issue,
   Workspace,
   WorkspaceSummary,
   ProjectLogsResponse,
@@ -119,6 +120,17 @@ export const api = {
       '/integrations/github/sync',
       { method: 'POST', body: '{}' },
     ),
+
+  workspaceIssues: (slug: string, filters: Record<string, string> = {}) => {
+    const query = new URLSearchParams(filters)
+    const suffix = query.toString()
+    return request<{ issues: Issue[] }>(
+      `/workspaces/${encodeURIComponent(slug)}/issues${suffix ? `?${suffix}` : ''}`,
+    ).then((data) => data.issues)
+  },
+  issue: (id: string) => request<Issue>(`/issues/${encodeURIComponent(id)}`),
+  patchIssue: (id: string, body: Record<string, unknown>) =>
+    request<Issue>(`/issues/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
 
   workspaces: () =>
     request<{ workspaces: WorkspaceSummary[] }>('/workspaces').then((data) => data.workspaces),

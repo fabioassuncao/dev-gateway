@@ -71,6 +71,24 @@ While the version is `0.x`, minor releases may contain breaking changes.
   grouping only — no container, volume, environment or repository is touched.
   `GET /api/projects` and every other existing endpoint are unchanged.
 
+- **GitHub issues and sub-issues, projected and kept in step.** Issues from every
+  repository a workspace owns are projected locally with their identity, state,
+  type, labels, assignees, milestone and parent link, and every response carries
+  `syncedAt` and a staleness flag so the list answers while GitHub is
+  unreachable. Status and priority are read through one abstraction — native
+  fields where a repository has them, a documented `status:` / `priority:` label
+  convention where it does not — and the response always says which, because
+  writing through labels shows in the issue's timeline. Sub-issue links come from
+  GitHub's own API and cannot cycle; a parent in an unauthorised repository is
+  dropped rather than left dangling. Three sync paths exist and are separately
+  testable: initial, cursor-based reconciliation bounded per run, and a webhook
+  whose HMAC signature is verified **before** the body is parsed. That route is
+  the one narrow, documented exemption from the cross-origin write guard, and
+  read-only mode still refuses it. `PATCH /api/issues/:id` writes to GitHub and
+  updates the projection from GitHub's answer, never from the request. Open pull
+  requests now have one stated source: the App when it is configured and the
+  repository authorised, the host `gh` scan otherwise.
+
 ## [0.2.0] — 2026-09-01
 
 ### Added

@@ -219,3 +219,99 @@ before it runs out.
 
 `GET /api/status` carries the same `github` block, so one request tells an
 agent whether the integration is usable.
+
+## Issues, and how they stay in step
+
+Issues are **projected**: GitHub owns them, and the panel keeps a local copy so
+the board answers while GitHub is unreachable. Every row carries `syncedAt` and
+a staleness flag, exactly as `ProjectGit` carries `collectedAt` and `stale`.
+
+Comments are deliberately not projected. They are large, they change often, and
+a link to GitHub beats a worse comment reader — the same reasoning
+[ADR 0010](adr/0010-git-collected-on-the-host.md) used for commit lists.
+
+### Status and priority: fields where they exist, labels where they do not
+
+Not every account has GitHub's native issue types and project fields, so status
+and priority are read through one abstraction with two implementations. A
+native field wins where the repository has one; otherwise a documented label
+convention decides:
+
+| Status | Label |
+|---|---|
+| Backlog | `status:backlog` |
+| Ready | `status:ready` |
+| In Progress | `status:in-progress` |
+| Review | `status:review` |
+| Blocked | `status:blocked` |
+| Done | `status:done` |
+
+| Priority | Label |
+|---|---|
+| Low | `priority:low` |
+| Medium | `priority:medium` |
+| High | `priority:high` |
+| Urgent | `priority:urgent` |
+
+No caller knows which mechanism was used — but **every response says which**,
+in `metadataSource`, because it changes what a write does. Setting a status
+through labels means adding one label and removing another, and that shows in
+the issue's timeline. The panel marks a label-derived status so nobody is
+surprised by it.
+
+Only the dimension being changed is cleared, so setting a priority never
+silently drops a status.
+
+### Three sync paths
+
+| Path | When | How |
+|---|---|---|
+| **Initial** | A repository is newly authorised | Page through its issues, project them, then resolve sub-issue links in a second pass so a child seen before its parent is not lost |
+| **Reconciliation** | On demand, and on a timer | Ask only for issues updated since the stored cursor. Bounded per run; rate-limit pressure ends the run rather than failing it, and the next run resumes from the cursor |
+| **Webhook** | A delivery arrives | A signal to re-read, never data to trust |
+
+`POST /api/integrations/github/sync` runs the repository sync and a
+reconciliation pass: one button, one meaning.
+
+### The webhook, and the hole it is allowed to make
+
+The panel refuses every unsafe method without a same-origin `Origin` header.
+GitHub sends none, so `POST /api/integrations/github/webhook` is exempt from
+that guard — **narrowly, by exact path, and only because an HMAC signature over
+the raw body replaces it**.
+
+The signature is verified *before* the body is parsed as anything meaningful. An
+invalid one is a `401` that logs the delivery id and nothing else. Read-only
+mode still refuses the route, and a delivery for a repository the installation
+never granted changes nothing: the projection is the boundary, and deliveries do
+not widen it.
+
+Handled events: `issues`, `issue_comment`, `label`, `milestone`, `sub_issues`,
+`pull_request`, `repository`, `installation`, `installation_repositories`.
+Anything else is acknowledged and dropped — an unhandled event is not an error.
+
+Webhooks stay optional. A loopback panel cannot receive them, and correctness
+comes from reconciliation; they are an optimisation for a panel you have already
+published.
+
+### Sub-issues
+
+Sub-issue links come from GitHub's own API and are stored as a graph that
+cannot cycle: the database refuses `a → a`, and a longer path is refused by
+walking the graph before the row is written. A link whose parent is in a
+repository the installation did not grant is dropped rather than dangling, so
+the tree the UI renders always terminates.
+
+### Writes go through GitHub
+
+`PATCH /api/issues/:id` writes to GitHub and then updates the projection **from
+what GitHub returned** — never from what was requested. The panel never shows an
+issue GitHub did not confirm. It is refused in read-only mode, refused when no
+App is configured, and refused for a repository outside the installation.
+
+### Pull requests: one source, stated
+
+The host `gh` scan and the App can both report open pull requests. **When the
+App is configured and the repository is authorised, the App wins**; otherwise
+the scan's `forge` block stands exactly as it does today. A panel with no App
+sees `GET /api/projects/:project/git` behave precisely as before.

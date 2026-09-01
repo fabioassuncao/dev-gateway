@@ -30,6 +30,10 @@
       "description": "Groupings a person created: repositories and the environments they own."
     },
     {
+      "name": "Issues",
+      "description": "The GitHub issue projection, and writes that go back to GitHub."
+    },
+    {
       "name": "Services",
       "description": "Containers belonging to adopted projects."
     },
@@ -3953,6 +3957,243 @@
           "installations",
           "repositories",
           "removed"
+        ],
+        "additionalProperties": false
+      },
+      "GitHubWebhookResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "sync-repository",
+              "sync-installations",
+              "ignored"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "action",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "WorkflowStatus": {
+        "type": "string",
+        "enum": [
+          "backlog",
+          "ready",
+          "in_progress",
+          "review",
+          "blocked",
+          "done"
+        ]
+      },
+      "IssuePriority": {
+        "type": "string",
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "urgent"
+        ]
+      },
+      "MetadataSource": {
+        "type": "string",
+        "enum": [
+          "fields",
+          "labels",
+          "none"
+        ]
+      },
+      "IssueMilestone": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "title",
+          "state"
+        ],
+        "additionalProperties": false
+      },
+      "Issue": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string",
+            "description": "owner/name, so a card can be badged without a second request"
+          },
+          "number": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "stateReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issueType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkflowStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IssuePriority"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metadataSource": {
+            "$ref": "#/components/schemas/MetadataSource"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignees": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "milestone": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IssueMilestone"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "htmlUrl": {
+            "type": "string"
+          },
+          "parentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "childIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "githubUpdatedAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          },
+          "syncedAt": {
+            "type": "number",
+            "description": "When the panel last read this from GitHub"
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "True past the staleness threshold; the projection is still shown"
+          }
+        },
+        "required": [
+          "id",
+          "repository",
+          "number",
+          "title",
+          "body",
+          "state",
+          "stateReason",
+          "issueType",
+          "status",
+          "priority",
+          "metadataSource",
+          "labels",
+          "assignees",
+          "milestone",
+          "htmlUrl",
+          "parentId",
+          "childIds",
+          "githubUpdatedAt",
+          "syncedAt",
+          "stale"
+        ],
+        "additionalProperties": false
+      },
+      "IssuesResponse": {
+        "type": "object",
+        "properties": {
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Issue"
+            }
+          }
+        },
+        "required": [
+          "issues"
         ],
         "additionalProperties": false
       },
@@ -8202,6 +8443,580 @@
             "basicAuth": []
           }
         ]
+      }
+    },
+    "/integrations/github/webhook": {
+      "post": {
+        "operationId": "receiveGitHubWebhook",
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Receive a signed GitHub delivery",
+        "description": "Verifies the HMAC signature before parsing. An unhandled event is acknowledged and dropped; an unverified one is refused.",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubWebhookResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The delivery signature could not be verified.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/workspaces/{slug}/issues": {
+      "get": {
+        "operationId": "listWorkspaceIssues",
+        "tags": [
+          "Issues"
+        ],
+        "summary": "List issues across a workspace's repositories",
+        "description": "Served from the projection, so it answers while GitHub is unreachable; every row carries syncedAt and a staleness flag.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "description": "The workspace slug.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repository",
+            "in": "query",
+            "required": false,
+            "description": "Filter by owner/name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "description": "open or closed.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "backlog, ready, in_progress, review, blocked or done.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "description": "low, medium, high or urgent.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "description": "GitHub's issue type, where the repository has them.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assignee",
+            "in": "query",
+            "required": false,
+            "description": "GitHub login.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "milestone",
+            "in": "query",
+            "required": false,
+            "description": "Milestone title.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "label",
+            "in": "query",
+            "required": false,
+            "description": "Exact label name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Substring of the number or title.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuesResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/issues": {
+      "get": {
+        "operationId": "listIssues",
+        "tags": [
+          "Issues"
+        ],
+        "summary": "List projected issues",
+        "parameters": [
+          {
+            "name": "repository",
+            "in": "query",
+            "required": false,
+            "description": "Filter by owner/name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "description": "open or closed.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "backlog, ready, in_progress, review, blocked or done.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "description": "low, medium, high or urgent.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "description": "GitHub's issue type, where the repository has them.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assignee",
+            "in": "query",
+            "required": false,
+            "description": "GitHub login.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "milestone",
+            "in": "query",
+            "required": false,
+            "description": "Milestone title.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "label",
+            "in": "query",
+            "required": false,
+            "description": "Exact label name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Substring of the number or title.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuesResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/issues/{id}": {
+      "get": {
+        "operationId": "getIssue",
+        "tags": [
+          "Issues"
+        ],
+        "summary": "Get one issue with its sub-issue links",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The projected issue id, not the GitHub number.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Issue"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchIssue",
+        "tags": [
+          "Issues"
+        ],
+        "summary": "Change an issue on GitHub",
+        "description": "Writes to GitHub and updates the projection from the response. Refused in read-only mode and for a repository outside the installation.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The projected issue id, not the GitHub number.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Issue"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "backlog",
+                          "ready",
+                          "in_progress",
+                          "review",
+                          "blocked",
+                          "done"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "priority": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "low",
+                          "medium",
+                          "high",
+                          "urgent"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "closed"
+                    ]
+                  },
+                  "assignees": {
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "labels": {
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "additionalProperties": false,
+                "ref": "PatchIssueBody"
+              }
+            }
+          }
+        }
       }
     },
     "/openapi.json": {

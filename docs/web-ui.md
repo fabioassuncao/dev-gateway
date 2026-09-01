@@ -307,6 +307,13 @@ granted can be attached — and the dialog says that rather than offering a list
 that would be refused. With no App configured, a workspace still groups
 environments; it simply has no repositories.
 
+A workspace page also lists the **issues** of the repositories it owns, read
+from the panel's projection: filter by state, status or text, sub-issues nested
+under their parent, the repository badged on every row, and each number linking
+to GitHub. A status that came from the label convention rather than a native
+field is marked, because it changes what a write will do. Every row says how old
+its answer is, and the list keeps answering while GitHub is unreachable.
+
 Workspaces need the panel's database. With PostgreSQL stopped the page explains
 that instead of failing, and every Docker-backed page keeps working.
 

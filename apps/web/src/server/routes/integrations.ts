@@ -3,6 +3,8 @@ import { z } from 'zod'
 import type { AppDeps } from './deps.ts'
 import { requireDatabase } from '../db/index.ts'
 import { unavailableGitHubStatus } from '../integrations/github/index.ts'
+import { planDelivery, verifySignature } from '../integrations/github/sync/webhook.ts'
+import { reconcile, syncRepositoryIssues } from '../integrations/github/sync/issues.ts'
 import {
   GitHubIntegrationView,
   GitHubRepositoryView,
@@ -119,7 +121,82 @@ export function integrationRoutes(deps: AppDeps): Hono {
       return c.json({ error: 'the GitHub App is not configured' }, 503)
     }
     const result = await deps.github.sync(db)
-    return c.json({ ok: true, ...result })
+    // Issues follow the repositories they belong to: one button, one meaning.
+    const runs = await reconcile(deps.github.require(), db)
+    return c.json({
+      ok: true,
+      ...result,
+      issues: runs.reduce((total, run) => total + run.issues, 0),
+    })
+  })
+
+  /**
+   * A delivery GitHub sent.
+   *
+   * **The signature is verified before the body is parsed as anything
+   * meaningful.** The panel refuses every unsafe method without a same-origin
+   * `Origin` header, and GitHub sends none; this route is the one deliberate
+   * exemption from that guard, and the HMAC is what replaces it. An invalid
+   * signature is a 401 that logs the delivery id and nothing else.
+   *
+   * A verified delivery is a signal to re-read, never data to trust: the
+   * projection is only ever updated from what GitHub answered to a request the
+   * panel made.
+   */
+  app.post('/integrations/github/webhook', documentRoute({
+    tag: 'Integrations', operationId: 'receiveGitHubWebhook',
+    summary: 'Receive a signed GitHub delivery',
+    description: 'Verifies the HMAC signature before parsing. An unhandled event is acknowledged and dropped; an unverified one is refused.',
+    response: z.object({
+      ok: z.boolean(),
+      action: z.enum(['sync-repository', 'sync-installations', 'ignored']),
+      reason: z.string(),
+    }).strict().meta({ ref: 'GitHubWebhookResult' }),
+    errors: [401, 403, 500, 503],
+  }), async (c) => {
+    const raw = await c.req.text()
+    const signature = c.req.header('x-hub-signature-256') ?? null
+    const delivery = c.req.header('x-github-delivery') ?? 'unknown'
+
+    if (!verifySignature(deps.config.githubWebhookSecret, raw, signature)) {
+      // The delivery id, and nothing else: an unverified body is not logged.
+      process.stderr.write(`github webhook: refused delivery ${delivery}\n`)
+      return c.json({ error: 'the delivery signature could not be verified' }, 401)
+    }
+
+    let payload: Record<string, unknown>
+    try {
+      payload = JSON.parse(raw) as Record<string, unknown>
+    } catch {
+      return c.json({ error: 'the delivery body is not JSON' }, 400 as 403)
+    }
+
+    const outcome = planDelivery(c.req.header('x-github-event') ?? '', payload)
+    if (outcome.action === 'ignored' || deps.github === null || !deps.db?.status().available) {
+      return c.json({ ok: true, action: 'ignored', reason: outcome.reason })
+    }
+
+    const db = deps.db
+    if (outcome.action === 'sync-installations') {
+      await deps.github.sync(db)
+    } else if (outcome.repository !== null) {
+      const repository = await db.github.findRepository(outcome.repository)
+      // A delivery for a repository the installation never granted changes
+      // nothing: the projection is the boundary, deliveries do not widen it.
+      if (repository) await syncRepositoryIssues(deps.github.require(), db, repository)
+    }
+
+    // The UI already invalidates on this hub for Docker events.
+    deps.hub.publish({
+      kind: 'config',
+      action: 'github',
+      id: null,
+      name: outcome.repository,
+      project: null,
+      ownership: null,
+      at: Math.floor(Date.now() / 1000),
+    })
+    return c.json({ ok: true, action: outcome.action, reason: outcome.reason })
   })
 
   return app

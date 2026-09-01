@@ -93,7 +93,21 @@ export class GitHubClient {
     return this.request<T>(url, `Bearer ${token}`)
   }
 
-  private async request<T>(pathOrUrl: string, authorization: string): Promise<GitHubResponse<T>> {
+  /** The one write. GitHub's answer is what the projection is updated from. */
+  async patchAsInstallation<T>(
+    installationId: number,
+    path: string,
+    body: unknown,
+  ): Promise<GitHubResponse<T>> {
+    const token = await this.auth.installationToken(installationId)
+    return this.request<T>(path, `Bearer ${token}`, { method: 'PATCH', body })
+  }
+
+  private async request<T>(
+    pathOrUrl: string,
+    authorization: string,
+    options: { method?: string; body?: unknown } = {},
+  ): Promise<GitHubResponse<T>> {
     const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${this.apiUrl}${pathOrUrl}`
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), this.timeoutMs)
@@ -101,12 +115,15 @@ export class GitHubClient {
     let response: Response
     try {
       response = await fetch(url, {
+        method: options.method ?? 'GET',
         headers: {
           authorization,
           accept: 'application/vnd.github+json',
           'x-github-api-version': '2022-11-28',
           'user-agent': 'dev-gateway-panel',
+          ...(options.body === undefined ? {} : { 'content-type': 'application/json' }),
         },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
         signal: controller.signal,
       })
     } catch (cause) {

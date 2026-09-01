@@ -5,7 +5,7 @@ import { HTTPException } from 'hono/http-exception'
 import { readProjectGit } from '../core/git.ts'
 import { mergeLogSources, type LogSourceLines } from '../core/projectlogs.ts'
 import { applyOverrides, loadOverrides } from '../core/overrides.ts'
-import { Project, ProjectGit, ProjectLogsResponse, type ProjectLogSource } from '../../shared/types.ts'
+import { Project, ProjectGit, ProjectLogsResponse, type ProjectGit as ProjectGitView, type ProjectLogSource } from '../../shared/types.ts'
 import { documentRoute, projectParameter, tailParameter } from '../openapi.ts'
 
 export const ProjectsResponse = z.object({ projects: z.array(Project) }).strict().meta({ ref: 'ProjectsResponse' })
@@ -19,6 +19,46 @@ function clampTail(requested: string | undefined, fallback: number): number {
   const value = Number(requested ?? String(fallback))
   if (!Number.isFinite(value)) return fallback
   return Math.min(Math.max(Math.trunc(value), 1), MAX_TAIL)
+}
+
+/**
+ * One source for open pull requests, stated.
+ *
+ * The host `gh` scan and the App can both report them. When the App is
+ * configured **and** this repository is one the installation granted, the App
+ * wins, because it is the source that can also write. Otherwise the scan's
+ * forge block stands exactly as it does today, so a panel with no App is
+ * unchanged and `GitCard` needs no change either.
+ */
+async function withForgeFromApp(deps: AppDeps, git: ProjectGitView): Promise<ProjectGitView> {
+  const slug = git.remote?.slug
+  if (!slug || deps.github === null || !deps.github.status().configured) return git
+  if (!deps.db?.status().available) return git
+
+  const repository = await deps.db.github.findRepository(slug)
+  if (!repository) return git
+
+  const pulls = (await deps.db.github.listPullRequests(repository.id)).map((pull) => ({
+    number: pull.number,
+    title: pull.title,
+    state: pull.state,
+    draft: false,
+    reviewDecision: null,
+    checks: null,
+    url: pull.htmlUrl,
+    headRefName: null,
+  }))
+
+  return {
+    ...git,
+    forge: {
+      kind: 'github-app',
+      collectedAt: Math.floor(Date.now() / 1000),
+      authenticated: true,
+      reason: null,
+      pulls,
+    },
+  }
 }
 
 export function projectRoutes(deps: AppDeps): Hono {
@@ -71,7 +111,7 @@ export function projectRoutes(deps: AppDeps): Hono {
     if (!snapshot.projects.some((item) => item.name === name)) {
       throw new HTTPException(404, { message: `no project '${name}' is running` })
     }
-    return c.json(readProjectGit(deps.config, name))
+    return c.json(await withForgeFromApp(deps, readProjectGit(deps.config, name)))
   })
 
   /**

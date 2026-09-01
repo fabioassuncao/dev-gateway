@@ -7,7 +7,9 @@ import { Badge } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Card, CardHeader } from '../components/ui/card.tsx'
 import { Dialog } from '../components/ui/dialog.tsx'
+import { Input, Select } from '../components/ui/field.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
+import { IssueRows } from '../components/issue-list.tsx'
 import { navigate } from '../lib/router.ts'
 import { useDocumentTitle } from '../lib/title.ts'
 
@@ -160,6 +162,8 @@ export function WorkspacePage({ slug }: { slug: string }) {
             </div>
           )}
         </Card>
+
+        <IssuesCard slug={workspace.slug} />
       </div>
 
       {attaching ? (
@@ -248,5 +252,90 @@ function RepositoriesDialog({
         </div>
       )}
     </Dialog>
+  )
+}
+
+/**
+ * The workspace's issues, read from the projection.
+ *
+ * Filters live in component state rather than the URL for now: the board issue
+ * puts them in the hash, where a filtered view becomes a link somebody can
+ * paste. Everything here answers while GitHub is unreachable, and says how old
+ * it is when it does.
+ */
+function IssuesCard({ slug }: { slug: string }) {
+  const [state, setState] = useState('open')
+  const [status, setStatus] = useState('')
+  const [text, setText] = useState('')
+
+  const query = useQuery({
+    queryKey: ['workspace-issues', slug, state, status, text],
+    queryFn: () =>
+      api.workspaceIssues(slug, {
+        ...(state === '' ? {} : { state }),
+        ...(status === '' ? {} : { status }),
+        ...(text.trim() === '' ? {} : { q: text.trim() }),
+      }),
+    retry: false,
+  })
+
+  const unavailable = query.error instanceof ApiError && query.error.status === 503
+
+  return (
+    <Card>
+      <CardHeader
+        title="Issues"
+        description="Projected from GitHub. Every row says how old the answer is."
+        actions={
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Input
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              placeholder="Filter by number or title"
+              className="h-7 w-52"
+              aria-label="Filter issues"
+            />
+            <Select
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              className="h-7 w-36"
+              aria-label="Status"
+            >
+              <option value="">Any status</option>
+              <option value="backlog">Backlog</option>
+              <option value="ready">Ready</option>
+              <option value="in_progress">In Progress</option>
+              <option value="review">Review</option>
+              <option value="blocked">Blocked</option>
+              <option value="done">Done</option>
+            </Select>
+            <Select
+              value={state}
+              onChange={(event) => setState(event.target.value)}
+              className="h-7 w-28"
+              aria-label="Issue state"
+            >
+              <option value="open">Open</option>
+              <option value="closed">Closed</option>
+              <option value="">All</option>
+            </Select>
+          </div>
+        }
+      />
+      {query.isPending ? <Loading label="Reading the issue projection" /> : null}
+      {query.error ? (
+        unavailable ? (
+          <Empty
+            title="Issues need the panel's database"
+            hint="They are a projection of GitHub, kept locally so they answer while GitHub is unreachable."
+          />
+        ) : (
+          <div className="p-3">
+            <ErrorBox error={query.error} />
+          </div>
+        )
+      ) : null}
+      {query.data ? <IssueRows issues={query.data} /> : null}
+    </Card>
   )
 }

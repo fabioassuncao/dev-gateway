@@ -93,6 +93,7 @@ export interface PanelConfig {
   /** A path, never the PEM: the panel can write .env, and must not hold a key. */
   githubPrivateKeyFile: string
   /** Configurable from the first commit, so Enterprise Server is not a rewrite. */
+  githubWebhookSecret: string
   githubApiUrl: string
   githubTimeoutMs: number
 }
@@ -160,6 +161,7 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     githubEnabled: isTrue(process.env.GITHUB_APP_ENABLED),
     githubAppId: env('GITHUB_APP_ID', ''),
     githubPrivateKeyFile: env('GITHUB_APP_PRIVATE_KEY_FILE', '/app/state/github/app.pem'),
+    githubWebhookSecret: env('GITHUB_APP_WEBHOOK_SECRET', ''),
     githubApiUrl: env('GITHUB_API_URL', 'https://api.github.com'),
     githubTimeoutMs: Number(env('DG_WEB_GITHUB_TIMEOUT_MS', '8000')),
     ...overrides,

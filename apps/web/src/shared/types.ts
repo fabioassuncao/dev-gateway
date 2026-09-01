@@ -246,6 +246,56 @@ export const Workspace = named(
 )
 export type Workspace = z.infer<typeof Workspace>
 
+export const WorkflowStatus = named(
+  z.enum(['backlog', 'ready', 'in_progress', 'review', 'blocked', 'done']),
+  'WorkflowStatus',
+)
+export type WorkflowStatus = z.infer<typeof WorkflowStatus>
+
+export const IssuePriority = named(z.enum(['low', 'medium', 'high', 'urgent']), 'IssuePriority')
+export type IssuePriority = z.infer<typeof IssuePriority>
+
+/** Whether status came from a native field or from the label convention. */
+export const MetadataSource = named(z.enum(['fields', 'labels', 'none']), 'MetadataSource')
+export type MetadataSource = z.infer<typeof MetadataSource>
+
+export const IssueMilestone = named(
+  z.object({
+    number: z.number().int().nullable(),
+    title: z.string(),
+    state: z.string(),
+  }).strict(),
+  'IssueMilestone',
+)
+export type IssueMilestone = z.infer<typeof IssueMilestone>
+
+export const Issue = named(
+  z.object({
+    id: z.string(),
+    repository: z.string().describe('owner/name, so a card can be badged without a second request'),
+    number: z.number().int(),
+    title: z.string(),
+    body: z.string().nullable(),
+    state: z.enum(['open', 'closed']),
+    stateReason: z.string().nullable(),
+    issueType: z.string().nullable(),
+    status: WorkflowStatus.nullable(),
+    priority: IssuePriority.nullable(),
+    metadataSource: MetadataSource,
+    labels: z.array(z.string()),
+    assignees: z.array(z.string()),
+    milestone: IssueMilestone.nullable(),
+    htmlUrl: z.string(),
+    parentId: z.string().nullable(),
+    childIds: z.array(z.string()),
+    githubUpdatedAt: unixSeconds,
+    syncedAt: unixSeconds.describe('When the panel last read this from GitHub'),
+    stale: z.boolean().describe('True past the staleness threshold; the projection is still shown'),
+  }).strict(),
+  'Issue',
+)
+export type Issue = z.infer<typeof Issue>
+
 export const GitHead = named(
   z.object({
     sha: z.string(),

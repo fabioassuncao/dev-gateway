@@ -13,6 +13,7 @@ export type ApiTag =
   | 'Status'
   | 'Projects'
   | 'Workspaces'
+  | 'Issues'
   | 'Services'
   | 'Docker'
   | 'Network'
@@ -24,7 +25,7 @@ export type ApiTag =
   | 'Integrations'
   | 'Documentation'
 
-export type ErrorStatus = 400 | 403 | 404 | 409 | 500 | 502 | 503
+export type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 500 | 502 | 503
 
 export interface RouteDocumentation {
   tag: ApiTag
@@ -44,6 +45,7 @@ export interface RouteDocumentation {
 
 const ERROR_DESCRIPTIONS: Record<ErrorStatus, string> = {
   400: 'The request is invalid or the requested action was refused.',
+  401: 'The delivery signature could not be verified.',
   403: 'The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.',
   404: 'The requested project, service, container, share or endpoint does not exist.',
   409: 'The requested operation conflicts with the current runtime state.',
@@ -165,6 +167,7 @@ export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
       { name: 'Status', description: 'Liveness and overview.' },
       { name: 'Projects', description: 'Compose projects adopted by the gateway.' },
       { name: 'Workspaces', description: 'Groupings a person created: repositories and the environments they own.' },
+      { name: 'Issues', description: 'The GitHub issue projection, and writes that go back to GitHub.' },
       { name: 'Services', description: 'Containers belonging to adopted projects.' },
       { name: 'Docker', description: 'Bounded host inventory and lifecycle operations.' },
       { name: 'Network', description: 'Routes, networks, DNS, TLS and VPN state.' },

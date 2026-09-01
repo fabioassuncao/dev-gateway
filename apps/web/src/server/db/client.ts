@@ -1,7 +1,8 @@
 import postgres, { type JSONValue, type Sql } from 'postgres'
 import { migrate, type AppliedMigration } from './migrate.ts'
 import type { InstallationRecord, RepositoryRecord } from '../integrations/github/repositories.ts'
-import type { StoredInstallation, StoredRepository, SyncState } from './github.ts'
+import type { StoredInstallation, StoredIssue, StoredRepository, SyncState } from './github.ts'
+import type { IssueRecord } from '../integrations/github/issues.ts'
 
 export interface ProjectRecord {
   id: string
@@ -372,6 +373,141 @@ export class DatabaseClient {
     return this.sql<SyncState[]>`
       SELECT scope, cursor, last_synced_at AS "lastSyncedAt", last_error AS "lastError"
       FROM github_sync_state ORDER BY scope
+    `
+  }
+
+  // ---- issues -------------------------------------------------------------
+
+  async upsertGitHubIssue(issue: IssueRecord): Promise<string> {
+    const rows = await this.sql<{ id: string }[]>`
+      INSERT INTO github_issues (
+        github_id, node_id, repository_id, number, title, body, state, state_reason,
+        issue_type, workflow_status, priority, metadata_source, labels, assignees,
+        milestone, html_url, is_pull_request, github_updated_at, synced_at
+      ) VALUES (
+        ${issue.githubId}, ${issue.nodeId}, ${issue.repositoryId}, ${issue.number},
+        ${issue.title}, ${issue.body}, ${issue.state}, ${issue.stateReason},
+        ${issue.issueType}, ${issue.workflowStatus}, ${issue.priority}, ${issue.metadataSource},
+        ${this.sql.json(issue.labels as unknown as JSONValue)},
+        ${this.sql.json(issue.assignees as unknown as JSONValue)},
+        ${issue.milestone === null ? null : this.sql.json(issue.milestone as unknown as JSONValue)},
+        ${issue.htmlUrl}, ${issue.isPullRequest}, ${issue.githubUpdatedAt}, now()
+      )
+      ON CONFLICT (github_id) DO UPDATE SET
+        title = EXCLUDED.title,
+        body = EXCLUDED.body,
+        state = EXCLUDED.state,
+        state_reason = EXCLUDED.state_reason,
+        issue_type = EXCLUDED.issue_type,
+        workflow_status = EXCLUDED.workflow_status,
+        priority = EXCLUDED.priority,
+        metadata_source = EXCLUDED.metadata_source,
+        labels = EXCLUDED.labels,
+        assignees = EXCLUDED.assignees,
+        milestone = EXCLUDED.milestone,
+        html_url = EXCLUDED.html_url,
+        is_pull_request = EXCLUDED.is_pull_request,
+        github_updated_at = EXCLUDED.github_updated_at,
+        synced_at = now()
+      RETURNING id::text AS id
+    `
+    return rows[0]!.id
+  }
+
+  private issueColumns() {
+    return this.sql`
+      i.id::text AS id,
+      i.github_id AS "githubId",
+      i.node_id AS "nodeId",
+      i.repository_id::text AS "repositoryId",
+      r.full_name AS "repository",
+      i.number, i.title, i.body, i.state,
+      i.state_reason AS "stateReason",
+      i.issue_type AS "issueType",
+      i.workflow_status AS "workflowStatus",
+      i.priority,
+      i.metadata_source AS "metadataSource",
+      i.labels, i.assignees, i.milestone,
+      i.html_url AS "htmlUrl",
+      i.is_pull_request AS "isPullRequest",
+      i.github_updated_at AS "githubUpdatedAt",
+      i.synced_at AS "syncedAt"
+    `
+  }
+
+  async listGitHubIssues(filter: {
+    repositoryIds?: string[]
+    state?: string
+    limit?: number
+  } = {}): Promise<StoredIssue[]> {
+    const repositoryIds = filter.repositoryIds ?? null
+    return this.sql<StoredIssue[]>`
+      SELECT ${this.issueColumns()}
+      FROM github_issues i
+      JOIN github_repositories r ON r.id = i.repository_id
+      WHERE i.is_pull_request = false
+        AND ${repositoryIds === null ? this.sql`true` : this.sql`i.repository_id = ANY(${repositoryIds}::bigint[])`}
+        AND ${filter.state === undefined ? this.sql`true` : this.sql`i.state = ${filter.state}`}
+      ORDER BY i.github_updated_at DESC
+      LIMIT ${Math.min(filter.limit ?? 200, 500)}
+    `
+  }
+
+  async findGitHubIssue(id: string): Promise<StoredIssue | null> {
+    const rows = await this.sql<StoredIssue[]>`
+      SELECT ${this.issueColumns()}
+      FROM github_issues i
+      JOIN github_repositories r ON r.id = i.repository_id
+      WHERE i.id = ${id}
+    `
+    return rows[0] ?? null
+  }
+
+  async findGitHubIssueByNumber(repositoryId: string, number: number): Promise<StoredIssue | null> {
+    const rows = await this.sql<StoredIssue[]>`
+      SELECT ${this.issueColumns()}
+      FROM github_issues i
+      JOIN github_repositories r ON r.id = i.repository_id
+      WHERE i.repository_id = ${repositoryId} AND i.number = ${number}
+    `
+    return rows[0] ?? null
+  }
+
+  /** Pull requests arrive through the issues endpoint and are flagged there. */
+  async listGitHubPullRequests(repositoryId: string): Promise<
+    { number: number; title: string; state: string; htmlUrl: string }[]
+  > {
+    return this.sql<{ number: number; title: string; state: string; htmlUrl: string }[]>`
+      SELECT number, title, state, html_url AS "htmlUrl"
+      FROM github_issues
+      WHERE repository_id = ${repositoryId} AND is_pull_request = true AND state = 'open'
+      ORDER BY number
+    `
+  }
+
+  async replaceGitHubRelationships(
+    repositoryId: string,
+    links: { parentId: string; childId: string; position: number }[],
+  ): Promise<void> {
+    await this.sql.begin(async (transaction) => {
+      await transaction`
+        DELETE FROM github_issue_relationships
+        WHERE parent_id IN (SELECT id FROM github_issues WHERE repository_id = ${repositoryId})
+      `
+      for (const link of links) {
+        await transaction`
+          INSERT INTO github_issue_relationships (parent_id, child_id, position)
+          VALUES (${link.parentId}, ${link.childId}, ${link.position})
+          ON CONFLICT (parent_id, child_id) DO UPDATE SET position = EXCLUDED.position
+        `
+      }
+    })
+  }
+
+  async listGitHubRelationships(): Promise<{ parentId: string; childId: string; position: number }[]> {
+    return this.sql<{ parentId: string; childId: string; position: number }[]>`
+      SELECT parent_id::text AS "parentId", child_id::text AS "childId", position
+      FROM github_issue_relationships ORDER BY position
     `
   }
 

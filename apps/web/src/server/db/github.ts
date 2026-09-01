@@ -1,5 +1,6 @@
 import type { DatabaseClient } from './client.ts'
 import type { InstallationRecord, RepositoryRecord } from '../integrations/github/repositories.ts'
+import type { IssueRecord } from '../integrations/github/issues.ts'
 
 export interface StoredInstallation extends InstallationRecord {
   syncedAt: Date
@@ -7,6 +8,31 @@ export interface StoredInstallation extends InstallationRecord {
 
 export interface StoredRepository extends RepositoryRecord {
   id: string
+  syncedAt: Date
+}
+
+export interface StoredIssue {
+  id: string
+  githubId: number
+  nodeId: string
+  repositoryId: string
+  /** `owner/name`, joined so a card can be badged without a second query. */
+  repository: string
+  number: number
+  title: string
+  body: string | null
+  state: string
+  stateReason: string | null
+  issueType: string | null
+  workflowStatus: string | null
+  priority: string | null
+  metadataSource: string
+  labels: string[]
+  assignees: string[]
+  milestone: { number: number | null; title: string; state: string } | null
+  htmlUrl: string
+  isPullRequest: boolean
+  githubUpdatedAt: Date
   syncedAt: Date
 }
 
@@ -57,6 +83,39 @@ export class GitHubRepository {
 
   pruneInstallations(keep: number[]): Promise<number> {
     return this.client.pruneGitHubInstallations(keep)
+  }
+
+  upsertIssue(issue: IssueRecord): Promise<string> {
+    return this.client.upsertGitHubIssue(issue)
+  }
+
+  listIssues(filter: { repositoryIds?: string[]; state?: string; limit?: number } = {}): Promise<StoredIssue[]> {
+    return this.client.listGitHubIssues(filter)
+  }
+
+  findIssue(id: string): Promise<StoredIssue | null> {
+    return this.client.findGitHubIssue(id)
+  }
+
+  findIssueByNumber(repositoryId: string, number: number): Promise<StoredIssue | null> {
+    return this.client.findGitHubIssueByNumber(repositoryId, number)
+  }
+
+  listPullRequests(repositoryId: string): Promise<
+    { number: number; title: string; state: string; htmlUrl: string }[]
+  > {
+    return this.client.listGitHubPullRequests(repositoryId)
+  }
+
+  replaceRelationships(
+    repositoryId: string,
+    links: { parentId: string; childId: string; position: number }[],
+  ): Promise<void> {
+    return this.client.replaceGitHubRelationships(repositoryId, links)
+  }
+
+  listRelationships(): Promise<{ parentId: string; childId: string; position: number }[]> {
+    return this.client.listGitHubRelationships()
   }
 
   recordSync(scope: string, state: { cursor?: string | null; error?: string | null }): Promise<void> {
