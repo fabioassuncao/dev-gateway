@@ -27,6 +27,21 @@ describe('GET /api/status', () => {
     expect(overview.problems.some((problem) => problem.id === 'traefik')).toBe(true)
   })
 
+  it('does not count a stopped container as an active route', async () => {
+    const stoppedRoute = {
+      ...PROJECT_A[0]!,
+      id: 'stopped-web',
+      name: 'stopped-web-1',
+      state: 'exited' as const,
+    }
+    const { app } = makeApp({ containers: [...GATEWAY, stoppedRoute] })
+    const overview = (await (await app.request('/api/status')).json()) as Overview
+
+    expect(overview.gateway.routes).toBe(0)
+    expect(overview.counts.routes).toBe(0)
+    expect(overview.urls).toEqual([])
+  })
+
   it('reports an unhealthy service as a problem', async () => {
     const { app } = makeApp({ containers: FULL_HOST })
     const overview = (await (await app.request('/api/status')).json()) as Overview

@@ -19,7 +19,8 @@ export function gatewayStatus(snapshot: Snapshot, config: PanelConfig): GatewayS
   const tailscale = componentOf(snapshot, 'tailscale')
   const network = snapshot.networks.find((item) => item.name === config.network) ?? null
   const routes = snapshot.containers.filter(
-    (container) => container.ownership !== 'gateway' && container.urls.length > 0,
+    (container) =>
+      container.ownership !== 'gateway' && container.state === 'running' && container.urls.length > 0,
   ).length
 
   return {
