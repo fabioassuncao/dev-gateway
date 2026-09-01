@@ -18,8 +18,17 @@ function setValues(root: string, values: Record<string, string>): void {
   writeEnvFile(path, text)
 }
 
+/**
+ * Every panel command addresses the panel, so it resolves the file list with
+ * the panel enabled. Without that, an inherited PORTTA_WEB=false drops the
+ * overlays that define these services and Compose answers "no such service",
+ * which the callers below deliberately ignore — so the command reports success
+ * and does nothing.
+ */
+const PANEL_OVERRIDES = { PORTTA_WEB: 'true' }
+
 async function webCompose(command: Command, args: string[], extraEnv: NodeJS.ProcessEnv = {}, stdio: 'inherit' | 'pipe' = 'inherit') {
-  const context = gatewayContext({ profile: globals(command).profile })
+  const context = gatewayContext({ profile: globals(command).profile, overrides: PANEL_OVERRIDES })
   return runProcess('docker', ['compose', ...composeArguments(context), ...args], { cwd: context.root, env: { ...context.env, ...extraEnv }, stdio })
 }
 
@@ -87,7 +96,10 @@ export function webUrl(context: ReturnType<typeof gatewayContext>): string {
 }
 
 export async function webDown(command: Command): Promise<void> {
-  const context = gatewayContext({ profile: globals(command).profile })
+  // Both overlays, so the file list names every service this stops: the dev
+  // pair exists only while PORTTA_WEB_DEV is on, and leaving it out is how a
+  // Vite container survives `web down` and keeps serving a stale panel.
+  const context = gatewayContext({ profile: globals(command).profile, overrides: { ...PANEL_OVERRIDES, PORTTA_WEB_DEV: 'true' } })
   const env = { ...context.env, PORTTA_WEB: 'true', PORTTA_WEB_DEV: 'true' }
   const services = ['db', 'web', 'web-socket-proxy']
   await runProcess('docker', ['compose', ...composeArguments({ ...context, env }), 'stop', ...services], { cwd: context.root, env, reject: false })
@@ -99,7 +111,7 @@ export async function webDown(command: Command): Promise<void> {
 
 export async function webDisable(command: Command): Promise<void> {
   await webDown(command)
-  const context = gatewayContext({ profile: globals(command).profile })
+  const context = gatewayContext({ profile: globals(command).profile, overrides: PANEL_OVERRIDES })
   setValues(context.root, { PORTTA_WEB: 'false' })
 }
 
@@ -117,7 +129,7 @@ export async function webBuild(command: Command): Promise<void> { await webCompo
 
 export async function webStatus(command: Command): Promise<void> {
   const global = globals(command)
-  const context = gatewayContext({ profile: global.profile })
+  const context = gatewayContext({ profile: global.profile, overrides: PANEL_OVERRIDES })
   const containers = await inspectContainers()
   const panel = containers.find((container) => container.labels['portta.component'] === 'web')
   const proxy = containers.find((container) => container.labels['portta.component'] === 'web-socket-proxy')

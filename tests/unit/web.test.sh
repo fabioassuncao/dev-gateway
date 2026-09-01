@@ -171,6 +171,22 @@ assert_contains "$(./bin/portta web up --expose public 2>&1)" "needs a credentia
 it "an unknown expose value fails"
 assert_failure ./bin/portta web up --expose nonsense
 
+describe "every panel command resolves the file list with the panel enabled"
+
+# The environment beats .env, so an inherited PORTTA_WEB=false drops the
+# overlays that define these services. Compose then answers "no such service",
+# which these callers ignore on purpose, and the command reports success while
+# doing nothing: `web down` left the panel running.
+it "the shared compose helper passes the override"
+assert_contains "$(sed -n '/^async function webCompose/,/^}/p' packages/cli/src/commands/web.ts)" "overrides: PANEL_OVERRIDES"
+
+it "and so does web down, with the dev pair included"
+assert_contains "$(sed -n '/^export async function webDown/,/^}/p' packages/cli/src/commands/web.ts)" "PORTTA_WEB_DEV: 'true'"
+assert_contains "$(sed -n '/^export async function webDown/,/^}/p' packages/cli/src/commands/web.ts)" "overrides:"
+
+it "and web up uses what it just wrote"
+assert_contains "$(sed -n '/^export async function webUp/,/^}/p' packages/cli/src/commands/web.ts)" "overrides: values"
+
 describe "a public panel is published by Traefik, never by the container"
 
 it "the public overlay gives the panel its own entrypoint"
