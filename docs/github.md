@@ -11,7 +11,7 @@ request to github.com and behaves exactly as it did before this existed.
 
 ## What stays on the host
 
-`dev-gateway git scan` still collects branch, HEAD, dirty counts and
+`portta git scan` still collects branch, HEAD, dirty counts and
 ahead/behind from local `git`, and writes `state/git/<project>.json`.
 The panel only reads that snapshot. No project directory is mounted into
 the panel. See [ADR 0010](adr/0010-git-collected-on-the-host.md).
@@ -29,9 +29,9 @@ read-only. A Personal Access Token in `.env` is not the design.
 | Issue title, body, state, labels, assignees, milestone, type, field values, sub-issue links, pull-request state | GitHub |
 | Branch, HEAD, dirty counts, ahead/behind | Local `git` on the host |
 | Containers, health, URLs, networks | Docker / Traefik on this host |
-| Which GitHub repositories a Dev Gateway project owns | Dev Gateway |
-| Which environments a Dev Gateway project has adopted | Dev Gateway |
-| A link from an issue to an environment | Dev Gateway |
+| Which GitHub repositories a Portta project owns | Portta |
+| Which environments a Portta project has adopted | Portta |
+| A link from an issue to an environment | Portta |
 
 The panel never treats PostgreSQL as a second GitHub. A board action that
 means "close" closes the issue on GitHub; the local row is a cache with
@@ -62,11 +62,11 @@ In order, first match wins:
 | Source | Meaning |
 |---|---|
 | `manual` | You linked them in the panel. Always wins |
-| `label` | The environment carries `dev-gateway.project: <slug>`. The project declared it, per ADR 0001 |
+| `label` | The environment carries `portta.project: <slug>`. The project declared it, per ADR 0001 |
 | `repo-match` | The environment's remote matches a repository this workspace owns — applied **only when exactly one workspace owns that coordinate** |
 
 The source is stored and shown, so the panel says *"adopted because it carries
-`dev-gateway.project: meu-produto`"* rather than presenting a mapping with no
+`portta.project: meu-produto`"* rather than presenting a mapping with no
 explanation. An ambiguous repository match adopts nothing and leaves the choice
 to you: an automatic adoption that is wrong is worse than none.
 
@@ -94,8 +94,8 @@ Compose project on this host (`COMPOSE_PROJECT_NAME`). A **repository**
 is a GitHub repository bound to a project. Today's `projects` table is
 the environment; renaming it is part of building the new project entity.
 
-The Compose label `dev-gateway.project` remains a hint for grouping
-worktrees. It does not silently create a Dev Gateway project.
+The Compose label `portta.project` remains a hint for grouping
+worktrees. It does not silently create a Portta project.
 
 ## Default posture
 
@@ -162,8 +162,8 @@ GITHUB_APP_ID=123456
 GITHUB_APP_PRIVATE_KEY_FILE=/app/state/github/app.pem
 GITHUB_API_URL=https://api.github.com     # or your Enterprise Server API root
 
-dev-gateway web restart
-dev-gateway doctor            # checks the id, the key, its mode and the API URL
+portta web restart
+portta doctor            # checks the id, the key, its mode and the API URL
 ```
 
 Then open **Settings → GitHub** in the panel and press **Sync**.
@@ -330,7 +330,7 @@ sees `GET /api/projects/:project/git` behave precisely as before.
 ## The issue and the environment it is worked in
 
 This is the join the rest of the sequence exists for. GitHub knows `#182` is
-*In Progress* on branch `fix/182-tcp-proxy`. Only the Dev Gateway knows that
+*In Progress* on branch `fix/182-tcp-proxy`. Only Portta knows that
 branch is running as `base-empresarial-issue182`, with `web` and `api` on
 `web.issue-182.localhost`, and what its logs say.
 
@@ -351,9 +351,9 @@ In order, first match wins:
 | Source | Meaning |
 |---|---|
 | `manual` | You linked them in the panel. Always wins |
-| `label` | The environment declares `dev-gateway.issue` as `owner/name#123`, or `#123` when the repository is unambiguous |
+| `label` | The environment declares `portta.issue` as `owner/name#123`, or `#123` when the repository is unambiguous |
 | `branch` | The branch matches `(feat\|fix\|chore\|…)/<number>-…`, `issue-<number>` or `<number>-…`, and the repository coordinate resolves |
-| `namespace` | The Compose project or worktree ends in `issue<number>`, which is what `dev-gateway namespace` produces |
+| `namespace` | The Compose project or worktree ends in `issue<number>`, which is what `portta namespace` produces |
 
 Each rule is a pure function over data the panel already has — no Docker call,
 no GitHub call — so the UI can say *"linked because this environment is on

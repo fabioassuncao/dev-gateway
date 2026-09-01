@@ -1,12 +1,12 @@
 // The checks the panel can make honestly from inside a container.
 //
-// This is deliberately not a reimplementation of `dev-gateway doctor`: that
+// This is deliberately not a reimplementation of `portta doctor`: that
 // runs on the host and inspects things a container cannot see truthfully
 // (binaries in PATH, listening sockets, DNS resolution, certificate files on
 // disk). What is here is everything derivable from Docker and the resolved
 // configuration, which is exactly what the panel already has.
 
-import type { StoredAlias } from '@dev-gateway/core'
+import type { StoredAlias } from 'portta-core'
 import type { PanelConfig } from '../config.ts'
 import { isAuthenticated, isRouted } from '../config.ts'
 import { GENERATED_FILES, isDirWritable, readGenerated, renderPanelAuth } from './dynamic.ts'
@@ -76,7 +76,7 @@ export function diagnose(
           'warn',
           'Panel persistence',
           database.reason ?? 'PostgreSQL is unreachable; stored preferences are unavailable',
-          'dev-gateway db status',
+          'portta db status',
         ),
       )
     }
@@ -89,7 +89,7 @@ export function diagnose(
         'fail',
         'Docker API',
         'the panel cannot reach its socket proxy',
-        'dev-gateway web restart',
+        'portta web restart',
       ),
     )
     return results
@@ -98,11 +98,11 @@ export function diagnose(
 
   const traefik = componentOf(snapshot, 'traefik')
   if (!traefik) {
-    results.push(check('traefik', 'fail', 'Traefik', 'no gateway container found', `dev-gateway up ${config.profile}`))
+    results.push(check('traefik', 'fail', 'Traefik', 'no gateway container found', `portta up ${config.profile}`))
   } else if (traefik.state !== 'running') {
-    results.push(check('traefik', 'fail', 'Traefik', `container is ${traefik.state}`, `dev-gateway up ${config.profile}`))
+    results.push(check('traefik', 'fail', 'Traefik', `container is ${traefik.state}`, `portta up ${config.profile}`))
   } else if (traefik.health === 'unhealthy') {
-    results.push(check('traefik', 'fail', 'Traefik', 'container is unhealthy', 'dev-gateway logs traefik'))
+    results.push(check('traefik', 'fail', 'Traefik', 'container is unhealthy', 'portta logs traefik'))
   } else if (traefik.health === 'starting') {
     results.push(check('traefik', 'warn', 'Traefik', 'health check is still starting', ''))
   } else {
@@ -112,7 +112,7 @@ export function diagnose(
   const proxy = componentOf(snapshot, 'socket-proxy')
   if (!proxy || proxy.state !== 'running') {
     results.push(
-      check('socket-proxy', 'fail', 'Traefik socket proxy', proxy ? `container is ${proxy.state}` : 'missing', `dev-gateway up ${config.profile}`),
+      check('socket-proxy', 'fail', 'Traefik socket proxy', proxy ? `container is ${proxy.state}` : 'missing', `portta up ${config.profile}`),
     )
   } else {
     results.push(check('socket-proxy', 'pass', 'Traefik socket proxy', 'running'))
@@ -121,7 +121,7 @@ export function diagnose(
   const network = snapshot.networks.find((item) => item.name === config.network)
   if (!network) {
     results.push(
-      check('network', 'fail', 'Shared network', `${config.network} does not exist`, 'dev-gateway bootstrap'),
+      check('network', 'fail', 'Shared network', `${config.network} does not exist`, 'portta bootstrap'),
     )
   } else {
     results.push(
@@ -171,7 +171,7 @@ export function diagnose(
         'fail',
         'Hostname collisions',
         duplicates.map(([host, names]) => `${host} (${names.join(', ')})`).join('; '),
-        'give the projects distinct COMPOSE_PROJECT_NAMEs: dev-gateway namespace',
+        'give the projects distinct COMPOSE_PROJECT_NAMEs: portta namespace',
       ),
     )
   } else {
@@ -210,7 +210,7 @@ export function diagnose(
         squatters
           .map((usage) => `${usage.hostPort}: ${usage.bindings.map((b) => b.containerName).join(', ')}`)
           .join('; '),
-        'stop the container, or change DEV_GATEWAY_HTTP_PORT / DEV_GATEWAY_HTTPS_PORT',
+        'stop the container, or change PORTTA_HTTP_PORT / PORTTA_HTTPS_PORT',
       ),
     )
   }
@@ -236,7 +236,7 @@ export function diagnose(
   const staleBridges = snapshot.containers.filter((container) => {
     if (container.gatewayComponent !== 'access-bridge') return false
     if (container.state !== 'running') return true
-    const expires = Number(container.labels['dev-gateway.access.expires'] ?? '')
+    const expires = Number(container.labels['portta.access.expires'] ?? '')
     return Number.isFinite(expires) && expires > 0 && expires < now
   })
   if (staleBridges.length > 0) {
@@ -246,7 +246,7 @@ export function diagnose(
         'warn',
         'Stale access bridges',
         `${staleBridges.length} bridge(s) expired or stopped`,
-        'dev-gateway access gc',
+        'portta access gc',
       ),
     )
   }
@@ -258,7 +258,7 @@ export function diagnose(
         'warn',
         'Public access',
         `HTTP services are reachable on ${config.publicDomain ?? config.domain}`,
-        'dev-gateway public disable turns this off',
+        'portta public disable turns this off',
       ),
     )
   }
@@ -281,7 +281,7 @@ export function diagnose(
         'fail',
         'Bind address',
         'the private profile is bound to every interface',
-        'set DEV_GATEWAY_BIND_ADDRESS to the VPN address, or enable Tailscale',
+        'set PORTTA_BIND_ADDRESS to the VPN address, or enable Tailscale',
       ),
     )
   }
@@ -336,7 +336,7 @@ function shareChecks(shares: Share[]): Diagnostic[] {
         'warn',
         'Expired shares',
         expired.map((share) => `${share.host} (${share.mode})`).join(', '),
-        'dev-gateway share gc',
+        'portta share gc',
       ),
     )
   }
@@ -374,7 +374,7 @@ function traefikChecks(snapshot: Snapshot, verdict: TraefikVerdict): Diagnostic[
         'warn',
         "Traefik's own view",
         verdict.reason ?? 'not available',
-        'set DEV_GATEWAY_DASHBOARD=true to let the panel read Traefik directly',
+        'set PORTTA_DASHBOARD=true to let the panel read Traefik directly',
       ),
     ]
   }
@@ -441,7 +441,7 @@ function panelChecks(config: PanelConfig): Diagnostic[] {
         'fail',
         'Panel authentication',
         `the panel is routed (expose: ${config.webExpose}) with no credential in front of it`,
-        'dev-gateway web auth set',
+        'portta web auth set',
       ),
     )
   } else {
@@ -457,7 +457,7 @@ function panelChecks(config: PanelConfig): Diagnostic[] {
         'warn',
         'Panel is routed and writable',
         'anyone who gets past the credential can stop and remove containers',
-        'dev-gateway web up --read-only',
+        'portta web up --read-only',
       ),
     )
   }
@@ -475,7 +475,7 @@ function panelChecks(config: PanelConfig): Diagnostic[] {
         'Panel middleware is out of step',
         `${GENERATED_FILES.panel} does not match the current settings` +
           (isDirWritable(config.dynamicDir) ? '' : ', and the directory is not writable by the panel'),
-        'dev-gateway web auth apply',
+        'portta web auth apply',
       ),
     )
   }

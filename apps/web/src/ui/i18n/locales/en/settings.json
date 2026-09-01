@@ -17,39 +17,39 @@
     "GitHub": "GitHub"
   },
   "fields": {
-    "DEV_GATEWAY_PROFILE": {
+    "PORTTA_PROFILE": {
       "label": "Profile",
       "help": "Which set of Compose overlays the gateway starts with."
     },
-    "DEV_GATEWAY_DOMAIN": {
+    "PORTTA_DOMAIN": {
       "label": "Local domain",
       "help": "Base domain for generated hostnames: <project>-<service>.<domain>."
     },
-    "DEV_GATEWAY_BIND_ADDRESS": {
+    "PORTTA_BIND_ADDRESS": {
       "label": "Bind address",
       "help": "Host interface Traefik publishes on. 127.0.0.1 keeps it off the local network."
     },
-    "DEV_GATEWAY_HTTP_PORT": {
+    "PORTTA_HTTP_PORT": {
       "label": "HTTP port",
       "help": "Host port for plain HTTP."
     },
-    "DEV_GATEWAY_HTTPS_PORT": {
+    "PORTTA_HTTPS_PORT": {
       "label": "HTTPS port",
       "help": "Host port for HTTPS."
     },
-    "DEV_GATEWAY_LOG_LEVEL": {
+    "PORTTA_LOG_LEVEL": {
       "label": "Log level",
       "help": "Log level for the gateway components."
     },
-    "DEV_GATEWAY_ACCESS_LOG": {
+    "PORTTA_ACCESS_LOG": {
       "label": "Traefik access log",
       "help": "Useful while debugging routing, noisy otherwise."
     },
-    "DEV_GATEWAY_DASHBOARD": {
+    "PORTTA_DASHBOARD": {
       "label": "Traefik dashboard",
       "help": "Traefik's own dashboard, published on loopback only."
     },
-    "DEV_GATEWAY_DASHBOARD_PORT": {
+    "PORTTA_DASHBOARD_PORT": {
       "label": "Dashboard port",
       "help": "Host port for the Traefik dashboard."
     },
@@ -109,39 +109,39 @@
       "label": "Cloudflare API token",
       "help": "A scoped token (Zone:DNS:Edit), never the global API key."
     },
-    "DEV_GATEWAY_WEB_PORT": {
+    "PORTTA_WEB_PORT": {
       "label": "Panel port",
       "help": "Host port this panel is published on."
     },
-    "DEV_GATEWAY_WEB_BIND_ADDRESS": {
+    "PORTTA_WEB_BIND_ADDRESS": {
       "label": "Panel bind address",
       "help": "Keep 127.0.0.1: the panel is never meant to face the internet."
     },
-    "DEV_GATEWAY_WEB_EXPOSE": {
+    "PORTTA_WEB_EXPOSE": {
       "label": "Reachable from",
       "help": "local is loopback only. vpn adds a Traefik router, and requires panel authentication."
     },
-    "DEV_GATEWAY_WEB_READ_ONLY": {
+    "PORTTA_WEB_READ_ONLY": {
       "label": "Read-only",
       "help": "Refuse every mutating endpoint. The default whenever the panel is routed."
     },
-    "DEV_GATEWAY_WEB_AUTH": {
+    "PORTTA_WEB_AUTH": {
       "label": "Panel authentication",
       "help": "basic puts a Traefik BasicAuth middleware in front of the panel. Required once it is routed."
     },
-    "DEV_GATEWAY_WEB_AUTH_USER": {
+    "PORTTA_WEB_AUTH_USER": {
       "label": "Panel username",
-      "help": "The user half of the credential. `dev-gateway web auth set` writes both."
+      "help": "The user half of the credential. `portta web auth set` writes both."
     },
-    "DEV_GATEWAY_WEB_AUTH_HASH": {
+    "PORTTA_WEB_AUTH_HASH": {
       "label": "Panel password hash",
-      "help": "A hash, never a password. Generate one with `dev-gateway web auth set`."
+      "help": "A hash, never a password. Generate one with `portta web auth set`."
     },
-    "DG_WEB_API_DOCS": {
+    "PORTTA_RUNTIME_API_DOCS": {
       "label": "API browser",
       "help": "Serve the offline API browser. Empty uses the safe default: on for loopback, off when routed."
     },
-    "DG_WEB_DB_PASSWORD": {
+    "PORTTA_RUNTIME_DB_PASSWORD": {
       "label": "Database password",
       "help": "Generated bootstrap credential for the panel-owned PostgreSQL database."
     },
@@ -171,7 +171,7 @@
     "mustBePort": "must be a port between 1 and 65535",
     "mustBeIpv4": "must be an IPv4 address",
     "mustBeUsername": "must be 1 to 64 characters of letters, digits, dot, dash or underscore",
-    "mustBePasswordHash": "must be an apr1, bcrypt or SHA1 hash; run: dev-gateway web auth set",
+    "mustBePasswordHash": "must be an apr1, bcrypt or SHA1 hash; run: portta web auth set",
     "mustBeEmail": "must be an email address",
     "mustBeHttpsUrl": "must be an https URL",
     "mustBeUrl": "must be a URL",
@@ -185,7 +185,7 @@
     "acmeEmailRequired": "is required when TLS_MODE is acme",
     "tailscaleHostnameRequired": "is required when Tailscale is enabled",
     "authBasicRequired": "must be basic while the panel is routed",
-    "credentialRequired": "a routed panel needs a credential: run dev-gateway web auth set",
+    "credentialRequired": "a routed panel needs a credential: run portta web auth set",
     "panelNotOnEveryInterface": "the panel is not published on every interface; reach it over the VPN instead"
   }
 }

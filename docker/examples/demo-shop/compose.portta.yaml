@@ -1,10 +1,10 @@
 # ============================================================================
-# demo-shop: Dev Gateway integration overlay
+# demo-shop: Portta integration overlay
 # ============================================================================
 # Routes every HTTP surface: web, api, Mailpit UI, RustFS console. Datastores,
 # the worker and the S3 API stay on the project network only.
 #
-#   docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+#   docker compose -f compose.yaml -f compose.portta.yaml up -d
 #   -> http://demo-shop-web.localhost
 #   -> http://demo-shop-api.localhost
 #   -> http://demo-shop-mailpit.localhost
@@ -16,37 +16,37 @@ services:
   web:
     networks:
       - default
-      - dev-gateway
+      - portta
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-shop}-web.loadbalancer.server.port=3000"
 
   api:
     networks:
       - default
-      - dev-gateway
+      - portta
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-shop}-api.loadbalancer.server.port=8000"
 
   mailpit:
     networks:
       - default
-      - dev-gateway
+      - portta
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-shop}-mailpit.loadbalancer.server.port=8025"
 
   rustfs:
     networks:
       - default
-      - dev-gateway
+      - portta
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       # Console only. The S3 API on 9000 stays reachable as rustfs:9000 on
       # the project network; it is not published through Traefik.
       - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-shop}-rustfs.loadbalancer.server.port=9001"
@@ -54,6 +54,6 @@ services:
   # worker, mysql and redis are absent on purpose: no HTTP to route.
 
 networks:
-  dev-gateway:
+  portta:
     external: true
-    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}
+    name: ${PORTTA_NETWORK:-portta}

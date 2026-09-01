@@ -44,7 +44,7 @@ function normalize(raw: string | null | undefined): 'en' | 'pt-BR' | null {
 
 function detect(): 'en' | 'pt-BR' {
   try {
-    const stored = normalize(localStorage.getItem('dg-locale'))
+    const stored = normalize(localStorage.getItem('portta-locale'))
     if (stored) return stored
   } catch {
     /* private browsing */

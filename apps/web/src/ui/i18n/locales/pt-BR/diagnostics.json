@@ -17,14 +17,14 @@
     },
     "warn": {
       "detail": "PostgreSQL inacessível; preferências armazenadas indisponíveis",
-      "fix": "dev-gateway db status"
+      "fix": "portta db status"
     }
   },
   "docker": {
     "title": "Docker API",
     "fail": {
       "detail": "o painel não alcança seu socket proxy",
-      "fix": "dev-gateway web restart"
+      "fix": "portta web restart"
     },
     "pass": {
       "detail": "acessível pelo socket proxy do painel"
@@ -36,8 +36,8 @@
       "notFound": "nenhum container do gateway encontrado",
       "state": "container está {{state}}",
       "unhealthy": "container não está saudável",
-      "fixUp": "dev-gateway up {{profile}}",
-      "fixLogs": "dev-gateway logs traefik"
+      "fixUp": "portta up {{profile}}",
+      "fixLogs": "portta logs traefik"
     },
     "warn": {
       "starting": "health check ainda está iniciando"
@@ -51,7 +51,7 @@
     "fail": {
       "state": "container está {{state}}",
       "missing": "ausente",
-      "fix": "dev-gateway up {{profile}}"
+      "fix": "portta up {{profile}}"
     },
     "pass": {
       "detail": "em execução"
@@ -61,7 +61,7 @@
     "title": "Rede compartilhada",
     "fail": {
       "detail": "{{network}} não existe",
-      "fix": "dev-gateway bootstrap"
+      "fix": "portta bootstrap"
     },
     "pass": {
       "detail": "{{network}}: {{count}} container(s) anexado(s)"
@@ -80,7 +80,7 @@
   "hostname-collision": {
     "title": "Colisões de hostname",
     "fail": {
-      "fix": "dê COMPOSE_PROJECT_NAME distintos aos projetos: namespace dev-gateway"
+      "fix": "dê COMPOSE_PROJECT_NAME distintos aos projetos: namespace portta"
     },
     "pass": {
       "title": "Hostnames",
@@ -100,7 +100,7 @@
   "gateway-ports": {
     "title": "Portas do gateway ocupadas por outros containers",
     "warn": {
-      "fix": "pare o container ou altere DEV_GATEWAY_HTTP_PORT / DEV_GATEWAY_HTTPS_PORT"
+      "fix": "pare o container ou altere PORTTA_HTTP_PORT / PORTTA_HTTPS_PORT"
     }
   },
   "unhealthy": {
@@ -117,14 +117,14 @@
     "title": "Pontes de acesso expiradas",
     "warn": {
       "detail": "{{count}} ponte(s) expirada(s) ou parada(s)",
-      "fix": "dev-gateway access gc"
+      "fix": "portta access gc"
     }
   },
   "public": {
     "title": "Acesso público",
     "warn": {
       "detail": "serviços HTTP acessíveis em {{domain}}",
-      "fix": "dev-gateway public disable desativa isso"
+      "fix": "portta public disable desativa isso"
     }
   },
   "acme-email": {
@@ -138,7 +138,7 @@
     "title": "Endereço de bind",
     "fail": {
       "detail": "o perfil privado está em bind em todas as interfaces",
-      "fix": "defina DEV_GATEWAY_BIND_ADDRESS para o endereço VPN ou ative o Tailscale"
+      "fix": "defina PORTTA_BIND_ADDRESS para o endereço VPN ou ative o Tailscale"
     }
   },
   "aliases": {
@@ -156,7 +156,7 @@
   "shares-expired": {
     "title": "Shares expirados",
     "warn": {
-      "fix": "dev-gateway share gc"
+      "fix": "portta share gc"
     }
   },
   "shares-dangling": {
@@ -175,7 +175,7 @@
     "title": "Visão própria do Traefik",
     "warn": {
       "detail": "indisponível",
-      "fix": "defina DEV_GATEWAY_DASHBOARD=true para o painel ler o Traefik diretamente"
+      "fix": "defina PORTTA_DASHBOARD=true para o painel ler o Traefik diretamente"
     },
     "pass": {
       "detail": "{{count}} router(s), todo serviço roteado entre eles"
@@ -202,14 +202,14 @@
     },
     "fail": {
       "detail": "o painel está roteado (expose: {{expose}}) sem credencial na frente",
-      "fix": "dev-gateway web auth set"
+      "fix": "portta web auth set"
     }
   },
   "panel-read-only": {
     "title": "Painel roteado e gravável",
     "warn": {
       "detail": "quem passar pela credencial pode parar e remover containers",
-      "fix": "dev-gateway web up --read-only"
+      "fix": "portta web up --read-only"
     }
   },
   "panel-auth-file": {
@@ -217,7 +217,7 @@
     "warn": {
       "detail": "{{file}} não corresponde às configurações atuais",
       "detailNotWritable": ", e o diretório não é gravável pelo painel",
-      "fix": "dev-gateway web auth apply"
+      "fix": "portta web auth apply"
     }
   }
 }

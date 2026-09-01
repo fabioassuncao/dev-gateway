@@ -10,7 +10,7 @@ can do, so it is explicit, it shows you exactly what changes, and it asks.
 ## Enabling
 
 ```bash
-dev-gateway public enable
+portta public enable
 ```
 
 Before changing anything it prints:
@@ -23,11 +23,11 @@ Before changing anything it prints:
 - what is never published, in any profile.
 
 Then it asks. On yes it sets `PUBLIC_ENABLED=true` and
-`DEV_GATEWAY_PROFILE=remote-public` in `.env` and applies the profile.
+`PORTTA_PROFILE=remote-public` in `.env` and applies the profile.
 
 ```bash
-dev-gateway public status
-dev-gateway public disable
+portta public status
+portta public disable
 ```
 
 `disable` switches back to `remote-private` when Tailscale or a private domain
@@ -65,7 +65,7 @@ ACME_EMAIL=you@example.com
 loudly and asks for a second confirmation.
 
 A wildcard `A` record for `*.dev.example.com` must point at the host's public
-address: `dev-gateway dns setup`.
+address: `portta dns setup`.
 
 Firewall: 80 and 443 have to be open. Nothing else does. See
 [firewall.md](firewall.md).
@@ -89,14 +89,14 @@ cp config/traefik/dynamic/auth.example.yaml.disabled \
    config/traefik/dynamic/auth.yaml
 
 # generate a password hash without installing anything on the host
-dev-gateway toolbox run -- openssl passwd -apr1 'your-password'
+portta toolbox run -- openssl passwd -apr1 'your-password'
 ```
 
 Then opt a router in:
 
 ```yaml
 labels:
-  - "traefik.http.routers.web.middlewares=dev-gateway-basic-auth@file"
+  - "traefik.http.routers.web.middlewares=portta-basic-auth@file"
 ```
 
 The same file carries a `forwardAuth` middleware to point at your own identity
@@ -112,5 +112,5 @@ join your tailnet, or testing something that must see a public certificate.
 When the reason passes, turn it off:
 
 ```bash
-dev-gateway public disable
+portta public disable
 ```

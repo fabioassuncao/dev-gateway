@@ -1,23 +1,23 @@
 # Prompt 03 — Adaptação de projetos e execução paralela
 
-Continue no repositório `fabioassuncao/dev-gateway`.
+Continue no repositório `fabioassuncao/portta`.
 
 Não modifique nesta etapa nenhum projeto real externo.
 
-A missão é criar o **contrato oficial de adoção**, templates, exemplos, ferramentas e documentação que permitam adaptar Base Empresarial, outros projetos Brasil Data Hub ou qualquer repositório Docker futuro sem acoplá-los ao Dev Gateway.
+A missão é criar o **contrato oficial de adoção**, templates, exemplos, ferramentas e documentação que permitam adaptar Base Empresarial, outros projetos Brasil Data Hub ou qualquer repositório Docker futuro sem acoplá-los ao Portta.
 
 ---
 
 ## 1. Regra mais importante
 
-O Dev Gateway NÃO é um monorepo de infraestrutura dos projetos.
+O Portta NÃO é um monorepo de infraestrutura dos projetos.
 
 Os projetos continuam exatamente onde estão.
 
 Exemplo:
 
 ```text
-~/Projects/.../dev-gateway
+~/Projects/.../portta
 ~/Projects/.../base-empresarial
 ~/Projects/.../base-eleicoes
 ~/Projects/.../issue-flow
@@ -26,7 +26,7 @@ Exemplo:
 
 Cada um é independente.
 
-O único elemento global compartilhado é a infraestrutura do Dev Gateway.
+O único elemento global compartilhado é a infraestrutura do Portta.
 
 ---
 
@@ -39,7 +39,7 @@ Um projeto compatível deve:
 1. usar Docker/Compose;
 2. ter `COMPOSE_PROJECT_NAME` único;
 3. manter sua rede privada;
-4. declarar `dev-gateway` como rede externa;
+4. declarar `portta` como rede externa;
 5. conectar a ela somente serviços publicados;
 6. habilitar Traefik explicitamente;
 7. informar porta interna ao Traefik quando necessário;
@@ -53,18 +53,18 @@ Um projeto compatível deve:
 
 Avalie e adote preferencialmente uma abordagem de baixo acoplamento, como:
 
-`compose.dev-gateway.yaml`
+`compose.portta.yaml`
 
 O Compose principal do projeto deve continuar representando a aplicação.
 
-O overlay contém somente integração com o Dev Gateway quando possível.
+O overlay contém somente integração com o Portta quando possível.
 
 Exemplo de uso:
 
 ```bash
 docker compose \
   -f compose.yaml \
-  -f compose.dev-gateway.yaml \
+  -f compose.portta.yaml \
   up -d
 ```
 
@@ -94,7 +94,7 @@ services:
   web:
     networks:
       - default
-      - dev-gateway
+      - portta
     labels:
       traefik.enable: "true"
       # demais labels necessárias
@@ -102,14 +102,14 @@ services:
   api:
     networks:
       - default
-      - dev-gateway
+      - portta
     labels:
       traefik.enable: "true"
 
 networks:
-  dev-gateway:
+  portta:
     external: true
-    name: dev-gateway
+    name: portta
 ```
 
 Não copie cegamente.
@@ -205,13 +205,13 @@ base-empresarial-web.vpn.dev.example.com
 Crie:
 
 ```bash
-./bin/dev-gateway urls
+./bin/portta urls
 ```
 
 e, se útil:
 
 ```bash
-./bin/dev-gateway urls --project base-empresarial
+./bin/portta urls --project base-empresarial
 ```
 
 Descobrir via Docker/Traefik.
@@ -235,13 +235,13 @@ services/
   ...
 ```
 
-Um único Dev Gateway atende todos.
+Um único Portta atende todos.
 
 Cada monorepo continua responsável por seu próprio Compose.
 
-Não centralizar Dockerfiles no Dev Gateway.
+Não centralizar Dockerfiles no Portta.
 
-Não centralizar deploy dos projetos no Dev Gateway.
+Não centralizar deploy dos projetos no Portta.
 
 ---
 
@@ -249,8 +249,8 @@ Não centralizar deploy dos projetos no Dev Gateway.
 
 Deixe explícito:
 
-- PostgreSQL não precisa entrar na rede `dev-gateway`;
-- Redis não precisa entrar na rede `dev-gateway`;
+- PostgreSQL não precisa entrar na rede `portta`;
+- Redis não precisa entrar na rede `portta`;
 - OpenSearch não precisa entrar;
 - filas não precisam entrar.
 
@@ -276,7 +276,7 @@ Incluir regras:
 - nunca destruir bancos;
 - não alterar porta interna para "resolver" colisão;
 - usar namespace único;
-- usar Dev Gateway;
+- usar Portta;
 - respeitar redes privadas;
 - usar `doctor`;
 - identificar ownership antes de parar/remover um container;
@@ -292,7 +292,7 @@ Incluir regras:
 Implemente ferramenta read-only:
 
 ```bash
-./bin/dev-gateway analyze /path/to/project
+./bin/portta analyze /path/to/project
 ```
 
 Deve localizar Compose files e analisar:
@@ -320,13 +320,13 @@ Suportar saída humana e `--json`.
 Depois do analyzer, avalie:
 
 ```bash
-./bin/dev-gateway init /path/to/project
+./bin/portta init /path/to/project
 ```
 
 ou:
 
 ```bash
-./bin/dev-gateway adapt /path/to/project
+./bin/portta adapt /path/to/project
 ```
 
 Se implementar:
@@ -363,7 +363,7 @@ Templates são referências, não runtime central dos projetos.
 
 ## 14. Teste real de paralelismo
 
-Crie fixtures próprias do Dev Gateway:
+Crie fixtures próprias do Portta:
 
 ```text
 demo-a
@@ -404,8 +404,8 @@ Automatize verificações:
 - Postgres não aparece como router HTTP;
 - Redis não aparece como router HTTP;
 - serviço sem `traefik.enable=true` não fica exposto;
-- remover um projeto não remove `dev-gateway`;
-- `down` do Dev Gateway não destrói containers consumidores;
+- remover um projeto não remove `portta`;
+- `down` do Portta não destrói containers consumidores;
 - `up` do gateway redescobre consumidores existentes.
 
 ---
@@ -440,7 +440,7 @@ Inclua checklist.
 
 Crie template curto que possa ser copiado para cada projeto contendo:
 
-- pré-requisito: Dev Gateway ativo;
+- pré-requisito: Portta ativo;
 - comando para subir;
 - namespace;
 - URLs;
@@ -449,9 +449,9 @@ Crie template curto que possa ser copiado para cada projeto contendo:
 - como trabalhar em worktree;
 - troubleshooting.
 
-Não copie a documentação inteira do Dev Gateway para cada projeto.
+Não copie a documentação inteira do Portta para cada projeto.
 
-O Dev Gateway continua sendo a fonte central das regras.
+O Portta continua sendo a fonte central das regras.
 
 ---
 
@@ -477,4 +477,4 @@ Push para `origin/main`.
 
 ## Critério de conclusão
 
-A etapa termina quando outro agente consegue receber um repositório Docker desconhecido e, seguindo somente a documentação/ferramentas deste Dev Gateway, adaptá-lo sem mover o projeto e sem depender de portas exclusivas no host.
+A etapa termina quando outro agente consegue receber um repositório Docker desconhecido e, seguindo somente a documentação/ferramentas deste Portta, adaptá-lo sem mover o projeto e sem depender de portas exclusivas no host.

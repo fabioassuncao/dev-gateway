@@ -26,13 +26,13 @@ import {
   quoteDynamicValue,
   renderPanelAuth as renderSharedPanelAuth,
   UnsafeDynamicValueError,
-} from '@dev-gateway/core'
+} from 'portta-core'
 
 /** The whole write surface. Nothing is added here without an ADR. */
 export const GENERATED_FILES = {
-  panel: 'dev-gateway-panel.yaml',
-  shares: 'dev-gateway-shares.yaml',
-  aliases: 'dev-gateway-aliases.yaml',
+  panel: 'portta-panel.yaml',
+  shares: 'portta-shares.yaml',
+  aliases: 'portta-aliases.yaml',
 } as const
 
 export type GeneratedFile = (typeof GENERATED_FILES)[keyof typeof GENERATED_FILES]
@@ -109,7 +109,7 @@ export function writeGenerated(dir: string, name: string, contents: string): voi
   const path = dynamicPath(dir, name)
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 })
 
-  const temporary = join(dir, `.dg-${name}.${process.pid}.tmp`)
+  const temporary = join(dir, `.portta-${name}.${process.pid}.tmp`)
   try {
     writeFileSync(temporary, contents, { mode: 0o600 })
     renameSync(temporary, path)
@@ -130,10 +130,10 @@ export function removeGenerated(dir: string, name: string): void {
 }
 
 /**
- * Brings `dev-gateway-panel.yaml` in line with the settings the panel was
+ * Brings `portta-panel.yaml` in line with the settings the panel was
  * started with. Returns what happened, because a panel that could not write is
  * a diagnostic rather than a crash: on Linux the directory may well belong to
- * another user, and `dev-gateway web auth set` writes the same file from the
+ * another user, and `portta web auth set` writes the same file from the
  * host.
  */
 export function reconcilePanelAuth(

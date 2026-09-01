@@ -9,45 +9,45 @@ Every value has a default, so an empty `.env` still yields a working local
 gateway.
 
 ```bash
-dev-gateway inspect     # what the CLI actually resolved (secrets shown as <set>)
+portta inspect     # what the CLI actually resolved (secrets shown as <set>)
 ```
 
 ## Common
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DEV_GATEWAY_PROFILE` | `local` | Default profile for `up` |
-| `DEV_GATEWAY_PROJECT_NAME` | `dev-gateway` | Compose project name of the gateway itself |
-| `DEV_GATEWAY_NETWORK` | `dev-gateway` | Shared external network |
-| `DEV_GATEWAY_CONTROL_NETWORK` | `dev-gateway-control` | Internal Traefik ↔ socket proxy network |
-| `DEV_GATEWAY_ACCESS_NETWORK` | `dev-gateway-access` | Network for persistent TCP forwarders |
-| `DEV_GATEWAY_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN`, `ERROR` |
-| `DEV_GATEWAY_ACCESS_LOG` | `false` | Traefik access logs, useful when a route misbehaves |
+| `PORTTA_PROFILE` | `local` | Default profile for `up` |
+| `PORTTA_PROJECT_NAME` | `portta` | Compose project name of the gateway itself |
+| `PORTTA_NETWORK` | `portta` | Shared external network |
+| `PORTTA_CONTROL_NETWORK` | `portta-control` | Internal Traefik ↔ socket proxy network |
+| `PORTTA_ACCESS_NETWORK` | `portta-access` | Network for persistent TCP forwarders |
+| `PORTTA_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN`, `ERROR` |
+| `PORTTA_ACCESS_LOG` | `false` | Traefik access logs, useful when a route misbehaves |
 
-`DEV_GATEWAY_PROJECT_NAME` is load-bearing: ownership checks use it to tell
+`PORTTA_PROJECT_NAME` is load-bearing: ownership checks use it to tell
 gateway containers from everything else. Changing it orphans the running stack.
 
 ## Local profile
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DEV_GATEWAY_DOMAIN` | `localhost` | Base domain for generated hostnames |
-| `DEV_GATEWAY_BIND_ADDRESS` | `127.0.0.1` | Host interface Traefik publishes on |
-| `DEV_GATEWAY_HTTP_PORT` | `80` | Host port for HTTP |
-| `DEV_GATEWAY_HTTPS_PORT` | `443` | Host port for HTTPS |
+| `PORTTA_DOMAIN` | `localhost` | Base domain for generated hostnames |
+| `PORTTA_BIND_ADDRESS` | `127.0.0.1` | Host interface Traefik publishes on |
+| `PORTTA_HTTP_PORT` | `80` | Host port for HTTP |
+| `PORTTA_HTTPS_PORT` | `443` | Host port for HTTPS |
 
-`DEV_GATEWAY_BIND_ADDRESS` is the single most security-relevant setting here.
+`PORTTA_BIND_ADDRESS` is the single most security-relevant setting here.
 Loopback keeps the gateway invisible to everyone else on your network;
 `doctor` fails if the local profile is bound to anything else.
 
-If 80 is already taken, changing `DEV_GATEWAY_HTTP_PORT` to, say, `8080` means
+If 80 is already taken, changing `PORTTA_HTTP_PORT` to, say, `8080` means
 URLs become `http://demo-a-web.localhost:8080`.
 
 ## Header aliasing
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DEV_GATEWAY_ALIAS_HEADERS_STRATEGY` | `keep` | `keep`, `delete` or `reject` |
+| `PORTTA_ALIAS_HEADERS_STRATEGY` | `keep` | `keep`, `delete` or `reject` |
 
 Headers whose names contain characters outside `[A-Za-z0-9-]` can alias a
 canonical header once a backend normalises them (`X_Auth_User` becoming
@@ -63,9 +63,9 @@ by the public profile.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DEV_GATEWAY_DASHBOARD` | `false` | Enable Traefik's dashboard |
-| `DEV_GATEWAY_DASHBOARD_BIND_ADDRESS` | `127.0.0.1` | Interface for the dashboard port |
-| `DEV_GATEWAY_DASHBOARD_PORT` | `8080` | Host port |
+| `PORTTA_DASHBOARD` | `false` | Enable Traefik's dashboard |
+| `PORTTA_DASHBOARD_BIND_ADDRESS` | `127.0.0.1` | Interface for the dashboard port |
+| `PORTTA_DASHBOARD_PORT` | `8080` | Host port |
 
 The dashboard exposes your full routing table. It is served on its own port,
 never through the `web`/`websecure` entrypoints, so it can never appear under
@@ -76,9 +76,9 @@ address.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DEV_GATEWAY_TCP` | `false` | Publish one entrypoint per protocol and route on the hostname |
-| `DEV_GATEWAY_TCP_POSTGRES_PORT` | `5432` | Host port for the PostgreSQL entrypoint |
-| `DEV_GATEWAY_TCP_REDIS_PORT` | `6379` | Host port for the Redis entrypoint |
+| `PORTTA_TCP` | `false` | Publish one entrypoint per protocol and route on the hostname |
+| `PORTTA_TCP_POSTGRES_PORT` | `5432` | Host port for the PostgreSQL entrypoint |
+| `PORTTA_TCP_REDIS_PORT` | `6379` | Host port for the Redis entrypoint |
 
 Off by default, and opt-in twice: the gateway publishes the entrypoints, and a
 project's datastore has to carry the router labels before anything routes to
@@ -90,27 +90,27 @@ See [tcp-routing.md](tcp-routing.md).
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DEV_GATEWAY_WEB` | `false` | Start the administration panel with the gateway |
-| `DEV_GATEWAY_WEB_BIND_ADDRESS` | `127.0.0.1` | Interface the panel is published on |
-| `DEV_GATEWAY_WEB_PORT` | `8081` | Host port |
-| `DEV_GATEWAY_WEB_EXPOSE` | `local` | `local`, or `vpn` to add a Traefik router |
-| `DEV_GATEWAY_WEB_HOST` | `dev-gateway-web` | Hostname label used by `vpn` |
-| `DEV_GATEWAY_WEB_READ_ONLY` | `false` | Refuse every mutating endpoint |
-| `DEV_GATEWAY_WEB_DEV` | `false` | Development mode, Vite with HMR in front |
-| `DEV_GATEWAY_WEB_DEV_PORT` | `5173` | Vite's host port in development mode |
-| `DEV_GATEWAY_WEB_NETWORK` | `dev-gateway-web` | The panel's own internal control network |
-| `DEV_GATEWAY_WEB_USER` | `node` | User the container runs as |
-| `DEV_GATEWAY_DB_NETWORK` | `dev-gateway-data` | Internal panel-to-PostgreSQL network |
-| `DEV_GATEWAY_DB_VOLUME` | `dev-gateway-db` | Named volume holding panel data |
-| `DG_WEB_DB_PASSWORD` | generated | **Secret.** Panel PostgreSQL credential |
-| `DG_WEB_DATABASE_URL` | empty | Development/test bootstrap override; normally Compose supplies it |
+| `PORTTA_WEB` | `false` | Start the administration panel with the gateway |
+| `PORTTA_WEB_BIND_ADDRESS` | `127.0.0.1` | Interface the panel is published on |
+| `PORTTA_WEB_PORT` | `8081` | Host port |
+| `PORTTA_WEB_EXPOSE` | `local` | `local`, or `vpn` to add a Traefik router |
+| `PORTTA_WEB_HOST` | `portta-web` | Hostname label used by `vpn` |
+| `PORTTA_WEB_READ_ONLY` | `false` | Refuse every mutating endpoint |
+| `PORTTA_WEB_DEV` | `false` | Development mode, Vite with HMR in front |
+| `PORTTA_WEB_DEV_PORT` | `5173` | Vite's host port in development mode |
+| `PORTTA_WEB_NETWORK` | `portta-web` | The panel's own internal control network |
+| `PORTTA_WEB_USER` | `node` | User the container runs as |
+| `PORTTA_DB_NETWORK` | `portta-data` | Internal panel-to-PostgreSQL network |
+| `PORTTA_DB_VOLUME` | `portta-db` | Named volume holding panel data |
+| `PORTTA_RUNTIME_DB_PASSWORD` | generated | **Secret.** Panel PostgreSQL credential |
+| `PORTTA_RUNTIME_DATABASE_URL` | empty | Development/test bootstrap override; normally Compose supplies it |
 
 The panel has no authentication, so it binds loopback and is never routed
-through the public entrypoints. `DEV_GATEWAY_WEB_EXPOSE=vpn` is refused on the
-`remote-public` profile. On a Linux host set `DEV_GATEWAY_WEB_USER` to
+through the public entrypoints. `PORTTA_WEB_EXPOSE=vpn` is refused on the
+`remote-public` profile. On a Linux host set `PORTTA_WEB_USER` to
 `$(id -u):$(id -g)` if you want the Settings page to be able to write `.env`.
 
-`dev-gateway web up` sets these for you and generates the database credential
+`portta web up` sets these for you and generates the database credential
 without printing it. PostgreSQL publishes no host port and remains a soft
 dependency: the Docker-backed panel still starts if it is unavailable. See
 [web-ui.md](web-ui.md) and [persistence.md](persistence.md).
@@ -135,7 +135,7 @@ Let's Encrypt rate limits are unforgiving.
 | Variable | Default | Meaning |
 |---|---|---|
 | `TAILSCALE_ENABLED` | `false` | Run the Tailscale component |
-| `TAILSCALE_HOSTNAME` | `dev-gateway` | Node name on the tailnet |
+| `TAILSCALE_HOSTNAME` | `portta` | Node name on the tailnet |
 | `TS_AUTHKEY` | — | **Secret.** Prefer an ephemeral, tagged, pre-authorized key |
 | `TS_EXTRA_ARGS` | — | Extra flags for `tailscale up` |
 | `PRIVATE_DOMAIN` | — | Wildcard namespace served over the VPN |
@@ -147,7 +147,7 @@ Let's Encrypt rate limits are unforgiving.
 | `PUBLIC_ENABLED` | `false` | Opt in to internet exposure |
 | `PUBLIC_DOMAIN` | — | Public wildcard, e.g. `dev.example.com` |
 
-Off by default and deliberately awkward to turn on. `dev-gateway public enable`
+Off by default and deliberately awkward to turn on. `portta public enable`
 prints exactly what will become reachable and asks for confirmation.
 
 ## Cloudflare

@@ -119,7 +119,7 @@ describe('the workspace list', () => {
 describe('one workspace', () => {
   it('says why each environment was adopted', async () => {
     renderWithQuery(<WorkspacePage slug="meu-produto" />)
-    expect(await screen.findByText('declared by its dev-gateway.project label')).toBeInTheDocument()
+    expect(await screen.findByText('declared by its portta.project label')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'alpha' })).toHaveAttribute('href', '#/projects/alpha')
   })
 

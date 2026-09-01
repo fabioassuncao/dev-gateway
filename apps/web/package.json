@@ -1,8 +1,8 @@
 {
-  "name": "dev-gateway-web",
+  "name": "portta-web",
   "version": "0.1.0",
   "private": true,
-  "description": "Administration panel for the Dev Gateway",
+  "description": "Administration panel for Portta",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -24,7 +24,7 @@
     "screenshots": "npm run build && node e2e/screenshots.mjs"
   },
   "dependencies": {
-    "@dev-gateway/core": "0.1.0",
+    "portta-core": "0.1.0",
     "@hono/node-server": "2.1.1",
     "@hono/standard-validator": "0.2.0",
     "@standard-community/standard-json": "0.3.5",

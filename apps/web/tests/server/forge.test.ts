@@ -17,7 +17,7 @@ describe('parseRemote', () => {
     }
   })
 
-  it('takes the bare owner/name a dev-gateway.repo label may carry', () => {
+  it('takes the bare owner/name a portta.repo label may carry', () => {
     expect(parseRemote('owner/repo')).toMatchObject({
       host: 'github.com',
       slug: 'owner/repo',

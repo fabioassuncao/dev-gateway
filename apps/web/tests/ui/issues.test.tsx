@@ -110,7 +110,7 @@ describe('the environments an issue is worked in', () => {
     const { IssueDialog } = await import('../../src/ui/components/issue-dialog.tsx')
     renderWithQuery(<IssueDialog mode="edit" issue={issue()} open onOpenChange={() => {}} />)
     expect(screen.getByText(/No environment is linked to this issue/)).toBeInTheDocument()
-    expect(screen.getByText('dev-gateway.issue')).toBeInTheDocument()
+    expect(screen.getByText('portta.issue')).toBeInTheDocument()
   })
 
   it('explains why each environment is linked, and offers its logs', async () => {

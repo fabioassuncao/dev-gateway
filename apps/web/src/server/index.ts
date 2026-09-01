@@ -18,7 +18,7 @@ import { GitHubIntegration } from './integrations/github/index.ts'
 const config = loadConfig()
 
 // The panel's own BasicAuth middleware lives in a file Traefik watches. It is
-// rendered here as well as by `dev-gateway web auth set`, so a panel started
+// rendered here as well as by `portta web auth set`, so a panel started
 // with a credential in .env is never behind a stale one. A directory the panel
 // cannot write is a diagnostic, not a reason to refuse to start: on Linux it
 // may well belong to another user, and the CLI writes the same file.
@@ -30,7 +30,7 @@ const rendered = reconcilePanelAuth(config.dynamicDir, {
 if (rendered.written) {
   process.stdout.write(`wrote ${GENERATED_FILES.panel}: ${rendered.reason}\n`)
 } else if (config.webAuth === 'basic' && !isAuthenticated(config)) {
-  process.stdout.write('DEV_GATEWAY_WEB_AUTH=basic without a credential: run dev-gateway web auth set\n')
+  process.stdout.write('PORTTA_WEB_AUTH=basic without a credential: run portta web auth set\n')
 }
 
 const client = new DockerClient(config.dockerApi)
@@ -83,7 +83,7 @@ if (existsSync(indexHtml)) {
   app.get('/', (c) =>
     c.text(
       'The panel UI is not built in this image.\n' +
-        'In development the UI is served by Vite; run: dev-gateway web dev\n',
+        'In development the UI is served by Vite; run: portta web dev\n',
       200,
     ),
   )
@@ -93,7 +93,7 @@ hub.start()
 
 const server = serve({ fetch: app.fetch, hostname: config.host, port: config.port }, (info) => {
   process.stdout.write(
-    `dev-gateway panel ${config.panelVersion} listening on http://${config.host}:${info.port}\n`,
+    `portta panel ${config.panelVersion} listening on http://${config.host}:${info.port}\n`,
   )
   process.stdout.write(`docker api: ${config.dockerApi}\n`)
 })

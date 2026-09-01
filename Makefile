@@ -1,10 +1,10 @@
-# Dev Gateway: convenience wrapper around ./bin/dev-gateway.
+# Portta: convenience wrapper around ./bin/portta.
 #
 # Make is a shortcut, never a requirement: every target below is a one-line
 # call to the CLI, which is the stable operational contract.
 
 SHELL := /bin/bash
-GW    := ./bin/dev-gateway
+GW    := ./bin/portta
 
 .DEFAULT_GOAL := help
 
@@ -13,7 +13,7 @@ GW    := ./bin/dev-gateway
         demo-up demo-up-all demo-down demo-down-all
 
 help: ## Show this help
-	@printf 'Dev Gateway make targets\n\n'
+	@printf 'Portta make targets\n\n'
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
 	  | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 	@printf '\nEverything here just calls %s.\n' '$(GW)'
@@ -70,21 +70,21 @@ test-all: ## Everything
 	@./tests/run.sh --all
 
 demo-up: ## Start every adopted demo (site, shop, monorepo, a, b)
-	@cd docker/examples/demo-a && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
-	@cd docker/examples/demo-b && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
-	@cd docker/examples/demo-site && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
-	@cd docker/examples/demo-shop && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
-	@cd docker/examples/demo-monorepo && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+	@cd docker/examples/demo-a && docker compose -f compose.yaml -f compose.portta.yaml up -d
+	@cd docker/examples/demo-b && docker compose -f compose.yaml -f compose.portta.yaml up -d
+	@cd docker/examples/demo-site && docker compose -f compose.yaml -f compose.portta.yaml up -d
+	@cd docker/examples/demo-shop && docker compose -f compose.yaml -f compose.portta.yaml up -d
+	@cd docker/examples/demo-monorepo && docker compose -f compose.yaml -f compose.portta.yaml up -d
 	@$(GW) urls
 
 demo-up-all: demo-up ## Alias for demo-up
 
 demo-down: ## Stop every example stack (including external) and drop volumes
-	@cd docker/examples/demo-a && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
-	@cd docker/examples/demo-b && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
-	@cd docker/examples/demo-site && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
-	@cd docker/examples/demo-shop && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
-	@cd docker/examples/demo-monorepo && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
+	@cd docker/examples/demo-a && docker compose -f compose.yaml -f compose.portta.yaml down -v
+	@cd docker/examples/demo-b && docker compose -f compose.yaml -f compose.portta.yaml down -v
+	@cd docker/examples/demo-site && docker compose -f compose.yaml -f compose.portta.yaml down -v
+	@cd docker/examples/demo-shop && docker compose -f compose.yaml -f compose.portta.yaml down -v
+	@cd docker/examples/demo-monorepo && docker compose -f compose.yaml -f compose.portta.yaml down -v
 	@cd docker/examples/demo-external && docker compose down -v
 
 demo-down-all: demo-down ## Alias for demo-down

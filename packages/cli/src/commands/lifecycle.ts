@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseAliases, projectsFor, routesFor, type StoredAlias } from '@dev-gateway/core'
+import { parseAliases, projectsFor, routesFor, type StoredAlias } from 'portta-core'
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
 import { ensureNetwork, inspectContainers, networkExists, requireDocker } from '../docker.js'
@@ -21,7 +21,7 @@ async function compose(command: Command, args: string[], stdio: 'inherit' | 'pip
 
 export async function versionCommand(command: Command): Promise<void> {
   const context = gatewayContext({ required: false })
-  new Output(globals(command)).data(`dev-gateway ${context.version}`)
+  new Output(globals(command)).data(`portta ${context.version}`)
 }
 
 export async function bootstrapCommand(options: { skipPull?: boolean }, command: Command): Promise<void> {
@@ -73,8 +73,8 @@ export async function inspectCommand(command: Command): Promise<void> {
   const options = globals(command)
   const context = gatewayContext({ profile: options.profile })
   const output = new Output(options)
-  const secrets = new Set(['TS_AUTHKEY', 'CLOUDFLARE_API_TOKEN', 'DG_WEB_DB_PASSWORD', 'DEV_GATEWAY_WEB_AUTH_HASH'])
-  const configuration = Object.fromEntries(Object.entries(context.env).filter(([key]) => key.startsWith('DEV_GATEWAY_') || ['TLS_ENABLED', 'TLS_MODE', 'PUBLIC_DOMAIN', 'PRIVATE_DOMAIN', 'TAILSCALE_ENABLED'].includes(key)).map(([key, value]) => [key, secrets.has(key) ? (value ? '<set>' : '<unset>') : value]))
+  const secrets = new Set(['TS_AUTHKEY', 'CLOUDFLARE_API_TOKEN', 'PORTTA_RUNTIME_DB_PASSWORD', 'PORTTA_WEB_AUTH_HASH'])
+  const configuration = Object.fromEntries(Object.entries(context.env).filter(([key]) => key.startsWith('PORTTA_') || ['TLS_ENABLED', 'TLS_MODE', 'PUBLIC_DOMAIN', 'PRIVATE_DOMAIN', 'TAILSCALE_ENABLED'].includes(key)).map(([key, value]) => [key, secrets.has(key) ? (value ? '<set>' : '<unset>') : value]))
   if (output.json) output.data({ profile: context.config.profile, configuration, composeFiles: context.composeFiles })
   else {
     output.line(`profile: ${context.config.profile}`)
@@ -88,7 +88,7 @@ export async function statusCommand(command: Command): Promise<void> {
   const context = gatewayContext({ profile: options.profile })
   const containers = await inspectContainers()
   const routes = routesFor(containers, context.config.domain, context.config.tlsEnabled ? 'https' : 'http')
-  const gateway = containers.filter((container) => container.labels['dev-gateway.managed'] === 'true')
+  const gateway = containers.filter((container) => container.labels['portta.managed'] === 'true')
   const status = {
     version: context.version,
     instance: { name: context.config.projectName },
@@ -96,7 +96,7 @@ export async function statusCommand(command: Command): Promise<void> {
     domain: context.config.domain,
     bindAddress: context.config.bindAddress,
     network: { name: context.config.network, exists: await networkExists(context.config.network) },
-    components: gateway.map((container) => ({ name: container.name, state: container.state, component: container.labels['dev-gateway.component'] ?? null })),
+    components: gateway.map((container) => ({ name: container.name, state: container.state, component: container.labels['portta.component'] ?? null })),
     projectCount: projectsFor(containers, context.config.domain, context.config.tlsEnabled ? 'https' : 'http').length,
     routeCount: routes.length,
     tls: context.config.tlsEnabled,
@@ -105,7 +105,7 @@ export async function statusCommand(command: Command): Promise<void> {
   const output = new Output(options)
   if (output.json) output.data(status)
   else {
-    output.line(`dev-gateway ${status.version} · ${status.profile} · ${status.domain}`)
+    output.line(`portta ${status.version} · ${status.profile} · ${status.domain}`)
     output.line(`network ${status.network.exists ? 'ready' : 'missing'} · ${status.components.length} components · ${status.routeCount} routes`)
     for (const component of status.components) output.line(`${component.component ?? component.name}\t${component.state}`)
   }
@@ -135,7 +135,7 @@ export async function doctorCommand(command: Command): Promise<void> {
   const composeVersion = await runProcess('docker', ['compose', 'version', '--short'], { reject: false })
   checks.push(composeVersion.exitCode === 0 ? { id: 'compose', status: 'pass', message: `Compose ${composeVersion.stdout}` } : { id: 'compose', status: 'fail', message: 'Compose v2 is unavailable', fix: 'install the Docker Compose plugin' })
   checks.push({ id: 'env', status: existsSync(join(context.root, '.env')) ? 'pass' : 'fail', message: existsSync(join(context.root, '.env')) ? '.env exists' : '.env is missing', fix: 'copy .env.example to .env' })
-  if (docker.exitCode === 0) checks.push({ id: 'network', status: await networkExists(context.config.network) ? 'pass' : 'fail', message: `shared network ${context.config.network}`, fix: 'run dev-gateway bootstrap' })
+  if (docker.exitCode === 0) checks.push({ id: 'network', status: await networkExists(context.config.network) ? 'pass' : 'fail', message: `shared network ${context.config.network}`, fix: 'run portta bootstrap' })
   for (const file of context.composeFiles) checks.push({ id: `compose:${file}`, status: existsSync(join(context.root, file)) ? 'pass' : 'fail', message: `${file} exists` })
   // An alias pins a container name, so a recreated environment leaves a router
   // pointing at nothing. Traefik reports no error for that; this does.
@@ -162,7 +162,7 @@ export async function doctorCommand(command: Command): Promise<void> {
  * the same routing the panel wrote instead of disagreeing with it.
  */
 export function readAliases(root: string): StoredAlias[] {
-  const path = join(root, 'config/traefik/dynamic/dev-gateway-aliases.yaml')
+  const path = join(root, 'config/traefik/dynamic/portta-aliases.yaml')
   if (!existsSync(path)) return []
   try { return parseAliases(readFileSync(path, 'utf8')) } catch { return [] }
 }

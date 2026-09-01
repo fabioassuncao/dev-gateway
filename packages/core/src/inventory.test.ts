@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { projectsFor, routesFor, type ContainerRecord } from './inventory.js'
 
 const container: ContainerRecord = {
-  id: '1', name: 'shop-web-1', image: 'nginx:1', state: 'running', ports: [], networks: ['dev-gateway'],
+  id: '1', name: 'shop-web-1', image: 'nginx:1', state: 'running', ports: [], networks: ['portta'],
   labels: { 'traefik.enable': 'true', 'com.docker.compose.project': 'shop', 'com.docker.compose.service': 'web' },
 }
 

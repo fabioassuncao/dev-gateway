@@ -29,7 +29,7 @@ community converged on.
 Option C, as the default for `remote-private`. Option A remains supported and
 documented for hosts that need a host-native Tailscale anyway (subnet routing,
 Tailscale SSH to the host, exit-node behaviour). Set `TAILSCALE_ENABLED=false`
-and point `DEV_GATEWAY_BIND_ADDRESS` at the tailnet address.
+and point `PORTTA_BIND_ADDRESS` at the tailnet address.
 
 Three settings follow from the choice and are not optional:
 
@@ -54,7 +54,7 @@ because Docker's published ports bypass UFW.
 
 Costs: Traefik cannot have its own published ports in this mode, so the public
 profile publishes on the Tailscale container instead, which is why
-`DEV_GATEWAY_BIND_ADDRESS` is interpreted by whichever container owns the
+`PORTTA_BIND_ADDRESS` is interpreted by whichever container owns the
 namespace. The dashboard overlay needs a Tailscale-flavoured twin for the same
 reason. And `doctor` has to verify the namespace sharing explicitly, because a
 Traefik that quietly failed to join it looks healthy while being unreachable.

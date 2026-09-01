@@ -1,10 +1,10 @@
-Implemente um **painel web de administração do Dev Gateway**, voltado exclusivamente para facilitar o desenvolvimento local e remoto por humanos e agentes de IA.
+Implemente um **painel web de administração do Portta**, voltado exclusivamente para facilitar o desenvolvimento local e remoto por humanos e agentes de IA.
 
 O painel deve ser simples, rápido, amigável e totalmente containerizado. Não deve se transformar em uma plataforma complexa de administração de infraestrutura ou gerenciamento geral de Docker.
 
 ## Objetivo
 
-Permitir que o usuário visualize e gerencie, de forma simples, tudo que está conectado ao Dev Gateway:
+Permitir que o usuário visualize e gerencie, de forma simples, tudo que está conectado ao Portta:
 
 * projetos ativos;
 * containers e serviços;
@@ -12,13 +12,13 @@ Permitir que o usuário visualize e gerencie, de forma simples, tudo que está c
 * URLs pela VPN/Tailscale;
 * URLs públicas, quando habilitadas;
 * domínios e DNS utilizados;
-* status do Traefik/Dev Gateway;
+* status do Traefik/Portta;
 * redes;
 * bridges/túneis ativos;
 * serviços TCP como PostgreSQL e Redis;
 * configurações principais do gateway.
 
-Além disso, o painel deve também permitir **visualizar todos os demais containers Docker em execução no host**, mesmo que não estejam conectados à rede do Dev Gateway.
+Além disso, o painel deve também permitir **visualizar todos os demais containers Docker em execução no host**, mesmo que não estejam conectados à rede do Portta.
 
 Esses containers externos devem aparecer principalmente para fins de:
 
@@ -31,7 +31,7 @@ Esses containers externos devem aparecer principalmente para fins de:
 
 O painel deve complementar a CLI existente, não substituí-la.
 
-CLI e painel devem operar sobre as mesmas regras e capacidades do Dev Gateway.
+CLI e painel devem operar sobre as mesmas regras e capacidades do Portta.
 
 ---
 
@@ -65,11 +65,11 @@ Referência:
 
 https://hono.dev/
 
-O backend deve funcionar como uma camada fina entre a interface e as capacidades já existentes do Dev Gateway.
+O backend deve funcionar como uma camada fina entre a interface e as capacidades já existentes do Portta.
 
 Não duplique lógica que já exista em:
 
-`./bin/dev-gateway`
+`./bin/portta`
 
 ou nos scripts internos do projeto.
 
@@ -88,12 +88,12 @@ React UI
    |
 HTTP API
    |
-Dev Gateway Core
+Portta Core
    |
 Docker / Traefik / Tailscale
 ```
 
-O painel deve executar como parte do próprio Dev Gateway, mas continuar completamente desacoplado dos projetos consumidores.
+O painel deve executar como parte do próprio Portta, mas continuar completamente desacoplado dos projetos consumidores.
 
 Projetos externos não devem precisar instalar dependências do painel.
 
@@ -128,7 +128,7 @@ Caso posteriormente seja permitido acesso público, isso deverá ser explicitame
 
 A tela inicial deve responder rapidamente:
 
-* Dev Gateway está funcionando?
+* Portta está funcionando?
 * Quantos projetos estão ativos?
 * Quantos serviços estão ativos?
 * Quantos estão saudáveis?
@@ -137,8 +137,8 @@ A tela inicial deve responder rapidamente:
 * Existe domínio público configurado?
 * Existem problemas detectados?
 * Quantos containers Docker estão rodando no host?
-* Quantos pertencem ao Dev Gateway?
-* Quantos estão fora do Dev Gateway?
+* Quantos pertencem ao Portta?
+* Quantos estão fora do Portta?
 
 Evite dashboards cheios de gráficos desnecessários.
 
@@ -182,11 +182,11 @@ Para cada projeto, mostrar quando disponível:
 
 ---
 
-# Containers fora do Dev Gateway
+# Containers fora do Portta
 
 O painel também deve possuir uma visão simples dos **demais containers Docker existentes no host**, mesmo que:
 
-* não estejam conectados à rede `dev-gateway`;
+* não estejam conectados à rede `portta`;
 * não possuam labels Traefik;
 * não pertençam a um projeto integrado;
 * tenham sido iniciados manualmente;
@@ -218,12 +218,12 @@ Mostrar informações básicas como:
 * Compose project, se identificável;
 * labels relevantes;
 * consumo básico de recursos somente se isso for simples de obter;
-* se pertence ou não ao Dev Gateway.
+* se pertence ou não ao Portta.
 
 Use indicação visual clara:
 
 ```text
-Dev Gateway
+Portta
 External
 Standalone
 ```
@@ -238,7 +238,7 @@ Não misture visualmente containers externos com projetos oficialmente integrado
 
 O painel não deve virar uma ferramenta avançada de gerenciamento Docker.
 
-Para containers que não pertencem ao Dev Gateway, permitir no máximo operações simples:
+Para containers que não pertencem ao Portta, permitir no máximo operações simples:
 
 * visualizar detalhes básicos;
 * visualizar logs recentes;
@@ -275,7 +275,7 @@ A finalidade é somente diagnóstico e operações simples.
 
 # Serviços
 
-Para cada serviço do Dev Gateway mostrar informações úteis como:
+Para cada serviço do Portta mostrar informações úteis como:
 
 * nome;
 * imagem;
@@ -319,7 +319,7 @@ Mostrar claramente a diferença entre:
 * VPN;
 * Público.
 
-O painel deve obter essas informações através do estado real do Dev Gateway/Traefik, evitando manter uma segunda fonte de verdade.
+O painel deve obter essas informações através do estado real do Portta/Traefik, evitando manter uma segunda fonte de verdade.
 
 ---
 
@@ -335,7 +335,7 @@ Para PostgreSQL, Redis e equivalentes, mostrar:
 * status;
 * bridges ativos.
 
-Permitir iniciar um TCP Access Bridge utilizando as capacidades existentes do Dev Gateway.
+Permitir iniciar um TCP Access Bridge utilizando as capacidades existentes do Portta.
 
 Exemplo:
 
@@ -390,7 +390,7 @@ Para projetos:
 * abrir URLs;
 * visualizar serviços.
 
-Para o Dev Gateway:
+Para o Portta:
 
 * restart;
 * status;
@@ -404,7 +404,7 @@ Antes de ações destrutivas como remover container:
 
 * mostrar confirmação;
 * identificar claramente o recurso;
-* identificar se pertence ao Dev Gateway ou é externo;
+* identificar se pertence ao Portta ou é externo;
 * preservar volumes;
 * não remover recursos relacionados automaticamente.
 
@@ -424,7 +424,7 @@ Nunca oferecer diretamente:
 Permitir visualizar logs recentes de:
 
 * Traefik;
-* Dev Gateway;
+* Portta;
 * containers integrados;
 * containers externos;
 * Tailscale;
@@ -453,11 +453,11 @@ Ela deve permitir entender rapidamente:
 
 ```text
 Containers: 18 running
-Dev Gateway: 11
+Portta: 11
 External: 7
 
 Networks: 14
-Dev Gateway network: healthy
+Portta network: healthy
 
 Published ports:
 3001
@@ -471,7 +471,7 @@ Essa área é especialmente útil para identificar:
 * conflito de porta;
 * containers esquecidos;
 * serviços iniciados fora do padrão;
-* containers que poderiam ser migrados posteriormente para Dev Gateway.
+* containers que poderiam ser migrados posteriormente para Portta.
 
 Não transformar essa página em gerenciamento completo de Docker.
 
@@ -483,7 +483,7 @@ Permitir filtros simples:
 
 ```text
 All
-Dev Gateway
+Portta
 External
 Running
 Stopped
@@ -503,7 +503,7 @@ Isso deve permitir que humanos e agentes localizem rapidamente um recurso.
 
 # Configurações
 
-O painel deve permitir editar as configurações mais comuns do Dev Gateway.
+O painel deve permitir editar as configurações mais comuns do Portta.
 
 Exemplos:
 
@@ -524,7 +524,7 @@ Tokens e credenciais devem:
 * permanecer ocultos;
 * nunca ser retornados completos pela API;
 * nunca aparecer em logs;
-* utilizar o mecanismo seguro já adotado pelo Dev Gateway.
+* utilizar o mecanismo seguro já adotado pelo Portta.
 
 Antes de aplicar mudanças:
 
@@ -542,7 +542,7 @@ Antes de adicionar banco, analise se realmente existe estado que precisa ser arm
 
 Prefira inicialmente:
 
-1. configuração existente do Dev Gateway;
+1. configuração existente do Portta;
 2. arquivos estruturados;
 3. SQLite somente quando houver necessidade real.
 
@@ -676,7 +676,7 @@ Visão geral.
 
 ## Projects
 
-Projetos integrados ao Dev Gateway.
+Projetos integrados ao Portta.
 
 ## Services
 
@@ -710,7 +710,7 @@ Ajuste se encontrar uma estrutura mais simples.
 
 Frontend e backend devem ser executados em containers.
 
-O painel deve integrar-se ao Compose do próprio Dev Gateway.
+O painel deve integrar-se ao Compose do próprio Portta.
 
 Preferencialmente oferecer um único endpoint para o usuário, com backend servindo os assets do frontend em produção, se isso simplificar a arquitetura.
 
@@ -727,10 +727,10 @@ Forneça comandos simples.
 Exemplo:
 
 ```bash
-./bin/dev-gateway web
-./bin/dev-gateway web open
-./bin/dev-gateway web logs
-./bin/dev-gateway web restart
+./bin/portta web
+./bin/portta web open
+./bin/portta web logs
+./bin/portta web restart
 ```
 
 ou nomenclatura melhor.
@@ -745,7 +745,7 @@ O painel precisa enxergar containers externos, portanto precisa consultar inform
 
 Isso NÃO significa conceder acesso irrestrito ao Docker socket.
 
-Reutilize a arquitetura segura existente do Dev Gateway.
+Reutilize a arquitetura segura existente do Portta.
 
 O backend deve possuir somente as capacidades necessárias para:
 
@@ -775,9 +775,9 @@ Se o socket proxy atual precisar de permissões adicionais, documente e conceda 
 
 É importante distinguir claramente:
 
-### Managed by Dev Gateway
+### Managed by Portta
 
-Serviços e projetos integrados ao Dev Gateway.
+Serviços e projetos integrados ao Portta.
 
 Podem apresentar:
 
@@ -789,7 +789,7 @@ Podem apresentar:
 
 ### External Docker
 
-Containers presentes no Docker host, mas fora do Dev Gateway.
+Containers presentes no Docker host, mas fora do Portta.
 
 Mostrar somente:
 
@@ -798,7 +798,7 @@ Mostrar somente:
 * logs;
 * ações básicas.
 
-Evite dar ao usuário a impressão de que o Dev Gateway gerencia a configuração desses containers.
+Evite dar ao usuário a impressão de que o Portta gerencia a configuração desses containers.
 
 ---
 
@@ -890,7 +890,7 @@ Não implementar agora:
 * criação arbitrária de containers;
 * substituto para Portainer/Docker Desktop.
 
-O painel existe apenas para facilitar o uso cotidiano do Dev Gateway.
+O painel existe apenas para facilitar o uso cotidiano do Portta.
 
 ---
 
@@ -898,7 +898,7 @@ O painel existe apenas para facilitar o uso cotidiano do Dev Gateway.
 
 Considere a primeira versão concluída quando o usuário puder:
 
-1. verificar se o Dev Gateway está saudável;
+1. verificar se o Portta está saudável;
 2. visualizar todos os projetos integrados;
 3. visualizar seus serviços;
 4. identificar URLs local/VPN/public;
@@ -908,7 +908,7 @@ Considere a primeira versão concluída quando o usuário puder:
 8. visualizar logs;
 9. restartar serviços;
 10. visualizar todos os demais containers Docker do host;
-11. identificar claramente quais pertencem ou não ao Dev Gateway;
+11. identificar claramente quais pertencem ou não ao Portta;
 12. restartar/parar/iniciar um container externo;
 13. remover um container externo com segurança e confirmação;
 14. identificar possíveis conflitos de portas;
@@ -918,6 +918,6 @@ Considere a primeira versão concluída quando o usuário puder:
 
 A prioridade é entregar uma ferramenta **pequena, funcional, previsível, rápida e fácil de manter**.
 
-O painel deve tornar o Dev Gateway mais agradável para humanos e agentes de IA sem tentar substituir ferramentas completas de administração Docker.
+O painel deve tornar o Portta mais agradável para humanos e agentes de IA sem tentar substituir ferramentas completas de administração Docker.
 
 Evite overengineering.

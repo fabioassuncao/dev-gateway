@@ -1,7 +1,7 @@
 # ============================================================================
-# Dev Gateway: panel in development mode
+# Portta: panel in development mode
 # ============================================================================
-# Applied when DEV_GATEWAY_WEB_DEV=true, or by `dev-gateway web dev`.
+# Applied when PORTTA_WEB_DEV=true, or by `portta web dev`.
 #
 # Two containers from the same image: the API with `node --watch`, and Vite
 # with HMR in front of it. Only source directories are bind-mounted, so the
@@ -14,9 +14,9 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       target: dev
-    image: dev-gateway-web:dev
+    image: fabioassuncao/portta:dev
     # The package script, never a restated command line: it carries
-    # `--conditions=development`, without which @dev-gateway/core resolves to a
+    # `--conditions=development`, without which portta-core resolves to a
     # dist/ the dev image does not build.
     command: ["npm", "run", "dev"]
     environment:
@@ -33,16 +33,16 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       target: dev
-    image: dev-gateway-web:dev
+    image: fabioassuncao/portta:dev
     restart: unless-stopped
     depends_on:
       - web
-    user: ${DEV_GATEWAY_WEB_USER:-node}
+    user: ${PORTTA_WEB_USER:-node}
     command: ["npm", "run", "dev:ui"]
     environment:
       NODE_ENV: development
       # Vite proxies /api to the API container beside it.
-      DG_WEB_API_TARGET: http://web:8081
+      PORTTA_RUNTIME_API_TARGET: http://web:8081
     volumes:
       - ./apps/web/src:/app/apps/web/src
       - ./apps/web/vite.config.ts:/app/apps/web/vite.config.ts:ro
@@ -54,8 +54,8 @@ services:
       # at `web:8081` here just as well.
       - gateway
     ports:
-      - "${DEV_GATEWAY_WEB_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_WEB_DEV_PORT:-5173}:5173"
+      - "${PORTTA_WEB_BIND_ADDRESS:-127.0.0.1}:${PORTTA_WEB_DEV_PORT:-5173}:5173"
     labels:
       traefik.enable: "false"
-      dev-gateway.managed: "true"
-      dev-gateway.component: web-ui
+      portta.managed: "true"
+      portta.component: web-ui

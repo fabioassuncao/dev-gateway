@@ -12,7 +12,7 @@ await build({
   outfile: resolve(output, 'cli.js'),
   bundle: true,
   packages: 'external',
-  alias: { '@dev-gateway/core': resolve(root, '../core/src/index.ts') },
+  alias: { 'portta-core': resolve(root, '../core/src/index.ts') },
   platform: 'node',
   format: 'esm',
   target: 'node22',

@@ -55,7 +55,7 @@ function collected(overrides: Partial<ProjectGit> = {}): ProjectGit {
     },
     forge: null,
     reason: null,
-    refreshCommand: './bin/dev-gateway git scan --project alpha',
+    refreshCommand: './bin/portta git scan --project alpha',
     ...overrides,
   }
 }
@@ -106,7 +106,7 @@ describe('the Git card', () => {
   it('shows the host command when nobody has scanned yet', async () => {
     projectGit.mockResolvedValue(collected({ collected: false, git: null, collectedAt: null }))
     renderWithQuery(<GitCard project="alpha" />)
-    expect(await screen.findByText('./bin/dev-gateway git scan --project alpha')).toBeInTheDocument()
+    expect(await screen.findByText('./bin/portta git scan --project alpha')).toBeInTheDocument()
   })
 
   it('renders nothing at all for a project without Git', async () => {

@@ -41,6 +41,6 @@ describe('locale switching', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: /Português/ }))
 
     expect(document.documentElement.lang).toBe('pt-BR')
-    expect(localStorage.getItem('dg-locale')).toBe('pt-BR')
+    expect(localStorage.getItem('portta-locale')).toBe('pt-BR')
   })
 })

@@ -56,7 +56,7 @@ function passwordHash(value: string): string | null {
   if (value === '') return null
   return isSupportedHash(value)
     ? null
-    : 'must be an apr1, bcrypt or SHA1 hash; run: dev-gateway web auth set'
+    : 'must be an apr1, bcrypt or SHA1 hash; run: portta web auth set'
 }
 
 function email(value: string): string | null {
@@ -76,7 +76,7 @@ function url(value: string): string | null {
 
 export const FIELDS: FieldSpec[] = [
   {
-    key: 'DEV_GATEWAY_PROFILE',
+    key: 'PORTTA_PROFILE',
     group: 'Gateway',
     label: 'Profile',
     help: 'Which set of Compose overlays the gateway starts with.',
@@ -85,7 +85,7 @@ export const FIELDS: FieldSpec[] = [
     restartRequired: true,
   },
   {
-    key: 'DEV_GATEWAY_DOMAIN',
+    key: 'PORTTA_DOMAIN',
     group: 'Gateway',
     label: 'Local domain',
     help: 'Base domain for generated hostnames: <project>-<service>.<domain>.',
@@ -94,7 +94,7 @@ export const FIELDS: FieldSpec[] = [
     validate: domain,
   },
   {
-    key: 'DEV_GATEWAY_BIND_ADDRESS',
+    key: 'PORTTA_BIND_ADDRESS',
     group: 'Gateway',
     label: 'Bind address',
     help: 'Host interface Traefik publishes on. 127.0.0.1 keeps it off the local network.',
@@ -103,7 +103,7 @@ export const FIELDS: FieldSpec[] = [
     validate: bindAddress,
   },
   {
-    key: 'DEV_GATEWAY_HTTP_PORT',
+    key: 'PORTTA_HTTP_PORT',
     group: 'Gateway',
     label: 'HTTP port',
     help: 'Host port for plain HTTP.',
@@ -112,7 +112,7 @@ export const FIELDS: FieldSpec[] = [
     validate: port,
   },
   {
-    key: 'DEV_GATEWAY_HTTPS_PORT',
+    key: 'PORTTA_HTTPS_PORT',
     group: 'Gateway',
     label: 'HTTPS port',
     help: 'Host port for HTTPS.',
@@ -121,7 +121,7 @@ export const FIELDS: FieldSpec[] = [
     validate: port,
   },
   {
-    key: 'DEV_GATEWAY_LOG_LEVEL',
+    key: 'PORTTA_LOG_LEVEL',
     group: 'Gateway',
     label: 'Log level',
     help: 'Log level for the gateway components.',
@@ -130,7 +130,7 @@ export const FIELDS: FieldSpec[] = [
     restartRequired: true,
   },
   {
-    key: 'DEV_GATEWAY_ACCESS_LOG',
+    key: 'PORTTA_ACCESS_LOG',
     group: 'Gateway',
     label: 'Traefik access log',
     help: 'Useful while debugging routing, noisy otherwise.',
@@ -138,7 +138,7 @@ export const FIELDS: FieldSpec[] = [
     restartRequired: true,
   },
   {
-    key: 'DEV_GATEWAY_DASHBOARD',
+    key: 'PORTTA_DASHBOARD',
     group: 'Traefik',
     label: 'Traefik dashboard',
     help: 'Traefik’s own dashboard, published on loopback only.',
@@ -146,7 +146,7 @@ export const FIELDS: FieldSpec[] = [
     restartRequired: true,
   },
   {
-    key: 'DEV_GATEWAY_DASHBOARD_PORT',
+    key: 'PORTTA_DASHBOARD_PORT',
     group: 'Traefik',
     label: 'Dashboard port',
     help: 'Host port for the Traefik dashboard.',
@@ -276,7 +276,7 @@ export const FIELDS: FieldSpec[] = [
     restartRequired: true,
   },
   {
-    key: 'DEV_GATEWAY_WEB_PORT',
+    key: 'PORTTA_WEB_PORT',
     group: 'Panel',
     label: 'Panel port',
     help: 'Host port this panel is published on.',
@@ -285,7 +285,7 @@ export const FIELDS: FieldSpec[] = [
     validate: port,
   },
   {
-    key: 'DEV_GATEWAY_WEB_BIND_ADDRESS',
+    key: 'PORTTA_WEB_BIND_ADDRESS',
     group: 'Panel',
     label: 'Panel bind address',
     help: 'Keep 127.0.0.1: the panel is never meant to face the internet.',
@@ -294,7 +294,7 @@ export const FIELDS: FieldSpec[] = [
     validate: bindAddress,
   },
   {
-    key: 'DEV_GATEWAY_WEB_EXPOSE',
+    key: 'PORTTA_WEB_EXPOSE',
     group: 'Panel',
     label: 'Reachable from',
     help: 'local is loopback only. vpn adds a Traefik router, and requires panel authentication.',
@@ -303,7 +303,7 @@ export const FIELDS: FieldSpec[] = [
     restartRequired: true,
   },
   {
-    key: 'DEV_GATEWAY_WEB_READ_ONLY',
+    key: 'PORTTA_WEB_READ_ONLY',
     group: 'Panel',
     label: 'Read-only',
     help: 'Refuse every mutating endpoint. The default whenever the panel is routed.',
@@ -311,7 +311,7 @@ export const FIELDS: FieldSpec[] = [
     restartRequired: true,
   },
   {
-    key: 'DEV_GATEWAY_WEB_AUTH',
+    key: 'PORTTA_WEB_AUTH',
     group: 'Panel',
     label: 'Panel authentication',
     help: 'basic puts a Traefik BasicAuth middleware in front of the panel. Required once it is routed.',
@@ -320,26 +320,26 @@ export const FIELDS: FieldSpec[] = [
     restartRequired: true,
   },
   {
-    key: 'DEV_GATEWAY_WEB_AUTH_USER',
+    key: 'PORTTA_WEB_AUTH_USER',
     group: 'Panel',
     label: 'Panel username',
-    help: 'The user half of the credential. `dev-gateway web auth set` writes both.',
+    help: 'The user half of the credential. `portta web auth set` writes both.',
     kind: 'string',
     restartRequired: true,
     validate: username,
   },
   {
-    key: 'DEV_GATEWAY_WEB_AUTH_HASH',
+    key: 'PORTTA_WEB_AUTH_HASH',
     group: 'Panel',
     label: 'Panel password hash',
-    help: 'A hash, never a password. Generate one with `dev-gateway web auth set`.',
+    help: 'A hash, never a password. Generate one with `portta web auth set`.',
     kind: 'string',
     secret: true,
     restartRequired: true,
     validate: passwordHash,
   },
   {
-    key: 'DG_WEB_API_DOCS',
+    key: 'PORTTA_RUNTIME_API_DOCS',
     group: 'Panel',
     label: 'API browser',
     help: 'Serve the offline API browser. Empty uses the safe default: on for loopback, off when routed.',
@@ -347,7 +347,7 @@ export const FIELDS: FieldSpec[] = [
     restartRequired: true,
   },
   {
-    key: 'DG_WEB_DB_PASSWORD',
+    key: 'PORTTA_RUNTIME_DB_PASSWORD',
     group: 'Panel',
     label: 'Database password',
     help: 'Generated bootstrap credential for the panel-owned PostgreSQL database.',
@@ -437,12 +437,12 @@ export function validateCombination(values: Map<string, string>): void {
   const get = (key: string) => values.get(key) ?? ''
   const truthy = (key: string) => ['1', 'true', 'yes', 'on', 'enabled'].includes(get(key).toLowerCase())
 
-  const profile = get('DEV_GATEWAY_PROFILE') || 'local'
+  const profile = get('PORTTA_PROFILE') || 'local'
   if (profile === 'remote-public' && get('PUBLIC_DOMAIN') === '') {
     throw new ValidationError('PUBLIC_DOMAIN', 'is required by the remote-public profile')
   }
-  if (profile === 'remote-private' && !truthy('TAILSCALE_ENABLED') && get('DEV_GATEWAY_BIND_ADDRESS') === '0.0.0.0') {
-    throw new ValidationError('DEV_GATEWAY_BIND_ADDRESS', 'the remote-private profile must not bind 0.0.0.0')
+  if (profile === 'remote-private' && !truthy('TAILSCALE_ENABLED') && get('PORTTA_BIND_ADDRESS') === '0.0.0.0') {
+    throw new ValidationError('PORTTA_BIND_ADDRESS', 'the remote-private profile must not bind 0.0.0.0')
   }
   if (truthy('TLS_ENABLED') && get('TLS_MODE') === 'acme' && get('ACME_EMAIL') === '') {
     throw new ValidationError('ACME_EMAIL', 'is required when TLS_MODE is acme')
@@ -452,21 +452,21 @@ export function validateCombination(values: Map<string, string>): void {
   }
   // A routed panel can stop containers and, since ADR 0010, says what is being
   // worked on. The tailnet is a good boundary and a poor last one.
-  if (get('DEV_GATEWAY_WEB_EXPOSE') === 'vpn') {
-    if (get('DEV_GATEWAY_WEB_AUTH') !== 'basic') {
-      throw new ValidationError('DEV_GATEWAY_WEB_AUTH', 'must be basic while the panel is routed')
+  if (get('PORTTA_WEB_EXPOSE') === 'vpn') {
+    if (get('PORTTA_WEB_AUTH') !== 'basic') {
+      throw new ValidationError('PORTTA_WEB_AUTH', 'must be basic while the panel is routed')
     }
-    if (get('DEV_GATEWAY_WEB_AUTH_USER') === '' || get('DEV_GATEWAY_WEB_AUTH_HASH') === '') {
+    if (get('PORTTA_WEB_AUTH_USER') === '' || get('PORTTA_WEB_AUTH_HASH') === '') {
       throw new ValidationError(
-        'DEV_GATEWAY_WEB_AUTH_USER',
-        'a routed panel needs a credential: run dev-gateway web auth set',
+        'PORTTA_WEB_AUTH_USER',
+        'a routed panel needs a credential: run portta web auth set',
       )
     }
   }
 
-  if (get('DEV_GATEWAY_WEB_BIND_ADDRESS') === '0.0.0.0') {
+  if (get('PORTTA_WEB_BIND_ADDRESS') === '0.0.0.0') {
     throw new ValidationError(
-      'DEV_GATEWAY_WEB_BIND_ADDRESS',
+      'PORTTA_WEB_BIND_ADDRESS',
       'the panel is not published on every interface; reach it over the VPN instead',
     )
   }

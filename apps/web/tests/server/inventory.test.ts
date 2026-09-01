@@ -69,7 +69,7 @@ describe('projects', () => {
   it('never lists a gateway container as somebody’s service', async () => {
     const { client } = fakeDocker({ containers: FULL_HOST })
     const snapshot = await buildSnapshot(client, config)
-    expect(snapshot.projects.map((p) => p.name)).not.toContain('dev-gateway')
+    expect(snapshot.projects.map((p) => p.name)).not.toContain('portta')
   })
 })
 
@@ -130,7 +130,7 @@ describe('URLs', () => {
           id: 'a-pg',
           name: 'alpha-postgres-1',
           image: 'postgres:18.6-alpine',
-          networks: ['alpha_default', 'dev-gateway-access'],
+          networks: ['alpha_default', 'portta-access'],
           exposed: [5432],
           labels: {
             'com.docker.compose.project': 'alpha',
@@ -261,15 +261,15 @@ describe('the optional identity labels', () => {
       id: 'w-web',
       name: 'storefront-issue59-web-1',
       image: 'nginx:1.31.4-alpine',
-      networks: ['dev-gateway'],
+      networks: ['portta'],
       labels: {
         'com.docker.compose.project': 'storefront-issue59',
         'com.docker.compose.service': 'web',
         'com.docker.compose.project.working_dir': '/srv/dev/storefront-issue59',
         'traefik.enable': 'true',
-        'dev-gateway.project': 'storefront',
-        'dev-gateway.repo': 'owner/storefront',
-        'dev-gateway.git.root': '/srv/dev/storefront-issue59',
+        'portta.project': 'storefront',
+        'portta.repo': 'owner/storefront',
+        'portta.git.root': '/srv/dev/storefront-issue59',
       },
     },
     {
@@ -334,12 +334,12 @@ describe('the optional identity labels', () => {
           id: 'bad',
           name: 'x-web-1',
           image: 'nginx:1.31.4-alpine',
-          networks: ['dev-gateway'],
+          networks: ['portta'],
           labels: {
             'com.docker.compose.project': 'x',
             'com.docker.compose.service': 'web',
             'traefik.enable': 'true',
-            'dev-gateway.repo': 'not a remote at all',
+            'portta.repo': 'not a remote at all',
           },
         },
       ],

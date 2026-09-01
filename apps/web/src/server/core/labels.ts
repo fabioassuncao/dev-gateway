@@ -1,11 +1,11 @@
 // Label names the gateway and Compose already use. The panel reads them; it
 // never writes a label of its own except on the access bridges it creates,
-// which must be indistinguishable from the ones `dev-gateway access open`
+// which must be indistinguishable from the ones `portta access open`
 // creates so the CLI keeps managing them.
 
 export const LABELS = {
-  managed: 'dev-gateway.managed',
-  component: 'dev-gateway.component',
+  managed: 'portta.managed',
+  component: 'portta.component',
 
   // Optional, and optional on purpose: everything below is inferred from the
   // Compose labels when it is absent, and a project that sets none behaves
@@ -19,10 +19,10 @@ export const LABELS = {
   //   gitRoot   the repository root, when the Compose file is not at it
   //   issue     `owner/name#123`, or `#123` when the repository is unambiguous,
   //             when this environment is running for one issue
-  project: 'dev-gateway.project',
-  repo: 'dev-gateway.repo',
-  gitRoot: 'dev-gateway.git.root',
-  issue: 'dev-gateway.issue',
+  project: 'portta.project',
+  repo: 'portta.repo',
+  gitRoot: 'portta.git.root',
+  issue: 'portta.issue',
 
   composeProject: 'com.docker.compose.project',
   composeService: 'com.docker.compose.service',
@@ -32,24 +32,24 @@ export const LABELS = {
 
   traefikEnable: 'traefik.enable',
 
-  accessId: 'dev-gateway.access.id',
-  accessProject: 'dev-gateway.access.project',
-  accessService: 'dev-gateway.access.service',
-  accessPort: 'dev-gateway.access.port',
-  accessNetwork: 'dev-gateway.access.network',
-  accessKind: 'dev-gateway.access.kind',
-  accessCreated: 'dev-gateway.access.created',
-  accessExpires: 'dev-gateway.access.expires',
+  accessId: 'portta.access.id',
+  accessProject: 'portta.access.project',
+  accessService: 'portta.access.service',
+  accessPort: 'portta.access.port',
+  accessNetwork: 'portta.access.network',
+  accessKind: 'portta.access.kind',
+  accessCreated: 'portta.access.created',
+  accessExpires: 'portta.access.expires',
 
-  forwardAlias: 'dev-gateway.forward.alias',
-  forwardProject: 'dev-gateway.forward.project',
-  forwardService: 'dev-gateway.forward.service',
-  forwardPort: 'dev-gateway.forward.port',
-  forwardKind: 'dev-gateway.forward.kind',
+  forwardAlias: 'portta.forward.alias',
+  forwardProject: 'portta.forward.project',
+  forwardService: 'portta.forward.service',
+  forwardPort: 'portta.forward.port',
+  forwardKind: 'portta.forward.kind',
 } as const
 
 /** Labels worth showing in the UI. Everything else is noise on a detail panel. */
-const INTERESTING_PREFIXES = ['dev-gateway.', 'traefik.', 'com.docker.compose.project', 'org.opencontainers.']
+const INTERESTING_PREFIXES = ['portta.', 'traefik.', 'com.docker.compose.project', 'org.opencontainers.']
 const INTERESTING_EXACT: string[] = [LABELS.composeProject, LABELS.composeService, LABELS.traefikEnable]
 
 export function relevantLabels(labels: Record<string, string>): Record<string, string> {

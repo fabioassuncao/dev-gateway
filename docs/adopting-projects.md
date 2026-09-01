@@ -6,7 +6,7 @@ directory. Adoption means adding one file to it.
 ## Start here
 
 ```bash
-dev-gateway analyze /path/to/project
+portta analyze /path/to/project
 ```
 
 It reads the project and reports what adoption would take: every service and
@@ -17,8 +17,8 @@ is implicit. It writes nothing.
 Then generate the overlay:
 
 ```bash
-dev-gateway init /path/to/project --dry-run   # see the file first
-dev-gateway init /path/to/project
+portta init /path/to/project --dry-run   # see the file first
+portta init /path/to/project
 ```
 
 `init` creates exactly one new file. It never edits `compose.yaml`, never
@@ -32,7 +32,7 @@ A compatible project:
 1. uses Docker and Compose v2;
 2. sets a unique `COMPOSE_PROJECT_NAME`;
 3. keeps its own private network;
-4. declares `dev-gateway` as an external network;
+4. declares `portta` as an external network;
 5. attaches **only** its published HTTP services to it;
 6. sets `traefik.enable=true` on those services;
 7. declares the internal port when the image's `EXPOSE` does not match it;
@@ -48,35 +48,35 @@ Keep integration in its own file so `compose.yaml` still describes the
 application, and the project still runs standalone without the gateway:
 
 ```yaml
-# compose.dev-gateway.yaml
+# compose.portta.yaml
 services:
   web:
     networks:
       - default        # keep reaching postgres/redis privately
-      - dev-gateway    # accept traffic from the gateway
+      - portta    # accept traffic from the gateway
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=dev-gateway"
+      - "traefik.docker.network=portta"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-web.loadbalancer.server.port=3000"
 
   api:
-    networks: [default, dev-gateway]
+    networks: [default, portta]
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=dev-gateway"
+      - "traefik.docker.network=portta"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-api.loadbalancer.server.port=8000"
 
 networks:
-  dev-gateway:
+  portta:
     external: true
-    name: dev-gateway
+    name: portta
 ```
 
 ```bash
-docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+docker compose -f compose.yaml -f compose.portta.yaml up -d
 ```
 
-Set `COMPOSE_FILE=compose.yaml:compose.dev-gateway.yaml` in the project's
+Set `COMPOSE_FILE=compose.yaml:compose.portta.yaml` in the project's
 `.env` to drop the `-f` flags entirely.
 
 Working examples: [`docker/examples/demo-a`](../docker/examples/demo-a) and
@@ -99,13 +99,13 @@ onto one load balancer.
 the whole host; two projects both declaring `web` get merged into one load
 balancer and start receiving each other's traffic.
 
-`dev-gateway doctor` reports both.
+`portta doctor` reports both.
 
 ## Checklist
 
 - [ ] `COMPOSE_PROJECT_NAME` set, unique on this host
 - [ ] no `container_name:` on any service
-- [ ] HTTP services join `default` **and** `dev-gateway`
+- [ ] HTTP services join `default` **and** `portta`
 - [ ] databases and caches join **only** `default`
 - [ ] `traefik.enable=true` on HTTP services only
 - [ ] internal port declared when it differs from the image's `EXPOSE`
@@ -113,27 +113,27 @@ balancer and start receiving each other's traffic.
 - [ ] labels written in list form
 - [ ] `ports:` removed for services reached through the gateway
 - [ ] `ports:` removed for databases and caches
-- [ ] `dev-gateway urls` lists the expected hostnames
+- [ ] `portta urls` lists the expected hostnames
 - [ ] a second copy with a different `COMPOSE_PROJECT_NAME` runs alongside the first
-- [ ] `dev-gateway doctor` is clean
+- [ ] `portta doctor` is clean
 
 ## Verifying
 
 ```bash
-dev-gateway urls --project <name>
+portta urls --project <name>
 curl -sI http://<name>-web.localhost | head -1
 
 # the real test: a second environment, in parallel
 COMPOSE_PROJECT_NAME=<name>-issue1 \
-  docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
-dev-gateway urls
+  docker compose -f compose.yaml -f compose.portta.yaml up -d
+portta urls
 ```
 
 Both environments should be listed and both should answer.
 
 ## Documenting it in the project
 
-Copy [`templates/project/DEV-GATEWAY.md`](../templates/project/DEV-GATEWAY.md)
+Copy [`templates/project/PORTTA.md`](../templates/project/PORTTA.md)
 into the project and adjust the names. It covers only what someone working on
 that project needs: how to start it, its URLs, how to reach its database, how
 to run a second copy. The rules stay here.
@@ -154,20 +154,20 @@ suite rather than promised here.
 
 | Label | When it helps |
 |---|---|
-| `dev-gateway.project` | `COMPOSE_PROJECT_NAME` is a per-worktree namespace and five worktrees should group under one heading |
-| `dev-gateway.repo` | `owner/name` or a remote URL. Gives repository and commit links with no host-side Git at all |
-| `dev-gateway.git.root` | The repository root, when the Compose file is not at it (see [monorepos.md](monorepos.md)) |
+| `portta.project` | `COMPOSE_PROJECT_NAME` is a per-worktree namespace and five worktrees should group under one heading |
+| `portta.repo` | `owner/name` or a remote URL. Gives repository and commit links with no host-side Git at all |
+| `portta.git.root` | The repository root, when the Compose file is not at it (see [monorepos.md](monorepos.md)) |
 
 ```yaml
 services:
   web:
     labels:
-      - "dev-gateway.project=base-empresarial"
-      - "dev-gateway.repo=owner/base-empresarial"
+      - "portta.project=base-empresarial"
+      - "portta.repo=owner/base-empresarial"
 ```
 
 Declare them on any one service; the first that does wins for the whole
-project. `dev-gateway analyze` reports which ones a project sets, and says
+project. `portta analyze` reports which ones a project sets, and says
 "none (inferred from the Compose labels)" when it sets none, because that is
 the normal answer rather than a finding.
 
@@ -186,12 +186,12 @@ into hostname routing, so they are reachable on the gateway's shared port
 without publishing one:
 
 ```bash
-cp templates/overlays/09-tcp-routing.yaml compose.dev-gateway-tcp.yaml
-docker compose -f compose.yaml -f compose.dev-gateway.yaml \
-               -f compose.dev-gateway-tcp.yaml up -d
+cp templates/overlays/09-tcp-routing.yaml compose.portta-tcp.yaml
+docker compose -f compose.yaml -f compose.portta.yaml \
+               -f compose.portta-tcp.yaml up -d
 ```
 
-It needs `DEV_GATEWAY_TCP=true` on the gateway, works for PostgreSQL and Redis,
+It needs `PORTTA_TCP=true` on the gateway, works for PostgreSQL and Redis,
 and requires TLS on the client. Read [tcp-routing.md](tcp-routing.md) first: it
 explains what each protocol can and cannot do, and why MySQL is not on the
 list.

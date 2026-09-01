@@ -1,9 +1,9 @@
-# Dev Gateway
+# Portta
 
 A personal, experimental gateway for running many Docker projects at once — locally, on a VPS or in a homelab — each on a predictable URL instead of a port to remember.
 
 ```text
-$ dev-gateway urls
+$ portta urls
 PROJECT                      SERVICE        URL
 base-empresarial             api            http://base-empresarial-api.localhost
 base-empresarial             web            http://base-empresarial-web.localhost
@@ -22,11 +22,11 @@ The work is not always on one machine: there is a laptop, a development VPS, a h
 
 Everything runs in containers on purpose. Dependencies stay isolated, the host stays clean, and a stack can be started or discarded without becoming part of the machine.
 
-That creates a different set of problems: port conflicts, ports nobody remembers, remote access, testing on a phone, and occasionally sharing one URL with someone else. Dev Gateway is the arrangement I use to solve those for my own workflow; it is public because there is no reason for it not to be.
+That creates a different set of problems: port conflicts, ports nobody remembers, remote access, testing on a phone, and occasionally sharing one URL with someone else. Portta is the arrangement I use to solve those for my own workflow; it is public because there is no reason for it not to be.
 
 ## What it does
 
-A host port can only be held by one process, but many containers can listen on the same internal port. Dev Gateway therefore publishes almost nothing. One Traefik instance holds 80 and 443, HTTP services join one shared Docker network, and each gets a hostname derived from its Compose project and service names.
+A host port can only be held by one process, but many containers can listen on the same internal port. Portta therefore publishes almost nothing. One Traefik instance holds 80 and 443, HTTP services join one shared Docker network, and each gets a hostname derived from its Compose project and service names.
 
 Databases and caches stay on each project's private network. A temporary loopback bridge, or optional TLS/SNI routing on a private entrypoint, reaches them when a human needs to. The optional panel shows projects, routes and problems, manages the permitted container lifecycle, and persists only durable decisions and identity in its private PostgreSQL.
 
@@ -49,7 +49,7 @@ This is host infrastructure installed once, not a parent Compose project. It doe
   </tr>
 </table>
 
-The panel is optional and loopback-only by default. Run `dev-gateway web up`, then open <http://127.0.0.1:8081>. The complete walkthrough and all ten images are in [the panel documentation](docs/web-ui.md).
+The panel is optional and loopback-only by default. Run `portta web up`, then open <http://127.0.0.1:8081>. The complete walkthrough and all ten images are in [the panel documentation](docs/web-ui.md).
 
 ## How it works
 
@@ -64,7 +64,7 @@ flowchart TB
         panel[web panel :8081]
         panelproxy[panel socket proxy]
         paneldb[(panel PostgreSQL)]
-        subgraph shared [dev-gateway: shared HTTP network]
+        subgraph shared [portta: shared HTTP network]
             aweb[project-a web :3000]
             aapi[project-a api :8000]
             bweb[project-b web :3000]
@@ -72,7 +72,7 @@ flowchart TB
         subgraph private [project-a_default: private]
             apg[(postgres :5432)]
         end
-        subgraph access [dev-gateway-access: optional TCP routing]
+        subgraph access [portta-access: optional TCP routing]
             routeddb[(opted-in datastore)]
         end
     end
@@ -94,7 +94,7 @@ Traefik reaches HTTP services only on the shared network; it has no route into a
 
 **Run by the gateway:** Traefik, filtered Docker socket proxies, `jq`, `socat`, OpenSSL, database clients, access bridges, and the panel's Node runtime.
 
-**Only for developing Dev Gateway:** Node 22+, ShellCheck, and Playwright's browser dependencies.
+**Only for developing Portta:** Node 22+, ShellCheck, and Playwright's browser dependencies.
 
 | Verified environment | Evidence |
 |---|---|
@@ -108,20 +108,20 @@ Other platforms may work but are not claimed as verified. See the complete [comp
 With Node 22.12+ already installed, the package can provision the checkout:
 
 ```bash
-npx @fabioassuncao/dev-gateway setup --dry-run
-npx @fabioassuncao/dev-gateway setup --yes
+npx portta setup --dry-run
+npx portta setup --yes
 ```
 
 On a bare host without Node, the zero-dependency path remains:
 
 ```bash
-git clone git@github.com:fabioassuncao/dev-gateway.git
-cd dev-gateway
+git clone git@github.com:fabioassuncao/portta.git
+cd portta
 cp .env.example .env
 
-./bin/dev-gateway bootstrap
-./bin/dev-gateway up local
-./bin/dev-gateway doctor
+./bin/portta bootstrap
+./bin/portta up local
+./bin/portta doctor
 ```
 
 Then start the bundled demo stacks, which deliberately reuse internal ports:
@@ -139,16 +139,16 @@ The project stays in its own repository. Add an overlay that joins only its HTTP
 ```yaml
 services:
   web:
-    networks: [default, dev-gateway]
+    networks: [default, portta]
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=dev-gateway"
+      - "traefik.docker.network=portta"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-web.loadbalancer.server.port=3000"
 networks:
-  dev-gateway: { external: true, name: dev-gateway }
+  portta: { external: true, name: portta }
 ```
 
-`dev-gateway analyze /path/to/project` reports the required changes without writing; `dev-gateway init /path/to/project` can generate the overlay. Follow the [adoption checklist](docs/adopting-projects.md).
+`portta analyze /path/to/project` reports the required changes without writing; `portta init /path/to/project` can generate the overlay. Follow the [adoption checklist](docs/adopting-projects.md).
 
 ## Documentation
 
@@ -162,7 +162,7 @@ Nothing is exposed by default. Datastores stay private, Docker access is filtere
 
 Experimental (`v0.x`), personal, and without a support promise. The local profile, panel, persistence, parallel environments and TCP access are exercised end to end. Remote profiles render and are checked for unsafe binds, but the tailnet and ACME paths require real credentials and are not automated.
 
-Cross-host synchronisation and task orchestration are future work, not current features. The TypeScript CLI is published as `@fabioassuncao/dev-gateway`; the binary remains `dev-gateway`. More mature tools exist; use one of them if this particular set of trade-offs is not useful to you. Issues, pull requests and forks are welcome.
+Cross-host synchronisation and task orchestration are future work, not current features. The TypeScript package and its binary are both named `portta`. More mature tools exist; use one of them if this particular set of trade-offs is not useful to you. Issues, pull requests and forks are welcome.
 
 See [compatibility](docs/compatibility.md) and the [changelog](CHANGELOG.md).
 

@@ -16,19 +16,19 @@
 services:
   docs:
     # e.g. a static site generator listening on 1313
-    networks: [default, dev-gateway]
+    networks: [default, portta]
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-docs.loadbalancer.server.port=1313"
 
   # A service whose container serves HTTPS internally needs the scheme too,
   # or Traefik will speak plaintext to a TLS port.
   secure-backend:
-    networks: [default, dev-gateway]
+    networks: [default, portta]
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-secure-backend.loadbalancer.server.port=8443"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-secure-backend.loadbalancer.server.scheme=https"
       # Development backends usually have a self-signed certificate.
@@ -36,6 +36,6 @@ services:
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-secure-backend.loadbalancer.serverstransport=${COMPOSE_PROJECT_NAME}-insecure@docker"
 
 networks:
-  dev-gateway:
+  portta:
     external: true
-    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}
+    name: ${PORTTA_NETWORK:-portta}

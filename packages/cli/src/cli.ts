@@ -26,9 +26,9 @@ function serviceOption(command: Command, fallback?: string): Command {
 
 const program = new Command()
 program
-  .name('dev-gateway')
+  .name('portta')
   .description('Shared HTTP/TCP gateway for parallel Docker development')
-  .version(`dev-gateway ${VERSION}`)
+  .version(`portta ${VERSION}`)
   .option('--json', 'print machine-readable data to stdout')
   .option('-y, --yes', 'confirm non-interactively')
   .option('--quiet', 'suppress progress output')
@@ -69,7 +69,7 @@ describe(project.command('services'), 'List services across running projects').o
 describe(project.command('analyze <path>'), 'Read-only adoption report').action((path, _options, command) => analyzeCommand(path, command))
 describe(project.command('init <path>'), 'Write one integration overlay after confirmation')
   .option('--dry-run').option('--service <name:port>', 'service to expose; repeatable', (value, previous: string[]) => previous.concat(value), [])
-  .option('--output <file>', 'overlay filename', 'compose.dev-gateway.yaml').option('--force').action(initCommand)
+  .option('--output <file>', 'overlay filename', 'compose.portta.yaml').option('--force').action(initCommand)
 describe(project.command('namespace'), 'Derive a collision-safe COMPOSE_PROJECT_NAME')
   .option('--path <dir>').option('--base <name>').option('--suffix <text>').option('--no-check').action(namespaceCommand)
 
@@ -77,7 +77,7 @@ describe(program.command('services'), 'Compatibility alias for project services'
 describe(program.command('analyze <path>'), 'Compatibility alias for project analyze').action((path, _options, command) => analyzeCommand(path, command))
 describe(program.command('init <path>'), 'Compatibility alias for project init')
   .option('--dry-run').option('--service <name:port>', 'repeatable service', (value, previous: string[]) => previous.concat(value), [])
-  .option('--output <file>', 'overlay filename', 'compose.dev-gateway.yaml').option('--force').action(initCommand)
+  .option('--output <file>', 'overlay filename', 'compose.portta.yaml').option('--force').action(initCommand)
 describe(program.command('namespace'), 'Compatibility alias for project namespace')
   .alias('ns').option('--path <dir>').option('--base <name>').option('--suffix <text>').option('--no-check').action(namespaceCommand)
 
@@ -154,6 +154,10 @@ for (const [name, description] of [['remote', 'Operate another gateway over ssh'
 
 async function main(): Promise<void> {
   try {
+    if (process.argv.length === 2) {
+      program.outputHelp()
+      return
+    }
     await program.parseAsync(process.argv)
   } catch (error) {
     if (error instanceof CommanderError) {

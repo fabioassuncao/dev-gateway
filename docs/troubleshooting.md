@@ -3,7 +3,7 @@
 Start here:
 
 ```bash
-dev-gateway doctor
+portta doctor
 ```
 
 It checks the runtime, networks, component health, exposure, DNS, TLS, route
@@ -22,7 +22,7 @@ ping demo-a-web.localhost
 configuration. If it fails, the resolver in play does not implement it, most
 often an old Go binary, a JVM HTTP client, or musl inside an Alpine container.
 
-Point `DEV_GATEWAY_DOMAIN` at a real domain resolving to `127.0.0.1`, or reach
+Point `PORTTA_DOMAIN` at a real domain resolving to `127.0.0.1`, or reach
 the service by container name over the shared network instead.
 
 ## 404 from the gateway
@@ -30,7 +30,7 @@ the service by container name over the shared network instead.
 Traefik answered, but no router matched. In order of likelihood:
 
 ```bash
-dev-gateway urls        # is the hostname listed at all?
+portta urls        # is the hostname listed at all?
 ```
 
 **Not listed.** The container did not opt in. Check it has
@@ -44,8 +44,8 @@ docker inspect <container> --format '{{json .Config.Labels}}' | jq
 give it a couple of seconds after `up`. If it persists:
 
 ```bash
-DEV_GATEWAY_LOG_LEVEL=DEBUG dev-gateway up local
-dev-gateway logs traefik
+PORTTA_LOG_LEVEL=DEBUG portta up local
+portta logs traefik
 ```
 
 **A literal `${...}` in a label.** The labels were written in map form.
@@ -70,7 +70,7 @@ declared. If your app listens on 3000 but the image exposes 80, say so:
 - "traefik.http.services.${COMPOSE_PROJECT_NAME}-web.loadbalancer.server.port=3000"
 ```
 
-**Not on the shared network.** The service must join `dev-gateway` as well as
+**Not on the shared network.** The service must join `portta` as well as
 its own network:
 
 ```bash
@@ -81,7 +81,7 @@ docker inspect <container> --format '{{json .NetworkSettings.Networks}}' | jq 'k
 picked the private one it cannot reach it. Add:
 
 ```yaml
-- "traefik.docker.network=dev-gateway"
+- "traefik.docker.network=portta"
 ```
 
 **The app is bound to `127.0.0.1` inside its container**, so nothing outside
@@ -107,7 +107,7 @@ lsof -nP -iTCP:80 -sTCP:LISTEN     # macOS
 ss -ltnp sport = :80               # Linux
 ```
 
-Stop the other process, or set `DEV_GATEWAY_HTTP_PORT=8080` and use
+Stop the other process, or set `PORTTA_HTTP_PORT=8080` and use
 `http://demo-a-web.localhost:8080`.
 
 ## Traefik keeps restarting
@@ -116,7 +116,7 @@ Almost always a bad static configuration key. Traefik names the exact node it
 could not decode:
 
 ```bash
-docker logs dev-gateway-traefik-1 2>&1 | tail -5
+docker logs portta-traefik-1 2>&1 | tail -5
 # failed to decode configuration from environment variables: field not found, node: ...
 ```
 
@@ -131,7 +131,7 @@ Its entrypoint renders a config into `/tmp`, and the container runs
 `docker/compose/compose.yaml`:
 
 ```bash
-docker logs dev-gateway-socket-proxy-1
+docker logs portta-socket-proxy-1
 # can't create /tmp/haproxy.cfg: Read-only file system
 ```
 
@@ -145,23 +145,23 @@ volumes:
   - pgdata:/var/lib/postgresql      # not /var/lib/postgresql/data
 ```
 
-## `dev-gateway down` did not remove the shared network
+## `portta down` did not remove the shared network
 
 That is intentional. Other projects are attached to it, and the gateway never
 removes a network other people are using. Remove it deliberately once nothing
 is attached:
 
 ```bash
-docker network inspect dev-gateway --format '{{ len .Containers }}'
-docker network rm dev-gateway
+docker network inspect portta --format '{{ len .Containers }}'
+docker network rm portta
 ```
 
 ## Everything looks right and it still does not work
 
 ```bash
-dev-gateway doctor --json | jq '.checks[] | select(.status != "pass")'
-dev-gateway inspect
-docker logs dev-gateway-traefik-1 --tail 50
+portta doctor --json | jq '.checks[] | select(.status != "pass")'
+portta inspect
+docker logs portta-traefik-1 --tail 50
 ```
 
 Include those three in a bug report.

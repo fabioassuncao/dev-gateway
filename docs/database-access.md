@@ -12,7 +12,7 @@ did.
 ## From a GUI on this machine
 
 ```bash
-dev-gateway access open --project base-empresarial --service postgres
+portta access open --project base-empresarial --service postgres
 # -> 127.0.0.1:33077
 ```
 
@@ -27,8 +27,8 @@ Otherwise the kernel picks a new free port each time, which is what lets four
 databases be open at once.
 
 ```bash
-dev-gateway access list
-dev-gateway access close --project base-empresarial
+portta access list
+portta access close --project base-empresarial
 ```
 
 ## From the terminal, or from an agent
@@ -36,9 +36,9 @@ dev-gateway access close --project base-empresarial
 Do not open a bridge. Run the client inside the project's network:
 
 ```bash
-dev-gateway db psql --project base-empresarial
-dev-gateway db psql --project base-empresarial -- -c 'select count(*) from users'
-dev-gateway db psql --project base-empresarial -- -f migrations/001.sql
+portta db psql --project base-empresarial
+portta db psql --project base-empresarial -- -c 'select count(*) from users'
+portta db psql --project base-empresarial -- -f migrations/001.sql
 ```
 
 Nothing is published, and the container is removed when you exit. Credentials
@@ -47,7 +47,7 @@ come from the target container's own environment.
 MySQL works the same way:
 
 ```bash
-dev-gateway db mysql --project some-project
+portta db mysql --project some-project
 ```
 
 Or, with no gateway involved at all:
@@ -59,7 +59,7 @@ docker compose exec postgres psql -U app -d app
 ## From a VPS
 
 ```bash
-dev-gateway remote access open deploy@vps \
+portta remote access open deploy@vps \
   --project base-empresarial --service postgres
 # -> 127.0.0.1:55432
 ```
@@ -69,14 +69,14 @@ never published; the SSH tunnel is what carries it here. Works over Tailscale
 SSH with the same syntax.
 
 ```bash
-dev-gateway remote access list
-dev-gateway remote access close <id>
+portta remote access list
+portta remote access close <id>
 ```
 
 ## Every day, at a stable address
 
 ```bash
-dev-gateway service publish --private \
+portta service publish --private \
   --project base-empresarial --service postgres
 ```
 
@@ -90,10 +90,10 @@ its own forwarder; project networks are never merged. See
 That is the whole point, and it needs no special handling:
 
 ```bash
-dev-gateway access open --project base-empresarial --service postgres  # -> :33077
-dev-gateway access open --project base-eleicoes    --service postgres  # -> :33079
-dev-gateway access open --project issue-flow       --service postgres  # -> :33081
-dev-gateway access list
+portta access open --project base-empresarial --service postgres  # -> :33077
+portta access open --project base-eleicoes    --service postgres  # -> :33079
+portta access open --project issue-flow       --service postgres  # -> :33081
+portta access list
 ```
 
 All three still listen on 5432 inside their containers. None publishes it.
@@ -113,7 +113,7 @@ never runs one for you.
 ## Backups
 
 ```bash
-dev-gateway db psql --project base-empresarial -- -c '\copy users to stdout csv' > users.csv
+portta db psql --project base-empresarial -- -c '\copy users to stdout csv' > users.csv
 ```
 
 For a full dump, use `pg_dump` inside the project so the file lands where you
@@ -138,7 +138,7 @@ is silent until it is not.
 
 ## Reaching it by hostname instead
 
-If the gateway has `DEV_GATEWAY_TCP=true` and the project opted in, its
+If the gateway has `PORTTA_TCP=true` and the project opted in, its
 PostgreSQL has a stable address that needs no bridge and no free port:
 
 ```bash

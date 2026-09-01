@@ -4,12 +4,12 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { fakeDatabase, makeApp } from './helpers.ts'
 import { GATEWAY, PROJECT_A } from './fixtures.ts'
-import { parseAliases, renderAliases } from '@dev-gateway/core'
+import { parseAliases, renderAliases } from 'portta-core'
 import { GENERATED_FILES } from '../../src/server/core/dynamic.ts'
 import type { Project } from '../../src/shared/types.ts'
 
 function scratch(): string {
-  return mkdtempSync(join(tmpdir(), 'dg-overrides-'))
+  return mkdtempSync(join(tmpdir(), 'portta-overrides-'))
 }
 
 const cleanup: string[] = []
@@ -35,9 +35,9 @@ async function put(instance: ReturnType<typeof app>, path: string, body: unknown
 describe('the generated aliases file', () => {
   it('is the third file the panel may write, and nothing more', () => {
     expect(Object.values(GENERATED_FILES)).toEqual([
-      'dev-gateway-panel.yaml',
-      'dev-gateway-shares.yaml',
-      'dev-gateway-aliases.yaml',
+      'portta-panel.yaml',
+      'portta-shares.yaml',
+      'portta-aliases.yaml',
     ])
   })
 
@@ -180,7 +180,7 @@ describe('a hostname alias', () => {
   })
 
   it('rolls the row back when the file cannot be written', async () => {
-    const instance = app('/proc/dev-gateway-cannot-write')
+    const instance = app('/proc/portta-cannot-write')
     const response = await put(instance, '/api/projects/alpha/services/web/alias', { alias: 'shop' })
     expect(response.status).toBeGreaterThanOrEqual(400)
     expect(instance.db.serviceValues.get('web:alias')).toBeUndefined()

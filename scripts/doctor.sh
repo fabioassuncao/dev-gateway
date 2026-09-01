@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Dev Gateway: doctor
+# Portta: doctor
 # ============================================================================
 # Read-only diagnostics. Reports problems and suggests fixes; never applies
 # them, never stops a container, never removes anything.
@@ -10,32 +10,32 @@
 
 set -uo pipefail
 
-DG_SCRIPT_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+PORTTA_SCRIPT_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=lib/common.sh
-. "$DG_SCRIPT_DIR/lib/common.sh"
+. "$PORTTA_SCRIPT_DIR/lib/common.sh"
 # shellcheck source=lib/docker.sh
-. "$DG_SCRIPT_DIR/lib/docker.sh"
+. "$PORTTA_SCRIPT_DIR/lib/docker.sh"
 # shellcheck source=lib/toolbox.sh
-. "$DG_SCRIPT_DIR/lib/toolbox.sh"
+. "$PORTTA_SCRIPT_DIR/lib/toolbox.sh"
 # shellcheck source=lib/discovery.sh
-. "$DG_SCRIPT_DIR/lib/discovery.sh"
+. "$PORTTA_SCRIPT_DIR/lib/discovery.sh"
 
-dg_load_env
-dg_defaults
+portta_load_env
+portta_defaults
 
 AS_JSON=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --json) AS_JSON=1 ;;
     -h|--help)
-      cat >&2 <<'DG_HELP'
-dev-gateway doctor: diagnose the gateway and its host
+      cat >&2 <<'PORTTA_HELP'
+portta doctor: diagnose the gateway and its host
 
   --json   Emit machine-readable results on stdout
 
 Read-only: doctor never changes state. Each failed check prints a suggested
 fix for you (or an agent) to run deliberately.
-DG_HELP
+PORTTA_HELP
       exit 0
       ;;
     *) die "unknown argument: $1" ;;
@@ -43,19 +43,19 @@ DG_HELP
   shift
 done
 
-DG_RESULTS=$(mktemp -t dg-doctor.XXXXXX) || die "cannot create a temporary file"
-trap 'rm -f "$DG_RESULTS"' EXIT INT TERM
+PORTTA_RESULTS=$(mktemp -t portta-doctor.XXXXXX) || die "cannot create a temporary file"
+trap 'rm -f "$PORTTA_RESULTS"' EXIT INT TERM
 
-DG_FAILURES=0
-DG_WARNINGS=0
+PORTTA_FAILURES=0
+PORTTA_WARNINGS=0
 
 # check <status> <id> <title> <detail> [hint]
 check() {
   local status="$1" id="$2" title="$3" detail="$4" fix="${5:-}"
-  printf '%s\t%s\t%s\t%s\t%s\n' "$status" "$id" "$title" "$detail" "$fix" >> "$DG_RESULTS"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$status" "$id" "$title" "$detail" "$fix" >> "$PORTTA_RESULTS"
   case "$status" in
-    fail) DG_FAILURES=$((DG_FAILURES + 1)) ;;
-    warn) DG_WARNINGS=$((DG_WARNINGS + 1)) ;;
+    fail) PORTTA_FAILURES=$((PORTTA_FAILURES + 1)) ;;
+    warn) PORTTA_WARNINGS=$((PORTTA_WARNINGS + 1)) ;;
   esac
 }
 
@@ -63,20 +63,20 @@ check() {
 # Gateway identity and configuration
 # ---------------------------------------------------------------------------
 
-check pass gateway.version "gateway version" "$(dg_version)" ""
+check pass gateway.version "gateway version" "$(portta_version)" ""
 
-if dg_profile_valid "$DEV_GATEWAY_PROFILE"; then
-  check pass config.profile "profile" "$DEV_GATEWAY_PROFILE" ""
+if portta_profile_valid "$PORTTA_PROFILE"; then
+  check pass config.profile "profile" "$PORTTA_PROFILE" ""
 else
-  check fail config.profile "profile" "unknown profile '$DEV_GATEWAY_PROFILE'" \
-    "set DEV_GATEWAY_PROFILE to one of: $DG_PROFILES"
+  check fail config.profile "profile" "unknown profile '$PORTTA_PROFILE'" \
+    "set PORTTA_PROFILE to one of: $PORTTA_PROFILES"
 fi
 
-dg_resolve_profile "$DEV_GATEWAY_PROFILE" >/dev/null 2>&1 || true
+portta_resolve_profile "$PORTTA_PROFILE" >/dev/null 2>&1 || true
 
-if [ -f "$DG_ROOT/.env" ]; then
+if [ -f "$PORTTA_ROOT/.env" ]; then
   check pass config.env ".env" "present" ""
-  env_perms=$(ls -l "$DG_ROOT/.env" 2>/dev/null | cut -c1-10)
+  env_perms=$(ls -l "$PORTTA_ROOT/.env" 2>/dev/null | cut -c1-10)
   case "$env_perms" in
     *r--r--*|*rw-r--*|*rw-rw-*|*r--rw-*)
       check warn config.env.perms ".env permissions" "$env_perms is group/world readable" \
@@ -92,14 +92,14 @@ fi
 # Runtime
 # ---------------------------------------------------------------------------
 
-if dg_have docker; then
+if portta_have docker; then
   if docker info >/dev/null 2>&1; then
-    dver=$(dg_docker_server_version)
-    dmaj=$(dg_version_major "$dver")
-    if [ "${dmaj:-0}" -ge "$DG_MIN_DOCKER_MAJOR" ] 2>/dev/null; then
+    dver=$(portta_docker_server_version)
+    dmaj=$(portta_version_major "$dver")
+    if [ "${dmaj:-0}" -ge "$PORTTA_MIN_DOCKER_MAJOR" ] 2>/dev/null; then
       check pass runtime.docker "docker engine" "$dver" ""
     else
-      check warn runtime.docker "docker engine" "$dver is below the tested minimum $DG_MIN_DOCKER_MAJOR" \
+      check warn runtime.docker "docker engine" "$dver is below the tested minimum $PORTTA_MIN_DOCKER_MAJOR" \
         "upgrade Docker / OrbStack"
     fi
 
@@ -115,9 +115,9 @@ else
 fi
 
 if docker compose version >/dev/null 2>&1; then
-  cver=$(dg_compose_version)
-  cmaj=$(dg_version_major "$cver")
-  if [ "${cmaj:-0}" -ge "$DG_MIN_COMPOSE_MAJOR" ] 2>/dev/null; then
+  cver=$(portta_compose_version)
+  cmaj=$(portta_version_major "$cver")
+  if [ "${cmaj:-0}" -ge "$PORTTA_MIN_COMPOSE_MAJOR" ] 2>/dev/null; then
     check pass runtime.compose "docker compose" "$cver" ""
   else
     check fail runtime.compose "docker compose" "v$cver is too old" \
@@ -132,51 +132,51 @@ fi
 # Networks
 # ---------------------------------------------------------------------------
 
-if dg_network_exists "$DEV_GATEWAY_NETWORK"; then
-  attached=$(dg_network_endpoints "$DEV_GATEWAY_NETWORK")
-  check pass network.shared "shared network" "$DEV_GATEWAY_NETWORK ($attached attached)" ""
-  if dg_network_is_managed "$DEV_GATEWAY_NETWORK"; then
+if portta_network_exists "$PORTTA_NETWORK"; then
+  attached=$(portta_network_endpoints "$PORTTA_NETWORK")
+  check pass network.shared "shared network" "$PORTTA_NETWORK ($attached attached)" ""
+  if portta_network_is_managed "$PORTTA_NETWORK"; then
     check pass network.shared.owned "shared network ownership" "created by the gateway" ""
   else
     check warn network.shared.owned "shared network ownership" \
-      "'$DEV_GATEWAY_NETWORK' has no dev-gateway.managed label" \
+      "'$PORTTA_NETWORK' has no portta.managed label" \
       "harmless: the gateway will never remove a network it does not own"
   fi
 else
-  check fail network.shared "shared network" "'$DEV_GATEWAY_NETWORK' does not exist" \
-    "dev-gateway bootstrap"
+  check fail network.shared "shared network" "'$PORTTA_NETWORK' does not exist" \
+    "portta bootstrap"
 fi
 
-if dg_network_exists "$DEV_GATEWAY_CONTROL_NETWORK"; then
-  internal=$(docker network inspect "$DEV_GATEWAY_CONTROL_NETWORK" --format '{{ .Internal }}' 2>/dev/null)
+if portta_network_exists "$PORTTA_CONTROL_NETWORK"; then
+  internal=$(docker network inspect "$PORTTA_CONTROL_NETWORK" --format '{{ .Internal }}' 2>/dev/null)
   if [ "$internal" = "true" ]; then
-    check pass network.control "control network" "$DEV_GATEWAY_CONTROL_NETWORK (internal)" ""
+    check pass network.control "control network" "$PORTTA_CONTROL_NETWORK (internal)" ""
   else
     check fail network.control "control network" \
-      "$DEV_GATEWAY_CONTROL_NETWORK is not marked internal" \
+      "$PORTTA_CONTROL_NETWORK is not marked internal" \
       "the Docker socket proxy must sit on an internal network; recreate the gateway"
   fi
 else
   check warn network.control "control network" "not created yet" \
-    "dev-gateway up $DEV_GATEWAY_PROFILE"
+    "portta up $PORTTA_PROFILE"
 fi
 
 # ---------------------------------------------------------------------------
 # Gateway components
 # ---------------------------------------------------------------------------
 
-traefik_id=$(dg_gateway_container traefik)
+traefik_id=$(portta_gateway_container traefik)
 if [ -n "$traefik_id" ]; then
-  tstate=$(dg_container_state "$traefik_id")
-  thealth=$(dg_container_health "$traefik_id")
+  tstate=$(portta_container_state "$traefik_id")
+  thealth=$(portta_container_health "$traefik_id")
   if [ "$tstate" = "running" ] && [ "$thealth" = "healthy" ]; then
     check pass traefik.state "traefik" "running and healthy" ""
   elif [ "$tstate" = "running" ]; then
     check warn traefik.state "traefik" "running, health=$thealth" \
-      "dev-gateway logs traefik"
+      "portta logs traefik"
   else
     check fail traefik.state "traefik" "state=$tstate" \
-      "dev-gateway up $DEV_GATEWAY_PROFILE"
+      "portta up $PORTTA_PROFILE"
   fi
 
   timg=$(docker inspect "$traefik_id" --format '{{ .Config.Image }}' 2>/dev/null)
@@ -201,17 +201,17 @@ if [ -n "$traefik_id" ]; then
   fi
 else
   check warn traefik.state "traefik" "container not created" \
-    "dev-gateway up $DEV_GATEWAY_PROFILE"
+    "portta up $PORTTA_PROFILE"
 fi
 
-proxy_id=$(dg_gateway_container socket-proxy)
+proxy_id=$(portta_gateway_container socket-proxy)
 if [ -n "$proxy_id" ]; then
-  pstate=$(dg_container_state "$proxy_id")
+  pstate=$(portta_container_state "$proxy_id")
   if [ "$pstate" = "running" ]; then
     check pass proxy.state "docker socket proxy" "running" ""
   else
     check fail proxy.state "docker socket proxy" "state=$pstate" \
-      "dev-gateway up $DEV_GATEWAY_PROFILE"
+      "portta up $PORTTA_PROFILE"
   fi
 
   published=$(docker inspect "$proxy_id" \
@@ -235,21 +235,21 @@ if [ -n "$proxy_id" ]; then
   esac
 else
   check warn proxy.state "docker socket proxy" "container not created" \
-    "dev-gateway up $DEV_GATEWAY_PROFILE"
+    "portta up $PORTTA_PROFILE"
 fi
 
 # The panel-owned database follows the same rules the gateway enforces for a
 # project's datastore: no host port and no attachment to the shared HTTP
 # network. A volume is intentionally not inspected here; doctor never treats
 # persisted data as disposable.
-db_id=$(dg_gateway_container db)
+db_id=$(portta_gateway_container db)
 if [ -n "$db_id" ]; then
-  db_state=$(dg_container_state "$db_id")
+  db_state=$(portta_container_state "$db_id")
   if [ "$db_state" = "running" ]; then
     check pass db.state "panel database" "running" ""
   else
     check warn db.state "panel database" "state=$db_state; the panel runs without persistence" \
-      "dev-gateway web up"
+      "portta web up"
   fi
 
   db_published=$(docker inspect "$db_id" \
@@ -264,46 +264,46 @@ if [ -n "$db_id" ]; then
   db_networks=$(docker inspect "$db_id" \
     --format '{{ range $name, $_ := .NetworkSettings.Networks }}{{ $name }} {{ end }}' 2>/dev/null)
   case " $db_networks " in
-    *" $DEV_GATEWAY_NETWORK "*)
+    *" $PORTTA_NETWORK "*)
       check fail db.network.shared "panel database network" \
-        "attached to the shared HTTP network '$DEV_GATEWAY_NETWORK'" \
-        "detach it; the panel database belongs only on '$DEV_GATEWAY_DB_NETWORK'" ;;
+        "attached to the shared HTTP network '$PORTTA_NETWORK'" \
+        "detach it; the panel database belongs only on '$PORTTA_DB_NETWORK'" ;;
     *)
       check pass db.network.shared "panel database network" "off the shared HTTP network" "" ;;
   esac
 
-  if dg_network_exists "$DEV_GATEWAY_DB_NETWORK"; then
-    db_internal=$(docker network inspect "$DEV_GATEWAY_DB_NETWORK" --format '{{ .Internal }}' 2>/dev/null)
+  if portta_network_exists "$PORTTA_DB_NETWORK"; then
+    db_internal=$(docker network inspect "$PORTTA_DB_NETWORK" --format '{{ .Internal }}' 2>/dev/null)
     if [ "$db_internal" = "true" ]; then
-      check pass db.network.internal "panel data network" "$DEV_GATEWAY_DB_NETWORK (internal)" ""
+      check pass db.network.internal "panel data network" "$PORTTA_DB_NETWORK (internal)" ""
     else
-      check fail db.network.internal "panel data network" "$DEV_GATEWAY_DB_NETWORK is not internal" \
+      check fail db.network.internal "panel data network" "$PORTTA_DB_NETWORK is not internal" \
         "recreate the panel database network from docker/compose/features/db.yaml"
     fi
   else
-    check warn db.network.internal "panel data network" "not created yet" "dev-gateway web up"
+    check warn db.network.internal "panel data network" "not created yet" "portta web up"
   fi
-elif dg_is_true "${DEV_GATEWAY_WEB:-false}"; then
+elif portta_is_true "${PORTTA_WEB:-false}"; then
   check warn db.state "panel database" "container not created; the panel runs without persistence" \
-    "dev-gateway web up"
+    "portta web up"
 fi
 
 # ---------------------------------------------------------------------------
 # Exposure
 # ---------------------------------------------------------------------------
 
-if [ -n "$traefik_id" ] && [ "$(dg_container_state "$traefik_id")" = "running" ]; then
+if [ -n "$traefik_id" ] && [ "$(portta_container_state "$traefik_id")" = "running" ]; then
   binds=$(docker inspect "$traefik_id" \
     --format '{{ range $p, $conf := .NetworkSettings.Ports }}{{ range $conf }}{{ $p }}={{ .HostIp }}:{{ .HostPort }} {{ end }}{{ end }}' 2>/dev/null)
   check pass exposure.binds "published ports" "${binds:-none}" ""
 
-  case "$DEV_GATEWAY_PROFILE" in
+  case "$PORTTA_PROFILE" in
     local)
       case "$binds" in
         *0.0.0.0:*|*::*)
           check fail exposure.local "local profile exposure" \
             "the gateway is bound to a non-loopback address in the local profile" \
-            "set DEV_GATEWAY_BIND_ADDRESS=127.0.0.1 and run 'dev-gateway up local'" ;;
+            "set PORTTA_BIND_ADDRESS=127.0.0.1 and run 'portta up local'" ;;
         *)
           check pass exposure.local "local profile exposure" "loopback only" "" ;;
       esac
@@ -324,7 +324,7 @@ if [ -n "$traefik_id" ] && [ "$(dg_container_state "$traefik_id")" = "running" ]
 fi
 
 # Anything the gateway owns must not publish a sensitive port publicly.
-for cid in $(docker ps -q --filter "label=dev-gateway.managed=true" 2>/dev/null); do
+for cid in $(docker ps -q --filter "label=portta.managed=true" 2>/dev/null); do
   cname=$(docker inspect "$cid" --format '{{ .Name }}' 2>/dev/null | sed 's#^/##')
   pub=$(docker inspect "$cid" \
     --format '{{ range $p, $conf := .NetworkSettings.Ports }}{{ range $conf }}{{ .HostIp }}:{{ .HostPort }}->{{ $p }} {{ end }}{{ end }}' 2>/dev/null)
@@ -340,14 +340,14 @@ done
 # Tailscale
 # ---------------------------------------------------------------------------
 
-attachment=$(dg_attachment "$DEV_GATEWAY_PROFILE")
+attachment=$(portta_attachment "$PORTTA_PROFILE")
 check pass config.attachment "traefik attachment" "$attachment" ""
 
 if [ "$attachment" = "tailscale" ]; then
-  ts_id=$(dg_gateway_container tailscale)
+  ts_id=$(portta_gateway_container tailscale)
   if [ -n "$ts_id" ]; then
-    ts_state=$(dg_container_state "$ts_id")
-    ts_health=$(dg_container_health "$ts_id")
+    ts_state=$(portta_container_state "$ts_id")
+    ts_health=$(portta_container_health "$ts_id")
     if [ "$ts_state" = "running" ] && [ "$ts_health" = "healthy" ]; then
       ts_ip=$(docker exec "$ts_id" tailscale ip -4 2>/dev/null | head -1)
       if [ -n "$ts_ip" ]; then
@@ -358,7 +358,7 @@ if [ "$attachment" = "tailscale" ]; then
       fi
     else
       check fail tailscale.state "tailscale" "state=$ts_state health=$ts_health" \
-        "dev-gateway logs tailscale"
+        "portta logs tailscale"
     fi
 
     # Traefik must actually be inside that namespace, or the gateway is not
@@ -370,23 +370,23 @@ if [ "$attachment" = "tailscale" ]; then
           check pass tailscale.netns "traefik network namespace" "shared with tailscale" "" ;;
         *)
           check fail tailscale.netns "traefik network namespace" "traefik is not in the tailscale namespace ($tnetmode)" \
-            "dev-gateway up $DEV_GATEWAY_PROFILE" ;;
+            "portta up $PORTTA_PROFILE" ;;
       esac
     fi
 
     # State has to survive a restart or the node identity churns.
-    if [ -d "$DG_STATE_DIR/tailscale" ]; then
+    if [ -d "$PORTTA_STATE_DIR/tailscale" ]; then
       check pass tailscale.state.dir "tailscale state" "persisted under state/tailscale" ""
     else
       check warn tailscale.state.dir "tailscale state" "state directory missing" \
-        "dev-gateway bootstrap"
+        "portta bootstrap"
     fi
   else
     check warn tailscale.state "tailscale" "container not created" \
-      "dev-gateway up $DEV_GATEWAY_PROFILE"
+      "portta up $PORTTA_PROFILE"
   fi
 
-  if [ -z "${TS_AUTHKEY:-}" ] && [ ! -f "$DG_STATE_DIR/tailscale/tailscaled.state" ]; then
+  if [ -z "${TS_AUTHKEY:-}" ] && [ ! -f "$PORTTA_STATE_DIR/tailscale/tailscaled.state" ]; then
     check fail tailscale.authkey "tailscale auth" "no TS_AUTHKEY and no persisted state" \
       "set TS_AUTHKEY in .env; prefer an ephemeral, tagged, pre-authorized key"
   else
@@ -399,15 +399,15 @@ fi
 # Dashboard
 # ---------------------------------------------------------------------------
 
-if dg_is_true "$DEV_GATEWAY_DASHBOARD"; then
-  case "$DEV_GATEWAY_DASHBOARD_BIND_ADDRESS" in
+if portta_is_true "$PORTTA_DASHBOARD"; then
+  case "$PORTTA_DASHBOARD_BIND_ADDRESS" in
     127.0.0.1|localhost|::1)
       check pass dashboard "traefik dashboard" \
-        "enabled on $DEV_GATEWAY_DASHBOARD_BIND_ADDRESS:$DEV_GATEWAY_DASHBOARD_PORT (loopback)" "" ;;
+        "enabled on $PORTTA_DASHBOARD_BIND_ADDRESS:$PORTTA_DASHBOARD_PORT (loopback)" "" ;;
     *)
       check fail dashboard "traefik dashboard" \
-        "enabled and bound to $DEV_GATEWAY_DASHBOARD_BIND_ADDRESS, which exposes routing internals" \
-        "set DEV_GATEWAY_DASHBOARD_BIND_ADDRESS=127.0.0.1 or DEV_GATEWAY_DASHBOARD=false" ;;
+        "enabled and bound to $PORTTA_DASHBOARD_BIND_ADDRESS, which exposes routing internals" \
+        "set PORTTA_DASHBOARD_BIND_ADDRESS=127.0.0.1 or PORTTA_DASHBOARD=false" ;;
   esac
 else
   check pass dashboard "traefik dashboard" "disabled" ""
@@ -420,35 +420,35 @@ fi
 # since ADR 0010 it also says what is being worked on. This fails rather than
 # warns, matching the non-loopback dashboard above.
 
-if dg_is_true "$DEV_GATEWAY_WEB"; then
-  if [ "$DEV_GATEWAY_WEB_EXPOSE" = "local" ]; then
+if portta_is_true "$PORTTA_WEB"; then
+  if [ "$PORTTA_WEB_EXPOSE" = "local" ]; then
     check pass web.auth "panel authentication" \
-      "not routed: loopback only on $DEV_GATEWAY_WEB_BIND_ADDRESS:$DEV_GATEWAY_WEB_PORT" ""
-  elif [ "$DEV_GATEWAY_WEB_AUTH" != "basic" ] \
-       || [ -z "$DEV_GATEWAY_WEB_AUTH_USER" ] || [ -z "$DEV_GATEWAY_WEB_AUTH_HASH" ]; then
+      "not routed: loopback only on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT" ""
+  elif [ "$PORTTA_WEB_AUTH" != "basic" ] \
+       || [ -z "$PORTTA_WEB_AUTH_USER" ] || [ -z "$PORTTA_WEB_AUTH_HASH" ]; then
     check fail web.auth "panel authentication" \
-      "the panel is routed (expose: $DEV_GATEWAY_WEB_EXPOSE) with nothing in front of it" \
-      "dev-gateway web auth set"
+      "the panel is routed (expose: $PORTTA_WEB_EXPOSE) with nothing in front of it" \
+      "portta web auth set"
   else
     check pass web.auth "panel authentication" \
-      "traefik basicauth as $DEV_GATEWAY_WEB_AUTH_USER" ""
+      "traefik basicauth as $PORTTA_WEB_AUTH_USER" ""
 
     # A middleware Traefik cannot resolve makes the router fail closed, so a
     # missing file locks the user out rather than opening the panel.
-    web_auth_file="$DG_ROOT/config/traefik/dynamic/dev-gateway-panel.yaml"
-    if [ -f "$web_auth_file" ] && grep -q "dev-gateway-web-auth:" "$web_auth_file" 2>/dev/null; then
+    web_auth_file="$PORTTA_ROOT/config/traefik/dynamic/portta-panel.yaml"
+    if [ -f "$web_auth_file" ] && grep -q "portta-web-auth:" "$web_auth_file" 2>/dev/null; then
       check pass web.auth.file "panel middleware" "rendered in config/traefik/dynamic" ""
     else
       check fail web.auth.file "panel middleware" \
-        "the router names dev-gateway-web-auth@file and no such middleware is rendered" \
-        "dev-gateway web auth apply"
+        "the router names portta-web-auth@file and no such middleware is rendered" \
+        "portta web auth apply"
     fi
   fi
 
-  if [ "$DEV_GATEWAY_WEB_EXPOSE" != "local" ] && ! dg_is_true "$DEV_GATEWAY_WEB_READ_ONLY"; then
+  if [ "$PORTTA_WEB_EXPOSE" != "local" ] && ! portta_is_true "$PORTTA_WEB_READ_ONLY"; then
     check warn web.readonly "panel write access" \
       "routed and writable: whoever gets past the credential can stop containers" \
-      "dev-gateway web up --read-only"
+      "portta web up --read-only"
   fi
 fi
 
@@ -460,14 +460,14 @@ fi
 # failure: the panel would authenticate as nobody, or hold a key anyone on the
 # host can copy.
 
-if dg_is_true "${GITHUB_APP_ENABLED:-false}"; then
+if portta_is_true "${GITHUB_APP_ENABLED:-false}"; then
   if [ -z "${GITHUB_APP_ID:-}" ]; then
     check fail github.app "github app" "enabled with no GITHUB_APP_ID" \
       "set GITHUB_APP_ID from the App's settings page; see docs/github.md"
   else
-    github_key="${GITHUB_APP_PRIVATE_KEY_FILE:-$DG_ROOT/state/github/app.pem}"
+    github_key="${GITHUB_APP_PRIVATE_KEY_FILE:-$PORTTA_ROOT/state/github/app.pem}"
     case "$github_key" in
-      /app/state/github/*) github_key="$DG_ROOT/state/github/${github_key##*/}" ;;
+      /app/state/github/*) github_key="$PORTTA_ROOT/state/github/${github_key##*/}" ;;
     esac
 
     if [ ! -f "$github_key" ]; then
@@ -477,7 +477,7 @@ if dg_is_true "${GITHUB_APP_ENABLED:-false}"; then
       check fail github.key "github app key" "$github_key cannot be read" \
         "chown it to the user the panel runs as"
     else
-      github_mode="$(dg_file_mode "$github_key")"
+      github_mode="$(portta_file_mode "$github_key")"
       case "$github_mode" in
         600|400)
           check pass github.key "github app key" "app $GITHUB_APP_ID, key at mode $github_mode" "" ;;
@@ -499,26 +499,26 @@ fi
 # Databases by hostname
 # ---------------------------------------------------------------------------
 
-if dg_is_true "$DEV_GATEWAY_TCP"; then
-  if [ "$DEV_GATEWAY_PROFILE" = "remote-public" ]; then
+if portta_is_true "$PORTTA_TCP"; then
+  if [ "$PORTTA_PROFILE" = "remote-public" ]; then
     check fail tcp.profile "tcp entrypoints" \
       "enabled on the remote-public profile, where Traefik binds every interface" \
-      "set DEV_GATEWAY_TCP=false; reach databases over the VPN or a loopback bridge"
+      "set PORTTA_TCP=false; reach databases over the VPN or a loopback bridge"
   else
     check pass tcp.profile "tcp entrypoints" \
-      "postgres :$DEV_GATEWAY_TCP_POSTGRES_PORT, redis :$DEV_GATEWAY_TCP_REDIS_PORT on $DEV_GATEWAY_BIND_ADDRESS" ""
+      "postgres :$PORTTA_TCP_POSTGRES_PORT, redis :$PORTTA_TCP_REDIS_PORT on $PORTTA_BIND_ADDRESS" ""
   fi
 
   # The hostname travels inside the TLS handshake, so a client that does not
   # ask for TLS cannot be routed at all. Without a configured certificate
   # Traefik serves a self-signed one, which `sslmode=require` accepts and
   # `verify-full` does not.
-  if dg_is_true "$TLS_ENABLED"; then
+  if portta_is_true "$TLS_ENABLED"; then
     check pass tcp.tls "tcp tls" "certificates configured ($TLS_MODE)" ""
   else
     check warn tcp.tls "tcp tls" \
       "no certificate configured; Traefik will serve a self-signed one" \
-      "sslmode=require works; for verify-full run: dev-gateway tls init"
+      "sslmode=require works; for verify-full run: portta tls init"
   fi
 
   # A routed datastore belongs on the access network. On the shared one it
@@ -526,16 +526,16 @@ if dg_is_true "$DEV_GATEWAY_TCP"; then
   tcp_on_shared=""
   tcp_routed=0
   for cid in $(docker ps -q 2>/dev/null); do
-    dg_container_tcp_routed "$cid" || continue
+    portta_container_tcp_routed "$cid" || continue
     tcp_routed=$((tcp_routed + 1))
     docker inspect "$cid" --format '{{ range $k, $v := .NetworkSettings.Networks }}{{ $k }} {{ end }}' 2>/dev/null \
-      | tr ' ' '\n' | grep -qx "$DEV_GATEWAY_NETWORK" || continue
+      | tr ' ' '\n' | grep -qx "$PORTTA_NETWORK" || continue
     tcp_on_shared="$tcp_on_shared $(docker inspect "$cid" --format '{{ .Name }}' 2>/dev/null | sed 's#^/##')"
   done
   if [ -n "$tcp_on_shared" ]; then
     check fail tcp.network "routed datastores" \
       "on the shared HTTP network:$tcp_on_shared" \
-      "attach them to $DEV_GATEWAY_ACCESS_NETWORK instead; see docs/tcp-routing.md"
+      "attach them to $PORTTA_ACCESS_NETWORK instead; see docs/tcp-routing.md"
   else
     check pass tcp.network "routed datastores" \
       "$tcp_routed routed, none on the shared network" ""
@@ -550,36 +550,36 @@ fi
 # The panel can start, stop and remove containers, so where it listens matters
 # more than for anything else the gateway runs.
 
-if dg_is_true "$DEV_GATEWAY_WEB"; then
-  case "$DEV_GATEWAY_WEB_BIND_ADDRESS" in
+if portta_is_true "$PORTTA_WEB"; then
+  case "$PORTTA_WEB_BIND_ADDRESS" in
     127.0.0.1|localhost|::1)
       check pass web.bind "web panel" \
-        "enabled on $DEV_GATEWAY_WEB_BIND_ADDRESS:$DEV_GATEWAY_WEB_PORT (loopback)" "" ;;
+        "enabled on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT (loopback)" "" ;;
     *)
       check fail web.bind "web panel" \
-        "enabled and bound to $DEV_GATEWAY_WEB_BIND_ADDRESS; it has no authentication" \
-        "set DEV_GATEWAY_WEB_BIND_ADDRESS=127.0.0.1, and reach it over the VPN or an SSH tunnel" ;;
+        "enabled and bound to $PORTTA_WEB_BIND_ADDRESS; it has no authentication" \
+        "set PORTTA_WEB_BIND_ADDRESS=127.0.0.1, and reach it over the VPN or an SSH tunnel" ;;
   esac
 
-  if [ "$DEV_GATEWAY_WEB_EXPOSE" = "vpn" ] && [ "$DEV_GATEWAY_PROFILE" = "remote-public" ]; then
+  if [ "$PORTTA_WEB_EXPOSE" = "vpn" ] && [ "$PORTTA_PROFILE" = "remote-public" ]; then
     check fail web.expose "web panel routing" \
       "routed by Traefik on a profile that answers the internet" \
-      "set DEV_GATEWAY_WEB_EXPOSE=local"
+      "set PORTTA_WEB_EXPOSE=local"
   fi
 
-  web_id=$(dg_gateway_container web)
+  web_id=$(portta_gateway_container web)
   if [ -z "$web_id" ]; then
-    check warn web.state "web panel container" "not running" "dev-gateway web up"
+    check warn web.state "web panel container" "not running" "portta web up"
   else
-    web_state=$(dg_container_state "$web_id")
+    web_state=$(portta_container_state "$web_id")
     if [ "$web_state" = "running" ]; then
-      check pass web.state "web panel container" "$web_state ($(dg_container_health "$web_id"))" ""
+      check pass web.state "web panel container" "$web_state ($(portta_container_health "$web_id"))" ""
     else
-      check warn web.state "web panel container" "$web_state" "dev-gateway web up"
+      check warn web.state "web panel container" "$web_state" "portta web up"
     fi
   fi
 
-  web_proxy_id=$(dg_gateway_container web-socket-proxy)
+  web_proxy_id=$(portta_gateway_container web-socket-proxy)
   if [ -n "$web_proxy_id" ]; then
     web_proxy_ports=$(docker inspect "$web_proxy_id" --format \
       '{{ range $p, $c := .NetworkSettings.Ports }}{{ range $c }}{{ .HostIp }}:{{ .HostPort }} {{ end }}{{ end }}' 2>/dev/null)
@@ -599,10 +599,10 @@ fi
 # DNS and TLS
 # ---------------------------------------------------------------------------
 
-case "$DEV_GATEWAY_DOMAIN" in
+case "$PORTTA_DOMAIN" in
   localhost|*.localhost)
     # RFC 6761 reserves `localhost`; resolvers must map it to loopback.
-    if dg_have ping && ping -c1 -W1 "dev-gateway-probe.localhost" >/dev/null 2>&1; then
+    if portta_have ping && ping -c1 -W1 "portta-probe.localhost" >/dev/null 2>&1; then
       check pass dns.local "local DNS" "*.localhost resolves to loopback" ""
     else
       check warn dns.local "local DNS" "could not confirm *.localhost resolution" \
@@ -610,21 +610,21 @@ case "$DEV_GATEWAY_DOMAIN" in
     fi
     ;;
   *)
-    check pass dns.domain "domain" "$DEV_GATEWAY_DOMAIN" ""
+    check pass dns.domain "domain" "$PORTTA_DOMAIN" ""
     # A name that can only match the wildcard, so a stray apex A record cannot
     # make a broken wildcard look healthy.
-    probe_host="dev-gateway-probe.$DEV_GATEWAY_DOMAIN"
-    resolved=$(dg_dig +short "$probe_host" A 2>/dev/null | grep -E '^[0-9]+\.' | head -1)
+    probe_host="portta-probe.$PORTTA_DOMAIN"
+    resolved=$(portta_dig +short "$probe_host" A 2>/dev/null | grep -E '^[0-9]+\.' | head -1)
     if [ -n "$resolved" ]; then
-      check pass dns.wildcard "wildcard DNS" "*.$DEV_GATEWAY_DOMAIN -> $resolved" ""
+      check pass dns.wildcard "wildcard DNS" "*.$PORTTA_DOMAIN -> $resolved" ""
     else
-      check fail dns.wildcard "wildcard DNS" "*.$DEV_GATEWAY_DOMAIN does not resolve" \
-        "dev-gateway dns setup"
+      check fail dns.wildcard "wildcard DNS" "*.$PORTTA_DOMAIN does not resolve" \
+        "portta dns setup"
     fi
     ;;
 esac
 
-if dg_is_true "$TLS_ENABLED"; then
+if portta_is_true "$TLS_ENABLED"; then
   case "$TLS_MODE" in
     acme)
       if [ -z "${ACME_EMAIL:-}" ]; then
@@ -633,8 +633,8 @@ if dg_is_true "$TLS_ENABLED"; then
       else
         check pass tls.acme "ACME configuration" "$ACME_EMAIL via $ACME_DNS_PROVIDER" ""
       fi
-      if [ -f "$DG_STATE_DIR/traefik/acme/acme.json" ]; then
-        perms=$(ls -l "$DG_STATE_DIR/traefik/acme/acme.json" | cut -c1-10)
+      if [ -f "$PORTTA_STATE_DIR/traefik/acme/acme.json" ]; then
+        perms=$(ls -l "$PORTTA_STATE_DIR/traefik/acme/acme.json" | cut -c1-10)
         case "$perms" in
           -rw-------) check pass tls.acme.perms "ACME store permissions" "$perms" "" ;;
           *) check fail tls.acme.perms "ACME store permissions" "$perms is too permissive" \
@@ -657,13 +657,13 @@ fi
 # Routing and consumers
 # ---------------------------------------------------------------------------
 
-routes=$(dg_discover_http)
+routes=$(portta_discover_http)
 route_count=$(printf '%s' "$routes" | grep -c . || true)
 check pass routes.count "routed services" "$route_count" ""
 
 # Two Compose projects whose names differ only in punctuation collapse to the
 # same hostname once normalised. That silently steals traffic, so surface it.
-collisions=$(dg_discover_http | awk -F'\t' '{print $4}' | sort | uniq -d)
+collisions=$(portta_discover_http | awk -F'\t' '{print $4}' | sort | uniq -d)
 if [ -n "$collisions" ]; then
   check fail routes.collision "hostname collisions" \
     "more than one service resolves to: $(printf '%s' "$collisions" | tr '\n' ' ')" \
@@ -709,9 +709,9 @@ else
 fi
 
 # A database or cache on the shared HTTP network is almost always a mistake.
-if dg_network_exists "$DEV_GATEWAY_NETWORK"; then
+if portta_network_exists "$PORTTA_NETWORK"; then
   risky=""
-  for cid in $(docker network inspect "$DEV_GATEWAY_NETWORK" --format '{{ range $k, $v := .Containers }}{{ $k }} {{ end }}' 2>/dev/null); do
+  for cid in $(docker network inspect "$PORTTA_NETWORK" --format '{{ range $k, $v := .Containers }}{{ $k }} {{ end }}' 2>/dev/null); do
     img=$(docker inspect "$cid" --format '{{ .Config.Image }}' 2>/dev/null)
     cn=$(docker inspect "$cid" --format '{{ .Name }}' 2>/dev/null | sed 's#^/##')
     case "$img" in
@@ -732,7 +732,7 @@ fi
 # TCP access
 # ---------------------------------------------------------------------------
 
-bridges=$(docker ps -q --filter "label=dev-gateway.component=access-bridge" 2>/dev/null)
+bridges=$(docker ps -q --filter "label=portta.component=access-bridge" 2>/dev/null)
 bridge_count=$(printf '%s' "$bridges" | grep -c . || true)
 check pass access.bridges "open access bridges" "$bridge_count" ""
 
@@ -744,7 +744,7 @@ for cid in $bridges; do
     --format '{{ range $p, $c := .NetworkSettings.Ports }}{{ range $c }}{{ .HostIp }} {{ end }}{{ end }}' 2>/dev/null)
   case "$bind" in
     *0.0.0.0*|*"::"*)
-      bad_binds="$bad_binds $(dg_access_label "$cid" id)" ;;
+      bad_binds="$bad_binds $(portta_access_label "$cid" id)" ;;
   esac
 done
 if [ -n "$bad_binds" ]; then
@@ -757,31 +757,31 @@ fi
 # A bridge whose target is gone forwards nowhere and should be collected.
 stale=""
 for cid in $bridges; do
-  bproj=$(dg_access_label "$cid" project)
-  bsvc=$(dg_access_label "$cid" service)
-  [ -n "$(dg_find_container "$bproj" "$bsvc")" ] || stale="$stale $(dg_access_label "$cid" id)"
+  bproj=$(portta_access_label "$cid" project)
+  bsvc=$(portta_access_label "$cid" service)
+  [ -n "$(portta_find_container "$bproj" "$bsvc")" ] || stale="$stale $(portta_access_label "$cid" id)"
 done
 if [ -n "$stale" ]; then
   check warn access.stale "stale access bridges" "target gone:$stale" \
-    "dev-gateway access gc"
+    "portta access gc"
 else
   check pass access.stale "stale access bridges" "none" ""
 fi
 
 # A forwarder on the shared HTTP network would make a database reachable by
 # every project on the host, which is exactly what the access network avoids.
-forwarders=$(docker ps -q --filter "label=dev-gateway.component=access-forwarder" 2>/dev/null)
+forwarders=$(docker ps -q --filter "label=portta.component=access-forwarder" 2>/dev/null)
 leaky=""
 for cid in $forwarders; do
   if docker inspect "$cid" --format '{{ range $k, $v := .NetworkSettings.Networks }}{{ $k }} {{ end }}' 2>/dev/null \
-     | tr ' ' '\n' | grep -qx "$DEV_GATEWAY_NETWORK"; then
-    leaky="$leaky $(docker inspect "$cid" --format '{{ index .Config.Labels "dev-gateway.forward.alias" }}')"
+     | tr ' ' '\n' | grep -qx "$PORTTA_NETWORK"; then
+    leaky="$leaky $(docker inspect "$cid" --format '{{ index .Config.Labels "portta.forward.alias" }}')"
   fi
 done
 if [ -n "$leaky" ]; then
   check fail access.forwarder.network "published forwarders" \
     "attached to the shared HTTP network:$leaky" \
-    "a forwarder belongs on the project network and $DEV_GATEWAY_ACCESS_NETWORK only"
+    "a forwarder belongs on the project network and $PORTTA_ACCESS_NETWORK only"
 else
   check pass access.forwarder.network "published forwarders" \
     "$(printf '%s' "$forwarders" | grep -c . || true) on the access network only" ""
@@ -792,14 +792,14 @@ fi
 # ---------------------------------------------------------------------------
 
 orphans=""
-for cid in $(docker ps -aq --filter "label=dev-gateway.managed=true" 2>/dev/null); do
-  st=$(dg_container_state "$cid")
+for cid in $(docker ps -aq --filter "label=portta.managed=true" 2>/dev/null); do
+  st=$(portta_container_state "$cid")
   [ "$st" = "exited" ] || [ "$st" = "dead" ] || continue
   orphans="$orphans $(docker inspect "$cid" --format '{{ .Name }}' 2>/dev/null | sed 's#^/##')"
 done
 if [ -n "$orphans" ]; then
   check warn orphans "stopped gateway containers" "$orphans" \
-    "dev-gateway up $DEV_GATEWAY_PROFILE  (or remove them explicitly)"
+    "portta up $PORTTA_PROFILE  (or remove them explicitly)"
 else
   check pass orphans "stopped gateway containers" "none" ""
 fi
@@ -810,42 +810,42 @@ fi
 
 if [ "$AS_JSON" = "1" ]; then
   printf '{\n  "version": "%s",\n  "profile": "%s",\n  "failures": %s,\n  "warnings": %s,\n  "checks": [\n' \
-    "$(dg_version)" "$DEV_GATEWAY_PROFILE" "$DG_FAILURES" "$DG_WARNINGS"
+    "$(portta_version)" "$PORTTA_PROFILE" "$PORTTA_FAILURES" "$PORTTA_WARNINGS"
   first=1
   while IFS="$(printf '\t')" read -r status id title detail fix; do
     [ -n "${status:-}" ] || continue
     [ "$first" = "1" ] || printf ',\n'
     first=0
     printf '    {"id": "%s", "status": "%s", "title": "%s", "detail": "%s", "fix": "%s"}' \
-      "$(dg_json_escape "$id")" "$status" "$(dg_json_escape "$title")" \
-      "$(dg_json_escape "$detail")" "$(dg_json_escape "$fix")"
-  done < "$DG_RESULTS"
+      "$(portta_json_escape "$id")" "$status" "$(portta_json_escape "$title")" \
+      "$(portta_json_escape "$detail")" "$(portta_json_escape "$fix")"
+  done < "$PORTTA_RESULTS"
   printf '\n  ]\n}\n'
 else
-  printf '%s\n\n' "$(dg_bold "Dev Gateway doctor")" >&2
+  printf '%s\n\n' "$(portta_bold "Portta doctor")" >&2
   while IFS="$(printf '\t')" read -r status id title detail fix; do
     [ -n "${status:-}" ] || continue
     case "$status" in
-      pass) badge=$(dg_c '32' ' ok ') ;;
-      warn) badge=$(dg_c '33' 'warn') ;;
-      fail) badge=$(dg_c '31' 'fail') ;;
+      pass) badge=$(portta_c '32' ' ok ') ;;
+      warn) badge=$(portta_c '33' 'warn') ;;
+      fail) badge=$(portta_c '31' 'fail') ;;
       *) badge="$status" ;;
     esac
     printf '[%s] %-34s %s\n' "$badge" "$title" "$detail" >&2
     if [ -n "$fix" ] && [ "$status" != "pass" ]; then
       hint "$fix"
     fi
-  done < "$DG_RESULTS"
+  done < "$PORTTA_RESULTS"
 
   printf '\n' >&2
-  if [ "$DG_FAILURES" -gt 0 ]; then
-    err "$DG_FAILURES failure(s), $DG_WARNINGS warning(s)"
-  elif [ "$DG_WARNINGS" -gt 0 ]; then
-    warn "no failures, $DG_WARNINGS warning(s)"
+  if [ "$PORTTA_FAILURES" -gt 0 ]; then
+    err "$PORTTA_FAILURES failure(s), $PORTTA_WARNINGS warning(s)"
+  elif [ "$PORTTA_WARNINGS" -gt 0 ]; then
+    warn "no failures, $PORTTA_WARNINGS warning(s)"
   else
     ok "all checks passed"
   fi
 fi
 
-[ "$DG_FAILURES" -eq 0 ] || exit 1
+[ "$PORTTA_FAILURES" -eq 0 ] || exit 1
 exit 0

@@ -47,12 +47,12 @@ export function makeContainer(overrides: Partial<ContainerSummary> = {}): Contai
 export const CONTAINERS: ContainerSummary[] = [
   makeContainer({
     id: 'gw-traefik',
-    name: 'dev-gateway-traefik-1',
+    name: 'portta-traefik-1',
     image: 'traefik:v3.7.12',
     ownership: 'gateway',
     gatewayComponent: 'traefik',
     health: 'healthy',
-    networks: ['dev-gateway', 'dev-gateway-control'],
+    networks: ['portta', 'portta-control'],
   }),
   makeContainer({
     id: 'a-web',
@@ -64,7 +64,7 @@ export const CONTAINERS: ContainerSummary[] = [
     onGatewayNetwork: true,
     kind: 'http',
     health: 'healthy',
-    networks: ['dev-gateway', 'alpha_default'],
+    networks: ['portta', 'alpha_default'],
     urls: [
       { url: 'http://alpha-web.localhost', host: 'alpha-web.localhost', scope: 'local', scheme: 'http' },
     ],
@@ -115,7 +115,7 @@ export const HOST: DockerHost = {
   networks: [
     {
       id: 'n1',
-      name: 'dev-gateway',
+      name: 'portta',
       driver: 'bridge',
       scope: 'local',
       internal: false,

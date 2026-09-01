@@ -1,12 +1,12 @@
-# Prompt 01 — Fundação e arquitetura do Dev Gateway
+# Prompt 01 — Fundação e arquitetura do Portta
 
 Você está trabalhando no repositório:
 
-- Local: `/Users/fabioassuncao/Projects/fabioassuncao/dev-gateway`
-- GitHub: `fabioassuncao/dev-gateway`
+- Local: `/Users/fabioassuncao/Projects/fabioassuncao/portta`
+- GitHub: `fabioassuncao/portta`
 - Branch inicial: `main`
 
-Este repositório será uma infraestrutura independente chamada **Dev Gateway**.
+Este repositório será uma infraestrutura independente chamada **Portta**.
 
 Construa a fundação funcional do projeto.
 
@@ -14,7 +14,7 @@ Construa a fundação funcional do projeto.
 
 ## 1. Princípio arquitetural obrigatório: desacoplamento total
 
-O Dev Gateway deve ser completamente independente dos projetos que o utilizam.
+O Portta deve ser completamente independente dos projetos que o utilizam.
 
 Projetos consumidores continuarão:
 
@@ -27,7 +27,7 @@ Projetos consumidores continuarão:
 - com seus próprios bancos e caches;
 - sendo iniciados e encerrados de dentro de seus próprios diretórios.
 
-O Dev Gateway NÃO deve:
+O Portta NÃO deve:
 
 - mover projetos;
 - clonar projetos automaticamente para dentro do repositório;
@@ -109,7 +109,7 @@ Implemente inicialmente:
                      |
                  Traefik
                      |
-             rede dev-gateway
+             rede portta
                      |
         +------------+------------+
         |            |            |
@@ -129,7 +129,7 @@ projeto-a_default
 
 Somente serviços que realmente precisam receber tráfego do gateway entram também na rede externa:
 
-`dev-gateway`
+`portta`
 
 Postgres, Redis e outros serviços internos não entram nessa rede por padrão.
 
@@ -137,9 +137,9 @@ Postgres, Redis e outros serviços internos não entram nessa rede por padrão.
 
 ## 5. Rede compartilhada
 
-O Dev Gateway deve criar e manter uma única rede Docker externa, por padrão:
+O Portta deve criar e manter uma única rede Docker externa, por padrão:
 
-`dev-gateway`
+`portta`
 
 Ela deve ter lifecycle independente dos projetos consumidores.
 
@@ -153,9 +153,9 @@ Os consumidores devem poder referenciá-la com algo equivalente a:
 
 ```yaml
 networks:
-  dev-gateway:
+  portta:
     external: true
-    name: dev-gateway
+    name: portta
 ```
 
 Não trate esse exemplo como implementação final sem validar a versão atual do Compose.
@@ -172,7 +172,7 @@ Configurar:
 - `exposedByDefault=false`;
 - entrypoint HTTP;
 - entrypoint HTTPS;
-- rede Docker padrão do provider apontando para `dev-gateway`;
+- rede Docker padrão do provider apontando para `portta`;
 - healthcheck;
 - logs;
 - access logs configuráveis;
@@ -226,7 +226,7 @@ Exemplos:
 
 Evite `container_name` fixo nos projetos consumidores.
 
-O Dev Gateway deve detectar e reportar colisões de project name.
+O Portta deve detectar e reportar colisões de project name.
 
 ---
 
@@ -243,7 +243,7 @@ Se utilizar Docker Socket Proxy:
 - dê acesso somente aos endpoints necessários;
 - coloque proxy em rede de controle privada;
 - não exponha proxy no host;
-- não conecte proxy à rede pública `dev-gateway`;
+- não conecte proxy à rede pública `portta`;
 - Traefik deve ter somente permissões necessárias para discovery.
 
 Registre em ADR a decisão e as limitações de segurança.
@@ -266,7 +266,7 @@ Crie uma organização limpa. Use como referência, adaptando se necessário:
 ├── .env.example
 ├── Makefile
 ├── bin/
-│   └── dev-gateway
+│   └── portta
 ├── config/
 │   ├── traefik/
 │   ├── tailscale/
@@ -331,7 +331,7 @@ Ferramentas como:
 - clientes de banco;
 - ferramentas de diagnóstico;
 
-devem preferencialmente existir em um **toolbox container** mantido pelo Dev Gateway quando isso melhorar portabilidade.
+devem preferencialmente existir em um **toolbox container** mantido pelo Portta quando isso melhorar portabilidade.
 
 Não instale pacotes desnecessários globalmente no host.
 
@@ -343,7 +343,7 @@ Make deve ser conveniência, não dependência obrigatória.
 
 Crie uma interface principal:
 
-`./bin/dev-gateway`
+`./bin/portta`
 
 Ela deve ser o contrato operacional estável.
 
@@ -368,11 +368,11 @@ A sintaxe final pode ser melhorada, mas deve ser simples.
 Exemplos desejados:
 
 ```bash
-./bin/dev-gateway bootstrap
-./bin/dev-gateway up local
-./bin/dev-gateway status
-./bin/dev-gateway doctor
-./bin/dev-gateway urls
+./bin/portta bootstrap
+./bin/portta up local
+./bin/portta status
+./bin/portta doctor
+./bin/portta urls
 ```
 
 Crie aliases Make quando útil:
@@ -394,7 +394,7 @@ O bootstrap deve:
 1. validar Docker;
 2. validar Compose;
 3. verificar versões mínimas;
-4. criar a rede `dev-gateway` se necessário;
+4. criar a rede `portta` se necessário;
 5. preparar diretórios de estado;
 6. validar `.env`;
 7. inicializar componentes necessários;
@@ -426,7 +426,7 @@ Crie diagnóstico profundo para verificar:
 - rotas descobertas;
 - configurações incompatíveis;
 - permissões;
-- containers órfãos pertencentes ao próprio Dev Gateway;
+- containers órfãos pertencentes ao próprio Portta;
 - conflitos de `COMPOSE_PROJECT_NAME`;
 - componentes opcionais.
 
@@ -454,11 +454,11 @@ Separe conceitos:
 Considere variáveis como:
 
 ```text
-DEV_GATEWAY_NETWORK
-DEV_GATEWAY_DOMAIN
-DEV_GATEWAY_BIND_ADDRESS
-DEV_GATEWAY_HTTP_PORT
-DEV_GATEWAY_HTTPS_PORT
+PORTTA_NETWORK
+PORTTA_DOMAIN
+PORTTA_BIND_ADDRESS
+PORTTA_HTTP_PORT
+PORTTA_HTTPS_PORT
 TAILSCALE_ENABLED
 PUBLIC_ENABLED
 PUBLIC_DOMAIN

@@ -115,7 +115,7 @@ export function createApp(deps: AppDeps): Hono {
     }
     if (error instanceof DatabaseUnavailable) {
       return c.json(
-        { error: error.message, hint: 'existing Docker-backed pages remain available; run dev-gateway db status' },
+        { error: error.message, hint: 'existing Docker-backed pages remain available; run portta db status' },
         503,
       )
     }

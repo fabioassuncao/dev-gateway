@@ -291,7 +291,7 @@ export function workspaceRoutes(deps: AppDeps): Hono {
   app.put('/workspaces/:slug/environments', documentRoute({
     tag: 'Workspaces', operationId: 'setWorkspaceEnvironments',
     summary: 'Set the environments a workspace adopts by hand',
-    description: 'A manual mapping always wins over dev-gateway.project and over a repository match.',
+    description: 'A manual mapping always wins over portta.project and over a repository match.',
     request: EnvironmentsBody, response: Workspace,
     parameters: [slugParameter], errors: [400, 403, 404, 500, 503],
   }), async (c) => {

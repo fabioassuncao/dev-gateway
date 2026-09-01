@@ -1,16 +1,16 @@
 # ============================================================================
-# demo-a: an ordinary project, unaware of the Dev Gateway
+# demo-a: an ordinary project, unaware of Portta
 # ============================================================================
 # This file is what a project looks like BEFORE adoption, and it keeps working
 # unchanged afterwards. Nothing here mentions Traefik or the shared network.
 #
 # Note what it does NOT do:
 #   * no `ports:` for web/api: they are reached through the gateway
-#   * no `ports:` for postgres/redis: see `dev-gateway access open`
+#   * no `ports:` for postgres/redis: see `portta access open`
 #   * no `container_name:`: that would make parallel copies collide
 #
 # Run it on its own:      docker compose up -d
-# Run it on the gateway:  docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+# Run it on the gateway:  docker compose -f compose.yaml -f compose.portta.yaml up -d
 # ============================================================================
 
 name: ${COMPOSE_PROJECT_NAME:-demo-a}

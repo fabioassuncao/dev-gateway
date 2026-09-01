@@ -8,10 +8,10 @@
 # ============================================================================
 set -uo pipefail
 
-DG_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-. "$DG_TEST_DIR/lib/assert.sh"
-DG_ROOT=$(cd -P "$DG_TEST_DIR/.." && pwd); export DG_ROOT
-cd "$DG_ROOT" || exit 1
+PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+. "$PORTTA_TEST_DIR/lib/assert.sh"
+PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
+cd "$PORTTA_ROOT" || exit 1
 
 web_proxy() { sed -n '/^  web-socket-proxy:/,/^  web:/p' docker/compose/features/web.yaml; }
 
@@ -53,10 +53,10 @@ it "routing it is a separate, opt-in overlay"
 assert_contains "$(cat docker/compose/features/web-vpn.yaml)" 'traefik.enable: "true"'
 
 it "the panel binds loopback in the example configuration"
-assert_contains "$(cat .env.example)" "DEV_GATEWAY_WEB_BIND_ADDRESS=127.0.0.1"
+assert_contains "$(cat .env.example)" "PORTTA_WEB_BIND_ADDRESS=127.0.0.1"
 
 it "and is off by default"
-assert_contains "$(cat .env.example)" "DEV_GATEWAY_WEB=false"
+assert_contains "$(cat .env.example)" "PORTTA_WEB=false"
 
 describe "the panel database is private and durable"
 
@@ -67,22 +67,22 @@ it "publishes no host port"
 assert_eq "" "$(grep -E '^\s+ports:' docker/compose/features/db.yaml || true)"
 
 it "has its own internal network"
-assert_contains "$(cat docker/compose/features/db.yaml)" "name: \${DEV_GATEWAY_DB_NETWORK:-dev-gateway-data}"
+assert_contains "$(cat docker/compose/features/db.yaml)" "name: \${PORTTA_DB_NETWORK:-portta-data}"
 assert_contains "$(cat docker/compose/features/db.yaml)" "internal: true"
 
 it "never joins the shared HTTP network"
-assert_eq "" "$(grep -n 'DEV_GATEWAY_NETWORK' docker/compose/features/db.yaml || true)"
+assert_eq "" "$(grep -n 'PORTTA_NETWORK' docker/compose/features/db.yaml || true)"
 
 it "uses a named, gateway-owned volume"
-assert_contains "$(cat docker/compose/features/db.yaml)" "name: \${DEV_GATEWAY_DB_VOLUME:-dev-gateway-db}"
-assert_contains "$(cat docker/compose/features/db.yaml)" 'dev-gateway.component: db-volume'
+assert_contains "$(cat docker/compose/features/db.yaml)" "name: \${PORTTA_DB_VOLUME:-portta-db}"
+assert_contains "$(cat docker/compose/features/db.yaml)" 'portta.component: db-volume'
 
 it "the overlay follows the panel"
-assert_contains "$(DEV_GATEWAY_WEB=true DG_WEB_DB_PASSWORD=test bash -c '. scripts/lib/common.sh; . scripts/lib/docker.sh; dg_defaults; dg_compose_files local')" "docker/compose/features/db.yaml"
+assert_contains "$(PORTTA_WEB=true PORTTA_RUNTIME_DB_PASSWORD=test bash -c '. scripts/lib/common.sh; . scripts/lib/docker.sh; portta_defaults; portta_compose_files local')" "docker/compose/features/db.yaml"
 
 it "the password is generated and declared secret"
-assert_contains "$(cat scripts/bootstrap.sh)" "dg_env_set DG_WEB_DB_PASSWORD"
-assert_contains "$(sed -n '/DG_WEB_DB_PASSWORD/,/},/p' apps/web/src/server/core/settings.ts)" "secret: true"
+assert_contains "$(cat scripts/bootstrap.sh)" "portta_env_set PORTTA_RUNTIME_DB_PASSWORD"
+assert_contains "$(sed -n '/PORTTA_RUNTIME_DB_PASSWORD/,/},/p' apps/web/src/server/core/settings.ts)" "secret: true"
 
 it "doctor refuses a published or shared database"
 assert_contains "$(cat scripts/doctor.sh)" "db.exposure"
@@ -94,7 +94,7 @@ db_clients="packages/cli/src/commands/clients.ts"
 
 for command in status shell dump restore; do
   it "db $command is documented"
-  assert_contains "$(./bin/dev-gateway db --help 2>&1)" "  $command"
+  assert_contains "$(./bin/portta db --help 2>&1)" "  $command"
 done
 
 it "the clients join only the private data network"
@@ -104,7 +104,7 @@ it "the password is inherited instead of placed on the command line"
 assert_contains "$(cat "$db_clients")" "'-e', 'PGPASSWORD'"
 
 it "the password never appears in client arguments"
-assert_eq "" "$(grep -n -- '--password\|postgres://.*DG_WEB_DB_PASSWORD' "$db_clients" || true)"
+assert_eq "" "$(grep -n -- '--password\|postgres://.*PORTTA_RUNTIME_DB_PASSWORD' "$db_clients" || true)"
 
 it "dumps use PostgreSQL's restorable custom format"
 assert_contains "$(cat "$db_clients")" "--format=custom"
@@ -160,35 +160,35 @@ assert_contains "$(cat apps/web/src/server/core/configview.ts)" "value: secret ?
 describe "the CLI drives it"
 
 it "web is a command"
-assert_success sh -c './bin/dev-gateway web --help >/dev/null 2>&1'
+assert_success sh -c './bin/portta web --help >/dev/null 2>&1'
 
 it "publishing the panel publicly is refused outright"
-assert_contains "$(./bin/dev-gateway web up --expose public 2>&1)" "local or vpn"
+assert_contains "$(./bin/portta web up --expose public 2>&1)" "local or vpn"
 
 it "an unknown expose value fails"
-assert_failure ./bin/dev-gateway web up --expose nonsense
+assert_failure ./bin/portta web up --expose nonsense
 
 describe "the panel is routed only behind a credential"
 
 it "the vpn overlay names a middleware"
-assert_contains "$(cat docker/compose/features/web-vpn.yaml)" "dev-gateway-web-auth@file"
+assert_contains "$(cat docker/compose/features/web-vpn.yaml)" "portta-web-auth@file"
 
-for key in DEV_GATEWAY_WEB_AUTH DEV_GATEWAY_WEB_AUTH_USER DEV_GATEWAY_WEB_AUTH_HASH; do
+for key in PORTTA_WEB_AUTH PORTTA_WEB_AUTH_USER PORTTA_WEB_AUTH_HASH; do
   it "$key is in the example configuration"
   assert_contains "$(cat .env.example)" "$key="
 done
 
 it "authentication is off by default, because loopback needs none"
-assert_contains "$(cat .env.example)" "DEV_GATEWAY_WEB_AUTH=none"
+assert_contains "$(cat .env.example)" "PORTTA_WEB_AUTH=none"
 
 it "the hash is declared a secret, so the API never returns it"
-assert_contains "$(sed -n '/DEV_GATEWAY_WEB_AUTH_HASH/,/},/p' apps/web/src/server/core/settings.ts)" "secret: true"
+assert_contains "$(sed -n '/PORTTA_WEB_AUTH_HASH/,/},/p' apps/web/src/server/core/settings.ts)" "secret: true"
 
 it "routing the panel without a credential is refused by the profile resolver"
 assert_contains "$(cat scripts/lib/docker.sh)" "the routed panel has no credential in front of it"
 
 it "and by web up"
-out=$(DEV_GATEWAY_WEB_AUTH=none ./bin/dev-gateway web up --expose vpn 2>&1 || true)
+out=$(PORTTA_WEB_AUTH=none ./bin/portta web up --expose vpn 2>&1 || true)
 assert_contains "$out" "a routed panel needs a credential"
 
 it "doctor fails a routed panel without one"
@@ -206,7 +206,7 @@ it "the writer exists"
 assert_success test -f "$dynamic"
 
 it "the allowlist names exactly three files"
-assert_eq "3" "$(grep -cE "^  (panel|shares|aliases): 'dev-gateway-[a-z]+\.yaml'," "$dynamic")"
+assert_eq "3" "$(grep -cE "^  (panel|shares|aliases): 'portta-[a-z]+\.yaml'," "$dynamic")"
 
 for owned in "middlewares.yaml" "tcp.yaml" "local-tls.yaml" "auth.yaml" "acme.json"; do
   it "$owned stays the user's"
@@ -214,7 +214,7 @@ for owned in "middlewares.yaml" "tcp.yaml" "local-tls.yaml" "auth.yaml" "acme.js
 done
 
 it "the generated files are git-ignored: they carry a password hash"
-assert_contains "$(cat .gitignore)" "config/traefik/dynamic/dev-gateway-panel.yaml"
+assert_contains "$(cat .gitignore)" "config/traefik/dynamic/portta-panel.yaml"
 
 it "the panel mounts the dynamic directory and nothing wider"
 assert_contains "$(cat docker/compose/features/web.yaml)" "./config/traefik/dynamic:/app/state/traefik-dynamic"
@@ -255,7 +255,7 @@ it "both surfaces import the core renderer"
 assert_contains "$(cat packages/cli/src/commands/web.ts)" "renderSharedPanelAuth"
 assert_contains "$(cat apps/web/src/server/core/dynamic.ts)" "renderSharedPanelAuth"
 it "the middleware has one canonical definition"
-assert_eq "1" "$(grep -R --include='*.ts' -l "PANEL_AUTH_MIDDLEWARE = 'dev-gateway-web-auth'" packages apps | wc -l | tr -d ' ')"
+assert_eq "1" "$(grep -R --include='*.ts' -l "PANEL_AUTH_MIDDLEWARE = 'portta-web-auth'" packages apps | wc -l | tr -d ' ')"
 
 describe "the panel is containerised, and the host needs no Node"
 
@@ -269,7 +269,7 @@ it "and no Docker CLI"
 assert_eq "" "$(grep -n 'docker-cli\|docker.sock' apps/web/Dockerfile || true)"
 
 # The shared package is a workspace symlink, so every stage that resolves
-# @dev-gateway/core needs its files. Each assertion below stands for a way the
+# portta-core needs its files. Each assertion below stands for a way the
 # panel has actually failed to start or to build.
 
 it "the build stage copies the config the shared package builds through"
@@ -293,6 +293,6 @@ it "mounts the shared package so editing it reloads the panel"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/core/src:/app/packages/core/src"
 
 it "publishes the UI on its own port, which is where the panel answers"
-assert_contains "$(cat docker/compose/features/web-dev.yaml)" "DEV_GATEWAY_WEB_DEV_PORT:-5173"
+assert_contains "$(cat docker/compose/features/web-dev.yaml)" "PORTTA_WEB_DEV_PORT:-5173"
 
 t_summary

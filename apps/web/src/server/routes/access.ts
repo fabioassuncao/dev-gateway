@@ -37,7 +37,7 @@ export function accessRoutes(deps: AppDeps): Hono {
     return c.json(view)
   })
 
-  // Opens the same loopback bridge `dev-gateway access open` creates. The
+  // Opens the same loopback bridge `portta access open` creates. The
   // panel offers no way to bind it anywhere but 127.0.0.1.
   app.post('/access', documentRoute({
     tag: 'Access', operationId: 'openAccess', summary: 'Open a loopback bridge to a TCP service',

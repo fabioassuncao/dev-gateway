@@ -13,13 +13,13 @@
 
 services:
   rustfs:
-    networks: [default, dev-gateway]
+    networks: [default, portta]
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-rustfs.loadbalancer.server.port=9001"
 
 networks:
-  dev-gateway:
+  portta:
     external: true
-    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}
+    name: ${PORTTA_NETWORK:-portta}

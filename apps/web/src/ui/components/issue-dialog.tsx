@@ -185,7 +185,7 @@ function IssueEnvironments({ issue }: { issue: Issue }) {
         {t('noEnvironmentIntro', { defaultValue: 'No environment is linked to this issue. Start one on a branch like' })}{' '}
         <span className="font-mono">fix/{issue.number}-…</span>,{' '}
         {t('noEnvironmentLabel', { defaultValue: 'label it' })}{' '}
-        <span className="font-mono">dev-gateway.issue</span>,{' '}
+        <span className="font-mono">portta.issue</span>,{' '}
         {t('noEnvironmentOutro', { defaultValue: 'or link one by hand.' })}
       </div>
     )

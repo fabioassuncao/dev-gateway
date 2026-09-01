@@ -16,7 +16,7 @@ const ROUTERS = [
     name: 'alpha-web@docker',
     rule: 'Host(`alpha-web.localhost`)',
     entryPoints: ['web'],
-    middlewares: ['dev-gateway-secure-headers@file'],
+    middlewares: ['portta-secure-headers@file'],
     service: 'alpha-web',
     provider: 'docker',
     status: 'enabled',
@@ -63,7 +63,7 @@ describe('where the Traefik API is', () => {
   })
 
   it('is `tailscale` when Traefik shares that container\'s namespace', () => {
-    vi.stubEnv('DEV_GATEWAY_PROFILE', 'remote-private')
+    vi.stubEnv('PORTTA_PROFILE', 'remote-private')
     vi.stubEnv('TAILSCALE_ENABLED', 'true')
     expect(loadConfig({}).traefikApi).toBe('http://tailscale:8080')
     vi.unstubAllEnvs()
@@ -83,7 +83,7 @@ describe('reading the verdict', () => {
     const router = verdict.routers.find((entry) => entry.name === 'alpha-web@docker')
     expect(router?.status).toBe('enabled')
     expect(router?.entryPoints).toEqual(['web'])
-    expect(router?.middlewares).toEqual(['dev-gateway-secure-headers@file'])
+    expect(router?.middlewares).toEqual(['portta-secure-headers@file'])
     expect(router?.servers).toEqual(['http://172.18.0.4:80'])
   })
 
@@ -97,7 +97,7 @@ describe('reading the verdict', () => {
   it('says the API was not asked, rather than that nothing is wrong', async () => {
     const verdict = await fetchVerdict(testConfig({ dashboardEnabled: false }))
     expect(verdict.available).toBe(false)
-    expect(verdict.reason).toContain('DEV_GATEWAY_DASHBOARD=false')
+    expect(verdict.reason).toContain('PORTTA_DASHBOARD=false')
     expect(verdict.routers).toEqual([])
   })
 

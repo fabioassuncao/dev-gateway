@@ -4,10 +4,10 @@
 # actually parses.
 set -uo pipefail
 
-DG_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-. "$DG_TEST_DIR/lib/assert.sh"
-DG_ROOT=$(cd -P "$DG_TEST_DIR/.." && pwd); export DG_ROOT
-GW="$DG_ROOT/bin/dev-gateway"
+PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+. "$PORTTA_TEST_DIR/lib/assert.sh"
+PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
+GW="$PORTTA_ROOT/bin/portta"
 
 COMMAND_PATHS=(
   setup bootstrap up down restart status logs doctor urls inspect update version toolbox
@@ -29,11 +29,11 @@ for c in "${COMMAND_PATHS[@]}"; do
   read -r -a words <<< "$c"
   out=$("$GW" "${words[@]}" --help 2>&1 | head -1)
   case "$out" in
-    dev-gateway*|Usage:*) _t_pass ;;
+    portta*|Usage:*) _t_pass ;;
     *) _t_fail "got: $out" ;;
   esac
   it "$c --version"
-  assert_contains "$("$GW" "${words[@]}" --version 2>&1)" "dev-gateway"
+  assert_contains "$("$GW" "${words[@]}" --version 2>&1)" "portta"
 done
 
 describe "unknown input fails clearly instead of doing something"
@@ -60,7 +60,7 @@ if ! docker info >/dev/null 2>&1; then
   it "json output"; skip "docker unavailable"
 else
   for c in "status --json" "urls --json" "doctor --json" "services --json" "access list --json" "web status --json" "git status --json" "share list --json"; do
-    it "dev-gateway $c"
+    it "portta $c"
     # shellcheck disable=SC2086
     assert_success sh -c "\"$GW\" $c 2>/dev/null | python3 -m json.tool >/dev/null"
   done
@@ -68,26 +68,26 @@ fi
 
 describe "version reporting"
 it "version prints a semver-shaped string"
-assert_success sh -c "\"$GW\" version | grep -qE 'dev-gateway [0-9]+\.[0-9]+\.[0-9]+'"
+assert_success sh -c "\"$GW\" version | grep -qE 'portta [0-9]+\.[0-9]+\.[0-9]+'"
 it "--version works too"
-assert_contains "$("$GW" --version 2>&1)" "dev-gateway"
+assert_contains "$("$GW" --version 2>&1)" "portta"
 it "VERSION and the CLI agree"
-assert_contains "$("$GW" version)" "$(tr -d '[:space:]' < "$DG_ROOT/VERSION")"
+assert_contains "$("$GW" version)" "$(tr -d '[:space:]' < "$PORTTA_ROOT/VERSION")"
 
 describe "exit codes have a stable machine contract"
 it "success is 0"; assert_success "$GW" version
-failure_root=$(mktemp -d "${TMPDIR:-/tmp}/dg-cli-exit.XXXXXX")
+failure_root=$(mktemp -d "${TMPDIR:-/tmp}/portta-cli-exit.XXXXXX")
 mkdir -p "$failure_root/state/git" "$failure_root/docker/compose/attach" "$failure_root/docker/compose/profiles"
 printf '0.1.1\n' > "$failure_root/VERSION"
 printf '{}\n' > "$failure_root/docker/compose/compose.yaml"
 printf '{}\n' > "$failure_root/docker/compose/attach/host.yaml"
 printf '{}\n' > "$failure_root/docker/compose/profiles/local.yaml"
 printf '{broken\n' > "$failure_root/state/git/broken.json"
-it "an operational failure is 1"; assert_exit 1 env DG_ROOT="$failure_root" "$GW" git status
+it "an operational failure is 1"; assert_exit 1 env PORTTA_ROOT="$failure_root" "$GW" git status
 rm -rf "$failure_root"
 it "usage is 2"; assert_exit 2 "$GW" definitely-not-a-command
 it "a missing runtime precondition is 3"
-assert_exit 3 sh -c "cd /tmp && env -u DG_ROOT '$GW' inspect >/dev/null 2>&1"
+assert_exit 3 sh -c "cd /tmp && env -u PORTTA_ROOT '$GW' inspect >/dev/null 2>&1"
 it "a refused unsafe operation is 4"
 assert_exit 4 "$GW" service publish --public --project demo --service db
 

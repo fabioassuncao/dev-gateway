@@ -7,7 +7,7 @@
   "searchAria": "Search containers",
   "stats": {
     "running": "Running",
-    "gateway": "Dev Gateway",
+    "gateway": "Portta",
     "integrated": "Integrated",
     "external": "External",
     "networks": "Networks",
@@ -15,7 +15,7 @@
   },
   "groups": {
     "gateway": {
-      "title": "Dev Gateway",
+      "title": "Portta",
       "description": "The gateway's own infrastructure."
     },
     "integrated": {

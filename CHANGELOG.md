@@ -13,13 +13,13 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 - **The panel started in development mode and the production image did not
   build at all.** Four defects in the same path, each dating from the workspace
-  conversion: the dev image never received `packages/core`, so `@dev-gateway/core`
+  conversion: the dev image never received `packages/core`, so `portta-core`
   could not resolve and the panel crashed on boot; the dev command restated
   `node --watch` and dropped `--conditions=development`, which pointed the same
   import at a `dist/` that stage does not build; the build stage never copied
   `tsconfig.build.json`, so `docker build` failed on the shared package; and
   leaving development mode left the Vite container serving a stale panel on its
-  own port. `dev-gateway web` also reported `:8081` in development, where the
+  own port. `portta web` also reported `:8081` in development, where the
   server serves no UI, and `doctor` printed a fix under checks that had passed.
 
 ### Added
@@ -47,11 +47,11 @@ While the version is `0.x`, minor releases may contain breaking changes.
   per-service note are set from the panel and kept in the gateway's own
   database; the derived name and hostname stay on screen beside every override,
   so nothing is ever only-renamed. A **hostname alias** genuinely resolves: it
-  becomes one router in `dev-gateway-aliases.yaml`, the third generated file the
+  becomes one router in `portta-aliases.yaml`, the third generated file the
   panel may write ([ADR 0011](docs/adr/0011-panel-reads-traefik-writes-one-file.md)),
   is additive to the project's own hostname, and is refused before any write
   when it collides, sits outside a served domain, targets a non-HTTP service or
-  has no unambiguous port. `dev-gateway urls` lists aliases and `doctor` flags
+  has no unambiguous port. `portta urls` lists aliases and `doctor` flags
   one whose container is gone. With PostgreSQL stopped every project renders
   exactly as before and the override endpoints answer 503.
 
@@ -78,7 +78,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   visible with nothing running, because it is a decision rather than an
   observation. One repository may belong to several workspaces; a monorepo is
   one repository in one workspace. An environment is adopted by a manual link,
-  by its `dev-gateway.project` label, or by an unambiguous repository match, and
+  by its `portta.project` label, or by an unambiguous repository match, and
   the reason is recorded and shown rather than left mysterious. A repository the
   App installation did not grant is refused, and deleting a workspace removes the
   grouping only — no container, volume, environment or repository is touched.
@@ -118,7 +118,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   shows the environments it is being worked in — state, services, endpoints,
   branch, and a link straight into the project page's Logs tab — and an
   environment shows the issue it belongs to on its Overview tab. The link is
-  inferred from conventions already in use (a `dev-gateway.issue` label, a
+  inferred from conventions already in use (a `portta.issue` label, a
   branch like `fix/182-…`, a namespace ending in `issue182`), can be corrected by
   hand, and **always says which**, so an association is never mysterious. An
   ambiguous match links nothing. One issue may have several environments; an
@@ -133,7 +133,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   `docker/compose/attach/` decides how Traefik meets the world,
   `docker/compose/profiles/` which entrypoints answer, and
   `docker/compose/features/` what is opted into — the matrix that was previously
-  legible only inside `dg_compose_files`. Names drop the prefix the directory carries:
+  legible only inside `portta_compose_files`. Names drop the prefix the directory carries:
   `compose.attach-host.yaml` is `docker/compose/attach/host.yaml`. Nothing was deleted,
   merged or renamed semantically, and `git mv` carried the history; the
   `*-tailscale` pairs stay separate because Compose profiles gate whole services,
@@ -141,7 +141,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   passes `--project-directory`, so the relative bind mounts and the monorepo
   build context resolve exactly where they did before, and the project name is
   unchanged — container names, networks and volumes are identical. `make` and
-  `./bin/dev-gateway` are unaffected; only a hand-written
+  `./bin/portta` are unaffected; only a hand-written
   `docker compose -f compose.yaml …` needs the new paths. See
   [ADR 0019](docs/adr/0019-compose-files-live-under-docker.md).
 
@@ -155,8 +155,8 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Added
 
-- **A published, machine-first CLI.** `@fabioassuncao/dev-gateway` exposes the
-  `dev-gateway` binary through npm and `npx`, with structured JSON, stable exit
+- **A publishable, machine-first CLI.** `portta` exposes the
+  `portta` binary through npm and `npx`, with structured JSON, stable exit
   codes, non-interactive confirmations, safe argument-array process execution,
   idempotent `setup`, tarball smoke tests on Linux and macOS, and a complete
   contract in [docs/cli.md](docs/cli.md). Shared environment, configuration,
@@ -166,7 +166,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 - **A decided monorepo and a decided answer on Node.** [ADR 0014](docs/adr/0014-monorepo-and-the-typescript-cli.md)
   records the workspace layout (`apps/web`, `packages/core`, `packages/cli`),
-  the CLI / API / Core rule, the npm name `@fabioassuncao/dev-gateway`, and the
+  the CLI / API / Core rule, the npm name `portta`, and the
   file-by-file Bash migration map. [ADR 0015](docs/adr/0015-node-on-the-host.md)
   keeps `bootstrap`, `up`, `down`, `status` and `doctor` working without Node.
   [docs/monorepo.md](docs/monorepo.md) is the contributor map.
@@ -200,7 +200,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   while Docker, Git and Traefik remain the sources of runtime observations.
   The panel still starts and all existing Docker-backed routes remain healthy
   when PostgreSQL is down, with an explicit diagnostic warning. `doctor`
-  enforces the isolation, and `dev-gateway db status|shell|dump|restore`
+  enforces the isolation, and `portta db status|shell|dump|restore`
   provides password-safe operations through the toolbox, including a
   confirmation-gated restorable custom-format backup.
 
@@ -212,37 +212,37 @@ While the version is `0.x`, minor releases may contain breaking changes.
   payload. `apps/web/openapi.json` is checked in and CI fails on byte-level drift.
   `/api/docs` is a self-contained interactive browser with no external assets;
   it defaults on for loopback and off for a routed panel unless
-  `DG_WEB_API_DOCS=true` explicitly enables it.
+  `PORTTA_RUNTIME_API_DOCS=true` explicitly enables it.
 
 - **The panel has a front door, and it is Traefik's.** `--expose vpn` used to
   put start, stop, restart and remove over every container on the host behind
   nothing but the tailnet. It now requires a credential and is refused without
   one.
-  - `dev-gateway web auth set` generates a password (twenty characters over a
+  - `portta web auth set` generates a password (twenty characters over a
     thirty-two symbol alphabet, so about a hundred bits), shows it exactly once,
     and stores only its apr1 hash. Nothing puts it on a command line, where `ps`
     would show it to every user on the host. `--password-stdin` supplies your
     own; `web auth`, `web auth apply` and `web auth clear` do the rest.
-  - `DEV_GATEWAY_WEB_AUTH`, `_USER` and `_HASH` join the settings catalogue,
+  - `PORTTA_WEB_AUTH`, `_USER` and `_HASH` join the settings catalogue,
     with the hash marked secret so the API reports it as set and never returns
     it. The field refuses anything that is not a hash, which is what stops a
     plaintext password reaching Traefik because somebody filled in the wrong
     box.
   - None of it lives in the panel: no login form, no session, no cookie, no user
     store, and no route handler a bug could let past. The middleware is rendered
-    into `config/traefik/dynamic/dev-gateway-panel.yaml` and referenced by the
+    into `config/traefik/dynamic/portta-panel.yaml` and referenced by the
     router in `compose.web-vpn.yaml`. A middleware Traefik cannot resolve makes
     the router fail closed. The trade is one credential for the whole panel,
     with no users and no roles ([ADR 0012](docs/adr/0012-panel-authentication-is-traefiks.md)).
   - A routed panel now defaults to read-only. `--writable` opts out.
-  - `dev-gateway doctor` and the panel's own diagnostics **fail**, not warn, on
+  - `portta doctor` and the panel's own diagnostics **fail**, not warn, on
     a routed panel with no credential, matching the existing precedent for a
     non-loopback dashboard.
 - **The panel says what each environment is running.** Each project carries its
   branch, HEAD with the commit subject, how much is uncommitted, and how far it
   has drifted from the remote, with the branch, commit and repository as links
   derived from the remote by string work alone.
-  - `dev-gateway git scan` collects it on the host, where `git` already is and
+  - `portta git scan` collects it on the host, where `git` already is and
     where the Compose labels already say which directory belongs to which
     project, and writes `state/git/<project>.json` (mode `600`) into a
     directory the panel mounts **read-only**. The panel gains no new access at
@@ -251,15 +251,15 @@ While the version is `0.x`, minor releases may contain breaking changes.
     ([ADR 0010](docs/adr/0010-git-collected-on-the-host.md)).
   - Nothing polls. The card always says how old the scan is, marks anything
     past the threshold as stale, and shows the exact host command to refresh
-    it. `dev-gateway up` and `dev-gateway web up` run one for you.
+    it. `portta up` and `portta web up` run one for you.
   - Read-only in both directions: no checkout, merge, rebase, fetch or push, no
     diffs, no file contents, and nothing beyond HEAD.
   - A project with no Git gets no card; a repository with no remote keeps its
     branch and loses the links; a forge nobody recognises keeps the repository
     link and loses the commit one; a project nobody scanned shows the command.
     All four are tested.
-  - `dev-gateway git status` says what was collected and when, and
-    `dev-gateway git clear` removes it.
+  - `portta git status` says what was collected and when, and
+    `portta git clear` removes it.
 - **Open pull requests, through `gh`.** `git scan --with-prs` adds each
   project's open pull requests with their review decision and whether checks
   pass. It reuses the authentication `gh` already has, so there is no token in
@@ -291,7 +291,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
     non-HTTP service, a service off the shared network, `public` without
     `PUBLIC_ENABLED` and `PUBLIC_DOMAIN`, and a password over plaintext HTTP on
     a remote profile.
-  - `dev-gateway share list | revoke | gc` manages the same objects from the
+  - `portta share list | revoke | gc` manages the same objects from the
     host, the way `access` already does for bridges.
 - **Traefik's own verdict on a route.** Opening a service shows the router
   Traefik actually built, its rule, entrypoints, middlewares and resolved
@@ -308,24 +308,24 @@ While the version is `0.x`, minor releases may contain breaking changes.
     ([ADR 0011](docs/adr/0011-panel-reads-traefik-writes-one-file.md)).
   - Its own cache, its own timeout, and never on the path a page render waits
     on. A dead Traefik API costs this block and nothing else.
-  - It needs `DEV_GATEWAY_DASHBOARD=true`, which is off by default, and the UI
+  - It needs `PORTTA_DASHBOARD=true`, which is off by default, and the UI
     then says the API **was not asked** rather than implying the labels were
     confirmed. The dashboard is linked to, never embedded.
 - **Three optional labels, for the things inference cannot get right.**
-  `dev-gateway.project` groups several worktrees under one heading when
-  `COMPOSE_PROJECT_NAME` is a per-worktree namespace; `dev-gateway.repo`
+  `portta.project` groups several worktrees under one heading when
+  `COMPOSE_PROJECT_NAME` is a per-worktree namespace; `portta.repo`
   (`owner/name` or a remote URL) gives repository links with no host-side Git at
-  all; `dev-gateway.git.root` says where the repository starts when the Compose
+  all; `portta.git.root` says where the repository starts when the Compose
   file is not at its root. A project that sets none behaves exactly as it did
   before they existed, and the test suite asserts that rather than the
-  documentation promising it. `dev-gateway analyze` reports which ones a project
+  documentation promising it. `portta analyze` reports which ones a project
   sets ([ADR 0010](docs/adr/0010-git-collected-on-the-host.md)).
 - The panel mounts `config/traefik/dynamic/` read-write and may write exactly
   two filenames there, refusing every other path in its own process the way it
   already refuses a Docker call outside its allowlist. Everything else in that
   directory stays yours
   ([ADR 0011](docs/adr/0011-panel-reads-traefik-writes-one-file.md)).
-- **A web administration panel, off by default.** `dev-gateway web up` starts a
+- **A web administration panel, off by default.** `portta web up` starts a
   small panel on `127.0.0.1:8081` that answers the lookups that come up when
   several environments run at once: which URL a project has today, what is
   holding a port, which containers are still up from last week, and how to
@@ -339,17 +339,17 @@ While the version is `0.x`, minor releases may contain breaking changes.
     manages. Published ports are listed with the container holding them, and a
     port claimed twice is flagged.
   - TCP access: opening and closing a bridge from the browser, creating exactly
-    the bridge `dev-gateway access open` creates, labels included, so
+    the bridge `portta access open` creates, labels included, so
     `access list`, `close` and `gc` keep managing it.
   - Logs, start, stop, restart, and a removal that names the container, its
     image and its volumes, and takes the container and nothing else.
   - Diagnostics the panel can make honestly from inside its container, pointing
-    at `dev-gateway doctor` for the host-level checks it cannot see.
+    at `portta doctor` for the host-level checks it cannot see.
   - Settings for the common `.env` keys, from a fixed catalogue. Secrets are
     never returned by the API, only reported as set or unset.
   - Live updates over server-sent events, fed by Docker's own event stream. No
     polling.
-- `dev-gateway web up | down | disable | restart | status | open | logs | build | dev`.
+- `portta web up | down | disable | restart | status | open | logs | build | dev`.
   `up` waits for the panel to answer before it reports success, so the URL it
   prints is never dead by the time you open it.
 - The panel's own Docker socket proxy, so Traefik's stays read-only
@@ -357,7 +357,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   endpoints plus the container lifecycle and denies images, volumes, exec,
   build, swarm, secrets and the system endpoints; the panel then refuses to
   emit any call that is not on its own allowlist.
-- `DEV_GATEWAY_WEB*` settings, all documented in `.env.example`, and the
+- `PORTTA_WEB*` settings, all documented in `.env.example`, and the
   `compose.web.yaml`, `compose.web-vpn.yaml` and `compose.web-dev.yaml`
   overlays.
 - Screenshots in the README and in `docs/web-ui.md`, generated by the real
@@ -370,7 +370,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
     instead of it, and is decorative: screen readers read the name only.
 
 - **Databases told apart by hostname, on one shared port.** With
-  `DEV_GATEWAY_TCP=true` the gateway publishes one entrypoint per protocol and
+  `PORTTA_TCP=true` the gateway publishes one entrypoint per protocol and
   picks the backend from the TLS Server Name Indication, so two projects can
   both run PostgreSQL on 5432 inside their own containers and neither has to
   publish a port or renumber anything:
@@ -395,9 +395,9 @@ While the version is `0.x`, minor releases may contain breaking changes.
   - Refused on the `remote-public` profile: a database is never reachable from
     the internet.
 - `templates/overlays/09-tcp-routing.yaml` and
-  `docker/examples/demo-a/compose.dev-gateway-tcp.yaml`, so a project opts in by
+  `docker/examples/demo-a/compose.portta-tcp.yaml`, so a project opts in by
   copying a file.
-- `dev-gateway services` and the panel's Access page show the hostname address
+- `portta services` and the panel's Access page show the hostname address
   where a protocol supports it, and say plainly when one does not.
 - Four more example stacks, so the shapes the gateway meets are all runnable:
   [`demo-site`](docker/examples/demo-site) (one service), [`demo-shop`](docker/examples/demo-shop)
@@ -422,11 +422,11 @@ While the version is `0.x`, minor releases may contain breaking changes.
   any file in it fails: with no shares and no panel credential, no generated
   router was served at all. Both files now carry comments and no `http` key
   when they have nothing to declare.
-- **`dev-gateway web auth set` exited 141 and printed nothing.** Reading
+- **`portta web auth set` exited 141 and printed nothing.** Reading
   `/dev/urandom` into `tr` and closing the pipe from `head -c` kills `tr` with
   SIGPIPE, which `set -o pipefail` then reports as a failed command. The input
   is bounded first, so every stage reaches EOF.
-- **`dev-gateway urls` ignored every explicit `Host()` label and every
+- **`portta urls` ignored every explicit `Host()` label and every
   `loadbalancer.server.port`.** Both were read with a Go template using
   `hasPrefix`, which Docker's `inspect --format` does not have: the template
   failed to parse, printed nothing, and the code fell back to the derived
@@ -467,7 +467,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
 ### Fixed
 
 - **`analyze` aborted halfway through its report on any host without `lsof`.**
-  `dg_analyze_port_holder` returned the exit status of its last probe, so
+  `portta_analyze_port_holder` returned the exit status of its last probe, so
   "nothing holds this port" came back as a failure; under `set -e` that killed
   the assignment and the rest of the report with it. It passed on macOS, where
   `lsof` is always present, and failed on Linux. The helper now always succeeds,
@@ -516,7 +516,7 @@ the release notes, not a footnote.
   worktrees of one project among them, run at once with web on 3000, api on
   8000, Postgres on 5432 and Redis on 6379, and no host port published by any
   of them.
-- `dev-gateway namespace` derives a DNS-safe name from the repository and
+- `portta namespace` derives a DNS-safe name from the repository and
   branch.
 - Stopping or restarting the gateway leaves applications running; starting it
   again rediscovers them.
@@ -525,23 +525,23 @@ the release notes, not a footnote.
 
 Projects stay in their own repositories and are never moved, cloned or mounted.
 
-- `dev-gateway analyze <path>` gives a read-only report: services and what they
+- `portta analyze <path>` gives a read-only report: services and what they
   look like, published host ports and what already holds them, fixed container
   names, published datastores, an implicit namespace.
-- `dev-gateway init <path>` writes exactly one new file, shows it and a diff
+- `portta init <path>` writes exactly one new file, shows it and a diff
   first, never edits `compose.yaml`, supports `--dry-run`, keeps a backup.
 - Eight overlay templates, and a page to copy into the consumer repository.
 
 ### Databases, caches and other TCP services
 
-- `dev-gateway access open` creates a per-session bridge on the project's
+- `portta access open` creates a per-session bridge on the project's
   private network, published on `127.0.0.1` on a port the kernel picks. Any number of
   databases are reachable at once without one of them giving up 5432.
-- `dev-gateway db psql` and `redis cli` run a client inside the project's own
+- `portta db psql` and `redis cli` run a client inside the project's own
   network. Nothing published, nothing left behind.
-- `dev-gateway remote access open` sets up a loopback bridge on a VPS plus an
+- `portta remote access open` sets up a loopback bridge on a VPS plus an
   SSH tunnel here, over Tailscale SSH or plain SSH.
-- `dev-gateway service publish --private` creates a dedicated forwarder per
+- `portta service publish --private` creates a dedicated forwarder per
   service on the gateway's access network, for a stable tailnet address. Project
   networks are never merged.
 
@@ -551,9 +551,9 @@ Projects stay in their own repositories and are never moved, cloned or mounted.
   nothing on its public interface.
 - ACME wildcard certificates over DNS-01, with Cloudflare as the reference
   provider behind a scoped token.
-- `dev-gateway public enable` prints the domain, interfaces, ports and the
+- `portta public enable` prints the domain, interfaces, ports and the
   exact URLs that would become reachable, then asks.
-- `dev-gateway tls init` for optional local HTTPS from a local CA.
+- `portta tls init` for optional local HTTPS from a local CA.
 
 ### Diagnostics
 
@@ -572,7 +572,7 @@ Projects stay in their own repositories and are never moved, cloned or mounted.
   stdin, database passwords are inherited by Docker rather than interpolated
   into `-e`.
 - `.env` is created `0600`; `bootstrap` tightens it if it is looser.
-- Every path that removes a container checks `dev-gateway.managed=true` first.
+- Every path that removes a container checks `portta.managed=true` first.
   Nothing prunes, and no volume or network is ever removed.
 - SSH host key verification is never disabled.
 

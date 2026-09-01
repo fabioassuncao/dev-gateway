@@ -1,5 +1,5 @@
 {
-  "appName": "Dev Gateway",
+  "appName": "Portta",
   "sections": "Sections",
   "overview": "Overview",
   "workspaces": "Workspaces",
@@ -26,6 +26,6 @@
     "offline": "offline"
   },
   "documentTitle": {
-    "suffix": "Dev Gateway"
+    "suffix": "Portta"
   }
 }

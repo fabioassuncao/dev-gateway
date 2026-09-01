@@ -5,8 +5,8 @@
 // recognises still gets its repository link and loses the other two, because a
 // wrong link is worse than a missing one.
 //
-// Used twice: on a `dev-gateway.repo` label a project declared, and on the
-// remote `dev-gateway git scan` read. See
+// Used twice: on a `portta.repo` label a project declared, and on the
+// remote `portta git scan` read. See
 // docs/adr/0010-git-collected-on-the-host.md.
 
 export type ForgeKind = 'github' | 'gitlab' | 'bitbucket' | 'unknown'
@@ -38,7 +38,7 @@ function tidySlug(path: string): string {
 
 /**
  * Accepts what people actually have in `origin`, plus the bare `owner/name` a
- * project may write in a `dev-gateway.repo` label.
+ * project may write in a `portta.repo` label.
  */
 export function parseRemote(raw: string): Remote | null {
   const value = raw.trim()

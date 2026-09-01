@@ -129,7 +129,7 @@ export class GitHubClient {
           authorization,
           accept: 'application/vnd.github+json',
           'x-github-api-version': '2022-11-28',
-          'user-agent': 'dev-gateway-panel',
+          'user-agent': 'portta-panel',
           ...(options.body === undefined ? {} : { 'content-type': 'application/json' }),
         },
         body: options.body === undefined ? undefined : JSON.stringify(options.body),

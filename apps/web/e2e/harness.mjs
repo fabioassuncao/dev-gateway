@@ -10,13 +10,13 @@ import { makeBridge } from './container.mjs'
 
 // Which host to describe. The end-to-end suite uses the small one; the
 // documentation screenshots pass demo-host.mjs.
-const { initialState, NETWORKS, INFO } = await import(process.env.DG_E2E_FIXTURE ?? './fixtures.mjs')
+const { initialState, NETWORKS, INFO } = await import(process.env.PORTTA_E2E_FIXTURE ?? './fixtures.mjs')
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
 
-const DOCKER_PORT = Number(process.env.DG_E2E_DOCKER_PORT ?? 9911)
-const PANEL_PORT = Number(process.env.DG_E2E_PANEL_PORT ?? 9912)
+const DOCKER_PORT = Number(process.env.PORTTA_E2E_DOCKER_PORT ?? 9911)
+const PANEL_PORT = Number(process.env.PORTTA_E2E_PANEL_PORT ?? 9912)
 
 let containers = initialState()
 
@@ -121,7 +121,7 @@ const docker = createServer((req, res) => {
     req.on('data', (chunk) => (raw += chunk))
     req.on('end', () => {
       const body = raw ? JSON.parse(raw) : {}
-      const name = url.searchParams.get('name') ?? 'dg-access-created'
+      const name = url.searchParams.get('name') ?? 'portta-access-created'
       const id = `bridge${containers.length}`
       const targetPort = Number(Object.keys(body.ExposedPorts ?? { '5432/tcp': {} })[0].split('/')[0])
       containers.push(
@@ -148,15 +148,15 @@ docker.listen(DOCKER_PORT, '127.0.0.1', () => {
     stdio: 'inherit',
     env: {
       ...process.env,
-      DG_WEB_DOCKER_API: `http://127.0.0.1:${DOCKER_PORT}`,
-      DG_WEB_HOST: '127.0.0.1',
-      DG_WEB_PORT: String(PANEL_PORT),
-      DG_WEB_ENV_FILE: join(root, 'e2e/env.fixture'),
-      DG_WEB_VERSION_FILE: join(root, 'e2e/VERSION.fixture'),
-      DG_WEB_BRIDGE_SETTLE_MS: '0',
-      DEV_GATEWAY_PROFILE: 'local',
-      DEV_GATEWAY_DOMAIN: 'localhost',
-      DEV_GATEWAY_NETWORK: 'dev-gateway',
+      PORTTA_RUNTIME_DOCKER_API: `http://127.0.0.1:${DOCKER_PORT}`,
+      PORTTA_RUNTIME_HOST: '127.0.0.1',
+      PORTTA_RUNTIME_PORT: String(PANEL_PORT),
+      PORTTA_RUNTIME_ENV_FILE: join(root, 'e2e/env.fixture'),
+      PORTTA_RUNTIME_VERSION_FILE: join(root, 'e2e/VERSION.fixture'),
+      PORTTA_RUNTIME_BRIDGE_SETTLE_MS: '0',
+      PORTTA_PROFILE: 'local',
+      PORTTA_DOMAIN: 'localhost',
+      PORTTA_NETWORK: 'portta',
     },
   })
 

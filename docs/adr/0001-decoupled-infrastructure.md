@@ -18,7 +18,7 @@ and databases to a tool none of them chose.
 
 ## Decision
 
-The Dev Gateway is installed once per host and stays completely decoupled from
+Portta is installed once per host and stays completely decoupled from
 the projects that use it.
 
 It **does not**: move or clone projects, mount their directories, own their
@@ -34,10 +34,10 @@ Integration is a small contract, nothing more:
 3. the project sets a unique `COMPOSE_PROJECT_NAME`.
 
 The recommended shape for that contract is a separate overlay file the project
-owns, `compose.dev-gateway.yaml`, so the project's own Compose file keeps
+owns, `compose.portta.yaml`, so the project's own Compose file keeps
 describing the application and nothing else, and still runs standalone.
 
-Everything the gateway creates is labelled `dev-gateway.managed=true`, and
+Everything the gateway creates is labelled `portta.managed=true`, and
 every destructive path checks that label first.
 
 ## Consequences

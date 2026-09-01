@@ -35,7 +35,7 @@
     "summary": "{{failures}} failure(s), {{warnings}} warning(s) · {{time}}",
     "description": "Checks the panel can make from inside its container.",
     "notRun": "Not run yet",
-    "notRunHint": "For host-level checks (PATH, listening sockets, DNS, certificate files) run dev-gateway doctor.",
+    "notRunHint": "For host-level checks (PATH, listening sockets, DNS, certificate files) run portta doctor.",
     "deeperChecks": "deeper, host-level checks:"
   },
   "logs": {

@@ -35,9 +35,9 @@ describe('parsing .env the way the CLI does', () => {
 
 describe('rewriting .env', () => {
   it('replaces a value in place, keeping the comments around it', () => {
-    const before = '# the domain\nDEV_GATEWAY_DOMAIN=localhost\n# tls\nTLS_ENABLED=false\n'
-    const after = setEnvValue(before, 'DEV_GATEWAY_DOMAIN', 'dev.test')
-    expect(after).toBe('# the domain\nDEV_GATEWAY_DOMAIN=dev.test\n# tls\nTLS_ENABLED=false\n')
+    const before = '# the domain\nPORTTA_DOMAIN=localhost\n# tls\nTLS_ENABLED=false\n'
+    const after = setEnvValue(before, 'PORTTA_DOMAIN', 'dev.test')
+    expect(after).toBe('# the domain\nPORTTA_DOMAIN=dev.test\n# tls\nTLS_ENABLED=false\n')
   })
 
   it('appends a key that is not there yet', () => {
@@ -52,8 +52,8 @@ describe('rewriting .env', () => {
 
 describe('validation', () => {
   it('checks each value against its own rules', () => {
-    expect(() => validateValue('DEV_GATEWAY_HTTP_PORT', '70000')).toThrow(ValidationError)
-    expect(() => validateValue('DEV_GATEWAY_DOMAIN', 'not a domain')).toThrow(ValidationError)
+    expect(() => validateValue('PORTTA_HTTP_PORT', '70000')).toThrow(ValidationError)
+    expect(() => validateValue('PORTTA_DOMAIN', 'not a domain')).toThrow(ValidationError)
     expect(() => validateValue('TLS_MODE', 'sometimes')).toThrow(ValidationError)
     expect(() => validateValue('TLS_ENABLED', 'maybe')).toThrow(ValidationError)
     expect(() => validateValue('ACME_EMAIL', 'nope')).toThrow(ValidationError)
@@ -61,22 +61,22 @@ describe('validation', () => {
   })
 
   it('accepts the values the gateway actually uses', () => {
-    expect(() => validateValue('DEV_GATEWAY_DOMAIN', 'vpn.example.com')).not.toThrow()
-    expect(() => validateValue('DEV_GATEWAY_BIND_ADDRESS', '100.64.0.1')).not.toThrow()
+    expect(() => validateValue('PORTTA_DOMAIN', 'vpn.example.com')).not.toThrow()
+    expect(() => validateValue('PORTTA_BIND_ADDRESS', '100.64.0.1')).not.toThrow()
     expect(() => validateValue('PUBLIC_DOMAIN', '')).not.toThrow()
-    expect(() => validateValue('DEV_GATEWAY_PROFILE', 'remote-private')).not.toThrow()
+    expect(() => validateValue('PORTTA_PROFILE', 'remote-private')).not.toThrow()
   })
 
   it('refuses combinations the CLI would refuse at startup', () => {
     expect(() =>
-      validateCombination(new Map([['DEV_GATEWAY_PROFILE', 'remote-public']])),
+      validateCombination(new Map([['PORTTA_PROFILE', 'remote-public']])),
     ).toThrowError(/PUBLIC_DOMAIN/)
 
     expect(() =>
       validateCombination(
         new Map([
-          ['DEV_GATEWAY_PROFILE', 'remote-private'],
-          ['DEV_GATEWAY_BIND_ADDRESS', '0.0.0.0'],
+          ['PORTTA_PROFILE', 'remote-private'],
+          ['PORTTA_BIND_ADDRESS', '0.0.0.0'],
         ]),
       ),
     ).toThrowError(/must not bind 0.0.0.0/)
@@ -93,7 +93,7 @@ describe('validation', () => {
 
   it('refuses to publish the panel on every interface', () => {
     expect(() =>
-      validateCombination(new Map([['DEV_GATEWAY_WEB_BIND_ADDRESS', '0.0.0.0']])),
+      validateCombination(new Map([['PORTTA_WEB_BIND_ADDRESS', '0.0.0.0']])),
     ).toThrowError(/not published on every interface/)
   })
 })
@@ -103,11 +103,11 @@ describe('the Settings view and its writes', () => {
   let envFile: string
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'dg-web-'))
+    dir = mkdtempSync(join(tmpdir(), 'portta-web-'))
     envFile = join(dir, '.env')
     writeFileSync(
       envFile,
-      '# gateway\nDEV_GATEWAY_DOMAIN=localhost\nTLS_ENABLED=false\nTS_AUTHKEY=tskey_auth_secret_value\n',
+      '# gateway\nPORTTA_DOMAIN=localhost\nTLS_ENABLED=false\nTS_AUTHKEY=tskey_auth_secret_value\n',
     )
   })
 
@@ -123,9 +123,9 @@ describe('the Settings view and its writes', () => {
   })
 
   it('never returns the panel database password', () => {
-    writeFileSync(envFile, `${readFileSync(envFile, 'utf8')}DG_WEB_DB_PASSWORD=database-secret-value\n`)
+    writeFileSync(envFile, `${readFileSync(envFile, 'utf8')}PORTTA_RUNTIME_DB_PASSWORD=database-secret-value\n`)
     const view = buildConfigView(testConfig({ envFile }))
-    const password = view.fields.find((field) => field.key === 'DG_WEB_DB_PASSWORD')
+    const password = view.fields.find((field) => field.key === 'PORTTA_RUNTIME_DB_PASSWORD')
 
     expect(password?.secret).toBe(true)
     expect(password?.isSet).toBe(true)
@@ -134,20 +134,20 @@ describe('the Settings view and its writes', () => {
   })
 
   it('flags a saved value that the running gateway has not picked up', () => {
-    process.env['DEV_GATEWAY_DOMAIN'] = 'localhost'
+    process.env['PORTTA_DOMAIN'] = 'localhost'
     const before = buildConfigView(testConfig({ envFile }))
-    expect(before.fields.find((f) => f.key === 'DEV_GATEWAY_DOMAIN')?.pending).toBe(false)
+    expect(before.fields.find((f) => f.key === 'PORTTA_DOMAIN')?.pending).toBe(false)
 
-    patchConfig(testConfig({ envFile }), { DEV_GATEWAY_DOMAIN: 'dev.test' })
+    patchConfig(testConfig({ envFile }), { PORTTA_DOMAIN: 'dev.test' })
     const after = buildConfigView(testConfig({ envFile }))
-    expect(after.fields.find((f) => f.key === 'DEV_GATEWAY_DOMAIN')?.pending).toBe(true)
+    expect(after.fields.find((f) => f.key === 'PORTTA_DOMAIN')?.pending).toBe(true)
     expect(after.pendingRestart).toBe(true)
-    expect(after.applyCommand).toBe('./bin/dev-gateway up local')
-    delete process.env['DEV_GATEWAY_DOMAIN']
+    expect(after.applyCommand).toBe('./bin/portta up local')
+    delete process.env['PORTTA_DOMAIN']
   })
 
   it('writes the file with mode 600', () => {
-    patchConfig(testConfig({ envFile }), { DEV_GATEWAY_DOMAIN: 'dev.test' })
+    patchConfig(testConfig({ envFile }), { PORTTA_DOMAIN: 'dev.test' })
     expect(statSync(envFile).mode & 0o777).toBe(0o600)
   })
 
@@ -171,8 +171,8 @@ describe('the Settings view and its writes', () => {
     const before = readFileSync(envFile, 'utf8')
     expect(() =>
       patchConfig(testConfig({ envFile }), {
-        DEV_GATEWAY_DOMAIN: 'dev.test',
-        DEV_GATEWAY_HTTP_PORT: '-1',
+        PORTTA_DOMAIN: 'dev.test',
+        PORTTA_HTTP_PORT: '-1',
       }),
     ).toThrow(ValidationError)
     expect(readFileSync(envFile, 'utf8')).toBe(before)
@@ -186,7 +186,7 @@ describe('the Settings view and its writes', () => {
   })
 
   it('keeps the comments in the file', () => {
-    patchConfig(testConfig({ envFile }), { DEV_GATEWAY_DOMAIN: 'dev.test' })
+    patchConfig(testConfig({ envFile }), { PORTTA_DOMAIN: 'dev.test' })
     expect(readFileSync(envFile, 'utf8')).toContain('# gateway')
   })
 })
@@ -196,9 +196,9 @@ describe('the config endpoints', () => {
   let envFile: string
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'dg-web-api-'))
+    dir = mkdtempSync(join(tmpdir(), 'portta-web-api-'))
     envFile = join(dir, '.env')
-    writeFileSync(envFile, 'DEV_GATEWAY_DOMAIN=localhost\nCF_DNS_API_TOKEN=super-secret\n')
+    writeFileSync(envFile, 'PORTTA_DOMAIN=localhost\nCF_DNS_API_TOKEN=super-secret\n')
   })
 
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
@@ -216,25 +216,25 @@ describe('the config endpoints', () => {
     const { app } = makeApp({ containers: [] }, { envFile })
     const response = await app.request('/api/config', {
       method: 'PATCH',
-      body: JSON.stringify({ values: { DEV_GATEWAY_DOMAIN: 'dev.test' } }),
+      body: JSON.stringify({ values: { PORTTA_DOMAIN: 'dev.test' } }),
       headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },
     })
     expect(response.status).toBe(200)
     const result = await response.json()
-    expect(result.saved).toEqual(['DEV_GATEWAY_DOMAIN'])
-    expect(result.applyCommand).toContain('dev-gateway up')
-    expect(readFileSync(envFile, 'utf8')).toContain('DEV_GATEWAY_DOMAIN=dev.test')
+    expect(result.saved).toEqual(['PORTTA_DOMAIN'])
+    expect(result.applyCommand).toContain('portta up')
+    expect(readFileSync(envFile, 'utf8')).toContain('PORTTA_DOMAIN=dev.test')
   })
 
   it('answers 400 with the offending key, and writes nothing', async () => {
     const { app } = makeApp({ containers: [] }, { envFile })
     const response = await app.request('/api/config', {
       method: 'PATCH',
-      body: JSON.stringify({ values: { DEV_GATEWAY_HTTP_PORT: 'eighty' } }),
+      body: JSON.stringify({ values: { PORTTA_HTTP_PORT: 'eighty' } }),
       headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },
     })
     expect(response.status).toBe(400)
-    expect((await response.json()).error).toContain('DEV_GATEWAY_HTTP_PORT')
+    expect((await response.json()).error).toContain('PORTTA_HTTP_PORT')
     expect(readFileSync(envFile, 'utf8')).not.toContain('eighty')
   })
 })
@@ -243,10 +243,10 @@ describe('the panel refuses to be routed without a credential', () => {
   const routed = (extra: Record<string, string> = {}) =>
     new Map(
       Object.entries({
-        DEV_GATEWAY_WEB_EXPOSE: 'vpn',
-        DEV_GATEWAY_WEB_AUTH: 'basic',
-        DEV_GATEWAY_WEB_AUTH_USER: 'dev',
-        DEV_GATEWAY_WEB_AUTH_HASH: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
+        PORTTA_WEB_EXPOSE: 'vpn',
+        PORTTA_WEB_AUTH: 'basic',
+        PORTTA_WEB_AUTH_USER: 'dev',
+        PORTTA_WEB_AUTH_HASH: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
         ...extra,
       }),
     )
@@ -256,20 +256,20 @@ describe('the panel refuses to be routed without a credential', () => {
   })
 
   it('refuses the routed panel with authentication off', () => {
-    expect(() => validateCombination(routed({ DEV_GATEWAY_WEB_AUTH: 'none' }))).toThrow(ValidationError)
+    expect(() => validateCombination(routed({ PORTTA_WEB_AUTH: 'none' }))).toThrow(ValidationError)
   })
 
   it('refuses a mode of basic with nothing behind it', () => {
-    expect(() => validateCombination(routed({ DEV_GATEWAY_WEB_AUTH_HASH: '' }))).toThrow(ValidationError)
-    expect(() => validateCombination(routed({ DEV_GATEWAY_WEB_AUTH_USER: '' }))).toThrow(ValidationError)
+    expect(() => validateCombination(routed({ PORTTA_WEB_AUTH_HASH: '' }))).toThrow(ValidationError)
+    expect(() => validateCombination(routed({ PORTTA_WEB_AUTH_USER: '' }))).toThrow(ValidationError)
   })
 
   it('asks for none of it on loopback, where it would protect nothing', () => {
     expect(() =>
       validateCombination(
         new Map([
-          ['DEV_GATEWAY_WEB_EXPOSE', 'local'],
-          ['DEV_GATEWAY_WEB_AUTH', 'none'],
+          ['PORTTA_WEB_EXPOSE', 'local'],
+          ['PORTTA_WEB_AUTH', 'none'],
         ]),
       ),
     ).not.toThrow()
@@ -279,48 +279,48 @@ describe('the panel refuses to be routed without a credential', () => {
 describe('the password hash field takes a hash, never a password', () => {
   it('accepts what Traefik accepts', () => {
     expect(() =>
-      validateValue('DEV_GATEWAY_WEB_AUTH_HASH', '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1'),
+      validateValue('PORTTA_WEB_AUTH_HASH', '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1'),
     ).not.toThrow()
   })
 
   it('refuses a plaintext password typed into the field', () => {
-    expect(() => validateValue('DEV_GATEWAY_WEB_AUTH_HASH', 'hunter2')).toThrow(ValidationError)
+    expect(() => validateValue('PORTTA_WEB_AUTH_HASH', 'hunter2')).toThrow(ValidationError)
   })
 
   it('refuses a username that could break the generated YAML', () => {
-    expect(() => validateValue('DEV_GATEWAY_WEB_AUTH_USER', 'dev"user')).toThrow(ValidationError)
-    expect(() => validateValue('DEV_GATEWAY_WEB_AUTH_USER', 'dev:admin')).toThrow(ValidationError)
+    expect(() => validateValue('PORTTA_WEB_AUTH_USER', 'dev"user')).toThrow(ValidationError)
+    expect(() => validateValue('PORTTA_WEB_AUTH_USER', 'dev:admin')).toThrow(ValidationError)
   })
 })
 
 describe('saving a credential rewrites the middleware Traefik reads', () => {
   it('renders the generated file next to .env', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'dg-settings-'))
+    const dir = mkdtempSync(join(tmpdir(), 'portta-settings-'))
     const config = testConfig({ envFile: join(dir, '.env'), dynamicDir: dir })
-    writeFileSync(config.envFile, 'DEV_GATEWAY_WEB_EXPOSE=local\n')
+    writeFileSync(config.envFile, 'PORTTA_WEB_EXPOSE=local\n')
 
     const result = patchConfig(config, {
-      DEV_GATEWAY_WEB_AUTH: 'basic',
-      DEV_GATEWAY_WEB_AUTH_USER: 'dev',
-      DEV_GATEWAY_WEB_AUTH_HASH: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
+      PORTTA_WEB_AUTH: 'basic',
+      PORTTA_WEB_AUTH_USER: 'dev',
+      PORTTA_WEB_AUTH_HASH: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
     })
 
     expect(result.dynamic?.written).toBe(true)
-    const rendered = readFileSync(join(dir, 'dev-gateway-panel.yaml'), 'utf8')
-    expect(rendered).toContain('dev-gateway-web-auth:')
+    const rendered = readFileSync(join(dir, 'portta-panel.yaml'), 'utf8')
+    expect(rendered).toContain('portta-web-auth:')
     expect(rendered).toContain('dev:$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1')
     rmSync(dir, { recursive: true, force: true })
   })
 
   it('never returns the hash it just stored', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'dg-settings-'))
+    const dir = mkdtempSync(join(tmpdir(), 'portta-settings-'))
     const config = testConfig({ envFile: join(dir, '.env'), dynamicDir: dir })
     writeFileSync(config.envFile, '')
 
     const result = patchConfig(config, {
-      DEV_GATEWAY_WEB_AUTH_HASH: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
+      PORTTA_WEB_AUTH_HASH: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
     })
-    const field = result.view.fields.find((item) => item.key === 'DEV_GATEWAY_WEB_AUTH_HASH')
+    const field = result.view.fields.find((item) => item.key === 'PORTTA_WEB_AUTH_HASH')
     expect(field?.isSet).toBe(true)
     expect(field?.value).toBeNull()
     expect(JSON.stringify(result)).not.toContain('ckT15POyCRlen')

@@ -16,7 +16,7 @@
     "create": "Criar",
     "name": "Nome",
     "slug": "Slug",
-    "slugHint": "Também o que a label dev-gateway.project de um projeto deve dizer para ser adotado automaticamente.",
+    "slugHint": "Também o que a label portta.project de um projeto deve dizer para ser adotado automaticamente.",
     "descriptionLabel": "Descrição"
   },
   "notFound": "Nenhum workspace '{{slug}}'",
@@ -30,7 +30,7 @@
     "title": "Ambientes",
     "description": "Projetos Compose neste host que pertencem a este workspace, e por quê.",
     "empty": "Nada está em execução para este workspace",
-    "emptyHint": "Inicie um ambiente, rotule-o com dev-gateway.project usando este slug, ou vincule um manualmente."
+    "emptyHint": "Inicie um ambiente, rotule-o com portta.project usando este slug, ou vincule um manualmente."
   },
   "attachRepo": {
     "description": "Apenas repositórios concedidos pela instalação do GitHub App podem ser anexados.",

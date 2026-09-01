@@ -3,7 +3,7 @@
 # ============================================================================
 # Loaded by the file provider on every profile. It defines options only; the
 # certificate comes from the default store, which is either the local CA
-# (`dev-gateway tls init`) or ACME on the remote profiles.
+# (`portta tls init`) or ACME on the remote profiles.
 # ============================================================================
 
 tls:

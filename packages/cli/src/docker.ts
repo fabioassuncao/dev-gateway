@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { ContainerRecord } from '@dev-gateway/core'
+import type { ContainerRecord } from 'portta-core'
 import { PreconditionError, UsageError } from './errors.js'
 import { runProcess } from './process.js'
 
@@ -63,11 +63,11 @@ export async function networkExists(name: string): Promise<boolean> {
 
 export async function ensureNetwork(name: string): Promise<'ok' | 'created'> {
   if (await networkExists(name)) return 'ok'
-  await runProcess('docker', ['network', 'create', '--label', 'dev-gateway.managed=true', '--label', 'dev-gateway.component=shared-network', identifier(name, 'network name')])
+  await runProcess('docker', ['network', 'create', '--label', 'portta.managed=true', '--label', 'portta.component=shared-network', identifier(name, 'network name')])
   return 'created'
 }
 
 export async function isManagedContainer(id: string): Promise<boolean> {
-  const result = await runProcess('docker', ['inspect', identifier(id), '--format', '{{ index .Config.Labels "dev-gateway.managed" }}'], { reject: false })
+  const result = await runProcess('docker', ['inspect', identifier(id), '--format', '{{ index .Config.Labels "portta.managed" }}'], { reject: false })
   return result.exitCode === 0 && result.stdout.trim() === 'true'
 }

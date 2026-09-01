@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Dev Gateway: test runner
+# Portta: test runner
 # ============================================================================
 #   tests/run.sh            lint + unit  (fast, no Docker)
 #   tests/run.sh --e2e      also the end-to-end suites (needs Docker)
@@ -9,8 +9,8 @@
 # ============================================================================
 set -uo pipefail
 
-DG_ROOT=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-cd "$DG_ROOT" || exit 1
+PORTTA_ROOT=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$PORTTA_ROOT" || exit 1
 
 RUN_LINT=1; RUN_UNIT=1; RUN_E2E=0
 case "${1:-}" in
@@ -34,7 +34,7 @@ if [ "$RUN_LINT" = "1" ]; then
   if command -v shellcheck >/dev/null 2>&1; then
     # Linting is a developer convenience here, never a runtime dependency:
     # when the tool is absent the suite says so instead of quietly passing.
-    files=$(find bin scripts tests -type f \( -name '*.sh' -o -name 'dev-gateway' \) | sort)
+    files=$(find bin scripts tests -type f \( -name '*.sh' -o -name 'portta' \) | sort)
     # shellcheck disable=SC2086  # deliberate word splitting over the file list
     if shellcheck -S warning -x $files; then
       echo "  ok  $(printf '%s\n' "$files" | wc -l | tr -d ' ') files clean"
@@ -47,7 +47,7 @@ if [ "$RUN_LINT" = "1" ]; then
 
   bold "== executable bits =="
   missing=""
-  for f in bin/dev-gateway scripts/bootstrap.sh scripts/doctor.sh tests/run.sh; do
+  for f in bin/portta scripts/bootstrap.sh scripts/doctor.sh tests/run.sh; do
     [ -x "$f" ] || missing="$missing $f"
   done
   if [ -n "$missing" ]; then echo "  FAIL not executable:$missing"; FAILED=1
@@ -79,7 +79,7 @@ if [ "$RUN_LINT" = "1" ]; then
       fi
     done
     for d in docker/examples/demo-a docker/examples/demo-b; do
-      if ( cd "$d" && docker compose -f compose.yaml -f compose.dev-gateway.yaml config --quiet ); then
+      if ( cd "$d" && docker compose -f compose.yaml -f compose.portta.yaml config --quiet ); then
         echo "  ok  $d config is valid"
       else
         echo "  FAIL $d config is invalid"; FAILED=1
@@ -168,7 +168,7 @@ if [ "$RUN_E2E" = "1" ]; then
   if [ ! -d node_modules ] && [ ! -d apps/web/node_modules ]; then
     echo "  skip node_modules missing (run: npm ci)"
   elif ! ( cd apps/web && npx --no-install playwright --version >/dev/null 2>&1 ); then
-    echo "  skip playwright browsers not installed (npx --workspace=dev-gateway-web playwright install chromium)"
+    echo "  skip playwright browsers not installed (npx --workspace=portta-web playwright install chromium)"
   else
     if ( cd apps/web && npm run --silent test:e2e ); then
       echo "  ok  panel end-to-end run"

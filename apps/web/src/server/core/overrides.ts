@@ -9,7 +9,7 @@
 //
 // Nothing here writes a byte inside a project. See ADR 0001 and ADR 0011.
 
-import { parseAliases, renderAliases, type StoredAlias } from '@dev-gateway/core'
+import { parseAliases, renderAliases, type StoredAlias } from 'portta-core'
 import type { PanelConfig } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import { hostsFromRules, isTcpOnly } from './inventory.ts'

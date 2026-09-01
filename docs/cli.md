@@ -1,8 +1,8 @@
 # TypeScript CLI contract
 
-`@fabioassuncao/dev-gateway` is the installable, machine-first interface to
-the gateway. It exposes the `dev-gateway` binary and requires Node 22.12 or
-newer. The repository entry point, `./bin/dev-gateway`, delegates to it when
+`portta` is the installable, machine-first interface to
+the gateway. It exposes the `portta` binary and requires Node 22.12 or
+newer. The repository entry point, `./bin/portta`, delegates to it when
 Node and the compiled package are present.
 
 Five commands keep a Bash fallback for a bare host: `bootstrap`, `up`, `down`,
@@ -12,10 +12,10 @@ shell-native drivers. Every other command requires the TypeScript CLI.
 ## Installation
 
 ```bash
-npx @fabioassuncao/dev-gateway --version
-npm install --global @fabioassuncao/dev-gateway
-dev-gateway setup --dry-run
-dev-gateway setup --yes
+npx portta --version
+npm install --global portta
+portta setup --dry-run
+portta setup --yes
 ```
 
 `setup` requires POSIX, Node 22.12+, npm, Git, network access, Docker Engine
@@ -31,7 +31,7 @@ is idempotent; `--dry-run` changes nothing.
 | Flag | Contract |
 |---|---|
 | `--json` | Emit the documented data object on stdout. Progress and warnings stay on stderr. |
-| `-y`, `--yes` | Confirm every gated operation non-interactively. `DG_ASSUME_YES` remains a compatibility alias. |
+| `-y`, `--yes` | Confirm every gated operation non-interactively. `PORTTA_ASSUME_YES` remains a compatibility alias. |
 | `--quiet` | Suppress progress; never suppress errors or requested data. |
 | `--verbose` | Add diagnostic detail on stderr. |
 | `--profile <name>` | Select `local`, `remote-private` or `remote-public`. |

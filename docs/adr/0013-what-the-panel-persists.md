@@ -49,41 +49,41 @@ This table is the worked example; the rule above governs new keys.
 
 | Key | Reason it remains in `.env` |
 |---|---|
-| `DEV_GATEWAY_PROFILE` | The CLI selects the Compose attachment and exposure policy before the panel starts. |
-| `DEV_GATEWAY_PROJECT_NAME` | Compose uses it to name and find the gateway's own resources. |
-| `DEV_GATEWAY_NETWORK` | Compose and bootstrap create and attach the shared HTTP network. |
-| `DEV_GATEWAY_CONTROL_NETWORK` | Compose creates the private Traefik-to-proxy network. |
-| `DEV_GATEWAY_ACCESS_NETWORK` | Compose and the CLI attach temporary and persistent TCP bridges to it. |
-| `DEV_GATEWAY_LOG_LEVEL` | Component logging is injected when containers are created. |
-| `DEV_GATEWAY_ACCESS_LOG` | Traefik access logging is static startup configuration. |
-| `DEV_GATEWAY_ALIAS_HEADERS_STRATEGY` | Traefik's request-header defense is selected before it starts. |
-| `DEV_GATEWAY_DOMAIN` | The CLI and Traefik derive routing names from it at startup. |
-| `DEV_GATEWAY_BIND_ADDRESS` | Compose publishes entrypoints on this host interface. |
-| `DEV_GATEWAY_HTTP_PORT` | Compose publishes Traefik's HTTP entrypoint with this port. |
-| `DEV_GATEWAY_HTTPS_PORT` | Compose publishes Traefik's HTTPS entrypoint with this port. |
-| `DEV_GATEWAY_DASHBOARD` | Compose decides whether to enable and publish the dashboard. |
-| `DEV_GATEWAY_DASHBOARD_BIND_ADDRESS` | Compose binds the optional dashboard before the panel can query anything. |
-| `DEV_GATEWAY_DASHBOARD_PORT` | Compose publishes the optional dashboard on this host port. |
-| `DEV_GATEWAY_TCP` | Compose decides whether hostname-routed TCP entrypoints exist. |
-| `DEV_GATEWAY_TCP_POSTGRES_PORT` | Compose publishes the PostgreSQL entrypoint at container creation. |
-| `DEV_GATEWAY_TCP_REDIS_PORT` | Compose publishes the Redis entrypoint at container creation. |
-| `DEV_GATEWAY_WEB` | The CLI decides whether the optional panel stack starts. |
-| `DEV_GATEWAY_WEB_BIND_ADDRESS` | Compose publishes the panel on this host interface. |
-| `DEV_GATEWAY_WEB_PORT` | Compose publishes the panel on this host port. |
-| `DEV_GATEWAY_WEB_EXPOSE` | The CLI and Compose choose loopback-only or VPN routing before startup. |
-| `DEV_GATEWAY_WEB_HOST` | Traefik's panel router is generated from this startup hostname. |
-| `DEV_GATEWAY_WEB_READ_ONLY` | The mutation boundary must exist when the panel process starts. |
-| `DEV_GATEWAY_WEB_AUTH` | Compose and generated Traefik middleware select authentication before routing. |
-| `DEV_GATEWAY_WEB_AUTH_USER` | Traefik BasicAuth needs the user before the panel is reachable. |
-| `DEV_GATEWAY_WEB_AUTH_HASH` | This authentication secret is consumed by Traefik and never returned by the API. |
-| `DG_WEB_API_DOCS` | API-browser exposure is decided at panel startup, including the routed default. |
-| `DEV_GATEWAY_DB_NETWORK` | Compose must create the private data network before PostgreSQL or the panel starts. |
-| `DEV_GATEWAY_DB_VOLUME` | Compose selects the durable volume before PostgreSQL starts. |
-| `DG_WEB_DB_PASSWORD` | This bootstrap secret is needed to start PostgreSQL and construct the panel connection. |
-| `DG_WEB_DATABASE_URL` | The panel needs its optional connection string before its first database query. |
-| `DEV_GATEWAY_WEB_DEV` | The CLI chooses the development Compose overlay before starting containers. |
-| `DEV_GATEWAY_WEB_DEV_PORT` | The development Vite container publishes this port at creation. |
-| `DEV_GATEWAY_WEB_NETWORK` | Compose creates the private panel-to-proxy control network. |
+| `PORTTA_PROFILE` | The CLI selects the Compose attachment and exposure policy before the panel starts. |
+| `PORTTA_PROJECT_NAME` | Compose uses it to name and find the gateway's own resources. |
+| `PORTTA_NETWORK` | Compose and bootstrap create and attach the shared HTTP network. |
+| `PORTTA_CONTROL_NETWORK` | Compose creates the private Traefik-to-proxy network. |
+| `PORTTA_ACCESS_NETWORK` | Compose and the CLI attach temporary and persistent TCP bridges to it. |
+| `PORTTA_LOG_LEVEL` | Component logging is injected when containers are created. |
+| `PORTTA_ACCESS_LOG` | Traefik access logging is static startup configuration. |
+| `PORTTA_ALIAS_HEADERS_STRATEGY` | Traefik's request-header defense is selected before it starts. |
+| `PORTTA_DOMAIN` | The CLI and Traefik derive routing names from it at startup. |
+| `PORTTA_BIND_ADDRESS` | Compose publishes entrypoints on this host interface. |
+| `PORTTA_HTTP_PORT` | Compose publishes Traefik's HTTP entrypoint with this port. |
+| `PORTTA_HTTPS_PORT` | Compose publishes Traefik's HTTPS entrypoint with this port. |
+| `PORTTA_DASHBOARD` | Compose decides whether to enable and publish the dashboard. |
+| `PORTTA_DASHBOARD_BIND_ADDRESS` | Compose binds the optional dashboard before the panel can query anything. |
+| `PORTTA_DASHBOARD_PORT` | Compose publishes the optional dashboard on this host port. |
+| `PORTTA_TCP` | Compose decides whether hostname-routed TCP entrypoints exist. |
+| `PORTTA_TCP_POSTGRES_PORT` | Compose publishes the PostgreSQL entrypoint at container creation. |
+| `PORTTA_TCP_REDIS_PORT` | Compose publishes the Redis entrypoint at container creation. |
+| `PORTTA_WEB` | The CLI decides whether the optional panel stack starts. |
+| `PORTTA_WEB_BIND_ADDRESS` | Compose publishes the panel on this host interface. |
+| `PORTTA_WEB_PORT` | Compose publishes the panel on this host port. |
+| `PORTTA_WEB_EXPOSE` | The CLI and Compose choose loopback-only or VPN routing before startup. |
+| `PORTTA_WEB_HOST` | Traefik's panel router is generated from this startup hostname. |
+| `PORTTA_WEB_READ_ONLY` | The mutation boundary must exist when the panel process starts. |
+| `PORTTA_WEB_AUTH` | Compose and generated Traefik middleware select authentication before routing. |
+| `PORTTA_WEB_AUTH_USER` | Traefik BasicAuth needs the user before the panel is reachable. |
+| `PORTTA_WEB_AUTH_HASH` | This authentication secret is consumed by Traefik and never returned by the API. |
+| `PORTTA_RUNTIME_API_DOCS` | API-browser exposure is decided at panel startup, including the routed default. |
+| `PORTTA_DB_NETWORK` | Compose must create the private data network before PostgreSQL or the panel starts. |
+| `PORTTA_DB_VOLUME` | Compose selects the durable volume before PostgreSQL starts. |
+| `PORTTA_RUNTIME_DB_PASSWORD` | This bootstrap secret is needed to start PostgreSQL and construct the panel connection. |
+| `PORTTA_RUNTIME_DATABASE_URL` | The panel needs its optional connection string before its first database query. |
+| `PORTTA_WEB_DEV` | The CLI chooses the development Compose overlay before starting containers. |
+| `PORTTA_WEB_DEV_PORT` | The development Vite container publishes this port at creation. |
+| `PORTTA_WEB_NETWORK` | Compose creates the private panel-to-proxy control network. |
 | `TLS_ENABLED` | Traefik entrypoints and routers are constructed from this startup switch. |
 | `TLS_MODE` | The CLI and Traefik choose local certificates or ACME before startup. |
 | `ACME_EMAIL` | Traefik needs the ACME account identity before requesting a certificate. |
@@ -101,7 +101,7 @@ This table is the worked example; the rule above governs new keys.
 | `CF_DNS_API_TOKEN` | Traefik needs this scoped DNS credential before ACME can run. |
 | `CLOUDFLARE_ZONE` | DNS validation and diagnostics need the zone before routing starts. |
 
-The cross-check found 44 `dg_defaults()` entries and 32 `FIELDS` entries.
+The cross-check found 44 `portta_defaults()` entries and 32 `FIELDS` entries.
 Seven keys deliberately have no CLI default because empty means unset or they
 are conditional input: `ACME_EMAIL`, `CF_DNS_API_TOKEN`, `CLOUDFLARE_ZONE`,
 `PRIVATE_DOMAIN`, `PUBLIC_DOMAIN`, `TS_AUTHKEY` and `TS_EXTRA_ARGS`.

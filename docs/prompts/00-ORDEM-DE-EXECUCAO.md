@@ -1,18 +1,18 @@
-# Dev Gateway — Ordem de execução dos prompts
+# Portta — Ordem de execução dos prompts
 
 ## Contexto
 
 Repositório de trabalho:
 
-- Local: `/Users/fabioassuncao/Projects/fabioassuncao/dev-gateway`
-- GitHub: `https://github.com/fabioassuncao/dev-gateway`
-- SSH: `git@github.com:fabioassuncao/dev-gateway.git`
+- Local: `/Users/fabioassuncao/Projects/fabioassuncao/portta`
+- GitHub: `https://github.com/fabioassuncao/portta`
+- SSH: `git@github.com:fabioassuncao/portta.git`
 
 O repositório já existe e deve ser usado como ponto de partida.
 
 ## Princípio arquitetural inegociável
 
-O **Dev Gateway é uma infraestrutura completamente desacoplada dos projetos consumidores**.
+O **Portta é uma infraestrutura completamente desacoplada dos projetos consumidores**.
 
 Ele:
 
@@ -30,9 +30,9 @@ Cada projeto continua sendo executado em seu próprio diretório e com seu próp
 
 A integração deve ocorrer apenas através de um **contrato de rede e metadados**, preferencialmente por um overlay Compose específico de desenvolvimento, por exemplo:
 
-`compose.dev-gateway.yaml`
+`compose.portta.yaml`
 
-O Dev Gateway disponibiliza infraestrutura compartilhada, descoberta, roteamento, DNS/TLS, VPN e ferramentas auxiliares.
+O Portta disponibiliza infraestrutura compartilhada, descoberta, roteamento, DNS/TLS, VPN e ferramentas auxiliares.
 
 ## Objetivo final
 
@@ -53,7 +53,7 @@ Nenhum agente deve precisar "liberar porta" matando containers de outro ambiente
 
 ### HTTP/HTTPS
 
-`cliente -> Traefik -> rede externa dev-gateway -> serviço HTTP do projeto`
+`cliente -> Traefik -> rede externa portta -> serviço HTTP do projeto`
 
 ### Serviços privados do projeto
 
@@ -85,7 +85,7 @@ Execute os arquivos na sequência:
 4. `04-ACESSO-TCP-BANCOS-REDIS-E-SERVICOS.md`
 5. `05-AUDITORIA-TESTES-E-RELEASE-INICIAL.md`
 
-Cada prompt deve ser executado **a partir do repositório `dev-gateway`**.
+Cada prompt deve ser executado **a partir do repositório `portta`**.
 
 Antes de iniciar um prompt posterior, o agente deve:
 
@@ -116,4 +116,4 @@ Não misturar várias etapas independentes no mesmo commit.
 
 ## Resultado esperado
 
-Depois dos cinco prompts, o Dev Gateway deve ser uma ferramenta reutilizável que possa ser instalada uma única vez por host e atender qualquer quantidade de projetos Docker compatíveis sem acoplamento a eles.
+Depois dos cinco prompts, o Portta deve ser uma ferramenta reutilizável que possa ser instalada uma única vez por host e atender qualquer quantidade de projetos Docker compatíveis sem acoplamento a eles.

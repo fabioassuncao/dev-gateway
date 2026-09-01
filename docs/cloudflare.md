@@ -27,7 +27,7 @@ scoped, and cannot be rotated without breaking every other use. It is never a
 recommendation here.
 
 The token is sent only in an `Authorization` header, never on a command line
-where `ps` would show it, never printed, and never logged. `dev-gateway
+where `ps` would show it, never printed, and never logged. `portta
 inspect` shows `<set>` or `<unset>`.
 
 ## What it is used for
@@ -36,13 +36,13 @@ inspect` shows `<set>` or `<unset>`.
 which creates and removes a TXT record during issuance. This is the part that
 makes wildcard certificates possible.
 
-**Wildcard record management**, through `dev-gateway dns`:
+**Wildcard record management**, through `portta dns`:
 
 ```bash
-dev-gateway dns status         # configuration and current records
-dev-gateway dns check          # does the wildcard point here?
-dev-gateway dns setup          # show the change that is needed
-dev-gateway dns setup --apply  # make it, after confirming
+portta dns status         # configuration and current records
+portta dns check          # does the wildcard point here?
+portta dns setup          # show the change that is needed
+portta dns setup --apply  # make it, after confirming
 ```
 
 `setup` never writes without `--apply`, and asks before changing an existing

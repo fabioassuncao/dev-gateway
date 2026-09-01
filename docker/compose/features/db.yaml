@@ -1,57 +1,57 @@
 # ============================================================================
-# Dev Gateway: panel persistence (opt-in with the panel)
+# Portta: panel persistence (opt-in with the panel)
 # ============================================================================
 # PostgreSQL is a private implementation detail of the panel. It has no host
 # port, never joins the shared HTTP network, and keeps its data in a named
-# volume that `dev-gateway down` does not remove.
+# volume that `portta down` does not remove.
 # ============================================================================
 
 networks:
   webdata:
-    name: ${DEV_GATEWAY_DB_NETWORK:-dev-gateway-data}
+    name: ${PORTTA_DB_NETWORK:-portta-data}
     internal: true
     labels:
-      dev-gateway.managed: "true"
-      dev-gateway.component: data-network
+      portta.managed: "true"
+      portta.component: data-network
 
 volumes:
-  dev-gateway-db:
-    name: ${DEV_GATEWAY_DB_VOLUME:-dev-gateway-db}
+  portta-db:
+    name: ${PORTTA_DB_VOLUME:-portta-db}
     labels:
-      dev-gateway.managed: "true"
-      dev-gateway.component: db-volume
+      portta.managed: "true"
+      portta.component: db-volume
 
 services:
   db:
     image: postgres:18.6-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: devgateway
-      POSTGRES_USER: devgateway
+      POSTGRES_DB: portta
+      POSTGRES_USER: portta
       # An empty value makes PostgreSQL refuse to initialise; it never makes it
       # trust unauthenticated clients. bootstrap/web up normally fill this.
-      POSTGRES_PASSWORD: ${DG_WEB_DB_PASSWORD:-}
+      POSTGRES_PASSWORD: ${PORTTA_RUNTIME_DB_PASSWORD:-}
     volumes:
       # PostgreSQL 18+ stores data in a major-version subdirectory. Mount the
       # parent so upgrades fail explicitly instead of creating nested data.
-      - dev-gateway-db:/var/lib/postgresql
+      - portta-db:/var/lib/postgresql
     networks:
       - webdata
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U devgateway -d devgateway"]
+      test: ["CMD-SHELL", "pg_isready -U portta -d portta"]
       interval: 5s
       timeout: 3s
       retries: 12
       start_period: 5s
     labels:
       traefik.enable: "false"
-      dev-gateway.managed: "true"
-      dev-gateway.component: db
+      portta.managed: "true"
+      portta.component: db
     # No `ports:`. Only the panel can reach this service.
 
   web:
     environment:
-      DG_WEB_DATABASE_URL: ${DG_WEB_DATABASE_URL:-postgres://devgateway:${DG_WEB_DB_PASSWORD}@db:5432/devgateway}
-      DEV_GATEWAY_DB_NETWORK: ${DEV_GATEWAY_DB_NETWORK:-dev-gateway-data}
+      PORTTA_RUNTIME_DATABASE_URL: ${PORTTA_RUNTIME_DATABASE_URL:-postgres://portta:${PORTTA_RUNTIME_DB_PASSWORD}@db:5432/portta}
+      PORTTA_DB_NETWORK: ${PORTTA_DB_NETWORK:-portta-data}
     networks:
       - webdata

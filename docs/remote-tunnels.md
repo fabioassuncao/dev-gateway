@@ -17,7 +17,7 @@ your Mac                    VPS
 ## Opening one
 
 ```bash
-dev-gateway remote access open deploy@vps \
+portta remote access open deploy@vps \
   --project base-empresarial --service postgres
 ```
 
@@ -32,9 +32,9 @@ Point TablePlus, DBeaver or `psql` at `127.0.0.1:55432`. The client never needs
 to know the VPS exists.
 
 ```bash
-dev-gateway remote access list
-dev-gateway remote access close 7f2a91
-dev-gateway remote access close --all
+portta remote access list
+portta remote access close 7f2a91
+portta remote access close --all
 ```
 
 Closing the tunnel leaves the remote bridge in place, since another tunnel may
@@ -42,7 +42,7 @@ be using it, and prints the command to close that too.
 
 ## What it actually does
 
-1. Runs `dev-gateway access open` **on the VPS**. That bridge binds the VPS's
+1. Runs `portta access open` **on the VPS**. That bridge binds the VPS's
    loopback, exactly as a local one does. It is never published.
 2. Reads back the port it chose.
 3. Opens `ssh -N -L 127.0.0.1:<local>:127.0.0.1:<remote>`.
@@ -53,7 +53,7 @@ be using it, and prints the command to close that too.
 The same command; the target is a tailnet name:
 
 ```bash
-dev-gateway remote access open deploy@dev-vps --project base-empresarial --service postgres
+portta remote access open deploy@dev-vps --project base-empresarial --service postgres
 ```
 
 Authentication and audit come from your tailnet policy instead of
@@ -63,7 +63,7 @@ Authentication and audit come from your tailnet policy instead of
 
 `StrictHostKeyChecking=accept-new` records a new host's key on first
 connection and still refuses a *changed* one. That is the attack worth defending
-against. It is never `no`. Override with `DG_SSH_HOST_KEY_POLICY=yes` if you
+against. It is never `no`. Override with `PORTTA_SSH_HOST_KEY_POLICY=yes` if you
 pre-populate `known_hosts`.
 
 `ExitOnForwardFailure=yes` means that if the local port turns out to be taken,
@@ -78,7 +78,7 @@ which is what usually kills a long-lived database session.
 Nothing here is magic:
 
 ```bash
-ssh deploy@vps 'cd dev-gateway && ./bin/dev-gateway access open --project base-empresarial --service postgres'
+ssh deploy@vps 'cd portta && ./bin/portta access open --project base-empresarial --service postgres'
 # note the port it prints, say 33077
 ssh -N -L 127.0.0.1:55432:127.0.0.1:33077 deploy@vps
 ```
@@ -89,12 +89,12 @@ ssh -N -L 127.0.0.1:55432:127.0.0.1:33077 deploy@vps
 host is unreachable. Try `--local-port` with a different number, or `ssh -v`.
 
 **"the remote bridge did not report a port"** means the gateway on the VPS is
-not where we looked. Pass `--dir` if it is not in `~/dev-gateway`, and check
-`dev-gateway remote status deploy@vps`.
+not where we looked. Pass `--dir` if it is not in `~/portta`, and check
+`portta remote status deploy@vps`.
 
 **The tunnel dies after a while.** That is a NAT or firewall idle timeout.
 `ServerAliveInterval` covers the usual cases; a very aggressive middlebox may
 need a shorter one in your `~/.ssh/config`.
 
 **Connection refused through a working tunnel.** The remote bridge is gone.
-`dev-gateway remote exec deploy@vps -- 'cd dev-gateway && ./bin/dev-gateway access list'`.
+`portta remote exec deploy@vps -- 'cd portta && ./bin/portta access list'`.

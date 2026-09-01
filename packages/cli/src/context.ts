@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { composeFiles, loadGatewayConfig, mergeEnvironment, parseEnv, type GatewayConfig } from '@dev-gateway/core'
+import { composeFiles, loadGatewayConfig, mergeEnvironment, parseEnv, type GatewayConfig } from 'portta-core'
 import { PreconditionError } from './errors.js'
 import { CLI_VERSION } from './version.js'
 
@@ -23,7 +23,7 @@ function isGatewayRoot(path: string): boolean {
 }
 
 export function findGatewayRoot(start = process.cwd()): string | null {
-  const configured = process.env['DG_ROOT']
+  const configured = process.env['PORTTA_ROOT']
   if (configured && isGatewayRoot(resolve(configured))) return resolve(configured)
   let current = resolve(start)
   for (;;) {
@@ -38,16 +38,16 @@ export function gatewayContext(options: { root?: string; profile?: string; requi
   const root = options.root ? resolve(options.root) : findGatewayRoot()
   if (!root) {
     if (options.required === false) {
-      const env = { ...process.env, DEV_GATEWAY_PROFILE: options.profile ?? process.env['DEV_GATEWAY_PROFILE'] }
+      const env = { ...process.env, PORTTA_PROFILE: options.profile ?? process.env['PORTTA_PROFILE'] }
       const config = loadGatewayConfig(env)
       return { root: process.cwd(), env, config, composeFiles: [], version: CLI_VERSION }
     }
-    throw new PreconditionError('this command needs a Dev Gateway checkout', 'run dev-gateway setup, or execute it inside the gateway directory')
+    throw new PreconditionError('this command needs a Portta checkout', 'run portta setup, or execute it inside the gateway directory')
   }
   const file = existsSync(join(root, '.env')) ? parseEnv(readFileSync(join(root, '.env'), 'utf8')) : new Map<string, string>()
   const env = mergeEnvironment(file, process.env)
-  if (options.profile) env['DEV_GATEWAY_PROFILE'] = options.profile
-  env['DG_ROOT'] = root
+  if (options.profile) env['PORTTA_PROFILE'] = options.profile
+  env['PORTTA_ROOT'] = root
   const config = loadGatewayConfig(env)
   const files = composeFiles(config)
   for (const fileName of files) {

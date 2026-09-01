@@ -16,16 +16,16 @@ said that exactly one `attach-*` is always selected, or that
 to one question and never both.
 
 The structure was never flat. Each file is chosen by a distinct condition in
-`dg_compose_files`, and the conditions form a matrix with one axis per decision:
+`portta_compose_files`, and the conditions form a matrix with one axis per decision:
 
 | Axis | Files | Selected by |
 |---|---|---|
 | Base | `compose.yaml` | always |
 | Attachment | `attach/{host,tailscale}.yaml` | exactly one, always |
 | Profile | `profiles/{local,local-tls,remote,public}.yaml` | the profile, plus TLS mode |
-| Dashboard | `features/dashboard{,-tailscale}.yaml` | `DEV_GATEWAY_DASHBOARD` |
-| TCP | `features/tcp{,-tailscale}.yaml` | `DEV_GATEWAY_TCP` |
-| Panel | `features/{web,web-dev,web-vpn,db}.yaml` | `DEV_GATEWAY_WEB` and friends |
+| Dashboard | `features/dashboard{,-tailscale}.yaml` | `PORTTA_DASHBOARD` |
+| TCP | `features/tcp{,-tailscale}.yaml` | `PORTTA_TCP` |
+| Panel | `features/{web,web-dev,web-vpn,db}.yaml` | `PORTTA_WEB` and friends |
 
 ### Why the pairs are not consolidated
 
@@ -53,7 +53,7 @@ defaults to the directory of the first `-f` file — not the directory of the fi
 the path is written in. Moving the files would therefore have re-anchored all
 twenty paths at `docker/compose/`. `--project-directory` overrides that default,
 and it does not touch the project name, which `docker/compose/compose.yaml`
-still declares explicitly as `name: ${DEV_GATEWAY_PROJECT_NAME:-dev-gateway}`.
+still declares explicitly as `name: ${PORTTA_PROJECT_NAME:-portta}`.
 
 ## Decision
 
@@ -75,7 +75,7 @@ directory now carries: `compose.attach-host.yaml` is `attach/host.yaml`.
 
 Every invocation passes `--project-directory <repository root>`, so the paths
 inside the files keep resolving where they always did. This is done once on each
-side of the contract: `dg_compose` in `scripts/lib/docker.sh`, and
+side of the contract: `portta_compose` in `scripts/lib/docker.sh`, and
 `composeArguments` in `packages/cli/src/context.ts`.
 
 Nothing was deleted, merged or renamed semantically. `git mv` carried the
@@ -89,10 +89,10 @@ inside each self-contained demo directory.
 
 The root lists one `docker/` entry instead of fifteen files and the former
 root-level examples tree. The nested directory names state the matrix that was
-previously only readable in `dg_compose_files`.
+previously only readable in `portta_compose_files`.
 
 **The selection logic still has two implementations that must agree**:
-`dg_compose_files` in `scripts/lib/docker.sh` and `composeFiles` in
+`portta_compose_files` in `scripts/lib/docker.sh` and `composeFiles` in
 `packages/core/src/config.ts`, per
 [ADR 0015](0015-node-on-the-host.md) — the core commands must run without Node.
 This decision did not create that duplication, but it doubled the cost of this
@@ -107,6 +107,6 @@ root discovery.
 Anyone who was invoking `docker compose -f compose.yaml -f compose.local.yaml`
 by hand needs the new paths. That was never the supported interface — the base
 file says so in its header, and the CLI is the stable operational contract — but
-it is the one thing this change breaks. `make` and `./bin/dev-gateway` are
-unaffected, and so are consumer projects: `compose.dev-gateway.yaml` lives in
+it is the one thing this change breaks. `make` and `./bin/portta` are
+unaffected, and so are consumer projects: `compose.portta.yaml` lives in
 the adopted project, not here.

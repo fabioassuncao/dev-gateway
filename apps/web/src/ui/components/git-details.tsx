@@ -202,7 +202,7 @@ function PullRequestsCard({ data }: { data: ProjectGit }) {
             forge?.reason ??
             t('noPullRequestsHint', {
               defaultValue:
-                'Run dev-gateway git scan --with-prs on the host with gh installed and signed in.',
+                'Run portta git scan --with-prs on the host with gh installed and signed in.',
             })
           }
         />

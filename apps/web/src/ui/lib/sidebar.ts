@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-const STORAGE_KEY = 'dg-sidebar'
+const STORAGE_KEY = 'portta-sidebar'
 
 function stored(): boolean | null {
   try {

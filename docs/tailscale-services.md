@@ -19,7 +19,7 @@ project-a_default              project-b_default
         |                               |
   forwarder-a-db                  forwarder-b-db
         |                               |
-        +------- dev-gateway-access ----+
+        +------- portta-access ----+
                         |
                     Tailscale
 ```
@@ -34,12 +34,12 @@ misconfiguration away from resolving each other's service names. The forwarder
 per service keeps every project network isolated from every other, and
 Tailscale only ever sees the access network.
 
-`dev-gateway doctor` fails if a forwarder ends up on the shared HTTP network.
+`portta doctor` fails if a forwarder ends up on the shared HTTP network.
 
 ## Publishing one
 
 ```bash
-dev-gateway service publish --private \
+portta service publish --private \
   --project base-empresarial --service postgres
 ```
 
@@ -47,14 +47,14 @@ dev-gateway service publish --private \
   alias            base-empresarial-postgres
   target           postgres:5432
   project network  base-empresarial_default
-  access network   dev-gateway-access
+  access network   portta-access
   reachable at     base-empresarial-postgres:5432 (from the access network)
 ```
 
 ```bash
-dev-gateway service list
-dev-gateway service unpublish base-empresarial-postgres
-dev-gateway service unpublish --project base-empresarial
+portta service list
+portta service unpublish base-empresarial-postgres
+portta service unpublish --project base-empresarial
 ```
 
 Unpublishing removes the forwarder. The database keeps running; it was never
@@ -67,7 +67,7 @@ Three steps, all on your side.
 **1. Let Tailscale reach the access network.**
 
 ```bash
-docker network connect dev-gateway-access dev-gateway-tailscale-1
+docker network connect portta-access portta-tailscale-1
 ```
 
 This is the only network the Tailscale container joins beyond the gateway's
@@ -125,6 +125,6 @@ Start with `access open`. Publish the two or three you keep reaching for.
 
 ## Not set up for this yet?
 
-`dev-gateway remote access open` works today over plain SSH and needs no
+`portta remote access open` works today over plain SSH and needs no
 Tailscale Services configuration at all. See
 [remote-tunnels.md](remote-tunnels.md).

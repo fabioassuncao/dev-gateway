@@ -1,4 +1,4 @@
-// Mirrors dg_service_kind and dg_default_port_for_image in
+// Mirrors portta_service_kind and portta_default_port_for_image in
 // scripts/lib/discovery.sh. The CLI and the panel must agree on what a service
 // is, or `access open` from one would contradict the other.
 

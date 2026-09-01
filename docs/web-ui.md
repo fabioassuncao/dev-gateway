@@ -9,8 +9,8 @@ not display. See [ADR 0013](adr/0013-what-the-panel-persists.md).
 It is off by default.
 
 ```bash
-./bin/dev-gateway web up
-./bin/dev-gateway web open      # http://127.0.0.1:8081
+./bin/portta web up
+./bin/portta web open      # http://127.0.0.1:8081
 ```
 
 ![The Overview page: counts for projects, services, routed URLs and containers, the problems the panel detected, the gateway's own configuration, and the available URLs](../.github/images/panel-overview.png)
@@ -82,13 +82,13 @@ newer daemon cannot silently change the response contract. See
 ### Shell and navigation
 
 Each of the eight sections sets a contextual browser title ending in
-`Dev Gateway`; a project route can refine it with the Compose project name.
+`Portta`; a project route can refine it with the Compose project name.
 Every new page must call `useDocumentTitle` so tabs, bookmarks and history do
 not inherit the previous page's title. The built UI also serves its SVG favicon
 locally, with no browser request to a third-party asset.
 
 At `md` and above, the sidebar can collapse from its 208px labelled form to a
-56px icon rail. The `dg-sidebar` preference survives reloads when local storage
+56px icon rail. The `portta-sidebar` preference survives reloads when local storage
 is available and safely defaults to expanded when it is not. Icons keep native
 tooltips and accessible labels, and the active section carries
 `aria-current="page"`. Below `md`, navigation remains the labelled horizontal
@@ -107,18 +107,18 @@ pages remain available and diagnostics report the degraded state. See
 ## Starting it
 
 ```bash
-./bin/dev-gateway web up          # build if needed, then start
-./bin/dev-gateway web open        # print the URL, and open a browser
-./bin/dev-gateway web status      # where it listens, and whether it is healthy
-./bin/dev-gateway web logs        # follow it
-./bin/dev-gateway web restart
-./bin/dev-gateway web down        # stop it; the gateway keeps running
-./bin/dev-gateway web disable     # stop it and take it out of `dev-gateway up`
-./bin/dev-gateway db status       # database health, migration and size
+./bin/portta web up          # build if needed, then start
+./bin/portta web open        # print the URL, and open a browser
+./bin/portta web status      # where it listens, and whether it is healthy
+./bin/portta web logs        # follow it
+./bin/portta web restart
+./bin/portta web down        # stop it; the gateway keeps running
+./bin/portta web disable     # stop it and take it out of `portta up`
+./bin/portta db status       # database health, migration and size
 ```
 
-`web up` writes `DEV_GATEWAY_WEB=true` to `.env`, so from then on
-`dev-gateway up` brings the panel along with the rest of the gateway.
+`web up` writes `PORTTA_WEB=true` to `.env`, so from then on
+`portta up` brings the panel along with the rest of the gateway.
 `web disable` undoes that.
 
 The panel image still builds its own Node runtime. Starting it through the full
@@ -128,7 +128,7 @@ CLI requires Node 22.12+ on the host; the core zero-Node fallbacks remain
 ### Development, with hot reloading
 
 ```bash
-./bin/dev-gateway web dev
+./bin/portta web dev
 ```
 
 Two containers from the same image: the API with `node --watch`, and Vite in
@@ -136,17 +136,17 @@ front of it with HMR on `http://127.0.0.1:5173`. Only `apps/web/src` is
 bind-mounted, so the image's `node_modules` stay in place. Edits under
 `apps/web/src` reload on their own.
 
-`./bin/dev-gateway web up` goes back to the built image.
+`./bin/portta web up` goes back to the built image.
 
 If you do have Node on the host and prefer to work outside containers:
 
 ```bash
 npm ci                 # from the repository root; installs every workspace
-npm run dev --workspace=dev-gateway-web        # API on :8081
-npm run dev:ui --workspace=dev-gateway-web     # Vite on :5173
-npm test --workspace=dev-gateway-web
-npm run test:e2e --workspace=dev-gateway-web
-npm run openapi --workspace=dev-gateway-web    # refresh apps/web/openapi.json
+npm run dev --workspace=portta-web        # API on :8081
+npm run dev:ui --workspace=portta-web     # Vite on :5173
+npm test --workspace=portta-web
+npm run test:e2e --workspace=portta-web
+npm run openapi --workspace=portta-web    # refresh apps/web/openapi.json
 ```
 
 ### API contract
@@ -163,7 +163,7 @@ boundary: Traefik enforces it before a request reaches the application.
 document. Its HTML, CSS and JavaScript are served from the panel image; it
 loads no CDN, font, telemetry or third-party code. The page is enabled by
 default only while the panel stays on loopback. A routed panel returns 404
-unless `DG_WEB_API_DOCS=true` explicitly opts in. The JSON contract stays
+unless `PORTTA_RUNTIME_API_DOCS=true` explicitly opts in. The JSON contract stays
 available because a caller that reached the API can already inspect it.
 
 `apps/web/openapi.json` is checked in so an API change is visible in review.
@@ -177,7 +177,7 @@ The images on this page and in the README are produced by the real panel, run
 against a fixed host described in `apps/web/e2e/demo-host.mjs`:
 
 ```bash
-npm run screenshots --workspace=dev-gateway-web
+npm run screenshots --workspace=portta-web
 ```
 
 They are generated rather than taken by hand so they stay in step with the UI,
@@ -192,12 +192,12 @@ and the framing in `e2e/screenshots.mjs`.
 ### Local
 
 `http://127.0.0.1:8081`, and nothing else. The port is published on
-`DEV_GATEWAY_WEB_BIND_ADDRESS`, which is `127.0.0.1` and should stay that way.
+`PORTTA_WEB_BIND_ADDRESS`, which is `127.0.0.1` and should stay that way.
 
 Change the port if 8081 is taken:
 
 ```bash
-./bin/dev-gateway web up --port 8099
+./bin/portta web up --port 8099
 ```
 
 ### Over the VPN
@@ -207,12 +207,12 @@ The private profile routes it through Traefik, which on that profile listens on
 the tailnet and nowhere else:
 
 ```bash
-./bin/dev-gateway web auth set
-./bin/dev-gateway web up --expose vpn
-# https://dev-gateway-web.vpn.example.com
+./bin/portta web auth set
+./bin/portta web up --expose vpn
+# https://portta-web.vpn.example.com
 ```
 
-This adds a Traefik router for `DEV_GATEWAY_WEB_HOST.<domain>` and a BasicAuth
+This adds a Traefik router for `PORTTA_WEB_HOST.<domain>` and a BasicAuth
 middleware in front of it. It is refused on the `remote-public` profile, where
 Traefik binds every interface and a router would therefore be public, and it is
 refused without a credential: a routed panel can stop and remove every
@@ -223,7 +223,7 @@ A routed panel also defaults to read-only. `--writable` opts out, deliberately.
 ### The credential
 
 ```bash
-./bin/dev-gateway web auth set
+./bin/portta web auth set
 #   user      dev
 #   password  K7RXQ-M4WPD-J9TCF-B2NHY
 # warn this is the only time the password is shown; only its hash is stored
@@ -231,16 +231,16 @@ A routed panel also defaults to read-only. `--writable` opts out, deliberately.
 
 The password is generated (twenty characters over a thirty-two symbol alphabet,
 so about a hundred bits), shown exactly once, and stored only as an apr1 hash
-in `.env` and in `config/traefik/dynamic/dev-gateway-panel.yaml`. Nothing puts
+in `.env` and in `config/traefik/dynamic/portta-panel.yaml`. Nothing puts
 it on a command line, where `ps` would show it to every user on the host. Use
 `--password-stdin` to supply your own, and `--user` to change the name.
 
 Traefik hot-reloads the dynamic directory, so a running panel needs no restart.
 
 ```bash
-./bin/dev-gateway web auth          # is it protected, and as whom
-./bin/dev-gateway web auth apply    # re-render the middleware from .env
-./bin/dev-gateway web auth clear    # refused while the panel is routed
+./bin/portta web auth          # is it protected, and as whom
+./bin/portta web auth apply    # re-render the middleware from .env
+./bin/portta web auth clear    # refused while the panel is routed
 ```
 
 None of this lives in the panel: there is no login form, no session, no cookie
@@ -252,7 +252,7 @@ is one credential for the whole panel, with no users and no roles. See
 ### Never on the internet
 
 ```bash
-./bin/dev-gateway web up --expose public
+./bin/portta web up --expose public
 # error: the panel is never published on the internet
 ```
 
@@ -269,7 +269,7 @@ ssh -N -L 8081:127.0.0.1:8081 deploy@vps
 ### Read-only mode
 
 ```bash
-./bin/dev-gateway web up --read-only
+./bin/portta web up --read-only
 ```
 
 Every mutating endpoint answers `403`. Useful when an agent is driving the
@@ -298,7 +298,7 @@ owns, and the environments that belong to it — and it stays visible with
 nothing up, because it is a decision rather than an observation.
 
 Each environment row says **why** it was adopted: linked by hand, declared by
-its `dev-gateway.project` label, or matched through a repository the workspace
+its `portta.project` label, or matched through a repository the workspace
 owns. Deleting a workspace removes the grouping and nothing else; the response
 says as much.
 
@@ -341,7 +341,7 @@ another and that shows in the issue's timeline.
 
 **The backlog** is a list rather than a board: work with no status yet, with
 sub-issues nested under their parent, each row opening the same edit dialog. A
-persisted manual order is deliberately not offered — it would be Dev Gateway
+persisted manual order is deliberately not offered — it would be Portta
 state GitHub cannot see.
 
 **Filters** — repository, priority, assignee, label and free text — live in the
@@ -371,7 +371,7 @@ base-empresarial
 A project's database belongs to the project even though it never joins the
 shared network. The worktree is shown when the Compose working directory
 disagrees with the project name, which is what
-[`dev-gateway namespace`](monorepos.md) produces.
+[`portta namespace`](monorepos.md) produces.
 
 Each service row owns its endpoints, so several local, VPN or public addresses
 remain grouped with the container that serves them. The row also keeps image,
@@ -398,7 +398,7 @@ is a URL:
 
 When the panel can tell which issue an environment is running for, Overview
 opens with a compact issue block — repository, number, title, type, priority,
-status — and says **why** it was linked: the `dev-gateway.issue` label, the
+status — and says **why** it was linked: the `portta.issue` label, the
 branch, the namespace, or by hand. See
 [github.md](github.md#the-issue-and-the-environment-it-is-worked-in).
 
@@ -442,12 +442,12 @@ cannot read a working tree: it has no project directory mounted, no `git`, and
 no way to run a command. What it reads is a file the host wrote:
 
 ```bash
-./bin/dev-gateway git scan          # every running project
-./bin/dev-gateway git scan --project storefront-issue59
-./bin/dev-gateway git status        # what was collected, and when
+./bin/portta git scan          # every running project
+./bin/portta git scan --project storefront-issue59
+./bin/portta git status        # what was collected, and when
 ```
 
-`dev-gateway up` and `dev-gateway web up` run a scan for you. For anything more
+`portta up` and `portta web up` run a scan for you. For anything more
 frequent, a cron entry is the honest answer; the panel never polls, and a scan
 that is too old to trust is marked rather than quietly shown as current.
 
@@ -465,7 +465,7 @@ checkout, merge or rebase anywhere in the panel or the CLI. See
 #### Open pull requests
 
 ```bash
-./bin/dev-gateway git scan --with-prs
+./bin/portta git scan --with-prs
 ```
 
 adds the open pull requests, with their review decision and whether checks are
@@ -558,7 +558,7 @@ alpha-web.localhost      derived, still answering
 shop.localhost           alias, answering too
 ```
 
-Setting an alias writes one router into `dev-gateway-aliases.yaml`, the third
+Setting an alias writes one router into `portta-aliases.yaml`, the third
 and last file the panel may write in Traefik's dynamic directory
 ([ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md)). Traefik
 hot-reloads it: no container is recreated and the gateway is not restarted.
@@ -572,7 +572,7 @@ anything is written:
 
 - a hostname a running container already derives or declares;
 - a hostname another alias already took;
-- a hostname outside `DEV_GATEWAY_DOMAIN`, `PRIVATE_DOMAIN` or `PUBLIC_DOMAIN`
+- a hostname outside `PORTTA_DOMAIN`, `PRIVATE_DOMAIN` or `PUBLIC_DOMAIN`
   — the gateway will not mint an address it cannot serve;
 - a service whose `kind` is not `http`: a database is reached through
   [tcp-routing.md](tcp-routing.md), not by an HTTP router;
@@ -589,8 +589,8 @@ about what answers.
 The CLI reads the same file, so the two tools never contradict each other:
 
 ```bash
-dev-gateway urls          # aliases are listed and marked as such
-dev-gateway doctor        # flags an alias whose target container is gone
+portta urls          # aliases are listed and marked as such
+portta doctor        # flags an alias whose target container is gone
 ```
 
 Anything the panel refuses can still be written by hand into
@@ -606,7 +606,7 @@ unless public access is already on).
 Every share carries an expiry, the password is shown exactly once and stored
 only as a hash, and revoking one deletes a block from a generated file. The
 project's own router, labels and configuration are never touched.
-`dev-gateway share list|revoke|gc` manages the same objects from the host. See
+`portta share list|revoke|gc` manages the same objects from the host. See
 [sharing.md](sharing.md).
 
 #### Why a route behaves like this
@@ -619,7 +619,7 @@ refused one.
 ```text
 Traefik   storefront-web@docker   enabled   websecure     dashboard →
           Host(`storefront-web.dev.example.com`)
-          middlewares: dev-gateway-secure-headers@file
+          middlewares: portta-secure-headers@file
           → http://172.18.0.7:3000
 ```
 
@@ -627,7 +627,7 @@ This is the one question labels cannot answer. The panel derives hostnames the
 same way Traefik does and is right about them, which is exactly why "the labels
 look right and it still 404s" had nowhere to go.
 
-It needs the Traefik API, which means `DEV_GATEWAY_DASHBOARD=true`, and that is
+It needs the Traefik API, which means `PORTTA_DASHBOARD=true`, and that is
 off by default. When it is off the panel says **the API was not asked** rather
 than implying the labels were confirmed, and everything else is unchanged.
 `doctor` gains two checks when it is on: a routed service Traefik never built a
@@ -658,7 +658,7 @@ Every container on the host, in four clearly separated sections:
 
 | Section | What it means |
 |---|---|
-| **Dev Gateway** | The gateway's own infrastructure. Managed by the CLI, not from here |
+| **Portta** | The gateway's own infrastructure. Managed by the CLI, not from here |
 | **Integrated projects** | Compose projects connected to the gateway |
 | **External Docker** | Compose projects the gateway does not manage |
 | **Standalone containers** | Started by hand, outside any Compose project |
@@ -668,7 +668,7 @@ diagnosis, not because the gateway has any opinion about it: no URLs, no DNS,
 no bridges, no gateway actions. Just what it is, what it holds, and the few
 operations below.
 
-![The top of the Docker page: counts by section, and the Dev Gateway section listing the gateway's own containers](../.github/images/panel-docker.png)
+![The top of the Docker page: counts by section, and Portta section listing the gateway's own containers](../.github/images/panel-docker.png)
 
 Below the sections, a host summary: engine and resources, container counts by
 section, networks, and every published port with the container holding it.
@@ -677,7 +677,7 @@ Ports claimed by two containers are flagged, which is usually the answer to
 
 ![Further down the Docker page: External Docker, Standalone containers, and the published ports table flagging 5432 as claimed by two containers at once](../.github/images/panel-docker-external.png)
 
-Filters: All / Dev Gateway / Integrated / External / Standalone, crossed with
+Filters: All / Portta / Integrated / External / Standalone, crossed with
 Any state / Running / Stopped / Unhealthy, plus a search over container name,
 image, project, service and hostname.
 
@@ -703,8 +703,8 @@ and afterwards:
 127.0.0.1:55431      copy host   copy port   copy connection string   close
 ```
 
-The bridge is the same one [`dev-gateway access open`](tcp-access.md) creates,
-with byte-identical labels, so `dev-gateway access list`, `close` and `gc`
+The bridge is the same one [`portta access open`](tcp-access.md) creates,
+with byte-identical labels, so `portta access list`, `close` and `gc`
 manage it too and neither tool is surprised by the other's work. It binds
 `127.0.0.1` on a port the kernel picks, so any number of databases can be
 reachable at once without one of them having to give up 5432.
@@ -721,14 +721,14 @@ a project has not opted in it says that too.
 ![The Access page: an open bridge to storefront/postgres on 127.0.0.1:55431 with its connection string, and the other TCP services each with an Open local access button](../.github/images/panel-access.png)
 
 This page also lists persistent forwarders created with
-[`dev-gateway service publish --private`](tailscale-services.md).
+[`portta service publish --private`](tailscale-services.md).
 
 ### Gateway
 
 Component states, versions, the profile, diagnostics, and logs for Traefik, the
 socket proxy and Tailscale.
 
-**Diagnostics are not `dev-gateway doctor`.** They are the checks a container
+**Diagnostics are not `portta doctor`.** They are the checks a container
 can make honestly: components present and healthy, the shared network, services
 that opted into Traefik but never joined it, hostname collisions, port
 conflicts, stale bridges, unhealthy containers, and configuration that would
@@ -801,7 +801,7 @@ configuration from the environment it was created with
 needs the containers recreated, on the host:
 
 ```bash
-./bin/dev-gateway up local
+./bin/portta up local
 ```
 
 The panel says this rather than pretending a restart was enough. Saved settings
@@ -811,26 +811,26 @@ that the running gateway has not picked up are marked `pending restart`.
 
 ## Configuration
 
-All of these live in `.env`; `dev-gateway web up` sets the first ones for you.
+All of these live in `.env`; `portta web up` sets the first ones for you.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `DEV_GATEWAY_WEB` | `false` | Whether the panel starts with the gateway |
-| `DEV_GATEWAY_WEB_BIND_ADDRESS` | `127.0.0.1` | Interface the panel is published on |
-| `DEV_GATEWAY_WEB_PORT` | `8081` | Host port |
-| `DEV_GATEWAY_WEB_EXPOSE` | `local` | `local`, or `vpn` to add a Traefik router |
-| `DEV_GATEWAY_WEB_HOST` | `dev-gateway-web` | Hostname label used by `--expose vpn` |
-| `DEV_GATEWAY_WEB_READ_ONLY` | `false` | Refuse every mutating endpoint |
-| `DEV_GATEWAY_WEB_DEV` | `false` | Development mode, with Vite in front |
-| `DEV_GATEWAY_WEB_DEV_PORT` | `5173` | Vite's port in development mode |
-| `DEV_GATEWAY_WEB_NETWORK` | `dev-gateway-web` | The panel's internal control network |
-| `DEV_GATEWAY_WEB_USER` | `node` | User the container runs as, see below |
+| `PORTTA_WEB` | `false` | Whether the panel starts with the gateway |
+| `PORTTA_WEB_BIND_ADDRESS` | `127.0.0.1` | Interface the panel is published on |
+| `PORTTA_WEB_PORT` | `8081` | Host port |
+| `PORTTA_WEB_EXPOSE` | `local` | `local`, or `vpn` to add a Traefik router |
+| `PORTTA_WEB_HOST` | `portta-web` | Hostname label used by `--expose vpn` |
+| `PORTTA_WEB_READ_ONLY` | `false` | Refuse every mutating endpoint |
+| `PORTTA_WEB_DEV` | `false` | Development mode, with Vite in front |
+| `PORTTA_WEB_DEV_PORT` | `5173` | Vite's port in development mode |
+| `PORTTA_WEB_NETWORK` | `portta-web` | The panel's internal control network |
+| `PORTTA_WEB_USER` | `node` | User the container runs as, see below |
 
 On a Linux host, the container's `node` user does not own your `.env`, so the
 Settings page cannot save. Set:
 
 ```bash
-DEV_GATEWAY_WEB_USER=1000:1000     # $(id -u):$(id -g)
+PORTTA_WEB_USER=1000:1000     # $(id -u):$(id -g)
 ```
 
 On macOS the default is fine. Either way the panel reports whether the file is
@@ -849,9 +849,9 @@ separate, explicit overlay, refused on the public profile and refused without a
 credential.
 
 **Authentication.** Traefik's, not the panel's: a BasicAuth middleware the
-panel renders into `config/traefik/dynamic/dev-gateway-panel.yaml`, referenced
+panel renders into `config/traefik/dynamic/portta-panel.yaml`, referenced
 by the router in `docker/compose/features/web-vpn.yaml`. The password is generated, shown once
-and stored only as a hash; `DEV_GATEWAY_WEB_AUTH_HASH` is a secret in the
+and stored only as a hash; `PORTTA_WEB_AUTH_HASH` is a secret in the
 settings catalogue, so the API reports it as set and never returns it. A
 middleware Traefik cannot resolve makes the router fail closed. `doctor` and the
 panel's own diagnostics fail, not warn, on a routed panel without one. See
@@ -859,8 +859,8 @@ panel's own diagnostics fail, not warn, on a routed panel without one. See
 
 **Traefik configuration.** The panel mounts `config/traefik/dynamic/`
 read-write and may write exactly three filenames in it,
-`dev-gateway-panel.yaml`, `dev-gateway-shares.yaml` and
-`dev-gateway-aliases.yaml`. Any other path is refused in its own process,
+`portta-panel.yaml`, `portta-shares.yaml` and
+`portta-aliases.yaml`. Any other path is refused in its own process,
 before the write. Everything else in that directory
 is yours. See [ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md).
 
@@ -899,21 +899,21 @@ fails the build. The wider threat model is in [security.md](security.md).
 **The panel does not come up.**
 
 ```bash
-./bin/dev-gateway web status
-./bin/dev-gateway web logs
+./bin/portta web status
+./bin/portta web logs
 ```
 
 **"cannot reach the Docker socket proxy".** The panel's proxy is not running or
 not healthy:
 
 ```bash
-./bin/dev-gateway web logs web-socket-proxy
-./bin/dev-gateway web restart
+./bin/portta web logs web-socket-proxy
+./bin/portta web restart
 ```
 
 **Everything is empty, and the Overview says the Docker API is unreachable.**
 The proxy is up but denying calls. Confirm the panel is talking to its own
-proxy (`DG_WEB_DOCKER_API`), not Traefik's read-only one, which denies every
+proxy (`PORTTA_RUNTIME_DOCKER_API`), not Traefik's read-only one, which denies every
 write.
 
 **"Open local access" says the bridge image is not on this host.** The panel
@@ -923,21 +923,21 @@ cannot pull images, deliberately. Pull it once on the host:
 docker pull alpine/socat:1.8.1.3
 ```
 
-`dev-gateway web up` does this for you; this happens when the panel was started
+`portta web up` does this for you; this happens when the panel was started
 some other way.
 
 **Settings will not save.** The panel reports the file as not writable. On
-Linux, set `DEV_GATEWAY_WEB_USER` as above, or edit `.env` on the host.
+Linux, set `PORTTA_WEB_USER` as above, or edit `.env` on the host.
 
 **A saved setting has no effect.** Traefik reads its static configuration at
-startup. Run `./bin/dev-gateway up <profile>` on the host; the panel shows the
+startup. Run `./bin/portta up <profile>` on the host; the panel shows the
 exact command.
 
 **The live indicator says `offline`.** The event stream dropped. The panel
 reconnects on its own, with backoff; a reload also does it. Everything else
 keeps working, it just stops updating by itself.
 
-**Port 8081 is taken.** `./bin/dev-gateway web up --port 8099`. The Docker page
+**Port 8081 is taken.** `./bin/portta web up --port 8099`. The Docker page
 shows which container is holding it.
 
 **A container I removed came back.** It belonged to a Compose project, and

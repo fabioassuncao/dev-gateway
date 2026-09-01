@@ -5,11 +5,11 @@ describe('what doctor prints', () => {
   it('offers a fix only for a check that did not pass', () => {
     const checks: Check[] = [
       { id: 'env', status: 'pass', message: '.env exists', fix: 'copy .env.example to .env' },
-      { id: 'network', status: 'fail', message: 'shared network dev-gateway', fix: 'run dev-gateway bootstrap' },
+      { id: 'network', status: 'fail', message: 'shared network portta', fix: 'run portta bootstrap' },
     ]
     expect(doctorReport(checks)).toEqual([
       { line: 'ok   .env exists' },
-      { line: 'FAIL shared network dev-gateway', hint: 'run dev-gateway bootstrap' },
+      { line: 'FAIL shared network portta', hint: 'run portta bootstrap' },
     ])
   })
 

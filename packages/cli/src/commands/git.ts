@@ -14,7 +14,7 @@ async function git(cwd: string, args: string[]): Promise<string | null> {
   return result.exitCode === 0 ? result.stdout.trim() : null
 }
 
-function workdir(labels: Record<string, string>): string | null { return labels['dev-gateway.git.root'] ?? labels['com.docker.compose.project.working_dir'] ?? null }
+function workdir(labels: Record<string, string>): string | null { return labels['portta.git.root'] ?? labels['com.docker.compose.project.working_dir'] ?? null }
 
 function counts(status: string): { staged: number; unstaged: number; untracked: number; unmerged: number } {
   let staged = 0, unstaged = 0, untracked = 0, unmerged = 0
@@ -106,7 +106,7 @@ export async function gitScan(options: { project?: string; withPrs?: boolean; fo
   for (const container of await inspectContainers(false)) {
     const name = container.labels['com.docker.compose.project']
     const path = workdir(container.labels)
-    if (name && path && (!options.project || options.project === name)) projects.set(name, { path, declared: container.labels['dev-gateway.repo'] ?? '' })
+    if (name && path && (!options.project || options.project === name)) projects.set(name, { path, declared: container.labels['portta.repo'] ?? '' })
   }
   const scanned: unknown[] = []
   for (const [project, coordinate] of projects) {

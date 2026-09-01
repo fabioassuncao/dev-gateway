@@ -4,7 +4,7 @@ import { renderPanelAuth, webUrl } from './web.js'
 describe('panel authentication rendering', () => {
   it('stores a hash behind the named middleware', () => {
     const rendered = renderPanelAuth('dev', '$apr1$abcdefgh$hash')
-    expect(rendered).toContain('dev-gateway-web-auth:')
+    expect(rendered).toContain('portta-web-auth:')
     expect(rendered).toContain('dev:$apr1$abcdefgh$hash')
     expect(rendered).not.toContain('password:')
   })
@@ -15,7 +15,7 @@ type Context = Parameters<typeof webUrl>[0]
 
 function context(config: Partial<Context['config']>, env: Record<string, string> = {}): Context {
   return {
-    root: '/srv/dev-gateway',
+    root: '/srv/portta',
     env,
     composeFiles: [],
     version: '0.2.0',
@@ -42,20 +42,20 @@ describe('where the panel answers', () => {
   })
 
   it('honours a configured development port', () => {
-    expect(webUrl(context({ webDev: true }, { DEV_GATEWAY_WEB_DEV_PORT: '4000' }))).toBe(
+    expect(webUrl(context({ webDev: true }, { PORTTA_WEB_DEV_PORT: '4000' }))).toBe(
       'http://127.0.0.1:4000',
     )
   })
 
   it('honours the bind address in both modes', () => {
-    const env = { DEV_GATEWAY_WEB_BIND_ADDRESS: '100.64.0.2' }
+    const env = { PORTTA_WEB_BIND_ADDRESS: '100.64.0.2' }
     expect(webUrl(context({}, env))).toBe('http://100.64.0.2:8081')
     expect(webUrl(context({ webDev: true }, env))).toBe('http://100.64.0.2:5173')
   })
 
   it('is the routed hostname when the panel is exposed over the VPN', () => {
     expect(webUrl(context({ webExpose: 'vpn', tlsEnabled: true }))).toBe(
-      'https://dev-gateway-web.localhost',
+      'https://portta-web.localhost',
     )
   })
 })

@@ -41,7 +41,7 @@ describe('diagnostics', () => {
     const problem = find(checks, 'routes-off-network')
     expect(problem?.status).toBe('fail')
     expect(problem?.detail).toContain('stray-web-1')
-    expect(problem?.fix).toContain('dev-gateway')
+    expect(problem?.fix).toContain('portta')
   })
 
   it('catches two containers claiming the same hostname', async () => {
@@ -49,7 +49,7 @@ describe('diagnostics', () => {
       id: 'dupe',
       name: 'other-web-1',
       image: 'nginx:1.31.4-alpine',
-      networks: ['dev-gateway'],
+      networks: ['portta'],
       labels: {
         'com.docker.compose.project': 'other',
         'com.docker.compose.service': 'web',
@@ -91,18 +91,18 @@ describe('diagnostics', () => {
       ...GATEWAY,
       {
         id: 'old-bridge',
-        name: 'dg-access-alpha-postgres-old',
+        name: 'portta-access-alpha-postgres-old',
         image: 'alpine/socat:1.8.1.3',
         networks: ['alpha_default'],
         labels: {
-          'dev-gateway.managed': 'true',
-          'dev-gateway.component': 'access-bridge',
-          'dev-gateway.access.id': 'old123',
-          'dev-gateway.access.expires': '1000',
+          'portta.managed': 'true',
+          'portta.component': 'access-bridge',
+          'portta.access.id': 'old123',
+          'portta.access.expires': '1000',
         },
       },
     ])
-    expect(find(checks, 'stale-bridges')?.fix).toBe('dev-gateway access gc')
+    expect(find(checks, 'stale-bridges')?.fix).toBe('portta access gc')
   })
 
   it('refuses to guess when Docker is unreachable', async () => {
@@ -163,7 +163,7 @@ describe('the panel judges its own front door', () => {
     const checks = await check(GATEWAY, { webExpose: 'vpn', webAuth: 'none' })
     const auth = find(checks, 'panel-auth')
     expect(auth?.status).toBe('fail')
-    expect(auth?.fix).toBe('dev-gateway web auth set')
+    expect(auth?.fix).toBe('portta web auth set')
   })
 
   it('treats basic without a credential as no protection at all', async () => {

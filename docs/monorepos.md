@@ -13,7 +13,7 @@ base-empresarial/
     worker/       Dockerfile
     importer/     Dockerfile
   compose.yaml
-  compose.dev-gateway.yaml
+  compose.portta.yaml
 ```
 
 One namespace, one private network, one set of volumes, and a hostname per
@@ -41,10 +41,10 @@ Adding one is a three-line change to your own overlay:
 
 ```yaml
   new-app:
-    networks: [default, dev-gateway]
+    networks: [default, portta]
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-new-app.loadbalancer.server.port=3000"
 ```
 
@@ -79,7 +79,7 @@ Identical to any other project: one variable.
 git worktree add ../base-empresarial-issue59 issue59
 cd ../base-empresarial-issue59
 echo "COMPOSE_PROJECT_NAME=base-empresarial-issue59" >> .env
-docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+docker compose -f compose.yaml -f compose.portta.yaml up -d
 ```
 
 Every app in the worktree gets its own hostname, and the whole worktree gets
@@ -105,7 +105,7 @@ Tag per namespace, or build the base once and reference it read-only:
 ## Analyzing one
 
 ```bash
-dev-gateway analyze /path/to/monorepo
+portta analyze /path/to/monorepo
 ```
 
 It reads the resolved Compose model, so it sees every service regardless of

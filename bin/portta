@@ -1,59 +1,59 @@
 #!/usr/bin/env bash
 # ============================================================================
-# dev-gateway: operational entrypoint for the Dev Gateway
+# portta: operational entrypoint for Portta
 # ============================================================================
-# The Dev Gateway is shared host infrastructure. It never owns, moves, starts
+# Portta is shared host infrastructure. It never owns, moves, starts
 # or stops a consumer project: every command here acts only on resources
-# labelled `dev-gateway.managed=true`.
+# labelled `portta.managed=true`.
 # ============================================================================
 
 set -euo pipefail
 
-DG_BIN_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+PORTTA_BIN_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 # The full CLI is TypeScript. Keep this tiny entry point because a bare host
 # must still be able to bootstrap, start, stop, inspect status and run doctor
 # without Node (ADR 0015). Shell-native drivers can deliberately set
-# DG_FORCE_BASH when the TypeScript command delegates to openssl/ssh/toolbox.
-DG_TS_CLI="$DG_BIN_DIR/../packages/cli/dist/cli.js"
-if [ "${DG_FORCE_BASH:-false}" != "true" ] \
+# PORTTA_FORCE_BASH when the TypeScript command delegates to openssl/ssh/toolbox.
+PORTTA_TS_CLI="$PORTTA_BIN_DIR/../packages/cli/dist/cli.js"
+if [ "${PORTTA_FORCE_BASH:-false}" != "true" ] \
    && command -v node >/dev/null 2>&1 \
-   && [ -f "$DG_TS_CLI" ] \
+   && [ -f "$PORTTA_TS_CLI" ] \
    && node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=12)?0:1)' >/dev/null 2>&1; then
-  exec node "$DG_TS_CLI" "$@"
+  exec node "$PORTTA_TS_CLI" "$@"
 fi
 # shellcheck source=../scripts/lib/common.sh
-. "$DG_BIN_DIR/../scripts/lib/common.sh"
+. "$PORTTA_BIN_DIR/../scripts/lib/common.sh"
 # shellcheck source=../scripts/lib/docker.sh
-. "$DG_BIN_DIR/../scripts/lib/docker.sh"
+. "$PORTTA_BIN_DIR/../scripts/lib/docker.sh"
 # shellcheck source=../scripts/lib/toolbox.sh
-. "$DG_BIN_DIR/../scripts/lib/toolbox.sh"
+. "$PORTTA_BIN_DIR/../scripts/lib/toolbox.sh"
 # shellcheck source=../scripts/lib/discovery.sh
-. "$DG_BIN_DIR/../scripts/lib/discovery.sh"
+. "$PORTTA_BIN_DIR/../scripts/lib/discovery.sh"
 
 # Subcommand groups live in their own files to keep this dispatcher readable.
-for _dg_cmd_file in "$DG_BIN_DIR"/../scripts/cmd/*.sh; do
-  [ -f "$_dg_cmd_file" ] || continue
+for _portta_cmd_file in "$PORTTA_BIN_DIR"/../scripts/cmd/*.sh; do
+  [ -f "$_portta_cmd_file" ] || continue
   # shellcheck source=/dev/null
-  . "$_dg_cmd_file"
+  . "$_portta_cmd_file"
 done
-unset _dg_cmd_file
+unset _portta_cmd_file
 
-dg_load_env
-dg_defaults
+portta_load_env
+portta_defaults
 
-DG_ASSUME_YES="${DG_ASSUME_YES:-false}"
+PORTTA_ASSUME_YES="${PORTTA_ASSUME_YES:-false}"
 
 # ---------------------------------------------------------------------------
 # Help
 # ---------------------------------------------------------------------------
 
 usage() {
-  cat >&2 <<'DG_HELP'
-dev-gateway: shared HTTP/TCP gateway for parallel Docker development
+  cat >&2 <<'PORTTA_HELP'
+portta: shared HTTP/TCP gateway for parallel Docker development
 
 USAGE
-  dev-gateway <command> [arguments] [flags]
+  portta <command> [arguments] [flags]
 
 CORE
   bootstrap              Prepare this host: check the runtime, create the shared
@@ -122,15 +122,15 @@ FLAGS
   -y, --yes              Assume yes for confirmation prompts
 
 EXAMPLES
-  dev-gateway bootstrap
-  dev-gateway up local
-  dev-gateway urls --project demo-a
-  dev-gateway doctor --json
-  dev-gateway remote bootstrap deploy@vps --profile remote-private
+  portta bootstrap
+  portta up local
+  portta urls --project demo-a
+  portta doctor --json
+  portta remote bootstrap deploy@vps --profile remote-private
 
 Consumer projects are adapted with an overlay file and stay where they are.
 See docs/adopting-projects.md.
-DG_HELP
+PORTTA_HELP
 }
 
 # ---------------------------------------------------------------------------
@@ -138,19 +138,19 @@ DG_HELP
 # ---------------------------------------------------------------------------
 
 cmd_version() {
-  printf 'dev-gateway %s\n' "$(dg_version)"
+  printf 'portta %s\n' "$(portta_version)"
 }
 
 cmd_bootstrap() {
-  exec "$DG_ROOT/scripts/bootstrap.sh" "$@"
+  exec "$PORTTA_ROOT/scripts/bootstrap.sh" "$@"
 }
 
 cmd_doctor() {
-  exec "$DG_ROOT/scripts/doctor.sh" "$@"
+  exec "$PORTTA_ROOT/scripts/doctor.sh" "$@"
 }
 
 cmd_up() {
-  local profile="${DEV_GATEWAY_PROFILE}"
+  local profile="${PORTTA_PROFILE}"
   local detach=1
 
   while [ $# -gt 0 ]; do
@@ -162,45 +162,45 @@ cmd_up() {
     shift
   done
 
-  dg_require_docker || exit 1
-  dg_require_compose || exit 1
-  dg_resolve_profile "$profile" || exit 1
+  portta_require_docker || exit 1
+  portta_require_compose || exit 1
+  portta_resolve_profile "$profile" || exit 1
 
   # The shared network must exist before Compose resolves `external: true`.
-  dg_network_ensure "$DEV_GATEWAY_NETWORK" \
-    || die "could not create the shared network '$DEV_GATEWAY_NETWORK'"
+  portta_network_ensure "$PORTTA_NETWORK" \
+    || die "could not create the shared network '$PORTTA_NETWORK'"
 
   # So must the access network, when databases are routed by hostname. Opted-in
   # datastores join it; the shared HTTP network never carries one.
-  if dg_is_true "$DEV_GATEWAY_TCP"; then
-    dg_network_ensure "$DEV_GATEWAY_ACCESS_NETWORK" \
-      || die "could not create the access network '$DEV_GATEWAY_ACCESS_NETWORK'"
+  if portta_is_true "$PORTTA_TCP"; then
+    portta_network_ensure "$PORTTA_ACCESS_NETWORK" \
+      || die "could not create the access network '$PORTTA_ACCESS_NETWORK'"
   fi
 
-  mkdir -p "$DG_STATE_DIR/traefik/acme"
+  mkdir -p "$PORTTA_STATE_DIR/traefik/acme"
 
-  info "starting gateway (profile: $profile, domain: $DEV_GATEWAY_DOMAIN)"
+  info "starting gateway (profile: $profile, domain: $PORTTA_DOMAIN)"
   if [ "$detach" = "1" ]; then
-    dg_compose "$profile" up -d --remove-orphans
+    portta_compose "$profile" up -d --remove-orphans
   else
-    dg_compose "$profile" up --remove-orphans
+    portta_compose "$profile" up --remove-orphans
   fi
 
   # Best effort, and never fatal: the panel reads what this collects, and a
   # host without git simply has nothing to read. See docs/adr/0010.
-  if dg_have git; then
-    # In a subshell: `dg_git_scan` calls `die` on an unwritable state
+  if portta_have git; then
+    # In a subshell: `portta_git_scan` calls `die` on an unwritable state
     # directory, and `die` exits the script. Best effort has to mean it.
-    ( dg_git_scan ) >/dev/null 2>&1 || true
+    ( portta_git_scan ) >/dev/null 2>&1 || true
   fi
 
   ok "gateway is up"
-  hint "dev-gateway status shows what is running"
-  hint "dev-gateway urls lists the hostnames being served"
+  hint "portta status shows what is running"
+  hint "portta urls lists the hostnames being served"
 }
 
 cmd_down() {
-  local profile="${DEV_GATEWAY_PROFILE}"
+  local profile="${PORTTA_PROFILE}"
   while [ $# -gt 0 ]; do
     case "$1" in
       --profile) shift; profile="${1:-$profile}" ;;
@@ -210,33 +210,33 @@ cmd_down() {
     shift
   done
 
-  dg_require_docker || exit 1
-  dg_resolve_profile "$profile" || exit 1
+  portta_require_docker || exit 1
+  portta_resolve_profile "$profile" || exit 1
 
   info "stopping gateway components"
   # No `--volumes`, no `--remove-orphans`: this must never reach past the
   # gateway's own Compose project.
-  dg_compose "$profile" down
+  portta_compose "$profile" down
 
   ok "gateway stopped; consumer projects were not touched"
-  if dg_network_exists "$DEV_GATEWAY_NETWORK"; then
-    hint "the shared network '$DEV_GATEWAY_NETWORK' was kept ($(dg_network_endpoints "$DEV_GATEWAY_NETWORK") container(s) still attached)"
+  if portta_network_exists "$PORTTA_NETWORK"; then
+    hint "the shared network '$PORTTA_NETWORK' was kept ($(portta_network_endpoints "$PORTTA_NETWORK") container(s) still attached)"
   fi
 }
 
 cmd_restart() {
-  local profile="${1:-$DEV_GATEWAY_PROFILE}"
-  dg_require_docker || exit 1
-  dg_resolve_profile "$profile" || exit 1
-  dg_compose "$profile" restart
+  local profile="${1:-$PORTTA_PROFILE}"
+  portta_require_docker || exit 1
+  portta_resolve_profile "$profile" || exit 1
+  portta_compose "$profile" restart
   ok "gateway restarted; routes are rediscovered automatically"
 }
 
 cmd_logs() {
-  local profile="${DEV_GATEWAY_PROFILE}"
-  dg_require_docker || exit 1
-  dg_resolve_profile "$profile" || exit 1
-  dg_compose "$profile" logs -f --tail 100 "$@"
+  local profile="${PORTTA_PROFILE}"
+  portta_require_docker || exit 1
+  portta_resolve_profile "$profile" || exit 1
+  portta_compose "$profile" logs -f --tail 100 "$@"
 }
 
 cmd_urls() {
@@ -251,25 +251,25 @@ cmd_urls() {
     shift
   done
 
-  dg_require_docker || exit 1
-  dg_resolve_profile "$DEV_GATEWAY_PROFILE" || exit 1
+  portta_require_docker || exit 1
+  portta_resolve_profile "$PORTTA_PROFILE" || exit 1
 
   local scheme="http" rows
-  dg_is_true "$TLS_ENABLED" && scheme="https"
+  portta_is_true "$TLS_ENABLED" && scheme="https"
 
-  rows=$(dg_discover_http "$project")
+  rows=$(portta_discover_http "$project")
 
   if [ "$as_json" = "1" ]; then
     printf '{\n  "scheme": "%s",\n  "domain": "%s",\n  "routes": [\n' \
-      "$scheme" "$(dg_json_escape "$DEV_GATEWAY_DOMAIN")"
+      "$scheme" "$(portta_json_escape "$PORTTA_DOMAIN")"
     local first=1 p s c h port state
     while IFS="$(printf '\t')" read -r p s c h port state; do
       [ -n "${p:-}" ] || continue
       [ "$first" = "1" ] || printf ',\n'
       first=0
       printf '    {"project": "%s", "service": "%s", "container": "%s", "url": "%s://%s", "port": "%s", "state": "%s"}' \
-        "$(dg_json_escape "$p")" "$(dg_json_escape "$s")" "$(dg_json_escape "$c")" \
-        "$scheme" "$(dg_json_escape "$h")" "$(dg_json_escape "$port")" "$(dg_json_escape "$state")"
+        "$(portta_json_escape "$p")" "$(portta_json_escape "$s")" "$(portta_json_escape "$c")" \
+        "$scheme" "$(portta_json_escape "$h")" "$(portta_json_escape "$port")" "$(portta_json_escape "$state")"
     done <<EOF
 $rows
 EOF
@@ -279,7 +279,7 @@ EOF
 
   if [ -z "$rows" ]; then
     warn "no services are currently opted into the gateway"
-    hint "a service joins by setting traefik.enable=true and attaching to the '$DEV_GATEWAY_NETWORK' network"
+    hint "a service joins by setting traefik.enable=true and attaching to the '$PORTTA_NETWORK' network"
     hint "see docs/adopting-projects.md"
     return 0
   fi
@@ -305,158 +305,158 @@ cmd_status() {
     shift
   done
 
-  dg_require_docker || exit 1
-  dg_resolve_profile "$DEV_GATEWAY_PROFILE" || exit 1
+  portta_require_docker || exit 1
+  portta_resolve_profile "$PORTTA_PROFILE" || exit 1
 
   local traefik_id traefik_state traefik_health proxy_state net_state routes
-  traefik_id=$(dg_gateway_container traefik)
+  traefik_id=$(portta_gateway_container traefik)
   if [ -n "$traefik_id" ]; then
-    traefik_state=$(dg_container_state "$traefik_id")
-    traefik_health=$(dg_container_health "$traefik_id")
+    traefik_state=$(portta_container_state "$traefik_id")
+    traefik_health=$(portta_container_health "$traefik_id")
   else
     traefik_state="absent"; traefik_health="none"
   fi
 
   local proxy_id
-  proxy_id=$(dg_gateway_container socket-proxy)
-  proxy_state=$([ -n "$proxy_id" ] && dg_container_state "$proxy_id" || printf 'absent')
+  proxy_id=$(portta_gateway_container socket-proxy)
+  proxy_state=$([ -n "$proxy_id" ] && portta_container_state "$proxy_id" || printf 'absent')
 
-  if dg_network_exists "$DEV_GATEWAY_NETWORK"; then
-    net_state="present ($(dg_network_endpoints "$DEV_GATEWAY_NETWORK") attached)"
+  if portta_network_exists "$PORTTA_NETWORK"; then
+    net_state="present ($(portta_network_endpoints "$PORTTA_NETWORK") attached)"
   else
     net_state="missing"
   fi
 
-  routes=$(dg_discover_http | grep -c . || true)
+  routes=$(portta_discover_http | grep -c . || true)
 
   if [ "$as_json" = "1" ]; then
     cat <<JSON
 {
-  "version": "$(dg_version)",
-  "profile": "$DEV_GATEWAY_PROFILE",
-  "domain": "$DEV_GATEWAY_DOMAIN",
-  "bind_address": "$DEV_GATEWAY_BIND_ADDRESS",
-  "http_port": "$DEV_GATEWAY_HTTP_PORT",
-  "https_port": "$DEV_GATEWAY_HTTPS_PORT",
-  "tls_enabled": $(dg_is_true "$TLS_ENABLED" && echo true || echo false),
-  "tailscale_enabled": $(dg_is_true "$TAILSCALE_ENABLED" && echo true || echo false),
-  "public_enabled": $(dg_is_true "$PUBLIC_ENABLED" && echo true || echo false),
-  "dashboard_enabled": $(dg_is_true "$DEV_GATEWAY_DASHBOARD" && echo true || echo false),
-  "tcp_enabled": $(dg_is_true "$DEV_GATEWAY_TCP" && echo true || echo false),
-  "tcp_postgres_port": "$DEV_GATEWAY_TCP_POSTGRES_PORT",
-  "tcp_redis_port": "$DEV_GATEWAY_TCP_REDIS_PORT",
-  "web_enabled": $(dg_is_true "$DEV_GATEWAY_WEB" && echo true || echo false),
-  "web_url": "http://$DEV_GATEWAY_WEB_BIND_ADDRESS:$DEV_GATEWAY_WEB_PORT",
-  "web_expose": "$DEV_GATEWAY_WEB_EXPOSE",
+  "version": "$(portta_version)",
+  "profile": "$PORTTA_PROFILE",
+  "domain": "$PORTTA_DOMAIN",
+  "bind_address": "$PORTTA_BIND_ADDRESS",
+  "http_port": "$PORTTA_HTTP_PORT",
+  "https_port": "$PORTTA_HTTPS_PORT",
+  "tls_enabled": $(portta_is_true "$TLS_ENABLED" && echo true || echo false),
+  "tailscale_enabled": $(portta_is_true "$TAILSCALE_ENABLED" && echo true || echo false),
+  "public_enabled": $(portta_is_true "$PUBLIC_ENABLED" && echo true || echo false),
+  "dashboard_enabled": $(portta_is_true "$PORTTA_DASHBOARD" && echo true || echo false),
+  "tcp_enabled": $(portta_is_true "$PORTTA_TCP" && echo true || echo false),
+  "tcp_postgres_port": "$PORTTA_TCP_POSTGRES_PORT",
+  "tcp_redis_port": "$PORTTA_TCP_REDIS_PORT",
+  "web_enabled": $(portta_is_true "$PORTTA_WEB" && echo true || echo false),
+  "web_url": "http://$PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT",
+  "web_expose": "$PORTTA_WEB_EXPOSE",
   "traefik": {"state": "$traefik_state", "health": "$traefik_health"},
   "socket_proxy": {"state": "$proxy_state"},
-  "network": {"name": "$DEV_GATEWAY_NETWORK", "state": "$net_state"},
+  "network": {"name": "$PORTTA_NETWORK", "state": "$net_state"},
   "routes": $routes
 }
 JSON
     return 0
   fi
 
-  printf '%s\n' "$(dg_bold "Dev Gateway $(dg_version)")"
-  printf '  %-18s %s\n' "profile" "$DEV_GATEWAY_PROFILE"
-  printf '  %-18s %s\n' "domain" "$DEV_GATEWAY_DOMAIN"
+  printf '%s\n' "$(portta_bold "Portta $(portta_version)")"
+  printf '  %-18s %s\n' "profile" "$PORTTA_PROFILE"
+  printf '  %-18s %s\n' "domain" "$PORTTA_DOMAIN"
   printf '  %-18s %s:%s (http) / %s (https)\n' "listening" \
-    "$DEV_GATEWAY_BIND_ADDRESS" "$DEV_GATEWAY_HTTP_PORT" "$DEV_GATEWAY_HTTPS_PORT"
-  printf '  %-18s %s\n' "attachment" "$(dg_attachment "$DEV_GATEWAY_PROFILE")"
+    "$PORTTA_BIND_ADDRESS" "$PORTTA_HTTP_PORT" "$PORTTA_HTTPS_PORT"
+  printf '  %-18s %s\n' "attachment" "$(portta_attachment "$PORTTA_PROFILE")"
   printf '  %-18s %s\n' "traefik" "$traefik_state ($traefik_health)"
   printf '  %-18s %s\n' "socket proxy" "$proxy_state"
-  printf '  %-18s %s %s\n' "network" "$DEV_GATEWAY_NETWORK" "$net_state"
-  printf '  %-18s %s\n' "tls" "$(dg_is_true "$TLS_ENABLED" && printf 'enabled (%s)' "$TLS_MODE" || printf 'disabled')"
+  printf '  %-18s %s %s\n' "network" "$PORTTA_NETWORK" "$net_state"
+  printf '  %-18s %s\n' "tls" "$(portta_is_true "$TLS_ENABLED" && printf 'enabled (%s)' "$TLS_MODE" || printf 'disabled')"
   local ts_id ts_line
-  ts_id=$(dg_gateway_container tailscale)
-  if [ -n "$ts_id" ] && [ "$(dg_container_state "$ts_id")" = "running" ]; then
+  ts_id=$(portta_gateway_container tailscale)
+  if [ -n "$ts_id" ] && [ "$(portta_container_state "$ts_id")" = "running" ]; then
     ts_line="running $(docker exec "$ts_id" tailscale ip -4 2>/dev/null | head -1)"
   else
-    ts_line=$(dg_is_true "$TAILSCALE_ENABLED" && printf 'enabled (not running)' || printf 'disabled')
+    ts_line=$(portta_is_true "$TAILSCALE_ENABLED" && printf 'enabled (not running)' || printf 'disabled')
   fi
   printf '  %-18s %s\n' "tailscale" "$ts_line"
   printf '  %-18s %s\n' "private domain" "${PRIVATE_DOMAIN:-<unset>}"
   printf '  %-18s %s\n' "public domain" "${PUBLIC_DOMAIN:-<unset>}"
-  printf '  %-18s %s\n' "public access" "$(dg_is_true "$PUBLIC_ENABLED" && printf 'ENABLED' || printf 'disabled')"
-  printf '  %-18s %s\n' "dashboard" "$(dg_is_true "$DEV_GATEWAY_DASHBOARD" && printf 'enabled (%s:%s)' "$DEV_GATEWAY_DASHBOARD_BIND_ADDRESS" "$DEV_GATEWAY_DASHBOARD_PORT" || printf 'disabled')"
-  printf '  %-18s %s\n' "tcp routing" "$(dg_is_true "$DEV_GATEWAY_TCP" && printf 'enabled (postgres :%s, redis :%s)' "$DEV_GATEWAY_TCP_POSTGRES_PORT" "$DEV_GATEWAY_TCP_REDIS_PORT" || printf 'disabled')"
-  printf '  %-18s %s\n' "web panel" "$(dg_is_true "$DEV_GATEWAY_WEB" && printf 'enabled (%s:%s, expose: %s)' "$DEV_GATEWAY_WEB_BIND_ADDRESS" "$DEV_GATEWAY_WEB_PORT" "$DEV_GATEWAY_WEB_EXPOSE" || printf 'disabled')"
+  printf '  %-18s %s\n' "public access" "$(portta_is_true "$PUBLIC_ENABLED" && printf 'ENABLED' || printf 'disabled')"
+  printf '  %-18s %s\n' "dashboard" "$(portta_is_true "$PORTTA_DASHBOARD" && printf 'enabled (%s:%s)' "$PORTTA_DASHBOARD_BIND_ADDRESS" "$PORTTA_DASHBOARD_PORT" || printf 'disabled')"
+  printf '  %-18s %s\n' "tcp routing" "$(portta_is_true "$PORTTA_TCP" && printf 'enabled (postgres :%s, redis :%s)' "$PORTTA_TCP_POSTGRES_PORT" "$PORTTA_TCP_REDIS_PORT" || printf 'disabled')"
+  printf '  %-18s %s\n' "web panel" "$(portta_is_true "$PORTTA_WEB" && printf 'enabled (%s:%s, expose: %s)' "$PORTTA_WEB_BIND_ADDRESS" "$PORTTA_WEB_PORT" "$PORTTA_WEB_EXPOSE" || printf 'disabled')"
   printf '  %-18s %s\n' "routed services" "$routes"
 }
 
 cmd_inspect() {
-  dg_resolve_profile "$DEV_GATEWAY_PROFILE" || exit 1
-  printf '%s\n' "$(dg_bold 'Resolved configuration')"
+  portta_resolve_profile "$PORTTA_PROFILE" || exit 1
+  printf '%s\n' "$(portta_bold 'Resolved configuration')"
   local v
-  for v in DEV_GATEWAY_PROFILE DEV_GATEWAY_PROJECT_NAME DEV_GATEWAY_NETWORK \
-           DEV_GATEWAY_CONTROL_NETWORK DEV_GATEWAY_ACCESS_NETWORK \
-           DEV_GATEWAY_DOMAIN DEV_GATEWAY_BIND_ADDRESS DEV_GATEWAY_HTTP_PORT \
-           DEV_GATEWAY_HTTPS_PORT DEV_GATEWAY_LOG_LEVEL DEV_GATEWAY_ACCESS_LOG \
-           DEV_GATEWAY_DASHBOARD DEV_GATEWAY_WEB DEV_GATEWAY_WEB_BIND_ADDRESS \
-           DEV_GATEWAY_WEB_PORT DEV_GATEWAY_WEB_EXPOSE DEV_GATEWAY_WEB_DEV \
-           DEV_GATEWAY_WEB_READ_ONLY DEV_GATEWAY_TCP \
-           DEV_GATEWAY_TCP_POSTGRES_PORT DEV_GATEWAY_TCP_REDIS_PORT \
+  for v in PORTTA_PROFILE PORTTA_PROJECT_NAME PORTTA_NETWORK \
+           PORTTA_CONTROL_NETWORK PORTTA_ACCESS_NETWORK \
+           PORTTA_DOMAIN PORTTA_BIND_ADDRESS PORTTA_HTTP_PORT \
+           PORTTA_HTTPS_PORT PORTTA_LOG_LEVEL PORTTA_ACCESS_LOG \
+           PORTTA_DASHBOARD PORTTA_WEB PORTTA_WEB_BIND_ADDRESS \
+           PORTTA_WEB_PORT PORTTA_WEB_EXPOSE PORTTA_WEB_DEV \
+           PORTTA_WEB_READ_ONLY PORTTA_TCP \
+           PORTTA_TCP_POSTGRES_PORT PORTTA_TCP_REDIS_PORT \
            TLS_ENABLED TLS_MODE TAILSCALE_ENABLED \
            PUBLIC_ENABLED PUBLIC_DOMAIN PRIVATE_DOMAIN CLOUDFLARE_ENABLED; do
     printf '  %-32s %s\n' "$v" "${!v:-}"
   done
 
-  printf '\n%s\n' "$(dg_bold 'Compose files')"
+  printf '\n%s\n' "$(portta_bold 'Compose files')"
   local files
-  files=$(dg_compose_files "$DEV_GATEWAY_PROFILE") || exit 1
+  files=$(portta_compose_files "$PORTTA_PROFILE") || exit 1
   printf '%s\n' "$files" | tr ' ' '\n' | grep -v '^-f$' | sed 's#^#  #'
 
-  printf '\n%s\n' "$(dg_bold 'Secrets')"
+  printf '\n%s\n' "$(portta_bold 'Secrets')"
   printf '  %-32s %s\n' "TS_AUTHKEY" "$([ -n "${TS_AUTHKEY:-}" ] && printf '<set>' || printf '<unset>')"
   printf '  %-32s %s\n' "CF_DNS_API_TOKEN" "$([ -n "${CF_DNS_API_TOKEN:-}" ] && printf '<set>' || printf '<unset>')"
 }
 
 cmd_update() {
-  local profile="${DEV_GATEWAY_PROFILE}"
-  dg_require_docker || exit 1
-  dg_resolve_profile "$profile" || exit 1
+  local profile="${PORTTA_PROFILE}"
+  portta_require_docker || exit 1
+  portta_resolve_profile "$profile" || exit 1
 
   info "validating the compose configuration before touching anything"
-  dg_compose "$profile" config --quiet || die "compose configuration is invalid; nothing was changed"
+  portta_compose "$profile" config --quiet || die "compose configuration is invalid; nothing was changed"
 
   info "pulling pinned component images"
-  dg_compose "$profile" pull
+  portta_compose "$profile" pull
 
-  dg_confirm "Recreate gateway containers now? Consumer projects are unaffected." || {
+  portta_confirm "Recreate gateway containers now? Consumer projects are unaffected." || {
     info "aborted; images were pulled but nothing was recreated"
     return 0
   }
 
-  dg_compose "$profile" up -d --remove-orphans
+  portta_compose "$profile" up -d --remove-orphans
   ok "gateway updated"
-  hint "run 'dev-gateway doctor' to confirm the new components are healthy"
+  hint "run 'portta doctor' to confirm the new components are healthy"
 }
 
 cmd_toolbox() {
   local sub="${1:-}"; [ $# -gt 0 ] && shift || true
   case "$sub" in
     build)
-      dg_require_docker || exit 1
-      info "building $DG_TOOLBOX_IMAGE"
-      docker build -t "$DG_TOOLBOX_IMAGE" "$DG_ROOT/toolbox" || die "build failed"
+      portta_require_docker || exit 1
+      info "building $PORTTA_TOOLBOX_IMAGE"
+      docker build -t "$PORTTA_TOOLBOX_IMAGE" "$PORTTA_ROOT/toolbox" || die "build failed"
       ok "toolbox ready"
       ;;
     run)
-      dg_require_docker || exit 1
+      portta_require_docker || exit 1
       case "${1:-}" in --) shift ;; esac
       [ $# -gt 0 ] || die "no command given"
-      dg_toolbox_online "$@"
+      portta_toolbox_online "$@"
       ;;
     ''|-h|--help|help)
-      cat >&2 <<'DG_HELP'
-dev-gateway toolbox: containerised tooling
+      cat >&2 <<'PORTTA_HELP'
+portta toolbox: containerised tooling
 
   toolbox build          Build the image (done automatically on first use)
   toolbox run -- <cmd>   Run a command inside it
 
 Holds curl, jq, dig, openssl, socat, nc, ssh, psql, mysql and redis-cli, so the
 host itself only needs Docker, Git and a shell.
-DG_HELP
+PORTTA_HELP
       ;;
     *) die "unknown toolbox subcommand: $sub" ;;
   esac
@@ -470,78 +470,78 @@ DG_HELP
 
 cmd_help_for() {
   case "$1" in
-    up) cat >&2 <<'DG_HELP'
-dev-gateway up [profile]: start the gateway
+    up) cat >&2 <<'PORTTA_HELP'
+portta up [profile]: start the gateway
 
   profile     local | remote-private | remote-public
-              (default: DEV_GATEWAY_PROFILE, or `local`)
+              (default: PORTTA_PROFILE, or `local`)
   --attach    Run in the foreground and stream logs
 
 Creates the shared network if it is missing, then starts Traefik and the
 socket proxy. Consumer projects are never started or stopped by this.
-DG_HELP
+PORTTA_HELP
       ;;
-    down) cat >&2 <<'DG_HELP'
-dev-gateway down: stop the gateway
+    down) cat >&2 <<'PORTTA_HELP'
+portta down: stop the gateway
 
 Stops Traefik and the socket proxy. Applications keep running, the shared
 network is kept because other projects are attached to it, and no volume is
 ever removed.
-DG_HELP
+PORTTA_HELP
       ;;
-    restart) cat >&2 <<'DG_HELP'
-dev-gateway restart [profile]: restart gateway components
+    restart) cat >&2 <<'PORTTA_HELP'
+portta restart [profile]: restart gateway components
 
 Applications are not restarted. Traefik rediscovers every route on its own
 once it is back.
-DG_HELP
+PORTTA_HELP
       ;;
-    status) cat >&2 <<'DG_HELP'
-dev-gateway status: compact overview
+    status) cat >&2 <<'PORTTA_HELP'
+portta status: compact overview
 
   --json    Machine-readable output
 
 Profile, domain, listeners, component health, the shared network, TLS,
 Tailscale, public access, and how many services are routed.
-DG_HELP
+PORTTA_HELP
       ;;
-    logs) cat >&2 <<'DG_HELP'
-dev-gateway logs [service]: follow gateway logs
+    logs) cat >&2 <<'PORTTA_HELP'
+portta logs [service]: follow gateway logs
 
   service   traefik | socket-proxy | tailscale (default: all)
 
 Only gateway components. A project's logs come from its own directory.
-DG_HELP
+PORTTA_HELP
       ;;
-    urls) cat >&2 <<'DG_HELP'
-dev-gateway urls: the hostnames currently being served
+    urls) cat >&2 <<'PORTTA_HELP'
+portta urls: the hostnames currently being served
 
   --project <name>   Only this project
   --json             Machine-readable output
 
 Read from Docker labels, so it works with the dashboard off and even while
 Traefik is down.
-DG_HELP
+PORTTA_HELP
       ;;
-    inspect) cat >&2 <<'DG_HELP'
-dev-gateway inspect: the resolved configuration
+    inspect) cat >&2 <<'PORTTA_HELP'
+portta inspect: the resolved configuration
 
 Every setting after .env, the shell environment and the built-in defaults have
 been applied, plus the compose files the active profile selects. Secrets are
 shown as <set> or <unset>, never by value.
-DG_HELP
+PORTTA_HELP
       ;;
-    update) cat >&2 <<'DG_HELP'
-dev-gateway update: pull the pinned images and recreate
+    update) cat >&2 <<'PORTTA_HELP'
+portta update: pull the pinned images and recreate
 
 Validates the compose configuration before touching anything, pulls, then asks
 before recreating. State under ./state is left alone, including ACME
 certificates and the Tailscale identity.
-DG_HELP
+PORTTA_HELP
       ;;
-    version) cat >&2 <<'DG_HELP'
-dev-gateway version: print the gateway version
-DG_HELP
+    version) cat >&2 <<'PORTTA_HELP'
+portta version: print the gateway version
+PORTTA_HELP
       ;;
     *) return 1 ;;
   esac
@@ -561,12 +561,12 @@ main() {
     case "$cmd" in
       -h|--help|help) usage; exit 0 ;;
       -V|--version) cmd_version; exit 0 ;;
-      -y|--yes) DG_ASSUME_YES=true; cmd="${1:-}"; [ $# -gt 0 ] && shift || true ;;
-      --profile) DEV_GATEWAY_PROFILE="${1:-}"; shift; cmd="${1:-}"; [ $# -gt 0 ] && shift || true ;;
+      -y|--yes) PORTTA_ASSUME_YES=true; cmd="${1:-}"; [ $# -gt 0 ] && shift || true ;;
+      --profile) PORTTA_PROFILE="${1:-}"; shift; cmd="${1:-}"; [ $# -gt 0 ] && shift || true ;;
       *) break ;;
     esac
   done
-  export DG_ASSUME_YES DEV_GATEWAY_PROFILE
+  export PORTTA_ASSUME_YES PORTTA_PROFILE
 
   # `--help` behaves the same for every command. The subcommand groups parse
   # it themselves; these are the flat ones.
@@ -585,16 +585,16 @@ main() {
     status) cmd_status "$@" ;;
     doctor) cmd_doctor "$@" ;;
     toolbox) cmd_toolbox "$@" ;;
-    tls) dg_cmd_tls "$@" ;;
-    remote) dg_cmd_remote "$@" ;;
+    tls) portta_cmd_tls "$@" ;;
+    remote) portta_cmd_remote "$@" ;;
     restart|logs|urls|inspect|update|network|public|dns|analyze|analyse|init|adapt|namespace|ns|access|services|git|share|web|db|redis|service|project|setup)
       err "'$cmd' requires Node 22.12 or newer and the built TypeScript CLI"
-      hint "run npm ci && npm run build --workspace=@fabioassuncao/dev-gateway"
+      hint "run npm ci && npm run build --workspace=portta"
       exit 3
       ;;
     *)
       err "unknown command: $cmd"
-      hint "run 'dev-gateway --help' for the command list"
+      hint "run 'portta --help' for the command list"
       exit 1
       ;;
   esac

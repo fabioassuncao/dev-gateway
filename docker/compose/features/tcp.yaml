@@ -1,7 +1,7 @@
 # ============================================================================
-# Dev Gateway: TCP entrypoints, so databases are told apart by hostname
+# Portta: TCP entrypoints, so databases are told apart by hostname
 # ============================================================================
-# Enabled by DEV_GATEWAY_TCP=true. Off by default.
+# Enabled by PORTTA_TCP=true. Off by default.
 #
 # One host port per protocol, however many instances are running behind it.
 # Traefik picks the backend from the TLS Server Name Indication, so two
@@ -26,15 +26,15 @@ networks:
   # shared HTTP one: `tests/unit/templates.test.sh` keeps that true.
   access:
     external: true
-    name: ${DEV_GATEWAY_ACCESS_NETWORK:-dev-gateway-access}
+    name: ${PORTTA_ACCESS_NETWORK:-portta-access}
 
 services:
   traefik:
     networks:
       - access
     ports:
-      - "${DEV_GATEWAY_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_TCP_POSTGRES_PORT:-5432}:5432"
-      - "${DEV_GATEWAY_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_TCP_REDIS_PORT:-6379}:6379"
+      - "${PORTTA_BIND_ADDRESS:-127.0.0.1}:${PORTTA_TCP_POSTGRES_PORT:-5432}:5432"
+      - "${PORTTA_BIND_ADDRESS:-127.0.0.1}:${PORTTA_TCP_REDIS_PORT:-6379}:6379"
     environment:
       TRAEFIK_ENTRYPOINTS_POSTGRES_ADDRESS: ":5432"
       TRAEFIK_ENTRYPOINTS_REDIS_ADDRESS: ":6379"

@@ -16,7 +16,7 @@
     "create": "Create",
     "name": "Name",
     "slug": "Slug",
-    "slugHint": "Also what a project's dev-gateway.project label must say to be adopted automatically.",
+    "slugHint": "Also what a project's portta.project label must say to be adopted automatically.",
     "descriptionLabel": "Description"
   },
   "notFound": "No workspace '{{slug}}'",
@@ -30,7 +30,7 @@
     "title": "Environments",
     "description": "Compose projects on this host that belong to this workspace, and why.",
     "empty": "Nothing is running for this workspace",
-    "emptyHint": "Start an environment, label it dev-gateway.project with this slug, or link one by hand."
+    "emptyHint": "Start an environment, label it portta.project with this slug, or link one by hand."
   },
   "attachRepo": {
     "description": "Only repositories the GitHub App installation granted can be attached.",

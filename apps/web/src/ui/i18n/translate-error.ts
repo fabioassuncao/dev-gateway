@@ -5,7 +5,7 @@ const VALIDATION_MAP: Record<string, string> = {
   'must be a port between 1 and 65535': 'validation.mustBePort',
   'must be an IPv4 address': 'validation.mustBeIpv4',
   'must be 1 to 64 characters of letters, digits, dot, dash or underscore': 'validation.mustBeUsername',
-  'must be an apr1, bcrypt or SHA1 hash; run: dev-gateway web auth set': 'validation.mustBePasswordHash',
+  'must be an apr1, bcrypt or SHA1 hash; run: portta web auth set': 'validation.mustBePasswordHash',
   'must be an email address': 'validation.mustBeEmail',
   'must be an https URL': 'validation.mustBeHttpsUrl',
   'must be a URL': 'validation.mustBeUrl',
@@ -18,14 +18,14 @@ const VALIDATION_MAP: Record<string, string> = {
   'is required when TLS_MODE is acme': 'validation.acmeEmailRequired',
   'is required when Tailscale is enabled': 'validation.tailscaleHostnameRequired',
   'must be basic while the panel is routed': 'validation.authBasicRequired',
-  'a routed panel needs a credential: run dev-gateway web auth set': 'validation.credentialRequired',
+  'a routed panel needs a credential: run portta web auth set': 'validation.credentialRequired',
   'the panel is not published on every interface; reach it over the VPN instead':
     'validation.panelNotOnEveryInterface',
 }
 
 const HINT_MAP: Record<string, string> = {
   'the value was not saved': 'hints.notSaved',
-  'existing Docker-backed pages remain available; run dev-gateway db status': 'hints.databaseUnavailable',
+  'existing Docker-backed pages remain available; run portta db status': 'hints.databaseUnavailable',
   'this is a panel limit, not a Docker one': 'hints.panelLimit',
   'unexpected failure': 'hints.unexpected',
 }

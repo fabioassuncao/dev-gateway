@@ -1,10 +1,10 @@
 # ============================================================================
-# Dev Gateway toolbox
+# Portta toolbox
 # ============================================================================
 # One small image holding the diagnostic and client tools the gateway needs, so
 # a host only ever has to provide Docker, Git and a shell.
 #
-# Built on demand and cached locally; see `dev-gateway toolbox build`.
+# Built on demand and cached locally; see `portta toolbox build`.
 # ============================================================================
 FROM alpine:3.24.1
 
@@ -26,8 +26,9 @@ RUN apk add --no-cache \
       iputils \
   && update-ca-certificates
 
-LABEL org.opencontainers.image.title="dev-gateway-toolbox" \
-      org.opencontainers.image.description="Diagnostic and client tools for the Dev Gateway" \
+LABEL org.opencontainers.image.title="portta-toolbox" \
+      org.opencontainers.image.description="Diagnostic and client tools for Portta" \
+      org.opencontainers.image.source="https://github.com/fabioassuncao/portta" \
       org.opencontainers.image.licenses="MIT"
 
 ENTRYPOINT []

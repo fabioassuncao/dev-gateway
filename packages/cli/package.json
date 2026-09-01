@@ -1,15 +1,19 @@
 {
-  "name": "@fabioassuncao/dev-gateway",
+  "name": "portta",
   "version": "0.2.0",
   "description": "Machine-first CLI for a shared Docker development gateway",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "dev-gateway": "./dist/cli.js"
+    "portta": "./dist/cli.js"
   },
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -25,18 +29,18 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fabioassuncao/dev-gateway.git",
+    "url": "git+https://github.com/fabioassuncao/portta.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://github.com/fabioassuncao/dev-gateway#readme",
-  "bugs": "https://github.com/fabioassuncao/dev-gateway/issues",
+  "homepage": "https://github.com/fabioassuncao/portta#readme",
+  "bugs": "https://github.com/fabioassuncao/portta/issues",
   "dependencies": {
     "commander": "14.0.2",
     "execa": "9.6.1",
     "zod": "4.5.4"
   },
   "devDependencies": {
-    "@dev-gateway/core": "0.1.0",
+    "portta-core": "0.1.0",
     "@types/node": "24.13.3",
     "esbuild": "0.28.2",
     "typescript": "7.0.2",

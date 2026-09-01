@@ -9,7 +9,7 @@ import { Output } from '../output.js'
 import { runProcess } from '../process.js'
 import { confirm } from '../confirm.js'
 
-const TOOLBOX = 'dev-gateway/toolbox:0.1.0'
+const TOOLBOX = 'fabioassuncao/portta-toolbox:0.1.0'
 function globals(command: Command) { return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string } }
 
 async function ensureToolbox(command: Command): Promise<void> {
@@ -67,29 +67,29 @@ export async function clientClose(options: { project: string }, command: Command
 
 export async function dbUrl(options: { project: string; service?: string }, command: Command): Promise<void> {
   const service = options.service ?? 'postgres'
-  const bridge = (await inspectContainers()).find((container) => container.labels['dev-gateway.component'] === 'access-bridge' && container.labels['dev-gateway.access.project'] === options.project && container.labels['dev-gateway.access.service'] === service)
+  const bridge = (await inspectContainers()).find((container) => container.labels['portta.component'] === 'access-bridge' && container.labels['portta.access.project'] === options.project && container.labels['portta.access.service'] === service)
   if (!bridge) throw new UsageError(`no bridge is open for ${options.project}/${service}`)
   const binding = bridge.ports.find((port) => port.publicPort !== null)
   if (!binding?.publicPort) throw new PreconditionError('bridge has no host port')
-  const kind = bridge.labels['dev-gateway.access.kind']
+  const kind = bridge.labels['portta.access.kind']
   const url = kind === 'postgres' ? `postgresql://<user>@127.0.0.1:${binding.publicPort}/<database>` : kind === 'mysql' ? `mysql://<user>@127.0.0.1:${binding.publicPort}/<database>` : kind === 'redis' ? `redis://127.0.0.1:${binding.publicPort}` : `127.0.0.1:${binding.publicPort}`
   new Output(globals(command)).data(url)
 }
 
-function panelDb(containers: Awaited<ReturnType<typeof inspectContainers>>) { return containers.find((container) => container.labels['dev-gateway.component'] === 'db') }
+function panelDb(containers: Awaited<ReturnType<typeof inspectContainers>>) { return containers.find((container) => container.labels['portta.component'] === 'db') }
 export async function dbStatus(command: Command): Promise<void> {
   const database = panelDb(await inspectContainers())
   const result = { state: database?.state ?? 'absent', container: database?.name ?? null, network: gatewayContext({ profile: globals(command).profile }).config.databaseNetwork }
   const output = new Output(globals(command)); if (output.json) output.data(result); else output.line(`Panel database: ${result.state}${result.container ? ` (${result.container})` : ''}\nPrivate network: ${result.network}`)
-  if (!database || database.state !== 'running') throw new PreconditionError('the panel database is not running', 'run dev-gateway web up')
+  if (!database || database.state !== 'running') throw new PreconditionError('the panel database is not running', 'run portta web up')
 }
 
 async function panelDbClient(program: 'psql' | 'pg_dump' | 'pg_restore', args: string[], command: Command, options: { input?: Uint8Array; inherit?: boolean; tty?: boolean } = {}) {
   const context = gatewayContext({ profile: globals(command).profile })
-  if (!context.env['DG_WEB_DB_PASSWORD']) throw new PreconditionError('the panel database credential is not configured')
+  if (!context.env['PORTTA_RUNTIME_DB_PASSWORD']) throw new PreconditionError('the panel database credential is not configured')
   await ensureToolbox(command)
-  const env = { ...process.env, PGPASSWORD: context.env['DG_WEB_DB_PASSWORD'] }
-  return runProcess('docker', ['run', '--rm', '-i', ...(options.tty && process.stdin.isTTY ? ['-t'] : []), '--network', context.config.databaseNetwork, '-e', 'PGPASSWORD', TOOLBOX, program, '-h', 'db', '-U', 'devgateway', '-d', 'devgateway', ...args], { env, input: options.input, stdio: options.inherit ? 'inherit' : 'pipe' })
+  const env = { ...process.env, PGPASSWORD: context.env['PORTTA_RUNTIME_DB_PASSWORD'] }
+  return runProcess('docker', ['run', '--rm', '-i', ...(options.tty && process.stdin.isTTY ? ['-t'] : []), '--network', context.config.databaseNetwork, '-e', 'PGPASSWORD', TOOLBOX, program, '-h', 'db', '-U', 'portta', '-d', 'portta', ...args], { env, input: options.input, stdio: options.inherit ? 'inherit' : 'pipe' })
 }
 
 export async function dbShell(command: Command): Promise<void> {

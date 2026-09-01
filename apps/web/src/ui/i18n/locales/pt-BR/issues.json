@@ -69,7 +69,7 @@
   },
   "linkReason": {
     "manual": "Vinculada manualmente",
-    "label": "Da label dev-gateway.project",
+    "label": "Da label portta.project",
     "branch": "Do nome da branch",
     "namespace": "Do namespace Compose"
   }

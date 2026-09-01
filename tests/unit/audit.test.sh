@@ -7,10 +7,10 @@
 # ============================================================================
 set -uo pipefail
 
-DG_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-. "$DG_TEST_DIR/lib/assert.sh"
-DG_ROOT=$(cd -P "$DG_TEST_DIR/.." && pwd); export DG_ROOT
-cd "$DG_ROOT" || exit 1
+PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+. "$PORTTA_TEST_DIR/lib/assert.sh"
+PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
+cd "$PORTTA_ROOT" || exit 1
 
 # Tracked files, excluding the build brief and this file.
 #
@@ -64,12 +64,12 @@ assert_eq "" "$(tracked 'bin/*' 'scripts/**' | xargs grep -n 'docker network rm'
 it "every file that removes a container also checks ownership"
 offenders=""
 for f in $(tracked 'bin/*' 'scripts/**' | xargs grep -ln 'docker rm ' 2>/dev/null || true); do
-  grep -q 'dg_container_is_managed' "$f" || offenders="$offenders $f"
+  grep -q 'portta_container_is_managed' "$f" || offenders="$offenders $f"
 done
 assert_eq "" "$offenders"
 
 it "compose down never takes volumes or orphans with it"
-assert_eq "" "$(grep -n 'dg_compose .* down' bin/dev-gateway scripts/cmd/*.sh 2>/dev/null | grep -E '\-v|--volumes|--remove-orphans' || true)"
+assert_eq "" "$(grep -n 'portta_compose .* down' bin/portta scripts/cmd/*.sh 2>/dev/null | grep -E '\-v|--volumes|--remove-orphans' || true)"
 
 describe "secrets never reach the process list or the repository"
 
@@ -89,18 +89,18 @@ it "no TLS material is tracked"
 assert_eq "" "$(tracked | grep -E '\.(key|crt|pem|p12|srl)$' || true)"
 
 it "inspect reports secrets as set/unset, never by value"
-assert_contains "$(grep -A2 'TS_AUTHKEY' bin/dev-gateway | head -3)" "<set>"
+assert_contains "$(grep -A2 'TS_AUTHKEY' bin/portta | head -3)" "<set>"
 
 describe "nothing is exposed by default"
 
 it "the local profile binds loopback"
-assert_contains "$(cat .env.example)" "DEV_GATEWAY_BIND_ADDRESS=127.0.0.1"
+assert_contains "$(cat .env.example)" "PORTTA_BIND_ADDRESS=127.0.0.1"
 
 it "public access is off in the example configuration"
 assert_contains "$(cat .env.example)" "PUBLIC_ENABLED=false"
 
 it "the dashboard is off in the example configuration"
-assert_contains "$(cat .env.example)" "DEV_GATEWAY_DASHBOARD=false"
+assert_contains "$(cat .env.example)" "PORTTA_DASHBOARD=false"
 
 it "traefik does not expose containers by default"
 assert_contains "$(cat docker/compose/compose.yaml)" 'TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT: "false"'

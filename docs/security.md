@@ -57,7 +57,7 @@ stay there. Traefik has no route to those networks, and neither does any other
 project. `tests/e2e/parallel.test.sh` asserts that one project cannot reach
 another's database.
 
-The shared `dev-gateway` network is the one place projects meet, and only
+The shared `portta` network is the one place projects meet, and only
 HTTP-facing services join it. Anything on it is reachable by every other
 project on the host, which is exactly why a database does not belong there.
 
@@ -68,7 +68,7 @@ short-lived. It binds `127.0.0.1` on a kernel-assigned port; binding anywhere
 else needs an explicit `--bind` and a confirmation, and `doctor` **fails** on a
 bridge bound beyond loopback.
 
-`dev-gateway service publish --public` on a datastore is refused outright, not
+`portta service publish --public` on a datastore is refused outright, not
 warned about. Persistent forwarders join their project's network and the
 gateway's access network only, never the shared HTTP network, which `doctor`
 also enforces.
@@ -85,7 +85,7 @@ attached only to Traefik's internal entrypoint, so it is never routed through
 fails if it is enabled on a non-loopback address.
 
 The loopback bind constrains the host, not the shared network. Insecure mode
-listens inside a namespace attached to `dev-gateway`, so while the dashboard is
+listens inside a namespace attached to `portta`, so while the dashboard is
 enabled **any adopted project's container can reach `http://traefik:8080`** and
 read the full routing configuration, including the hostnames and backends of
 every other project on the host. On the Tailscale attachment the same API
@@ -98,7 +98,7 @@ sensitive to a project's own users is there, but the inventory of the host is.
 
 Off by default. Turning it on publishes one port per protocol; it does not
 publish a database. Three things have to line up before one answers:
-`DEV_GATEWAY_TCP=true` on the gateway, `traefik.enable=true` plus TCP router
+`PORTTA_TCP=true` on the gateway, `traefik.enable=true` plus TCP router
 labels on the container, and the container on the access network. Being visible
 to the gateway is not being routed.
 
@@ -110,7 +110,7 @@ to the gateway is not being routed.
   locally, the tailnet address with Tailscale, an interface you named
   otherwise.
 - **Not on the HTTP network.** An opted-in datastore joins
-  `dev-gateway-access`. The shared network still carries no database, and
+  `portta-access`. The shared network still carries no database, and
   `tests/unit/templates.test.sh` fails the build if a template puts one there.
 - **TLS is mandatory**, since the hostname lives in the handshake. Without a
   configured certificate Traefik serves a self-signed one, which
@@ -125,13 +125,13 @@ Off by default. It is the one component that can start, stop and remove
 containers, so it is fenced on three sides.
 
 - **Network.** Loopback by default, never attached to the `web`/`websecure`
-  entrypoints, and `dev-gateway web up --expose public` is refused. Routing it
+  entrypoints, and `portta web up --expose public` is refused. Routing it
   over a VPN is a separate overlay, itself refused on the `remote-public`
   profile where Traefik answers the internet.
 - **Authentication, once it is routed.** `--expose vpn` requires
-  `DEV_GATEWAY_WEB_AUTH=basic` and a credential, and is refused without one.
+  `PORTTA_WEB_AUTH=basic` and a credential, and is refused without one.
   The middleware is Traefik's, rendered by the panel into
-  `config/traefik/dynamic/dev-gateway-panel.yaml`: no login form, no session,
+  `config/traefik/dynamic/portta-panel.yaml`: no login form, no session,
   no user store, and no route handler a bug could let past. The password is
   generated, shown once, and stored only as a hash. A routed panel also
   defaults to read-only, and `doctor` fails if either is missing. See
@@ -158,14 +158,14 @@ containers, so it is fenced on three sides.
   components cannot be removed from it.
 
 A mutating request must come from the panel's own origin, so a page on another
-site cannot drive it through `127.0.0.1`. `DEV_GATEWAY_WEB_READ_ONLY=true`
+site cannot drive it through `127.0.0.1`. `PORTTA_WEB_READ_ONLY=true`
 refuses every write, which is the right setting when an agent is driving it.
 
 ## Secrets
 
 - `.env` is git-ignored; `bootstrap` creates it `0600`; `doctor` warns if it
   becomes group- or world-readable.
-- `dev-gateway inspect` prints `<set>` / `<unset>`, never values.
+- `portta inspect` prints `<set>` / `<unset>`, never values.
 - Gateway state, including ACME material, lives under `state/`, which is
   git-ignored. `acme.json` is kept `0600` and `doctor` fails if it is not.
 - Lint fails the build on tracked Tailscale auth keys or PEM private keys.
@@ -191,7 +191,7 @@ key ages out on its own.
 
 A header named `X_Auth_User` becomes `X-Auth-User` once CGI, WSGI, PHP or nginx
 normalises it, which lets a client forge a header Traefik believes it controls.
-`DEV_GATEWAY_ALIAS_HEADERS_STRATEGY` selects `keep` (Traefik's default, fine
+`PORTTA_ALIAS_HEADERS_STRATEGY` selects `keep` (Traefik's default, fine
 behind loopback), `delete` or `reject`. The public profile raises it to
 `delete`.
 
@@ -237,7 +237,7 @@ Docker socket proxy nor the database gains a route out.
 The panel holds one long-lived secret for this — the App's private key — and it
 holds it as a **file it cannot write**: `state/github/app.pem`, mounted
 read-only at mode 600, passed by path rather than as a `.env` value precisely
-because the panel can write `.env`. `dev-gateway doctor` fails, rather than
+because the panel can write `.env`. `portta doctor` fails, rather than
 warns, on a key that is missing, unreadable, or readable by more than its
 owner.
 

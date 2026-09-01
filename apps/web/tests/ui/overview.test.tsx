@@ -28,7 +28,7 @@ const data: OverviewData = {
     up: true,
     reachable: true,
     tls: { enabled: false, mode: 'local' },
-    tailscale: { enabled: false, running: false, hostname: 'dev-gateway' },
+    tailscale: { enabled: false, running: false, hostname: 'portta' },
     publicAccess: { enabled: false, domain: null },
     panel: {
       expose: 'local',
@@ -42,7 +42,7 @@ const data: OverviewData = {
     traefik: { containerId: 'gw', state: 'running', health: 'healthy' },
     socketProxy: { containerId: 'sp', state: 'running' },
     database: { containerId: 'db', state: 'running', health: 'healthy' },
-    network: { name: 'dev-gateway', exists: true, attached: 3, internal: false },
+    network: { name: 'portta', exists: true, attached: 3, internal: false },
     routes: 3,
   },
   counts: {

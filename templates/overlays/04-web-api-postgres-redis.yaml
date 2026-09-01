@@ -3,7 +3,7 @@
 # ============================================================================
 # Identical to template 03: adding a cache changes nothing about the contract.
 # Postgres and Redis both stay on the project's private network, both keep
-# their standard ports, and both are reached with `dev-gateway access open`.
+# their standard ports, and both are reached with `portta access open`.
 #
 # Workers are absent too. A queue consumer serves no HTTP, so it has nothing to
 # route; it stays on `default` and needs no changes at all.
@@ -11,20 +11,20 @@
 
 services:
   web:
-    networks: [default, dev-gateway]
+    networks: [default, portta]
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-web.loadbalancer.server.port=3000"
 
   api:
-    networks: [default, dev-gateway]
+    networks: [default, portta]
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-api.loadbalancer.server.port=8000"
 
 networks:
-  dev-gateway:
+  portta:
     external: true
-    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}
+    name: ${PORTTA_NETWORK:-portta}

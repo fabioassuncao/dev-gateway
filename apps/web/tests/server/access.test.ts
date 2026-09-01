@@ -58,7 +58,7 @@ describe('reaching a database by hostname', () => {
     id: 'routed-pg',
     name: 'alpha-postgres-1',
     image: 'postgres:18.6-alpine',
-    networks: ['alpha_default', 'dev-gateway-access'],
+    networks: ['alpha_default', 'portta-access'],
     exposed: [5432],
     labels: {
       'com.docker.compose.project': 'alpha',
@@ -145,10 +145,10 @@ describe('POST /api/access', () => {
     expect(spec.network).toBe('alpha_default')
     expect(spec.targetPort).toBe(5432)
     expect(spec.bindIp).toBe('127.0.0.1')
-    expect(spec.name).toMatch(/^dg-access-alpha-postgres-[0-9a-f]{6}$/)
-    expect(spec.labels['dev-gateway.managed']).toBe('true')
-    expect(spec.labels['dev-gateway.component']).toBe('access-bridge')
-    expect(spec.labels['dev-gateway.access.project']).toBe('alpha')
+    expect(spec.name).toMatch(/^portta-access-alpha-postgres-[0-9a-f]{6}$/)
+    expect(spec.labels['portta.managed']).toBe('true')
+    expect(spec.labels['portta.component']).toBe('access-bridge')
+    expect(spec.labels['portta.access.project']).toBe('alpha')
     expect(spec.labels['traefik.enable']).toBe('false')
   })
 
@@ -174,7 +174,7 @@ describe('POST /api/access', () => {
             id: 'lonely',
             name: 'lonely',
             image: 'postgres:18.6-alpine',
-            networks: ['dev-gateway'],
+            networks: ['portta'],
             exposed: [5432],
             labels: {
               'com.docker.compose.project': 'lonely',

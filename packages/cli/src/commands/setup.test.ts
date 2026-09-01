@@ -34,7 +34,7 @@ function hostChecks(): void {
 describe('setup', () => {
   it('prints an idempotent dry-run plan without touching the target', async () => {
     hostChecks()
-    const root = mkdtempSync(join(tmpdir(), 'dg-setup-')); roots.push(root)
+    const root = mkdtempSync(join(tmpdir(), 'portta-setup-')); roots.push(root)
     const target = join(root, 'gateway')
     let stdout = ''
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => { stdout += String(chunk); return true })
@@ -48,7 +48,7 @@ describe('setup', () => {
 
   it('refuses an existing unrelated directory without overwriting it', async () => {
     hostChecks()
-    const root = mkdtempSync(join(tmpdir(), 'dg-setup-')); roots.push(root)
+    const root = mkdtempSync(join(tmpdir(), 'portta-setup-')); roots.push(root)
     const target = join(root, 'gateway'); mkdirSync(target)
     const marker = join(target, 'keep.txt'); writeFileSync(marker, 'mine\n')
 

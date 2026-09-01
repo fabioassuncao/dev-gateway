@@ -21,7 +21,7 @@ const rendered = `${JSON.stringify(await generateOpenApi(createApi(deps), versio
 if (process.argv.includes('--check')) {
   const checkedIn = readFileSync(output, 'utf8')
   if (checkedIn !== rendered) {
-    process.stderr.write('apps/web/openapi.json is stale; run: npm run openapi --workspace=dev-gateway-web\n')
+    process.stderr.write('apps/web/openapi.json is stale; run: npm run openapi --workspace=portta-web\n')
     process.exitCode = 1
   }
 } else {

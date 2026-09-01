@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dev Gateway: service discovery across consumer projects.
+# Portta: service discovery across consumer projects.
 #
 # Everything here is derived from Docker labels at call time. There is no
 # registry of projects to keep in sync, and nothing to clean up when a project
@@ -7,17 +7,17 @@
 
 # Pinned; see docs/adr/0004-pinned-versions.md.
 # shellcheck disable=SC2034  # consumed by doctor and remote-access fallbacks
-DG_BRIDGE_IMAGE="alpine/socat:1.8.1.3"
+PORTTA_BRIDGE_IMAGE="alpine/socat:1.8.1.3"
 
 # Used by the zero-Node remote-access SSH driver. Local access bridges moved
 # to packages/cli, but this shell-native driver still needs a short id.
-dg_access_id() {
+portta_access_id() {
   printf '%s' "$$$(date +%s)" | cksum | awk '{printf "%x", $1}' | cut -c1-6
 }
 
 # Well-known ports, used only when a container exposes several and we have to
 # guess. `--port` always wins.
-dg_default_port_for_image() {
+portta_default_port_for_image() {
   local lower
   lower=$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')
   case "$lower" in
@@ -36,8 +36,8 @@ dg_default_port_for_image() {
   esac
 }
 
-# dg_service_kind <image>: how a service should be reached.
-dg_service_kind() {
+# portta_service_kind <image>: how a service should be reached.
+portta_service_kind() {
   local lower
   lower=$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')
   case "$lower" in
@@ -68,8 +68,8 @@ dg_service_kind() {
 #   unsupported   the server speaks first, so there is no SNI to route on
 #   unevaluated   not tested; treated as unsupported until it is
 #
-# dg_routing_for_kind <kind>
-dg_routing_for_kind() {
+# portta_routing_for_kind <kind>
+portta_routing_for_kind() {
   case "${1:-}" in
     postgres) printf 'starttls-sni' ;;
     redis) printf 'tls-sni' ;;
@@ -78,9 +78,9 @@ dg_routing_for_kind() {
   esac
 }
 
-# dg_tcp_entrypoint_for_kind <kind>: the Traefik entrypoint that serves it, or
+# portta_tcp_entrypoint_for_kind <kind>: the Traefik entrypoint that serves it, or
 # nothing when the protocol cannot be routed by hostname.
-dg_tcp_entrypoint_for_kind() {
+portta_tcp_entrypoint_for_kind() {
   case "${1:-}" in
     postgres) printf 'postgres' ;;
     redis) printf 'redis' ;;
@@ -88,77 +88,77 @@ dg_tcp_entrypoint_for_kind() {
   esac
 }
 
-# dg_tcp_host_port_for_kind <kind>: the host port that entrypoint is published on.
-dg_tcp_host_port_for_kind() {
+# portta_tcp_host_port_for_kind <kind>: the host port that entrypoint is published on.
+portta_tcp_host_port_for_kind() {
   case "${1:-}" in
-    postgres) printf '%s' "${DEV_GATEWAY_TCP_POSTGRES_PORT:-5432}" ;;
-    redis) printf '%s' "${DEV_GATEWAY_TCP_REDIS_PORT:-6379}" ;;
+    postgres) printf '%s' "${PORTTA_TCP_POSTGRES_PORT:-5432}" ;;
+    redis) printf '%s' "${PORTTA_TCP_REDIS_PORT:-6379}" ;;
     *) printf '' ;;
   esac
 }
 
-# dg_tcp_hostname <project> <service>: the name a client connects to.
+# portta_tcp_hostname <project> <service>: the name a client connects to.
 #
 # Flat on purpose, and the same shape the HTTP routers use: a wildcard
 # certificate covers exactly one label, so `postgres.storefront.<domain>` would
 # need a certificate per project. See docs/tcp-routing.md.
-dg_tcp_hostname() {
-  printf '%s-%s.%s' "$(dg_slug "$1")" "$(dg_slug "$2")" "${DEV_GATEWAY_DOMAIN:-localhost}"
+portta_tcp_hostname() {
+  printf '%s-%s.%s' "$(portta_slug "$1")" "$(portta_slug "$2")" "${PORTTA_DOMAIN:-localhost}"
 }
 
-# dg_container_tcp_routed <container>: true when the container carries TCP
+# portta_container_tcp_routed <container>: true when the container carries TCP
 # router labels, which is the only way it gets routed.
-dg_container_tcp_routed() {
-  dg_container_labels "$1" | grep -q '^traefik\.tcp\.routers\.'
+portta_container_tcp_routed() {
+  portta_container_labels "$1" | grep -q '^traefik\.tcp\.routers\.'
 }
 
-# dg_find_container <project> <service>: the running container for a Compose
+# portta_find_container <project> <service>: the running container for a Compose
 # service, or nothing.
-dg_find_container() {
+portta_find_container() {
   docker ps -q \
     --filter "label=com.docker.compose.project=$1" \
     --filter "label=com.docker.compose.service=$2" \
     2>/dev/null | head -1
 }
 
-# dg_container_private_networks <container>: the project's own networks, with
+# portta_container_private_networks <container>: the project's own networks, with
 # the gateway's shared and access networks excluded. Those are ours, not the
 # project's, and a bridge attached to them would defeat the isolation.
-dg_container_private_networks() {
+portta_container_private_networks() {
   docker inspect "$1" --format '{{ range $k, $v := .NetworkSettings.Networks }}{{ $k }} {{ end }}' 2>/dev/null \
     | tr ' ' '\n' | grep -v '^$' \
-    | grep -vx "$DEV_GATEWAY_NETWORK" \
-    | grep -vx "$DEV_GATEWAY_CONTROL_NETWORK" \
-    | grep -vx "$DEV_GATEWAY_ACCESS_NETWORK"
+    | grep -vx "$PORTTA_NETWORK" \
+    | grep -vx "$PORTTA_CONTROL_NETWORK" \
+    | grep -vx "$PORTTA_ACCESS_NETWORK"
 }
 
-# dg_container_ports <container>: every port the image or the compose file
+# portta_container_ports <container>: every port the image or the compose file
 # declares, one per line, numbers only.
-dg_container_ports() {
+portta_container_ports() {
   docker inspect "$1" --format '{{ range $p, $v := .Config.ExposedPorts }}{{ $p }} {{ end }}' 2>/dev/null \
     | tr ' ' '\n' | sed -n 's#^\([0-9]\{1,5\}\)/tcp$#\1#p' | sort -n -u
 }
 
-# dg_bridge_for <project> <service>: an existing bridge's container id.
-dg_bridge_for() {
+# portta_bridge_for <project> <service>: an existing bridge's container id.
+portta_bridge_for() {
   docker ps -q \
-    --filter "label=dev-gateway.component=access-bridge" \
-    --filter "label=dev-gateway.access.project=$1" \
-    --filter "label=dev-gateway.access.service=$2" \
+    --filter "label=portta.component=access-bridge" \
+    --filter "label=portta.access.project=$1" \
+    --filter "label=portta.access.service=$2" \
     2>/dev/null | head -1
 }
 
-dg_bridge_local_port() {
+portta_bridge_local_port() {
   docker inspect "$1" --format \
     '{{ range $p, $c := .NetworkSettings.Ports }}{{ range $c }}{{ .HostPort }}{{ end }}{{ end }}' 2>/dev/null
 }
 
-# dg_discover_services [project]: every service of every running Compose
+# portta_discover_services [project]: every service of every running Compose
 # project.
 #
 # Output, one line per service, separated by the unit separator:
 #   project service container image kind ports hostports bridge_port
-dg_discover_services() {
+portta_discover_services() {
   local want="${1:-}" id project service name image kind ports hostports bridge bport
   local FS; FS=$(printf '\037')
 
@@ -166,20 +166,20 @@ dg_discover_services() {
     project=$(docker inspect "$id" --format '{{ index .Config.Labels "com.docker.compose.project" }}' 2>/dev/null)
     [ -n "$project" ] || continue
     # Gateway-owned containers are infrastructure, not services to connect to.
-    dg_container_is_managed "$id" && continue
+    portta_container_is_managed "$id" && continue
     [ -z "$want" ] || [ "$want" = "$project" ] || continue
 
     service=$(docker inspect "$id" --format '{{ index .Config.Labels "com.docker.compose.service" }}' 2>/dev/null)
     name=$(docker inspect "$id" --format '{{ .Name }}' 2>/dev/null | sed 's#^/##')
     image=$(docker inspect "$id" --format '{{ .Config.Image }}' 2>/dev/null)
-    kind=$(dg_service_kind "$image")
-    ports=$(dg_container_ports "$id" | tr '\n' ',' | sed 's/,$//')
+    kind=$(portta_service_kind "$image")
+    ports=$(portta_container_ports "$id" | tr '\n' ',' | sed 's/,$//')
     hostports=$(docker inspect "$id" \
       --format '{{ range $p, $c := .NetworkSettings.Ports }}{{ range $c }}{{ .HostIp }}:{{ .HostPort }} {{ end }}{{ end }}' 2>/dev/null \
       | sed 's/ *$//')
-    bridge=$(dg_bridge_for "$project" "$service")
+    bridge=$(portta_bridge_for "$project" "$service")
     bport=""
-    [ -n "$bridge" ] && bport=$(dg_bridge_local_port "$bridge")
+    [ -n "$bridge" ] && bport=$(portta_bridge_local_port "$bridge")
 
     printf '%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n' \
       "$project" "$FS" "$service" "$FS" "$name" "$FS" "$image" "$FS" \
@@ -187,7 +187,7 @@ dg_discover_services() {
   done | sort
 }
 
-# dg_access_label <container> <suffix>: read a dev-gateway.access.* label.
-dg_access_label() {
-  docker inspect "$1" --format "{{ index .Config.Labels \"dev-gateway.access.$2\" }}" 2>/dev/null
+# portta_access_label <container> <suffix>: read a portta.access.* label.
+portta_access_label() {
+  docker inspect "$1" --format "{{ index .Config.Labels \"portta.access.$2\" }}" 2>/dev/null
 }

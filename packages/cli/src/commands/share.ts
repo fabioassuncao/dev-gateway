@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { readEnvFile, renderShares, SHARES_MARKER, writeEnvFile } from '@dev-gateway/core'
+import { readEnvFile, renderShares, SHARES_MARKER, writeEnvFile } from 'portta-core'
 import type { Command } from 'commander'
 import { z } from 'zod'
 import { gatewayContext } from '../context.js'
@@ -10,7 +10,7 @@ import { Output } from '../output.js'
 const Share = z.object({ id: z.string(), mode: z.enum(['public', 'protected']), host: z.string(), entryPoint: z.string(), container: z.string(), port: z.number(), expiresAt: z.number(), user: z.string().nullable().optional(), hash: z.string().nullable().optional() }).passthrough()
 type Share = z.infer<typeof Share>
 function globals(command: Command) { return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string } }
-function path(command: Command): string { return join(gatewayContext({ profile: globals(command).profile }).root, 'config/traefik/dynamic/dev-gateway-shares.yaml') }
+function path(command: Command): string { return join(gatewayContext({ profile: globals(command).profile }).root, 'config/traefik/dynamic/portta-shares.yaml') }
 function read(command: Command): Share[] {
   const file = path(command)
   if (!existsSync(file)) return []

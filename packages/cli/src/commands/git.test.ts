@@ -8,7 +8,7 @@ import { collectGitProject } from './git.js'
 const roots: string[] = []
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }) })
 function repository(): string {
-  const root = mkdtempSync(join(tmpdir(), 'dg-git-')); roots.push(root)
+  const root = mkdtempSync(join(tmpdir(), 'portta-git-')); roots.push(root)
   execFileSync('git', ['init', '-q', '-b', 'main', root])
   execFileSync('git', ['-C', root, 'config', 'user.email', 'test@example.com'])
   execFileSync('git', ['-C', root, 'config', 'user.name', 'Test Person'])
@@ -29,7 +29,7 @@ describe('Git collection', () => {
     expect(JSON.stringify(record)).not.toContain('hunter2')
   })
   it('reports a normal non-repository absence', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'dg-plain-')); roots.push(root)
+    const root = mkdtempSync(join(tmpdir(), 'portta-plain-')); roots.push(root)
     expect((await collectGitProject('plain', root))['reason']).toBe('not a git repository')
   })
 })

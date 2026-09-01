@@ -3,7 +3,7 @@ import i18n from './index.ts'
 
 export type Locale = 'en' | 'pt-BR'
 
-const STORAGE_KEY = 'dg-locale'
+const STORAGE_KEY = 'portta-locale'
 
 function normalize(raw: string | null | undefined): Locale | null {
   if (!raw) return null

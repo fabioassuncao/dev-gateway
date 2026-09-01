@@ -35,7 +35,7 @@ router name Traefik actually built, its rule, its entrypoints, its middlewares,
 and its `status` with Traefik's own error text when a router was rejected.
 
 It reaches that API over the shared `gateway` network it is already on, at a
-base URL resolved per attachment and overridable with `DG_WEB_TRAEFIK_API`:
+base URL resolved per attachment and overridable with `PORTTA_RUNTIME_TRAEFIK_API`:
 
 | Attachment | Base URL | Why |
 |---|---|---|
@@ -49,7 +49,7 @@ permission set within the panel's reach is the exact separation
 [ADR 0008](0008-web-panel-socket-proxy.md) exists to keep. The shared network
 grants the panel nothing it does not already have.
 
-This layer exists only when `DEV_GATEWAY_DASHBOARD=true`, which is off by
+This layer exists only when `PORTTA_DASHBOARD=true`, which is off by
 default, so the UI has to handle its absence rather than assume it. The read is
 cached on its own short TTL, has its own timeout, and never runs inside
 `createSnapshotCache`: a slow or dead Traefik API must not delay a page. A
@@ -62,7 +62,7 @@ is already good. A deep link to
 `/dashboard/#/http/routers/<router>@docker` hands the user to Traefik instead.
 **No traffic or access metrics:** those come from Traefik's Prometheus
 endpoint, which means an exporter and a store, which is a monitoring stack.
-`DEV_GATEWAY_ACCESS_LOG=true` plus the existing log viewer is the proportionate
+`PORTTA_ACCESS_LOG=true` plus the existing log viewer is the proportionate
 answer when a request needs tracing.
 
 ### Writing: three generated files, and nothing else in the directory
@@ -73,9 +73,9 @@ exactly three paths:
 
 | File | Contents |
 |---|---|
-| `dev-gateway-panel.yaml` | The BasicAuth middleware guarding the panel's own router ([ADR 0012](0012-panel-authentication-is-traefiks.md)) |
-| `dev-gateway-shares.yaml` | The routers, services and middlewares for temporary shares |
-| `dev-gateway-aliases.yaml` | One router and service per hostname alias set from the panel |
+| `portta-panel.yaml` | The BasicAuth middleware guarding the panel's own router ([ADR 0012](0012-panel-authentication-is-traefiks.md)) |
+| `portta-shares.yaml` | The routers, services and middlewares for temporary shares |
+| `portta-aliases.yaml` | One router and service per hostname alias set from the panel |
 
 Any other path is refused in the panel's own process, the way
 `apps/web/src/server/docker/allowlist.ts` refuses a Docker call: the check is on the
@@ -119,7 +119,7 @@ thing that exists today), `public` (a router, no auth) and `protected` (a
 router plus BasicAuth).
 
 Every share carries a mandatory expiry, enforced by the panel and by
-`dev-gateway share gc`, which mirrors what `access gc` already does for
+`portta share gc`, which mirrors what `access gc` already does for
 bridges. The CLI and the panel manage the same objects, as they do for bridges.
 
 Sharing **refuses** rather than warns, following the precedent
@@ -151,12 +151,12 @@ write surface.
 ```yaml
 http:
   routers:
-    dg-alias-storefront-web:
+    portta-alias-storefront-web:
       rule: "Host(`shop.localhost`)"
       entryPoints: [web]
-      service: dg-alias-storefront-web
+      service: portta-alias-storefront-web
   services:
-    dg-alias-storefront-web:
+    portta-alias-storefront-web:
       loadBalancer:
         servers:
           - url: "http://storefront-web-1:3000"
@@ -178,13 +178,13 @@ Three properties follow from the mechanism and are not negotiable:
 Aliasing **refuses** rather than warns, in the same style as sharing, and every
 refusal happens before a byte is written: a hostname a container already
 derives, a hostname another alias took, a hostname outside
-`DEV_GATEWAY_DOMAIN` / `PRIVATE_DOMAIN` / `PUBLIC_DOMAIN`, a non-HTTP service, a
+`PORTTA_DOMAIN` / `PRIVATE_DOMAIN` / `PUBLIC_DOMAIN`, a non-HTTP service, a
 service off the shared network, and anything the YAML quoter would refuse.
 
 The row and the file are written as one operation: the file is rendered whole
 from the stored state through the existing atomic temp-file write, and a failed
 write rolls the row back, so the database and Traefik cannot disagree about
-what answers. The CLI reads the same file, so `dev-gateway urls` lists aliases
+what answers. The CLI reads the same file, so `portta urls` lists aliases
 marked as such and `doctor` flags one whose target container is gone.
 
 Everything else an override can set — display name, description, primary

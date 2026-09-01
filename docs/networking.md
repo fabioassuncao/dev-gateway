@@ -26,33 +26,33 @@ port was an accident of tooling.
 |---|---|---|
 | web | 3000 | no, routed by hostname |
 | api | 8000 | no, routed by hostname |
-| postgres | 5432 | no, use `dev-gateway access open` |
-| redis | 6379 | no, use `dev-gateway access open` |
+| postgres | 5432 | no, use `portta access open` |
+| redis | 6379 | no, use `portta access open` |
 | Traefik | 80 / 443 | yes, once, for the whole machine |
 
 ## The three kinds of network
 
-### `dev-gateway`: shared, external
+### `portta`: shared, external
 
 Created by `bootstrap`, owned by the gateway, joined by every service that
 should receive HTTP traffic.
 
 ```yaml
 networks:
-  dev-gateway:
+  portta:
     external: true
-    name: dev-gateway
+    name: portta
 ```
 
 `external: true` means Compose expects it to exist and will neither create nor
 remove it, which is exactly the decoupling we want. It survives
-`dev-gateway down` and
+`portta down` and
 is never removed automatically, because other projects are attached.
 
 Only HTTP-facing services join it. A database on this network is reachable by
 every other project on the host; `doctor` warns when it finds one.
 
-### `dev-gateway-control`: internal
+### `portta-control`: internal
 
 `internal: true` gives it no route to the outside world. It carries exactly one
 conversation: Traefik asking the socket proxy what containers exist.
@@ -73,14 +73,14 @@ services:
   web:
     networks:
       - default        # to reach postgres, redis, ...
-      - dev-gateway    # to receive traffic from Traefik
+      - portta    # to receive traffic from Traefik
 ```
 
 Because the container then has two addresses, Traefik has to be told which one
 to dial. Two settings cover it:
 
-- `providers.docker.network=dev-gateway` on the gateway (the default), and
-- `traefik.docker.network=dev-gateway` on the container (explicit, per service).
+- `providers.docker.network=portta` on the gateway (the default), and
+- `traefik.docker.network=portta` on the container (explicit, per service).
 
 Without them Traefik may pick the private address, which it cannot reach.
 
@@ -140,8 +140,8 @@ per-session loopback bridges instead: see [tcp-access.md](tcp-access.md).
 ## Diagnostics
 
 ```bash
-dev-gateway status          # profile, listeners, route count
-dev-gateway urls            # every hostname currently served
-dev-gateway doctor          # binds, exposure, collisions, isolation
-docker network inspect dev-gateway
+portta status          # profile, listeners, route count
+portta urls            # every hostname currently served
+portta doctor          # binds, exposure, collisions, isolation
+docker network inspect portta
 ```

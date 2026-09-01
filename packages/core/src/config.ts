@@ -42,12 +42,12 @@ function optional(env: Record<string, string | undefined>, key: string): string 
 }
 
 export function loadGatewayConfig(env: Record<string, string | undefined> = process.env): GatewayConfig {
-  const profile = value(env, 'DEV_GATEWAY_PROFILE', 'local')
+  const profile = value(env, 'PORTTA_PROFILE', 'local')
   if (!['local', 'remote-private', 'remote-public'].includes(profile)) throw new Error(`unknown profile: ${profile}`)
   const publicDomain = optional(env, 'PUBLIC_DOMAIN')
   const privateDomain = optional(env, 'PRIVATE_DOMAIN')
-  let domain = value(env, 'DEV_GATEWAY_DOMAIN', 'localhost')
-  let bindAddress = value(env, 'DEV_GATEWAY_BIND_ADDRESS', '127.0.0.1')
+  let domain = value(env, 'PORTTA_DOMAIN', 'localhost')
+  let bindAddress = value(env, 'PORTTA_BIND_ADDRESS', '127.0.0.1')
   if (profile === 'remote-private' && privateDomain) domain = privateDomain
   if (profile === 'remote-public') {
     if (!publicDomain) throw new Error('profile remote-public requires PUBLIC_DOMAIN')
@@ -56,35 +56,35 @@ export function loadGatewayConfig(env: Record<string, string | undefined> = proc
   }
   return {
     profile: profile as GatewayProfile,
-    projectName: value(env, 'DEV_GATEWAY_PROJECT_NAME', 'dev-gateway'),
-    network: value(env, 'DEV_GATEWAY_NETWORK', 'dev-gateway'),
-    controlNetwork: value(env, 'DEV_GATEWAY_CONTROL_NETWORK', 'dev-gateway-control'),
-    accessNetwork: value(env, 'DEV_GATEWAY_ACCESS_NETWORK', 'dev-gateway-access'),
-    webNetwork: value(env, 'DEV_GATEWAY_WEB_NETWORK', 'dev-gateway-web'),
-    databaseNetwork: value(env, 'DEV_GATEWAY_DB_NETWORK', 'dev-gateway-data'),
+    projectName: value(env, 'PORTTA_PROJECT_NAME', 'portta'),
+    network: value(env, 'PORTTA_NETWORK', 'portta'),
+    controlNetwork: value(env, 'PORTTA_CONTROL_NETWORK', 'portta-control'),
+    accessNetwork: value(env, 'PORTTA_ACCESS_NETWORK', 'portta-access'),
+    webNetwork: value(env, 'PORTTA_WEB_NETWORK', 'portta-web'),
+    databaseNetwork: value(env, 'PORTTA_DB_NETWORK', 'portta-data'),
     domain,
     bindAddress,
-    httpPort: Number(value(env, 'DEV_GATEWAY_HTTP_PORT', '80')),
-    httpsPort: Number(value(env, 'DEV_GATEWAY_HTTPS_PORT', '443')),
+    httpPort: Number(value(env, 'PORTTA_HTTP_PORT', '80')),
+    httpsPort: Number(value(env, 'PORTTA_HTTPS_PORT', '443')),
     tlsEnabled: isTrue(env['TLS_ENABLED']),
     tlsMode: value(env, 'TLS_MODE', 'local'),
     tailscaleEnabled: isTrue(env['TAILSCALE_ENABLED']),
     publicEnabled: isTrue(env['PUBLIC_ENABLED']),
     publicDomain,
     privateDomain,
-    dashboardEnabled: isTrue(env['DEV_GATEWAY_DASHBOARD']),
-    tcpEnabled: isTrue(env['DEV_GATEWAY_TCP']),
-    webEnabled: isTrue(env['DEV_GATEWAY_WEB']),
-    webDev: isTrue(env['DEV_GATEWAY_WEB_DEV']),
-    webExpose: value(env, 'DEV_GATEWAY_WEB_EXPOSE', 'local'),
-    webPort: Number(value(env, 'DEV_GATEWAY_WEB_PORT', '8081')),
-    webReadOnly: isTrue(env['DEV_GATEWAY_WEB_READ_ONLY']),
+    dashboardEnabled: isTrue(env['PORTTA_DASHBOARD']),
+    tcpEnabled: isTrue(env['PORTTA_TCP']),
+    webEnabled: isTrue(env['PORTTA_WEB']),
+    webDev: isTrue(env['PORTTA_WEB_DEV']),
+    webExpose: value(env, 'PORTTA_WEB_EXPOSE', 'local'),
+    webPort: Number(value(env, 'PORTTA_WEB_PORT', '8081')),
+    webReadOnly: isTrue(env['PORTTA_WEB_READ_ONLY']),
   }
 }
 
 /**
  * The overlays live under docker/compose/, one directory per axis of the decision.
- * Must stay in step with dg_compose_files in scripts/lib/docker.sh: the shell
+ * Must stay in step with portta_compose_files in scripts/lib/docker.sh: the shell
  * gateway and this CLI are two implementations of the same contract.
  */
 export function composeFiles(config: GatewayConfig): string[] {

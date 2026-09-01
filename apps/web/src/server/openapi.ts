@@ -154,9 +154,9 @@ const HtmlDocument = z.string().describe('Self-contained HTML document with no e
 export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
   return { excludeStaticFile: false, documentation: {
     info: {
-      title: 'Dev Gateway panel API',
+      title: 'Portta panel API',
       version,
-      summary: 'Runtime inventory and bounded control for Dev Gateway.',
+      summary: 'Runtime inventory and bounded control for Portta.',
       description:
         'The API used by the panel UI and by local agents. Writes can be refused by read-only mode or the same-origin guard. Authentication, when enabled, is enforced by Traefik before a request reaches this application.',
       license: { name: 'MIT' },
@@ -185,7 +185,7 @@ export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
           type: 'http',
           scheme: 'basic',
           description:
-            'Optional at the application level. When DEV_GATEWAY_WEB_AUTH=basic, Traefik enforces this credential before forwarding the request.',
+            'Optional at the application level. When PORTTA_WEB_AUTH=basic, Traefik enforces this credential before forwarding the request.',
         },
       },
     },

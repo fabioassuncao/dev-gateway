@@ -2,7 +2,7 @@
 //
 // Three sources with a stated precedence, each a pure function over data the
 // panel already has. The reason is recorded so the UI can say *"adopted because
-// it carries dev-gateway.project: meu-produto"* rather than presenting a
+// it carries portta.project: meu-produto"* rather than presenting a
 // mapping with no explanation — which is also how the label and the database
 // stop disagreeing: they are one list with a provenance.
 
@@ -39,7 +39,7 @@ export function repositoryCoordinate(repoUrl: string | null): string | null {
 /**
  * Resolves one environment.
  *
- * Manual always wins, because the user said so. A `dev-gateway.project` label
+ * Manual always wins, because the user said so. A `portta.project` label
  * matching a slug is honoured next, because the project declared it (ADR 0001).
  * A repository match is a suggestion, and is applied **only when exactly one
  * workspace owns that coordinate** — an automatic adoption that is wrong is

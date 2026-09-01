@@ -13,26 +13,26 @@
 # ============================================================================
 set -uo pipefail
 
-DG_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-. "$DG_TEST_DIR/lib/assert.sh"
-DG_ROOT=$(cd -P "$DG_TEST_DIR/.." && pwd); export DG_ROOT
-. "$DG_ROOT/scripts/lib/common.sh"
-. "$DG_ROOT/scripts/lib/docker.sh"
-dg_load_env; dg_defaults
+PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+. "$PORTTA_TEST_DIR/lib/assert.sh"
+PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
+. "$PORTTA_ROOT/scripts/lib/common.sh"
+. "$PORTTA_ROOT/scripts/lib/docker.sh"
+portta_load_env; portta_defaults
 
 ENVS="demo-a demo-a-issue-1 demo-a-issue-2"
-GW="$DG_ROOT/bin/dev-gateway"
+GW="$PORTTA_ROOT/bin/portta"
 
 up_env() { # up_env <namespace> <example-dir>
-  ( cd "$DG_ROOT/docker/examples/$2" \
+  ( cd "$PORTTA_ROOT/docker/examples/$2" \
     && COMPOSE_PROJECT_NAME="$1" docker compose \
-         -f compose.yaml -f compose.dev-gateway.yaml up -d --wait --wait-timeout 120 ) >/dev/null 2>&1
+         -f compose.yaml -f compose.portta.yaml up -d --wait --wait-timeout 120 ) >/dev/null 2>&1
 }
 
 down_env() {
-  ( cd "$DG_ROOT/docker/examples/$2" \
+  ( cd "$PORTTA_ROOT/docker/examples/$2" \
     && COMPOSE_PROJECT_NAME="$1" docker compose \
-         -f compose.yaml -f compose.dev-gateway.yaml down -v ) >/dev/null 2>&1
+         -f compose.yaml -f compose.portta.yaml down -v ) >/dev/null 2>&1
 }
 
 # http_code <url>: resolves the hostname to the gateway's bind address
@@ -44,7 +44,7 @@ http_code() {
   local url="$1" host
   host=$(printf '%s' "$url" | sed -e 's#^https\{0,1\}://##' -e 's#[:/].*$##')
   curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
-    --resolve "${host}:${DEV_GATEWAY_HTTP_PORT}:${DEV_GATEWAY_BIND_ADDRESS}" "$url"
+    --resolve "${host}:${PORTTA_HTTP_PORT}:${PORTTA_BIND_ADDRESS}" "$url"
 }
 
 cleanup() {
@@ -52,7 +52,7 @@ cleanup() {
   down_env demo-b demo-b
 }
 
-dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
+portta_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
 
 describe "setting up four independent environments"
 trap cleanup EXIT INT TERM
@@ -112,7 +112,7 @@ assert_success docker run --rm --network demo-b_default alpine:3.24.1 \
   nc -z -w2 postgres 5432
 
 describe "no datastore joined the shared HTTP network"
-shared=$(docker network inspect "$DEV_GATEWAY_NETWORK" \
+shared=$(docker network inspect "$PORTTA_NETWORK" \
   --format '{{ range .Containers }}{{ .Name }} {{ end }}' 2>/dev/null)
 it "no postgres on the gateway network"; assert_not_contains "$shared" "postgres"
 it "no redis on the gateway network";    assert_not_contains "$shared" "redis"
@@ -121,16 +121,16 @@ describe "nothing is routed without opting in"
 # A container on the shared network with no traefik.enable=true must stay
 # invisible: exposedByDefault=false is the difference between a gateway and an
 # accident.
-docker run -d --rm --name dg-optin-probe --network "$DEV_GATEWAY_NETWORK" \
+docker run -d --rm --name portta-optin-probe --network "$PORTTA_NETWORK" \
   --label com.docker.compose.project=optin-probe \
   --label com.docker.compose.service=web \
   traefik/whoami:v1.12.0 --port 3000 >/dev/null 2>&1
 sleep 3
 it "a container without traefik.enable is not routed"
-assert_ne "200" "$(http_code "http://optin-probe-web.$DEV_GATEWAY_DOMAIN/")"
+assert_ne "200" "$(http_code "http://optin-probe-web.$PORTTA_DOMAIN/")"
 it "and urls does not list it"
 assert_not_contains "$("$GW" urls 2>/dev/null)" "optin-probe"
-docker stop dg-optin-probe >/dev/null 2>&1
+docker stop portta-optin-probe >/dev/null 2>&1
 
 describe "the gateway reports what it is serving"
 urls=$("$GW" urls 2>/dev/null)

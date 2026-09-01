@@ -109,7 +109,7 @@ export function scopeForHost(host: string, config: PanelConfig): UrlScope {
 }
 
 /**
- * Mirrors dg_discover_http: an explicit Host() rule wins, otherwise Traefik's
+ * Mirrors portta_discover_http: an explicit Host() rule wins, otherwise Traefik's
  * default rule derives the hostname from the Compose labels.
  */
 /** A container carries TCP router labels and no HTTP ones. */

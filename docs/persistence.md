@@ -35,13 +35,13 @@ the cache as the only copy.
 ## Isolation and lifecycle
 
 PostgreSQL uses the pinned image in `docker/compose/features/db.yaml`, a named volume and the
-dedicated `dev-gateway-data` network. The network is `internal`; the database
-publishes no host port and never joins the shared `dev-gateway` HTTP network.
+dedicated `portta-data` network. The network is `internal`; the database
+publishes no host port and never joins the shared `portta` HTTP network.
 `doctor` fails if either invariant is broken.
 
-`dev-gateway web up` generates the database password in the git-ignored `.env`
+`portta web up` generates the database password in the git-ignored `.env`
 when needed. The panel API reports only whether that setting exists and never
-returns its value. `dev-gateway web down`, `dev-gateway down` and subsequent
+returns its value. `portta web down`, `portta down` and subsequent
 `up` operations preserve the named volume.
 
 PostgreSQL is deliberately a soft dependency. If it is unavailable, the panel
@@ -56,11 +56,11 @@ The host needs no `psql`, and the password is inherited through the container
 environment rather than placed in command arguments.
 
 ```bash
-dev-gateway db status
-dev-gateway db shell
-dev-gateway db dump > dev-gateway.dump
-dev-gateway db restore dev-gateway.dump
-# or: dev-gateway --yes db restore < dev-gateway.dump
+portta db status
+portta db shell
+portta db dump > portta.dump
+portta db restore portta.dump
+# or: portta --yes db restore < portta.dump
 ```
 
 `db status` prints container health, the latest recorded migration and database
@@ -69,6 +69,6 @@ stdout. `db restore` uses `--clean --if-exists`, asks for confirmation and
 restores ownership-neutral objects. Back up `.env` with the dump: the database
 credential belongs to that file, not to the archive.
 
-The similarly named `dev-gateway db psql --project ...` remains the client for
+The similarly named `portta db psql --project ...` remains the client for
 a consumer project's own PostgreSQL. `db shell`, `status`, `dump` and `restore`
 refer specifically to the panel database.

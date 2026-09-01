@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = Number(process.env.DG_E2E_PANEL_PORT ?? 9912)
+const PORT = Number(process.env.PORTTA_E2E_PANEL_PORT ?? 9912)
 
 // The end-to-end run drives the real panel against a fake Docker Engine API,
 // so it describes a known host and needs no Docker daemon.

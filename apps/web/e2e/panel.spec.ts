@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-const DOCKER_PORT = process.env.DG_E2E_DOCKER_PORT ?? '9911'
+const DOCKER_PORT = process.env.PORTTA_E2E_DOCKER_PORT ?? '9911'
 
 test.describe('the panel end to end', () => {
   // Every test describes the same host, whatever the previous one did to it.
@@ -24,15 +24,15 @@ test.describe('the panel end to end', () => {
     const sections = ['Overview', 'Workspaces', 'Projects', 'Services', 'Docker', 'Network', 'Access', 'Gateway']
     for (const section of sections) {
       await page.getByRole('button', { name: section, exact: true }).click()
-      await expect(page).toHaveTitle(`${section} · Dev Gateway`)
+      await expect(page).toHaveTitle(`${section} · Portta`)
     }
 
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
     await expect(page).toHaveURL(/#\/settings\/gateway$/)
-    await expect(page).toHaveTitle('Gateway · Settings · Dev Gateway')
+    await expect(page).toHaveTitle('Gateway · Settings · Portta')
 
     await page.goto('/#/projects/alpha')
-    await expect(page).toHaveTitle('alpha · Dev Gateway')
+    await expect(page).toHaveTitle('alpha · Portta')
   })
 
   test('workspaces explain themselves when the database is not running', async ({ page }) => {
@@ -52,7 +52,7 @@ test.describe('the panel end to end', () => {
 
     await page.getByRole('tab', { name: 'Backlog' }).click()
     await expect(page).toHaveURL(/#\/board\/produto\/backlog$/)
-    await expect(page).toHaveTitle('Backlog · produto · Dev Gateway')
+    await expect(page).toHaveTitle('Backlog · produto · Portta')
   })
 
   test('a filtered board is a link somebody can paste', async ({ page }) => {
@@ -114,12 +114,12 @@ test.describe('the panel end to end', () => {
     await page.goto('/#/projects')
     await page.getByRole('link', { name: 'alpha', exact: true }).click()
     await expect(page).toHaveURL(/#\/projects\/alpha$/)
-    await expect(page).toHaveTitle('alpha · Dev Gateway')
+    await expect(page).toHaveTitle('alpha · Portta')
     await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true')
 
     await page.getByRole('tab', { name: 'Git' }).click()
     await expect(page).toHaveURL(/#\/projects\/alpha\/git$/)
-    await expect(page).toHaveTitle('Git · alpha · Dev Gateway')
+    await expect(page).toHaveTitle('Git · alpha · Portta')
 
     await page.reload()
     await expect(page.getByRole('tab', { name: 'Git' })).toHaveAttribute('aria-selected', 'true')
@@ -199,8 +199,8 @@ test.describe('the panel end to end', () => {
     await expect(external.getByText('alpha-web-1')).toHaveCount(0)
 
     await expect(page.getByRole('table', { name: 'Standalone containers' })).toContainText('mailpit')
-    await expect(page.getByRole('table', { name: 'Dev Gateway' })).toContainText(
-      'dev-gateway-traefik-1',
+    await expect(page.getByRole('table', { name: 'Portta' })).toContainText(
+      'portta-traefik-1',
     )
   })
 
@@ -289,7 +289,7 @@ test.describe('the panel end to end', () => {
     await page.goto('/#/network')
 
     await expect(page.getByText('alpha-web.localhost')).toBeVisible()
-    await expect(page.getByText('dev-gateway', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('portta', { exact: true }).first()).toBeVisible()
     await expect(page.getByText('internal').first()).toBeVisible()
   })
 
@@ -298,7 +298,7 @@ test.describe('the panel end to end', () => {
 
     await page.getByRole('button', { name: 'Run diagnostics' }).click()
     await expect(page.getByText('Traefik').first()).toBeVisible()
-    await expect(page.getByText('./bin/dev-gateway doctor')).toBeVisible()
+    await expect(page.getByText('./bin/portta doctor')).toBeVisible()
   })
 
   test('settings never reveal a secret', async ({ page }) => {
@@ -314,7 +314,7 @@ test.describe('the panel end to end', () => {
     await page.setViewportSize({ width: 375, height: 700 })
     await page.goto('/#/settings/public-access')
 
-    await expect(page).toHaveTitle('Public access · Settings · Dev Gateway')
+    await expect(page).toHaveTitle('Public access · Settings · Portta')
     await expect(page.getByRole('link', { name: 'Public access' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -331,7 +331,7 @@ test.describe('the panel end to end', () => {
   test('settings keep one draft while moving between deep-linked groups', async ({ page, request }) => {
     try {
       await page.goto('/#/settings/gateway')
-      await expect(page).toHaveTitle('Gateway · Settings · Dev Gateway')
+      await expect(page).toHaveTitle('Gateway · Settings · Portta')
       await page.getByLabel('Local domain').fill('e2e.localhost')
 
       await page.getByRole('link', { name: 'TLS' }).click()
@@ -345,7 +345,7 @@ test.describe('the panel end to end', () => {
       )
       await page.getByRole('button', { name: 'Save' }).click()
       expect((await patch).postDataJSON()).toEqual({
-        values: { DEV_GATEWAY_DOMAIN: 'e2e.localhost', TLS_ENABLED: 'true' },
+        values: { PORTTA_DOMAIN: 'e2e.localhost', TLS_ENABLED: 'true' },
       })
 
       await page.getByRole('link', { name: 'Gateway' }).click()
@@ -354,7 +354,7 @@ test.describe('the panel end to end', () => {
       await expect(page.getByLabel('Local domain')).toHaveValue('e2e.localhost')
     } finally {
       await request.patch('/api/config', {
-        data: { values: { DEV_GATEWAY_DOMAIN: 'localhost', TLS_ENABLED: 'false' } },
+        data: { values: { PORTTA_DOMAIN: 'localhost', TLS_ENABLED: 'false' } },
       })
     }
   })
@@ -362,7 +362,7 @@ test.describe('the panel end to end', () => {
   test('the offline API browser filters operations and tries a GET', async ({ page }) => {
     await page.goto('/api/docs')
 
-    await expect(page.getByRole('heading', { name: 'Dev Gateway API' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Portta API' })).toBeVisible()
     await page.getByLabel('Filter API operations').fill('health')
     const operation = page.locator('details.route').filter({ hasText: '/health' })
     await expect(operation).toBeVisible()

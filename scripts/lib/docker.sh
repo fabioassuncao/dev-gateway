@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Dev Gateway: Docker and Compose helpers.
+# Portta: Docker and Compose helpers.
 #
-# Everything the gateway creates carries `dev-gateway.managed=true`. Nothing in
+# Everything the gateway creates carries `portta.managed=true`. Nothing in
 # here may stop, remove or reconfigure a resource that lacks that label:
 # consumer projects own their own containers, networks and volumes.
 
@@ -11,12 +11,12 @@
 
 # Minimum versions enforced by `doctor`, which sources this file.
 # shellcheck disable=SC2034  # consumed by scripts/doctor.sh
-DG_MIN_DOCKER_MAJOR=24
+PORTTA_MIN_DOCKER_MAJOR=24
 # shellcheck disable=SC2034  # consumed by scripts/doctor.sh
-DG_MIN_COMPOSE_MAJOR=2
+PORTTA_MIN_COMPOSE_MAJOR=2
 
-dg_require_docker() {
-  dg_have docker || {
+portta_require_docker() {
+  portta_have docker || {
     err "docker not found in PATH"
     hint "install OrbStack (recommended on macOS) or Docker Desktop / Docker Engine"
     return 1
@@ -29,15 +29,15 @@ dg_require_docker() {
   return 0
 }
 
-dg_docker_server_version() {
+portta_docker_server_version() {
   docker version --format '{{.Server.Version}}' 2>/dev/null
 }
 
-dg_compose_version() {
+portta_compose_version() {
   docker compose version --short 2>/dev/null
 }
 
-dg_require_compose() {
+portta_require_compose() {
   docker compose version >/dev/null 2>&1 || {
     err "the Docker Compose plugin is not available"
     hint "Compose v2+ is required; 'docker-compose' (v1) is not supported"
@@ -46,8 +46,8 @@ dg_require_compose() {
   return 0
 }
 
-# dg_version_major <version-string>
-dg_version_major() {
+# portta_version_major <version-string>
+portta_version_major() {
   printf '%s' "${1:-0}" | sed -e 's/^v//' -e 's/[^0-9.].*$//' | cut -d. -f1
 }
 
@@ -55,48 +55,48 @@ dg_version_major() {
 # Profiles
 # ---------------------------------------------------------------------------
 
-DG_PROFILES="local remote-private remote-public"
+PORTTA_PROFILES="local remote-private remote-public"
 
-dg_profile_valid() {
-  case " $DG_PROFILES " in
+portta_profile_valid() {
+  case " $PORTTA_PROFILES " in
     *" $1 "*) return 0 ;;
     *) return 1 ;;
   esac
 }
 
-# dg_resolve_profile <profile>: apply the profile's effective settings.
+# portta_resolve_profile <profile>: apply the profile's effective settings.
 #
 # The domain used for generated hostnames depends on the profile, and Traefik
 # bakes it into its default rule at startup, so it has to be settled here,
 # before Compose is invoked.
-dg_resolve_profile() {
+portta_resolve_profile() {
   local profile="$1"
-  dg_profile_valid "$profile" || {
+  portta_profile_valid "$profile" || {
     err "unknown profile: $profile"
-    hint "valid profiles: $DG_PROFILES"
+    hint "valid profiles: $PORTTA_PROFILES"
     return 1
   }
 
-  DEV_GATEWAY_PROFILE="$profile"
+  PORTTA_PROFILE="$profile"
 
   case "$profile" in
     local)
-      : "${DEV_GATEWAY_DOMAIN:=localhost}"
-      : "${DEV_GATEWAY_BIND_ADDRESS:=127.0.0.1}"
+      : "${PORTTA_DOMAIN:=localhost}"
+      : "${PORTTA_BIND_ADDRESS:=127.0.0.1}"
       ;;
 
     remote-private)
       if [ -n "${PRIVATE_DOMAIN:-}" ]; then
-        DEV_GATEWAY_DOMAIN="$PRIVATE_DOMAIN"
+        PORTTA_DOMAIN="$PRIVATE_DOMAIN"
       fi
-      if dg_is_true "${TAILSCALE_ENABLED:-false}"; then
+      if portta_is_true "${TAILSCALE_ENABLED:-false}"; then
         # Traefik lives inside the Tailscale container's network namespace and
         # is reached over the tailnet. The published ports exist only so the
         # VPS itself can curl the gateway, hence loopback.
-        DEV_GATEWAY_BIND_ADDRESS="127.0.0.1"
-      elif [ "${DEV_GATEWAY_BIND_ADDRESS:-}" = "0.0.0.0" ]; then
+        PORTTA_BIND_ADDRESS="127.0.0.1"
+      elif [ "${PORTTA_BIND_ADDRESS:-}" = "0.0.0.0" ]; then
         err "profile remote-private must not bind 0.0.0.0"
-        hint "either enable TAILSCALE_ENABLED=true, or set DEV_GATEWAY_BIND_ADDRESS"
+        hint "either enable TAILSCALE_ENABLED=true, or set PORTTA_BIND_ADDRESS"
         hint "to the address of your VPN interface"
         return 1
       fi
@@ -108,42 +108,42 @@ dg_resolve_profile() {
         hint "set PUBLIC_DOMAIN in .env, e.g. PUBLIC_DOMAIN=dev.example.com"
         return 1
       fi
-      DEV_GATEWAY_DOMAIN="$PUBLIC_DOMAIN"
+      PORTTA_DOMAIN="$PUBLIC_DOMAIN"
       # Public means public: this is the one profile that binds every interface.
-      DEV_GATEWAY_BIND_ADDRESS="0.0.0.0"
+      PORTTA_BIND_ADDRESS="0.0.0.0"
       ;;
   esac
 
   # BasicAuth in front of container lifecycle control is not a boundary worth
   # trusting on the internet, so the panel is never routed where Traefik
   # answers it. See docs/adr/0012-panel-authentication-is-traefiks.md.
-  if dg_is_true "${DEV_GATEWAY_WEB:-false}" \
-     && [ "${DEV_GATEWAY_WEB_EXPOSE:-local}" = "vpn" ] \
+  if portta_is_true "${PORTTA_WEB:-false}" \
+     && [ "${PORTTA_WEB_EXPOSE:-local}" = "vpn" ] \
      && [ "$profile" = "remote-public" ]; then
     err "the panel must not be routed on the remote-public profile"
     hint "Traefik binds every interface there, so a router for the panel would be public"
-    hint "set DEV_GATEWAY_WEB_EXPOSE=local and reach it over SSH or the tailnet"
+    hint "set PORTTA_WEB_EXPOSE=local and reach it over SSH or the tailnet"
     return 1
   fi
 
   # A routed panel is one credential away from being an open control plane over
-  # every container on the host, so this is refused here too: `dev-gateway up`
-  # must not be a way around `dev-gateway web up`.
-  if dg_is_true "${DEV_GATEWAY_WEB:-false}" \
-     && [ "${DEV_GATEWAY_WEB_EXPOSE:-local}" = "vpn" ] \
-     && { [ "${DEV_GATEWAY_WEB_AUTH:-none}" != "basic" ] \
-          || [ -z "${DEV_GATEWAY_WEB_AUTH_USER:-}" ] \
-          || [ -z "${DEV_GATEWAY_WEB_AUTH_HASH:-}" ]; }; then
+  # every container on the host, so this is refused here too: `portta up`
+  # must not be a way around `portta web up`.
+  if portta_is_true "${PORTTA_WEB:-false}" \
+     && [ "${PORTTA_WEB_EXPOSE:-local}" = "vpn" ] \
+     && { [ "${PORTTA_WEB_AUTH:-none}" != "basic" ] \
+          || [ -z "${PORTTA_WEB_AUTH_USER:-}" ] \
+          || [ -z "${PORTTA_WEB_AUTH_HASH:-}" ]; }; then
     err "the routed panel has no credential in front of it"
-    hint "dev-gateway web auth set   generates one and shows it once"
-    hint "or set DEV_GATEWAY_WEB_EXPOSE=local to keep it on loopback"
+    hint "portta web auth set   generates one and shows it once"
+    hint "or set PORTTA_WEB_EXPOSE=local to keep it on loopback"
     return 1
   fi
 
   # A database is never reachable from the internet. `public enable` is about
   # HTTP services that opted in; the TCP entrypoints have no such notion, and
   # on this profile Traefik binds every interface.
-  if dg_is_true "${DEV_GATEWAY_TCP:-false}" && [ "$profile" = "remote-public" ]; then
+  if portta_is_true "${PORTTA_TCP:-false}" && [ "$profile" = "remote-public" ]; then
     err "TCP entrypoints must not run on the remote-public profile"
     hint "Traefik binds every interface there, so 5432 and 6379 would face the internet"
     hint "reach databases over the VPN (remote-private) or a loopback bridge instead"
@@ -154,7 +154,7 @@ dg_resolve_profile() {
   # ACME cannot issue a certificate without a contact address.
   case "$profile" in
     remote-private|remote-public)
-      if dg_is_true "${TLS_ENABLED:-false}" && [ "${TLS_MODE:-}" = "acme" ] \
+      if portta_is_true "${TLS_ENABLED:-false}" && [ "${TLS_MODE:-}" = "acme" ] \
          && [ -z "${ACME_EMAIL:-}" ]; then
         err "TLS_MODE=acme requires ACME_EMAIL"
         hint "set ACME_EMAIL in .env"
@@ -163,32 +163,32 @@ dg_resolve_profile() {
       ;;
   esac
 
-  export DEV_GATEWAY_PROFILE DEV_GATEWAY_DOMAIN DEV_GATEWAY_BIND_ADDRESS
+  export PORTTA_PROFILE PORTTA_DOMAIN PORTTA_BIND_ADDRESS
   return 0
 }
 
-# dg_attachment <profile>: which overlay decides how Traefik meets the world.
-dg_attachment() {
+# portta_attachment <profile>: which overlay decides how Traefik meets the world.
+portta_attachment() {
   case "$1" in
     local) printf 'host' ;;
     remote-private|remote-public)
-      if dg_is_true "${TAILSCALE_ENABLED:-false}"; then printf 'tailscale'; else printf 'host'; fi
+      if portta_is_true "${TAILSCALE_ENABLED:-false}"; then printf 'tailscale'; else printf 'host'; fi
       ;;
   esac
 }
 
-# dg_compose_files <profile>: echo the -f arguments for a profile, in order.
+# portta_compose_files <profile>: echo the -f arguments for a profile, in order.
 #
 # The files live under docker/compose/, one directory per axis of the decision:
 # docker/compose/attach/ (how Traefik meets the world), docker/compose/profiles/ (which
 # entrypoints answer) and docker/compose/features/ (what is opted into). Their relative
-# paths still resolve against the repository root, because dg_compose passes
+# paths still resolve against the repository root, because portta_compose passes
 # --project-directory. See docs/adr/0019-compose-files-live-under-docker.md.
-dg_compose_files() {
+portta_compose_files() {
   local profile="$1"
   local files="docker/compose/compose.yaml"
   local attachment
-  attachment=$(dg_attachment "$profile")
+  attachment=$(portta_attachment "$profile")
 
   # Exactly one attachment overlay, always.
   files="$files docker/compose/attach/$attachment.yaml"
@@ -197,7 +197,7 @@ dg_compose_files() {
     local)
       files="$files docker/compose/profiles/local.yaml"
       # A locally-issued certificate flips the default entrypoint to :443.
-      if dg_is_true "${TLS_ENABLED:-false}" && [ "${TLS_MODE:-local}" = "local" ]; then
+      if portta_is_true "${TLS_ENABLED:-false}" && [ "${TLS_MODE:-local}" = "local" ]; then
         files="$files docker/compose/profiles/local-tls.yaml"
       fi
       ;;
@@ -205,7 +205,7 @@ dg_compose_files() {
     remote-public) files="$files docker/compose/profiles/remote.yaml docker/compose/profiles/public.yaml" ;;
   esac
 
-  if dg_is_true "${DEV_GATEWAY_DASHBOARD:-false}"; then
+  if portta_is_true "${PORTTA_DASHBOARD:-false}"; then
     # The dashboard port has to be published by whichever container owns the
     # network namespace.
     if [ "$attachment" = "tailscale" ]; then
@@ -216,7 +216,7 @@ dg_compose_files() {
   fi
 
   # Hostname routing for databases: one entrypoint per protocol, opt-in.
-  if dg_is_true "${DEV_GATEWAY_TCP:-false}"; then
+  if portta_is_true "${PORTTA_TCP:-false}"; then
     if [ "$attachment" = "tailscale" ]; then
       files="$files docker/compose/features/tcp-tailscale.yaml"
     else
@@ -225,71 +225,71 @@ dg_compose_files() {
   fi
 
   # The panel is opt-in and rides along with the gateway once enabled, so
-  # `dev-gateway up` and `dev-gateway web` cannot drift apart.
-  if dg_is_true "${DEV_GATEWAY_WEB:-false}"; then
+  # `portta up` and `portta web` cannot drift apart.
+  if portta_is_true "${PORTTA_WEB:-false}"; then
     files="$files docker/compose/features/web.yaml docker/compose/features/db.yaml"
-    if dg_is_true "${DEV_GATEWAY_WEB_DEV:-false}"; then
+    if portta_is_true "${PORTTA_WEB_DEV:-false}"; then
       files="$files docker/compose/features/web-dev.yaml"
     fi
-    if [ "${DEV_GATEWAY_WEB_EXPOSE:-local}" = "vpn" ]; then
+    if [ "${PORTTA_WEB_EXPOSE:-local}" = "vpn" ]; then
       files="$files docker/compose/features/web-vpn.yaml"
     fi
   fi
 
   local f out=""
   for f in $files; do
-    [ -f "$DG_ROOT/$f" ] || {
+    [ -f "$PORTTA_ROOT/$f" ] || {
       err "missing compose file: $f"
       hint "profile '$profile' is not available in this version of the gateway"
       return 1
     }
-    out="$out -f $DG_ROOT/$f"
+    out="$out -f $PORTTA_ROOT/$f"
   done
   printf '%s' "${out# }"
 }
 
-# dg_compose <profile> <compose args...>
+# portta_compose <profile> <compose args...>
 #
 # --project-directory anchors every relative path in the overlays (./config,
 # ./state, ./.env, and the build contexts) at the repository root. Without it
 # Compose would resolve them against docker/compose/, where the first -f file lives.
-dg_compose() {
+portta_compose() {
   local profile="$1"; shift
   local files
-  files=$(dg_compose_files "$profile") || return 1
+  files=$(portta_compose_files "$profile") || return 1
   # shellcheck disable=SC2086
-  ( cd "$DG_ROOT" && docker compose --project-directory "$DG_ROOT" $files "$@" )
+  ( cd "$PORTTA_ROOT" && docker compose --project-directory "$PORTTA_ROOT" $files "$@" )
 }
 
 # ---------------------------------------------------------------------------
 # Networks
 # ---------------------------------------------------------------------------
 
-dg_network_exists() {
+portta_network_exists() {
   docker network inspect "$1" >/dev/null 2>&1
 }
 
-# dg_network_ensure <name>: idempotent. Creates the shared network if absent,
+# portta_network_ensure <name>: idempotent. Creates the shared network if absent,
 # labelled so `doctor` and the cleanup paths can prove we own it. An existing
 # network is reused untouched, even if it predates the gateway.
-dg_network_ensure() {
+portta_network_ensure() {
   local name="$1"
-  if dg_network_exists "$name"; then
+  if portta_network_exists "$name"; then
     return 0
   fi
   docker network create \
-    --label dev-gateway.managed=true \
-    --label dev-gateway.component=shared-network \
+    --label portta.managed=true \
+    --label portta.component=shared-network \
     "$name" >/dev/null || return 1
   return 0
 }
 
-dg_network_is_managed() {
-  [ "$(docker network inspect "$1" --format '{{ index .Labels "dev-gateway.managed" }}' 2>/dev/null)" = "true" ]
+portta_network_is_managed() {
+  [ "$(docker network inspect "$1" --format '{{ index .Labels "portta.managed" }}' 2>/dev/null)" = "true" ]
 }
 
-# dg_network_endpoints <name>: number of containers currently attached.
-dg_network_endpoints() {
+# portta_network_endpoints <name>: number of containers currently attached.
+portta_network_endpoints() {
   docker network inspect "$1" --format '{{ len .Containers }}' 2>/dev/null || printf '0'
 }
 
@@ -297,38 +297,38 @@ dg_network_endpoints() {
 # Ownership
 # ---------------------------------------------------------------------------
 
-# dg_container_labels <container>: every label as `key=value`, one per line.
+# portta_container_labels <container>: every label as `key=value`, one per line.
 #
 # Docker's `inspect --format` runs Go templates with Docker's own small
 # function map, which has no `hasPrefix`: a template using it fails to parse
 # and prints nothing, so filtering has to happen out here. Getting this wrong
 # is silent, which is exactly why it is worth a helper.
-dg_container_labels() {
+portta_container_labels() {
   docker inspect "$1" --format '{{ range $k, $v := .Config.Labels }}{{ $k }}={{ $v }}
 {{ end }}' 2>/dev/null
 }
 
-# dg_container_is_managed <container>: true only for gateway-created
+# portta_container_is_managed <container>: true only for gateway-created
 # containers. Every destructive code path must gate on this.
-dg_container_is_managed() {
-  [ "$(docker inspect "$1" --format '{{ index .Config.Labels "dev-gateway.managed" }}' 2>/dev/null)" = "true" ]
+portta_container_is_managed() {
+  [ "$(docker inspect "$1" --format '{{ index .Config.Labels "portta.managed" }}' 2>/dev/null)" = "true" ]
 }
 
-dg_container_state() {
+portta_container_state() {
   docker inspect "$1" --format '{{ .State.Status }}' 2>/dev/null || printf 'absent'
 }
 
-# dg_container_health <container>: "healthy", "unhealthy", "starting", or
+# portta_container_health <container>: "healthy", "unhealthy", "starting", or
 # "none" when the image declares no healthcheck.
-dg_container_health() {
+portta_container_health() {
   docker inspect "$1" --format '{{ if .State.Health }}{{ .State.Health.Status }}{{ else }}none{{ end }}' 2>/dev/null || printf 'absent'
 }
 
-# dg_gateway_container <component>: resolve a gateway container id by label.
-dg_gateway_container() {
+# portta_gateway_container <component>: resolve a gateway container id by label.
+portta_gateway_container() {
   docker ps -aq \
-    --filter "label=dev-gateway.managed=true" \
-    --filter "label=dev-gateway.component=$1" \
+    --filter "label=portta.managed=true" \
+    --filter "label=portta.component=$1" \
     2>/dev/null | head -1
 }
 
@@ -336,7 +336,7 @@ dg_gateway_container() {
 # Discovery
 # ---------------------------------------------------------------------------
 
-# dg_discover_http [project]: every container that opted into the gateway.
+# portta_discover_http [project]: every container that opted into the gateway.
 #
 # Reads Docker labels directly rather than Traefik's API: discovery then works
 # with the dashboard disabled and even while Traefik is down, and it needs no
@@ -344,7 +344,7 @@ dg_gateway_container() {
 #
 # Output, one line per container, tab separated:
 #   project  service  container  hostname  port  state
-dg_discover_http() {
+portta_discover_http() {
   local want_project="${1:-}"
   local id project service name labels rule host port state
 
@@ -352,9 +352,9 @@ dg_discover_http() {
     project=$(docker inspect "$id" --format '{{ index .Config.Labels "com.docker.compose.project" }}' 2>/dev/null)
     service=$(docker inspect "$id" --format '{{ index .Config.Labels "com.docker.compose.service" }}' 2>/dev/null)
     name=$(docker inspect "$id" --format '{{ .Name }}' 2>/dev/null | sed 's#^/##')
-    state=$(dg_container_state "$id")
+    state=$(portta_container_state "$id")
 
-    labels=$(dg_container_labels "$id")
+    labels=$(portta_container_labels "$id")
 
     # A datastore routed by hostname carries TCP router labels and no HTTP
     # ones. It opted into the gateway, but not into anything `urls` should
@@ -375,9 +375,9 @@ dg_discover_http() {
     fi
     if [ -z "$host" ]; then
       if [ -n "$project" ]; then
-        host="$(dg_slug "$project")-$(dg_slug "$service").${DEV_GATEWAY_DOMAIN}"
+        host="$(portta_slug "$project")-$(portta_slug "$service").${PORTTA_DOMAIN}"
       else
-        host="$(dg_slug "$name").${DEV_GATEWAY_DOMAIN}"
+        host="$(portta_slug "$name").${PORTTA_DOMAIN}"
       fi
     fi
 
@@ -392,8 +392,8 @@ dg_discover_http() {
   done
 }
 
-# dg_compose_projects: distinct Compose project names currently running.
-dg_compose_projects() {
+# portta_compose_projects: distinct Compose project names currently running.
+portta_compose_projects() {
   docker ps -q 2>/dev/null | while read -r id; do
     docker inspect "$id" --format '{{ index .Config.Labels "com.docker.compose.project" }}' 2>/dev/null
   done | grep -v '^$' | sort -u

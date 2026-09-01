@@ -20,7 +20,7 @@ over TCP:
 - allowed: `CONTAINERS`, `NETWORKS`, `EVENTS`, `PING`, `VERSION`
 - denied: everything else, including all writes (`POST=0`)
 
-The proxy sits alone with Traefik on `dev-gateway-control`, a network created
+The proxy sits alone with Traefik on `portta-control`, a network created
 with `internal: true`, and publishes no host port. Traefik talks to it at
 `tcp://socket-proxy:2375`.
 

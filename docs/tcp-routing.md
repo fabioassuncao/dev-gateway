@@ -143,7 +143,7 @@ Rejected rather than worked around:
   onto the user on macOS, where it is worst.
 
 MySQL keeps the mechanism the gateway already has: a loopback bridge on a port
-the kernel picks, opened when you need it (`dev-gateway access open`, or the
+the kernel picks, opened when you need it (`portta access open`, or the
 Access page). That is not a regression. It is what every protocol had before,
 and it still works for every protocol.
 
@@ -240,7 +240,7 @@ checkout-postgres.vpn.example.com
 ```
 
 One wildcard covers every service of every project, HTTP and TCP alike, and
-`dev-gateway tls init` already issues exactly that
+`portta tls init` already issues exactly that
 (`subjectAltName=DNS:*.$DOMAIN,DNS:$DOMAIN`). Nobody invents a hostname: the
 gateway derives it from the labels Compose already sets.
 
@@ -248,18 +248,18 @@ gateway derives it from the labels Compose already sets.
 
 ## Networks: datastores still do not join the HTTP network
 
-The gateway's shared `dev-gateway` network carries HTTP services. Databases
+The gateway's shared `portta` network carries HTTP services. Databases
 have never been on it, deliberately, and `tests/unit/templates.test.sh` fails
 the build if a template ever attaches one.
 
 TCP routing does not change that. A datastore that opts into hostname routing
-joins **`dev-gateway-access`**, the network that already exists for reaching
+joins **`portta-access`**, the network that already exists for reaching
 private TCP services, and Traefik joins it too:
 
 ```text
-dev-gateway          HTTP services            <- Traefik, web, api
-dev-gateway-access   opted-in TCP services    <- Traefik, postgres, redis
-dev-gateway-control  the socket proxy         <- Traefik only, internal
+portta          HTTP services            <- Traefik, web, api
+portta-access   opted-in TCP services    <- Traefik, postgres, redis
+portta-control  the socket proxy         <- Traefik only, internal
 <project>_default    everything else          <- Traefik has no route
 ```
 
@@ -278,7 +278,7 @@ up before a database answers on a host port:
 2. the project's overlay has to add the TCP router labels and join the access
    network, which is a deliberate edit in the project's own repository;
 3. the gateway has to have the TCP entrypoints enabled at all, which is
-   `DEV_GATEWAY_TCP=true` and off by default.
+   `PORTTA_TCP=true` and off by default.
 
 Where the entrypoints listen follows the profile, the same as everything else:
 
@@ -286,7 +286,7 @@ Where the entrypoints listen follows the profile, the same as everything else:
 |---|---|---|
 | `local` | `127.0.0.1` | this machine |
 | `remote-private` with Tailscale | the tailnet address | your tailnet, subject to its ACLs |
-| `remote-private` without Tailscale | `DEV_GATEWAY_BIND_ADDRESS` | whoever can reach that interface |
+| `remote-private` without Tailscale | `PORTTA_BIND_ADDRESS` | whoever can reach that interface |
 | `remote-public` | **refused** | nobody: the gateway will not start TCP entrypoints on a public profile |
 
 The last row is a hard refusal, not a warning. `public enable` is about HTTP
@@ -320,7 +320,7 @@ Error: Protocol error, got "H" as reply type byte
 
 `H` is the first byte of `HTTP`. Read that error as *the hostname matched no
 router* — a typo, a project that is not running, or a container whose route
-Traefik has not picked up yet. `dev-gateway urls` and the panel's Access page
+Traefik has not picked up yet. `portta urls` and the panel's Access page
 show the hostnames that do exist.
 
 ---
@@ -336,12 +336,12 @@ Nothing extra is needed, which is the point.
 - **Ports.** Traefik publishes `127.0.0.1:5432` and `127.0.0.1:6379`. The VM
   boundary is irrelevant: it is an ordinary published port, the same mechanism
   the gateway already uses for 80 and 443.
-- **Certificates.** `dev-gateway tls init` issues a local CA and a wildcard for
+- **Certificates.** `portta tls init` issues a local CA and a wildcard for
   the domain. `sslmode=require` needs no trust at all; `verify-full` needs the
-  CA, which `dev-gateway tls trust` explains how to install. `mkcert` is not
+  CA, which `portta tls trust` explains how to install. `mkcert` is not
   required and would only duplicate what is there.
 - **Conflict.** If something already holds 5432 on the host, the entrypoint
-  will not bind. `dev-gateway doctor` reports it, and the ports are
+  will not bind. `portta doctor` reports it, and the ports are
   configurable.
 
 ```bash
@@ -420,7 +420,7 @@ Worth knowing before relying on it:
   A pool in front of the gateway, or behind it, both work.
 - **Timeouts.** Traefik's TCP timeouts apply. A long-idle psql session behaves
   the same as it does against a bridge.
-- **Observability.** `dev-gateway logs traefik` shows router matching. There is
+- **Observability.** `portta logs traefik` shows router matching. There is
   no per-query visibility and there should not be.
 
 ---

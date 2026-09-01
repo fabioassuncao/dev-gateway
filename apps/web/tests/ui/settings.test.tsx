@@ -18,13 +18,13 @@ vi.mock('../../src/ui/lib/api.ts', () => ({
 const { Settings } = await import('../../src/ui/pages/Settings.tsx')
 
 const view: ConfigView = {
-  applyCommand: './bin/dev-gateway up local',
+  applyCommand: './bin/portta up local',
   pendingRestart: false,
   groups: ['Gateway', 'TLS', 'VPN'],
   envFile: { path: '/app/state/.env', exists: true, writable: true },
   fields: [
     {
-      key: 'DEV_GATEWAY_DOMAIN',
+      key: 'PORTTA_DOMAIN',
       value: 'localhost',
       runtimeValue: 'localhost',
       secret: false,
@@ -67,7 +67,7 @@ const view: ConfigView = {
 
 beforeEach(() => {
   window.location.hash = ''
-  document.title = 'Dev Gateway'
+  document.title = 'Portta'
   config.mockReset().mockResolvedValue(view)
   patchConfig.mockReset().mockResolvedValue({ ok: true, saved: [], pendingRestart: true, applyCommand: view.applyCommand, view })
 })
@@ -92,7 +92,7 @@ describe('Settings', () => {
     await userEvent.type(domain, 'dev.test')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    await waitFor(() => expect(patchConfig).toHaveBeenCalledWith({ DEV_GATEWAY_DOMAIN: 'dev.test' }))
+    await waitFor(() => expect(patchConfig).toHaveBeenCalledWith({ PORTTA_DOMAIN: 'dev.test' }))
   })
 
   it('will not save when nothing changed', async () => {
@@ -113,13 +113,13 @@ describe('Settings', () => {
   it('says what to run on the host after saving', async () => {
     config.mockResolvedValue({ ...view, pendingRestart: true })
     renderWithQuery(<Settings group="gateway" />)
-    expect(await screen.findByText('./bin/dev-gateway up local')).toBeInTheDocument()
+    expect(await screen.findByText('./bin/portta up local')).toBeInTheDocument()
     expect(screen.getByText(/take effect once the gateway containers are recreated/)).toBeInTheDocument()
   })
 
   it('shows the validation error and does not pretend it saved', async () => {
     patchConfig.mockRejectedValue(
-      Object.assign(new Error('DEV_GATEWAY_HTTP_PORT: must be a port between 1 and 65535'), {
+      Object.assign(new Error('PORTTA_HTTP_PORT: must be a port between 1 and 65535'), {
         hint: 'the value was not saved',
       }),
     )
@@ -148,7 +148,7 @@ describe('Settings', () => {
     expect(await screen.findByLabelText('HTTPS')).toBeInTheDocument()
     expect(screen.queryByLabelText('Local domain')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Tailscale auth key')).not.toBeInTheDocument()
-    expect(document.title).toBe('TLS · Settings · Dev Gateway')
+    expect(document.title).toBe('TLS · Settings · Portta')
     expect(screen.getByRole('link', { name: 'TLS' })).toHaveAttribute('aria-current', 'page')
   })
 
@@ -173,7 +173,7 @@ describe('Settings', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() =>
       expect(patchConfig).toHaveBeenCalledWith({
-        DEV_GATEWAY_DOMAIN: 'dev.test',
+        PORTTA_DOMAIN: 'dev.test',
         TS_AUTHKEY: 'new-secret',
       }),
     )

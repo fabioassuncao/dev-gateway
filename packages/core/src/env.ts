@@ -56,7 +56,7 @@ export function isWritable(path: string): boolean {
 }
 
 export function writeEnvFile(path: string, text: string): void {
-  const temporary = join(dirname(path), `.dg-env.${process.pid}.tmp`)
+  const temporary = join(dirname(path), `.portta-env.${process.pid}.tmp`)
   try {
     writeFileSync(temporary, text, { mode: 0o600 })
     renameSync(temporary, path)

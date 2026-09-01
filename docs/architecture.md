@@ -16,8 +16,8 @@ network.
 |---|---|---|
 | Traefik | `traefik:v3.7.12` | The only process holding 80/443. Routes by hostname. |
 | Docker socket proxy | `tecnativa/docker-socket-proxy:v0.5.0` | Read-only, filtered Docker API for discovery. |
-| `bin/dev-gateway` | — | The operational contract: bootstrap, up/down, doctor, urls, access. |
-| Web panel | `dev-gateway-web:local` | Optional. Read-mostly administration UI on loopback. |
+| `bin/portta` | — | The operational contract: bootstrap, up/down, doctor, urls, access. |
+| Web panel | `fabioassuncao/portta:local` | Optional. Read-mostly administration UI on loopback. |
 | Panel socket proxy | `tecnativa/docker-socket-proxy:v0.5.0` | Optional. The panel's own filtered Docker API. |
 | Panel PostgreSQL | `postgres:18.6-alpine` | Optional. Durable decisions and identity, never runtime observations. |
 
@@ -35,10 +35,10 @@ on the host; persistent decisions live in the panel's API. See
 
 ```mermaid
 flowchart LR
-    subgraph ctrl [dev-gateway-control: internal]
+    subgraph ctrl [portta-control: internal]
         T[Traefik] <--> P[socket-proxy]
     end
-    subgraph shared [dev-gateway: external, shared]
+    subgraph shared [portta: external, shared]
         T2[Traefik] --- W1[project-a web] & A1[project-a api] & W2[project-b web]
     end
     subgraph priv_a [project-a_default: private]
@@ -51,24 +51,24 @@ flowchart LR
     end
 ```
 
-**`dev-gateway`** is external, created by `bootstrap`, and shared by every
+**`portta`** is external, created by `bootstrap`, and shared by every
 project.
 Its lifecycle is independent of both the gateway stack and the projects: it
-survives `dev-gateway down` and is never removed automatically.
+survives `portta down` and is never removed automatically.
 
-**`dev-gateway-control`** is created with `internal: true`, so it has no route
+**`portta-control`** is created with `internal: true`, so it has no route
 off the host. Only Traefik and the socket proxy are on it. This is what keeps
 the Docker API away from anything that handles network traffic.
 
-**`dev-gateway-web`** exists only when the panel is enabled. It is also
+**`portta-web`** exists only when the panel is enabled. It is also
 `internal: true`, and carries nothing but the panel and its own socket proxy.
 The two proxies are separate because their permission sets are:
 Traefik's is read-only, the panel's adds the container lifecycle
 ([ADR 0008](adr/0008-web-panel-socket-proxy.md)).
 
-**`dev-gateway-data`** also exists only with the panel. It is `internal: true`
+**`portta-data`** also exists only with the panel. It is `internal: true`
 and carries only the panel and PostgreSQL. The database has no published port,
-never joins `dev-gateway`, and keeps data in a named volume. It persists typed
+never joins `portta`, and keeps data in a named volume. It persists typed
 preferences and stable identity while Docker, Git and Traefik remain the live
 sources of runtime observations. See [Panel persistence](persistence.md).
 
@@ -85,7 +85,7 @@ private network and the shared one. Nothing else changes about it.
    [local-development.md](local-development.md)).
 2. Traefik, holding `127.0.0.1:80`, matches the `Host` header.
 3. The matching router points at a service Traefik built from the container's
-   labels, and dials the container **over the `dev-gateway` network**, pinned
+   labels, and dials the container **over the `portta` network**, pinned
    by `providers.docker.network` so a multi-homed container is never reached
    through a private network.
 4. The application answers on its own internal port. Nothing was published.
@@ -111,9 +111,9 @@ gets new hostnames by changing one environment variable.
 
 This matters enough to be a design constraint rather than a nice property:
 
-- `dev-gateway down` stops **two containers**. Every application keeps running.
-- `dev-gateway up` rediscovers whatever is already running.
-- `dev-gateway restart` does not restart a single application container.
+- `portta down` stops **two containers**. Every application keeps running.
+- `portta up` rediscovers whatever is already running.
+- `portta restart` does not restart a single application container.
 - Tearing down a project leaves the gateway healthy and the shared network intact.
 
 `tests/e2e/lifecycle.test.sh` asserts all of it.
@@ -123,8 +123,8 @@ This matters enough to be a design constraint rather than a nice property:
 Everything the gateway creates carries:
 
 ```
-dev-gateway.managed=true
-dev-gateway.component=<traefik|socket-proxy|shared-network|access-bridge|...>
+portta.managed=true
+portta.component=<traefik|socket-proxy|shared-network|access-bridge|...>
 ```
 
 Every path that stops or removes anything checks that label first. There is no

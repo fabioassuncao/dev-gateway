@@ -1,11 +1,11 @@
 # ============================================================================
-# Dev Gateway: reusable dynamic configuration
+# Portta: reusable dynamic configuration
 # ============================================================================
 # Hot-reloaded by Traefik's file provider. Reference these from a consumer
 # project with, for example:
 #
 #   labels:
-#     traefik.http.routers.web.middlewares: "dev-gateway-secure-headers@file"
+#     traefik.http.routers.web.middlewares: "portta-secure-headers@file"
 #
 # Nothing here is applied automatically: a project opts in per router.
 # ============================================================================
@@ -13,7 +13,7 @@
 http:
   middlewares:
     # Sensible baseline response headers for browser-facing dev environments.
-    dev-gateway-secure-headers:
+    portta-secure-headers:
       headers:
         frameDeny: false
         contentTypeNosniff: true
@@ -22,14 +22,14 @@ http:
 
     # Marks responses as coming through the gateway. Handy when debugging
     # whether a request reached Traefik at all.
-    dev-gateway-stamp:
+    portta-stamp:
       headers:
         customResponseHeaders:
-          X-Dev-Gateway: "1"
+          X-Portta: "1"
 
     # Blocks everything. Attach to a router you want reachable only from the
     # tailnet while you sort out a real policy.
-    dev-gateway-deny-all:
+    portta-deny-all:
       ipAllowList:
         sourceRange:
           - 127.0.0.1/32

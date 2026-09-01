@@ -5,7 +5,7 @@
 ## Context
 
 The panel has no authentication at all. `docs/web-ui.md` lists it under *Out of
-scope*, `dev-gateway web up --expose public` is refused outright, and
+scope*, `portta web up --expose public` is refused outright, and
 `docker/compose/features/web-vpn.yaml` adds a Traefik router with no middleware in front of it.
 `docs/security.md` states the position plainly under *What is not protected*:
 there is no identity layer, and the network is the boundary.
@@ -32,7 +32,7 @@ a routed panel, which is the same class of mistake with a larger blast radius.
 The panel gets BasicAuth, and none of it lives in the panel.
 
 Traefik holds the middleware; the panel renders it into
-`config/traefik/dynamic/dev-gateway-panel.yaml`
+`config/traefik/dynamic/portta-panel.yaml`
 ([ADR 0011](0011-panel-reads-traefik-writes-one-file.md)), and
 `docker/compose/features/web-vpn.yaml` points its router at it. There is no login form, no
 session, no cookie, no user store and no code path inside the panel that can be
@@ -42,27 +42,27 @@ Three settings join the `settings.ts` catalogue:
 
 | Key | Values | Meaning |
 |---|---|---|
-| `DEV_GATEWAY_WEB_AUTH` | `none` \| `basic` | Off, or a BasicAuth middleware on the panel's router |
-| `DEV_GATEWAY_WEB_AUTH_USER` | string | Username |
-| `DEV_GATEWAY_WEB_AUTH_HASH` | hash | Marked `secret: true`, never returned by the API in whole or in part |
+| `PORTTA_WEB_AUTH` | `none` \| `basic` | Off, or a BasicAuth middleware on the panel's router |
+| `PORTTA_WEB_AUTH_USER` | string | Username |
+| `PORTTA_WEB_AUTH_HASH` | hash | Marked `secret: true`, never returned by the API in whole or in part |
 
 The default behaviour follows the exposure, not a preference:
 
 - **Loopback (`local`): `none`.** Unchanged, and correct. A password in front
   of `127.0.0.1` protects nothing and costs every visit.
 - **`--expose vpn`: `basic` is required.** The overlay is refused when
-  `DEV_GATEWAY_WEB_AUTH=none`, the way the remote-public profile is already
-  refused, and `dev-gateway web auth set` generates the credential in one step.
+  `PORTTA_WEB_AUTH=none`, the way the remote-public profile is already
+  refused, and `portta web auth set` generates the credential in one step.
 - **`--expose public`: still refused.** BasicAuth over the internet, in front
   of container lifecycle control on a shared development host, is not a
   boundary worth trusting. The VPN stays the answer, with the SSH tunnel
   `docs/web-ui.md` already documents as the fallback.
 - **A routed panel is read-only unless asked otherwise.**
-  `DEV_GATEWAY_WEB_READ_ONLY` defaults to true whenever the panel is routed
+  `PORTTA_WEB_READ_ONLY` defaults to true whenever the panel is routed
   beyond loopback. The mode already exists, refuses every mutating endpoint,
   and costs nothing to anyone who only wants to look.
 
-Both `apps/web/src/server/core/diagnostics.ts` and `dev-gateway doctor` fail, not
+Both `apps/web/src/server/core/diagnostics.ts` and `portta doctor` fail, not
 warn, when a routed panel has no authentication, matching the precedent set for
 a non-loopback dashboard.
 
@@ -77,7 +77,7 @@ correct.
 
 The credential is generated, displayed exactly once and stored only as a hash,
 so a lost password is regenerated rather than recovered.
-`DEV_GATEWAY_WEB_AUTH_HASH` is a secret in `settings.ts`, which means the
+`PORTTA_WEB_AUTH_HASH` is a secret in `settings.ts`, which means the
 Settings page can report it as set and can never show it.
 
 A middleware that is missing fails closed: Traefik rejects a router whose

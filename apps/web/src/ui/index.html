@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Dev Gateway</title>
+    <title>Portta</title>
     <script>
       // Applied before first paint so the panel never flashes the wrong theme.
       (function () {
         try {
-          var stored = localStorage.getItem('dg-theme')
+          var stored = localStorage.getItem('portta-theme')
           var dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
           if (dark) document.documentElement.classList.add('dark')
         } catch (e) {}

@@ -1,10 +1,10 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Dev Gateway panel API",
+    "title": "Portta panel API",
     "description": "The API used by the panel UI and by local agents. Writes can be refused by read-only mode or the same-origin guard. Authentication, when enabled, is enforced by Traefik before a request reaches this application.",
     "version": "0.2.0",
-    "summary": "Runtime inventory and bounded control for Dev Gateway.",
+    "summary": "Runtime inventory and bounded control for Portta.",
     "license": {
       "name": "MIT"
     }
@@ -79,7 +79,7 @@
       "basicAuth": {
         "type": "http",
         "scheme": "basic",
-        "description": "Optional at the application level. When DEV_GATEWAY_WEB_AUTH=basic, Traefik enforces this credential before forwarding the request."
+        "description": "Optional at the application level. When PORTTA_WEB_AUTH=basic, Traefik enforces this credential before forwarding the request."
       }
     },
     "schemas": {
@@ -988,14 +988,14 @@
             ]
           },
           "group": {
-            "description": "Optional dev-gateway.project logical project label",
+            "description": "Optional portta.project logical project label",
             "type": [
               "string",
               "null"
             ]
           },
           "repo": {
-            "description": "Optional dev-gateway.repo label as supplied by the project",
+            "description": "Optional portta.repo label as supplied by the project",
             "type": [
               "string",
               "null"
@@ -1009,14 +1009,14 @@
             ]
           },
           "gitRoot": {
-            "description": "Optional dev-gateway.git.root label",
+            "description": "Optional portta.git.root label",
             "type": [
               "string",
               "null"
             ]
           },
           "issueRef": {
-            "description": "Optional dev-gateway.issue label, as declared",
+            "description": "Optional portta.issue label, as declared",
             "type": [
               "string",
               "null"
@@ -1300,7 +1300,7 @@
             ]
           },
           "issueRef": {
-            "description": "Optional dev-gateway.issue label, as declared",
+            "description": "Optional portta.issue label, as declared",
             "type": [
               "string",
               "null"
@@ -1504,7 +1504,7 @@
             "maximum": 9007199254740991
           },
           "remote": {
-            "description": "Remote as Git reports it, or the dev-gateway.repo label",
+            "description": "Remote as Git reports it, or the portta.repo label",
             "type": [
               "string",
               "null"
@@ -1768,7 +1768,7 @@
           "refreshCommand"
         ],
         "additionalProperties": false,
-        "description": "Metadata collected by dev-gateway git scan for one project"
+        "description": "Metadata collected by portta git scan for one project"
       },
       "ProjectLogSource": {
         "type": "object",
@@ -6119,7 +6119,7 @@
           "Workspaces"
         ],
         "summary": "Set the environments a workspace adopts by hand",
-        "description": "A manual mapping always wins over dev-gateway.project and over a repository match.",
+        "description": "A manual mapping always wins over portta.project and over a repository match.",
         "parameters": [
           {
             "name": "slug",

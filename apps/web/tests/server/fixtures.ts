@@ -6,13 +6,13 @@ import type { FakeContainer } from './helpers.ts'
 export const GATEWAY: FakeContainer[] = [
   {
     id: 'gw-traefik',
-    name: 'dev-gateway-traefik-1',
+    name: 'portta-traefik-1',
     image: 'traefik:v3.7.12',
     health: 'healthy',
-    networks: ['dev-gateway', 'dev-gateway-control'],
+    networks: ['portta', 'portta-control'],
     labels: {
-      'dev-gateway.managed': 'true',
-      'dev-gateway.component': 'traefik',
+      'portta.managed': 'true',
+      'portta.component': 'traefik',
       'traefik.enable': 'false',
     },
     published: [
@@ -22,12 +22,12 @@ export const GATEWAY: FakeContainer[] = [
   },
   {
     id: 'gw-proxy',
-    name: 'dev-gateway-socket-proxy-1',
+    name: 'portta-socket-proxy-1',
     image: 'tecnativa/docker-socket-proxy:v0.5.0',
-    networks: ['dev-gateway-control'],
+    networks: ['portta-control'],
     labels: {
-      'dev-gateway.managed': 'true',
-      'dev-gateway.component': 'socket-proxy',
+      'portta.managed': 'true',
+      'portta.component': 'socket-proxy',
       'traefik.enable': 'false',
     },
   },
@@ -39,7 +39,7 @@ export const PROJECT_A: FakeContainer[] = [
     name: 'alpha-web-1',
     image: 'nginx:1.31.4-alpine',
     health: 'healthy',
-    networks: ['dev-gateway', 'alpha_default'],
+    networks: ['portta', 'alpha_default'],
     exposed: [80],
     labels: {
       'com.docker.compose.project': 'alpha',
@@ -52,7 +52,7 @@ export const PROJECT_A: FakeContainer[] = [
     id: 'a-api',
     name: 'alpha-api-1',
     image: 'node:24.20.0-alpine',
-    networks: ['dev-gateway', 'alpha_default'],
+    networks: ['portta', 'alpha_default'],
     exposed: [3000],
     labels: {
       'com.docker.compose.project': 'alpha',
@@ -97,7 +97,7 @@ export const PROJECT_B: FakeContainer[] = [
     name: 'beta-web-1',
     image: 'nginx:1.31.4-alpine',
     health: 'unhealthy',
-    networks: ['dev-gateway', 'beta_default'],
+    networks: ['portta', 'beta_default'],
     exposed: [80],
     labels: {
       'com.docker.compose.project': 'beta',
@@ -148,20 +148,20 @@ export const STANDALONE: FakeContainer[] = [
 
 export const BRIDGE: FakeContainer = {
   id: 'bridge-1',
-  name: 'dg-access-alpha-postgres-ab12cd',
+  name: 'portta-access-alpha-postgres-ab12cd',
   image: 'alpine/socat:1.8.1.3',
   networks: ['alpha_default'],
   published: [{ hostIp: '127.0.0.1', hostPort: 55431, containerPort: 5432 }],
   labels: {
-    'dev-gateway.managed': 'true',
-    'dev-gateway.component': 'access-bridge',
-    'dev-gateway.access.id': 'ab12cd',
-    'dev-gateway.access.project': 'alpha',
-    'dev-gateway.access.service': 'postgres',
-    'dev-gateway.access.port': '5432',
-    'dev-gateway.access.network': 'alpha_default',
-    'dev-gateway.access.kind': 'postgres',
-    'dev-gateway.access.created': '1700000000',
+    'portta.managed': 'true',
+    'portta.component': 'access-bridge',
+    'portta.access.id': 'ab12cd',
+    'portta.access.project': 'alpha',
+    'portta.access.service': 'postgres',
+    'portta.access.port': '5432',
+    'portta.access.network': 'alpha_default',
+    'portta.access.kind': 'postgres',
+    'portta.access.created': '1700000000',
     'traefik.enable': 'false',
   },
 }

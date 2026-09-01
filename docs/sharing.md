@@ -40,9 +40,9 @@ it.
 ## Managing them
 
 ```bash
-./bin/dev-gateway share list          # every share, its mode, and when it expires
-./bin/dev-gateway share revoke a7f3   # remove one
-./bin/dev-gateway share gc            # remove the ones that have expired
+./bin/portta share list          # every share, its mode, and when it expires
+./bin/portta share revoke a7f3   # remove one
+./bin/portta share gc            # remove the ones that have expired
 ```
 
 The panel and the CLI manage the same objects, the way they already do for
@@ -52,24 +52,24 @@ remembers is exactly the one worth surfacing.
 
 ## What is actually written
 
-One generated file, `config/traefik/dynamic/dev-gateway-shares.yaml`, which
+One generated file, `config/traefik/dynamic/portta-shares.yaml`, which
 Traefik already watches and hot-reloads:
 
 ```yaml
 http:
   routers:
-    dg-share-a7f3:
+    portta-share-a7f3:
       rule: "Host(`storefront-web-a7f3.share.dev.example.com`)"
       entryPoints: [websecure]
-      middlewares: [dg-share-a7f3-auth]
-      service: dg-share-a7f3
+      middlewares: [portta-share-a7f3-auth]
+      service: portta-share-a7f3
   services:
-    dg-share-a7f3:
+    portta-share-a7f3:
       loadBalancer:
         servers:
           - url: "http://storefront-web-1:3000"
   middlewares:
-    dg-share-a7f3-auth:
+    portta-share-a7f3-auth:
       basicAuth:
         users: ["reviewer:$apr1$..."]
         removeHeader: true
@@ -96,10 +96,10 @@ you put there yourself are never touched
 ## What is refused
 
 Refusals rather than warnings, following the precedent
-`dev-gateway service publish` already set for datastores:
+`portta service publish` already set for datastores:
 
 - **a service whose kind is not `http`.** A database is reached with
-  `dev-gateway access open` or by hostname on its own entrypoint, never on the
+  `portta access open` or by hostname on its own entrypoint, never on the
   web entrypoint. See [tcp-access.md](tcp-access.md).
 - **a service that is not on the shared network.** Traefik dials backends over
   it; a service that never joined has nothing to route to.

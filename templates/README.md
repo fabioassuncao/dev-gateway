@@ -5,7 +5,7 @@ to copy from**, not runtime that projects depend on: nothing here is included,
 mounted or extended by a consumer project. Copy the closest one, adjust the
 service names and ports, and it is yours.
 
-`dev-gateway init <path>` generates the same thing from a project's actual
+`portta init <path>` generates the same thing from a project's actual
 Compose file, which is usually faster.
 
 | Template | Shape |
@@ -33,11 +33,11 @@ collapses onto one load balancer.
 whole host. Two projects declaring a bare `web` are merged into a single load
 balancer and start serving each other's traffic.
 
-`dev-gateway doctor` reports both.
+`portta doctor` reports both.
 
 ## For the consumer repository
 
-[`project/DEV-GATEWAY.md`](project/DEV-GATEWAY.md) is a short page to copy into
+[`project/PORTTA.md`](project/PORTTA.md) is a short page to copy into
 the project itself: how to start it, its URLs, how to reach its database, how
 to run a second copy. It deliberately does not restate the gateway's
 documentation; this repository stays the single source of the rules.

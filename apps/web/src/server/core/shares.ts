@@ -11,7 +11,7 @@
 // place to keep in step. See docs/adr/0011-panel-reads-traefik-writes-one-file.md.
 
 import { randomBytes } from 'node:crypto'
-import { renderShares, shareRouterName, SHARES_MARKER as MARKER } from '@dev-gateway/core'
+import { renderShares, shareRouterName, SHARES_MARKER as MARKER } from 'portta-core'
 import type { PanelConfig } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import { apr1, generatePassword } from './apr1.ts'
@@ -137,7 +137,7 @@ export function assertShareable(
   if (container.kind !== 'http') {
     throw new ShareRefused(
       `${container.name} is not an HTTP service (${container.kind})`,
-      'a database is reached with dev-gateway access open, never by hostname on the web entrypoint',
+      'a database is reached with portta access open, never by hostname on the web entrypoint',
     )
   }
   if (!container.onGatewayNetwork) {
@@ -153,7 +153,7 @@ export function assertShareable(
     if (!config.publicEnabled) {
       throw new ShareRefused(
         'public sharing needs PUBLIC_ENABLED=true',
-        'dev-gateway public enable, or share it as protected instead',
+        'portta public enable, or share it as protected instead',
       )
     }
     if (!config.publicDomain) {
@@ -294,7 +294,7 @@ export function revokeShare(config: PanelConfig, id: string): void {
   )
 }
 
-/** Drops what has expired. Mirrors `dev-gateway share gc`, and `access gc`. */
+/** Drops what has expired. Mirrors `portta share gc`, and `access gc`. */
 export function collectExpired(config: PanelConfig, now = Math.floor(Date.now() / 1000)): number {
   const shares = loadShares(config)
   const kept = shares.filter((share) => share.expiresAt > now)

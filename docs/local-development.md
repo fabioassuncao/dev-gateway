@@ -16,13 +16,13 @@ standalone `docker-compose` v1 binary is not supported.
 ## Setup
 
 ```bash
-git clone git@github.com:fabioassuncao/dev-gateway.git
-cd dev-gateway
+git clone git@github.com:fabioassuncao/portta.git
+cd portta
 cp .env.example .env
 
-./bin/dev-gateway bootstrap
-./bin/dev-gateway up local
-./bin/dev-gateway doctor
+./bin/portta bootstrap
+./bin/portta up local
+./bin/portta doctor
 ```
 
 `bootstrap` is idempotent, so run it whenever you want a health check with
@@ -31,7 +31,7 @@ repairs to the parts it owns. It never deletes anything.
 Put the CLI on your `PATH` so you can call it from any project directory:
 
 ```bash
-ln -s "$PWD/bin/dev-gateway" /usr/local/bin/dev-gateway
+ln -s "$PWD/bin/portta" /usr/local/bin/portta
 ```
 
 ## Why `.localhost` needs no configuration
@@ -55,17 +55,17 @@ RFC. Older Go binaries and some JVM HTTP clients are the usual suspects; musl
 libc historically did not special-case it either, so a plain Alpine container
 may fail to resolve `*.localhost` even though your browser can. If you hit
 this, either use the container-to-container name over the shared network, or
-set `DEV_GATEWAY_DOMAIN` to a real domain that resolves to `127.0.0.1`.
+set `PORTTA_DOMAIN` to a real domain that resolves to `127.0.0.1`.
 
 `doctor` probes this and tells you if it cannot confirm resolution.
 
 ## Everyday use
 
 ```bash
-dev-gateway status     # profile, listeners, how many routes are live
-dev-gateway urls       # every hostname currently served
-dev-gateway logs       # follow gateway logs
-dev-gateway doctor     # when something does not behave
+portta status     # profile, listeners, how many routes are live
+portta urls       # every hostname currently served
+portta logs       # follow gateway logs
+portta doctor     # when something does not behave
 ```
 
 Starting and stopping applications is not the gateway's job. Do that from the
@@ -77,13 +77,13 @@ project's own directory, as you always have.
 
 ```bash
 cd ~/Projects/base-empresarial
-docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+docker compose -f compose.yaml -f compose.portta.yaml up -d
 # -> base-empresarial-web.localhost
 
 git worktree add ../base-empresarial-issue59 issue59
 cd ../base-empresarial-issue59
 COMPOSE_PROJECT_NAME=base-empresarial-issue59 \
-  docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+  docker compose -f compose.yaml -f compose.portta.yaml up -d
 # -> base-empresarial-issue59-web.localhost
 ```
 
@@ -108,7 +108,7 @@ ss -ltnp sport = :80               # Linux
 Either stop the other process, or move the gateway:
 
 ```
-DEV_GATEWAY_HTTP_PORT=8080
+PORTTA_HTTP_PORT=8080
 ```
 
 URLs then carry the port: `http://demo-a-web.localhost:8080`.
@@ -116,8 +116,8 @@ URLs then carry the port: `http://demo-a-web.localhost:8080`.
 ## Uninstalling
 
 ```bash
-dev-gateway down
-docker network rm dev-gateway    # only once no project is attached
+portta down
+docker network rm portta    # only once no project is attached
 rm -rf state/
 ```
 

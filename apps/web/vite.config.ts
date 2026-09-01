@@ -18,7 +18,7 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': {
-        target: process.env.DG_WEB_API_TARGET ?? 'http://127.0.0.1:8081',
+        target: process.env.PORTTA_RUNTIME_API_TARGET ?? 'http://127.0.0.1:8081',
         changeOrigin: false,
       },
     },

@@ -1,7 +1,7 @@
 # Remote bootstrap
 
 ```bash
-dev-gateway remote bootstrap deploy@vps.example.com --profile remote-private
+portta remote bootstrap deploy@vps.example.com --profile remote-private
 ```
 
 Prepares a host to run the gateway. Idempotent: run it again to update.
@@ -21,7 +21,7 @@ Prepares a host to run the gateway. Idempotent: run it again to update.
 | | |
 |---|---|
 | `--profile <name>` | Profile to configure (default `remote-private`) |
-| `--dir <path>` | Install location (default `~/dev-gateway`) |
+| `--dir <path>` | Install location (default `~/portta`) |
 | `--repo <url>` | Repository (default: this checkout's `origin`) |
 | `--branch <name>` | Branch (default `main`) |
 | `--install-docker` | Offer to install Docker when missing |
@@ -36,14 +36,14 @@ its configuration. If it is there, it is left exactly as it was.
 `CF_DNS_API_TOKEN` are set on the host, by you:
 
 ```bash
-ssh deploy@vps.example.com 'nano ~/dev-gateway/.env'
+ssh deploy@vps.example.com 'nano ~/portta/.env'
 ```
 
 **Host key verification stays on.** SSH runs with
 `StrictHostKeyChecking=accept-new`: a new host's key is recorded on first
 connection, but a *changed* key is still refused, which is the case worth
 defending against. It is never set to `no`. Override deliberately with
-`DG_SSH_HOST_KEY_POLICY=yes` if your workflow pre-populates `known_hosts`.
+`PORTTA_SSH_HOST_KEY_POLICY=yes` if your workflow pre-populates `known_hosts`.
 
 **`curl | sh` is never silent.** With `--install-docker`, the gateway says
 plainly that it is about to run Docker's official installation script as root
@@ -83,7 +83,7 @@ With Tailscale SSH configured, the same commands work, with the target being
 the tailnet name:
 
 ```bash
-dev-gateway remote bootstrap deploy@dev-vps --profile remote-private
+portta remote bootstrap deploy@dev-vps --profile remote-private
 ```
 
 Authentication and audit then come from your tailnet policy rather than from
@@ -92,10 +92,10 @@ Authentication and audit then come from your tailnet policy rather than from
 ## Driving the host afterwards
 
 ```bash
-dev-gateway remote status deploy@vps.example.com
-dev-gateway remote doctor deploy@vps.example.com
-dev-gateway remote urls   deploy@vps.example.com
-dev-gateway remote exec   deploy@vps.example.com -- docker ps
+portta remote status deploy@vps.example.com
+portta remote doctor deploy@vps.example.com
+portta remote urls   deploy@vps.example.com
+portta remote exec   deploy@vps.example.com -- docker ps
 ```
 
 ## Troubleshooting

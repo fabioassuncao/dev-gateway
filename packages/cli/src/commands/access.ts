@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { isTrue, slug } from '@dev-gateway/core'
+import { isTrue, slug } from 'portta-core'
 import type { Command } from 'commander'
 import { confirm } from '../confirm.js'
 import { gatewayContext } from '../context.js'
@@ -27,16 +27,16 @@ function duration(value: string): number {
 }
 
 function bridgeRecords(containers: Awaited<ReturnType<typeof inspectContainers>>) {
-  return containers.filter((container) => container.labels['dev-gateway.component'] === 'access-bridge').map((container) => {
+  return containers.filter((container) => container.labels['portta.component'] === 'access-bridge').map((container) => {
     const binding = container.ports.find((port) => port.publicPort !== null)
     return {
       containerId: container.id, container: container.name, state: container.state,
-      id: container.labels['dev-gateway.access.id'] ?? '', project: container.labels['dev-gateway.access.project'] ?? '',
-      service: container.labels['dev-gateway.access.service'] ?? '', targetPort: Number(container.labels['dev-gateway.access.port'] ?? 0),
-      localPort: binding?.publicPort ?? null, bind: binding?.ip ?? '', kind: container.labels['dev-gateway.access.kind'] ?? 'tcp',
-      network: container.labels['dev-gateway.access.network'] ?? '', created: Number(container.labels['dev-gateway.access.created'] ?? 0),
-      expires: container.labels['dev-gateway.access.expires'] ? Number(container.labels['dev-gateway.access.expires']) : null,
-      managed: isTrue(container.labels['dev-gateway.managed']),
+      id: container.labels['portta.access.id'] ?? '', project: container.labels['portta.access.project'] ?? '',
+      service: container.labels['portta.access.service'] ?? '', targetPort: Number(container.labels['portta.access.port'] ?? 0),
+      localPort: binding?.publicPort ?? null, bind: binding?.ip ?? '', kind: container.labels['portta.access.kind'] ?? 'tcp',
+      network: container.labels['portta.access.network'] ?? '', created: Number(container.labels['portta.access.created'] ?? 0),
+      expires: container.labels['portta.access.expires'] ? Number(container.labels['portta.access.expires']) : null,
+      managed: isTrue(container.labels['portta.managed']),
     }
   })
 }
@@ -84,14 +84,14 @@ export async function accessOpen(options: AccessOpenOptions, command: Command): 
   const bind = options.bind ?? '127.0.0.1'
   if (!['127.0.0.1', 'localhost', '::1'].includes(bind)) await confirm(`binding ${options.project}/${options.service} to ${bind} exposes it beyond this machine; continue?`, global.yes === true)
   const id = randomBytes(3).toString('hex')
-  const name = `dg-access-${slug(options.project)}-${slug(options.service)}-${id}`
+  const name = `portta-access-${slug(options.project)}-${slug(options.service)}-${id}`
   const ttl = options.ttl ? duration(options.ttl) : null
   const created = Math.floor(Date.now() / 1000)
   const labels = [
-    'dev-gateway.managed=true', 'dev-gateway.component=access-bridge', `dev-gateway.access.id=${id}`,
-    `dev-gateway.access.project=${options.project}`, `dev-gateway.access.service=${options.service}`, `dev-gateway.access.port=${port}`,
-    `dev-gateway.access.network=${network}`, `dev-gateway.access.kind=${detected.kind}`, `dev-gateway.access.created=${created}`, 'traefik.enable=false',
-    ...(ttl ? [`dev-gateway.access.expires=${created + ttl}`] : []),
+    'portta.managed=true', 'portta.component=access-bridge', `portta.access.id=${id}`,
+    `portta.access.project=${options.project}`, `portta.access.service=${options.service}`, `portta.access.port=${port}`,
+    `portta.access.network=${network}`, `portta.access.kind=${detected.kind}`, `portta.access.created=${created}`, 'traefik.enable=false',
+    ...(ttl ? [`portta.access.expires=${created + ttl}`] : []),
   ]
   const args = ['run', '--detach', '--name', name, '--network', network, '--publish', `${bind}:${options.localPort ?? ''}:${port}`, '--restart', 'no']
   for (const label of labels) args.push('--label', label)
@@ -155,10 +155,10 @@ export async function servicePublish(options: PublishOptions, command: Command):
   if (!network) throw new RefusedError(`${options.project}/${options.service} is not on a private network`)
   const alias = slug(options.alias ?? `${options.project}-${options.service}`)
   await ensureNetwork(context.config.accessNetwork)
-  const name = `dg-forward-${alias}`
+  const name = `portta-forward-${alias}`
   if (containers.some((container) => container.name === name)) throw new RefusedError(`a forwarder named ${alias} already exists`)
   const args = ['run', '-d', '--name', name, '--network', network, '--restart', 'unless-stopped']
-  for (const label of ['dev-gateway.managed=true', 'dev-gateway.component=access-forwarder', `dev-gateway.forward.alias=${alias}`, `dev-gateway.forward.project=${options.project}`, `dev-gateway.forward.service=${options.service}`, `dev-gateway.forward.port=${port}`, `dev-gateway.forward.kind=${detected.kind}`, 'traefik.enable=false']) args.push('--label', label)
+  for (const label of ['portta.managed=true', 'portta.component=access-forwarder', `portta.forward.alias=${alias}`, `portta.forward.project=${options.project}`, `portta.forward.service=${options.service}`, `portta.forward.port=${port}`, `portta.forward.kind=${detected.kind}`, 'traefik.enable=false']) args.push('--label', label)
   args.push(BRIDGE_IMAGE, `TCP-LISTEN:${port},fork,reuseaddr`, `TCP:${options.service}:${port}`)
   await runProcess('docker', args)
   const connected = await runProcess('docker', ['network', 'connect', '--alias', alias, context.config.accessNetwork, name], { reject: false })
@@ -170,7 +170,7 @@ export async function servicePublish(options: PublishOptions, command: Command):
 }
 
 export async function serviceList(command: Command): Promise<void> {
-  const forwarders = (await inspectContainers()).filter((container) => container.labels['dev-gateway.component'] === 'access-forwarder').map((container) => ({ alias: container.labels['dev-gateway.forward.alias'], project: container.labels['dev-gateway.forward.project'], service: container.labels['dev-gateway.forward.service'], port: Number(container.labels['dev-gateway.forward.port']), state: container.state }))
+  const forwarders = (await inspectContainers()).filter((container) => container.labels['portta.component'] === 'access-forwarder').map((container) => ({ alias: container.labels['portta.forward.alias'], project: container.labels['portta.forward.project'], service: container.labels['portta.forward.service'], port: Number(container.labels['portta.forward.port']), state: container.state }))
   const output = new Output(globals(command))
   if (output.json) output.data({ forwarders })
   else for (const item of forwarders) output.line(`${item.alias}\t${item.project}\t${item.service}\t${item.port}\t${item.state}`)
@@ -178,7 +178,7 @@ export async function serviceList(command: Command): Promise<void> {
 
 export async function serviceUnpublish(alias: string | undefined, options: { project?: string }, command: Command): Promise<void> {
   if (!alias && !options.project) throw new UsageError('give an alias or --project')
-  const targets = (await inspectContainers()).filter((container) => container.labels['dev-gateway.component'] === 'access-forwarder' && (options.project ? container.labels['dev-gateway.forward.project'] === options.project : container.labels['dev-gateway.forward.alias'] === alias))
+  const targets = (await inspectContainers()).filter((container) => container.labels['portta.component'] === 'access-forwarder' && (options.project ? container.labels['portta.forward.project'] === options.project : container.labels['portta.forward.alias'] === alias))
   let removed = 0
   for (const target of targets) if (await isManagedContainer(target.id)) {
     const result = await runProcess('docker', ['rm', '-f', target.id], { reject: false })

@@ -74,7 +74,7 @@
     }
   },
   "ownership": {
-    "gateway": "Dev Gateway",
+    "gateway": "Portta",
     "integrated": "Integrado",
     "external": "Externo",
     "standalone": "Avulso"

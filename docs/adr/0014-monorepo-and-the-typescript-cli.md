@@ -13,21 +13,21 @@ panel under `web/` with its own server, Docker client, Traefik client, Git
 reader and share manager. They overlap in intent — both discover projects, both
 read Traefik labels, both diagnose — and share not one line of code.
 
-`apps/web/src/server/config.ts` says it out loud: *"Defaults mirror `dg_defaults` in
+`apps/web/src/server/config.ts` says it out loud: *"Defaults mirror `portta_defaults` in
 `scripts/lib/common.sh`: keep them in sync."* That comment is the whole argument
 for a shared package.
 
 There is no root `package.json`. `web/` is the only Node package. Adding an
-official TypeScript CLI ([issue #9](https://github.com/fabioassuncao/dev-gateway/issues/9))
+official TypeScript CLI ([issue #9](https://github.com/fabioassuncao/portta/issues/9))
 on top of that is not a packaging exercise; it is a decision about what the
-Dev Gateway is. This record decides the layout, the workspace responsibilities,
+Portta is. This record decides the layout, the workspace responsibilities,
 the CLI / API / Core rule, and the npm name. [ADR 0015](0015-node-on-the-host.md)
 decides what happens on a host without Node. Issue #8 is the mechanical
 move this record specified.
 
-The unscoped name `dev-gateway` is taken on npm by an unrelated tool
-(`dev-gateway@0.3.0`, maintainer `paloskin`, last published 2022-06-15, verified
-again 2026-09-01). `@fabioassuncao/dev-gateway` is unpublished.
+The unscoped name `portta` was verified against the official npm registry on
+2026-09-01. The registry returned `E404 Not Found`, so the product, package and
+binary can share one name without a scope.
 
 ## Decision
 
@@ -37,9 +37,9 @@ again 2026-09-01). `@fabioassuncao/dev-gateway` is unpublished.
 apps/
   web/                      ← today's web/, moved wholesale by issue #8
 packages/
-  core/                     ← @dev-gateway/core   (private)
-  cli/                      ← @fabioassuncao/dev-gateway (published by #9)
-bin/dev-gateway             ← stays; see ADR 0015
+  core/                     ← portta-core   (private)
+  cli/                      ← portta (published by #9)
+bin/portta             ← stays; see ADR 0015
 scripts/                    ← shrinks as commands migrate
 docker/{compose,examples}/, config/, docs/, tests/   ← stay at the root
 ```
@@ -68,10 +68,10 @@ initial modules, named so they are not a dumping ground:
 
 | Module | Taken from | Replaces |
 |---|---|---|
-| `env` | `apps/web/src/server/core/envfile.ts` | `dg_load_env`, `dg_env_set` |
-| `config` | `apps/web/src/server/config.ts` | `dg_defaults()` |
+| `env` | `apps/web/src/server/core/envfile.ts` | `portta_load_env`, `portta_env_set` |
+| `config` | `apps/web/src/server/config.ts` | `portta_defaults()` |
 | `docker` | `apps/web/src/server/docker/` | allowlisted client; the allowlist is a *parameter*, so the CLI can hold a wider one without weakening [ADR 0008](0008-web-panel-socket-proxy.md) |
-| `inventory` | `apps/web/src/server/core/inventory.ts` | `dg_discover_http`, `urlsFor`, `hostsFromRules` |
+| `inventory` | `apps/web/src/server/core/inventory.ts` | `portta_discover_http`, `urlsFor`, `hostsFromRules` |
 | `traefik` | `apps/web/src/server/core/dynamic.ts`, `core/traefik.ts` | panel and CLI writers of the two generated files |
 | `schemas` | `apps/web/src/shared/types.ts` | the Zod contract issue #6 already made the source of truth |
 
@@ -110,14 +110,13 @@ this record makes it a workspace boundary.
 
 ### Naming
 
-- **Published package:** `@fabioassuncao/dev-gateway`. Scoped, unambiguous,
-  unaffected by the squatted `dev-gateway@0.3.0`.
-- **Binary:** `dev-gateway`. Every command in `README.md` and under `docs/`
+- **Published package:** `portta`. Unscoped, matching the product and binary.
+- **Binary:** `portta`. Every command in `README.md` and under `docs/`
   keeps working verbatim. The package name and the binary name are independent:
-  `bin: { "dev-gateway": "./dist/cli.js" }`.
-- **`npx @fabioassuncao/dev-gateway setup`** for provisioning on a host that
+  `bin: { "portta": "./dist/cli.js" }`.
+- **`npx portta setup`** for provisioning on a host that
   already has Node.
-- **Internal packages** stay private: `@dev-gateway/core` with `"private": true`,
+- **Internal packages** stay private: `portta-core` with `"private": true`,
   published only if something outside this repository ever needs it.
 
 ### What is duplicated today
@@ -128,15 +127,15 @@ never as a big-bang refactor.
 
 | Concern | Bash | TypeScript |
 |---|---|---|
-| Discover routed services | `dg_discover_http` in `scripts/lib/discovery.sh` | `urlsFor()` / `hostsFromRules()` in `apps/web/src/server/core/inventory.ts` |
-| Read and write `.env` | `dg_load_env`, `dg_env_set` in `scripts/lib/common.sh` | `parseEnv`, `setEnvValue` in `apps/web/src/server/core/envfile.ts` |
-| Defaults | `dg_defaults()` in `scripts/lib/common.sh` | `loadConfig()` in `apps/web/src/server/config.ts` |
-| Compose attachment | `dg_attachment` in `scripts/lib/docker.sh` | the same function in `apps/web/src/server/config.ts` |
-| Hostname slug | `dg_slug` in `scripts/lib/common.sh` | `apps/web/src/shared/slug.ts` |
+| Discover routed services | `portta_discover_http` in `scripts/lib/discovery.sh` | `urlsFor()` / `hostsFromRules()` in `apps/web/src/server/core/inventory.ts` |
+| Read and write `.env` | `portta_load_env`, `portta_env_set` in `scripts/lib/common.sh` | `parseEnv`, `setEnvValue` in `apps/web/src/server/core/envfile.ts` |
+| Defaults | `portta_defaults()` in `scripts/lib/common.sh` | `loadConfig()` in `apps/web/src/server/config.ts` |
+| Compose attachment | `portta_attachment` in `scripts/lib/docker.sh` | the same function in `apps/web/src/server/config.ts` |
+| Hostname slug | `portta_slug` in `scripts/lib/common.sh` | `apps/web/src/shared/slug.ts` |
 | Datastore kinds | `scripts/lib/discovery.sh` | `apps/web/src/server/core/kinds.ts` |
 | Diagnostics | `scripts/doctor.sh` | `apps/web/src/server/core/diagnostics.ts` |
-| Panel BasicAuth hash | `dev-gateway web auth set` (`openssl passwd -apr1`) | `apps/web/src/server/core/apr1.ts` |
-| Traefik dynamic files | `dev-gateway web auth apply` | `apps/web/src/server/core/dynamic.ts` |
+| Panel BasicAuth hash | `portta web auth set` (`openssl passwd -apr1`) | `apps/web/src/server/core/apr1.ts` |
+| Traefik dynamic files | `portta web auth apply` | `apps/web/src/server/core/dynamic.ts` |
 | Share files | `scripts/cmd/share.sh` | `apps/web/src/server/core/shares.ts` |
 | Remote URL parsing | `scripts/cmd/git.sh` | `apps/web/src/server/core/forge.ts` |
 
@@ -149,14 +148,14 @@ removed in the same change that ports it.
 
 | File | Lines | Verdict | Reason |
 |---|---:|---|---|
-| `bin/dev-gateway` | 605 | **Keep, shrink** | Becomes the delegating entry point in ADR 0015 |
+| `bin/portta` | 605 | **Keep, shrink** | Becomes the delegating entry point in ADR 0015 |
 | `scripts/lib/common.sh` | 288 | **Migrate** | → `packages/core` `env` and `config` |
 | `scripts/lib/docker.sh` | 390 | **Migrate** | → `packages/core` `docker` |
 | `scripts/lib/discovery.sh` | 187 | **Migrate** | → `packages/core` `inventory` (already exists there) |
 | `scripts/lib/toolbox.sh` | 72 | **Keep as shell** | A `docker run` wrapper and nothing else |
 | `scripts/bootstrap.sh` | 163 | **Migrate**, keep a Bash fallback | Host preparation; must work without Node |
 | `scripts/doctor.sh` | 808 | **Migrate last** | Largest and highest-value port; every check becomes a testable function |
-| `scripts/cmd/web.sh` | 568 | **Migrate** | → `dev-gateway web *` |
+| `scripts/cmd/web.sh` | 568 | **Migrate** | → `portta web *` |
 | `scripts/cmd/access.sh` | 439 | **Migrate** | Identical labels, so the panel keeps managing the same bridges |
 | `scripts/cmd/git.sh` | 456 | **Migrate** | A JSON producer is better typed than shelled |
 | `scripts/cmd/analyze.sh` | 431 | **Migrate** | Heavy parsing, the worst fit for Bash |
@@ -187,7 +186,7 @@ CI smoke step, an OS × Node matrix); `src/commands/` with colocated tests;
 `commander`, `execa` and `zod`; AGENTS.md as an index that holds no rules of
 its own.
 
-**Do not reuse:** the single-package layout (Dev Gateway needs real workspaces
+**Do not reuse:** the single-package layout (Portta needs real workspaces
 to share code between three consumers); Biome (Bash is linted with ShellCheck
 and JS linting is a separate decision); `chalk` / `ora` / `listr2` (a gateway
 CLI must be headless-first: plain output, colour only when `stdout` is a TTY);
@@ -201,18 +200,18 @@ mechanical commit, merged fast, before further broad work under `web/`.
 Extraction into `packages/core` is not part of the move. It happens
 incrementally, one module at a time, each time a CLI command needs it.
 
-The unpublished TypeScript CLI stays out of `README.md` until issue #9 ships
-it ([issue #11](https://github.com/fabioassuncao/dev-gateway/issues/11)).
+The TypeScript CLI stays out of `README.md` until issue #9 makes its package
+contract ready ([issue #11](https://github.com/fabioassuncao/portta/issues/11)).
 
 ## Consequences
 
 - A developer or an agent asked to add a command knows which workspace it
   belongs in, whether it runs locally or through the API, and whether the Bash
   version is deleted in the same change. See [docs/monorepo.md](../monorepo.md).
-- `dg_defaults` / `loadConfig` and `dg_discover_http` / `urlsFor` stop being
+- `portta_defaults` / `loadConfig` and `portta_discover_http` / `urlsFor` stop being
   kept in step by a comment, once the extraction actually happens.
 - Issue #8 converts the repository to workspaces against this layout.
-  Issue #9 publishes `@fabioassuncao/dev-gateway`.
+  Issue #9 prepares `portta` for publication.
 - The `exposure` and `audit` CI jobs assert behaviour, not implementation, and
   must stay green through every migration change.
 - [ADR 0016](0016-state-that-could-be-shared.md) depends on the state model

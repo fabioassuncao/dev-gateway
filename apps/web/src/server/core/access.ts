@@ -1,4 +1,4 @@
-// TCP access: the same bridges `dev-gateway access open` creates.
+// TCP access: the same bridges `portta access open` creates.
 //
 // The panel creates them with byte-identical labels so the CLI keeps seeing
 // them (`access list`, `access close`, `access gc`) and neither tool is
@@ -91,7 +91,7 @@ export function listForwarders(snapshot: Snapshot): Forwarder[] {
     .sort((a, b) => a.alias.localeCompare(b.alias))
 }
 
-/** Mirrors dg_container_private_networks: the project's own networks only. */
+/** Mirrors portta_container_private_networks: the project's own networks only. */
 export function privateNetworks(container: ContainerSummary, config: PanelConfig): string[] {
   const ours = new Set([config.network, config.controlNetwork, config.accessNetwork])
   return container.networks.filter((name) => !ours.has(name))
@@ -284,7 +284,7 @@ export async function openBridge(
   }
 
   const id = randomBytes(3).toString('hex')
-  const name = `dg-access-${slug(request.project)}-${slug(request.service)}-${id}`
+  const name = `portta-access-${slug(request.project)}-${slug(request.service)}-${id}`
   const now = Math.floor(Date.now() / 1000)
 
   const labels: Record<string, string> = {

@@ -85,7 +85,7 @@ export function volume(name, destination) {
   }
 }
 
-/** What `dev-gateway access open`, and the panel, create. */
+/** What `portta access open`, and the panel, create. */
 export function makeBridge({ id, name, labels, targetPort, hostPort, network = 'storefront_default' }) {
   return makeContainer({
     id,
@@ -101,8 +101,8 @@ export function makeBridge({ id, name, labels, targetPort, hostPort, network = '
 /** The labels a gateway component carries. */
 export function gatewayLabels(component) {
   return {
-    'dev-gateway.managed': 'true',
-    'dev-gateway.component': component,
+    'portta.managed': 'true',
+    'portta.component': component,
     'traefik.enable': 'false',
   }
 }
@@ -116,7 +116,7 @@ export function composeLabels({ project, service, workingDir, routed = false, po
   if (workingDir) labels['com.docker.compose.project.working_dir'] = workingDir
   if (routed) {
     labels['traefik.enable'] = 'true'
-    labels['traefik.docker.network'] = 'dev-gateway'
+    labels['traefik.docker.network'] = 'portta'
     if (port) {
       labels[`traefik.http.services.${project}-${service}.loadbalancer.server.port`] = String(port)
     }

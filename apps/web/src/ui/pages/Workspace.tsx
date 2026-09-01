@@ -163,7 +163,7 @@ function EnvironmentRow({ environment }: { environment: WorkspaceEnvironment }) 
     environment.source === 'repo-match'
       ? t('sourceReason.repoMatch', { defaultValue: 'its repository belongs to this workspace' })
       : environment.source === 'label'
-        ? t('sourceReason.label', { defaultValue: 'declared by its dev-gateway.project label' })
+        ? t('sourceReason.label', { defaultValue: 'declared by its portta.project label' })
         : ti('linkReason.manual', { defaultValue: 'linked by hand' })
 
   return (

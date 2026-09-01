@@ -6,7 +6,7 @@ import { gatewayContext } from '../context.js'
 import { inspectContainers } from '../docker.js'
 import { PreconditionError, RefusedError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
-import { readEnvFile, setEnvValue, writeEnvFile } from '@dev-gateway/core'
+import { readEnvFile, setEnvValue, writeEnvFile } from 'portta-core'
 import { runProcess } from '../process.js'
 
 function globals(command: Command) { return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string } }
@@ -52,15 +52,15 @@ export async function publicEnable(command: Command): Promise<void> {
   if (context.config.tcpEnabled) throw new RefusedError('public access cannot be enabled while TCP entrypoints are active')
   await confirm(`expose opted-in HTTP services on *.${context.config.publicDomain}?`, global.yes === true)
   await writeSetting('PUBLIC_ENABLED', 'true', command)
-  await writeSetting('DEV_GATEWAY_PROFILE', 'remote-public', command)
+  await writeSetting('PORTTA_PROFILE', 'remote-public', command)
   const refreshed = gatewayContext({ profile: 'remote-public' })
   await runProcess('docker', ['compose', ...refreshed.composeFiles.flatMap((file) => ['-f', join(refreshed.root, file)]), 'up', '-d'], { cwd: refreshed.root, env: refreshed.env, stdio: 'inherit' })
 }
 
 export async function publicDisable(command: Command): Promise<void> {
   await writeSetting('PUBLIC_ENABLED', 'false', command)
-  await writeSetting('DEV_GATEWAY_PROFILE', 'remote-private', command)
-  new Output(globals(command)).progress('public access disabled; run dev-gateway up to apply the private profile')
+  await writeSetting('PORTTA_PROFILE', 'remote-private', command)
+  new Output(globals(command)).progress('public access disabled; run portta up to apply the private profile')
 }
 
 async function resolved(host: string): Promise<string[]> {

@@ -6,7 +6,7 @@ CREATE TABLE instance (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-INSERT INTO instance (name) VALUES ('dev-gateway') ON CONFLICT (singleton) DO NOTHING;
+INSERT INTO instance (name) VALUES ('portta') ON CONFLICT (singleton) DO NOTHING;
 
 CREATE TABLE settings (
   key         TEXT PRIMARY KEY CHECK (btrim(key) <> ''),

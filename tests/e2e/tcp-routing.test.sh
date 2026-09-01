@@ -16,19 +16,19 @@
 # ============================================================================
 set -uo pipefail
 
-DG_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-. "$DG_TEST_DIR/lib/assert.sh"
-DG_ROOT=$(cd -P "$DG_TEST_DIR/.." && pwd); export DG_ROOT
-. "$DG_ROOT/scripts/lib/common.sh"
-. "$DG_ROOT/scripts/lib/docker.sh"
-. "$DG_ROOT/scripts/lib/toolbox.sh"
-. "$DG_ROOT/scripts/lib/discovery.sh"
-dg_load_env; dg_defaults
+PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+. "$PORTTA_TEST_DIR/lib/assert.sh"
+PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
+. "$PORTTA_ROOT/scripts/lib/common.sh"
+. "$PORTTA_ROOT/scripts/lib/docker.sh"
+. "$PORTTA_ROOT/scripts/lib/toolbox.sh"
+. "$PORTTA_ROOT/scripts/lib/discovery.sh"
+portta_load_env; portta_defaults
 
-GW="$DG_ROOT/bin/dev-gateway"
-export DG_ASSUME_YES=true
+GW="$PORTTA_ROOT/bin/portta"
+export PORTTA_ASSUME_YES=true
 
-dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
+portta_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
 
 # Ports well away from anything the host is likely to be using: this suite is
 # about the mechanism, not about owning 5432 on somebody's machine.
@@ -39,35 +39,35 @@ B=tcproute-b
 
 # Exported for this process only. The gateway's own .env is never written, so
 # nothing here outlives the suite.
-export DEV_GATEWAY_TCP=true
-export DEV_GATEWAY_TCP_POSTGRES_PORT="$PG_PORT"
-export DEV_GATEWAY_TCP_REDIS_PORT="$REDIS_PORT"
+export PORTTA_TCP=true
+export PORTTA_TCP_POSTGRES_PORT="$PG_PORT"
+export PORTTA_TCP_REDIS_PORT="$REDIS_PORT"
 
 compose_env() {
-  ( cd "$DG_ROOT/docker/examples/demo-a" && COMPOSE_PROJECT_NAME="$1" docker compose \
-      -f compose.yaml -f compose.dev-gateway.yaml -f compose.dev-gateway-tcp.yaml "${@:2}" )
+  ( cd "$PORTTA_ROOT/docker/examples/demo-a" && COMPOSE_PROJECT_NAME="$1" docker compose \
+      -f compose.yaml -f compose.portta.yaml -f compose.portta-tcp.yaml "${@:2}" )
 }
 
 cleanup() {
-  docker rm -f dg-rule-probe >/dev/null 2>&1
+  docker rm -f portta-rule-probe >/dev/null 2>&1
   compose_env "$A" down -v >/dev/null 2>&1
   compose_env "$B" down -v >/dev/null 2>&1
   # Put the gateway back the way it was found: TCP off unless .env says
   # otherwise, which is what the unexported environment gives us.
-  ( unset DEV_GATEWAY_TCP DEV_GATEWAY_TCP_POSTGRES_PORT DEV_GATEWAY_TCP_REDIS_PORT
-    "$GW" up "$DEV_GATEWAY_PROFILE" ) >/dev/null 2>&1
+  ( unset PORTTA_TCP PORTTA_TCP_POSTGRES_PORT PORTTA_TCP_REDIS_PORT
+    "$GW" up "$PORTTA_PROFILE" ) >/dev/null 2>&1
 }
 trap cleanup EXIT INT TERM
 
 # psql_at <hostname> <sslmode> [extra query args]: run a query through the
 # gateway and print the single value, or the error.
 psql_at() {
-  docker run --rm --network host "$DG_TOOLBOX_IMAGE" \
+  docker run --rm --network host "$PORTTA_TOOLBOX_IMAGE" \
     psql "postgresql://demo:demo@$1:$PG_PORT/demo?sslmode=$2" -tAc "select name from whoami" 2>&1 | head -1
 }
 
 redis_at() {
-  docker run --rm --network host "$DG_TOOLBOX_IMAGE" \
+  docker run --rm --network host "$PORTTA_TOOLBOX_IMAGE" \
     redis-cli -h 127.0.0.1 -p "$REDIS_PORT" --tls --sni "$1" --insecure get whoami 2>&1 | head -1
 }
 
@@ -98,8 +98,8 @@ wait_for() {
 
 describe "the gateway publishes one port per protocol"
 
-"$GW" up "$DEV_GATEWAY_PROFILE" >/dev/null 2>&1
-traefik_ports=$(docker ps --format '{{.Names}} {{.Ports}}' | grep 'dev-gateway-traefik' || true)
+"$GW" up "$PORTTA_PROFILE" >/dev/null 2>&1
+traefik_ports=$(docker ps --format '{{.Names}} {{.Ports}}' | grep 'portta-traefik' || true)
 
 it "PostgreSQL has an entrypoint"
 assert_contains "$traefik_ports" ":$PG_PORT->5432"
@@ -124,80 +124,80 @@ assert_eq "" "$(docker ps --format '{{.Names}} {{.Ports}}' \
 
 it "both still listen on the standard port inside their own container"
 assert_eq "5432
-5432" "$(dg_container_ports "$A-postgres-1"; dg_container_ports "$B-postgres-1")"
+5432" "$(portta_container_ports "$A-postgres-1"; portta_container_ports "$B-postgres-1")"
 
 it "neither joined the shared HTTP network"
 assert_eq "" "$(docker inspect "$A-postgres-1" "$B-postgres-1" \
   --format '{{ range $k, $v := .NetworkSettings.Networks }}{{ $k }} {{ end }}' \
-  | tr ' ' '\n' | grep -x "$DEV_GATEWAY_NETWORK" || true)"
+  | tr ' ' '\n' | grep -x "$PORTTA_NETWORK" || true)"
 
 describe "the hostname decides which database answers"
 
 it "the first project's data comes back on its own hostname"
-assert_success wait_for psql_require "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+assert_success wait_for psql_require "$A-postgres.$PORTTA_DOMAIN" "$A"
 
 it "and the second's on its own, through the very same port"
-assert_success wait_for psql_require "$B-postgres.$DEV_GATEWAY_DOMAIN" "$B"
+assert_success wait_for psql_require "$B-postgres.$PORTTA_DOMAIN" "$B"
 
 it "they really are different databases, queried back to back"
-assert_eq "$A|$B" "$(psql_at "$A-postgres.$DEV_GATEWAY_DOMAIN" require)|$(psql_at "$B-postgres.$DEV_GATEWAY_DOMAIN" require)"
+assert_eq "$A|$B" "$(psql_at "$A-postgres.$PORTTA_DOMAIN" require)|$(psql_at "$B-postgres.$PORTTA_DOMAIN" require)"
 
 # The Redis routers are separate from the PostgreSQL ones, so they need their
 # own wait. Without it this asserts against whichever router happened to be
 # live first, and fails on a loaded machine.
-wait_for redis_at "$A-redis.$DEV_GATEWAY_DOMAIN" "$A" || true
-wait_for redis_at "$B-redis.$DEV_GATEWAY_DOMAIN" "$B" || true
+wait_for redis_at "$A-redis.$PORTTA_DOMAIN" "$A" || true
+wait_for redis_at "$B-redis.$PORTTA_DOMAIN" "$B" || true
 
 it "Redis does the same on its own single port"
-assert_eq "$A|$B" "$(redis_at "$A-redis.$DEV_GATEWAY_DOMAIN")|$(redis_at "$B-redis.$DEV_GATEWAY_DOMAIN")"
+assert_eq "$A|$B" "$(redis_at "$A-redis.$PORTTA_DOMAIN")|$(redis_at "$B-redis.$PORTTA_DOMAIN")"
 
 describe "without TLS there is no hostname to route on"
 
 it "sslmode=disable is refused rather than sent somewhere arbitrary"
-assert_success refused "$(psql_at "$A-postgres.$DEV_GATEWAY_DOMAIN" disable)" "$A"
+assert_success refused "$(psql_at "$A-postgres.$PORTTA_DOMAIN" disable)" "$A"
 
 it "and connecting by IP is too, because SNI is never sent for one"
 assert_success refused "$(psql_at "127.0.0.1" require)" "$A"
 
 it "an unknown hostname reaches nothing"
-assert_success refused "$(psql_at "nobody-postgres.$DEV_GATEWAY_DOMAIN" require)" "$A"
+assert_success refused "$(psql_at "nobody-postgres.$PORTTA_DOMAIN" require)" "$A"
 
 it "and gets Traefik's HTTP 404, because an unmatched TCP entrypoint falls back to HTTP"
-assert_contains "$(redis_at "nobody-redis.$DEV_GATEWAY_DOMAIN")" "Protocol error"
+assert_contains "$(redis_at "nobody-redis.$PORTTA_DOMAIN")" "Protocol error"
 
 describe "routes follow the containers"
 
 it "a restarted database is reachable again"
 docker restart "$A-postgres-1" >/dev/null 2>&1
-assert_success wait_for psql_require "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+assert_success wait_for psql_require "$A-postgres.$PORTTA_DOMAIN" "$A"
 
 it "stopping one leaves the other alone"
 docker stop "$A-postgres-1" >/dev/null 2>&1
 sleep 2
-assert_eq "$B" "$(psql_at "$B-postgres.$DEV_GATEWAY_DOMAIN" require)"
+assert_eq "$B" "$(psql_at "$B-postgres.$PORTTA_DOMAIN" require)"
 
 it "and the stopped one stops answering"
-assert_success refused "$(psql_at "$A-postgres.$DEV_GATEWAY_DOMAIN" require)" "$A"
+assert_success refused "$(psql_at "$A-postgres.$PORTTA_DOMAIN" require)" "$A"
 
 it "starting it again brings its route back"
 docker start "$A-postgres-1" >/dev/null 2>&1
-assert_success wait_for psql_require "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+assert_success wait_for psql_require "$A-postgres.$PORTTA_DOMAIN" "$A"
 
 it "recreating it from scratch works too"
 compose_env "$A" up -d --force-recreate --wait --wait-timeout 180 postgres >/dev/null 2>&1
 docker exec "$A-postgres-1" psql -U demo -d demo -qc \
   "create table if not exists whoami(name text); delete from whoami; insert into whoami values ('$A');" >/dev/null 2>&1
-assert_success wait_for psql_require "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+assert_success wait_for psql_require "$A-postgres.$PORTTA_DOMAIN" "$A"
 
 describe "restarting the gateway does not lose the routes"
 
 "$GW" restart >/dev/null 2>&1
 
 it "the first database answers again after Traefik restarts"
-assert_success wait_for psql_require "$A-postgres.$DEV_GATEWAY_DOMAIN" "$A"
+assert_success wait_for psql_require "$A-postgres.$PORTTA_DOMAIN" "$A"
 
 it "and so does the second"
-assert_success wait_for psql_require "$B-postgres.$DEV_GATEWAY_DOMAIN" "$B"
+assert_success wait_for psql_require "$B-postgres.$PORTTA_DOMAIN" "$B"
 
 describe "the label reader this feature leans on"
 # Docker's inspect templates have no `hasPrefix`, so a template using it parses
@@ -207,13 +207,13 @@ describe "the label reader this feature leans on"
 
 it "urls lists the HTTP services"
 urls=$("$GW" urls 2>/dev/null)
-assert_contains "$urls" "$A-web.$DEV_GATEWAY_DOMAIN"
+assert_contains "$urls" "$A-web.$PORTTA_DOMAIN"
 
 it "and does not list a database, which is not reached with a browser"
-assert_not_contains "$urls" "$A-postgres.$DEV_GATEWAY_DOMAIN"
+assert_not_contains "$urls" "$A-postgres.$PORTTA_DOMAIN"
 
 it "an explicit Host() label wins over the derived hostname"
-docker run -d --rm --name dg-rule-probe --network "$DEV_GATEWAY_NETWORK" \
+docker run -d --rm --name portta-rule-probe --network "$PORTTA_NETWORK" \
   --label traefik.enable=true \
   --label 'traefik.http.routers.probe.rule=Host(`explicit-name.test`)' \
   --label traefik.http.services.probe.loadbalancer.server.port=9999 \
@@ -225,20 +225,20 @@ assert_contains "$("$GW" urls 2>/dev/null)" "explicit-name.test"
 
 it "and the backend port label is read too"
 assert_contains "$("$GW" urls --json 2>/dev/null)" '"port": "9999"'
-docker rm -f dg-rule-probe >/dev/null 2>&1
+docker rm -f portta-rule-probe >/dev/null 2>&1
 
 describe "the CLI and the registry agree with what just happened"
 
 it "the hostname the CLI derives is the one that worked"
-assert_eq "$A-postgres.$DEV_GATEWAY_DOMAIN" "$(dg_tcp_hostname "$A" postgres)"
+assert_eq "$A-postgres.$PORTTA_DOMAIN" "$(portta_tcp_hostname "$A" postgres)"
 
 it "PostgreSQL is registered as routable"
-assert_eq "starttls-sni" "$(dg_routing_for_kind postgres)"
+assert_eq "starttls-sni" "$(portta_routing_for_kind postgres)"
 
 it "MySQL is registered as not routable, and nothing pretends otherwise"
-assert_eq "unsupported" "$(dg_routing_for_kind mysql)"
+assert_eq "unsupported" "$(portta_routing_for_kind mysql)"
 
 it "a protocol nobody verified is not claimed to work"
-assert_eq "unevaluated" "$(dg_routing_for_kind mongodb)"
+assert_eq "unevaluated" "$(portta_routing_for_kind mongodb)"
 
 t_summary

@@ -26,7 +26,7 @@ The same gateway, the same commands, one host away. Two modes:
 From your workstation:
 
 ```bash
-dev-gateway remote bootstrap deploy@vps.example.com --profile remote-private
+portta remote bootstrap deploy@vps.example.com --profile remote-private
 ```
 
 It connects, reports the distribution and architecture, checks Docker, clones
@@ -41,21 +41,21 @@ Secrets are never copied from your machine. Set them on the host:
 
 ```bash
 ssh deploy@vps.example.com
-nano ~/dev-gateway/.env     # TS_AUTHKEY, ACME_EMAIL, CF_DNS_API_TOKEN
+nano ~/portta/.env     # TS_AUTHKEY, ACME_EMAIL, CF_DNS_API_TOKEN
 ```
 
 Then drive it from anywhere:
 
 ```bash
-dev-gateway remote status deploy@vps.example.com
-dev-gateway remote doctor deploy@vps.example.com
-dev-gateway remote urls   deploy@vps.example.com
+portta remote status deploy@vps.example.com
+portta remote doctor deploy@vps.example.com
+portta remote urls   deploy@vps.example.com
 ```
 
 ## Private mode
 
 ```env
-DEV_GATEWAY_PROFILE=remote-private
+PORTTA_PROFILE=remote-private
 TAILSCALE_ENABLED=true
 TS_AUTHKEY=tskey-auth-...
 PRIVATE_DOMAIN=vpn.dev.example.com
@@ -68,9 +68,9 @@ CLOUDFLARE_ZONE=example.com
 ```
 
 ```bash
-./bin/dev-gateway up remote-private
-./bin/dev-gateway dns setup --apply
-./bin/dev-gateway doctor
+./bin/portta up remote-private
+./bin/portta dns setup --apply
+./bin/portta doctor
 ```
 
 Traefik runs **inside the Tailscale container's network namespace**, so it
@@ -80,7 +80,7 @@ interface. `remote-private` refuses to bind `0.0.0.0` at all.
 Details and the alternative host-native setup: [tailscale.md](tailscale.md).
 
 Not using Tailscale? Leave `TAILSCALE_ENABLED=false` and point
-`DEV_GATEWAY_BIND_ADDRESS` at your VPN interface's address. The profile still
+`PORTTA_BIND_ADDRESS` at your VPN interface's address. The profile still
 refuses `0.0.0.0`.
 
 ## Public mode
@@ -88,7 +88,7 @@ refuses `0.0.0.0`.
 Off by default. Enabling it is a deliberate act:
 
 ```bash
-./bin/dev-gateway public enable
+./bin/portta public enable
 ```
 
 It prints the domain, the interfaces, the ports, the TLS state and the exact
@@ -107,7 +107,7 @@ The gateway never changes firewall rules. See [firewall.md](firewall.md) for the
 minimal UFW configuration for each profile.
 
 ```bash
-./bin/dev-gateway network status
+./bin/portta network status
 ```
 
 shows interfaces, the tailnet address, every published port and who owns it.
@@ -115,7 +115,7 @@ shows interfaces, the tailnet address, every published port and who owns it.
 ## Updating
 
 ```bash
-./bin/dev-gateway update
+./bin/portta update
 ```
 
 Validates the Compose configuration **before** pulling, pulls the pinned images,
@@ -125,7 +125,7 @@ certificates and the Tailscale identity.
 To take new gateway code as well:
 
 ```bash
-cd ~/dev-gateway && git pull --ff-only && ./bin/dev-gateway update
+cd ~/portta && git pull --ff-only && ./bin/portta update
 ```
 
 ## Backing up
@@ -133,7 +133,7 @@ cd ~/dev-gateway && git pull --ff-only && ./bin/dev-gateway update
 Everything worth keeping is in two places:
 
 ```bash
-tar czf dev-gateway-backup.tgz .env state/
+tar czf portta-backup.tgz .env state/
 ```
 
 - `state/traefik/acme/acme.json` holds the issued certificates
@@ -147,11 +147,11 @@ Consumer project data is not here and never was; it belongs to the projects.
 Because the remote paths are not covered by automated tests, verify by hand
 after the first deploy:
 
-- [ ] `./bin/dev-gateway doctor` passes on the host
-- [ ] `./bin/dev-gateway network status` shows no unexpected `0.0.0.0` bind
+- [ ] `./bin/portta doctor` passes on the host
+- [ ] `./bin/portta network status` shows no unexpected `0.0.0.0` bind
 - [ ] `tailscale status` on the host shows the node connected
 - [ ] the tailnet address is reachable from your workstation
-- [ ] `dev-gateway dns check` resolves the wildcard
+- [ ] `portta dns check` resolves the wildcard
 - [ ] a demo answers over HTTPS with a valid certificate
 - [ ] from a machine **outside** the tailnet, the VPS's public IP does not answer on 80/443
 - [ ] restarting the gateway leaves applications running

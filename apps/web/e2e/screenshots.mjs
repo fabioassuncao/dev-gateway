@@ -69,12 +69,12 @@ const harness = spawn(process.execPath, [join(here, 'harness.mjs')], {
   stdio: 'inherit',
   env: {
     ...process.env,
-    DG_E2E_FIXTURE: './demo-host.mjs',
+    PORTTA_E2E_FIXTURE: './demo-host.mjs',
     // The documentation host has hostname routing switched on, so the Access
     // page shows both what it offers and where it cannot.
-    DEV_GATEWAY_TCP: 'true',
-    DG_E2E_DOCKER_PORT: String(DOCKER_PORT),
-    DG_E2E_PANEL_PORT: String(PANEL_PORT),
+    PORTTA_TCP: 'true',
+    PORTTA_E2E_DOCKER_PORT: String(DOCKER_PORT),
+    PORTTA_E2E_PANEL_PORT: String(PANEL_PORT),
   },
 })
 

@@ -1,4 +1,4 @@
-# Running this project on the Dev Gateway
+# Running this project on Portta
 
 > Copy this file into the project and adjust the names. It covers only what
 > someone working on *this* project needs. The rules themselves live in the Dev
@@ -6,19 +6,19 @@
 
 ## Prerequisites
 
-The Dev Gateway must be running on this machine:
+Portta must be running on this machine:
 
 ```bash
-dev-gateway status      # if this fails: dev-gateway bootstrap && dev-gateway up local
+portta status      # if this fails: portta bootstrap && portta up local
 ```
 
 ## Starting
 
 ```bash
-docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+docker compose -f compose.yaml -f compose.portta.yaml up -d
 ```
 
-Set `COMPOSE_FILE=compose.yaml:compose.dev-gateway.yaml` in `.env` to drop the
+Set `COMPOSE_FILE=compose.yaml:compose.portta.yaml` in `.env` to drop the
 `-f` flags.
 
 ## Namespace
@@ -34,7 +34,7 @@ COMPOSE_PROJECT_NAME=<project>
 ## URLs
 
 ```bash
-dev-gateway urls --project <project>
+portta urls --project <project>
 ```
 
 | Service | URL |
@@ -58,11 +58,11 @@ docker compose exec redis redis-cli
 **From a GUI on the host**, through a temporary loopback bridge on a free port:
 
 ```bash
-dev-gateway access open --project <project> --service postgres
+portta access open --project <project> --service postgres
 # -> 127.0.0.1:55431
 
-dev-gateway access list
-dev-gateway access close --project <project>
+portta access list
+portta access close --project <project>
 ```
 
 Point TablePlus, DBeaver or DataGrip at `127.0.0.1` and the port it printed.
@@ -74,7 +74,7 @@ Credentials are this project's, from its own `.env`.
 git worktree add ../<project>-issue59 issue59
 cd ../<project>-issue59
 echo "COMPOSE_PROJECT_NAME=<project>-issue59" >> .env
-docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+docker compose -f compose.yaml -f compose.portta.yaml up -d
 # -> http://<project>-issue59-web.localhost
 ```
 
@@ -84,16 +84,16 @@ affected.
 ## Troubleshooting
 
 ```bash
-dev-gateway doctor
-dev-gateway urls --project <project>
+portta doctor
+portta urls --project <project>
 docker compose logs -f
 ```
 
 **404**: the service did not opt in, or Traefik has not discovered it yet.
 **502**: the route matched but the backend did not answer, usually the wrong
-port in the overlay, or the service is not on the `dev-gateway` network.
+port in the overlay, or the service is not on the `portta` network.
 
-More: the Dev Gateway's `docs/troubleshooting.md`.
+More: Portta's `docs/troubleshooting.md`.
 
 ## Without the gateway
 

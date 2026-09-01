@@ -6,7 +6,7 @@ number of web services share port 443.
 Databases are not. This page explains why, and what the gateway does instead.
 
 
-> **There is now a second way.** With `DEV_GATEWAY_TCP=true` the gateway can
+> **There is now a second way.** With `PORTTA_TCP=true` the gateway can
 > tell databases apart by hostname on a single shared port, so a project's
 > Postgres is reachable at `<project>-postgres.<domain>:5432` without a bridge
 > at all. It works for PostgreSQL and Redis, not for MySQL, and it requires
@@ -69,7 +69,7 @@ it.
 ### B. A human on this machine
 
 ```bash
-dev-gateway access open --project base-empresarial --service postgres
+portta access open --project base-empresarial --service postgres
 ```
 
 ```
@@ -91,11 +91,11 @@ It touches nothing that belongs to the project: no volumes, no container
 changes, no Compose edits. Closing it leaves no trace.
 
 ```bash
-dev-gateway access list
-dev-gateway access inspect a3f19c
-dev-gateway access close a3f19c
-dev-gateway access close --project base-empresarial
-dev-gateway access gc            # bridges whose target is gone
+portta access list
+portta access inspect a3f19c
+portta access close a3f19c
+portta access close --project base-empresarial
+portta access gc            # bridges whose target is gone
 ```
 
 `--ttl 2h` expires a bridge; there is deliberately no default TTL, because a
@@ -106,8 +106,8 @@ GUI client left open overnight is a normal thing to do.
 Do not open a bridge. Run the client inside the project's own network:
 
 ```bash
-dev-gateway db psql   --project base-empresarial -- -c 'select count(*) from users'
-dev-gateway redis cli --project base-empresarial -- keys 'session:*'
+portta db psql   --project base-empresarial -- -c 'select count(*) from users'
+portta redis cli --project base-empresarial -- keys 'session:*'
 ```
 
 No port is published, the container is removed on exit, and credentials are
@@ -126,7 +126,7 @@ The bridge on the VPS binds *its* loopback, exactly as it does locally, and an
 SSH tunnel carries it to you:
 
 ```bash
-dev-gateway remote access open deploy@vps --project base-empresarial --service postgres
+portta remote access open deploy@vps --project base-empresarial --service postgres
 ```
 
 ```
@@ -145,8 +145,8 @@ and `ExitOnForwardFailure` means a lost port race is an error rather than a
 tunnel that silently forwards nothing.
 
 ```bash
-dev-gateway remote access list
-dev-gateway remote access close <id>
+portta remote access list
+portta remote access close <id>
 ```
 
 ## A persistent private address
@@ -155,7 +155,7 @@ For the database you connect to daily, a session bridge is friction. Publish it
 instead:
 
 ```bash
-dev-gateway service publish --private --project base-empresarial --service postgres
+portta service publish --private --project base-empresarial --service postgres
 ```
 
 This creates a **dedicated forwarder** for that one service, on that project's
@@ -167,7 +167,7 @@ project-a_default              project-b_default
         |                               |
   forwarder-a-db                  forwarder-b-db
         |                               |
-        +------- dev-gateway-access ----+
+        +------- portta-access ----+
                         |
                     Tailscale
 ```
@@ -178,7 +178,7 @@ attached to a project's network; it only ever sees the access network. Two
 databases can then keep port 5432 and be told apart by identity rather than by
 port.
 
-`dev-gateway doctor` fails if a forwarder ever ends up on the shared HTTP
+`portta doctor` fails if a forwarder ever ends up on the shared HTTP
 network.
 
 The tailnet side, meaning the Tailscale Service and the grants, is configured
@@ -194,7 +194,7 @@ Refused, in every profile, regardless of flags:
 - RabbitMQ and other brokers
 - the Docker API and the socket proxy
 
-`dev-gateway service publish --public` on any of those is an error, not a
+`portta service publish --public` on any of those is an error, not a
 warning. Bridges bind `127.0.0.1`; binding elsewhere requires `--bind` and
 prints a warning first, and `doctor` fails on a bridge bound beyond loopback.
 
@@ -240,7 +240,7 @@ picks a free one. Use `--local-port 55432` if you want a saved connection to
 keep working:
 
 ```bash
-dev-gateway access open --project base-empresarial --service postgres --local-port 55432
+portta access open --project base-empresarial --service postgres --local-port 55432
 ```
 
 ## Troubleshooting
@@ -252,9 +252,9 @@ ports and its image is not a recognised datastore. Name it: `--port 5432`.
 private network. Pick it with `--network <name>`.
 
 **The bridge exits immediately.** The target is not reachable from that
-network on that port. `dev-gateway access inspect <id>` shows socat's own log.
+network on that port. `portta access inspect <id>` shows socat's own log.
 
 **The port changed.** It is meant to. Pin it with `--local-port`.
 
 **A bridge points nowhere after a `docker compose down`.** Run
-`dev-gateway access gc`.
+`portta access gc`.

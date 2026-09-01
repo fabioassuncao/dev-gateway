@@ -1,6 +1,6 @@
 # Prompt 04 — Acesso a bancos, Redis e outros serviços TCP
 
-Continue no repositório `fabioassuncao/dev-gateway`.
+Continue no repositório `fabioassuncao/portta`.
 
 Esta etapa é crítica.
 
@@ -55,7 +55,7 @@ api -> redis:6379
 
 Isso ocorre na rede privada do projeto.
 
-Dev Gateway não interfere.
+Portta não interfere.
 
 ---
 
@@ -78,7 +78,7 @@ Implemente um **TCP Access Bridge** sob demanda.
 Interface desejada:
 
 ```bash
-./bin/dev-gateway access open \
+./bin/portta access open \
   --project base-empresarial \
   --service postgres \
   --port 5432
@@ -110,7 +110,7 @@ Avalie imagem/ferramenta pequena e mantida, por exemplo um forwarder TCP baseado
 
 O forwarder deve:
 
-1. ser criado pelo Dev Gateway;
+1. ser criado pelo Portta;
 2. conectar-se temporariamente à rede privada do projeto alvo;
 3. conseguir resolver o service/alias do alvo;
 4. encaminhar para `service:container_port`;
@@ -123,7 +123,7 @@ O forwarder deve:
 11. nunca alterar o container do banco;
 12. nunca alterar o Compose consumidor.
 
-O Dev Gateway pode inspecionar as redes Docker existentes para identificar `<project>_default`.
+O Portta pode inspecionar as redes Docker existentes para identificar `<project>_default`.
 
 Não hardcode nomes quando puder descobrir via labels Compose.
 
@@ -156,15 +156,15 @@ Pode mostrar template de connection string sem segredo.
 Implemente:
 
 ```bash
-./bin/dev-gateway access open ...
-./bin/dev-gateway access list
-./bin/dev-gateway access close <id>
-./bin/dev-gateway access close --project <project>
-./bin/dev-gateway access inspect <id>
-./bin/dev-gateway access gc
+./bin/portta access open ...
+./bin/portta access list
+./bin/portta access close <id>
+./bin/portta access close --project <project>
+./bin/portta access inspect <id>
+./bin/portta access gc
 ```
 
-`gc` só pode remover bridges pertencentes ao Dev Gateway e claramente órfãos.
+`gc` só pode remover bridges pertencentes ao Portta e claramente órfãos.
 
 Nunca remover containers consumidores.
 
@@ -183,8 +183,8 @@ Não imponha TTL por padrão se isso prejudicar ferramentas GUI.
 Permita:
 
 ```bash
-./bin/dev-gateway services
-./bin/dev-gateway services --project base-empresarial
+./bin/portta services
+./bin/portta services --project base-empresarial
 ```
 
 Detectar:
@@ -210,8 +210,8 @@ Quando houver ambiguidade, exigir `--port`.
 Depois da camada genérica, forneça ergonomia:
 
 ```bash
-./bin/dev-gateway db open base-empresarial postgres
-./bin/dev-gateway redis open base-empresarial redis
+./bin/portta db open base-empresarial postgres
+./bin/portta redis open base-empresarial redis
 ```
 
 Eles devem reutilizar `access open`, não criar arquiteturas diferentes.
@@ -219,7 +219,7 @@ Eles devem reutilizar `access open`, não criar arquiteturas diferentes.
 Opcional:
 
 ```bash
-./bin/dev-gateway db url ...
+./bin/portta db url ...
 ```
 
 Sem incluir senha.
@@ -284,7 +284,7 @@ Implemente uma interface simples.
 Exemplo:
 
 ```bash
-./bin/dev-gateway remote access open \
+./bin/portta remote access open \
   user@dev-vps \
   --project base-empresarial \
   --service postgres \
@@ -332,7 +332,7 @@ svc:base-empresarial-postgres
       |
 Tailscale
       |
-forwarder do Dev Gateway
+forwarder do Portta
       |
 rede privada do projeto
       |
@@ -359,7 +359,7 @@ Se Tailscale Services for adotado:
 
 - não conectar o container central de Tailscale indiscriminadamente a todas as redes privadas;
 - criar forwarder dedicado por recurso;
-- forwarder entra na rede privada do projeto e numa rede de acesso privada do Dev Gateway;
+- forwarder entra na rede privada do projeto e numa rede de acesso privada do Portta;
 - o forwarder recebe alias único na rede de acesso;
 - Tailscale aponta para o forwarder;
 - nenhuma rede privada de projeto é mesclada com outra.
@@ -372,7 +372,7 @@ project-a_default
        |
  forwarder-a-db
        |
-dev-gateway-access
+portta-access
        |
    Tailscale
 ```
@@ -385,7 +385,7 @@ project-b_default
        |
  forwarder-b-db
        |
-dev-gateway-access
+portta-access
 ```
 
 Os bancos nunca compartilham a mesma rede privada.
@@ -437,7 +437,7 @@ Bom para:
 Exemplo de CLI:
 
 ```bash
-./bin/dev-gateway service publish \
+./bin/portta service publish \
   --private \
   --project base-empresarial \
   --service postgres \
@@ -450,7 +450,7 @@ Implementação deve permanecer totalmente fora do Compose do projeto quando pos
 
 # 14. Não publicar TCP sensível na Internet
 
-O Dev Gateway deve proibir por padrão publicação pública de:
+O Portta deve proibir por padrão publicação pública de:
 
 - PostgreSQL;
 - MySQL;
@@ -514,12 +514,12 @@ Local:
 
 ```text
 Host: 127.0.0.1
-Port: <porta retornada pelo Dev Gateway>
+Port: <porta retornada pelo Portta>
 ```
 
 Remoto:
 
-mesma experiência local, com túnel criado pelo Dev Gateway.
+mesma experiência local, com túnel criado pelo Portta.
 
 O usuário não precisa conhecer IP do container.
 
@@ -530,8 +530,8 @@ O usuário não precisa conhecer IP do container.
 Crie toolbox opcional:
 
 ```bash
-./bin/dev-gateway db psql --project ... --service ...
-./bin/dev-gateway redis cli --project ...
+./bin/portta db psql --project ... --service ...
+./bin/portta redis cli --project ...
 ```
 
 Esses comandos podem executar um cliente efêmero dentro da rede privada do projeto sem publicar qualquer porta.
@@ -586,7 +586,7 @@ Prove:
 5. fechar bridge A não afeta B;
 6. remover projeto encerra/identifica bridge órfão sem afetar outros;
 7. binds são loopback;
-8. nenhum banco fica na rede HTTP `dev-gateway` salvo decisão explícita de teste;
+8. nenhum banco fica na rede HTTP `portta` salvo decisão explícita de teste;
 9. nenhum banco aparece como público.
 
 Teste também tunneling remoto na medida possível.
@@ -656,4 +656,4 @@ todos simultaneamente, sem conflito de portas no host, e ainda assim:
 - sem alterar a porta interna;
 - sem tornar os serviços públicos;
 - sem mover os projetos;
-- sem acoplar seus dados ao Dev Gateway.
+- sem acoplar seus dados ao Portta.

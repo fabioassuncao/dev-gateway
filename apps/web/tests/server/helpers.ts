@@ -119,8 +119,8 @@ export function fakeDocker(options: FakeDockerOptions = {}): FakeDocker {
 
   const networks: DockerNetwork[] = (
     options.networks ?? [
-      { Name: 'dev-gateway', Labels: { 'dev-gateway.managed': 'true' } },
-      { Name: 'dev-gateway-control', Internal: true, Labels: { 'dev-gateway.managed': 'true' } },
+      { Name: 'portta', Labels: { 'portta.managed': 'true' } },
+      { Name: 'portta-control', Internal: true, Labels: { 'portta.managed': 'true' } },
     ]
   ).map((network, index) => ({
     Id: network.Id ?? `net${index}`,
@@ -223,9 +223,9 @@ export function testConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     versionFile: '/dev/null',
     profile: 'local',
     domain: 'localhost',
-    network: 'dev-gateway',
-    controlNetwork: 'dev-gateway-control',
-    accessNetwork: 'dev-gateway-access',
+    network: 'portta',
+    controlNetwork: 'portta-control',
+    accessNetwork: 'portta-access',
     gatewayVersion: '0.2.0',
     panelVersion: '0.1.0',
     tlsEnabled: false,

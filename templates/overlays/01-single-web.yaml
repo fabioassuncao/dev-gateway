@@ -1,7 +1,7 @@
 # ============================================================================
 # One HTTP service
 # ============================================================================
-#   docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+#   docker compose -f compose.yaml -f compose.portta.yaml up -d
 #   -> http://<COMPOSE_PROJECT_NAME>-web.localhost
 # ============================================================================
 
@@ -9,15 +9,15 @@ services:
   web:
     networks:
       - default
-      - dev-gateway
+      - portta
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       # Only needed when the image's EXPOSE does not match the port the app
       # actually listens on. It usually does not, so state it.
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-web.loadbalancer.server.port=3000"
 
 networks:
-  dev-gateway:
+  portta:
     external: true
-    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}
+    name: ${PORTTA_NETWORK:-portta}

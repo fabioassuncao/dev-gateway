@@ -7,15 +7,15 @@
 #
 #   psql "postgresql://user@<project>-postgres.<domain>:5432/db?sslmode=require"
 #
-# Requires DEV_GATEWAY_TCP=true on the gateway. Read docs/tcp-routing.md first:
+# Requires PORTTA_TCP=true on the gateway. Read docs/tcp-routing.md first:
 # PostgreSQL and Redis work, MySQL cannot, and TLS is not optional.
 #
-#   docker compose -f compose.yaml -f compose.dev-gateway.yaml \
-#                  -f compose.dev-gateway-tcp.yaml up -d
+#   docker compose -f compose.yaml -f compose.portta.yaml \
+#                  -f compose.portta-tcp.yaml up -d
 #
 # Three details worth copying verbatim:
 #
-# 1. The datastore joins `dev-gateway-access`, NOT the shared `dev-gateway`
+# 1. The datastore joins `portta-access`, NOT the shared `portta`
 #    network. Databases have never been on the HTTP network and still are not.
 #
 # 2. The rule is HostSNIRegexp, not HostSNI, so this file does not have to know
@@ -25,7 +25,7 @@
 #    with the exact hostname anyway, and authentication is still PostgreSQL's.
 #
 # 3. Router and service names carry the project name, because they share one
-#    namespace across every project on the host. `dev-gateway doctor` reports
+#    namespace across every project on the host. `portta doctor` reports
 #    a collision if two projects ever pick the same one.
 # ============================================================================
 
@@ -33,10 +33,10 @@ services:
   postgres:
     networks:
       - default        # keep talking to the rest of the project privately
-      - dev-gateway-access
+      - portta-access
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_ACCESS_NETWORK:-dev-gateway-access}"
+      - "traefik.docker.network=${PORTTA_ACCESS_NETWORK:-portta-access}"
       - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME}-postgres.entrypoints=postgres"
       - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME}-postgres.rule=HostSNIRegexp(`^${COMPOSE_PROJECT_NAME}-postgres\\..+$`)"
       - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME}-postgres.tls=true"
@@ -49,10 +49,10 @@ services:
   redis:
     networks:
       - default
-      - dev-gateway-access
+      - portta-access
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_ACCESS_NETWORK:-dev-gateway-access}"
+      - "traefik.docker.network=${PORTTA_ACCESS_NETWORK:-portta-access}"
       - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME}-redis.entrypoints=redis"
       - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME}-redis.rule=HostSNIRegexp(`^${COMPOSE_PROJECT_NAME}-redis\\..+$`)"
       - "traefik.tcp.routers.${COMPOSE_PROJECT_NAME}-redis.tls=true"
@@ -61,10 +61,10 @@ services:
 
   # MySQL and MariaDB are deliberately absent. The MySQL protocol has the
   # server speak first, so there is no SNI for the gateway to route on before
-  # it must choose a backend. Reach them with `dev-gateway access open`, which
+  # it must choose a backend. Reach them with `portta access open`, which
   # works for every protocol. docs/tcp-routing.md explains why in full.
 
 networks:
-  dev-gateway-access:
+  portta-access:
     external: true
-    name: ${DEV_GATEWAY_ACCESS_NETWORK:-dev-gateway-access}
+    name: ${PORTTA_ACCESS_NETWORK:-portta-access}

@@ -34,14 +34,14 @@ environments sharing a database corrupt each other silently.
 
 **Never take down the gateway to fix your own project.** It serves every
 environment on the host. Your route failing is almost never the gateway's
-fault; `dev-gateway doctor` will say what it is.
+fault; `portta doctor` will say what it is.
 
 ## Always do these
 
 **Use a unique namespace.**
 
 ```bash
-dev-gateway namespace              # derives one from the repo and branch
+portta namespace              # derives one from the repo and branch
 export COMPOSE_PROJECT_NAME=base-empresarial-issue59
 ```
 
@@ -59,7 +59,7 @@ If the answer is not your namespace, it is not yours.
 **Run `doctor` before improvising infrastructure.**
 
 ```bash
-dev-gateway doctor
+portta doctor
 ```
 
 It reports port conflicts, hostname collisions, Traefik service-name
@@ -69,7 +69,7 @@ It changes nothing.
 **List your URLs after starting an environment.**
 
 ```bash
-dev-gateway urls --project "$COMPOSE_PROJECT_NAME"
+portta urls --project "$COMPOSE_PROJECT_NAME"
 ```
 
 Report those, not `localhost:3000`, which is meaningless on a shared host.
@@ -79,14 +79,14 @@ inside the project's own network, with no port and nothing to clean up:
 
 ```bash
 docker compose exec postgres psql -U app -d app -c 'select 1'
-dev-gateway db psql --project <name> --service postgres
+portta db psql --project <name> --service postgres
 ```
 
 For a GUI on the host, open a bridge and close it when done:
 
 ```bash
-dev-gateway access open  --project <name> --service postgres   # -> 127.0.0.1:55431
-dev-gateway access close --project <name>
+portta access open  --project <name> --service postgres   # -> 127.0.0.1:55431
+portta access close --project <name>
 ```
 
 Both bind loopback only, and neither changes the project. Details:
@@ -96,7 +96,7 @@ Both bind loopback only, and neither changes the project. Details:
 directory:
 
 ```bash
-docker compose -f compose.yaml -f compose.dev-gateway.yaml down
+docker compose -f compose.yaml -f compose.portta.yaml down
 ```
 
 Add `-v` only if the data is yours and you are sure.
@@ -104,10 +104,10 @@ Add `-v` only if the data is yours and you are sure.
 ## Reaching databases: the order to try
 
 1. **`docker compose exec`**, already inside the project, nothing to set up.
-2. **`dev-gateway db psql` / `redis cli`**, a client inside the project's
+2. **`portta db psql` / `redis cli`**, a client inside the project's
    network from anywhere on the host. Nothing published, nothing left behind.
-3. **`dev-gateway access open`**, only when a human needs a GUI. Close it.
-4. **`dev-gateway remote access open`**, for a VPS, over the VPN. Never open a
+3. **`portta access open`**, only when a human needs a GUI. Close it.
+4. **`portta remote access open`**, for a VPS, over the VPN. Never open a
    public port to make a remote database easier to reach.
 
 Never `ports: ["5432:5432"]`, not even temporarily, and never a database on
@@ -122,7 +122,7 @@ database corrupt each other silently.
 The reflex is to free it. Don't. Find out what is actually happening:
 
 ```bash
-dev-gateway analyze .          # does this project publish ports it need not?
+portta analyze .          # does this project publish ports it need not?
 docker ps --format '{{.Names}} {{.Ports}}' | grep <port>
 ```
 
@@ -132,9 +132,9 @@ gateway. Removing that `ports:` entry is the fix, and it fixes it for everyone.
 ## When a route does not work
 
 ```bash
-dev-gateway urls               # is the hostname listed?
-dev-gateway doctor             # collisions, labels, exposure
-docker logs dev-gateway-traefik-1 --tail 50
+portta urls               # is the hostname listed?
+portta doctor             # collisions, labels, exposure
+docker logs portta-traefik-1 --tail 50
 ```
 
 The usual causes are in [troubleshooting.md](troubleshooting.md): a wrong
@@ -160,14 +160,14 @@ request and response schemas, error statuses, read-only refusals and the SSE
 event shape. On a loopback panel, `/api/docs` provides the same contract as an
 offline interactive browser.
 
-It only exists when somebody ran `dev-gateway web up`; the CLI's `--json` flags
+It only exists when somebody ran `portta web up`; the CLI's `--json` flags
 cover the same ground and always work.
 
 If you are given the panel to drive, run it read-only, which refuses every
 mutating endpoint:
 
 ```bash
-dev-gateway web up --read-only
+portta web up --read-only
 ```
 
 The rules above do not change because there is an API: the panel refuses to
@@ -181,11 +181,11 @@ Databases and caches on a VPS are reached over the VPN, never over the
 internet:
 
 ```bash
-dev-gateway remote access open user@vps --project <name> --service postgres
+portta remote access open user@vps --project <name> --service postgres
 ```
 
 Never enable public access to make something easier to reach. If a human wants
-that, they will run `dev-gateway public enable` themselves.
+that, they will run `portta public enable` themselves.
 
 ---
 
@@ -205,17 +205,17 @@ Never:
 - change an internal port to resolve a conflict
 - publish a database or cache on the host (no `5432:5432`, ever)
 - reuse another environment's volume or namespace
-- stop the Dev Gateway to fix your own project
+- stop Portta to fix your own project
 
 Always:
-- set a unique `COMPOSE_PROJECT_NAME` (`dev-gateway namespace`)
+- set a unique `COMPOSE_PROJECT_NAME` (`portta namespace`)
 - check ownership before touching a container:
   `docker inspect <c> --format '{{ index .Config.Labels "com.docker.compose.project" }}'`
-- run `dev-gateway doctor` before improvising infrastructure
-- report URLs from `dev-gateway urls`, not `localhost:3000`
+- run `portta doctor` before improvising infrastructure
+- report URLs from `portta urls`, not `localhost:3000`
 - reach databases in this order: `docker compose exec`, then
-  `dev-gateway db psql` / `redis cli`, then `dev-gateway access open` for a GUI,
-  then `dev-gateway remote access open` over the VPN for a VPS. Never by
+  `portta db psql` / `redis cli`, then `portta access open` for a GUI,
+  then `portta remote access open` over the VPN for a VPS. Never by
   publishing a port, and never on `0.0.0.0`
 - stop only what you started, from its own directory
 
@@ -232,12 +232,12 @@ following one of these is enough — nothing has to be configured:
 # a branch the panel can read
 git switch -c fix/182-tcp-proxy
 
-# a namespace dev-gateway already produces
-dev-gateway namespace --suffix issue182
+# a namespace portta already produces
+portta namespace --suffix issue182
 
 # or say it outright, in the overlay
 labels:
-  dev-gateway.issue: "owner/name#182"
+  portta.issue: "owner/name#182"
 ```
 
 The link is a row. It never starts, stops or removes anything, and a manual

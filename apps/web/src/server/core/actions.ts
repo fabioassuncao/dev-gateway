@@ -46,12 +46,12 @@ function assertNotGatewayOwned(container: ContainerSummary, verb: string): void 
   if (container.gatewayComponent === 'access-forwarder') {
     throw new ActionRefused(
       `${container.name} is a published TCP forwarder`,
-      `remove it with: dev-gateway service unpublish ${container.labels['dev-gateway.forward.alias'] ?? ''}`.trim(),
+      `remove it with: portta service unpublish ${container.labels['portta.forward.alias'] ?? ''}`.trim(),
     )
   }
   throw new ActionRefused(
-    `refusing to ${verb} ${container.name}: it is a Dev Gateway component`,
-    'gateway components are restarted from the Gateway page, or with dev-gateway restart',
+    `refusing to ${verb} ${container.name}: it is a Portta component`,
+    'gateway components are restarted from the Gateway page, or with portta restart',
   )
 }
 
@@ -90,7 +90,7 @@ export function removalPreview(snapshot: Snapshot, id: string): RemovalPreview {
 
   if (container.ownership === 'gateway') {
     allowed = false
-    warnings.push('this is a Dev Gateway component; the panel does not remove its own infrastructure')
+    warnings.push('this is a Portta component; the panel does not remove its own infrastructure')
   }
   if (container.state === 'running') {
     warnings.push('the container is running and will be stopped first')

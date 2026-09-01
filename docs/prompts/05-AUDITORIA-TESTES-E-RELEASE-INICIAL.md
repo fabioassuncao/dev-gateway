@@ -1,6 +1,6 @@
 # Prompt 05 — Auditoria, testes e release inicial
 
-Continue no repositório `fabioassuncao/dev-gateway`.
+Continue no repositório `fabioassuncao/portta`.
 
 As etapas anteriores devem ter construído:
 
@@ -43,7 +43,7 @@ Garanta que não exista:
 - caminho hardcoded para Base Empresarial;
 - código específico do Brasil Data Hub;
 - clone automático de consumidor;
-- volume de aplicação dentro do Dev Gateway;
+- volume de aplicação dentro do Portta;
 - Compose central contendo serviços dos consumidores;
 - ownership indevido de containers externos;
 - lógica que execute `down` em projetos consumidores;
@@ -57,20 +57,20 @@ Fixtures/examples devem ser genéricos.
 
 ## 3. Revisar ownership
 
-Todo recurso criado pelo Dev Gateway deve ter labels claras.
+Todo recurso criado pelo Portta deve ter labels claras.
 
 Exemplo conceitual:
 
 ```text
-dev-gateway.managed=true
-dev-gateway.component=...
+portta.managed=true
+portta.component=...
 ```
 
 Antes de remover qualquer container/rede/recurso, confirmar ownership.
 
 Recursos consumidores nunca devem ser removidos pelo gateway.
 
-A rede global `dev-gateway` não deve ser removida automaticamente de forma perigosa.
+A rede global `portta` não deve ser removida automaticamente de forma perigosa.
 
 ---
 
@@ -247,35 +247,35 @@ Revise consistência.
 Objetivo aproximado:
 
 ```text
-dev-gateway bootstrap
-dev-gateway up
-dev-gateway down
-dev-gateway status
-dev-gateway doctor
-dev-gateway urls
+portta bootstrap
+portta up
+portta down
+portta status
+portta doctor
+portta urls
 
-dev-gateway analyze
-dev-gateway init
+portta analyze
+portta init
 
-dev-gateway services
+portta services
 
-dev-gateway access open
-dev-gateway access list
-dev-gateway access close
+portta access open
+portta access list
+portta access close
 
-dev-gateway db open
-dev-gateway db psql
-dev-gateway redis open
-dev-gateway redis cli
+portta db open
+portta db psql
+portta redis open
+portta redis cli
 
-dev-gateway remote bootstrap
-dev-gateway remote access
+portta remote bootstrap
+portta remote access
 
-dev-gateway public enable
-dev-gateway public disable
+portta public enable
+portta public disable
 
-dev-gateway dns status
-dev-gateway update
+portta dns status
+portta update
 ```
 
 Não mantenha comandos redundantes sem valor.
@@ -323,12 +323,12 @@ Revise experiência numa máquina limpa.
 Ideal:
 
 ```bash
-git clone git@github.com:fabioassuncao/dev-gateway.git
-cd dev-gateway
+git clone git@github.com:fabioassuncao/portta.git
+cd portta
 cp .env.example .env
-./bin/dev-gateway bootstrap
-./bin/dev-gateway up local
-./bin/dev-gateway doctor
+./bin/portta bootstrap
+./bin/portta up local
+./bin/portta doctor
 ```
 
 Evitar preparação manual longa.
@@ -368,7 +368,7 @@ Remover documentação duplicada e contraditória.
 
 Garanta template curto, por exemplo:
 
-`templates/project/DEV-GATEWAY.md`
+`templates/project/PORTTA.md`
 
 Deve explicar somente:
 
@@ -506,7 +506,7 @@ Criar tag/release somente depois de tudo aprovado pelos testes.
 
 O projeto está pronto para sua primeira release quando uma pessoa pode:
 
-1. instalar o Dev Gateway uma vez;
+1. instalar o Portta uma vez;
 2. manter seus projetos onde já estão;
 3. adaptar cada projeto com mudança mínima;
 4. rodar diversos projetos simultaneamente;

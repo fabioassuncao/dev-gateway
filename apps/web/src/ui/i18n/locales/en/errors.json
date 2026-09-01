@@ -1,7 +1,7 @@
 {
   "hints": {
     "notSaved": "the value was not saved",
-    "databaseUnavailable": "existing Docker-backed pages remain available; run dev-gateway db status",
+    "databaseUnavailable": "existing Docker-backed pages remain available; run portta db status",
     "panelLimit": "this is a panel limit, not a Docker one",
     "unexpected": "unexpected failure"
   },

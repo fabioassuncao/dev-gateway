@@ -217,7 +217,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
       derivedHosts: target.urls.map((url) => url.host),
       port: planned.port,
       entryPoint: planned.entryPoint,
-      file: 'dev-gateway-aliases.yaml',
+      file: 'portta-aliases.yaml',
     })
   })
 

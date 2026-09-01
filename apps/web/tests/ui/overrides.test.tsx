@@ -77,7 +77,7 @@ function project(overrides: Partial<Project> = {}): Project {
     runningCount: 2,
     healthyCount: 2,
     unhealthyCount: 0,
-    networks: ['dev-gateway'],
+    networks: ['portta'],
     startedAt: 1_700_000_000,
     uptimeSeconds: 60,
     scopes: ['local'],

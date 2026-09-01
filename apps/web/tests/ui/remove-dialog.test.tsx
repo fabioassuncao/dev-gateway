@@ -88,7 +88,7 @@ describe('removing a container asks first, and says what stays', () => {
   it('refuses outright for a gateway component', async () => {
     removalPreview.mockResolvedValue({
       containerId: 'gw-traefik',
-      name: 'dev-gateway-traefik-1',
+      name: 'portta-traefik-1',
       image: 'traefik:v3.7.12',
       ownership: 'gateway',
       state: 'running',
@@ -96,10 +96,10 @@ describe('removing a container asks first, and says what stays', () => {
       mounts: [],
       namedVolumes: [],
       networks: [],
-      warnings: ['this is a Dev Gateway component; the panel does not remove its own infrastructure'],
+      warnings: ['this is a Portta component; the panel does not remove its own infrastructure'],
       allowed: false,
     })
-    const gateway = makeContainer({ id: 'gw-traefik', name: 'dev-gateway-traefik-1', ownership: 'gateway' })
+    const gateway = makeContainer({ id: 'gw-traefik', name: 'portta-traefik-1', ownership: 'gateway' })
     renderWithQuery(<RemoveDialog container={gateway} open onOpenChange={() => {}} />)
 
     expect(

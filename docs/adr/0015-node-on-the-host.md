@@ -11,11 +11,11 @@ The project currently advertises:
 > — `docs/web-ui.md`
 
 `README.md` says the same under Requirements: Docker Engine 24+, Git, and a
-POSIX shell. Node is listed only as a requirement for *developing* Dev Gateway.
+POSIX shell. Node is listed only as a requirement for *developing* Portta.
 
-`npx @fabioassuncao/dev-gateway` requires Node on the host. That is not a
+`npx portta` requires Node on the host. That is not a
 detail to discover halfway through the TypeScript CLI migration
-([issue #9](https://github.com/fabioassuncao/dev-gateway/issues/9)).
+([issue #9](https://github.com/fabioassuncao/portta/issues/9)).
 [ADR 0014](0014-monorepo-and-the-typescript-cli.md) decides the layout; this
 record decides the host requirement.
 
@@ -25,11 +25,11 @@ Three options were on the table:
 documented promise and, on a fresh VPS, starts provisioning with "install
 Node", which is precisely what `npx setup` was meant to avoid.
 
-**(b) Two CLIs.** The Bash `bin/dev-gateway` stays as the zero-dependency
+**(b) Two CLIs.** The Bash `bin/portta` stays as the zero-dependency
 path; the TypeScript CLI is an additional, optional interface. Keeps the
 promise, and guarantees the duplication ADR 0014 exists to remove.
 
-**(c) One CLI, two entry points.** `bin/dev-gateway` stays and becomes thin:
+**(c) One CLI, two entry points.** `bin/portta` stays and becomes thin:
 it detects Node and delegates to the TypeScript CLI when present, and
 otherwise runs the Bash implementation for the small set of commands that
 must work without Node.
@@ -38,7 +38,7 @@ must work without Node.
 
 Option (c). One CLI, two entry points.
 
-`bin/dev-gateway` remains the documented binary. When Node 22+ is on `PATH`
+`bin/portta` remains the documented binary. When Node 22+ is on `PATH`
 and `packages/cli` (or the published package) can be loaded, it delegates.
 When Node is absent, it runs the Bash implementation for the commands below
 and refuses the rest with a message that names the requirement.
@@ -66,8 +66,8 @@ what Bash already prints) requires Node 22.12+ and says so.
 
 ### Provisioning
 
-- A host that already has Node: `npx @fabioassuncao/dev-gateway setup`.
-- A bare VPS: `git clone && ./bin/dev-gateway bootstrap`, which works today
+- A host that already has Node: `npx portta setup`.
+- A bare VPS: `git clone && ./bin/portta bootstrap`, which works today
   and keeps working.
 
 ### README wording, when the TypeScript CLI ships
@@ -113,5 +113,5 @@ Reconsider this decision if at least one of these becomes true:
 1. Maintaining the Bash fallback for five commands costs more than asking
    operators to install Node 22, and the documented VPS path has moved on.
 2. The dispatcher mis-detects Node often enough to be a support burden.
-3. The TypeScript CLI is abandoned, in which case `bin/dev-gateway` simply
+3. The TypeScript CLI is abandoned, in which case `bin/portta` simply
    stays the Bash tool and this record is superseded as "not done".

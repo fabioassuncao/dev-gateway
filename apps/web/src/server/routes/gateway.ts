@@ -35,7 +35,7 @@ export function gatewayRoutes(deps: AppDeps): Hono {
     return c.json(gatewayStatus(snapshot, deps.config))
   })
 
-  // The diagnostics a container can make honestly. `dev-gateway doctor` stays
+  // The diagnostics a container can make honestly. `portta doctor` stays
   // the deeper, host-level tool: it sees PATH, listening sockets, DNS and the
   // certificate files, which this process cannot.
   app.post('/gateway/doctor', documentRoute({
@@ -61,14 +61,14 @@ export function gatewayRoutes(deps: AppDeps): Hono {
       failures: checks.filter((check) => check.status === 'fail').length,
       warnings: checks.filter((check) => check.status === 'warn').length,
       ranAt: Math.floor(Date.now() / 1000),
-      hostCommand: './bin/dev-gateway doctor',
+      hostCommand: './bin/portta doctor',
     })
   })
 
   /**
    * Restarts gateway components in place. Traefik reads its static
    * configuration from the environment it was created with, so a settings
-   * change still needs `dev-gateway up` on the host: the response says so
+   * change still needs `portta up` on the host: the response says so
    * rather than pretending otherwise.
    */
   app.post('/gateway/restart', documentRoute({
@@ -106,7 +106,7 @@ export function gatewayRoutes(deps: AppDeps): Hono {
       restarted,
       missing,
       note: 'settings saved in .env take effect once the containers are recreated',
-      applyCommand: `./bin/dev-gateway up ${deps.config.profile}`,
+      applyCommand: `./bin/portta up ${deps.config.profile}`,
     })
   })
 

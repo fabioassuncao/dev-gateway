@@ -17,14 +17,14 @@
     },
     "warn": {
       "detail": "PostgreSQL is unreachable; stored preferences are unavailable",
-      "fix": "dev-gateway db status"
+      "fix": "portta db status"
     }
   },
   "docker": {
     "title": "Docker API",
     "fail": {
       "detail": "the panel cannot reach its socket proxy",
-      "fix": "dev-gateway web restart"
+      "fix": "portta web restart"
     },
     "pass": {
       "detail": "reachable through the panel socket proxy"
@@ -36,8 +36,8 @@
       "notFound": "no gateway container found",
       "state": "container is {{state}}",
       "unhealthy": "container is unhealthy",
-      "fixUp": "dev-gateway up {{profile}}",
-      "fixLogs": "dev-gateway logs traefik"
+      "fixUp": "portta up {{profile}}",
+      "fixLogs": "portta logs traefik"
     },
     "warn": {
       "starting": "health check is still starting"
@@ -51,7 +51,7 @@
     "fail": {
       "state": "container is {{state}}",
       "missing": "missing",
-      "fix": "dev-gateway up {{profile}}"
+      "fix": "portta up {{profile}}"
     },
     "pass": {
       "detail": "running"
@@ -61,7 +61,7 @@
     "title": "Shared network",
     "fail": {
       "detail": "{{network}} does not exist",
-      "fix": "dev-gateway bootstrap"
+      "fix": "portta bootstrap"
     },
     "pass": {
       "detail": "{{network}}: {{count}} container(s) attached"
@@ -80,7 +80,7 @@
   "hostname-collision": {
     "title": "Hostname collisions",
     "fail": {
-      "fix": "give the projects distinct COMPOSE_PROJECT_NAMEs: dev-gateway namespace"
+      "fix": "give the projects distinct COMPOSE_PROJECT_NAMEs: portta namespace"
     },
     "pass": {
       "title": "Hostnames",
@@ -100,7 +100,7 @@
   "gateway-ports": {
     "title": "Gateway ports taken by other containers",
     "warn": {
-      "fix": "stop the container, or change DEV_GATEWAY_HTTP_PORT / DEV_GATEWAY_HTTPS_PORT"
+      "fix": "stop the container, or change PORTTA_HTTP_PORT / PORTTA_HTTPS_PORT"
     }
   },
   "unhealthy": {
@@ -117,14 +117,14 @@
     "title": "Stale access bridges",
     "warn": {
       "detail": "{{count}} bridge(s) expired or stopped",
-      "fix": "dev-gateway access gc"
+      "fix": "portta access gc"
     }
   },
   "public": {
     "title": "Public access",
     "warn": {
       "detail": "HTTP services are reachable on {{domain}}",
-      "fix": "dev-gateway public disable turns this off"
+      "fix": "portta public disable turns this off"
     }
   },
   "acme-email": {
@@ -138,7 +138,7 @@
     "title": "Bind address",
     "fail": {
       "detail": "the private profile is bound to every interface",
-      "fix": "set DEV_GATEWAY_BIND_ADDRESS to the VPN address, or enable Tailscale"
+      "fix": "set PORTTA_BIND_ADDRESS to the VPN address, or enable Tailscale"
     }
   },
   "aliases": {
@@ -156,7 +156,7 @@
   "shares-expired": {
     "title": "Expired shares",
     "warn": {
-      "fix": "dev-gateway share gc"
+      "fix": "portta share gc"
     }
   },
   "shares-dangling": {
@@ -175,7 +175,7 @@
     "title": "Traefik's own view",
     "warn": {
       "detail": "not available",
-      "fix": "set DEV_GATEWAY_DASHBOARD=true to let the panel read Traefik directly"
+      "fix": "set PORTTA_DASHBOARD=true to let the panel read Traefik directly"
     },
     "pass": {
       "detail": "{{count}} router(s), every routed service among them"
@@ -202,14 +202,14 @@
     },
     "fail": {
       "detail": "the panel is routed (expose: {{expose}}) with no credential in front of it",
-      "fix": "dev-gateway web auth set"
+      "fix": "portta web auth set"
     }
   },
   "panel-read-only": {
     "title": "Panel is routed and writable",
     "warn": {
       "detail": "anyone who gets past the credential can stop and remove containers",
-      "fix": "dev-gateway web up --read-only"
+      "fix": "portta web up --read-only"
     }
   },
   "panel-auth-file": {
@@ -217,7 +217,7 @@
     "warn": {
       "detail": "{{file}} does not match the current settings",
       "detailNotWritable": ", and the directory is not writable by the panel",
-      "fix": "dev-gateway web auth apply"
+      "fix": "portta web auth apply"
     }
   }
 }

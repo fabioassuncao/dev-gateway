@@ -96,7 +96,7 @@ export async function fetchVerdict(config: PanelConfig, now = Date.now()): Promi
       available: false,
       // Not "no problem": not asked. The UI says so rather than implying the
       // labels were confirmed by Traefik.
-      reason: 'the Traefik API is off (DEV_GATEWAY_DASHBOARD=false), so nothing was asked',
+      reason: 'the Traefik API is off (PORTTA_DASHBOARD=false), so nothing was asked',
       dashboardUrl: null,
     }
   }

@@ -25,8 +25,8 @@ export async function setupCommand(options: SetupOptions, command: Command): Pro
   const output = new Output(global)
   if (process.platform === 'win32') throw new PreconditionError('setup requires a POSIX host')
   const currentRoot = findGatewayRoot()
-  const target = resolve(options.dir ?? currentRoot ?? join(homedir(), 'dev-gateway'))
-  const repo = options.repo ?? 'https://github.com/fabioassuncao/dev-gateway.git'
+  const target = resolve(options.dir ?? currentRoot ?? join(homedir(), 'portta'))
+  const repo = options.repo ?? 'https://github.com/fabioassuncao/portta.git'
   const branch = options.branch ?? 'develop'
   const profile = options.profile ?? global.profile ?? 'local'
   const steps: SetupStep[] = []
@@ -57,7 +57,7 @@ export async function setupCommand(options: SetupOptions, command: Command): Pro
     return
   }
 
-  await confirm(`set up Dev Gateway in ${target}?`, global.yes === true)
+  await confirm(`set up Portta in ${target}?`, global.yes === true)
   if (existsSync(target) && !existsSync(gitDir)) throw new RefusedError(`${target} exists and is not a Git checkout`, 'choose an empty --dir; setup never overwrites an unrelated directory')
   if (existsSync(gitDir)) {
     const dirty = await runProcess('git', ['-C', target, 'status', '--porcelain'])
@@ -84,7 +84,7 @@ export async function setupCommand(options: SetupOptions, command: Command): Pro
   await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d'], { cwd: target, env: context.env })
   record('gateway', 'ok', `gateway up on ${profile}`)
   const running = await runProcess('docker', ['compose', ...composeArguments(context), 'ps', '--status', 'running', '--quiet'], { cwd: target, env: context.env })
-  if (!running.stdout.trim()) throw new PreconditionError('gateway started but no component remained running', `run dev-gateway doctor inside ${target}`)
+  if (!running.stdout.trim()) throw new PreconditionError('gateway started but no component remained running', `run portta doctor inside ${target}`)
   record('doctor', 'ok', 'gateway components are running')
   if (output.json) output.data({ dryRun: false, target, steps })
 }

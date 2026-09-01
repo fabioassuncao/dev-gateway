@@ -36,7 +36,7 @@ flowchart LR
         tr[traefik :80 :443]
     end
     ts --- tr
-    tr --> apps[project HTTP services<br/>on the dev-gateway network]
+    tr --> apps[project HTTP services<br/>on the portta network]
     internet([public internet]) -.->|no listener| vps[VPS public IP]
 ```
 
@@ -66,7 +66,7 @@ Generate an **ephemeral, pre-authorized, tagged** key in the admin console:
 
 ```env
 TS_AUTHKEY=tskey-auth-...
-TS_EXTRA_ARGS=--advertise-tags=tag:dev-gateway
+TS_EXTRA_ARGS=--advertise-tags=tag:portta
 ```
 
 Ephemeral so a leaked key ages out. Tagged so ACLs can name the node without
@@ -84,14 +84,14 @@ Deny by default, then grant deliberately. A minimal policy:
 ```jsonc
 {
   "tagOwners": {
-    "tag:dev-gateway": ["autogroup:admin"]
+    "tag:portta": ["autogroup:admin"]
   },
   "acls": [
     {
       // developers reach the gateway's HTTP ports, and nothing else
       "action": "accept",
       "src":    ["group:developers"],
-      "dst":    ["tag:dev-gateway:80,443"]
+      "dst":    ["tag:portta:80,443"]
     }
   ]
 }
@@ -113,7 +113,7 @@ host itself, exit-node behaviour, or a firewall integration. Then:
 
 ```env
 TAILSCALE_ENABLED=false
-DEV_GATEWAY_BIND_ADDRESS=100.x.y.z    # the host's tailnet address
+PORTTA_BIND_ADDRESS=100.x.y.z    # the host's tailnet address
 ```
 
 The gateway attaches to the host instead and binds only that address.
@@ -122,9 +122,9 @@ The gateway attaches to the host instead and binds only that address.
 ## Checking it
 
 ```bash
-./bin/dev-gateway network status     # tailnet address and every bind
-./bin/dev-gateway doctor             # namespace sharing, auth, persisted state
-docker exec dev-gateway-tailscale-1 tailscale status
+./bin/portta network status     # tailnet address and every bind
+./bin/portta doctor             # namespace sharing, auth, persisted state
+docker exec portta-tailscale-1 tailscale status
 ```
 
 `doctor` fails if Traefik is not actually in the Tailscale namespace, a case
@@ -134,7 +134,7 @@ where everything looks fine but nothing is reachable.
 
 **No tailnet address.** The key is expired, already used (with
 `TS_AUTH_ONCE=true` and no persisted state), or the device needs approval.
-Check `docker logs dev-gateway-tailscale-1`.
+Check `docker logs portta-tailscale-1`.
 
 **Reachable on the tailnet but every route 404s.** Traefik is up but discovery
 is broken, usually MagicDNS overwriting `resolv.conf`. Confirm

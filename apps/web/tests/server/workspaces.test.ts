@@ -50,7 +50,7 @@ describe('adoption precedence', () => {
     expect(resolveAdoption(project, WORKSPACES, new Map())).toBeNull()
   })
 
-  it('honours the dev-gateway.project label the project declared', () => {
+  it('honours the portta.project label the project declared', () => {
     expect(resolveAdoption({ ...project, group: 'meu-produto' }, WORKSPACES, new Map())).toEqual({
       workspaceId: '1',
       source: 'label',

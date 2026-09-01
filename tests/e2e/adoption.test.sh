@@ -14,25 +14,25 @@
 # ============================================================================
 set -uo pipefail
 
-DG_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-. "$DG_TEST_DIR/lib/assert.sh"
-DG_ROOT=$(cd -P "$DG_TEST_DIR/.." && pwd); export DG_ROOT
-. "$DG_ROOT/scripts/lib/common.sh"
-. "$DG_ROOT/scripts/lib/docker.sh"
-dg_load_env; dg_defaults
+PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+. "$PORTTA_TEST_DIR/lib/assert.sh"
+PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
+. "$PORTTA_ROOT/scripts/lib/common.sh"
+. "$PORTTA_ROOT/scripts/lib/docker.sh"
+portta_load_env; portta_defaults
 
-GW="$DG_ROOT/bin/dev-gateway"
-export DG_ASSUME_YES=true
+GW="$PORTTA_ROOT/bin/portta"
+export PORTTA_ASSUME_YES=true
 
-dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
+portta_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
 
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/dg-adopt.XXXXXX")
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/portta-adopt.XXXXXX")
 PROJ="$WORK/legacy-shop"
 
 cleanup() {
   for ns in legacy-shop legacy-shop-issue7; do
     ( cd "$PROJ" 2>/dev/null && COMPOSE_PROJECT_NAME="$ns" docker compose \
-        -f compose.yaml -f compose.dev-gateway.yaml down -v ) >/dev/null 2>&1
+        -f compose.yaml -f compose.portta.yaml down -v ) >/dev/null 2>&1
     ( cd "$PROJ" 2>/dev/null && COMPOSE_PROJECT_NAME="$ns" docker compose \
         -f compose.yaml down -v ) >/dev/null 2>&1
   done
@@ -44,7 +44,7 @@ http_code() {
   local url="$1" host
   host=$(printf '%s' "$url" | sed -e 's#^https\{0,1\}://##' -e 's#[:/].*$##')
   curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
-    --resolve "${host}:${DEV_GATEWAY_HTTP_PORT}:${DEV_GATEWAY_BIND_ADDRESS}" "$url"
+    --resolve "${host}:${PORTTA_HTTP_PORT}:${PORTTA_BIND_ADDRESS}" "$url"
 }
 
 # ---------------------------------------------------------------------------
@@ -117,24 +117,24 @@ it "JSON lists the fixed container name"
 assert_eq "storefront" "$(printf '%s' "$json" | python3 -c 'import json,sys; print(",".join(json.load(sys.stdin)["findings"]["fixed_container_names"]))')"
 
 describe "analyze changed nothing"
-it "no overlay was created"; assert_failure test -f "$PROJ/compose.dev-gateway.yaml"
+it "no overlay was created"; assert_failure test -f "$PROJ/compose.portta.yaml"
 it "compose.yaml is untouched"
 assert_contains "$(cat "$PROJ/compose.yaml")" "container_name: legacy-shop-storefront"
 
 describe "init generates a working overlay"
 it "dry-run writes nothing"
 "$GW" init "$PROJ" --dry-run >/dev/null 2>&1
-assert_failure test -f "$PROJ/compose.dev-gateway.yaml"
+assert_failure test -f "$PROJ/compose.portta.yaml"
 
 it "init writes the overlay"
 assert_success "$GW" init "$PROJ" --service storefront:3000
-it "the overlay exists"; assert_success test -f "$PROJ/compose.dev-gateway.yaml"
+it "the overlay exists"; assert_success test -f "$PROJ/compose.portta.yaml"
 it "it uses list-form labels"
-assert_contains "$(cat "$PROJ/compose.dev-gateway.yaml")" '- "traefik.enable=true"'
+assert_contains "$(cat "$PROJ/compose.portta.yaml")" '- "traefik.enable=true"'
 it "it namespaces the Traefik service"
-assert_contains "$(cat "$PROJ/compose.dev-gateway.yaml")" 'services.${COMPOSE_PROJECT_NAME'
+assert_contains "$(cat "$PROJ/compose.portta.yaml")" 'services.${COMPOSE_PROJECT_NAME'
 it "it does not attach the database"
-assert_not_contains "$(cat "$PROJ/compose.dev-gateway.yaml")" $'\n  db:'
+assert_not_contains "$(cat "$PROJ/compose.portta.yaml")" $'\n  db:'
 it "compose.yaml is still untouched"
 assert_contains "$(cat "$PROJ/compose.yaml")" "container_name: legacy-shop-storefront"
 
@@ -145,32 +145,32 @@ sed -i.bak -e '/container_name:/d' -e '/^      - "80:3000"$/d' -e '/^      - "54
   -e '/^    ports:$/d' "$PROJ/compose.yaml"
 rm -f "$PROJ/compose.yaml.bak"
 
-( cd "$PROJ" && docker compose -f compose.yaml -f compose.dev-gateway.yaml \
+( cd "$PROJ" && docker compose -f compose.yaml -f compose.portta.yaml \
     up -d --wait --wait-timeout 180 ) >/dev/null 2>&1
 sleep 5
 
 it "the storefront is routed"
-assert_eq "200" "$(http_code "http://legacy-shop-storefront.$DEV_GATEWAY_DOMAIN/")"
+assert_eq "200" "$(http_code "http://legacy-shop-storefront.$PORTTA_DOMAIN/")"
 it "it is the right application"
 assert_contains "$(curl -s --max-time 10 \
-  --resolve "legacy-shop-storefront.$DEV_GATEWAY_DOMAIN:${DEV_GATEWAY_HTTP_PORT}:${DEV_GATEWAY_BIND_ADDRESS}" \
-  "http://legacy-shop-storefront.$DEV_GATEWAY_DOMAIN/")" "legacy-storefront"
+  --resolve "legacy-shop-storefront.$PORTTA_DOMAIN:${PORTTA_HTTP_PORT}:${PORTTA_BIND_ADDRESS}" \
+  "http://legacy-shop-storefront.$PORTTA_DOMAIN/")" "legacy-storefront"
 it "the worker is not routed"
-assert_ne "200" "$(http_code "http://legacy-shop-worker.$DEV_GATEWAY_DOMAIN/")"
+assert_ne "200" "$(http_code "http://legacy-shop-worker.$PORTTA_DOMAIN/")"
 it "the database is not routed"
-assert_ne "200" "$(http_code "http://legacy-shop-db.$DEV_GATEWAY_DOMAIN/")"
+assert_ne "200" "$(http_code "http://legacy-shop-db.$PORTTA_DOMAIN/")"
 it "nothing is published on the host"
 assert_eq "" "$(docker ps --format '{{.Names}} {{.Ports}}' | grep '^legacy-shop' | grep -E '0\.0\.0\.0|127\.0\.0\.1' || true)"
 
 describe "and it runs twice, in parallel"
 ( cd "$PROJ" && COMPOSE_PROJECT_NAME=legacy-shop-issue7 docker compose \
-    -f compose.yaml -f compose.dev-gateway.yaml up -d --wait --wait-timeout 180 ) >/dev/null 2>&1
+    -f compose.yaml -f compose.portta.yaml up -d --wait --wait-timeout 180 ) >/dev/null 2>&1
 sleep 5
 
 it "the second environment is routed"
-assert_eq "200" "$(http_code "http://legacy-shop-issue7-storefront.$DEV_GATEWAY_DOMAIN/")"
+assert_eq "200" "$(http_code "http://legacy-shop-issue7-storefront.$PORTTA_DOMAIN/")"
 it "the first is still routed"
-assert_eq "200" "$(http_code "http://legacy-shop-storefront.$DEV_GATEWAY_DOMAIN/")"
+assert_eq "200" "$(http_code "http://legacy-shop-storefront.$PORTTA_DOMAIN/")"
 it "they have separate databases"
 assert_eq "2" "$(docker volume ls --format '{{.Name}}' | grep -cE '^legacy-shop(-issue7)?_dbdata$')"
 it "and separate private networks"

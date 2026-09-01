@@ -8,7 +8,7 @@ export const apiDocsHtml = String.raw`<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>Dev Gateway API</title>
+  <title>Portta API</title>
   <style>
     :root{color-scheme:light dark;font:15px/1.5 ui-sans-serif,system-ui,sans-serif;background:#101312;color:#edf2ef}
     body{max-width:1080px;margin:0 auto;padding:32px 20px 80px}a{color:#75d7ad}header{display:flex;gap:20px;align-items:end;justify-content:space-between;flex-wrap:wrap}
@@ -20,7 +20,7 @@ export const apiDocsHtml = String.raw`<!doctype html>
   </style>
 </head>
 <body>
-  <header><div><h1>Dev Gateway API</h1><p id="about">Loading the contract…</p></div><div class="toolbar"><input id="search" type="search" placeholder="Filter paths and summaries" aria-label="Filter API operations"><a href="/api/openapi.json">OpenAPI JSON</a></div></header>
+  <header><div><h1>Portta API</h1><p id="about">Loading the contract…</p></div><div class="toolbar"><input id="search" type="search" placeholder="Filter paths and summaries" aria-label="Filter API operations"><a href="/api/openapi.json">OpenAPI JSON</a></div></header>
   <main id="routes"></main>
   <script>
   (async function(){

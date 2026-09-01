@@ -99,7 +99,7 @@ describe('degraded operation', () => {
     const status = unavailableDatabaseStatus(true, 'connection refused')
     const database = diagnose(snapshot, config, null, [], status).find((check) => check.id === 'database')
 
-    expect(database).toMatchObject({ status: 'warn', fix: 'dev-gateway db status' })
+    expect(database).toMatchObject({ status: 'warn', fix: 'portta db status' })
   })
 
   it('turns a future persistence write into a clear 503 boundary', () => {

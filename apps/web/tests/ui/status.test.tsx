@@ -13,7 +13,7 @@ describe('the badges that carry the whole distinction', () => {
         <OwnershipBadge ownership="standalone" />
       </>,
     )
-    expect(screen.getByText('Dev Gateway')).toBeInTheDocument()
+    expect(screen.getByText('Portta')).toBeInTheDocument()
     expect(screen.getByText('Integrated')).toBeInTheDocument()
     expect(screen.getByText('External')).toBeInTheDocument()
     expect(screen.getByText('Standalone')).toBeInTheDocument()

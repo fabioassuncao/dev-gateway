@@ -1,5 +1,5 @@
 # ============================================================================
-# Dev Gateway: base stack
+# Portta: base stack
 # ============================================================================
 # This file contains ONLY gateway-owned infrastructure. It never references,
 # mounts or manages anything belonging to a consumer project.
@@ -7,7 +7,7 @@
 # Do not run this file directly; use the CLI so the right profile overlays and
 # the resolved environment are applied:
 #
-#   ./bin/dev-gateway up local
+#   ./bin/portta up local
 #
 # docker/compose/compose.yaml alone is intentionally incomplete: it declares no Traefik
 # networks or ports, because exactly one attach-* overlay decides those.
@@ -18,23 +18,23 @@
 # Dynamic configuration stays in config/traefik/dynamic/. See docs/adr/0003.
 # ============================================================================
 
-name: ${DEV_GATEWAY_PROJECT_NAME:-dev-gateway}
+name: ${PORTTA_PROJECT_NAME:-portta}
 
 networks:
   # Shared, external, created by `bootstrap`. Consumer projects attach their
   # published HTTP services here. Its lifecycle is independent of this stack.
   gateway:
     external: true
-    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}
+    name: ${PORTTA_NETWORK:-portta}
 
   # Gateway-private control plane. `internal: true` means no route to the
   # outside world: the Docker socket proxy is unreachable from anywhere else.
   control:
-    name: ${DEV_GATEWAY_CONTROL_NETWORK:-dev-gateway-control}
+    name: ${PORTTA_CONTROL_NETWORK:-portta-control}
     internal: true
     labels:
-      dev-gateway.managed: "true"
-      dev-gateway.component: control-network
+      portta.managed: "true"
+      portta.component: control-network
 
 services:
   # --------------------------------------------------------------------------
@@ -96,8 +96,8 @@ services:
       start_period: 5s
     labels:
       traefik.enable: "false"
-      dev-gateway.managed: "true"
-      dev-gateway.component: socket-proxy
+      portta.managed: "true"
+      portta.component: socket-proxy
 
   # --------------------------------------------------------------------------
   # Traefik: HTTP/HTTPS edge router
@@ -122,8 +122,8 @@ services:
       TRAEFIK_GLOBAL_SENDANONYMOUSUSAGE: "false"
 
       # -- observability ---------------------------------------------------
-      TRAEFIK_LOG_LEVEL: ${DEV_GATEWAY_LOG_LEVEL:-INFO}
-      TRAEFIK_ACCESSLOG: ${DEV_GATEWAY_ACCESS_LOG:-false}
+      TRAEFIK_LOG_LEVEL: ${PORTTA_LOG_LEVEL:-INFO}
+      TRAEFIK_ACCESSLOG: ${PORTTA_ACCESS_LOG:-false}
       TRAEFIK_PING: "true"
 
       # -- api / dashboard -------------------------------------------------
@@ -140,8 +140,8 @@ services:
       # Traefik manages. `keep` is Traefik's default and is fine behind
       # loopback; the public profile raises this to `delete`. Setting it
       # explicitly also silences Traefik's startup advisory.
-      TRAEFIK_ENTRYPOINTS_WEB_HTTP_ALIASHEADERSSTRATEGY: ${DEV_GATEWAY_ALIAS_HEADERS_STRATEGY:-keep}
-      TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_ALIASHEADERSSTRATEGY: ${DEV_GATEWAY_ALIAS_HEADERS_STRATEGY:-keep}
+      TRAEFIK_ENTRYPOINTS_WEB_HTTP_ALIASHEADERSSTRATEGY: ${PORTTA_ALIAS_HEADERS_STRATEGY:-keep}
+      TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_ALIASHEADERSSTRATEGY: ${PORTTA_ALIAS_HEADERS_STRATEGY:-keep}
 
       # -- docker provider -------------------------------------------------
       TRAEFIK_PROVIDERS_DOCKER: "true"
@@ -150,19 +150,19 @@ services:
       TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT: "false"
       # Consumer containers sit on several networks; always dial them over the
       # shared gateway network so we never reach into a project's private one.
-      TRAEFIK_PROVIDERS_DOCKER_NETWORK: ${DEV_GATEWAY_NETWORK:-dev-gateway}
+      TRAEFIK_PROVIDERS_DOCKER_NETWORK: ${PORTTA_NETWORK:-portta}
       # Hostnames are derived from the labels Compose already injects, so a
       # project opts in without repeating its own name. An explicit
       # `traefik.http.routers.<name>.rule` label always wins.
       TRAEFIK_PROVIDERS_DOCKER_DEFAULTRULE: >-
-        Host(`{{ if index .Labels "com.docker.compose.project" }}{{ normalize (index .Labels "com.docker.compose.project") }}-{{ normalize (index .Labels "com.docker.compose.service") }}{{ else }}{{ normalize .Name }}{{ end }}.${DEV_GATEWAY_DOMAIN:-localhost}`)
+        Host(`{{ if index .Labels "com.docker.compose.project" }}{{ normalize (index .Labels "com.docker.compose.project") }}-{{ normalize (index .Labels "com.docker.compose.service") }}{{ else }}{{ normalize .Name }}{{ end }}.${PORTTA_DOMAIN:-localhost}`)
 
       # -- file provider (dynamic configuration) ---------------------------
       TRAEFIK_PROVIDERS_FILE_DIRECTORY: /etc/traefik/dynamic
       TRAEFIK_PROVIDERS_FILE_WATCH: "true"
     volumes:
       - ./config/traefik/dynamic:/etc/traefik/dynamic:ro
-      # Local CA material, when `dev-gateway tls init` has been run. Empty
+      # Local CA material, when `portta tls init` has been run. Empty
       # otherwise; git-ignored either way.
       - ./config/tls:/etc/traefik/tls:ro
       - ./state/traefik/acme:/etc/traefik/acme
@@ -174,5 +174,5 @@ services:
       start_period: 5s
     labels:
       traefik.enable: "false"
-      dev-gateway.managed: "true"
-      dev-gateway.component: traefik
+      portta.managed: "true"
+      portta.component: traefik

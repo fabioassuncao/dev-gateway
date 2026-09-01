@@ -6,7 +6,7 @@ page are [ADR 0014](adr/0014-monorepo-and-the-typescript-cli.md) and
 
 The panel lives at `apps/web`. Shared logic that a second consumer needs
 goes in `packages/core`. The TypeScript CLI lives in `packages/cli` and is
-unpublished until issue #9. `npm ci` at the repository root installs every
+configured for unscoped publication as `portta`. `npm ci` at the repository root installs every
 workspace from one lockfile. The lockfile must keep optional native bindings
 for Linux: `npm install` on macOS workspaces otherwise drops them, and the
 Alpine panel image cannot build Vite.
@@ -14,11 +14,11 @@ Alpine panel image cannot build Vite.
 ## Map
 
 ```text
-dev-gateway/
+portta/
 ├── apps/web/                the panel (Hono API, React UI, PostgreSQL)
-├── packages/core/           @dev-gateway/core — shared domain logic (private)
-├── packages/cli/            @fabioassuncao/dev-gateway — TypeScript CLI
-├── bin/dev-gateway          Bash entry point; delegates when Node is present
+├── packages/core/           portta-core — shared domain logic (private)
+├── packages/cli/            portta — TypeScript CLI
+├── bin/portta          Bash entry point; delegates when Node is present
 ├── scripts/                 Bash commands; shrinks as they migrate
 ├── docker/
 │   ├── compose/              gateway Compose base and overlays
@@ -29,9 +29,9 @@ dev-gateway/
 
 | Workspace | Name | Published | Holds |
 |---|---|---|---|
-| `apps/web` | `dev-gateway-web` | no | Panel server, UI, migrations, Dockerfile, panel tests |
-| `packages/core` | `@dev-gateway/core` | no | `env`, `config`, `docker`, `inventory`, `traefik`, `schemas` |
-| `packages/cli` | `@fabioassuncao/dev-gateway` | yes, by issue #9 | Commands, formatting, process execution, provisioning |
+| `apps/web` | `portta-web` | no | Panel server, UI, migrations, Dockerfile, panel tests |
+| `packages/core` | `portta-core` | no | `env`, `config`, `docker`, `inventory`, `traefik`, `schemas` |
+| `packages/cli` | `portta` | ready, not published by repository changes | Commands, formatting, process execution, provisioning |
 
 `bin/` and `scripts/` stay at the root. They are not a workspace.
 
@@ -84,8 +84,8 @@ core when a second consumer exists, not in anticipation.
 ## Node on the host
 
 The host does not need Node for `bootstrap`, `up`, `down`, `status` and
-`doctor`. The full TypeScript CLI needs Node 22.12+. `npx` uses the scoped
-name `@fabioassuncao/dev-gateway`; the binary remains `dev-gateway`.
+`doctor`. The full TypeScript CLI needs Node 22.12+. The unscoped npm package
+and the binary are both named `portta`.
 Details in [ADR 0015](adr/0015-node-on-the-host.md).
 
 ## AGENTS.md

@@ -4,7 +4,7 @@ The gateway **never changes a firewall rule**. It tells you what is listening
 and what a rule set should look like; applying it stays your decision.
 
 ```bash
-dev-gateway network status
+portta network status
 ```
 
 shows interfaces, the tailnet address, every published port split by whether

@@ -4,32 +4,32 @@
 # Deliberately dependency-free: the gateway's promise is that a host needs only
 # Docker, Git and a shell, and the test suite has to hold itself to that too.
 
-DG_T_TOTAL=0
-DG_T_FAILED=0
-DG_T_SKIPPED=0
-DG_T_CURRENT=""
+PORTTA_T_TOTAL=0
+PORTTA_T_FAILED=0
+PORTTA_T_SKIPPED=0
+PORTTA_T_CURRENT=""
 
 _t_color() { [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && printf '\033[%sm%s\033[0m' "$1" "$2" || printf '%s' "$2"; }
 
 describe() { printf '\n%s\n' "$(_t_color 1 "$1")"; }
 
 it() {
-  DG_T_CURRENT="$1"
-  DG_T_TOTAL=$((DG_T_TOTAL + 1))
+  PORTTA_T_CURRENT="$1"
+  PORTTA_T_TOTAL=$((PORTTA_T_TOTAL + 1))
 }
 
-_t_pass() { printf '  %s %s\n' "$(_t_color 32 'ok')" "$DG_T_CURRENT"; }
+_t_pass() { printf '  %s %s\n' "$(_t_color 32 'ok')" "$PORTTA_T_CURRENT"; }
 
 _t_fail() {
-  DG_T_FAILED=$((DG_T_FAILED + 1))
-  printf '  %s %s\n' "$(_t_color 31 'FAIL')" "$DG_T_CURRENT"
+  PORTTA_T_FAILED=$((PORTTA_T_FAILED + 1))
+  printf '  %s %s\n' "$(_t_color 31 'FAIL')" "$PORTTA_T_CURRENT"
   printf '       %s\n' "$1"
 }
 
 skip() {
-  DG_T_SKIPPED=$((DG_T_SKIPPED + 1))
-  DG_T_TOTAL=$((DG_T_TOTAL - 1))
-  printf '  %s %s\n' "$(_t_color 33 'skip')" "${DG_T_CURRENT}${1:+: $1}"
+  PORTTA_T_SKIPPED=$((PORTTA_T_SKIPPED + 1))
+  PORTTA_T_TOTAL=$((PORTTA_T_TOTAL - 1))
+  printf '  %s %s\n' "$(_t_color 33 'skip')" "${PORTTA_T_CURRENT}${1:+: $1}"
 }
 
 assert_eq() { # assert_eq <expected> <actual>
@@ -73,10 +73,10 @@ assert_exit() { # assert_exit <code> <command...>
 
 t_summary() {
   printf '\n'
-  if [ "$DG_T_FAILED" -eq 0 ]; then
-    printf '%s  %s passed, %s skipped\n' "$(_t_color 32 'PASS')" "$DG_T_TOTAL" "$DG_T_SKIPPED"
+  if [ "$PORTTA_T_FAILED" -eq 0 ]; then
+    printf '%s  %s passed, %s skipped\n' "$(_t_color 32 'PASS')" "$PORTTA_T_TOTAL" "$PORTTA_T_SKIPPED"
     return 0
   fi
-  printf '%s  %s of %s failed, %s skipped\n' "$(_t_color 31 'FAIL')" "$DG_T_FAILED" "$DG_T_TOTAL" "$DG_T_SKIPPED"
+  printf '%s  %s of %s failed, %s skipped\n' "$(_t_color 31 'FAIL')" "$PORTTA_T_FAILED" "$PORTTA_T_TOTAL" "$PORTTA_T_SKIPPED"
   return 1
 }

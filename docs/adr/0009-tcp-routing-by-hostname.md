@@ -21,7 +21,7 @@ on it.
 ## Decision
 
 The gateway publishes **one entrypoint per protocol** and picks the backend
-from SNI. It is opt-in twice over: `DEV_GATEWAY_TCP=true` on the gateway, and
+from SNI. It is opt-in twice over: `PORTTA_TCP=true` on the gateway, and
 router labels on the project's own datastore.
 
 Three choices inside that, each with an alternative that was rejected:
@@ -41,7 +41,7 @@ with "server certificate for `*.<domain>` does not match host name". Flat reuses
 issues.
 
 **Opted-in datastores join the access network, not the shared one.** The shared
-`dev-gateway` network carries HTTP and has never carried a database;
+`portta` network carries HTTP and has never carried a database;
 `tests/unit/templates.test.sh` fails the build if one appears there. The access
 network already existed for reaching private TCP services, so Traefik joins it
 and nothing else changes.
@@ -71,6 +71,6 @@ The protocol registry lives in two places that must agree,
 is listed as routable only after two instances were reached through one port.
 `unevaluated` is a real state, and the default.
 
-Everything here is additive. With `DEV_GATEWAY_TCP=false`, which is the
+Everything here is additive. With `PORTTA_TCP=false`, which is the
 default, nothing changes: the bridges, the clients and the published ports all
 behave exactly as before.

@@ -29,7 +29,7 @@ const PUBLIC = {
 let dir: string
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'dg-shares-'))
+  dir = mkdtempSync(join(tmpdir(), 'portta-shares-'))
 })
 
 async function world(overrides: Partial<PanelConfig> = {}) {
@@ -46,8 +46,8 @@ describe('a share is an additional hostname, and nothing about the project chang
     const { config, snapshot, container } = await world(PUBLIC)
     const created = createShare(config, snapshot, container('a-web'), { mode: 'protected' })
 
-    const yaml = readFileSync(join(dir, 'dev-gateway-shares.yaml'), 'utf8')
-    expect(yaml).toContain(`dg-share-${created.share.id}:`)
+    const yaml = readFileSync(join(dir, 'portta-shares.yaml'), 'utf8')
+    expect(yaml).toContain(`portta-share-${created.share.id}:`)
     // The container NAME, never the Compose alias: two projects can both
     // alias `web` on the shared network.
     expect(yaml).toContain('url: "http://alpha-web-1:80"')
@@ -60,7 +60,7 @@ describe('a share is an additional hostname, and nothing about the project chang
     const created = createShare(config, snapshot, container('a-web'), { mode: 'protected' })
 
     expect(created.password).toMatch(/^[23456789A-HJ-NP-Z-]+$/)
-    const yaml = readFileSync(join(dir, 'dev-gateway-shares.yaml'), 'utf8')
+    const yaml = readFileSync(join(dir, 'portta-shares.yaml'), 'utf8')
     expect(yaml).not.toContain(created.password!)
     expect(yaml).toContain('$apr1$')
     // And never again, from anywhere.
@@ -70,7 +70,7 @@ describe('a share is an additional hostname, and nothing about the project chang
   it('gives a public share a router and no middleware at all', async () => {
     const { config, snapshot, container } = await world(PUBLIC)
     createShare(config, snapshot, container('a-web'), { mode: 'public' })
-    const yaml = readFileSync(join(dir, 'dev-gateway-shares.yaml'), 'utf8')
+    const yaml = readFileSync(join(dir, 'portta-shares.yaml'), 'utf8')
     expect(yaml).toContain('entryPoints: [websecure]')
     expect(yaml).not.toContain('basicAuth')
   })
@@ -83,7 +83,7 @@ describe('a share is an additional hostname, and nothing about the project chang
     expect(loadShares(config)).toEqual([])
     // Comments only: `http: {}` is invalid to Traefik and would abort the
     // whole directory, taking every other generated router with it.
-    const emptied = readFileSync(join(dir, 'dev-gateway-shares.yaml'), 'utf8')
+    const emptied = readFileSync(join(dir, 'portta-shares.yaml'), 'utf8')
     expect(emptied).not.toMatch(/^http:/m)
     expect(emptied).toContain('not a deny rule')
   })
@@ -114,7 +114,7 @@ describe('a share is an additional hostname, and nothing about the project chang
   it('reads an empty file, a missing one and a mangled one as no shares', () => {
     expect(parseShares(null)).toEqual([])
     expect(parseShares('http: {}\n')).toEqual([])
-    expect(parseShares('# dev-gateway-shares: not json\n')).toEqual([])
+    expect(parseShares('# portta-shares: not json\n')).toEqual([])
   })
 })
 
@@ -129,7 +129,7 @@ describe('the refusals, which are refusals and not warnings', () => {
   it('refuses a service that never joined the shared network', async () => {
     const { config, snapshot, container } = await world(PUBLIC)
     expect(() => createShare(config, snapshot, container('ext-pg'), { mode: 'public' })).toThrow(
-      /not on the dev-gateway network|not an HTTP service/,
+      /not on the portta network|not an HTTP service/,
     )
   })
 
@@ -263,7 +263,7 @@ describe('the port Traefik dials', () => {
     expect(backendPort(container)).toBe(3000)
 
     createShare(config, snapshot, container, { mode: 'public' })
-    expect(readFileSync(join(dir, 'dev-gateway-shares.yaml'), 'utf8')).toContain(
+    expect(readFileSync(join(dir, 'portta-shares.yaml'), 'utf8')).toContain(
       'url: "http://alpha-web-1:3000"',
     )
   })

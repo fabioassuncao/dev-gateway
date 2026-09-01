@@ -18,7 +18,7 @@ if (action === 'check') {
   if (git('status', '--porcelain')) throw new Error('refusing to version a dirty worktree')
 } else if (action === 'sync') {
   writeFileSync(resolve(root, 'VERSION'), `${pkg.version}\n`)
-  execFileSync('npm', ['run', 'openapi', '--workspace=dev-gateway-web'], { cwd: root, stdio: 'inherit' })
+  execFileSync('npm', ['run', 'openapi', '--workspace=portta-web'], { cwd: root, stdio: 'inherit' })
   execFileSync('git', ['add', 'VERSION', 'apps/web/openapi.json', 'packages/cli/package.json', 'package-lock.json'], { cwd: root, stdio: 'inherit' })
 } else if (action === 'verify') {
   const synced = readFileSync(resolve(root, 'VERSION'), 'utf8').trim()

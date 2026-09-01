@@ -1,4 +1,4 @@
-// Reading what `dev-gateway git scan` collected on the host.
+// Reading what `portta git scan` collected on the host.
 //
 // The panel has no access to any project directory and runs no shell commands.
 // It reads one file per project from a read-only mount, and reports how old it
@@ -86,7 +86,7 @@ export function gitFileFor(config: PanelConfig, project: string): string | null 
  * collected, with the command that would fix it.
  */
 export function readProjectGit(config: PanelConfig, project: string, now = Date.now()): ProjectGit {
-  const refreshCommand = `./bin/dev-gateway git scan --project ${project}`
+  const refreshCommand = `./bin/portta git scan --project ${project}`
   const absent: ProjectGit = {
     project,
     collected: false,

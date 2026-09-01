@@ -55,13 +55,13 @@ rate-limit accounting.
 Invert it. The component that already runs on the host, already has `git`, and
 already knows every project's directory is the CLI.
 
-`dev-gateway git scan` reads the Compose labels, walks to each project's
+`portta git scan` reads the Compose labels, walks to each project's
 working directory, runs read-only `git` there, and writes one file per project
 under `state/git/`, mode `600`. `docker/compose/features/web.yaml` mounts that directory into
 the panel read-only, and `GET /api/projects/:project/git` reads the file.
 
 ```
-dev-gateway git scan          host: labels -> working_dir -> git -> gh
+portta git scan          host: labels -> working_dir -> git -> gh
         |
    state/git/<project>.json   one file per Compose project, mode 600
         |
@@ -84,7 +84,7 @@ from a panel that may be routed, no rate limit of ours to account for. No `gh`,
 no `forge` block, no GitHub section in the UI.
 
 **The data is a snapshot, and the panel says so.** Nothing polls. The scan runs
-from `dev-gateway up`, from `dev-gateway web up`, by hand, or from a cron the
+from `portta up`, from `portta web up`, by hand, or from a cron the
 user writes. Every file carries `collectedAt`; the panel renders the age,
 marks anything past a threshold as stale, and prints the exact host command to
 refresh it. That is the same honesty `doctor` and the pending-settings banner
@@ -103,9 +103,9 @@ derived, extending `LABELS` in `apps/web/src/server/core/labels.ts`:
 
 | Label | What it settles |
 |---|---|
-| `dev-gateway.project` | The logical project, when `COMPOSE_PROJECT_NAME` is a per-worktree namespace, so several worktrees group under one heading |
-| `dev-gateway.repo` | `owner/name` or a remote URL, which gives forge links with no host-side Git at all |
-| `dev-gateway.git.root` | The repository root, when the Compose file is not at it (see [monorepos.md](../monorepos.md)) |
+| `portta.project` | The logical project, when `COMPOSE_PROJECT_NAME` is a per-worktree namespace, so several worktrees group under one heading |
+| `portta.repo` | `owner/name` or a remote URL, which gives forge links with no host-side Git at all |
+| `portta.git.root` | The repository root, when the Compose file is not at it (see [monorepos.md](../monorepos.md)) |
 
 Every one of them is optional. The existing inference (`workingDir`, and a
 `namespace` derived when the directory basename disagrees with the project
@@ -125,7 +125,7 @@ on screen, staleness is marked, and the refresh command is one copy away.
 
 `state/git/` is a new host path with a new failure mode: it is written by the
 CLI as the invoking user and read by a container that may run as `node`.
-`DEV_GATEWAY_WEB_USER` already exists for the same reason on `.env`, and the
+`PORTTA_WEB_USER` already exists for the same reason on `.env`, and the
 scan makes the directory `700` and each file `600`.
 
 There is a second reason the ordering matters. Branch names, commit subjects

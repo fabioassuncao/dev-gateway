@@ -31,7 +31,7 @@ describe('translating Docker events', () => {
       Action: 'destroy',
       Actor: {
         ID: 'abc',
-        Attributes: { name: 'dg-access-alpha-postgres-x', 'dev-gateway.component': 'access-bridge' },
+        Attributes: { name: 'portta-access-alpha-postgres-x', 'portta.component': 'access-bridge' },
       },
     })
     expect(event?.kind).toBe('bridge')
@@ -42,7 +42,7 @@ describe('translating Docker events', () => {
     const event = translate({
       Type: 'container',
       Action: 'restart',
-      Actor: { ID: 'abc', Attributes: { name: 'traefik', 'dev-gateway.managed': 'true' } },
+      Actor: { ID: 'abc', Attributes: { name: 'traefik', 'portta.managed': 'true' } },
     })
     expect(event?.ownership).toBe('gateway')
   })

@@ -121,14 +121,14 @@ describe('the client refuses to widen its own permissions', () => {
     stub({ json: async () => ({ Id: 'new-bridge' }) })
     const client = new DockerClient('http://proxy:2375')
     await client.createBridge({
-      name: 'dg-access-alpha-postgres-abc123',
+      name: 'portta-access-alpha-postgres-abc123',
       image: 'alpine/socat:1.8.1.3',
       network: 'alpha_default',
       targetService: 'postgres',
       targetPort: 5432,
       bindIp: '127.0.0.1',
       hostPort: null,
-      labels: { 'dev-gateway.managed': 'true' },
+      labels: { 'portta.managed': 'true' },
       ttlSeconds: null,
     })
 
@@ -146,7 +146,7 @@ describe('the client refuses to widen its own permissions', () => {
     stub({ json: async () => ({ Id: 'new-bridge' }) })
     const client = new DockerClient('http://proxy:2375')
     await client.createBridge({
-      name: 'dg-access-alpha-redis-abc123',
+      name: 'portta-access-alpha-redis-abc123',
       image: 'alpine/socat:1.8.1.3',
       network: 'alpha_default',
       targetService: 'redis',

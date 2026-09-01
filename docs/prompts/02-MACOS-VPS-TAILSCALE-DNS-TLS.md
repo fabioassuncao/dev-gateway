@@ -1,6 +1,6 @@
 # Prompt 02 — macOS, VPS, Tailscale, DNS wildcard e TLS
 
-Continue no repositório `fabioassuncao/dev-gateway`.
+Continue no repositório `fabioassuncao/portta`.
 
 Leia primeiro a implementação, ADRs e testes existentes.
 
@@ -8,7 +8,7 @@ Implemente agora os perfis portáveis de execução local e remota.
 
 Mantenha o princípio central:
 
-> O Dev Gateway é instalado uma vez no host e permanece completamente desacoplado dos projetos consumidores.
+> O Portta é instalado uma vez no host e permanece completamente desacoplado dos projetos consumidores.
 
 Nenhum projeto deve ser movido para dentro deste repositório.
 
@@ -37,7 +37,7 @@ Suporte oficialmente:
 1. OrbStack como experiência recomendada no Mac;
 2. Docker Desktop ou runtime Docker compatível como alternativa.
 
-O Dev Gateway não pode exigir API proprietária do OrbStack para funcionar.
+O Portta não pode exigir API proprietária do OrbStack para funcionar.
 
 Recursos do OrbStack podem ser usados como otimização opcional.
 
@@ -74,7 +74,7 @@ Pesquise a abordagem atual mais segura para certificados locais.
 Se usar uma CA local:
 
 - automatize geração;
-- mantenha arquivos do Dev Gateway em diretório adequado;
+- mantenha arquivos do Portta em diretório adequado;
 - nunca commite chaves;
 - documente a instalação da CA no Keychain;
 - peça autorização para qualquer operação privilegiada;
@@ -90,7 +90,7 @@ Não torne HTTPS local requisito para usar o gateway.
 
 ## 5. Objetivo
 
-O mesmo Dev Gateway deve executar em uma VPS Ubuntu.
+O mesmo Portta deve executar em uma VPS Ubuntu.
 
 No modo privado:
 
@@ -110,7 +110,7 @@ VPS
    |
 Traefik
    |
-dev-gateway network
+portta network
    |
 serviços HTTP dos projetos
 ```
@@ -150,7 +150,7 @@ Nunca guardar auth keys no Git.
 
 Analise duas opções:
 
-### A. Tailscale containerizado junto ao Dev Gateway
+### A. Tailscale containerizado junto ao Portta
 
 Preferência inicial por portabilidade.
 
@@ -224,9 +224,9 @@ Exposição pública deve ser intencional e auditável.
 Crie interface equivalente a:
 
 ```bash
-./bin/dev-gateway public status
-./bin/dev-gateway public enable
-./bin/dev-gateway public disable
+./bin/portta public status
+./bin/portta public enable
+./bin/portta public disable
 ```
 
 Antes de habilitar:
@@ -254,9 +254,9 @@ Nunca usar Global API Key como recomendação.
 Automatizar, quando possível:
 
 ```bash
-./bin/dev-gateway dns check
-./bin/dev-gateway dns setup
-./bin/dev-gateway dns status
+./bin/portta dns check
+./bin/portta dns setup
+./bin/portta dns status
 ```
 
 Suportar wildcard.
@@ -318,7 +318,7 @@ Crie diagnóstico que mostre:
 Comando sugerido:
 
 ```bash
-./bin/dev-gateway network status
+./bin/portta network status
 ```
 
 ---
@@ -330,7 +330,7 @@ Implemente uma maneira segura de preparar uma VPS.
 Exemplo conceitual:
 
 ```bash
-./bin/dev-gateway remote bootstrap user@host
+./bin/portta remote bootstrap user@host
 ```
 
 ou interface melhor.
@@ -340,7 +340,7 @@ Deve ser capaz de:
 1. detectar distribuição/arquitetura;
 2. verificar Docker/Compose;
 3. oferecer instalação quando explicitamente solicitado;
-4. clonar ou atualizar `dev-gateway`;
+4. clonar ou atualizar `portta`;
 5. criar rede global;
 6. preparar estado;
 7. configurar perfil solicitado;
@@ -377,7 +377,7 @@ Um toolbox container com cliente SSH pode ser fornecido quando útil.
 Implemente:
 
 ```bash
-./bin/dev-gateway update
+./bin/portta update
 ```
 
 O processo deve:
@@ -485,7 +485,7 @@ Envie para `origin/main` somente depois das validações.
 
 ## Critério de conclusão
 
-Ao fim desta etapa, uma instalação do Dev Gateway deve poder ser usada:
+Ao fim desta etapa, uma instalação do Portta deve poder ser usada:
 
 - no Mac local;
 - numa VPS acessada apenas por Tailscale;

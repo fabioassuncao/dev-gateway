@@ -1,5 +1,5 @@
 {
-  "name": "dev-gateway-monorepo",
+  "name": "portta-monorepo",
   "private": true,
   "type": "module",
   "engines": {

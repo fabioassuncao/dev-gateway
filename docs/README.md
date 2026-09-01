@@ -60,4 +60,4 @@ is the complete operator and contributor index. Historical build briefs under
 ## Project reference
 
 - [Changelog](../CHANGELOG.md) — released behaviour and upgrade notes.
-- [Template copied into consumer projects](../templates/project/DEV-GATEWAY.md) — a short project-local runbook.
+- [Template copied into consumer projects](../templates/project/PORTTA.md) — a short project-local runbook.

@@ -2,10 +2,10 @@
 //
 // Every value the panel reports comes from the same environment Compose was
 // invoked with, so the panel and the CLI always describe the same gateway.
-// Gateway-wide defaults are owned by @dev-gateway/core.
+// Gateway-wide defaults are owned by portta-core.
 
 import { readFileSync, existsSync } from 'node:fs'
-import { isTrue, loadGatewayConfig } from '@dev-gateway/core'
+import { isTrue, loadGatewayConfig } from 'portta-core'
 
 export { isTrue }
 
@@ -79,7 +79,7 @@ export interface PanelConfig {
   webAuthHash: string
   /** Traefik's dynamic configuration directory, mounted read-write. */
   dynamicDir: string
-  /** Where `dev-gateway git scan` writes, mounted read-only. */
+  /** Where `portta git scan` writes, mounted read-only. */
   gitDir: string
   /** Past this age, collected Git metadata is marked stale rather than shown. */
   gitStaleSeconds: number
@@ -99,15 +99,15 @@ export interface PanelConfig {
 }
 
 export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
-  const versionFile = env('DG_WEB_VERSION_FILE', '/app/state/VERSION')
+  const versionFile = env('PORTTA_RUNTIME_VERSION_FILE', '/app/state/VERSION')
   const gateway = loadGatewayConfig(process.env)
   const config: PanelConfig = {
-    dockerApi: env('DG_WEB_DOCKER_API', 'http://web-socket-proxy:2375'),
-    host: env('DG_WEB_HOST', '0.0.0.0'),
-    port: Number(env('DG_WEB_PORT', '8081')),
-    envFile: env('DG_WEB_ENV_FILE', '/app/state/.env'),
+    dockerApi: env('PORTTA_RUNTIME_DOCKER_API', 'http://web-socket-proxy:2375'),
+    host: env('PORTTA_RUNTIME_HOST', '0.0.0.0'),
+    port: Number(env('PORTTA_RUNTIME_PORT', '8081')),
+    envFile: env('PORTTA_RUNTIME_ENV_FILE', '/app/state/.env'),
     versionFile,
-    uiDir: env('DG_WEB_UI_DIR', './dist/ui'),
+    uiDir: env('PORTTA_RUNTIME_UI_DIR', './dist/ui'),
     profile: gateway.profile,
     projectName: gateway.projectName,
     network: gateway.network,
@@ -115,7 +115,7 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     accessNetwork: gateway.accessNetwork,
     webNetwork: gateway.webNetwork,
     databaseNetwork: gateway.databaseNetwork,
-    databaseUrl: optional('DG_WEB_DATABASE_URL'),
+    databaseUrl: optional('PORTTA_RUNTIME_DATABASE_URL'),
     domain: gateway.domain,
     privateDomain: gateway.privateDomain,
     publicDomain: gateway.publicDomain,
@@ -128,46 +128,46 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     acmeCaServer: env('ACME_CA_SERVER', 'https://acme-v02.api.letsencrypt.org/directory'),
     acmeDnsProvider: env('ACME_DNS_PROVIDER', 'cloudflare'),
     tailscaleEnabled: gateway.tailscaleEnabled,
-    tailscaleHostname: env('TAILSCALE_HOSTNAME', 'dev-gateway'),
+    tailscaleHostname: env('TAILSCALE_HOSTNAME', 'portta'),
     publicEnabled: gateway.publicEnabled,
     cloudflareEnabled: isTrue(process.env.CLOUDFLARE_ENABLED),
     cloudflareZone: optional('CLOUDFLARE_ZONE'),
     dashboardEnabled: gateway.dashboardEnabled,
-    dashboardBindAddress: env('DEV_GATEWAY_DASHBOARD_BIND_ADDRESS', '127.0.0.1'),
-    dashboardPort: env('DEV_GATEWAY_DASHBOARD_PORT', '8080'),
+    dashboardBindAddress: env('PORTTA_DASHBOARD_BIND_ADDRESS', '127.0.0.1'),
+    dashboardPort: env('PORTTA_DASHBOARD_PORT', '8080'),
     // Pinned in scripts/lib/discovery.sh; the panel must create the very same
-    // bridge the CLI creates, or `dev-gateway access list` would not see it.
-    tcpEnabled: isTrue(process.env.DEV_GATEWAY_TCP),
+    // bridge the CLI creates, or `portta access list` would not see it.
+    tcpEnabled: isTrue(process.env.PORTTA_TCP),
     tcpPorts: {
-      postgres: Number(env('DEV_GATEWAY_TCP_POSTGRES_PORT', '5432')),
-      redis: Number(env('DEV_GATEWAY_TCP_REDIS_PORT', '6379')),
+      postgres: Number(env('PORTTA_TCP_POSTGRES_PORT', '5432')),
+      redis: Number(env('PORTTA_TCP_REDIS_PORT', '6379')),
     },
-    bridgeImage: env('DG_WEB_BRIDGE_IMAGE', 'alpine/socat:1.8.1.3'),
-    bridgeSettleMs: Number(env('DG_WEB_BRIDGE_SETTLE_MS', '800')),
-    panelVersion: env('DG_WEB_VERSION', '0.1.0'),
+    bridgeImage: env('PORTTA_RUNTIME_BRIDGE_IMAGE', 'alpine/socat:1.8.1.3'),
+    bridgeSettleMs: Number(env('PORTTA_RUNTIME_BRIDGE_SETTLE_MS', '800')),
+    panelVersion: env('PORTTA_RUNTIME_VERSION', '0.1.0'),
     gatewayVersion: readVersion(versionFile),
-    readOnly: isTrue(process.env.DG_WEB_READ_ONLY),
+    readOnly: isTrue(process.env.PORTTA_RUNTIME_READ_ONLY),
     apiDocs: false,
-    webExpose: env('DEV_GATEWAY_WEB_EXPOSE', 'local'),
-    webAuth: env('DEV_GATEWAY_WEB_AUTH', 'none'),
-    webAuthUser: env('DEV_GATEWAY_WEB_AUTH_USER', ''),
-    webAuthHash: env('DEV_GATEWAY_WEB_AUTH_HASH', ''),
-    dynamicDir: env('DG_WEB_DYNAMIC_DIR', '/app/state/traefik-dynamic'),
-    gitDir: env('DG_WEB_GIT_DIR', '/app/state/git'),
-    gitStaleSeconds: Number(env('DG_WEB_GIT_STALE_SECONDS', '600')),
-    traefikApi: env('DG_WEB_TRAEFIK_API', defaultTraefikApi()),
-    traefikApiTtlMs: Number(env('DG_WEB_TRAEFIK_API_TTL_MS', '7000')),
-    traefikApiTimeoutMs: Number(env('DG_WEB_TRAEFIK_API_TIMEOUT_MS', '1500')),
+    webExpose: env('PORTTA_WEB_EXPOSE', 'local'),
+    webAuth: env('PORTTA_WEB_AUTH', 'none'),
+    webAuthUser: env('PORTTA_WEB_AUTH_USER', ''),
+    webAuthHash: env('PORTTA_WEB_AUTH_HASH', ''),
+    dynamicDir: env('PORTTA_RUNTIME_DYNAMIC_DIR', '/app/state/traefik-dynamic'),
+    gitDir: env('PORTTA_RUNTIME_GIT_DIR', '/app/state/git'),
+    gitStaleSeconds: Number(env('PORTTA_RUNTIME_GIT_STALE_SECONDS', '600')),
+    traefikApi: env('PORTTA_RUNTIME_TRAEFIK_API', defaultTraefikApi()),
+    traefikApiTtlMs: Number(env('PORTTA_RUNTIME_TRAEFIK_API_TTL_MS', '7000')),
+    traefikApiTimeoutMs: Number(env('PORTTA_RUNTIME_TRAEFIK_API_TIMEOUT_MS', '1500')),
     githubEnabled: isTrue(process.env.GITHUB_APP_ENABLED),
     githubAppId: env('GITHUB_APP_ID', ''),
     githubPrivateKeyFile: env('GITHUB_APP_PRIVATE_KEY_FILE', '/app/state/github/app.pem'),
     githubWebhookSecret: env('GITHUB_APP_WEBHOOK_SECRET', ''),
     githubApiUrl: env('GITHUB_API_URL', 'https://api.github.com'),
-    githubTimeoutMs: Number(env('DG_WEB_GITHUB_TIMEOUT_MS', '8000')),
+    githubTimeoutMs: Number(env('PORTTA_RUNTIME_GITHUB_TIMEOUT_MS', '8000')),
     ...overrides,
   }
   if (overrides.apiDocs === undefined) {
-    const configured = optional('DG_WEB_API_DOCS')
+    const configured = optional('PORTTA_RUNTIME_API_DOCS')
     config.apiDocs = configured === null ? !isRouted(config) : isTrue(configured)
   }
   return config
@@ -182,10 +182,10 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
  * `tailscale` ([ADR 0007](docs/adr/0007-tailscale-sidecar.md)). The internal
  * port is always 8080; only the published one is configurable.
  *
- * Mirrors dg_attachment in scripts/lib/docker.sh: keep them in sync.
+ * Mirrors portta_attachment in scripts/lib/docker.sh: keep them in sync.
  */
 function defaultTraefikApi(): string {
-  const profile = env('DEV_GATEWAY_PROFILE', 'local')
+  const profile = env('PORTTA_PROFILE', 'local')
   const attached = profile !== 'local' && isTrue(process.env.TAILSCALE_ENABLED) ? 'tailscale' : 'traefik'
   return `http://${attached}:8080`
 }

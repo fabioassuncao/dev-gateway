@@ -42,7 +42,7 @@ describe('the Docker page', () => {
     expect(group('External Docker').getByText('legacy-postgres')).toBeInTheDocument()
     expect(group('External Docker').queryByText('alpha-web-1')).not.toBeInTheDocument()
     expect(group('Integrated projects').getByText('alpha-web-1')).toBeInTheDocument()
-    expect(group('Dev Gateway').getByText('dev-gateway-traefik-1')).toBeInTheDocument()
+    expect(group('Portta').getByText('portta-traefik-1')).toBeInTheDocument()
   })
 
   it('counts what belongs to the gateway and what does not', async () => {
@@ -50,7 +50,7 @@ describe('the Docker page', () => {
     await screen.findByRole('group', { name: 'Running' })
 
     expect(tile('Running')).toBe('3')
-    expect(tile('Dev Gateway')).toBe('1')
+    expect(tile('Portta')).toBe('1')
     expect(tile('Integrated')).toBe('1')
     expect(tile('External')).toBe('2')
     expect(tile('Port conflicts')).toBe('1')

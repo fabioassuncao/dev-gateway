@@ -58,7 +58,7 @@ ADR 0010 is marked amended, not replaced. Everything it decided about
 ## Decision
 
 > **Local Git stays on the host. Issues move to a GitHub App in the
-> panel.** `dev-gateway git scan` keeps producing branch, HEAD, dirty
+> panel.** `portta git scan` keeps producing branch, HEAD, dirty
 > counts and ahead/behind from local `git` — no network, every forge,
 > works offline. The App takes over issues, sub-issues, issue types,
 > issue fields and pull-request state, because those are not derivable
@@ -123,14 +123,14 @@ says GitHub projections are not copied between instances.
 
 | Secret | Where it lives | What the API may return |
 |---|---|---|
-| App id | `.env` (`DG_WEB_GITHUB_APP_ID`), not marked secret | the id |
+| App id | `.env` (`PORTTA_RUNTIME_GITHUB_APP_ID`), not marked secret | the id |
 | Private key | a host file, mode `600`, mounted read-only; only its path is in `.env` | whether the path is set, never the PEM |
 | Webhook secret | the same shape as the private key: a file, path in `.env` | whether it is set |
 | Installation tokens | process memory, with their expiry | nothing. Never persisted, never logged, never sent to the browser |
 
 `PATCH /api/config` must not be able to write a PEM or a webhook secret
 into `.env`. The existing `secret: true` fields (`TS_AUTHKEY`,
-`CF_DNS_API_TOKEN`, `DEV_GATEWAY_WEB_AUTH_HASH`, `DG_WEB_DB_PASSWORD`)
+`CF_DNS_API_TOKEN`, `PORTTA_WEB_AUTH_HASH`, `PORTTA_RUNTIME_DB_PASSWORD`)
 are write-only strings in `.env`; that pattern is **not** sufficient for
 a GitHub App private key. The shape is the one `state/git` already uses:
 the panel reads a file it cannot usefully overwrite through Settings.
@@ -165,10 +165,10 @@ record.
 | Issue title, body, state, labels, assignees, milestone, type, field values, sub-issue links, pull-request state | GitHub |
 | Branch, HEAD, dirty counts, ahead/behind | Local `git`, collected on the host (ADR 0010) |
 | Containers, health, URLs, networks | Docker / Traefik on this host |
-| Which GitHub repositories a Dev Gateway project owns | Dev Gateway (a decision) |
-| Which environments a Dev Gateway project has adopted | Dev Gateway (a decision) |
-| A link from an issue to an environment | Dev Gateway (a decision) |
-| Theme, aliases, display names | Dev Gateway (a decision) |
+| Which GitHub repositories a Portta project owns | Portta (a decision) |
+| Which environments a Portta project has adopted | Portta (a decision) |
+| A link from an issue to an environment | Portta (a decision) |
+| Theme, aliases, display names | Portta (a decision) |
 
 The panel never edits GitHub by writing only to PostgreSQL. A board
 column that means "closed" closes the issue on GitHub, then the
@@ -191,7 +191,7 @@ Today's `projects` row is an environment. Issue #19 renames in the
 schema; this record forbids treating `compose_project` as the Dev
 Gateway project.
 
-The label `dev-gateway.project` remains a **discovery hint** for grouping
+The label `portta.project` remains a **discovery hint** for grouping
 worktrees under one heading, as ADR 0010 defined it. It does not create
 the new project entity, and the panel must not infer one from it
 automatically. A person creates a project and may adopt environments
@@ -223,7 +223,7 @@ degrades to the projection rather than to an error page.
 
 ### 8. Read-only mode covers writes that leave the host
 
-`DEV_GATEWAY_WEB_READ_ONLY` already refuses unsafe HTTP methods in
+`PORTTA_WEB_READ_ONLY` already refuses unsafe HTTP methods in
 `apps/web/src/server/app.ts`. That refusal includes a write that would land
 on github.com. A read-only panel may refresh a projection. It may not
 create, edit, close, comment, reparent or relabel an issue, and it may

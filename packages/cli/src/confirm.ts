@@ -3,7 +3,7 @@ import { stdin, stderr } from 'node:process'
 import { RefusedError } from './errors.js'
 
 export async function confirm(message: string, yes: boolean): Promise<void> {
-  if (yes || ['1', 'true', 'yes'].includes(String(process.env['DG_ASSUME_YES'] ?? '').toLowerCase())) return
+  if (yes || ['1', 'true', 'yes'].includes(String(process.env['PORTTA_ASSUME_YES'] ?? '').toLowerCase())) return
   if (!stdin.isTTY) throw new RefusedError(`${message}; confirmation is unavailable without a TTY`, 'pass --yes to confirm non-interactively')
   const prompt = createInterface({ input: stdin, output: stderr })
   try {

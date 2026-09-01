@@ -1,5 +1,5 @@
 # ============================================================================
-# demo-monorepo: Dev Gateway integration overlay
+# demo-monorepo: Portta integration overlay
 # ============================================================================
 # Routes web, admin, api and the Mailpit UI. Worker, postgres and redis stay
 # on the project network only.
@@ -18,42 +18,42 @@ services:
   web:
     networks:
       - default
-      - dev-gateway
+      - portta
     labels:
-      - "dev-gateway.repo=fabioassuncao/dev-gateway"
-      - "dev-gateway.git.root=/srv/dev/demo-monorepo"
+      - "portta.repo=fabioassuncao/portta"
+      - "portta.git.root=/srv/dev/demo-monorepo"
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-monorepo}-web.loadbalancer.server.port=3000"
 
   admin:
     networks:
       - default
-      - dev-gateway
+      - portta
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-monorepo}-admin.loadbalancer.server.port=3000"
 
   api:
     networks:
       - default
-      - dev-gateway
+      - portta
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-monorepo}-api.loadbalancer.server.port=8000"
 
   mailpit:
     networks:
       - default
-      - dev-gateway
+      - portta
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-monorepo}-mailpit.loadbalancer.server.port=8025"
 
 networks:
-  dev-gateway:
+  portta:
     external: true
-    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}
+    name: ${PORTTA_NETWORK:-portta}

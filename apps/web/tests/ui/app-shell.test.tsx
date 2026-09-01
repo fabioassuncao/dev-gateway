@@ -45,6 +45,6 @@ describe('the application shell', () => {
     expect(screen.getByRole('button', { name: 'Projects' })).toHaveAttribute('title', 'Projects')
     expect(screen.getByRole('button', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('button', { name: 'Expand sidebar' })).toHaveAttribute('aria-expanded', 'false')
-    expect(localStorage.getItem('dg-sidebar')).toBe('collapsed')
+    expect(localStorage.getItem('portta-sidebar')).toBe('collapsed')
   })
 })

@@ -149,7 +149,7 @@ describe('container actions', () => {
     const { app, docker } = makeApp({ containers: FULL_HOST })
     const response = await post(app, '/api/docker/containers/gw-traefik/stop')
     expect(response.status).toBe(403)
-    expect(await response.json()).toMatchObject({ error: expect.stringContaining('Dev Gateway component') })
+    expect(await response.json()).toMatchObject({ error: expect.stringContaining('Portta component') })
     expect(docker.calls.some((call) => call.method === 'stop')).toBe(false)
   })
 
@@ -263,7 +263,7 @@ describe('the gateway endpoints', () => {
     const { app } = makeApp({ containers: FULL_HOST })
     const doctor = await (await post(app, '/api/gateway/doctor')).json()
     expect(doctor.checks.length).toBeGreaterThan(5)
-    expect(doctor.hostCommand).toBe('./bin/dev-gateway doctor')
+    expect(doctor.hostCommand).toBe('./bin/portta doctor')
   })
 
   it('serves gateway logs for known components only', async () => {

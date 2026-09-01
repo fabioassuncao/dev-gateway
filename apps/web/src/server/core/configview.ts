@@ -54,7 +54,7 @@ export function buildConfigView(config: PanelConfig): ConfigView {
       writable: isWritable(config.envFile),
     },
     pendingRestart: fields.some((field) => field.pending),
-    applyCommand: `./bin/dev-gateway up ${config.profile}`,
+    applyCommand: `./bin/portta up ${config.profile}`,
     groups: [...new Set(FIELDS.map((spec) => spec.group))],
   }
 }
@@ -104,14 +104,14 @@ export function patchConfig(
   // The panel's own front door lives in a generated Traefik file, so a saved
   // credential has to reach it. Traefik hot-reloads the directory, which is why
   // this one setting takes effect without recreating anything.
-  const touchedAuth = [...applied.keys()].some((key) => key.startsWith('DEV_GATEWAY_WEB_AUTH'))
+  const touchedAuth = [...applied.keys()].some((key) => key.startsWith('PORTTA_WEB_AUTH'))
   const dynamic = touchedAuth
     ? {
         file: GENERATED_FILES.panel,
         ...reconcilePanelAuth(config.dynamicDir, {
-          mode: merged.get('DEV_GATEWAY_WEB_AUTH') ?? 'none',
-          user: merged.get('DEV_GATEWAY_WEB_AUTH_USER') ?? '',
-          hash: merged.get('DEV_GATEWAY_WEB_AUTH_HASH') ?? '',
+          mode: merged.get('PORTTA_WEB_AUTH') ?? 'none',
+          user: merged.get('PORTTA_WEB_AUTH_USER') ?? '',
+          hash: merged.get('PORTTA_WEB_AUTH_HASH') ?? '',
         }),
       }
     : null

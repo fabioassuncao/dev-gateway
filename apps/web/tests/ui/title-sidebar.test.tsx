@@ -17,26 +17,26 @@ function SidebarProbe() {
 
 beforeEach(() => {
   localStorage.clear()
-  document.title = 'Dev Gateway'
+  document.title = 'Portta'
   vi.restoreAllMocks()
 })
 
 describe('document titles', () => {
   it('joins known context and updates when a page learns more', () => {
     const view = renderWithQuery(<TitleProbe parts={['Projects', null]} />)
-    expect(document.title).toBe('Projects · Dev Gateway')
+    expect(document.title).toBe('Projects · Portta')
 
     view.rerender(<TitleProbe parts={['Logs', 'alpha']} />)
-    expect(document.title).toBe('Logs · alpha · Dev Gateway')
+    expect(document.title).toBe('Logs · alpha · Portta')
   })
 })
 
 describe('the sidebar preference', () => {
-  it('writes and reads dg-sidebar', async () => {
+  it('writes and reads portta-sidebar', async () => {
     const first = renderWithQuery(<SidebarProbe />)
     await userEvent.click(screen.getByRole('button', { name: 'expanded' }))
     expect(screen.getByRole('button', { name: 'collapsed' })).toBeInTheDocument()
-    expect(localStorage.getItem('dg-sidebar')).toBe('collapsed')
+    expect(localStorage.getItem('portta-sidebar')).toBe('collapsed')
 
     first.unmount()
     renderWithQuery(<SidebarProbe />)

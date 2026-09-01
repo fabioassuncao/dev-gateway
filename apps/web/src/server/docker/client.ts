@@ -231,7 +231,7 @@ export class DockerClient {
     if (spec.ttlSeconds === null) {
       body['Cmd'] = [listen, `TCP:${target}`]
     } else {
-      // Mirrors `dev-gateway access open --ttl`: busybox timeout is in the
+      // Mirrors `portta access open --ttl`: busybox timeout is in the
       // image, and exec keeps socat as PID 1 so it still gets the signal.
       body['Entrypoint'] = ['sh']
       body['Cmd'] = ['-c', `exec timeout -s TERM ${spec.ttlSeconds} socat ${listen} TCP:${target}`]

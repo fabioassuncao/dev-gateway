@@ -58,7 +58,7 @@ describe('the Docker allowlist', () => {
 
   it('validates ids the way Docker spells them', () => {
     expect(isValidId('abc123')).toBe(true)
-    expect(isValidId('dev-gateway-traefik-1')).toBe(true)
+    expect(isValidId('portta-traefik-1')).toBe(true)
     expect(isValidId('../etc')).toBe(false)
     expect(isValidId('')).toBe(false)
     expect(isValidId('a'.repeat(200))).toBe(false)

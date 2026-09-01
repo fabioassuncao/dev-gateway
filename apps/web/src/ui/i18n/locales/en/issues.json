@@ -69,7 +69,7 @@
   },
   "linkReason": {
     "manual": "Linked by hand",
-    "label": "From dev-gateway.project label",
+    "label": "From portta.project label",
     "branch": "From branch name",
     "namespace": "From Compose namespace"
   }

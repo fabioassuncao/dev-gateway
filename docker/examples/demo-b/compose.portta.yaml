@@ -1,5 +1,5 @@
 # ============================================================================
-# demo-b: Dev Gateway integration overlay
+# demo-b: Portta integration overlay
 # ============================================================================
 # Identical in shape to demo-a's overlay. That is the point: the contract is
 # the same for every project, whatever runs inside it.
@@ -12,23 +12,23 @@ services:
   web:
     networks:
       - default
-      - dev-gateway
+      - portta
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       # nginx listens on 3000 here while the image EXPOSEs 80.
       - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-b}-web.loadbalancer.server.port=3000"
 
   api:
     networks:
       - default
-      - dev-gateway
+      - portta
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-b}-api.loadbalancer.server.port=8000"
 
 networks:
-  dev-gateway:
+  portta:
     external: true
-    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}
+    name: ${PORTTA_NETWORK:-portta}

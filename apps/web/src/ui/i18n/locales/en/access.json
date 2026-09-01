@@ -5,7 +5,7 @@
     "title": "Open bridges",
     "description": "Each bridge binds 127.0.0.1 on a port the kernel picks, so nothing has to give up 5432.",
     "empty": "No bridge is open",
-    "emptyHint": "Open one from the list below, or from the CLI: dev-gateway access open --project <p> --service <s>",
+    "emptyHint": "Open one from the list below, or from the CLI: portta access open --project <p> --service <s>",
     "aria": "Open bridges",
     "service": "Service",
     "localAddress": "Local address",
@@ -44,13 +44,13 @@
     "notOptedIn": "not opted in",
     "routingOff": "hostname routing is off",
     "addTcpOverlay": "add the TCP overlay to this project",
-    "tcpDisabled": "DEV_GATEWAY_TCP=false"
+    "tcpDisabled": "PORTTA_TCP=false"
   },
   "forwarders": {
     "title": "Published on the VPN",
-    "description": "Persistent forwarders created with dev-gateway service publish --private.",
+    "description": "Persistent forwarders created with portta service publish --private.",
     "empty": "Nothing is published privately",
-    "emptyHint": "dev-gateway service publish --private --project <p> --service <s>",
+    "emptyHint": "portta service publish --private --project <p> --service <s>",
     "aria": "Published on the VPN",
     "alias": "Alias",
     "service": "Service",

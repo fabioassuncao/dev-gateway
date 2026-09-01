@@ -57,7 +57,7 @@ const alpha: Project = {
   runningCount: 2,
   healthyCount: 1,
   unhealthyCount: 0,
-  networks: ['dev-gateway', 'alpha_default'],
+  networks: ['portta', 'alpha_default'],
   startedAt: 1_700_000_000,
   uptimeSeconds: 7200,
   scopes: ['local'],
@@ -120,7 +120,7 @@ const gitScan: ProjectGit = {
     })),
   },
   reason: null,
-  refreshCommand: 'dev-gateway git scan --project alpha',
+  refreshCommand: 'portta git scan --project alpha',
 }
 
 beforeEach(() => {
@@ -162,7 +162,7 @@ describe('Project page', () => {
     expect(await screen.findByText('/srv/dev/alpha')).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Services' })).toHaveTextContent('2/2')
     expect(screen.getByRole('link', { name: /alpha-web.localhost/ })).toBeInTheDocument()
-    expect(screen.getByText('dev-gateway, alpha_default')).toBeInTheDocument()
+    expect(screen.getByText('portta, alpha_default')).toBeInTheDocument()
   })
 
   it('lists every service with mounts, networks and restart counts', async () => {
@@ -176,7 +176,7 @@ describe('Project page', () => {
     renderWithQuery(<ProjectPage project="alpha" tab="git" service={null} />)
     expect(await screen.findByRole('link', { name: '#5 Pull 5' })).toBeInTheDocument()
     expect(screen.getByText('origin/fix/182-tcp-proxy')).toBeInTheDocument()
-    expect(screen.getByText('dev-gateway git scan --project alpha')).toBeInTheDocument()
+    expect(screen.getByText('portta git scan --project alpha')).toBeInTheDocument()
   })
 
   it('renders the Git tab without an error when the project has no repository', async () => {
@@ -249,12 +249,12 @@ describe('Project page', () => {
 
   it('titles the document with the tab and the project', async () => {
     renderWithQuery(<ProjectPage project="alpha" tab="git" service={null} />)
-    await waitFor(() => expect(document.title).toBe('Git · alpha · Dev Gateway'))
+    await waitFor(() => expect(document.title).toBe('Git · alpha · Portta'))
   })
 
   it('titles the document with the project alone on Overview', async () => {
     renderWithQuery(<ProjectPage project="alpha" tab={null} service={null} />)
-    await waitFor(() => expect(document.title).toBe('alpha · Dev Gateway'))
+    await waitFor(() => expect(document.title).toBe('alpha · Portta'))
   })
 
   it('makes every tab a link that survives a reload', async () => {

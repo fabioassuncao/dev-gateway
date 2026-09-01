@@ -6,13 +6,13 @@
 #
 # Note that the dashboard also becomes reachable over the tailnet at
 # http://<tailscale-hostname>:8080 without being published at all. Restrict it
-# with a Tailscale ACL, or leave DEV_GATEWAY_DASHBOARD=false.
+# with a Tailscale ACL, or leave PORTTA_DASHBOARD=false.
 # ============================================================================
 
 services:
   tailscale:
     ports:
-      - "${DEV_GATEWAY_DASHBOARD_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_DASHBOARD_PORT:-8080}:8080"
+      - "${PORTTA_DASHBOARD_BIND_ADDRESS:-127.0.0.1}:${PORTTA_DASHBOARD_PORT:-8080}:8080"
 
   traefik:
     environment:

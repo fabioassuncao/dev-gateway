@@ -14,7 +14,7 @@ Local HTTPS is available when you need a secure context: Secure cookies,
 service workers, WebAuthn.
 
 ```bash
-dev-gateway tls init
+portta tls init
 ```
 
 That issues a local CA and a wildcard certificate for `*.localhost` inside the
@@ -25,8 +25,8 @@ Trusting the CA writes to your operating system's trust store, so the gateway
 **prints the command and lets you run it** rather than doing it for you:
 
 ```bash
-dev-gateway tls trust      # shows the command for your platform
-dev-gateway tls untrust    # and how to undo it
+portta tls trust      # shows the command for your platform
+portta tls untrust    # and how to undo it
 ```
 
 Firefox keeps its own store and needs a separate import.
@@ -45,9 +45,9 @@ safe: the name is public, the address is only routable inside your tailnet.
 Keep such a record DNS-only, never proxied.
 
 ```bash
-dev-gateway dns check          # does the wildcard point here?
-dev-gateway dns setup          # show the record to create
-dev-gateway dns setup --apply  # create it, via Cloudflare
+portta dns check          # does the wildcard point here?
+portta dns setup          # show the record to create
+portta dns setup --apply  # create it, via Cloudflare
 ```
 
 `dns check` queries a name that can only match the wildcard, so a stray A
@@ -111,9 +111,9 @@ Back it up with `state/` and `.env`; losing it means re-issuing.
 ## Checking
 
 ```bash
-dev-gateway tls status
-dev-gateway dns check
-docker logs dev-gateway-traefik-1 2>&1 | grep -i acme
+portta tls status
+portta dns check
+docker logs portta-traefik-1 2>&1 | grep -i acme
 ```
 
 ## Troubleshooting
@@ -129,4 +129,4 @@ served by a provider other than the one holding your token.
 then switch back.
 
 **The certificate is right but browsers still complain locally.** The local CA
-is not trusted yet. Run `dev-gateway tls trust`.
+is not trusted yet. Run `portta tls trust`.

@@ -10,7 +10,7 @@ page says what those seams are for, and what they are not for.
 
 ## Context
 
-Two Dev Gateways, one person: a laptop and a development VPS, with the same
+Two Porttas, one person: a laptop and a development VPS, with the same
 repositories checked out on both. Name a project *Storefront* on the laptop,
 give it a short hostname, and none of that exists on the VPS — where an agent
 may be doing the actual work.
@@ -135,10 +135,10 @@ with a fixture table covering every row above.
 ### Instance identity
 
 Issue #4 created a singleton `instance` row: a generated UUID that never
-changes, a human-chosen `name` (default `dev-gateway`), `created_at` and
+changes, a human-chosen `name` (default `portta`), `created_at` and
 `updated_at`.
 
-That is enough. `dev-gateway status --json` (issue #9) should include
+That is enough. `portta status --json` (issue #9) should include
 `instance.id` and `instance.name` so two gateways can be told apart the day
 there are two. The UUID is local. It is not a tracking identifier, and
 nothing transmits it anywhere today.
@@ -152,7 +152,7 @@ column, and this record forbids shipping sync machinery.
 cannot be a hostname.
 
 The stored value is a **DNS label**: `shop`. Each instance renders it against
-its own `DEV_GATEWAY_DOMAIN`, `PRIVATE_DOMAIN` or `PUBLIC_DOMAIN`. The
+its own `PORTTA_DOMAIN`, `PRIVATE_DOMAIN` or `PUBLIC_DOMAIN`. The
 laptop serves `shop.localhost`, the VPS serves `shop.dev.example.com`, and
 nothing shared contains a hostname.
 
@@ -192,7 +192,7 @@ Two of the four are eliminated on requirements rather than taste:
   the panel when they differ — a person resolving a name clash is cheaper
   than a merge algorithm;
 - the transport is a push/pull command, not a daemon:
-  `dev-gateway sync push` / `pull`, over the panel's existing authenticated
+  `portta sync push` / `pull`, over the panel's existing authenticated
   API ([ADR 0012](0012-panel-authentication-is-traefiks.md)) reached over the
   tailnet;
 - an append-only event log is **not** needed for last-write-wins on a few
@@ -203,7 +203,7 @@ must stay written down rather than discovered in a support thread.
 
 ### The cheapest first experiment
 
-Sync by committing state to a Git repository — a `~/.dev-gateway` repo
+Sync by committing state to a Git repository — a `~/.portta` repo
 pushed and pulled — is not the plan. It is the cheapest prototype if this
 is ever tried: conflict resolution, history and transport all come free, and
 the audience already uses Git constantly. It turns every preference change
@@ -226,7 +226,7 @@ is recorded rather than chosen.
   says what may be shared, what identifies a project across machines, why a
   central database was ruled out, and why last-write-wins is enough.
 - If it is never built, the cost was three nullable columns and one table
-  that made `dev-gateway status --json` able to say which gateway answered.
+  that made `portta status --json` able to say which gateway answered.
 - Runtime state must not leak into "shareable". A review check on every new
   column: is this a decision a person made, or an observation a machine
   made?

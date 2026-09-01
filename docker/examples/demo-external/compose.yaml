@@ -5,7 +5,7 @@
 # External Docker in the panel: the gateway can see it, but does not route it,
 # open TCP bridges for it, or treat it as an integrated project.
 #
-# Intentionally left without compose.dev-gateway.yaml.
+# Intentionally left without compose.portta.yaml.
 # ============================================================================
 
 name: ${COMPOSE_PROJECT_NAME:-demo-external}

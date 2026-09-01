@@ -32,25 +32,34 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
-      - run: npm run typecheck --workspace=@dev-gateway/core
-      - run: npm test --workspace=@dev-gateway/core
-      - run: npm run typecheck --workspace=@fabioassuncao/dev-gateway
-      - run: npm test --workspace=@fabioassuncao/dev-gateway
-      - run: npm run build --workspace=@fabioassuncao/dev-gateway
+      - run: npm run typecheck --workspace=portta-core
+      - run: npm test --workspace=portta-core
+      - run: npm run typecheck --workspace=portta
+      - run: npm test --workspace=portta
+      - run: npm run build --workspace=portta
       - name: Entry-point smoke
         run: node packages/cli/dist/cli.js --help
       - name: Pack and install exactly what npm will receive
         shell: bash
         run: |
-          pack_dir="$RUNNER_TEMP/dev-gateway-pack"
-          install_dir="$RUNNER_TEMP/dev-gateway-install"
-          mkdir -p "$pack_dir" "$install_dir"
-          tarball=$(npm pack --workspace=@fabioassuncao/dev-gateway --pack-destination "$pack_dir" --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s)[0].filename))')
+          pack_dir="$RUNNER_TEMP/portta-pack"
+          install_dir="$RUNNER_TEMP/portta-install"
+          global_dir="$RUNNER_TEMP/portta-global"
+          mkdir -p "$pack_dir" "$install_dir" "$global_dir"
+          tarball=$(npm pack --workspace=portta --pack-destination "$pack_dir" --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s)[0].filename))')
+          tar -xOf "$pack_dir/$tarball" package/package.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s);if(p.name!=="portta"||p.bin?.portta!=="./dist/cli.js")process.exit(1)})'
+          tar -xOf "$pack_dir/$tarball" package/dist/cli.js | head -n 1 | grep -Fx '#!/usr/bin/env node'
           npm install --prefix "$install_dir" "$pack_dir/$tarball"
-          cli="$install_dir/node_modules/.bin/dev-gateway"
+          cli="$install_dir/node_modules/.bin/portta"
+          "$cli" | grep -F 'Usage: portta'
           "$cli" --version
           "$cli" --help
           "$cli" inspect --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>JSON.parse(s))'
+          npx --yes --package "$pack_dir/$tarball" -- portta | grep -F 'Usage: portta'
+          npx --yes --package "$pack_dir/$tarball" -- portta --version
+          npm install --global --prefix "$global_dir" "$pack_dir/$tarball"
+          "$global_dir/bin/portta" | grep -F 'Usage: portta'
+          "$global_dir/bin/portta" --version
 
   published-cli:
     name: Published CLI smoke
@@ -66,8 +75,8 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
         run: |
           version="${TAG#v}"
-          npm install --global "@fabioassuncao/dev-gateway@$version"
-          dev-gateway --version | grep -F "$version"
+          npm install --global "portta@$version"
+          portta --version | grep -F "$version"
 
   lint:
     name: Lint and unit tests
@@ -93,7 +102,7 @@ jobs:
         run: npm run typecheck
 
       - name: Build the TypeScript CLI used by contract tests
-        run: npm run build --workspace=@fabioassuncao/dev-gateway
+        run: npm run build --workspace=portta
 
       - name: Lint and unit tests
         run: ./tests/run.sh
@@ -111,7 +120,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Build the full CLI
-        run: npm ci && npm run build --workspace=@fabioassuncao/dev-gateway
+        run: npm ci && npm run build --workspace=portta
 
       - name: Show runtime versions
         run: |
@@ -121,34 +130,34 @@ jobs:
       - name: Bootstrap the gateway
         run: |
           cp .env.example .env
-          ./bin/dev-gateway bootstrap --yes
+          ./bin/portta bootstrap --yes
 
       - name: Start the gateway
-        run: ./bin/dev-gateway up local
+        run: ./bin/portta up local
 
       - name: Build the toolbox
-        run: ./bin/dev-gateway toolbox build
+        run: ./bin/portta toolbox build
 
       - name: Doctor
-        run: ./bin/dev-gateway doctor
+        run: ./bin/portta doctor
 
       - name: End-to-end suites
         run: ./tests/run.sh --e2e
         env:
-          DG_ASSUME_YES: "true"
+          PORTTA_ASSUME_YES: "true"
 
       - name: Diagnostics on failure
         if: failure()
         run: |
-          ./bin/dev-gateway status || true
-          ./bin/dev-gateway doctor --json || true
+          ./bin/portta status || true
+          ./bin/portta doctor --json || true
           docker ps -a
-          docker logs dev-gateway-traefik-1 --tail 100 || true
-          docker logs dev-gateway-socket-proxy-1 --tail 50 || true
+          docker logs portta-traefik-1 --tail 100 || true
+          docker logs portta-socket-proxy-1 --tail 50 || true
 
       - name: Tear down
         if: always()
-        run: ./bin/dev-gateway down || true
+        run: ./bin/portta down || true
 
   web:
     name: Web panel
@@ -166,21 +175,21 @@ jobs:
         run: npm ci
 
       - name: Types
-        run: npm run typecheck --workspace=dev-gateway-web
+        run: npm run typecheck --workspace=portta-web
 
       - name: OpenAPI snapshot has no drift
-        run: npm run openapi:check --workspace=dev-gateway-web
+        run: npm run openapi:check --workspace=portta-web
 
       - name: Unit, API and component suites
-        run: npm test --workspace=dev-gateway-web
+        run: npm test --workspace=portta-web
 
       - name: Install the browser for the end-to-end run
-        run: npx --workspace=dev-gateway-web playwright install --with-deps chromium
+        run: npx --workspace=portta-web playwright install --with-deps chromium
 
       # Drives the real panel against a fake Docker Engine API, so it needs no
       # daemon and describes the same host every time.
       - name: End to end
-        run: npm run test:e2e --workspace=dev-gateway-web
+        run: npm run test:e2e --workspace=portta-web
 
       - name: Report on failure
         if: failure()
@@ -191,7 +200,7 @@ jobs:
           retention-days: 5
 
       - name: The panel image builds
-        run: docker build -t dev-gateway-web:ci -f apps/web/Dockerfile .
+        run: docker build -t fabioassuncao/portta:ci -f apps/web/Dockerfile .
 
   audit:
     name: Audit invariants
@@ -215,13 +224,13 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Build the full CLI
-        run: npm ci && npm run build --workspace=@fabioassuncao/dev-gateway
+        run: npm ci && npm run build --workspace=portta
 
       - name: Bring up the default local profile
         run: |
           cp .env.example .env
-          ./bin/dev-gateway bootstrap --yes --skip-pull
-          ./bin/dev-gateway up local
+          ./bin/portta bootstrap --yes --skip-pull
+          ./bin/portta up local
 
       # A default install must never put the Docker API, the dashboard or a
       # datastore on a public interface. This job exists to make that a
@@ -238,7 +247,7 @@ jobs:
       - name: The socket proxy publishes no host port
         run: |
           set -euo pipefail
-          ports=$(docker inspect dev-gateway-socket-proxy-1 \
+          ports=$(docker inspect portta-socket-proxy-1 \
             --format '{{ range $p, $c := .NetworkSettings.Ports }}{{ range $c }}{{ .HostIp }}:{{ .HostPort }} {{ end }}{{ end }}')
           [ -z "$ports" ] || { echo "socket proxy is published: $ports"; exit 1; }
           echo "ok: socket proxy is unreachable from the host"
@@ -246,7 +255,7 @@ jobs:
       - name: The control network is internal
         run: |
           set -euo pipefail
-          [ "$(docker network inspect dev-gateway-control --format '{{ .Internal }}')" = "true" ] \
+          [ "$(docker network inspect portta-control --format '{{ .Internal }}')" = "true" ] \
             || { echo "control network is not internal"; exit 1; }
           echo "ok: control network is internal"
 
@@ -254,22 +263,22 @@ jobs:
         run: |
           set -euo pipefail
           cd docker/examples/demo-a
-          docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d --wait --wait-timeout 180
+          docker compose -f compose.yaml -f compose.portta.yaml up -d --wait --wait-timeout 180
           cd ../../..
-          ./bin/dev-gateway access open --project demo-a --service postgres --quiet
-          binds=$(docker ps --format '{{.Names}} {{.Ports}}' | grep '^dg-access-')
+          ./bin/portta access open --project demo-a --service postgres --quiet
+          binds=$(docker ps --format '{{.Names}} {{.Ports}}' | grep '^portta-access-')
           echo "$binds"
           case "$binds" in
             *0.0.0.0*) echo "an access bridge is bound beyond loopback"; exit 1 ;;
           esac
           echo "ok: access bridges bind loopback only"
-          ./bin/dev-gateway access close --all
+          ./bin/portta access close --all
 
       - name: TCP entrypoints stay on loopback, and refuse the public profile
         run: |
           set -euo pipefail
-          DEV_GATEWAY_TCP=true ./bin/dev-gateway up local
-          binds=$(docker ps --format '{{.Names}} {{.Ports}}' | grep dev-gateway-traefik)
+          PORTTA_TCP=true ./bin/portta up local
+          binds=$(docker ps --format '{{.Names}} {{.Ports}}' | grep portta-traefik)
           echo "$binds"
           case "$binds" in
             *0.0.0.0*) echo "a TCP entrypoint is bound beyond loopback"; exit 1 ;;
@@ -277,33 +286,33 @@ jobs:
           echo "$binds" | grep -q '127.0.0.1:5432->5432' || { echo "postgres entrypoint missing"; exit 1; }
           # A database must never be reachable from the internet, so the public
           # profile refuses these entrypoints outright rather than warning.
-          if DEV_GATEWAY_TCP=true PUBLIC_DOMAIN=d.test ./bin/dev-gateway up remote-public; then
+          if PORTTA_TCP=true PUBLIC_DOMAIN=d.test ./bin/portta up remote-public; then
             echo "remote-public accepted TCP entrypoints"; exit 1
           fi
           echo "ok: TCP entrypoints are loopback-only and refused on the public profile"
-          ./bin/dev-gateway up local
+          ./bin/portta up local
 
       - name: The panel publishes nothing beyond loopback
         run: |
           set -euo pipefail
-          ./bin/dev-gateway web up
-          binds=$(docker ps --format '{{.Names}} {{.Ports}}' | grep -E 'dev-gateway-web' || true)
+          ./bin/portta web up
+          binds=$(docker ps --format '{{.Names}} {{.Ports}}' | grep -E 'portta-web' || true)
           echo "$binds"
           case "$binds" in
             *0.0.0.0*) echo "the panel is bound beyond loopback"; exit 1 ;;
           esac
-          proxy=$(docker inspect dev-gateway-web-socket-proxy-1 \
+          proxy=$(docker inspect portta-web-socket-proxy-1 \
             --format '{{ range $p, $c := .NetworkSettings.Ports }}{{ range $c }}{{ .HostIp }}:{{ .HostPort }} {{ end }}{{ end }}')
           [ -z "$proxy" ] || { echo "the panel socket proxy is published: $proxy"; exit 1; }
           curl -fsS http://127.0.0.1:8081/api/health >/dev/null
           echo "ok: the panel answers on loopback and its proxy is unreachable"
-          ./bin/dev-gateway web down
+          ./bin/portta web down
 
       - name: Doctor agrees
-        run: ./bin/dev-gateway doctor
+        run: ./bin/portta doctor
 
       - name: Tear down
         if: always()
         run: |
-          ./bin/dev-gateway access close --all || true
-          cd docker/examples/demo-a && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v || true
+          ./bin/portta access close --all || true
+          cd docker/examples/demo-a && docker compose -f compose.yaml -f compose.portta.yaml down -v || true

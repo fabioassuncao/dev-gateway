@@ -14,15 +14,15 @@
 networks:
   access:
     external: true
-    name: ${DEV_GATEWAY_ACCESS_NETWORK:-dev-gateway-access}
+    name: ${PORTTA_ACCESS_NETWORK:-portta-access}
 
 services:
   tailscale:
     networks:
       - access
     ports:
-      - "${DEV_GATEWAY_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_TCP_POSTGRES_PORT:-5432}:5432"
-      - "${DEV_GATEWAY_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_TCP_REDIS_PORT:-6379}:6379"
+      - "${PORTTA_BIND_ADDRESS:-127.0.0.1}:${PORTTA_TCP_POSTGRES_PORT:-5432}:5432"
+      - "${PORTTA_BIND_ADDRESS:-127.0.0.1}:${PORTTA_TCP_REDIS_PORT:-6379}:6379"
 
   traefik:
     environment:

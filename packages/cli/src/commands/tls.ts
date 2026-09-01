@@ -11,7 +11,7 @@ export async function tlsStatus(command: Command): Promise<void> {
   const global = globals(command)
   const context = gatewayContext({ profile: global.profile })
   const certificate = join(context.root, 'config/tls/wildcard.crt')
-  const authority = join(context.root, 'config/tls/dev-gateway-ca.crt')
+  const authority = join(context.root, 'config/tls/portta-ca.crt')
   let expires: string | null = null
   let names: string[] = []
   if (existsSync(certificate)) {

@@ -20,7 +20,7 @@ export interface EnvironmentFacts {
   /** COMPOSE_PROJECT_NAME. */
   name: string
   namespace: string | null
-  /** The optional `dev-gateway.issue` label, as the project declared it. */
+  /** The optional `portta.issue` label, as the project declared it. */
   issueLabel: string | null
   /** Branch from the host Git scan, when there is one. */
   branch: string | null
@@ -49,7 +49,7 @@ export function parseIssueLabel(value: string | null): IssueCoordinate | null {
  * `feat/182-…`, `fix/182-…`, `chore/182-…`, `issue-182`, `182-…`.
  *
  * Documented rather than guessed at: these are the shapes `docs/agent-guidelines.md`
- * and `dev-gateway namespace` already produce.
+ * and `portta namespace` already produce.
  */
 export function issueFromBranch(branch: string | null): number | null {
   if (!branch) return null
@@ -65,7 +65,7 @@ export function issueFromBranch(branch: string | null): number | null {
   return null
 }
 
-/** What `dev-gateway namespace --suffix issue182` produces. */
+/** What `portta namespace --suffix issue182` produces. */
 export function issueFromNamespace(value: string | null): number | null {
   if (!value) return null
   const match = /issue[-_]?(\d+)$/i.exec(value.trim())
@@ -113,7 +113,7 @@ export function inferIssueLink(environment: EnvironmentFacts): IssueLink | null 
 
 export const LINK_REASON: Record<IssueLinkSource, (link: IssueLink, name: string) => string> = {
   manual: () => 'linked by hand',
-  label: () => 'this environment declares dev-gateway.issue',
+  label: () => 'this environment declares portta.issue',
   branch: (link) => `this environment is on branch ${link.branch}`,
   namespace: (_link, name) => `this environment is namespaced ${name}`,
 }

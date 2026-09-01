@@ -16,7 +16,7 @@ const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 20
 const PEM = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString()
 
 function keyFile(mode = 0o600): string {
-  const dir = mkdtempSync(join(tmpdir(), 'dg-github-'))
+  const dir = mkdtempSync(join(tmpdir(), 'portta-github-'))
   const path = join(dir, 'app.pem')
   writeFileSync(path, PEM, { mode })
   chmodSync(path, mode)
@@ -94,7 +94,7 @@ describe('installation tokens', () => {
   it('never appears in a status, a log line or an error', async () => {
     fakeGitHub({
       '/access_tokens': { body: { token: 'ghs_secret', expires_at: new Date(Date.now() + 3_600_000).toISOString() } },
-      '/app': { body: { slug: 'dev-gateway' } },
+      '/app': { body: { slug: 'portta' } },
     })
     const options = { enabled: true, ...credentials() }
     const integration = new GitHubIntegration(options)
@@ -128,7 +128,7 @@ describe('the client', () => {
   it('reads the rate-limit budget from every response', async () => {
     fakeGitHub({
       '/app': {
-        body: { slug: 'dev-gateway' },
+        body: { slug: 'portta' },
         headers: { 'x-ratelimit-limit': '5000', 'x-ratelimit-remaining': '4987', 'x-ratelimit-reset': '1700003600' },
       },
     })
@@ -265,7 +265,7 @@ function connected() {
     '/app/installations': { body: [INSTALLATION] },
     '/access_tokens': { body: { token: 'ghs_secret', expires_at: new Date(Date.now() + 3_600_000).toISOString() } },
     '/installation/repositories': { body: { repositories: [REPOSITORY] } },
-    '/app': { body: { slug: 'dev-gateway' } },
+    '/app': { body: { slug: 'portta' } },
   })
   return new GitHubIntegration({ enabled: true, ...credentials() })
 }

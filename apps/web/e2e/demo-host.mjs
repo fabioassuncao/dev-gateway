@@ -24,10 +24,10 @@ export function initialState() {
     // ---- the gateway itself ------------------------------------------
     makeContainer({
       id: 'gwtraefik',
-      name: 'dev-gateway-traefik-1',
+      name: 'portta-traefik-1',
       image: 'traefik:v3.7.12',
       health: 'healthy',
-      networks: ['dev-gateway', 'dev-gateway-control'],
+      networks: ['portta', 'portta-control'],
       labels: gatewayLabels('traefik'),
       published: [
         { hostIp: '127.0.0.1', hostPort: 80, containerPort: 80 },
@@ -37,29 +37,29 @@ export function initialState() {
     }),
     makeContainer({
       id: 'gwproxy',
-      name: 'dev-gateway-socket-proxy-1',
+      name: 'portta-socket-proxy-1',
       image: 'tecnativa/docker-socket-proxy:v0.5.0',
       health: 'healthy',
-      networks: ['dev-gateway-control'],
+      networks: ['portta-control'],
       labels: gatewayLabels('socket-proxy'),
       upSeconds: 6 * DAY,
     }),
     makeContainer({
       id: 'gwweb',
-      name: 'dev-gateway-web-1',
-      image: 'dev-gateway-web:local',
+      name: 'portta-web-1',
+      image: 'fabioassuncao/portta:local',
       health: 'healthy',
-      networks: ['dev-gateway', 'dev-gateway-web'],
+      networks: ['portta', 'portta-web'],
       labels: gatewayLabels('web'),
       published: [{ hostIp: '127.0.0.1', hostPort: 8081, containerPort: 8081 }],
       upSeconds: 4 * HOUR,
     }),
     makeContainer({
       id: 'gwwebproxy',
-      name: 'dev-gateway-web-socket-proxy-1',
+      name: 'portta-web-socket-proxy-1',
       image: 'tecnativa/docker-socket-proxy:v0.5.0',
       health: 'healthy',
-      networks: ['dev-gateway-web'],
+      networks: ['portta-web'],
       labels: gatewayLabels('web-socket-proxy'),
       upSeconds: 4 * HOUR,
     }),
@@ -70,7 +70,7 @@ export function initialState() {
       name: 'storefront-web-1',
       image: NGINX,
       health: 'healthy',
-      networks: ['dev-gateway', 'storefront_default'],
+      networks: ['portta', 'storefront_default'],
       exposed: [3000],
       labels: {
         ...composeLabels({
@@ -90,7 +90,7 @@ export function initialState() {
       name: 'storefront-api-1',
       image: WHOAMI,
       health: 'healthy',
-      networks: ['dev-gateway', 'storefront_default'],
+      networks: ['portta', 'storefront_default'],
       exposed: [8000],
       labels: composeLabels({
         project: 'storefront',
@@ -106,7 +106,7 @@ export function initialState() {
       name: 'storefront-postgres-1',
       image: POSTGRES,
       health: 'healthy',
-      networks: ['storefront_default', 'dev-gateway-access'],
+      networks: ['storefront_default', 'portta-access'],
       exposed: [5432],
       labels: {
         ...composeLabels({
@@ -117,7 +117,7 @@ export function initialState() {
         // Opted into hostname routing: reachable at
         // storefront-postgres.localhost:5432 without publishing a port.
         'traefik.enable': 'true',
-        'traefik.docker.network': 'dev-gateway-access',
+        'traefik.docker.network': 'portta-access',
         'traefik.tcp.routers.storefront-postgres.rule':
           'HostSNIRegexp(`^storefront-postgres\\..+$`)',
         'traefik.tcp.routers.storefront-postgres.tls': 'true',
@@ -131,7 +131,7 @@ export function initialState() {
       name: 'storefront-redis-1',
       image: REDIS,
       health: 'healthy',
-      networks: ['storefront_default', 'dev-gateway-access'],
+      networks: ['storefront_default', 'portta-access'],
       exposed: [6379],
       labels: {
         ...composeLabels({
@@ -140,7 +140,7 @@ export function initialState() {
           workingDir: '/Projects/storefront',
         }),
         'traefik.enable': 'true',
-        'traefik.docker.network': 'dev-gateway-access',
+        'traefik.docker.network': 'portta-access',
         'traefik.tcp.routers.storefront-redis.rule': 'HostSNIRegexp(`^storefront-redis\\..+$`)',
         'traefik.tcp.routers.storefront-redis.tls': 'true',
       },
@@ -153,7 +153,7 @@ export function initialState() {
       name: 'storefront-issue312-web-1',
       image: WHOAMI,
       health: 'healthy',
-      networks: ['dev-gateway', 'storefront-issue312_default'],
+      networks: ['portta', 'storefront-issue312_default'],
       exposed: [3000],
       labels: composeLabels({
         project: 'storefront-issue312',
@@ -168,7 +168,7 @@ export function initialState() {
       id: 'sf312api',
       name: 'storefront-issue312-api-1',
       image: WHOAMI,
-      networks: ['dev-gateway', 'storefront-issue312_default'],
+      networks: ['portta', 'storefront-issue312_default'],
       exposed: [8000],
       labels: composeLabels({
         project: 'storefront-issue312',
@@ -201,7 +201,7 @@ export function initialState() {
       name: 'checkout-web-1',
       image: WHOAMI,
       health: 'healthy',
-      networks: ['dev-gateway', 'checkout_default'],
+      networks: ['portta', 'checkout_default'],
       exposed: [3000],
       labels: composeLabels({
         project: 'checkout',
@@ -262,7 +262,7 @@ export function initialState() {
       name: 'checkout-mailpit-1',
       image: 'axllent/mailpit:v1.31.0',
       health: 'healthy',
-      networks: ['dev-gateway', 'checkout_default'],
+      networks: ['portta', 'checkout_default'],
       exposed: [8025, 1025],
       labels: {
         ...composeLabels({
@@ -282,7 +282,7 @@ export function initialState() {
       name: 'checkout-rustfs-1',
       image: 'rustfs/rustfs:1.0.0-rc.4',
       health: 'healthy',
-      networks: ['dev-gateway', 'checkout_default'],
+      networks: ['portta', 'checkout_default'],
       exposed: [9000, 9001],
       labels: composeLabels({
         project: 'checkout',
@@ -362,20 +362,20 @@ export function initialState() {
     // ---- an access bridge somebody opened this morning ----------------
     makeBridge({
       id: 'bridge1',
-      name: 'dg-access-storefront-postgres-a41f2c',
+      name: 'portta-access-storefront-postgres-a41f2c',
       targetPort: 5432,
       hostPort: 55431,
       network: 'storefront_default',
       labels: {
-        'dev-gateway.managed': 'true',
-        'dev-gateway.component': 'access-bridge',
-        'dev-gateway.access.id': 'a41f2c',
-        'dev-gateway.access.project': 'storefront',
-        'dev-gateway.access.service': 'postgres',
-        'dev-gateway.access.port': '5432',
-        'dev-gateway.access.network': 'storefront_default',
-        'dev-gateway.access.kind': 'postgres',
-        'dev-gateway.access.created': String(Math.floor(Date.now() / 1000) - 900),
+        'portta.managed': 'true',
+        'portta.component': 'access-bridge',
+        'portta.access.id': 'a41f2c',
+        'portta.access.project': 'storefront',
+        'portta.access.service': 'postgres',
+        'portta.access.port': '5432',
+        'portta.access.network': 'storefront_default',
+        'portta.access.kind': 'postgres',
+        'portta.access.created': String(Math.floor(Date.now() / 1000) - 900),
         'traefik.enable': 'false',
       },
     }),
@@ -389,7 +389,7 @@ function network(name, { internal = false, managed = false } = {}) {
     Driver: 'bridge',
     Scope: 'local',
     Internal: internal,
-    Labels: managed ? { 'dev-gateway.managed': 'true' } : {},
+    Labels: managed ? { 'portta.managed': 'true' } : {},
     Containers: {},
   }
 }
@@ -406,10 +406,10 @@ export const INFO = {
 }
 
 export const NETWORKS = [
-  network('dev-gateway', { managed: true }),
-  network('dev-gateway-control', { internal: true, managed: true }),
-  network('dev-gateway-web', { internal: true, managed: true }),
-  network('dev-gateway-access', { managed: true }),
+  network('portta', { managed: true }),
+  network('portta-control', { internal: true, managed: true }),
+  network('portta-web', { internal: true, managed: true }),
+  network('portta-access', { managed: true }),
   network('storefront_default'),
   network('storefront-issue312_default'),
   network('checkout_default'),

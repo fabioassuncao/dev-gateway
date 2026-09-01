@@ -4,8 +4,8 @@
 # stop being trustworthy.
 set -uo pipefail
 
-DG_ROOT=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-cd "$DG_ROOT" || exit 1
+PORTTA_ROOT=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$PORTTA_ROOT" || exit 1
 
 missing=0
 # docs/prompts holds the build brief, not project documentation.

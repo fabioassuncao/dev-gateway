@@ -10,10 +10,10 @@ export function initialState() {
   return [
     makeContainer({
       id: 'gwtraefik',
-      name: 'dev-gateway-traefik-1',
+      name: 'portta-traefik-1',
       image: 'traefik:v3.7.12',
       health: 'healthy',
-      networks: ['dev-gateway', 'dev-gateway-control'],
+      networks: ['portta', 'portta-control'],
       labels: gatewayLabels('traefik'),
       published: [
         { hostIp: '127.0.0.1', hostPort: 80, containerPort: 80 },
@@ -22,9 +22,9 @@ export function initialState() {
     }),
     makeContainer({
       id: 'gwproxy',
-      name: 'dev-gateway-socket-proxy-1',
+      name: 'portta-socket-proxy-1',
       image: 'tecnativa/docker-socket-proxy:v0.5.0',
-      networks: ['dev-gateway-control'],
+      networks: ['portta-control'],
       labels: gatewayLabels('socket-proxy'),
     }),
     makeContainer({
@@ -32,7 +32,7 @@ export function initialState() {
       name: 'alpha-web-1',
       image: 'nginx:1.31.4-alpine',
       health: 'healthy',
-      networks: ['dev-gateway', 'alpha_default'],
+      networks: ['portta', 'alpha_default'],
       exposed: [80],
       labels: {
         ...composeLabels({
@@ -86,20 +86,20 @@ export function initialState() {
 export const NETWORKS = [
   {
     Id: 'net-gateway',
-    Name: 'dev-gateway',
+    Name: 'portta',
     Driver: 'bridge',
     Scope: 'local',
     Internal: false,
-    Labels: { 'dev-gateway.managed': 'true' },
+    Labels: { 'portta.managed': 'true' },
     Containers: {},
   },
   {
     Id: 'net-control',
-    Name: 'dev-gateway-control',
+    Name: 'portta-control',
     Driver: 'bridge',
     Scope: 'local',
     Internal: true,
-    Labels: { 'dev-gateway.managed': 'true' },
+    Labels: { 'portta.managed': 'true' },
     Containers: {},
   },
   {

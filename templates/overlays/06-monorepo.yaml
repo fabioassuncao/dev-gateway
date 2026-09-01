@@ -11,7 +11,7 @@
 #     services/worker/   -> worker      (no HTTP; not routed)
 #     services/importer/ -> importer    (no HTTP; not routed)
 #     compose.yaml
-#     compose.dev-gateway.yaml   <- this file
+#     compose.portta.yaml   <- this file
 #
 #   -> http://<COMPOSE_PROJECT_NAME>-web.localhost
 #   -> http://<COMPOSE_PROJECT_NAME>-admin.localhost
@@ -27,37 +27,37 @@
 
 services:
   web:
-    networks: [default, dev-gateway]
+    networks: [default, portta]
     labels:
       # Optional, and only useful because inference cannot get them right here:
-      # `dev-gateway.git.root` says where the repository actually starts when
-      # the Compose file is not at its root, and `dev-gateway.repo` gives the
+      # `portta.git.root` says where the repository actually starts when
+      # the Compose file is not at its root, and `portta.repo` gives the
       # panel a repository link with no host-side Git at all. Delete both and
       # everything behaves exactly as it does now.
-      # - "dev-gateway.repo=owner/monorepo"
-      # - "dev-gateway.git.root=/srv/dev/monorepo"
+      # - "portta.repo=owner/monorepo"
+      # - "portta.git.root=/srv/dev/monorepo"
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-web.loadbalancer.server.port=3000"
 
   admin:
-    networks: [default, dev-gateway]
+    networks: [default, portta]
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-admin.loadbalancer.server.port=3000"
 
   api:
-    networks: [default, dev-gateway]
+    networks: [default, portta]
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-api.loadbalancer.server.port=8000"
 
   # worker and importer are absent on purpose: they serve no HTTP, so they need
   # no networks and no labels. They keep running exactly as they did.
 
 networks:
-  dev-gateway:
+  portta:
     external: true
-    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}
+    name: ${PORTTA_NETWORK:-portta}

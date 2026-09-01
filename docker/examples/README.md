@@ -17,39 +17,39 @@ project that never adopted the gateway.
 
 Every adopted demo publishes **no** host ports. Databases, caches, workers and
 the S3 API stay on the project's private network; HTTP surfaces join
-`dev-gateway` through `compose.dev-gateway.yaml`.
+`portta` through `compose.portta.yaml`.
 
 Each directory holds:
 
 - `compose.yaml` — the project as it exists without the gateway
-- `compose.dev-gateway.yaml` — networks and labels only (except `demo-external`)
+- `compose.portta.yaml` — networks and labels only (except `demo-external`)
 
 ## Running them
 
 ```bash
-# from the dev-gateway repository
-dev-gateway up local
+# from the portta repository
+portta up local
 
 cd docker/examples/demo-a
-docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+docker compose -f compose.yaml -f compose.portta.yaml up -d
 
 cd ../demo-b
-docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+docker compose -f compose.yaml -f compose.portta.yaml up -d
 
 cd ../demo-site
-docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+docker compose -f compose.yaml -f compose.portta.yaml up -d
 
 cd ../demo-shop
-docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+docker compose -f compose.yaml -f compose.portta.yaml up -d
 
 cd ../demo-monorepo
-docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+docker compose -f compose.yaml -f compose.portta.yaml up -d
 
 # never adopted: no overlay on purpose
 cd ../demo-external
 docker compose up -d
 
-dev-gateway urls
+portta urls
 ```
 
 Useful hostnames:
@@ -81,7 +81,7 @@ hostnames:
 ```bash
 cd docker/examples/demo-a
 COMPOSE_PROJECT_NAME=demo-a-issue-1 \
-  docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+  docker compose -f compose.yaml -f compose.portta.yaml up -d
 # -> http://demo-a-issue-1-web.localhost
 ```
 

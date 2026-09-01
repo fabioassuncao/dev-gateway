@@ -68,7 +68,7 @@ const alpha: Project = {
   runningCount: 4,
   healthyCount: 2,
   unhealthyCount: 0,
-  networks: ['dev-gateway', 'alpha_default'],
+  networks: ['portta', 'alpha_default'],
   startedAt: 1_700_000_000,
   uptimeSeconds: 7200,
   scopes: ['local'],

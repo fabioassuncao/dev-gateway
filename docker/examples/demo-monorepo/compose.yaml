@@ -12,7 +12,7 @@
 #   services/worker/   -> worker (no HTTP)
 #
 # Run it on its own:      docker compose up -d
-# Run it on the gateway:  docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+# Run it on the gateway:  docker compose -f compose.yaml -f compose.portta.yaml up -d
 # ============================================================================
 
 name: ${COMPOSE_PROJECT_NAME:-demo-monorepo}

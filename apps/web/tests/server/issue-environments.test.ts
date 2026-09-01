@@ -53,7 +53,7 @@ describe('reading an issue out of a convention', () => {
     expect(issueFromBranch('release/2024-01')).toBeNull()
   })
 
-  it('reads what dev-gateway namespace produces', () => {
+  it('reads what portta namespace produces', () => {
     expect(issueFromNamespace('base-empresarial-issue182')).toBe(182)
     expect(issueFromNamespace('base-empresarial')).toBeNull()
   })
@@ -124,7 +124,7 @@ function storedIssue(overrides: Record<string, unknown> = {}) {
 async function snapshotWith(labels: Record<string, string> = {}) {
   const containers = PROJECT_A.map((container) => ({
     ...container,
-    labels: { ...container.labels, 'dev-gateway.repo': 'acme/alpha', ...labels },
+    labels: { ...container.labels, 'portta.repo': 'acme/alpha', ...labels },
   }))
   const docker = fakeDocker({ containers: [...GATEWAY, ...containers] })
   return buildSnapshot(docker.client, testConfig())
@@ -132,7 +132,7 @@ async function snapshotWith(labels: Record<string, string> = {}) {
 
 describe('resolving links', () => {
   it('links through the label the project declared', async () => {
-    const snapshot = await snapshotWith({ 'dev-gateway.issue': '#182' })
+    const snapshot = await snapshotWith({ 'portta.issue': '#182' })
     const links = resolveLinks(snapshot, [storedIssue()], [])
     expect(links.get('alpha')).toMatchObject({ issueId: '1', source: 'label' })
   })
@@ -145,7 +145,7 @@ describe('resolving links', () => {
   })
 
   it('lets a manual link win over an inferred one', async () => {
-    const snapshot = await snapshotWith({ 'dev-gateway.issue': '#182' })
+    const snapshot = await snapshotWith({ 'portta.issue': '#182' })
     const links = resolveLinks(
       snapshot,
       [storedIssue(), storedIssue({ id: '2', githubId: 2, number: 190 })],
@@ -155,11 +155,11 @@ describe('resolving links', () => {
   })
 
   it('links nothing when a bare number matches two repositories', async () => {
-    // No dev-gateway.repo label, so the coordinate carries no repository and
+    // No portta.repo label, so the coordinate carries no repository and
     // #182 could mean either issue. An ambiguous match links nothing.
     const containers = PROJECT_A.map((container) => ({
       ...container,
-      labels: { ...container.labels, 'dev-gateway.issue': '182' },
+      labels: { ...container.labels, 'portta.issue': '182' },
     }))
     const docker = fakeDocker({ containers: [...GATEWAY, ...containers] })
     const snapshot = await buildSnapshot(docker.client, testConfig())
@@ -173,7 +173,7 @@ describe('resolving links', () => {
   })
 
   it('links when a bare number is unambiguous against the environment repository', async () => {
-    const snapshot = await snapshotWith({ 'dev-gateway.issue': '182' })
+    const snapshot = await snapshotWith({ 'portta.issue': '182' })
     const links = resolveLinks(
       snapshot,
       [storedIssue(), storedIssue({ id: '2', githubId: 2, repository: 'acme/other' })],
@@ -183,12 +183,12 @@ describe('resolving links', () => {
   })
 
   it('links nothing when the issue is not projected', async () => {
-    const snapshot = await snapshotWith({ 'dev-gateway.issue': '#999' })
+    const snapshot = await snapshotWith({ 'portta.issue': '#999' })
     expect(resolveLinks(snapshot, [storedIssue()], []).has('alpha')).toBe(false)
   })
 
   it('describes an environment with a way into its logs', async () => {
-    const snapshot = await snapshotWith({ 'dev-gateway.issue': '#182' })
+    const snapshot = await snapshotWith({ 'portta.issue': '#182' })
     const links = resolveLinks(snapshot, [storedIssue()], [])
     const environments = environmentsFor('1', snapshot, links)
 
@@ -234,7 +234,7 @@ function linkDatabase(rows = [storedIssue()], manual: { issueId: string; compose
 function app(labels: Record<string, string> = {}, rows = [storedIssue()]) {
   const containers = PROJECT_A.map((container) => ({
     ...container,
-    labels: { ...container.labels, 'dev-gateway.repo': 'acme/alpha', ...labels },
+    labels: { ...container.labels, 'portta.repo': 'acme/alpha', ...labels },
   }))
   const { db, store } = linkDatabase(rows)
   return { ...makeApp({ containers: [...GATEWAY, ...containers] }, {}, db), store }
@@ -242,7 +242,7 @@ function app(labels: Record<string, string> = {}, rows = [storedIssue()]) {
 
 describe('the issue endpoint', () => {
   it('carries the environments the issue is being worked in', async () => {
-    const instance = app({ 'dev-gateway.issue': '#182' })
+    const instance = app({ 'portta.issue': '#182' })
     const issue = (await (await instance.app.request('/api/issues/1')).json()) as Issue
 
     expect(issue.environments).toHaveLength(1)
@@ -296,7 +296,7 @@ describe('the issue endpoint', () => {
 
 describe('the project endpoint', () => {
   it('gains the issue this environment belongs to', async () => {
-    const instance = app({ 'dev-gateway.issue': '#182' })
+    const instance = app({ 'portta.issue': '#182' })
     const project = (await (await instance.app.request('/api/projects/alpha')).json()) as Project
 
     expect(project.issue).toMatchObject({

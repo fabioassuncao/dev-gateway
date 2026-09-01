@@ -10,7 +10,7 @@ import type { ProjectGit } from '../../src/shared/types.ts'
 const NOW = 1_800_000_000_000
 
 function collected(body: unknown, project = 'alpha'): { dir: string } {
-  const dir = mkdtempSync(join(tmpdir(), 'dg-git-'))
+  const dir = mkdtempSync(join(tmpdir(), 'portta-git-'))
   writeFileSync(join(dir, `${project}.json`), JSON.stringify(body))
   return { dir }
 }
@@ -63,11 +63,11 @@ describe('reading what the host collected', () => {
     const old = collected({ ...FULL, collectedAt: NOW / 1000 - 4000 })
     const result = readProjectGit(testConfig({ gitDir: old.dir }), 'alpha', NOW)
     expect(result.stale).toBe(true)
-    expect(result.refreshCommand).toBe('./bin/dev-gateway git scan --project alpha')
+    expect(result.refreshCommand).toBe('./bin/portta git scan --project alpha')
   })
 
   it('says nothing was collected rather than inventing a state', () => {
-    const result = readProjectGit(testConfig({ gitDir: mkdtempSync(join(tmpdir(), 'dg-git-')) }), 'alpha', NOW)
+    const result = readProjectGit(testConfig({ gitDir: mkdtempSync(join(tmpdir(), 'portta-git-')) }), 'alpha', NOW)
     expect(result.collected).toBe(false)
     expect(result.git).toBeNull()
     expect(result.refreshCommand).toContain('git scan')
@@ -116,7 +116,7 @@ describe('every absence renders as fewer fields, never an error', () => {
   })
 
   it('a file that is not JSON', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'dg-git-'))
+    const dir = mkdtempSync(join(tmpdir(), 'portta-git-'))
     writeFileSync(join(dir, 'alpha.json'), 'this is not json')
     const result = readProjectGit(testConfig({ gitDir: dir }), 'alpha', NOW)
     expect(result.collected).toBe(false)
@@ -133,7 +133,7 @@ describe('every absence renders as fewer fields, never an error', () => {
 
 describe('the file name comes from the project, and cannot leave the directory', () => {
   it('refuses a name that walks a path', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'dg-git-'))
+    const dir = mkdtempSync(join(tmpdir(), 'portta-git-'))
     for (const name of ['../../.env', 'a/b', '.hidden', '']) {
       expect(readProjectGit(testConfig({ gitDir: dir }), name, NOW).collected).toBe(false)
     }
@@ -150,7 +150,7 @@ describe('GET /api/projects/:project/git', () => {
   })
 
   it('answers 200 with nothing collected, not 404, for a project nobody scanned', async () => {
-    const { app } = makeApp({ containers: FULL_HOST }, { gitDir: mkdtempSync(join(tmpdir(), 'dg-git-')) })
+    const { app } = makeApp({ containers: FULL_HOST }, { gitDir: mkdtempSync(join(tmpdir(), 'portta-git-')) })
     const response = await app.request('/api/projects/beta/git')
     expect(response.status).toBe(200)
     expect(((await response.json()) as ProjectGit).collected).toBe(false)

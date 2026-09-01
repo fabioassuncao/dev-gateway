@@ -1,9 +1,9 @@
 # ============================================================================
-# Dev Gateway: Traefik dashboard overlay (opt-in, loopback only)
+# Portta: Traefik dashboard overlay (opt-in, loopback only)
 # ============================================================================
-# Enabled by DEV_GATEWAY_DASHBOARD=true. The dashboard listens on Traefik's
+# Enabled by PORTTA_DASHBOARD=true. The dashboard listens on Traefik's
 # internal entrypoint and is published on a dedicated host port bound to
-# DEV_GATEWAY_DASHBOARD_BIND_ADDRESS (127.0.0.1 by default).
+# PORTTA_DASHBOARD_BIND_ADDRESS (127.0.0.1 by default).
 #
 # It is never attached to the web/websecure entrypoints, so it can never be
 # reached through the public wildcard domain. See docs/security.md.
@@ -12,7 +12,7 @@
 services:
   traefik:
     ports:
-      - "${DEV_GATEWAY_DASHBOARD_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_DASHBOARD_PORT:-8080}:8080"
+      - "${PORTTA_DASHBOARD_BIND_ADDRESS:-127.0.0.1}:${PORTTA_DASHBOARD_PORT:-8080}:8080"
     environment:
       TRAEFIK_API: "true"
       TRAEFIK_API_DASHBOARD: "true"

@@ -65,5 +65,5 @@ rule for `/exec`, fails the build.
 
 The panel needs no Docker socket, no Docker CLI and no host filesystem beyond
 two files (`.env`, which its Settings page edits, and `VERSION`, which it
-reads). It cannot pull an image, so `dev-gateway web up` pulls the bridge image
+reads). It cannot pull an image, so `portta web up` pulls the bridge image
 on the host, where the CLI already has real Docker access.

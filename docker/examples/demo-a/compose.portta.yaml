@@ -1,10 +1,10 @@
 # ============================================================================
-# demo-a: Dev Gateway integration overlay
+# demo-a: Portta integration overlay
 # ============================================================================
 # The entire integration contract, in one file the project owns. It adds
 # nothing but networks and labels, so the project still runs without it.
 #
-#   docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+#   docker compose -f compose.yaml -f compose.portta.yaml up -d
 #
 # Hostnames are derived by the gateway from the labels Compose already injects:
 #   web -> <COMPOSE_PROJECT_NAME>-web.localhost
@@ -14,7 +14,7 @@
 #
 # 1. Traefik service names share ONE namespace across every project on the
 #    host, so they carry the project name. Two projects declaring a bare `web`
-#    service would silently load-balance into each other. `dev-gateway doctor`
+#    service would silently load-balance into each other. `portta doctor`
 #    reports that collision if it ever happens.
 #
 # 2. Labels use the LIST form. Compose interpolates `${VAR}` inside a list
@@ -27,27 +27,27 @@ services:
   web:
     networks:
       - default        # keep talking to postgres/redis privately
-      - dev-gateway    # and accept traffic from the gateway
+      - portta    # and accept traffic from the gateway
     labels:
       - "traefik.enable=true"
       # The container sits on two networks; tell Traefik which one to dial.
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       # whoami's image EXPOSEs 80 but we run it on 3000, so state the port.
       - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-a}-web.loadbalancer.server.port=3000"
 
   api:
     networks:
       - default
-      - dev-gateway
+      - portta
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.docker.network=${PORTTA_NETWORK:-portta}"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-a}-api.loadbalancer.server.port=8000"
 
   # postgres and redis are absent on purpose: private services never join the
-  # shared network. Reach them with `dev-gateway access open` instead.
+  # shared network. Reach them with `portta access open` instead.
 
 networks:
-  dev-gateway:
+  portta:
     external: true
-    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}
+    name: ${PORTTA_NETWORK:-portta}

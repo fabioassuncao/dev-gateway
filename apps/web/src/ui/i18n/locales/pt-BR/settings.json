@@ -17,39 +17,39 @@
     "GitHub": "GitHub"
   },
   "fields": {
-    "DEV_GATEWAY_PROFILE": {
+    "PORTTA_PROFILE": {
       "label": "Perfil",
       "help": "Conjunto de overlays Compose com que o gateway inicia."
     },
-    "DEV_GATEWAY_DOMAIN": {
+    "PORTTA_DOMAIN": {
       "label": "Domínio local",
       "help": "Domínio base para hostnames gerados: <project>-<service>.<domain>."
     },
-    "DEV_GATEWAY_BIND_ADDRESS": {
+    "PORTTA_BIND_ADDRESS": {
       "label": "Endereço de bind",
       "help": "Interface do host em que o Traefik publica. 127.0.0.1 mantém fora da rede local."
     },
-    "DEV_GATEWAY_HTTP_PORT": {
+    "PORTTA_HTTP_PORT": {
       "label": "Porta HTTP",
       "help": "Porta do host para HTTP simples."
     },
-    "DEV_GATEWAY_HTTPS_PORT": {
+    "PORTTA_HTTPS_PORT": {
       "label": "Porta HTTPS",
       "help": "Porta do host para HTTPS."
     },
-    "DEV_GATEWAY_LOG_LEVEL": {
+    "PORTTA_LOG_LEVEL": {
       "label": "Nível de log",
       "help": "Nível de log dos componentes do gateway."
     },
-    "DEV_GATEWAY_ACCESS_LOG": {
+    "PORTTA_ACCESS_LOG": {
       "label": "Log de acesso do Traefik",
       "help": "Útil ao depurar roteamento; ruidoso no resto do tempo."
     },
-    "DEV_GATEWAY_DASHBOARD": {
+    "PORTTA_DASHBOARD": {
       "label": "Dashboard do Traefik",
       "help": "Dashboard próprio do Traefik, publicado apenas em loopback."
     },
-    "DEV_GATEWAY_DASHBOARD_PORT": {
+    "PORTTA_DASHBOARD_PORT": {
       "label": "Porta do dashboard",
       "help": "Porta do host para o dashboard do Traefik."
     },
@@ -109,39 +109,39 @@
       "label": "Token de API Cloudflare",
       "help": "Token com escopo (Zone:DNS:Edit), nunca a chave global de API."
     },
-    "DEV_GATEWAY_WEB_PORT": {
+    "PORTTA_WEB_PORT": {
       "label": "Porta do painel",
       "help": "Porta do host em que este painel é publicado."
     },
-    "DEV_GATEWAY_WEB_BIND_ADDRESS": {
+    "PORTTA_WEB_BIND_ADDRESS": {
       "label": "Endereço de bind do painel",
       "help": "Mantenha 127.0.0.1: o painel nunca deve ficar exposto à internet."
     },
-    "DEV_GATEWAY_WEB_EXPOSE": {
+    "PORTTA_WEB_EXPOSE": {
       "label": "Acessível a partir de",
       "help": "local é só loopback. vpn adiciona um router Traefik e exige autenticação do painel."
     },
-    "DEV_GATEWAY_WEB_READ_ONLY": {
+    "PORTTA_WEB_READ_ONLY": {
       "label": "Somente leitura",
       "help": "Recusa todo endpoint mutável. Padrão sempre que o painel é roteado."
     },
-    "DEV_GATEWAY_WEB_AUTH": {
+    "PORTTA_WEB_AUTH": {
       "label": "Autenticação do painel",
       "help": "basic coloca um middleware Traefik BasicAuth na frente do painel. Obrigatório quando roteado."
     },
-    "DEV_GATEWAY_WEB_AUTH_USER": {
+    "PORTTA_WEB_AUTH_USER": {
       "label": "Usuário do painel",
-      "help": "Metade usuário da credencial. `dev-gateway web auth set` grava ambos."
+      "help": "Metade usuário da credencial. `portta web auth set` grava ambos."
     },
-    "DEV_GATEWAY_WEB_AUTH_HASH": {
+    "PORTTA_WEB_AUTH_HASH": {
       "label": "Hash da senha do painel",
-      "help": "Um hash, nunca uma senha. Gere com `dev-gateway web auth set`."
+      "help": "Um hash, nunca uma senha. Gere com `portta web auth set`."
     },
-    "DG_WEB_API_DOCS": {
+    "PORTTA_RUNTIME_API_DOCS": {
       "label": "Navegador de API",
       "help": "Serve o navegador de API offline. Vazio usa o padrão seguro: ligado em loopback, desligado quando roteado."
     },
-    "DG_WEB_DB_PASSWORD": {
+    "PORTTA_RUNTIME_DB_PASSWORD": {
       "label": "Senha do banco de dados",
       "help": "Credencial bootstrap gerada para o PostgreSQL do painel."
     },
@@ -171,7 +171,7 @@
     "mustBePort": "deve ser uma porta entre 1 e 65535",
     "mustBeIpv4": "deve ser um endereço IPv4",
     "mustBeUsername": "deve ter de 1 a 64 caracteres: letras, dígitos, ponto, hífen ou underscore",
-    "mustBePasswordHash": "deve ser um hash apr1, bcrypt ou SHA1; execute: dev-gateway web auth set",
+    "mustBePasswordHash": "deve ser um hash apr1, bcrypt ou SHA1; execute: portta web auth set",
     "mustBeEmail": "deve ser um endereço de e-mail",
     "mustBeHttpsUrl": "deve ser uma URL https",
     "mustBeUrl": "deve ser uma URL",
@@ -185,7 +185,7 @@
     "acmeEmailRequired": "é obrigatório quando TLS_MODE é acme",
     "tailscaleHostnameRequired": "é obrigatório quando o Tailscale está ativado",
     "authBasicRequired": "deve ser basic enquanto o painel estiver roteado",
-    "credentialRequired": "um painel roteado precisa de credencial: execute dev-gateway web auth set",
+    "credentialRequired": "um painel roteado precisa de credencial: execute portta web auth set",
     "panelNotOnEveryInterface": "o painel não é publicado em todas as interfaces; acesse pela VPN"
   }
 }

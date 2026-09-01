@@ -10,32 +10,32 @@
 #
 # Generate a hash without installing anything on the host:
 #
-#   dev-gateway toolbox run -- \
+#   portta toolbox run -- \
 #     openssl passwd -apr1 'your-password'
 #
 # Then use it from a project:
 #
 #   labels:
-#     - "traefik.http.routers.web.middlewares=dev-gateway-basic-auth@file"
+#     - "traefik.http.routers.web.middlewares=portta-basic-auth@file"
 #
 # Traefik hot-reloads this directory, so no restart is needed.
 # ============================================================================
 
 http:
   middlewares:
-    dev-gateway-basic-auth:
+    portta-basic-auth:
       basicAuth:
         # user:hash: replace with your own. The example hash is for the
         # password "changeme" and exists only to show the format.
         users:
           - "dev:$apr1$Xy9Zq2Lm$0Ux2dKcVQe8hV1nJgqQ4d1"
-        realm: "Dev Gateway"
+        realm: "Portta"
         removeHeader: true
 
     # Delegate to your own identity provider. `address` is any HTTP service
     # that answers 2xx for an authorised request. Nothing here is specific to
     # a particular vendor.
-    dev-gateway-forward-auth:
+    portta-forward-auth:
       forwardAuth:
         address: "http://your-auth-service:4181/auth"
         trustForwardHeader: true

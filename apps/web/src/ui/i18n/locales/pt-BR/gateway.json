@@ -35,7 +35,7 @@
     "summary": "{{failures}} falha(s), {{warnings}} aviso(s) · {{time}}",
     "description": "Verificações que o painel pode fazer de dentro do seu container.",
     "notRun": "Ainda não executado",
-    "notRunHint": "Para verificações no host (PATH, sockets em escuta, DNS, arquivos de certificado), execute dev-gateway doctor.",
+    "notRunHint": "Para verificações no host (PATH, sockets em escuta, DNS, arquivos de certificado), execute portta doctor.",
     "deeperChecks": "verificações mais profundas no host:"
   },
   "logs": {
