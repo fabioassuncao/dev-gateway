@@ -1,0 +1,37 @@
+{
+  "hints": {
+    "notSaved": "the value was not saved",
+    "databaseUnavailable": "existing Docker-backed pages remain available; run dev-gateway db status",
+    "panelLimit": "this is a panel limit, not a Docker one",
+    "unexpected": "unexpected failure"
+  },
+  "readOnly": "the panel is running in read-only mode",
+  "crossOrigin": "cross-origin writes are refused",
+  "notFound": "no such endpoint: {{path}}",
+  "bridgeClosed": "bridge closed; the service itself was not touched",
+  "shareExpired": "share expired",
+  "shareDangling": "share points at a container that is gone",
+  "actionRefused": {
+    "gatewayContainer": "the panel does not stop or remove its own infrastructure",
+    "notRunning": "the container is not running",
+    "alreadyRunning": "the container is already running"
+  },
+  "access": {
+    "alreadyOpen": "a bridge is already open for this service",
+    "notRunning": "the service is not running",
+    "unsupported": "this protocol cannot be bridged"
+  },
+  "override": {
+    "notIntegrated": "overrides apply only to integrated projects"
+  },
+  "dynamic": {
+    "notWritable": "the dynamic configuration directory is not writable"
+  },
+  "github": {
+    "unavailable": "GitHub is unreachable",
+    "forbidden": "the GitHub App lacks permission for this action"
+  },
+  "docker": {
+    "accessDenied": "this container is outside the panel's allowlist"
+  }
+}

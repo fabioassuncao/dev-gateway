@@ -1,0 +1,50 @@
+{
+  "title": "Overview",
+  "readingGateway": "Reading the gateway",
+  "description": "What the gateway is serving right now, and what else is running beside it.",
+  "gatewayRunning": "Gateway running",
+  "gatewayDown": "Gateway down",
+  "stats": {
+    "projects": "Projects",
+    "projectsHint": "{{count}} Compose project(s) on the host",
+    "services": "Services",
+    "servicesHint": "{{healthy}} healthy",
+    "routedUrls": "Routed URLs",
+    "routedUrlsHint": "over {{scheme}}",
+    "containersRunning": "Containers running",
+    "containersRunningHint": "{{total}} in total",
+    "outsideGateway": "Outside the gateway",
+    "outsideGatewayHint": "{{gateway}} gateway · {{integrated}} integrated",
+    "problems": "Problems",
+    "problemsHintFail": "{{count}} need attention",
+    "problemsHintWarn": "warnings only, nothing blocking",
+    "problemsHintOk": "nothing blocking"
+  },
+  "detectedProblems": {
+    "title": "Detected problems",
+    "description": "Everything the panel can check from inside the container.",
+    "runDiagnostics": "Run diagnostics",
+    "none": "No problems detected."
+  },
+  "gatewayCard": {
+    "title": "Gateway",
+    "profile": "Profile",
+    "domain": "Domain",
+    "listening": "Listening",
+    "tls": "TLS",
+    "tlsEnabled": "enabled ({{mode}})",
+    "tailscale": "Tailscale",
+    "tailscaleRunning": "running",
+    "tailscaleEnabledNotRunning": "enabled, not running",
+    "publicAccess": "Public access",
+    "sharedNetwork": "Shared network",
+    "attached": "{{name}} · {{count}} attached"
+  },
+  "availableUrls": {
+    "title": "Available URLs",
+    "description": "Read from the labels Traefik itself routes on.",
+    "allRoutes": "All routes",
+    "empty": "No service is currently routed",
+    "emptyHint": "A service joins by setting traefik.enable=true and attaching to the shared network."
+  }
+}

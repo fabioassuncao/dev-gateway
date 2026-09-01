@@ -1,0 +1,62 @@
+{
+  "title": "Docker",
+  "description": "Every container on this machine, whether or not the gateway knows about it.",
+  "filterOwnership": "Filter by ownership",
+  "filterState": "Filter by state",
+  "searchPlaceholder": "Search container, image, project",
+  "searchAria": "Search containers",
+  "stats": {
+    "running": "Running",
+    "gateway": "Dev Gateway",
+    "integrated": "Integrated",
+    "external": "External",
+    "networks": "Networks",
+    "portConflicts": "Port conflicts"
+  },
+  "groups": {
+    "gateway": {
+      "title": "Dev Gateway",
+      "description": "The gateway's own infrastructure."
+    },
+    "integrated": {
+      "title": "Integrated projects",
+      "description": "Compose projects the gateway manages."
+    },
+    "external": {
+      "title": "External Docker",
+      "description": "Compose projects on this host that the gateway does not manage."
+    },
+    "standalone": {
+      "title": "Standalone containers",
+      "description": "Started by hand, outside any Compose project."
+    }
+  },
+  "empty": "No container matches the filters",
+  "containers": "Containers",
+  "publishedPorts": {
+    "title": "Published ports",
+    "description": "Useful for spotting the container that already holds the port you need.",
+    "empty": "Nothing is published on the host",
+    "aria": "Published ports",
+    "hostPort": "Host port",
+    "protocol": "Protocol",
+    "container": "Container",
+    "conflict": "Conflict"
+  },
+  "engine": {
+    "title": "Engine",
+    "docker": "Docker",
+    "host": "Host",
+    "platform": "Platform",
+    "resources": "Resources"
+  },
+  "table": {
+    "name": "Name",
+    "state": "State",
+    "health": "Health",
+    "image": "Image",
+    "project": "Project",
+    "ports": "Ports",
+    "actions": "Actions"
+  }
+}

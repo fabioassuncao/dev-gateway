@@ -1,0 +1,55 @@
+{
+  "title": "Workspaces",
+  "description": "What you are working on: repositories, and the environments that belong to them.",
+  "newWorkspace": "New workspace",
+  "needsDatabase": "Workspaces need the panel's database",
+  "needsDatabaseHint": "They are decisions rather than observations, so they are persisted. Start PostgreSQL and this page comes back; every Docker-backed page works without it.",
+  "empty": "No workspace yet",
+  "emptyHint": "A workspace groups the repositories of one product and the environments running for it. Create one, then attach repositories the GitHub App was granted.",
+  "archived": "archived",
+  "repository": "{{count}} repository",
+  "repositories": "{{count}} repositories",
+  "running": "{{running}}/{{total}} running",
+  "create": {
+    "title": "New workspace",
+    "description": "A name and a slug. Repositories and environments are attached afterwards.",
+    "create": "Create",
+    "name": "Name",
+    "slug": "Slug",
+    "slugHint": "Also what a project's dev-gateway.project label must say to be adopted automatically.",
+    "descriptionLabel": "Description"
+  },
+  "notFound": "No workspace '{{slug}}'",
+  "repositoriesCard": {
+    "title": "Repositories",
+    "description": "From the GitHub App installation. A repository may belong to more than one workspace.",
+    "empty": "No repository attached",
+    "emptyHint": "Attach one the GitHub App was granted. With no App configured, a workspace still groups environments."
+  },
+  "environments": {
+    "title": "Environments",
+    "description": "Compose projects on this host that belong to this workspace, and why.",
+    "empty": "Nothing is running for this workspace",
+    "emptyHint": "Start an environment, label it dev-gateway.project with this slug, or link one by hand."
+  },
+  "attachRepo": {
+    "description": "Only repositories the GitHub App installation granted can be attached.",
+    "reading": "Reading the projection",
+    "unavailable": "The projection is unavailable",
+    "noList": "No repository list",
+    "hint": "Configure the GitHub App under Settings → GitHub and press Sync. A workspace works without it; it just has no repositories.",
+    "noneGranted": "No repository has been granted yet",
+    "noneGrantedHint": "Install the GitHub App on the repositories this workspace owns, then press Sync under Settings → GitHub."
+  },
+  "issues": {
+    "title": "Issues",
+    "description": "Projected from GitHub. Every row says how old the answer is.",
+    "filterPlaceholder": "Filter by number or title",
+    "filterAria": "Filter issues",
+    "status": "Status",
+    "state": "Issue state",
+    "reading": "Reading the issue projection",
+    "needsDatabase": "Issues need the panel's database",
+    "needsDatabaseHint": "They are a projection of GitHub, kept locally so they answer while GitHub is unreachable."
+  }
+}

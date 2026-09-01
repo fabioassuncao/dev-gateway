@@ -1,0 +1,27 @@
+{
+  "appName": "Dev Gateway",
+  "sections": "Sections",
+  "overview": "Overview",
+  "workspaces": "Workspaces",
+  "projects": "Projects",
+  "services": "Services",
+  "docker": "Docker",
+  "network": "Network",
+  "access": "Access",
+  "gateway": "Gateway",
+  "settings": "Settings",
+  "gatewayUp": "Gateway up",
+  "gatewayDown": "Gateway down",
+  "liveUpdatesHint": "Live updates come from Docker events",
+  "toggleTheme": "Toggle theme",
+  "expandSidebar": "Expand sidebar",
+  "collapseSidebar": "Collapse sidebar",
+  "live": {
+    "connecting": "connecting",
+    "live": "live",
+    "offline": "offline"
+  },
+  "documentTitle": {
+    "suffix": "Dev Gateway"
+  }
+}

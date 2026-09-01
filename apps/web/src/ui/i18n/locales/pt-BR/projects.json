@@ -1,0 +1,19 @@
+{
+  "title": "Projects",
+  "description": "Compose projects with at least one service on the gateway.",
+  "searchPlaceholder": "Search project, service, image",
+  "searchAria": "Search projects",
+  "empty": "No integrated project is running",
+  "emptyHint": "A project joins by adding the gateway overlay: see docs/adopting-projects.md.",
+  "pinned": "pinned",
+  "archived": "archived",
+  "running": "{{running}}/{{total}} running",
+  "unhealthy": "{{count}} unhealthy",
+  "worktree": "worktree: {{name}}",
+  "partOf": "part of {{group}}",
+  "derivedName": "derived name: {{name}}",
+  "up": "up {{time}}",
+  "restartServices": "Restart services",
+  "collapsedService": "{{count}} collapsed service",
+  "collapsedServices": "{{count}} collapsed services"
+}

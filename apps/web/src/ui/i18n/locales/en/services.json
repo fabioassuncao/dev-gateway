@@ -1,0 +1,22 @@
+{
+  "title": "Services",
+  "description": "Every service of every integrated project, and how to reach it.",
+  "filterAria": "Filter services",
+  "searchPlaceholder": "Search service, image, hostname",
+  "searchAria": "Search services",
+  "empty": "No service matches the filters",
+  "table": {
+    "project": "Project",
+    "service": "Service",
+    "state": "State",
+    "health": "Health",
+    "image": "Image",
+    "uptime": "Uptime",
+    "urls": "URLs",
+    "actions": "Actions"
+  },
+  "filters": {
+    "http": "HTTP",
+    "tcp": "TCP"
+  }
+}

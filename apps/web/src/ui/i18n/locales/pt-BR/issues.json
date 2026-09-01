@@ -1,0 +1,76 @@
+{
+  "board": "Board",
+  "backlog": "Backlog",
+  "boardDescription": "Every open issue of this workspace, by status.",
+  "backlogDescription": "Work with no status yet, ordered by priority and last change.",
+  "workspace": "Workspace",
+  "newIssue": "New issue",
+  "viewsLabel": "{{slug}} views",
+  "filterPlaceholder": "Filter by number or title",
+  "filterAria": "Filter issues",
+  "repository": "Repository",
+  "anyRepository": "Any repository",
+  "priority": {
+    "none": "No priority",
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "urgent": "Urgent"
+  },
+  "anyPriority": "Any priority",
+  "assignee": "Assignee",
+  "label": "Label",
+  "needsDatabase": "The board needs the panel's database",
+  "needsDatabaseHint": "Issues are a projection of GitHub, kept locally so the board answers while GitHub is unreachable.",
+  "backlogCard": {
+    "title": "Backlog",
+    "description": "Unprioritised and unscheduled work, with sub-issues nested under their parent."
+  },
+  "status": {
+    "backlog": "Backlog",
+    "ready": "Ready",
+    "inProgress": "In Progress",
+    "review": "Review",
+    "blocked": "Blocked",
+    "done": "Done",
+    "none": "No status",
+    "fromLabel": "this status comes from the status: label convention"
+  },
+  "type": {
+    "any": "Any type",
+    "bug": "Bug",
+    "feature": "Feature",
+    "chore": "Chore"
+  },
+  "state": {
+    "any": "Any state",
+    "open": "Open",
+    "closed": "Closed"
+  },
+  "emptyFilters": "No issue matches these filters",
+  "emptyFiltersHint": "Issues come from the panel's projection. Press Sync under Settings → GitHub if the board looks empty.",
+  "dialog": {
+    "newIssue": "New issue",
+    "editDescription": "Changes are written to GitHub, and the panel shows what GitHub confirmed.",
+    "createDescription": "The issue is opened on GitHub; the panel projects what GitHub returned.",
+    "createOnGitHub": "Create on GitHub",
+    "saveToGitHub": "Save to GitHub",
+    "repository": "Repository",
+    "title": "Title",
+    "body": "Body",
+    "status": "Status",
+    "priority": "Priority",
+    "assignees": "Assignees",
+    "assigneesPlaceholder": "login1, login2",
+    "type": "Type",
+    "milestone": "Milestone",
+    "labels": "Labels",
+    "labelsPlaceholder": "bug, frontend"
+  },
+  "linkReason": {
+    "manual": "Linked by hand",
+    "label": "From dev-gateway.project label",
+    "branch": "From branch name",
+    "namespace": "From Compose namespace"
+  }
+}
