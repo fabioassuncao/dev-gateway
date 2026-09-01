@@ -218,7 +218,7 @@ export function testConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     network: 'dev-gateway',
     controlNetwork: 'dev-gateway-control',
     accessNetwork: 'dev-gateway-access',
-    gatewayVersion: '0.1.1',
+    gatewayVersion: '0.2.0',
     panelVersion: '0.1.0',
     tlsEnabled: false,
     readOnly: false,

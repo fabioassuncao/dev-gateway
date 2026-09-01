@@ -15,7 +15,7 @@ const { Overview } = await import('../../src/ui/pages/Overview.tsx')
 const data: OverviewData = {
   generatedAt: 1_700_000_000,
   gateway: {
-    gatewayVersion: '0.1.1',
+    gatewayVersion: '0.2.0',
     panelVersion: '0.1.0',
     profile: 'local',
     domain: 'localhost',

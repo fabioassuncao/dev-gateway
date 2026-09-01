@@ -9,7 +9,18 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-09-01
+
 ### Added
+
+- **A published, machine-first CLI.** `@fabioassuncao/dev-gateway` exposes the
+  `dev-gateway` binary through npm and `npx`, with structured JSON, stable exit
+  codes, non-interactive confirmations, safe argument-array process execution,
+  idempotent `setup`, tarball smoke tests on Linux and macOS, and a complete
+  contract in [docs/cli.md](docs/cli.md). Shared environment, configuration,
+  namespace and inventory logic now lives in `packages/core` and is consumed
+  by both the CLI and panel. The repository entry point delegates to Node when
+  available while keeping the five zero-Node lifecycle fallbacks.
 
 - **A decided monorepo and a decided answer on Node.** [ADR 0014](docs/adr/0014-monorepo-and-the-typescript-cli.md)
   records the workspace layout (`apps/web`, `packages/core`, `packages/cli`),

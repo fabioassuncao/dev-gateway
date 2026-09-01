@@ -23,7 +23,7 @@ export function statusRoutes(deps: AppDeps): Hono {
   app.get('/health', documentRoute({
     tag: 'Status', operationId: 'getHealth', summary: 'Check panel liveness', response: HealthResponse,
     responseDescription: 'Answers even when Docker is unreachable.',
-    example: { ok: true, panelVersion: '0.1.1', gatewayVersion: '0.1.1' },
+    example: { ok: true, panelVersion: '0.1.0', gatewayVersion: '0.2.0' },
   }), (c) =>
     c.json({ ok: true, panelVersion: deps.config.panelVersion, gatewayVersion: deps.config.gatewayVersion }),
   )
