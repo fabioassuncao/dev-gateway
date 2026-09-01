@@ -124,8 +124,11 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      # portta-core too: the panel's Playwright web server imports it through
+      # its `dist`, and this job runs that suite. Without it the server exits
+      # with ERR_MODULE_NOT_FOUND before a single test starts.
       - name: Build the full CLI
-        run: npm ci && npm run build --workspace=portta
+        run: npm ci && npm run build --workspace=portta-core && npm run build --workspace=portta
 
       - name: Show runtime versions
         run: |
@@ -228,8 +231,11 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      # portta-core too: the panel's Playwright web server imports it through
+      # its `dist`, and this job runs that suite. Without it the server exits
+      # with ERR_MODULE_NOT_FOUND before a single test starts.
       - name: Build the full CLI
-        run: npm ci && npm run build --workspace=portta
+        run: npm ci && npm run build --workspace=portta-core && npm run build --workspace=portta
 
       - name: Bring up the default local profile
         run: |
