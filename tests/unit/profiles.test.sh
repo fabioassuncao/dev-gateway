@@ -173,6 +173,16 @@ assert_not_contains "$(files_for local PORTTA_WEB=true)" "docker/compose/feature
 it "and a developer can opt back into it"
 assert_contains "$(files_for local PORTTA_WEB=true PORTTA_WEB_BUILD=true)" "docker/compose/features/web-build.yaml"
 
+describe "both entry points create the networks the overlays declare external"
+
+# Compose refuses to start while an `external: true` network is missing, so
+# whichever surface starts the gateway has to create both.
+it "the shell entry point ensures the access network when TCP routing is on"
+assert_contains "$(cat "$PORTTA_ROOT/bin/portta")" 'portta_network_ensure "$PORTTA_ACCESS_NETWORK"'
+
+it "and so does the TypeScript one"
+assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" 'ensureNetwork(context.config.accessNetwork)'
+
 describe "the shell and the TypeScript CLI select the same overlays"
 
 # ADR 0015: the core commands must run without Node, so the selection logic has

@@ -48,7 +48,12 @@ jobs:
           mkdir -p "$pack_dir" "$install_dir" "$global_dir"
           tarball=$(npm pack --workspace=portta --pack-destination "$pack_dir" --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s)[0].filename))')
           tar -xOf "$pack_dir/$tarball" package/package.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s);if(p.name!=="portta"||p.bin?.portta!=="./dist/cli.js")process.exit(1)})'
-          tar -xOf "$pack_dir/$tarball" package/dist/cli.js | head -n 1 | grep -Fx '#!/usr/bin/env node'
+          # Extract to a file rather than piping into head: head closes the
+          # pipe on the first line, tar takes SIGPIPE, and pipefail turns that
+          # into a failed step. It is a race the CLI wins only while it is
+          # small enough to fit the pipe buffer.
+          tar -xOf "$pack_dir/$tarball" package/dist/cli.js > "$pack_dir/cli.js"
+          head -n 1 "$pack_dir/cli.js" | grep -Fx '#!/usr/bin/env node'
           npm install --prefix "$install_dir" "$pack_dir/$tarball"
           cli="$install_dir/node_modules/.bin/portta"
           "$cli" | grep -F 'Usage: portta'

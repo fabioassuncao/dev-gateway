@@ -110,7 +110,12 @@ export async function upCommand(profile: string | undefined, options: { attach?:
   if (context.config.profile === 'remote-public' && context.config.tcpEnabled) throw new RefusedError('TCP entrypoints must not run on the remote-public profile')
   if (context.config.profile === 'remote-public' && context.config.webEnabled && context.config.webExpose === 'vpn') throw new RefusedError('the panel must not be routed on the remote-public profile')
   await requireDocker()
+  // Both networks are `external: true` in the overlays, so Compose refuses to
+  // start until they exist. The shell entry point creates both; this created
+  // only the shared one, so `PORTTA_TCP=true portta up` failed here and
+  // succeeded there.
   await ensureNetwork(context.config.network)
+  if (context.config.tcpEnabled) await ensureNetwork(context.config.accessNetwork)
   await compose(command, ['up', options.attach ? '' : '-d', options.attach ? '' : '--remove-orphans'].filter(Boolean))
 }
 
