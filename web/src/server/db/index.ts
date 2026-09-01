@@ -23,6 +23,7 @@ export class Database {
   readonly projects: ProjectsRepository
   readonly settings: SettingsRepository
   private readonly client: DatabaseClient
+  private initializing: Promise<void> | null = null
   private state: DatabaseStatus = {
     configured: true,
     available: false,
@@ -42,6 +43,14 @@ export class Database {
   }
 
   async initialize(): Promise<void> {
+    if (this.initializing !== null) return this.initializing
+    this.initializing = this.initializeOnce().finally(() => {
+      this.initializing = null
+    })
+    return this.initializing
+  }
+
+  private async initializeOnce(): Promise<void> {
     try {
       const migrations = await this.client.migrate()
       await this.client.ping()
@@ -61,6 +70,10 @@ export class Database {
     }>,
   ): Promise<void> {
     try {
+      // A database that was down during process startup is not abandoned.
+      // The next Docker snapshot retries migrations under their advisory lock,
+      // then records identity once persistence has recovered.
+      if (!this.state.available) await this.initialize()
       await Promise.all(
         projects.map((project) =>
           this.projects.upsertSeen({

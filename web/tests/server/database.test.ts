@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { DatabaseClient } from '../../src/server/db/client.ts'
 import { GLOBAL_KEYS, UnknownSettingKey, globalSchema, projectSchema, serviceSchema } from '../../src/server/db/keys.ts'
 import { SettingsRepository } from '../../src/server/db/settings.ts'
-import { requireDatabase, unavailableDatabaseStatus } from '../../src/server/db/index.ts'
+import { Database, requireDatabase, unavailableDatabaseStatus } from '../../src/server/db/index.ts'
 import { diagnose } from '../../src/server/core/diagnostics.ts'
 import { buildSnapshot } from '../../src/server/core/inventory.ts'
 import { fakeDocker, makeApp, testConfig } from './helpers.ts'
@@ -66,6 +66,11 @@ describe('the closed setting catalogue', () => {
 })
 
 describe('degraded operation', () => {
+  function databaseWith(client: Partial<DatabaseClient>): Database {
+    const Constructor = Database as unknown as new (databaseClient: DatabaseClient) => Database
+    return new Constructor(client as DatabaseClient)
+  }
+
   it('keeps every existing read surface available with db null', async () => {
     const { app } = makeApp({ containers: FULL_HOST })
     const paths = [
@@ -99,5 +104,40 @@ describe('degraded operation', () => {
 
   it('turns a future persistence write into a clear 503 boundary', () => {
     expect(() => requireDatabase(null)).toThrow(/persistence is unavailable/)
+  })
+
+  it('retries migrations and records projects after a startup outage', async () => {
+    let unavailable = true
+    const client = {
+      migrate: vi.fn(async () => {
+        if (unavailable) throw new Error('connection refused')
+        return [{ version: '0001_initial.sql', appliedAt: new Date() }]
+      }),
+      ping: vi.fn().mockResolvedValue(undefined),
+      upsertSeen: vi.fn().mockResolvedValue({ id: '1' }),
+    }
+    const database = databaseWith(client)
+
+    await expect(database.initialize()).rejects.toThrow('connection refused')
+    expect(database.status().available).toBe(false)
+
+    unavailable = false
+    await database.recordSeen([{ name: 'demo-a', workingDir: null, repoUrl: null, gitRoot: null }])
+
+    expect(database.status()).toMatchObject({ available: true, migrations: ['0001_initial.sql'] })
+    expect(client.upsertSeen).toHaveBeenCalledOnce()
+  })
+
+  it('coalesces concurrent migration retries', async () => {
+    const client = {
+      migrate: vi.fn().mockResolvedValue([{ version: '0001_initial.sql', appliedAt: new Date() }]),
+      ping: vi.fn().mockResolvedValue(undefined),
+    }
+    const database = databaseWith(client)
+
+    await Promise.all([database.initialize(), database.initialize(), database.initialize()])
+
+    expect(client.migrate).toHaveBeenCalledOnce()
+    expect(client.ping).toHaveBeenCalledOnce()
   })
 })

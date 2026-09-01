@@ -35,14 +35,12 @@ if (rendered.written) {
 const client = new DockerClient(config.dockerApi)
 let db: Database | null = null
 if (config.databaseUrl !== null) {
-  const candidate = Database.open(config.databaseUrl)
   try {
-    await candidate.initialize()
-    db = candidate
-    process.stdout.write(`database ready: ${candidate.status().migrations.join(', ') || 'no migrations'}\n`)
+    db = Database.open(config.databaseUrl)
+    await db.initialize()
+    process.stdout.write(`database ready: ${db.status().migrations.join(', ') || 'no migrations'}\n`)
   } catch (error) {
-    process.stdout.write(`database unavailable; persistence disabled: ${String(error)}\n`)
-    await candidate.close().catch(() => undefined)
+    process.stdout.write(`database temporarily unavailable; persistence will retry: ${String(error)}\n`)
   }
 }
 
