@@ -43,7 +43,10 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   mkdirSync(join(initial.root, 'state/git'), { recursive: true })
   mkdirSync(join(initial.root, 'state/github'), { recursive: true })
   mkdirSync(join(initial.root, 'config/traefik/dynamic'), { recursive: true })
-  const context = gatewayContext({ profile: globals(command).profile })
+  // The values just written win over anything inherited: a PORTTA_WEB=false in
+  // the environment would otherwise drop the panel overlays and leave Compose
+  // starting a service that no longer exists in its file list.
+  const context = gatewayContext({ profile: globals(command).profile, overrides: values })
   await ensureNetwork(context.config.network)
   await runProcess('docker', ['pull', 'alpine/socat:1.8.1.3'], { reject: false })
   await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', 'db'], { cwd: context.root, env: context.env, reject: false })
@@ -57,7 +60,7 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', ...buildArgs, '--remove-orphans', '--wait', '--wait-timeout', '180', ...services], { cwd: context.root, env: context.env, stdio: 'inherit' })
   // The context was resolved before .env was rewritten, so `web dev` would
   // otherwise report the URL the previous mode used.
-  new Output(globals(command)).data(webUrl(gatewayContext({ profile: globals(command).profile })))
+  new Output(globals(command)).data(webUrl(gatewayContext({ profile: globals(command).profile, overrides: values })))
 }
 
 /**

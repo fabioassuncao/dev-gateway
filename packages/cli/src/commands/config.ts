@@ -93,8 +93,10 @@ export async function configGet(name: string, command: Command): Promise<void> {
  * given. Doing it here is the difference between a setting that took effect
  * and one that will take effect the next time somebody remembers.
  */
-async function apply(root: string, profile: string | undefined, output: Output): Promise<void> {
-  const context = gatewayContext({ root, profile })
+async function apply(root: string, profile: string | undefined, values: Record<string, string>, output: Output): Promise<void> {
+  // The values just written win over anything inherited, for the same reason
+  // `web up` needs it: the environment normally beats the file.
+  const context = gatewayContext({ root, profile, overrides: values })
   output.progress('recreating gateway components')
   await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', '--remove-orphans', '--wait', '--wait-timeout', '180'], { cwd: context.root, env: context.env, stdio: 'inherit' })
 }
@@ -182,7 +184,7 @@ export async function configSet(name: string, value: string, options: { apply?: 
   if (options.apply === false) {
     output.hint('nothing was restarted: run portta up to apply it')
   } else {
-    await apply(context.root, global.profile, output)
+    await apply(context.root, global.profile, values, output)
   }
 
   if (output.json) output.data({ setting: name, value, applied: options.apply !== false, changed: values })

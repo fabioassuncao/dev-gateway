@@ -55,7 +55,15 @@ export function findGatewayRoot(start = process.cwd()): string | null {
   return null
 }
 
-export function gatewayContext(options: { root?: string; profile?: string; required?: boolean } = {}): GatewayContext {
+/**
+ * `overrides` is for a caller that has just written a value to .env and needs
+ * the context to reflect it. The shell environment normally wins over the file
+ * — deliberately, so `PORTTA_DOMAIN=foo portta up` works — and that precedence
+ * is exactly wrong immediately after a deliberate write: an inherited
+ * PORTTA_WEB=false would silently undo the PORTTA_WEB=true that `web up` just
+ * made, and Compose would then be asked to start a service no overlay defines.
+ */
+export function gatewayContext(options: { root?: string; profile?: string; required?: boolean; overrides?: Record<string, string> } = {}): GatewayContext {
   const root = options.root ? resolve(options.root) : findGatewayRoot()
   if (!root) {
     if (options.required === false) {
@@ -67,6 +75,7 @@ export function gatewayContext(options: { root?: string; profile?: string; requi
   }
   const file = existsSync(join(root, '.env')) ? parseEnv(readFileSync(join(root, '.env'), 'utf8')) : new Map<string, string>()
   const env = mergeEnvironment(file, process.env)
+  for (const [key, value] of Object.entries(options.overrides ?? {})) env[key] = value
   if (options.profile) env['PORTTA_PROFILE'] = options.profile
   env['PORTTA_ROOT'] = root
   const config = loadGatewayConfig(env)
