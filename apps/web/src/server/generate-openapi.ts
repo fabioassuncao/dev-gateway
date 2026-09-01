@@ -8,7 +8,7 @@ import { generateOpenApi } from './openapi.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const webRoot = resolve(here, '../..')
-const repositoryRoot = resolve(webRoot, '..')
+const repositoryRoot = resolve(webRoot, '../..')
 const output = resolve(webRoot, 'openapi.json')
 const version = readFileSync(resolve(repositoryRoot, 'VERSION'), 'utf8').trim()
 
@@ -21,7 +21,7 @@ const rendered = `${JSON.stringify(await generateOpenApi(createApi(deps), versio
 if (process.argv.includes('--check')) {
   const checkedIn = readFileSync(output, 'utf8')
   if (checkedIn !== rendered) {
-    process.stderr.write('web/openapi.json is stale; run: npm run openapi\n')
+    process.stderr.write('apps/web/openapi.json is stale; run: npm run openapi --workspace=dev-gateway-web\n')
     process.exitCode = 1
   }
 } else {

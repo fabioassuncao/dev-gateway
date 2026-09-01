@@ -135,7 +135,7 @@ dg_web_auth_hash() {
   fi
 }
 
-# dg_web_auth_render: write exactly what web/src/server/core/dynamic.ts writes.
+# dg_web_auth_render: write exactly what apps/web/src/server/core/dynamic.ts writes.
 # tests/unit/web.test.sh compares the two, so a drift fails the build rather
 # than leaving the panel and the CLI disagreeing about its own front door.
 dg_web_auth_render() {
@@ -563,6 +563,6 @@ dg_web_dev() {
   dg_env_set DEV_GATEWAY_WEB_DEV true
   export DEV_GATEWAY_WEB_DEV=true
   dg_web_up --dev "$@"
-  hint "the API runs beside Vite; edits under web/src reload on their own"
+  hint "the API runs beside Vite; edits under apps/web/src reload on their own"
   hint "dev-gateway web up (without dev) goes back to the built image"
 }

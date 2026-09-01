@@ -77,7 +77,7 @@ exactly two paths:
 | `dev-gateway-shares.yaml` | The routers, services and middlewares for temporary shares |
 
 Any other path is refused in the panel's own process, the way
-`web/src/server/docker/allowlist.ts` refuses a Docker call: the check is on the
+`apps/web/src/server/docker/allowlist.ts` refuses a Docker call: the check is on the
 filename, before anything is written, and `tests/unit/web.test.sh` asserts it.
 `middlewares.yaml`, `tcp.yaml`, `local-tls.yaml` and anything a user drops in
 by hand are read by Traefik and never touched by the panel. Both generated

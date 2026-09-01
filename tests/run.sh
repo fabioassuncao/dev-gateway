@@ -124,19 +124,19 @@ fi
 # The panel has its own suite (Vitest for the API and the components,
 # Playwright for the end-to-end run). It needs Node, which the gateway itself
 # never does, so it is skipped rather than assumed.
-if [ "$RUN_UNIT" = "1" ] && [ -d web ]; then
+if [ "$RUN_UNIT" = "1" ] && [ -d apps/web ]; then
   bold "== web panel =="
   if ! command -v node >/dev/null 2>&1; then
     echo "  skip node not installed (the panel is built and run in a container)"
-  elif [ ! -d web/node_modules ]; then
-    echo "  skip web/node_modules missing (run: cd web && npm ci)"
+  elif [ ! -d node_modules ] && [ ! -d apps/web/node_modules ]; then
+    echo "  skip node_modules missing (run: npm ci)"
   else
-    if ( cd web && npm run --silent typecheck ); then
+    if ( cd apps/web && npm run --silent typecheck ); then
       echo "  ok  types check"
     else
       echo "  FAIL typecheck"; FAILED=1
     fi
-    if ( cd web && npm run --silent test ); then
+    if ( cd apps/web && npm run --silent test ); then
       echo "  ok  unit and API suites"
     else
       echo "  FAIL panel test suite"; FAILED=1
@@ -160,12 +160,12 @@ if [ "$RUN_E2E" = "1" ]; then
   done
 
   bold "== web panel end to end =="
-  if [ ! -d web/node_modules ]; then
-    echo "  skip web/node_modules missing (run: cd web && npm ci)"
-  elif ! ( cd web && npx --no-install playwright --version >/dev/null 2>&1 ); then
-    echo "  skip playwright browsers not installed (cd web && npx playwright install chromium)"
+  if [ ! -d node_modules ] && [ ! -d apps/web/node_modules ]; then
+    echo "  skip node_modules missing (run: npm ci)"
+  elif ! ( cd apps/web && npx --no-install playwright --version >/dev/null 2>&1 ); then
+    echo "  skip playwright browsers not installed (npx --workspace=dev-gateway-web playwright install chromium)"
   else
-    if ( cd web && npm run --silent test:e2e ); then
+    if ( cd apps/web && npm run --silent test:e2e ); then
       echo "  ok  panel end-to-end run"
     else
       echo "  FAIL panel end-to-end run"; FAILED=1

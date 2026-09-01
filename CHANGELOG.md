@@ -16,8 +16,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   the CLI / API / Core rule, the npm name `@fabioassuncao/dev-gateway`, and the
   file-by-file Bash migration map. [ADR 0015](docs/adr/0015-node-on-the-host.md)
   keeps `bootstrap`, `up`, `down`, `status` and `doctor` working without Node.
-  [docs/monorepo.md](docs/monorepo.md) is the contributor map. No package is
-  created yet; issue #8 performs the move.
+  [docs/monorepo.md](docs/monorepo.md) is the contributor map.
 
 - **A classification of state that could be shared.**
   [ADR 0016](docs/adr/0016-state-that-could-be-shared.md) records the
@@ -31,7 +30,14 @@ While the version is `0.x`, minor releases may contain breaking changes.
   the cost of egress, webhooks, secrets and a projection cache.
   [docs/github.md](docs/github.md) holds the source-of-truth table.
 
+### Changed
 
+- **The repository is an npm workspace.** The panel moved from `web/` to
+  `apps/web` with history preserved. `packages/core` and `packages/cli` exist
+  as private empty shells. One root `package-lock.json` feeds `npm ci` and
+  the panel image, which now builds from the repository root with an explicit
+  `.dockerignore` so `.env`, `state/`, `config/tls/` and `.git` never enter
+  the build context.
 
 - **Private, degradable persistence for the panel.** A pinned PostgreSQL 18
   container now stores only durable decisions and identity on its own internal
@@ -50,7 +56,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   Hono routes and the same Zod schemas that define the TypeScript contracts.
   Every endpoint carries parameters, request bodies, response and error
   schemas, status codes, read-only and cross-origin refusals, and the SSE event
-  payload. `web/openapi.json` is checked in and CI fails on byte-level drift.
+  payload. `apps/web/openapi.json` is checked in and CI fails on byte-level drift.
   `/api/docs` is a self-contained interactive browser with no external assets;
   it defaults on for loopback and off for a routed panel unless
   `DG_WEB_API_DOCS=true` explicitly enables it.

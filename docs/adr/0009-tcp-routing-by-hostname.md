@@ -67,7 +67,7 @@ needs the CA. A client that connects without TLS, or to an IP, gets an
 "received H". The documentation says so, because the error does not.
 
 The protocol registry lives in two places that must agree,
-`scripts/lib/discovery.sh` and `web/src/server/core/kinds.ts`, and a protocol
+`scripts/lib/discovery.sh` and `apps/web/src/server/core/kinds.ts`, and a protocol
 is listed as routable only after two instances were reached through one port.
 `unevaluated` is a real state, and the default.
 

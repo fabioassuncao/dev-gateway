@@ -16,7 +16,7 @@ It is off by default.
 ![The Overview page: counts for projects, services, routed URLs and containers, the problems the panel detected, the gateway's own configuration, and the available URLs](../.github/images/panel-overview.png)
 
 Every screenshot on this page comes from the same host, described in
-`web/e2e/demo-host.mjs` and rendered by the real panel. Regenerate them with
+`apps/web/e2e/demo-host.mjs` and rendered by the real panel. Regenerate them with
 `npm run screenshots` (see [Development](#development-with-hot-reloading)).
 
 ---
@@ -131,22 +131,21 @@ The host needs Docker, Git and a shell, the same as the gateway itself.
 ```
 
 Two containers from the same image: the API with `node --watch`, and Vite in
-front of it with HMR on `http://127.0.0.1:5173`. Only `web/src` is
+front of it with HMR on `http://127.0.0.1:5173`. Only `apps/web/src` is
 bind-mounted, so the image's `node_modules` stay in place. Edits under
-`web/src` reload on their own.
+`apps/web/src` reload on their own.
 
 `./bin/dev-gateway web up` goes back to the built image.
 
 If you do have Node on the host and prefer to work outside containers:
 
 ```bash
-cd web
-npm ci
-npm run dev        # API on :8081, expects a socket proxy at DG_WEB_DOCKER_API
-npm run dev:ui     # Vite on :5173, proxies /api to :8081
-npm test           # Vitest: API, core and component suites
-npm run test:e2e   # Playwright, against a fake Docker API (no daemon needed)
-npm run openapi    # refresh web/openapi.json from the registered routes
+npm ci                 # from the repository root; installs every workspace
+npm run dev --workspace=dev-gateway-web        # API on :8081
+npm run dev:ui --workspace=dev-gateway-web     # Vite on :5173
+npm test --workspace=dev-gateway-web
+npm run test:e2e --workspace=dev-gateway-web
+npm run openapi --workspace=dev-gateway-web    # refresh apps/web/openapi.json
 ```
 
 ### API contract
@@ -166,7 +165,7 @@ default only while the panel stays on loopback. A routed panel returns 404
 unless `DG_WEB_API_DOCS=true` explicitly opts in. The JSON contract stays
 available because a caller that reached the API can already inspect it.
 
-`web/openapi.json` is checked in so an API change is visible in review.
+`apps/web/openapi.json` is checked in so an API change is visible in review.
 `npm run openapi:check` regenerates it in memory and fails on byte-level drift;
 CI runs that check before the API suites. Adding or changing a route therefore
 requires updating its attached description and running `npm run openapi`.
@@ -174,11 +173,10 @@ requires updating its attached description and running `npm run openapi`.
 ### Regenerating the screenshots
 
 The images on this page and in the README are produced by the real panel, run
-against a fixed host described in `web/e2e/demo-host.mjs`:
+against a fixed host described in `apps/web/e2e/demo-host.mjs`:
 
 ```bash
-cd web
-npm run screenshots        # builds, boots the panel, writes .github/images/
+npm run screenshots --workspace=dev-gateway-web
 ```
 
 They are generated rather than taken by hand so they stay in step with the UI,

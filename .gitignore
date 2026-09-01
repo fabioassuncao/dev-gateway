@@ -37,12 +37,15 @@ tailscaled.state
 .vscode/
 *.swp
 
-# Web panel build artifacts (the image builds them; they are never committed)
-web/node_modules/
-web/dist/
-web/test-results/
-web/playwright-report/
-web/.vite/
+# Workspace install and build artifacts (the image builds them; they are never committed)
+node_modules/
+apps/web/node_modules/
+apps/web/dist/
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/.vite/
+packages/*/node_modules/
+packages/*/dist/
 
 # Test artifacts
 tests/.tmp/

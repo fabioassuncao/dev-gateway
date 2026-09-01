@@ -35,7 +35,7 @@ else
   render_cli() { printf '%s' "$1" | dg_share_render; }
   render_panel() {
     printf '%s' "$1" > "$WORK/in.json"
-    ( cd "$DG_ROOT/web" && node --experimental-strip-types -e "
+    ( cd "$DG_ROOT/apps/web" && node --experimental-strip-types -e "
         const fs = require('node:fs')
         import('./src/server/core/shares.ts').then((m) =>
           process.stdout.write(m.renderShares(JSON.parse(fs.readFileSync(process.argv[1], 'utf8')))))
@@ -158,7 +158,7 @@ assert_contains "$(cat .gitignore)" "config/traefik/dynamic/dev-gateway-shares.y
 
 describe "the panel refuses what should never be shared"
 
-shares="web/src/server/core/shares.ts"
+shares="apps/web/src/server/core/shares.ts"
 
 it "a non-HTTP service"
 assert_contains "$(cat "$shares")" "is not an HTTP service"

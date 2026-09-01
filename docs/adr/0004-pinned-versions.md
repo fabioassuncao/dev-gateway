@@ -28,7 +28,7 @@ Every image pins an explicit version tag. As of this writing:
 | `rustfs/rustfs` | `1.0.0-rc.4` | fixtures only (S3-compatible storage) |
 | `alpine` | `3.24.1` | toolbox base, fixtures |
 | `node` | `24.20.0-alpine` | web panel build and runtime; demo workers |
-| `dev-gateway-web` | `local` | the web panel, built from `web/` on this host |
+| `dev-gateway-web` | `local` | the web panel, built from `apps/web/` on this host |
 
 `tests/unit/audit.test.sh` fails the build if any image lacks an explicit tag,
 if a `:latest` appears anywhere, or if a pinned image is missing from the table

@@ -28,10 +28,13 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install the panel's dependencies
-        run: cd web && npm ci
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Workspace types
+        run: npm run typecheck
 
       - name: Lint and unit tests
         run: ./tests/run.sh
@@ -89,38 +92,38 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install
-        run: cd web && npm ci
+        run: npm ci
 
       - name: Types
-        run: cd web && npm run typecheck
+        run: npm run typecheck --workspace=dev-gateway-web
 
       - name: OpenAPI snapshot has no drift
-        run: cd web && npm run openapi:check
+        run: npm run openapi:check --workspace=dev-gateway-web
 
       - name: Unit, API and component suites
-        run: cd web && npm test
+        run: npm test --workspace=dev-gateway-web
 
       - name: Install the browser for the end-to-end run
-        run: cd web && npx playwright install --with-deps chromium
+        run: npx --workspace=dev-gateway-web playwright install --with-deps chromium
 
       # Drives the real panel against a fake Docker Engine API, so it needs no
       # daemon and describes the same host every time.
       - name: End to end
-        run: cd web && npm run test:e2e
+        run: npm run test:e2e --workspace=dev-gateway-web
 
       - name: Report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: web/playwright-report/
+          path: apps/web/playwright-report/
           retention-days: 5
 
       - name: The panel image builds
-        run: docker build -t dev-gateway-web:ci web
+        run: docker build -t dev-gateway-web:ci -f apps/web/Dockerfile .
 
   audit:
     name: Audit invariants

@@ -4,9 +4,12 @@ Where new code goes, and how a command is added. The decisions behind this
 page are [ADR 0014](adr/0014-monorepo-and-the-typescript-cli.md) and
 [ADR 0015](adr/0015-node-on-the-host.md).
 
-Issue #8 performs the workspace conversion. Until it lands, the panel still
-lives at `web/` and there is no root `package.json`. The map below is the
-target; treat a path under `web/` as `apps/web/` once the move has happened.
+The panel lives at `apps/web`. Shared logic that a second consumer needs
+goes in `packages/core`. The TypeScript CLI lives in `packages/cli` and is
+unpublished until issue #9. `npm ci` at the repository root installs every
+workspace from one lockfile. The lockfile must keep optional native bindings
+for Linux: `npm install` on macOS workspaces otherwise drops them, and the
+Alpine panel image cannot build Vite.
 
 ## Map
 

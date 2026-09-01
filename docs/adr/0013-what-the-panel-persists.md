@@ -216,7 +216,7 @@ The delivered migration and repositories conform to this ADR:
 The generic `integrations.config` column has no writer yet. Before issue #5 or
 another feature uses it, that feature must add a closed schema, avoid secrets
 and document any routing artifact it materializes. New HTTP endpoints must
-also join the OpenAPI contract and regenerate `web/openapi.json` in the same
+also join the OpenAPI contract and regenerate `apps/web/openapi.json` in the same
 change.
 
 ## Consequences

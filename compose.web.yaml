@@ -92,7 +92,8 @@ services:
   # --------------------------------------------------------------------------
   web:
     build:
-      context: ./web
+      context: .
+      dockerfile: apps/web/Dockerfile
       target: runtime
     image: dev-gateway-web:local
     restart: unless-stopped

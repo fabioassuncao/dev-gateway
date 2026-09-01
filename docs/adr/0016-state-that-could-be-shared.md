@@ -156,8 +156,8 @@ its own `DEV_GATEWAY_DOMAIN`, `PRIVATE_DOMAIN` or `PUBLIC_DOMAIN`. The
 laptop serves `shop.localhost`, the VPS serves `shop.dev.example.com`, and
 nothing shared contains a hostname.
 
-Issue #5's catalogue already matches this: `service_settings.alias` is
-`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`, max 63 characters — a label, not a
+Issue #5's catalogue already matches this: `SERVICE_KEYS.alias` is a
+lowercase DNS label (letters, digits, hyphens, at most 63 characters), not a
 FQDN. Keep it that way. Rendering the hostname is instance-local and happens
 when the Traefik file is written, not when the preference is stored.
 
@@ -215,7 +215,7 @@ is recorded rather than chosen.
 | Issue | Ask | Status on 2026-09-01 |
 |---|---|---|
 | #3 | Classify state five ways, not two; record the identity model | This ADR |
-| #4 | `repo_url`, `repo_subpath`, `slug` nullable on `projects`; an `instance` table with a UUID; `updated_at` on project- and user-scoped rows | **Delivered.** Validated against `web/migrations/0001_initial.sql` |
+| #4 | `repo_url`, `repo_subpath`, `slug` nullable on `projects`; an `instance` table with a UUID; `updated_at` on project- and user-scoped rows | **Delivered.** Validated against `apps/web/migrations/0001_initial.sql` |
 | #5 | Store the alias as a label, render the hostname per instance | Catalogue already stores a label (`SERVICE_KEYS.alias`). Rendering remains instance-local when the Traefik file is written |
 | #9 | `--json` output identifies the instance; the CLI never opens its own database connection | Still open. ADR 0014 already forbids the database connection |
 

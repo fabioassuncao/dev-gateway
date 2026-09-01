@@ -2,6 +2,9 @@
 
 **Status:** Accepted
 
+Issue #8 landed this layout. The diagnosis below is the state the decision
+was made against.
+
 ## Context
 
 The gateway has two interfaces and no shared layer. There is a 6,883-line Bash
@@ -10,7 +13,7 @@ panel under `web/` with its own server, Docker client, Traefik client, Git
 reader and share manager. They overlap in intent — both discover projects, both
 read Traefik labels, both diagnose — and share not one line of code.
 
-`web/src/server/config.ts` says it out loud: *"Defaults mirror `dg_defaults` in
+`apps/web/src/server/config.ts` says it out loud: *"Defaults mirror `dg_defaults` in
 `scripts/lib/common.sh`: keep them in sync."* That comment is the whole argument
 for a shared package.
 
@@ -19,8 +22,8 @@ official TypeScript CLI ([issue #9](https://github.com/fabioassuncao/dev-gateway
 on top of that is not a packaging exercise; it is a decision about what the
 Dev Gateway is. This record decides the layout, the workspace responsibilities,
 the CLI / API / Core rule, and the npm name. [ADR 0015](0015-node-on-the-host.md)
-decides what happens on a host without Node. Issue #8 performs the mechanical
-move. No file is moved by this record.
+decides what happens on a host without Node. Issue #8 is the mechanical
+move this record specified.
 
 The unscoped name `dev-gateway` is taken on npm by an unrelated tool
 (`dev-gateway@0.3.0`, maintainer `paloskin`, last published 2022-06-15, verified
@@ -42,7 +45,7 @@ compose*.yaml, config/, docs/, tests/, examples/   ← unchanged, at the root
 ```
 
 npm workspaces, not pnpm or Turborepo. The repository has one Node package
-today, `web/package-lock.json` is what CI caches, and the panel's Dockerfile
+today, `package-lock.json` is what CI caches, and the panel's Dockerfile
 does `npm ci`. A second package manager is a separate decision.
 
 The panel stays at `apps/web`, not `apps/panel`. Renaming it would rewrite
@@ -65,12 +68,12 @@ initial modules, named so they are not a dumping ground:
 
 | Module | Taken from | Replaces |
 |---|---|---|
-| `env` | `web/src/server/core/envfile.ts` | `dg_load_env`, `dg_env_set` |
-| `config` | `web/src/server/config.ts` | `dg_defaults()` |
-| `docker` | `web/src/server/docker/` | allowlisted client; the allowlist is a *parameter*, so the CLI can hold a wider one without weakening [ADR 0008](0008-web-panel-socket-proxy.md) |
-| `inventory` | `web/src/server/core/inventory.ts` | `dg_discover_http`, `urlsFor`, `hostsFromRules` |
-| `traefik` | `web/src/server/core/dynamic.ts`, `core/traefik.ts` | panel and CLI writers of the two generated files |
-| `schemas` | `web/src/shared/types.ts` | the Zod contract issue #6 already made the source of truth |
+| `env` | `apps/web/src/server/core/envfile.ts` | `dg_load_env`, `dg_env_set` |
+| `config` | `apps/web/src/server/config.ts` | `dg_defaults()` |
+| `docker` | `apps/web/src/server/docker/` | allowlisted client; the allowlist is a *parameter*, so the CLI can hold a wider one without weakening [ADR 0008](0008-web-panel-socket-proxy.md) |
+| `inventory` | `apps/web/src/server/core/inventory.ts` | `dg_discover_http`, `urlsFor`, `hostsFromRules` |
+| `traefik` | `apps/web/src/server/core/dynamic.ts`, `core/traefik.ts` | panel and CLI writers of the two generated files |
+| `schemas` | `apps/web/src/shared/types.ts` | the Zod contract issue #6 already made the source of truth |
 
 A module enters core only when a second consumer needs it. Panel-only code
 (routes, React, the database access layer, OpenAPI generation) stays in
@@ -125,17 +128,17 @@ never as a big-bang refactor.
 
 | Concern | Bash | TypeScript |
 |---|---|---|
-| Discover routed services | `dg_discover_http` in `scripts/lib/discovery.sh` | `urlsFor()` / `hostsFromRules()` in `web/src/server/core/inventory.ts` |
-| Read and write `.env` | `dg_load_env`, `dg_env_set` in `scripts/lib/common.sh` | `parseEnv`, `setEnvValue` in `web/src/server/core/envfile.ts` |
-| Defaults | `dg_defaults()` in `scripts/lib/common.sh` | `loadConfig()` in `web/src/server/config.ts` |
-| Compose attachment | `dg_attachment` in `scripts/lib/docker.sh` | the same function in `web/src/server/config.ts` |
-| Hostname slug | `dg_slug` in `scripts/lib/common.sh` | `web/src/shared/slug.ts` |
-| Datastore kinds | `scripts/lib/discovery.sh` | `web/src/server/core/kinds.ts` |
-| Diagnostics | `scripts/doctor.sh` | `web/src/server/core/diagnostics.ts` |
-| Panel BasicAuth hash | `dev-gateway web auth set` (`openssl passwd -apr1`) | `web/src/server/core/apr1.ts` |
-| Traefik dynamic files | `dev-gateway web auth apply` | `web/src/server/core/dynamic.ts` |
-| Share files | `scripts/cmd/share.sh` | `web/src/server/core/shares.ts` |
-| Remote URL parsing | `scripts/cmd/git.sh` | `web/src/server/core/forge.ts` |
+| Discover routed services | `dg_discover_http` in `scripts/lib/discovery.sh` | `urlsFor()` / `hostsFromRules()` in `apps/web/src/server/core/inventory.ts` |
+| Read and write `.env` | `dg_load_env`, `dg_env_set` in `scripts/lib/common.sh` | `parseEnv`, `setEnvValue` in `apps/web/src/server/core/envfile.ts` |
+| Defaults | `dg_defaults()` in `scripts/lib/common.sh` | `loadConfig()` in `apps/web/src/server/config.ts` |
+| Compose attachment | `dg_attachment` in `scripts/lib/docker.sh` | the same function in `apps/web/src/server/config.ts` |
+| Hostname slug | `dg_slug` in `scripts/lib/common.sh` | `apps/web/src/shared/slug.ts` |
+| Datastore kinds | `scripts/lib/discovery.sh` | `apps/web/src/server/core/kinds.ts` |
+| Diagnostics | `scripts/doctor.sh` | `apps/web/src/server/core/diagnostics.ts` |
+| Panel BasicAuth hash | `dev-gateway web auth set` (`openssl passwd -apr1`) | `apps/web/src/server/core/apr1.ts` |
+| Traefik dynamic files | `dev-gateway web auth apply` | `apps/web/src/server/core/dynamic.ts` |
+| Share files | `scripts/cmd/share.sh` | `apps/web/src/server/core/shares.ts` |
+| Remote URL parsing | `scripts/cmd/git.sh` | `apps/web/src/server/core/forge.ts` |
 
 ### Script inventory
 
@@ -159,7 +162,7 @@ removed in the same change that ports it.
 | `scripts/cmd/analyze.sh` | 431 | **Migrate** | Heavy parsing, the worst fit for Bash |
 | `scripts/cmd/dns.sh` | 276 | **Migrate** | HTTP and JSON |
 | `scripts/cmd/service-publish.sh` | 250 | **Migrate** | Persistent private forwarders |
-| `scripts/cmd/share.sh` | 219 | **Migrate** | Already duplicated with `web/src/server/core/shares.ts` |
+| `scripts/cmd/share.sh` | 219 | **Migrate** | Already duplicated with `apps/web/src/server/core/shares.ts` |
 | `scripts/cmd/tls.sh` | 215 | **Keep as shell** | An `openssl` driver |
 | `scripts/cmd/init.sh` | 215 | **Migrate** | Scaffold a project overlay |
 | `scripts/cmd/remote.sh` | 217 | **Keep as shell** | `ssh` is the interface |

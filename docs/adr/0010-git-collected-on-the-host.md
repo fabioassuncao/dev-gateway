@@ -25,7 +25,7 @@ has a fixed shape with no binds at all.
 
 What it does already hold is the host path of every project: Compose writes
 `com.docker.compose.project.working_dir` on every container, and
-`web/src/server/core/inventory.ts` already reads it. The panel knows exactly
+`apps/web/src/server/core/inventory.ts` already reads it. The panel knows exactly
 where each repository is. It just cannot look.
 
 Every way of letting it look costs a guarantee:
@@ -99,7 +99,7 @@ fetch or push; no PR approval or merge; no webhook; no write to any repository.
 The gateway observes environments, it does not drive them.
 
 Alongside it, three **optional** labels let a project declare what cannot be
-derived, extending `LABELS` in `web/src/server/core/labels.ts`:
+derived, extending `LABELS` in `apps/web/src/server/core/labels.ts`:
 
 | Label | What it settles |
 |---|---|

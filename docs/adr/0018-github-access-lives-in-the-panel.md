@@ -154,7 +154,7 @@ amended rule is:
 > records where it came from and when, the UI shows that age, and
 > nothing cached is ever the only copy.
 
-The comment in `web/migrations/0001_initial.sql` is updated to match.
+The comment in `apps/web/migrations/0001_initial.sql` is updated to match.
 The schema for the cache belongs to issues #18 and #20, not to this
 record.
 
@@ -224,7 +224,7 @@ degrades to the projection rather than to an error page.
 ### 8. Read-only mode covers writes that leave the host
 
 `DEV_GATEWAY_WEB_READ_ONLY` already refuses unsafe HTTP methods in
-`web/src/server/app.ts`. That refusal includes a write that would land
+`apps/web/src/server/app.ts`. That refusal includes a write that would land
 on github.com. A read-only panel may refresh a projection. It may not
 create, edit, close, comment, reparent or relabel an issue, and it may
 not approve or merge a pull request.

@@ -82,7 +82,7 @@ assert_contains "$(DEV_GATEWAY_WEB=true DG_WEB_DB_PASSWORD=test bash -c '. scrip
 
 it "the password is generated and declared secret"
 assert_contains "$(cat scripts/bootstrap.sh)" "dg_env_set DG_WEB_DB_PASSWORD"
-assert_contains "$(sed -n '/DG_WEB_DB_PASSWORD/,/},/p' web/src/server/core/settings.ts)" "secret: true"
+assert_contains "$(sed -n '/DG_WEB_DB_PASSWORD/,/},/p' apps/web/src/server/core/settings.ts)" "secret: true"
 
 it "doctor refuses a published or shared database"
 assert_contains "$(cat scripts/doctor.sh)" "db.exposure"
@@ -114,7 +114,7 @@ assert_contains "$(sed -n '/dg_panel_db_restore()/,/^}/p' "$db_clients")" 'dg_co
 
 describe "the API cannot reach a Docker endpoint it does not name"
 
-allowlist="web/src/server/docker/allowlist.ts"
+allowlist="apps/web/src/server/docker/allowlist.ts"
 
 it "the allowlist file exists"
 assert_success test -f "$allowlist"
@@ -132,7 +132,7 @@ assert_eq "1" "$(grep -c "containers\\\\/create" "$allowlist" || true)"
 
 describe "a removal takes the container and nothing else"
 
-client="web/src/server/docker/client.ts"
+client="apps/web/src/server/docker/client.ts"
 
 it "volumes are never removed alongside a container"
 assert_contains "$(cat "$client")" "v: '0'"
@@ -152,10 +152,10 @@ assert_contains "$(cat "$client")" "Privileged: false"
 describe "secrets stay on the host"
 
 it "secret settings are declared as such"
-assert_contains "$(cat web/src/server/core/settings.ts)" "secret: true"
+assert_contains "$(cat apps/web/src/server/core/settings.ts)" "secret: true"
 
 it "the config view never returns a secret value"
-assert_contains "$(cat web/src/server/core/configview.ts)" "value: secret ? null : stored"
+assert_contains "$(cat apps/web/src/server/core/configview.ts)" "value: secret ? null : stored"
 
 describe "the CLI drives it"
 
@@ -182,7 +182,7 @@ it "authentication is off by default, because loopback needs none"
 assert_contains "$(cat .env.example)" "DEV_GATEWAY_WEB_AUTH=none"
 
 it "the hash is declared a secret, so the API never returns it"
-assert_contains "$(sed -n '/DEV_GATEWAY_WEB_AUTH_HASH/,/},/p' web/src/server/core/settings.ts)" "secret: true"
+assert_contains "$(sed -n '/DEV_GATEWAY_WEB_AUTH_HASH/,/},/p' apps/web/src/server/core/settings.ts)" "secret: true"
 
 it "routing the panel without a credential is refused by the profile resolver"
 assert_contains "$(cat scripts/lib/docker.sh)" "the routed panel has no credential in front of it"
@@ -199,7 +199,7 @@ assert_eq "" "$(grep -n 'passwd -apr1' scripts/cmd/web.sh | grep -v -- '-stdin' 
 
 describe "the panel writes two filenames into Traefik's dynamic directory"
 
-dynamic="web/src/server/core/dynamic.ts"
+dynamic="apps/web/src/server/core/dynamic.ts"
 
 it "the writer exists"
 assert_success test -f "$dynamic"
@@ -223,16 +223,16 @@ assert_eq "" "$(sed -n '/^    volumes:/,/^    networks:/p' compose.web.yaml | gr
 
 describe "the panel reads Traefik, and only reads it"
 
-traefik="web/src/server/core/traefik.ts"
+traefik="apps/web/src/server/core/traefik.ts"
 
 it "the client exists"
 assert_success test -f "$traefik"
 
 it "it reaches Traefik over the shared network, not the control one"
-assert_eq "" "$(grep -n 'control' web/src/server/config.ts | grep -i traefik || true)"
+assert_eq "" "$(grep -n 'control' apps/web/src/server/config.ts | grep -i traefik || true)"
 
 it "and resolves the host from the attachment, because Traefik has no name of its own inside tailscale"
-assert_contains "$(cat web/src/server/config.ts)" "http://\${attached}:8080"
+assert_contains "$(cat apps/web/src/server/config.ts)" "http://\${attached}:8080"
 
 for method in POST PUT PATCH DELETE; do
   it "no $method is ever sent to the Traefik API"
@@ -240,7 +240,7 @@ for method in POST PUT PATCH DELETE; do
 done
 
 it "the dashboard is linked to, never embedded"
-assert_eq "" "$(grep -rn 'iframe' web/src/ui/ || true)"
+assert_eq "" "$(grep -rn 'iframe' apps/web/src/ui/ || true)"
 
 it "the verdict has its own timeout, so a dead Traefik cannot hang a request"
 assert_contains "$(cat "$traefik")" "AbortSignal.timeout"
@@ -264,7 +264,7 @@ else
       . scripts/lib/toolbox.sh; . scripts/cmd/web.sh
       dg_web_auth_render && cat "$(dg_web_auth_path)"'
   ) > "$tmp/cli.yaml" 2>/dev/null
-  ( cd web && node --experimental-strip-types -e "
+  ( cd apps/web && node --experimental-strip-types -e "
       import('./src/server/core/dynamic.ts').then((m) =>
         process.stdout.write(m.renderPanelAuth({ user: 'dev', hash: '\$apr1\$abcdefgh\$ckT15POyCRlen.h6XtGAZ1' })))
     " ) > "$tmp/panel.yaml" 2>/dev/null
@@ -275,12 +275,12 @@ fi
 describe "the panel is containerised, and the host needs no Node"
 
 it "the image builds the UI and the server"
-assert_contains "$(cat web/Dockerfile)" "npm run build"
+assert_contains "$(cat apps/web/Dockerfile)" "npm run build"
 
 it "the runtime stage carries no source"
-assert_contains "$(cat web/Dockerfile)" "COPY --from=build /app/dist ./dist"
+assert_contains "$(cat apps/web/Dockerfile)" "COPY --from=build /app/apps/web/dist ./apps/web/dist"
 
 it "and no Docker CLI"
-assert_eq "" "$(grep -n 'docker-cli\|docker.sock' web/Dockerfile || true)"
+assert_eq "" "$(grep -n 'docker-cli\|docker.sock' apps/web/Dockerfile || true)"
 
 t_summary

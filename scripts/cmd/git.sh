@@ -208,7 +208,7 @@ DG_GIT_FORGE_LIMIT=10
 
 # dg_git_remote_slug <remote>: host<FS>owner/name, or nothing.
 #
-# Mirrors parseRemote in web/src/server/core/forge.ts closely enough for `gh
+# Mirrors parseRemote in apps/web/src/server/core/forge.ts closely enough for `gh
 # -R host/owner/repo`, which is all this needs.
 dg_git_remote_slug() {
   local remote="${1:-}" host slug FS

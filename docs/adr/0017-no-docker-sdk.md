@@ -9,7 +9,7 @@ show logs and metrics, react to events, perform explicit lifecycle actions and
 create the single constrained bridge shape used by temporary TCP access.
 
 That client is also a security boundary. Every request passes through the
-allowlist in `web/src/server/docker/allowlist.ts` before it reaches the panel's
+allowlist in `apps/web/src/server/docker/allowlist.ts` before it reaches the panel's
 filtered socket proxy. The client has no generic request method exposed to
 route handlers. Container removal always preserves volumes and links, and
 bridge creation explicitly denies binds, mounts, privileges and added

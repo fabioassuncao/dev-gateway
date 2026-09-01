@@ -60,7 +60,7 @@ dg_share_meta() {
 # dg_share_render: read the metadata array on stdin, write the whole file.
 #
 # One jq program rather than a shell loop, because it has to match
-# renderShares() in web/src/server/core/shares.ts byte for byte, and a single
+# renderShares() in apps/web/src/server/core/shares.ts byte for byte, and a single
 # expression is easier to keep in step than a dozen printfs.
 dg_share_render() {
   dg_jq -r '

@@ -62,7 +62,7 @@ The default behaviour follows the exposure, not a preference:
   beyond loopback. The mode already exists, refuses every mutating endpoint,
   and costs nothing to anyone who only wants to look.
 
-Both `web/src/server/core/diagnostics.ts` and `dev-gateway doctor` fail, not
+Both `apps/web/src/server/core/diagnostics.ts` and `dev-gateway doctor` fail, not
 warn, when a routed panel has no authentication, matching the precedent set for
 a non-loopback dashboard.
 

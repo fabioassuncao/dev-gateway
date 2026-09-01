@@ -34,7 +34,7 @@ Because `tecnativa/docker-socket-proxy` gates by path prefix and HTTP method,
 needs: it would also forward `POST /containers/prune` and
 `POST /containers/{id}/exec`. So the panel enforces a second, narrower layer in
 its own process: a hard allowlist of (method, path) pairs in
-`web/src/server/docker/allowlist.ts`, checked before any request is emitted.
+`apps/web/src/server/docker/allowlist.ts`, checked before any request is emitted.
 A call not on that list never reaches the proxy.
 
 The two layers together are what the panel is allowed to do:
