@@ -130,6 +130,22 @@ fi
 # Playwright for the end-to-end run). It needs Node, which the gateway itself
 # never does, so it is skipped rather than assumed.
 if [ "$RUN_UNIT" = "1" ] && [ -d apps/web ]; then
+  # The shared package the shell gateway and the CLI both encode a copy of.
+  # Its suite ran only in CI, so a change to composeFiles could pass here and
+  # fail there.
+  bold "== shared core =="
+  if ! command -v node >/dev/null 2>&1; then
+    echo "  skip node not installed"
+  elif [ ! -d node_modules ] && [ ! -d packages/core/node_modules ]; then
+    echo "  skip node_modules missing (run: npm ci)"
+  else
+    if ( cd packages/core && npm run --silent test ); then
+      echo "  ok  core unit suite"
+    else
+      echo "  FAIL core unit suite"; FAILED=1
+    fi
+  fi
+
   bold "== web panel =="
   if ! command -v node >/dev/null 2>&1; then
     echo "  skip node not installed (the panel is built and run in a container)"

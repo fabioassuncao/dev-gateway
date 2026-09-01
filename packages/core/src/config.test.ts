@@ -10,10 +10,35 @@ describe('gateway configuration', () => {
 
   it('selects the web development overlay once', () => {
     const config = loadGatewayConfig({ PORTTA_WEB: 'true', PORTTA_WEB_DEV: 'true' })
-    expect(composeFiles(config)).toEqual(['docker/compose/compose.yaml', 'docker/compose/attach/host.yaml', 'docker/compose/profiles/local.yaml', 'docker/compose/features/web.yaml', 'docker/compose/features/db.yaml', 'docker/compose/features/web-dev.yaml'])
+    expect(composeFiles(config)).toEqual(['docker/compose/compose.yaml', 'docker/compose/attach/host.yaml', 'docker/compose/profiles/local.yaml', 'docker/compose/features/web.yaml', 'docker/compose/features/db.yaml', 'docker/compose/features/web-bind.yaml', 'docker/compose/features/web-dev.yaml'])
   })
 
   it('refuses a public profile with no public domain', () => {
     expect(() => loadGatewayConfig({ PORTTA_PROFILE: 'remote-public' })).toThrow('PUBLIC_DOMAIN')
+  })
+
+  // Exactly one overlay owns the panel's front door, or two of them would
+  // claim PORTTA_WEB_PORT and one would bypass the credential.
+  it('a public panel is published by Traefik, not by the container', () => {
+    const files = composeFiles(loadGatewayConfig({ PORTTA_WEB: 'true', PORTTA_WEB_EXPOSE: 'public' }))
+    expect(files).toContain('docker/compose/features/panel-public.yaml')
+    expect(files).not.toContain('docker/compose/features/web-bind.yaml')
+  })
+
+  it('every other access mode publishes the container', () => {
+    for (const mode of ['local', 'tailscale', 'vpn']) {
+      const files = composeFiles(loadGatewayConfig({ PORTTA_WEB: 'true', PORTTA_WEB_EXPOSE: mode }))
+      expect(files).toContain('docker/compose/features/web-bind.yaml')
+      expect(files).not.toContain('docker/compose/features/panel-public.yaml')
+    }
+  })
+
+  it('rejects an unknown access mode instead of guessing', () => {
+    expect(() => loadGatewayConfig({ PORTTA_WEB_EXPOSE: 'everywhere' })).toThrow('panel access mode')
+  })
+
+  it('a normal installation never selects the build overlay', () => {
+    expect(composeFiles(loadGatewayConfig({ PORTTA_WEB: 'true' }))).not.toContain('docker/compose/features/web-build.yaml')
+    expect(composeFiles(loadGatewayConfig({ PORTTA_WEB: 'true', PORTTA_WEB_BUILD: 'true' }))).toContain('docker/compose/features/web-build.yaml')
   })
 })

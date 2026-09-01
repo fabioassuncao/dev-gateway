@@ -395,6 +395,10 @@ portta_discover_http() {
     host=""
     if [ -n "$rule" ]; then
       host=$(printf '%s' "$rule" | sed -n 's/.*Host(`\([^`]*\)`).*/\1/p')
+      # An explicit rule that names no host has no hostname to list, and the
+      # derived one would be fiction: nothing answers there. The panel's public
+      # entrypoint is exactly this shape (PathPrefix on its own entrypoint).
+      [ -n "$host" ] || continue
     fi
     if [ -z "$host" ]; then
       if [ -n "$project" ]; then

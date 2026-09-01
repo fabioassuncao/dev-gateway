@@ -33,6 +33,10 @@ export function routesFor(containers: ContainerRecord[], domain: string, scheme:
     const service = container.labels['com.docker.compose.service'] || null
     const rule = labelEntries.find(([key]) => /^traefik\.http\.routers\..*\.rule$/.test(key))?.[1]
     const explicit = rule ? HOST_RULE.exec(rule)?.[1] : undefined
+    // An explicit rule that names no host has no hostname to list, and the
+    // derived one would be fiction: nothing answers there. The panel's public
+    // entrypoint is exactly this shape (PathPrefix on its own entrypoint).
+    if (rule && !explicit) return []
     const hostname = explicit || (project ? `${slug(project)}-${slug(service || container.name)}.${domain}` : `${slug(container.name)}.${domain}`)
     const port = labelEntries.find(([key]) => /^traefik\.http\.services\..*\.loadbalancer\.server\.port$/.test(key))?.[1] || 'auto'
     return [{ project, service, container: container.name, hostname, url: `${scheme}://${hostname}`, port, state: container.state }]
