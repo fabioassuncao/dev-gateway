@@ -22,6 +22,17 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
+      # The gateway itself never needs Node; its panel does, and the runner
+      # already has one. The suite skips the panel when it is absent.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install the panel's dependencies
+        run: cd web && npm ci
+
       - name: Lint and unit tests
         run: ./tests/run.sh
 
@@ -67,6 +78,46 @@ jobs:
       - name: Tear down
         if: always()
         run: ./bin/dev-gateway down || true
+
+  web:
+    name: Web panel
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: cd web && npm ci
+
+      - name: Types
+        run: cd web && npm run typecheck
+
+      - name: Unit, API and component suites
+        run: cd web && npm test
+
+      - name: Install the browser for the end-to-end run
+        run: cd web && npx playwright install --with-deps chromium
+
+      # Drives the real panel against a fake Docker Engine API, so it needs no
+      # daemon and describes the same host every time.
+      - name: End to end
+        run: cd web && npm run test:e2e
+
+      - name: Report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 5
+
+      - name: The panel image builds
+        run: docker build -t dev-gateway-web:ci web
 
   audit:
     name: Audit invariants
@@ -130,6 +181,22 @@ jobs:
           esac
           echo "ok: access bridges bind loopback only"
           ./bin/dev-gateway access close --all
+
+      - name: The panel publishes nothing beyond loopback
+        run: |
+          set -euo pipefail
+          ./bin/dev-gateway web up
+          binds=$(docker ps --format '{{.Names}} {{.Ports}}' | grep -E 'dev-gateway-web' || true)
+          echo "$binds"
+          case "$binds" in
+            *0.0.0.0*) echo "the panel is bound beyond loopback"; exit 1 ;;
+          esac
+          proxy=$(docker inspect dev-gateway-web-socket-proxy-1 \
+            --format '{{ range $p, $c := .NetworkSettings.Ports }}{{ range $c }}{{ .HostIp }}:{{ .HostPort }} {{ end }}{{ end }}')
+          [ -z "$proxy" ] || { echo "the panel socket proxy is published: $proxy"; exit 1; }
+          curl -fsS http://127.0.0.1:8081/api/health >/dev/null
+          echo "ok: the panel answers on loopback and its proxy is unreachable"
+          ./bin/dev-gateway web down
 
       - name: Doctor agrees
         run: ./bin/dev-gateway doctor

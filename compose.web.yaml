@@ -1,0 +1,160 @@
+# ============================================================================
+# Dev Gateway: administration panel (opt-in)
+# ============================================================================
+# Enabled by DEV_GATEWAY_WEB=true, or by `dev-gateway web up`.
+#
+# The panel is a development tool, so it is published on loopback by default
+# and never routed through the public entrypoints. Reaching it over a VPN is a
+# separate, explicit overlay: compose.web-vpn.yaml.
+#
+# It gets its OWN Docker socket proxy rather than sharing Traefik's. Traefik
+# needs a strictly read-only view; the panel needs to start, stop, restart and
+# remove containers, and those two permission sets must not be merged into one.
+# See docs/web-ui.md and docs/adr/0008-web-panel-socket-proxy.md.
+# ============================================================================
+
+networks:
+  # Panel <-> its socket proxy. `internal: true`: the proxy has no route to the
+  # outside world and is reachable from nothing else.
+  webcontrol:
+    name: ${DEV_GATEWAY_WEB_NETWORK:-dev-gateway-web}
+    internal: true
+    labels:
+      dev-gateway.managed: "true"
+      dev-gateway.component: web-control-network
+
+services:
+  # --------------------------------------------------------------------------
+  # The panel's Docker socket proxy
+  # --------------------------------------------------------------------------
+  # Write access is limited to the container lifecycle endpoints. Images,
+  # volumes, exec, build, swarm and the system endpoints (which is where prune
+  # lives) all stay denied, and the panel enforces its own allowlist on top.
+  web-socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    restart: unless-stopped
+    read_only: true
+    environment:
+      # -- read ------------------------------------------------------------
+      CONTAINERS: "1"
+      NETWORKS: "1"
+      EVENTS: "1"
+      INFO: "1"
+      VERSION: "1"
+      PING: "1"
+      # -- write, limited to the container lifecycle ----------------------
+      POST: "1"
+      ALLOW_START: "1"
+      ALLOW_STOP: "1"
+      ALLOW_RESTARTS: "1"
+      # -- denied ----------------------------------------------------------
+      ALLOW_PAUSE: "0"
+      ALLOW_UNPAUSE: "0"
+      AUTH: "0"
+      BUILD: "0"
+      COMMIT: "0"
+      CONFIGS: "0"
+      DISTRIBUTION: "0"
+      EXEC: "0"
+      GRPC: "0"
+      IMAGES: "0"
+      NODES: "0"
+      PLUGINS: "0"
+      SECRETS: "0"
+      SERVICES: "0"
+      SESSION: "0"
+      SWARM: "0"
+      SYSTEM: "0"
+      TASKS: "0"
+      VOLUMES: "0"
+      LOG_LEVEL: warning
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - webcontrol
+    # No `ports:`. The proxy is reachable only from the panel.
+    tmpfs:
+      - /tmp
+      - /run
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "2375"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    labels:
+      traefik.enable: "false"
+      dev-gateway.managed: "true"
+      dev-gateway.component: web-socket-proxy
+
+  # --------------------------------------------------------------------------
+  # The panel: API and UI in one process
+  # --------------------------------------------------------------------------
+  web:
+    build:
+      context: ./web
+      target: runtime
+    image: dev-gateway-web:local
+    restart: unless-stopped
+    depends_on:
+      web-socket-proxy:
+        condition: service_healthy
+    # `node` by default. On a Linux host, set DEV_GATEWAY_WEB_USER to
+    # "$(id -u):$(id -g)" so the panel can write .env from Settings.
+    user: ${DEV_GATEWAY_WEB_USER:-node}
+    environment:
+      DG_WEB_DOCKER_API: http://web-socket-proxy:2375
+      DG_WEB_HOST: 0.0.0.0
+      DG_WEB_PORT: "8081"
+      DG_WEB_ENV_FILE: /app/state/.env
+      DG_WEB_VERSION_FILE: /app/state/VERSION
+      DG_WEB_READ_ONLY: ${DEV_GATEWAY_WEB_READ_ONLY:-false}
+      # The resolved gateway configuration, so the panel and the CLI always
+      # describe the same gateway.
+      DEV_GATEWAY_PROFILE: ${DEV_GATEWAY_PROFILE:-local}
+      DEV_GATEWAY_PROJECT_NAME: ${DEV_GATEWAY_PROJECT_NAME:-dev-gateway}
+      DEV_GATEWAY_NETWORK: ${DEV_GATEWAY_NETWORK:-dev-gateway}
+      DEV_GATEWAY_CONTROL_NETWORK: ${DEV_GATEWAY_CONTROL_NETWORK:-dev-gateway-control}
+      DEV_GATEWAY_ACCESS_NETWORK: ${DEV_GATEWAY_ACCESS_NETWORK:-dev-gateway-access}
+      DEV_GATEWAY_WEB_NETWORK: ${DEV_GATEWAY_WEB_NETWORK:-dev-gateway-web}
+      DEV_GATEWAY_DOMAIN: ${DEV_GATEWAY_DOMAIN:-localhost}
+      DEV_GATEWAY_BIND_ADDRESS: ${DEV_GATEWAY_BIND_ADDRESS:-127.0.0.1}
+      DEV_GATEWAY_HTTP_PORT: ${DEV_GATEWAY_HTTP_PORT:-80}
+      DEV_GATEWAY_HTTPS_PORT: ${DEV_GATEWAY_HTTPS_PORT:-443}
+      DEV_GATEWAY_DASHBOARD: ${DEV_GATEWAY_DASHBOARD:-false}
+      DEV_GATEWAY_DASHBOARD_BIND_ADDRESS: ${DEV_GATEWAY_DASHBOARD_BIND_ADDRESS:-127.0.0.1}
+      DEV_GATEWAY_DASHBOARD_PORT: ${DEV_GATEWAY_DASHBOARD_PORT:-8080}
+      DEV_GATEWAY_LOG_LEVEL: ${DEV_GATEWAY_LOG_LEVEL:-INFO}
+      DEV_GATEWAY_ACCESS_LOG: ${DEV_GATEWAY_ACCESS_LOG:-false}
+      DEV_GATEWAY_WEB_PORT: ${DEV_GATEWAY_WEB_PORT:-8081}
+      DEV_GATEWAY_WEB_BIND_ADDRESS: ${DEV_GATEWAY_WEB_BIND_ADDRESS:-127.0.0.1}
+      TLS_ENABLED: ${TLS_ENABLED:-false}
+      TLS_MODE: ${TLS_MODE:-local}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      ACME_CA_SERVER: ${ACME_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
+      ACME_DNS_PROVIDER: ${ACME_DNS_PROVIDER:-cloudflare}
+      TAILSCALE_ENABLED: ${TAILSCALE_ENABLED:-false}
+      TAILSCALE_HOSTNAME: ${TAILSCALE_HOSTNAME:-dev-gateway}
+      PRIVATE_DOMAIN: ${PRIVATE_DOMAIN:-}
+      PUBLIC_ENABLED: ${PUBLIC_ENABLED:-false}
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-}
+      CLOUDFLARE_ENABLED: ${CLOUDFLARE_ENABLED:-false}
+      CLOUDFLARE_ZONE: ${CLOUDFLARE_ZONE:-}
+    volumes:
+      # Exactly two paths from the host, and nothing else: the configuration
+      # the Settings page edits, and the version string it reports.
+      - ./.env:/app/state/.env
+      - ./VERSION:/app/state/VERSION:ro
+    networks:
+      # `gateway` so the panel can be published and, with the VPN overlay,
+      # routed by Traefik. `webcontrol` for the socket proxy.
+      - gateway
+      - webcontrol
+    ports:
+      - "${DEV_GATEWAY_WEB_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_WEB_PORT:-8081}:8081"
+    labels:
+      # Off unless compose.web-vpn.yaml turns it on: the panel is never routed
+      # through the public entrypoints by accident.
+      traefik.enable: "false"
+      dev-gateway.managed: "true"
+      dev-gateway.component: web

@@ -1,0 +1,19 @@
+# ============================================================================
+# Dev Gateway: reach the panel over the VPN
+# ============================================================================
+# Applied when DEV_GATEWAY_WEB_EXPOSE=vpn. It adds a Traefik router for the
+# panel so it is reachable at <host>.<domain> from the tailnet, instead of only
+# on the VPS's own loopback.
+#
+# The CLI refuses this overlay on the remote-public profile, where Traefik
+# binds every interface and a router would therefore be public. The panel has
+# no authentication: it must never be reachable from the internet.
+# ============================================================================
+
+services:
+  web:
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.dev-gateway-web.rule: >-
+        Host(`${DEV_GATEWAY_WEB_HOST:-dev-gateway-web}.${DEV_GATEWAY_DOMAIN:-localhost}`)
+      traefik.http.services.dev-gateway-web.loadbalancer.server.port: "8081"

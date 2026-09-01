@@ -9,7 +9,7 @@ GW    := ./bin/dev-gateway
 .DEFAULT_GOAL := help
 
 .PHONY: help bootstrap up down restart status doctor urls logs inspect update \
-        test test-all test-e2e lint demo-up demo-down
+        web web-dev web-down test test-all test-e2e lint demo-up demo-down
 
 help: ## Show this help
 	@printf 'Dev Gateway make targets\n\n'
@@ -46,6 +46,15 @@ inspect: ## Print the resolved configuration
 
 update: ## Pull pinned images and recreate
 	@$(GW) update
+
+web: ## Start the administration panel on loopback
+	@$(GW) web up
+
+web-dev: ## Start the panel with hot reloading
+	@$(GW) web dev
+
+web-down: ## Stop the panel; the gateway keeps running
+	@$(GW) web down
 
 lint: ## Shell lint and compose validation
 	@./tests/run.sh --lint

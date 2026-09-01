@@ -114,6 +114,17 @@ dg_resolve_profile() {
       ;;
   esac
 
+  # The panel has no authentication, so it is never routed where Traefik
+  # answers the internet.
+  if dg_is_true "${DEV_GATEWAY_WEB:-false}" \
+     && [ "${DEV_GATEWAY_WEB_EXPOSE:-local}" = "vpn" ] \
+     && [ "$profile" = "remote-public" ]; then
+    err "the panel must not be routed on the remote-public profile"
+    hint "Traefik binds every interface there, so a router for the panel would be public"
+    hint "set DEV_GATEWAY_WEB_EXPOSE=local and reach it over SSH or the tailnet"
+    return 1
+  fi
+
   # ACME cannot issue a certificate without a contact address.
   case "$profile" in
     remote-private|remote-public)
@@ -169,6 +180,18 @@ dg_compose_files() {
       files="$files compose.dashboard-tailscale.yaml"
     else
       files="$files compose.dashboard.yaml"
+    fi
+  fi
+
+  # The panel is opt-in and rides along with the gateway once enabled, so
+  # `dev-gateway up` and `dev-gateway web` cannot drift apart.
+  if dg_is_true "${DEV_GATEWAY_WEB:-false}"; then
+    files="$files compose.web.yaml"
+    if dg_is_true "${DEV_GATEWAY_WEB_DEV:-false}"; then
+      files="$files compose.web-dev.yaml"
+    fi
+    if [ "${DEV_GATEWAY_WEB_EXPOSE:-local}" = "vpn" ]; then
+      files="$files compose.web-vpn.yaml"
     fi
   fi
 

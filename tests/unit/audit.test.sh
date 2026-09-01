@@ -35,13 +35,17 @@ it "nothing clones a consumer project"
 assert_eq "" "$(code | xargs grep -ln 'git clone' 2>/dev/null | grep -v 'scripts/cmd/remote.sh' || true)"
 
 it "no consumer directory is mounted into the gateway"
-# Only three kinds of mount are legitimate here: the gateway's own ./config and
-# ./state, the Docker socket (read-only, into the proxy alone), and /dev/net/tun
-# for Tailscale's kernel networking. Anything else would be reaching into
-# somebody's project.
+# Only these mounts are legitimate here, and all of them are gateway-owned:
+#   ./config, ./state          the gateway's own directories
+#   ./.env, ./VERSION          the configuration the panel's Settings page edits
+#   ./web/                     the panel's own source, in development mode
+#   /var/run/docker.sock       read-only, into a socket proxy and nothing else
+#   /dev/net/tun               Tailscale's kernel networking
+# Anything else would be reaching into somebody's project.
 # A bind mount is `src:dst`; a tmpfs entry has no colon, so require one.
 assert_eq "" "$(grep -hE '^\s+- [./][^ ]*:' compose*.yaml \
-  | grep -vE '\./(config|state)/' \
+  | grep -vE '\./(config|state|web)/' \
+  | grep -vE '\./(\.env|VERSION):' \
   | grep -vE '/var/run/docker\.sock:/var/run/docker\.sock:ro' \
   | grep -vE '/dev/net/tun:/dev/net/tun' || true)"
 
@@ -126,11 +130,15 @@ assert_contains "$(cat scripts/cmd/remote.sh)" "accept-new"
 describe "supply chain"
 
 it "every image pins an explicit version"
-assert_eq "" "$(grep -rhnE '^\s*(image|FROM):?\s' compose*.yaml examples/*/compose*.yaml toolbox/Dockerfile 2>/dev/null \
-  | grep -vE ':[A-Za-z0-9][A-Za-z0-9._-]*\s*$' || true)"
+# Multi-stage builds refer to their own earlier stages by name, and `FROM x AS y`
+# carries the stage name on the end. Neither is an unpinned image.
+assert_eq "" "$(grep -rhE '^\s*(image|FROM):?\s' compose*.yaml examples/*/compose*.yaml toolbox/Dockerfile web/Dockerfile 2>/dev/null \
+  | sed -E 's/[[:space:]]+[Aa][Ss][[:space:]]+[A-Za-z0-9_.-]+[[:space:]]*$//' \
+  | grep -vE '^[[:space:]]*FROM[[:space:]]+(deps|base|build|dev|runtime)[[:space:]]*$' \
+  | grep -vE ':[A-Za-z0-9][A-Za-z0-9._-]*[[:space:]]*$' || true)"
 
 it "no floating latest tag"
-assert_eq "" "$(grep -rn ':latest' compose*.yaml examples/*/compose*.yaml toolbox/Dockerfile 2>/dev/null || true)"
+assert_eq "" "$(grep -rn ':latest' compose*.yaml examples/*/compose*.yaml toolbox/Dockerfile web/Dockerfile 2>/dev/null || true)"
 
 it "the versions table in ADR 0004 lists every pinned image"
 adr="docs/adr/0004-pinned-versions.md"

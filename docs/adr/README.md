@@ -12,3 +12,4 @@ context, the decision, and what it costs us.
 | [0005](0005-hostname-convention.md) | Hostnames are derived from the labels Compose already injects | Accepted |
 | [0006](0006-compose-project-name-as-namespace.md) | `COMPOSE_PROJECT_NAME` is the namespace for parallel environments | Accepted |
 | [0007](0007-tailscale-sidecar.md) | Traefik runs inside the Tailscale container's network namespace | Accepted |
+| [0008](0008-web-panel-socket-proxy.md) | The web panel gets its own Docker socket proxy | Accepted |

@@ -364,6 +364,57 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Web panel
+# ---------------------------------------------------------------------------
+# The panel can start, stop and remove containers, so where it listens matters
+# more than for anything else the gateway runs.
+
+if dg_is_true "$DEV_GATEWAY_WEB"; then
+  case "$DEV_GATEWAY_WEB_BIND_ADDRESS" in
+    127.0.0.1|localhost|::1)
+      check pass web.bind "web panel" \
+        "enabled on $DEV_GATEWAY_WEB_BIND_ADDRESS:$DEV_GATEWAY_WEB_PORT (loopback)" "" ;;
+    *)
+      check fail web.bind "web panel" \
+        "enabled and bound to $DEV_GATEWAY_WEB_BIND_ADDRESS; it has no authentication" \
+        "set DEV_GATEWAY_WEB_BIND_ADDRESS=127.0.0.1, and reach it over the VPN or an SSH tunnel" ;;
+  esac
+
+  if [ "$DEV_GATEWAY_WEB_EXPOSE" = "vpn" ] && [ "$DEV_GATEWAY_PROFILE" = "remote-public" ]; then
+    check fail web.expose "web panel routing" \
+      "routed by Traefik on a profile that answers the internet" \
+      "set DEV_GATEWAY_WEB_EXPOSE=local"
+  fi
+
+  web_id=$(dg_gateway_container web)
+  if [ -z "$web_id" ]; then
+    check warn web.state "web panel container" "not running" "dev-gateway web up"
+  else
+    web_state=$(dg_container_state "$web_id")
+    if [ "$web_state" = "running" ]; then
+      check pass web.state "web panel container" "$web_state ($(dg_container_health "$web_id"))" ""
+    else
+      check warn web.state "web panel container" "$web_state" "dev-gateway web up"
+    fi
+  fi
+
+  web_proxy_id=$(dg_gateway_container web-socket-proxy)
+  if [ -n "$web_proxy_id" ]; then
+    web_proxy_ports=$(docker inspect "$web_proxy_id" --format \
+      '{{ range $p, $c := .NetworkSettings.Ports }}{{ range $c }}{{ .HostIp }}:{{ .HostPort }} {{ end }}{{ end }}' 2>/dev/null)
+    if [ -n "$web_proxy_ports" ]; then
+      check fail web.proxy "web panel socket proxy" \
+        "published on the host: $web_proxy_ports" \
+        "it must be reachable only from the panel; do not add a ports: entry to compose.web.yaml"
+    else
+      check pass web.proxy "web panel socket proxy" "unpublished, reachable only from the panel" ""
+    fi
+  fi
+else
+  check pass web.bind "web panel" "disabled" ""
+fi
+
+# ---------------------------------------------------------------------------
 # DNS and TLS
 # ---------------------------------------------------------------------------
 

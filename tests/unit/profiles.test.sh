@@ -77,6 +77,24 @@ assert_contains "$(files_for local TLS_ENABLED=true TLS_MODE=local)" "compose.lo
 it "the dashboard overlay follows the attachment"
 assert_contains "$(files_for remote-private TAILSCALE_ENABLED=true DEV_GATEWAY_DASHBOARD=true)" "compose.dashboard-tailscale.yaml"
 
+describe "the web panel is opt-in and never public"
+it "off by default"
+assert_not_contains "$(files_for local)" "compose.web.yaml"
+it "enabled by DEV_GATEWAY_WEB"
+assert_contains "$(files_for local DEV_GATEWAY_WEB=true)" "compose.web.yaml"
+it "development mode adds the HMR overlay"
+assert_contains "$(files_for local DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_DEV=true)" "compose.web-dev.yaml"
+it "and does not add it otherwise"
+assert_not_contains "$(files_for local DEV_GATEWAY_WEB=true)" "compose.web-dev.yaml"
+it "the VPN overlay is opt-in"
+assert_contains "$(files_for remote-private DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_EXPOSE=vpn TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test)" "compose.web-vpn.yaml"
+it "routing the panel on remote-public is REFUSED"
+assert_eq "REFUSED" "$(resolve remote-public DEV_GATEWAY_DOMAIN PUBLIC_DOMAIN=d.test DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_EXPOSE=vpn)"
+it "the panel itself still runs there, just not routed"
+assert_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test DEV_GATEWAY_WEB=true)" "compose.web.yaml"
+it "and gets no Traefik router"
+assert_not_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test DEV_GATEWAY_WEB=true)" "compose.web-vpn.yaml"
+
 describe "every profile renders a valid compose configuration"
 if ! docker compose version >/dev/null 2>&1; then
   it "compose validation"; skip "docker compose unavailable"
@@ -95,6 +113,9 @@ else
   it "remote-private, own VPN";     assert_success validate remote-private DEV_GATEWAY_BIND_ADDRESS=100.64.0.1 PRIVATE_DOMAIN=vpn.test
   it "remote-public";               assert_success validate remote-public PUBLIC_DOMAIN=d.test TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test
   it "remote-public + tailscale";   assert_success validate remote-public PUBLIC_DOMAIN=d.test TAILSCALE_ENABLED=true TS_AUTHKEY=dummy TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test
+  it "local with the web panel";    assert_success validate local DEV_GATEWAY_WEB=true
+  it "local with the panel in dev"; assert_success validate local DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_DEV=true
+  it "remote-private + panel/vpn";  assert_success validate remote-private TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_EXPOSE=vpn
 fi
 
 describe "the private profile never publishes on a public interface"

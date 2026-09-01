@@ -24,6 +24,8 @@ Every image pins an explicit version tag. As of this writing:
 | `redis` | `8.10.1-alpine` | fixtures only |
 | `nginx` | `1.31.4-alpine` | fixtures only |
 | `alpine` | `3.24.1` | toolbox base, fixtures |
+| `node` | `24.20.0-alpine` | web panel build and runtime |
+| `dev-gateway-web` | `local` | the web panel, built from `web/` on this host |
 
 `tests/unit/audit.test.sh` fails the build if any image lacks an explicit tag,
 if a `:latest` appears anywhere, or if a pinned image is missing from the table

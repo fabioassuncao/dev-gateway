@@ -57,6 +57,11 @@ CORE
   update                 Pull the pinned component images and recreate
   version                Print the gateway version
 
+WEB PANEL
+  web up                 Start the administration panel (loopback by default)
+  web open|status|logs   Reach it, inspect it, follow it
+  web down|disable       Stop it; the gateway keeps running
+
 TCP SERVICES (databases, caches, queues)
   services               Every service of every running project, and how to reach it
   access open            Open a loopback bridge to a private TCP service
@@ -303,6 +308,9 @@ cmd_status() {
   "tailscale_enabled": $(dg_is_true "$TAILSCALE_ENABLED" && echo true || echo false),
   "public_enabled": $(dg_is_true "$PUBLIC_ENABLED" && echo true || echo false),
   "dashboard_enabled": $(dg_is_true "$DEV_GATEWAY_DASHBOARD" && echo true || echo false),
+  "web_enabled": $(dg_is_true "$DEV_GATEWAY_WEB" && echo true || echo false),
+  "web_url": "http://$DEV_GATEWAY_WEB_BIND_ADDRESS:$DEV_GATEWAY_WEB_PORT",
+  "web_expose": "$DEV_GATEWAY_WEB_EXPOSE",
   "traefik": {"state": "$traefik_state", "health": "$traefik_health"},
   "socket_proxy": {"state": "$proxy_state"},
   "network": {"name": "$DEV_GATEWAY_NETWORK", "state": "$net_state"},
@@ -334,6 +342,7 @@ JSON
   printf '  %-18s %s\n' "public domain" "${PUBLIC_DOMAIN:-<unset>}"
   printf '  %-18s %s\n' "public access" "$(dg_is_true "$PUBLIC_ENABLED" && printf 'ENABLED' || printf 'disabled')"
   printf '  %-18s %s\n' "dashboard" "$(dg_is_true "$DEV_GATEWAY_DASHBOARD" && printf 'enabled (%s:%s)' "$DEV_GATEWAY_DASHBOARD_BIND_ADDRESS" "$DEV_GATEWAY_DASHBOARD_PORT" || printf 'disabled')"
+  printf '  %-18s %s\n' "web panel" "$(dg_is_true "$DEV_GATEWAY_WEB" && printf 'enabled (%s:%s, expose: %s)' "$DEV_GATEWAY_WEB_BIND_ADDRESS" "$DEV_GATEWAY_WEB_PORT" "$DEV_GATEWAY_WEB_EXPOSE" || printf 'disabled')"
   printf '  %-18s %s\n' "routed services" "$routes"
 }
 
@@ -345,7 +354,9 @@ cmd_inspect() {
            DEV_GATEWAY_CONTROL_NETWORK DEV_GATEWAY_ACCESS_NETWORK \
            DEV_GATEWAY_DOMAIN DEV_GATEWAY_BIND_ADDRESS DEV_GATEWAY_HTTP_PORT \
            DEV_GATEWAY_HTTPS_PORT DEV_GATEWAY_LOG_LEVEL DEV_GATEWAY_ACCESS_LOG \
-           DEV_GATEWAY_DASHBOARD TLS_ENABLED TLS_MODE TAILSCALE_ENABLED \
+           DEV_GATEWAY_DASHBOARD DEV_GATEWAY_WEB DEV_GATEWAY_WEB_BIND_ADDRESS \
+           DEV_GATEWAY_WEB_PORT DEV_GATEWAY_WEB_EXPOSE DEV_GATEWAY_WEB_DEV \
+           DEV_GATEWAY_WEB_READ_ONLY TLS_ENABLED TLS_MODE TAILSCALE_ENABLED \
            PUBLIC_ENABLED PUBLIC_DOMAIN PRIVATE_DOMAIN CLOUDFLARE_ENABLED; do
     printf '  %-32s %s\n' "$v" "${!v:-}"
   done
@@ -549,6 +560,7 @@ main() {
     namespace|ns) dg_cmd_namespace "$@" ;;
     access) dg_cmd_access "$@" ;;
     services) dg_cmd_services "$@" ;;
+    web) dg_cmd_web "$@" ;;
     db) dg_cmd_db "$@" ;;
     redis) dg_cmd_redis "$@" ;;
     service) dg_cmd_service "$@" ;;
