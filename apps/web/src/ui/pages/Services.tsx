@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api.ts'
 import type { ContainerSummary, UrlScope } from '../../shared/types.ts'
 import { Card } from '../components/ui/card.tsx'
@@ -11,14 +12,17 @@ import { AddressLine } from '../components/copy.tsx'
 import { ScopeBadge, StateBadge } from '../components/status.tsx'
 import { ContainerActions } from '../components/container-actions.tsx'
 import { ContainerDetails } from '../components/container-details.tsx'
-import { shortImage, uptime } from '../lib/format.ts'
+import { useFormat } from '../lib/use-format.ts'
 import { ServiceIcon } from '../components/service-icon.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 
 const SCOPES: UrlScope[] = ['local', 'vpn', 'public']
 
 export function Services() {
-  useDocumentTitle('Services')
+  const { t } = useTranslation('services')
+  const { t: tc } = useTranslation('common')
+  const { shortImage, uptime } = useFormat()
+  useDocumentTitle(t('title'))
   const [search, setSearch] = useState('')
   const [state, setState] = useState('all')
   const [details, setDetails] = useState<ContainerSummary | null>(null)
@@ -49,29 +53,29 @@ export function Services() {
   return (
     <>
       <PageHeader
-        title="Services"
-        description="Every service of every integrated project, and how to reach it."
+        title={t('title')}
+        description={t('description')}
         actions={
           <>
             <Select
               value={state}
               onChange={(event) => setState(event.target.value)}
               className="w-32"
-              aria-label="Filter services"
+              aria-label={t('filterAria')}
             >
-              <option value="all">All</option>
-              <option value="running">Running</option>
-              <option value="stopped">Stopped</option>
-              <option value="unhealthy">Unhealthy</option>
-              <option value="http">HTTP</option>
-              <option value="tcp">TCP</option>
+              <option value="all">{tc('all')}</option>
+              <option value="running">{tc('running')}</option>
+              <option value="stopped">{tc('stopped')}</option>
+              <option value="unhealthy">{tc('unhealthy')}</option>
+              <option value="http">{t('filters.http')}</option>
+              <option value="tcp">{t('filters.tcp')}</option>
             </Select>
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search service, image, hostname"
+              placeholder={t('searchPlaceholder')}
               className="w-64"
-              aria-label="Search services"
+              aria-label={t('searchAria')}
             />
           </>
         }
@@ -79,20 +83,20 @@ export function Services() {
 
       <Card>
         {services.length === 0 ? (
-          <Empty title="No service matches" />
+          <Empty title={t('empty')} />
         ) : (
           <Table>
             <thead>
               <tr>
-                <Th>Project</Th>
-                <Th>Service</Th>
-                <Th>Image</Th>
-                <Th>Type</Th>
-                <Th>Status</Th>
-                <Th>Port</Th>
-                <Th>Addresses</Th>
-                <Th>Up</Th>
-                <Th className="text-right">Actions</Th>
+                <Th>{t('table.project')}</Th>
+                <Th>{t('table.service')}</Th>
+                <Th>{t('table.image')}</Th>
+                <Th>{t('filters.http', { defaultValue: 'Type' })}</Th>
+                <Th>{t('table.state')}</Th>
+                <Th>{t('table.ports', { defaultValue: 'Port' })}</Th>
+                <Th>{t('table.urls')}</Th>
+                <Th>{t('table.uptime')}</Th>
+                <Th className="text-right">{t('table.actions')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -110,9 +114,7 @@ export function Services() {
                   </Td>
                   <Td className="font-mono text-xs text-muted">{shortImage(service.image)}</Td>
                   <Td>
-                    <Badge tone={service.traefikEnabled ? 'info' : 'neutral'}>
-                      {service.kind}
-                    </Badge>
+                    <Badge tone={service.traefikEnabled ? 'info' : 'neutral'}>{service.kind}</Badge>
                   </Td>
                   <Td>
                     <StateBadge state={service.state} health={service.health} />
@@ -123,7 +125,9 @@ export function Services() {
                   <Td>
                     {service.urls.length === 0 ? (
                       <span className="text-xs text-subtle">
-                        {service.traefikEnabled ? 'no route' : 'reached over a TCP bridge'}
+                        {service.traefikEnabled
+                          ? t('noRoute', { defaultValue: 'no route' })
+                          : t('tcpBridge', { defaultValue: 'reached over a TCP bridge' })}
                       </span>
                     ) : (
                       <div className="space-y-0.5">

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api.ts'
 import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
 import { Badge } from '../components/ui/badge.tsx'
@@ -17,7 +18,9 @@ const ROLE_TONE = {
 } as const
 
 export function NetworkPage() {
-  useDocumentTitle('Network')
+  const { t } = useTranslation('network')
+  const { t: tc } = useTranslation('common')
+  useDocumentTitle(t('title'))
   const query = useQuery({ queryKey: ['network'], queryFn: api.network })
 
   if (query.isPending) return <Loading />
@@ -28,46 +31,43 @@ export function NetworkPage() {
 
   return (
     <>
-      <PageHeader
-        title="Network"
-        description="Domains, routes, DNS, TLS and the Docker networks behind them."
-      />
+      <PageHeader title={t('title')} description={t('description')} />
 
       <div className="grid items-start gap-4 lg:grid-cols-3">
         <Card>
-          <CardHeader title="Domains" />
+          <CardHeader title={t('domains.title')} />
           <CardBody>
             <dl className="divide-y divide-line/60">
-              <KeyValue label="Routed domain">
+              <KeyValue label={t('domains.routedDomain')}>
                 <span className="font-mono text-xs">{domains.local}</span>
               </KeyValue>
-              <KeyValue label="VPN domain">
+              <KeyValue label={t('domains.vpnDomain')}>
                 <span className="font-mono text-xs">{domains.private ?? '—'}</span>
               </KeyValue>
-              <KeyValue label="Public domain">
+              <KeyValue label={t('domains.publicDomain')}>
                 <span className="font-mono text-xs">{domains.public ?? '—'}</span>
               </KeyValue>
-              <KeyValue label="Scheme">{domains.scheme}</KeyValue>
+              <KeyValue label={t('domains.scheme')}>{domains.scheme}</KeyValue>
             </dl>
           </CardBody>
         </Card>
 
         <Card>
-          <CardHeader title="TLS" />
+          <CardHeader title={t('tls.title')} />
           <CardBody>
             <dl className="divide-y divide-line/60">
-              <KeyValue label="HTTPS">
+              <KeyValue label={t('tls.https')}>
                 <Badge tone={tls.enabled ? 'ok' : 'neutral'}>
-                  {tls.enabled ? 'enabled' : 'disabled'}
+                  {tls.enabled ? tc('enabled') : tc('disabled')}
                 </Badge>
               </KeyValue>
-              <KeyValue label="Mode">{tls.mode}</KeyValue>
-              <KeyValue label="ACME contact">
+              <KeyValue label={t('tls.mode')}>{tls.mode}</KeyValue>
+              <KeyValue label={t('tls.acmeContact')}>
                 <Badge tone={tls.acmeEmailSet ? 'ok' : 'warn'}>
-                  {tls.acmeEmailSet ? 'set' : 'not set'}
+                  {tls.acmeEmailSet ? tc('set') : tc('notSet')}
                 </Badge>
               </KeyValue>
-              <KeyValue label="Directory">
+              <KeyValue label={t('tls.directory')}>
                 <span className="font-mono text-[11px] break-all">{tls.caServer}</span>
               </KeyValue>
             </dl>
@@ -75,23 +75,23 @@ export function NetworkPage() {
         </Card>
 
         <Card>
-          <CardHeader title="VPN and DNS" />
+          <CardHeader title={t('vpnDns.title')} />
           <CardBody>
             <dl className="divide-y divide-line/60">
-              <KeyValue label="Tailscale">
+              <KeyValue label={t('vpnDns.tailscale')}>
                 {tailscale.enabled ? (
                   <StateBadge state={tailscale.state} health={tailscale.health} />
                 ) : (
-                  <Badge>disabled</Badge>
+                  <Badge>{tc('disabled')}</Badge>
                 )}
               </KeyValue>
-              <KeyValue label="Tailnet hostname">
+              <KeyValue label={t('vpnDns.tailnetHostname')}>
                 <span className="font-mono text-xs">{tailscale.hostname}</span>
               </KeyValue>
-              <KeyValue label="DNS-01 provider">{dns.provider}</KeyValue>
-              <KeyValue label="Cloudflare">
+              <KeyValue label={t('vpnDns.dnsProvider')}>{dns.provider}</KeyValue>
+              <KeyValue label={t('vpnDns.cloudflare')}>
                 <Badge tone={dns.cloudflareEnabled ? 'ok' : 'neutral'}>
-                  {dns.cloudflareEnabled ? (dns.zone ?? 'enabled') : 'disabled'}
+                  {dns.cloudflareEnabled ? (dns.zone ?? tc('enabled')) : tc('disabled')}
                 </Badge>
               </KeyValue>
             </dl>
@@ -100,21 +100,18 @@ export function NetworkPage() {
       </div>
 
       <Card className="mt-4">
-        <CardHeader
-          title="Routes"
-          description="Derived from Docker labels, exactly like Traefik derives them."
-        />
+        <CardHeader title={t('routes.title')} description={t('routes.description')} />
         {routes.length === 0 ? (
-          <Empty title="No service is routed yet" />
+          <Empty title={t('routes.empty')} />
         ) : (
           <Table>
             <thead>
               <tr>
-                <Th>Project</Th>
-                <Th>Service</Th>
-                <Th>Status</Th>
-                <Th>Target port</Th>
-                <Th>Addresses</Th>
+                <Th>{t('routes.project')}</Th>
+                <Th>{t('routes.service')}</Th>
+                <Th>{t('routes.status')}</Th>
+                <Th>{t('routes.targetPort')}</Th>
+                <Th>{t('routes.addresses')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -144,15 +141,15 @@ export function NetworkPage() {
       </Card>
 
       <Card className="mt-4">
-        <CardHeader title="Docker networks" />
+        <CardHeader title={t('networks.title')} />
         <Table>
           <thead>
             <tr>
-              <Th>Name</Th>
-              <Th>Role</Th>
-              <Th>Driver</Th>
-              <Th>Containers</Th>
-              <Th>Flags</Th>
+              <Th>{t('networks.name')}</Th>
+              <Th>{t('networks.role')}</Th>
+              <Th>{t('networks.driver')}</Th>
+              <Th>{t('networks.containers')}</Th>
+              <Th>{t('networks.flags')}</Th>
             </tr>
           </thead>
           <tbody>
@@ -160,13 +157,13 @@ export function NetworkPage() {
               <Tr key={network.id}>
                 <Td className="font-mono text-xs">{network.name}</Td>
                 <Td>
-                  <Badge tone={ROLE_TONE[network.role]}>{network.role}</Badge>
+                  <Badge tone={ROLE_TONE[network.role]}>{t(`networks.roles.${network.role}`)}</Badge>
                 </Td>
                 <Td className="text-xs text-muted">{network.driver}</Td>
                 <Td className="text-xs tabular-nums">{network.containerCount}</Td>
                 <Td className="flex gap-1">
-                  {network.internal ? <Badge tone="info">internal</Badge> : null}
-                  {network.managed ? <Badge tone="accent">gateway</Badge> : null}
+                  {network.internal ? <Badge tone="info">{t('networks.internal')}</Badge> : null}
+                  {network.managed ? <Badge tone="accent">{t('networks.gateway')}</Badge> : null}
                 </Td>
               </Tr>
             ))}

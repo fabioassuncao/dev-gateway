@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api.ts'
 import type { ContainerSummary, Ownership } from '../../shared/types.ts'
 import { Card, CardHeader } from '../components/ui/card.tsx'
@@ -11,35 +12,17 @@ import { Mono } from '../components/copy.tsx'
 import { OwnershipBadge, StateBadge } from '../components/status.tsx'
 import { ContainerActions } from '../components/container-actions.tsx'
 import { ContainerDetails } from '../components/container-details.tsx'
-import { bytes, shortImage, uptime } from '../lib/format.ts'
+import { useFormat } from '../lib/use-format.ts'
 import { ServiceIcon } from '../components/service-icon.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 
-const GROUPS: { ownership: Ownership; title: string; description: string }[] = [
-  {
-    ownership: 'gateway',
-    title: 'Dev Gateway',
-    description: 'The gateway’s own infrastructure. Managed by the CLI, not from here.',
-  },
-  {
-    ownership: 'integrated',
-    title: 'Integrated projects',
-    description: 'Compose projects connected to the gateway: routed, or on the shared network.',
-  },
-  {
-    ownership: 'external',
-    title: 'External Docker',
-    description: 'Compose projects on this host that the gateway does not manage.',
-  },
-  {
-    ownership: 'standalone',
-    title: 'Standalone containers',
-    description: 'Started by hand, outside any Compose project.',
-  },
-]
+const GROUP_KEYS: Ownership[] = ['gateway', 'integrated', 'external', 'standalone']
 
 export function DockerPage() {
-  useDocumentTitle('Docker')
+  const { t } = useTranslation('docker')
+  const { t: tc } = useTranslation('common')
+  const { bytes } = useFormat()
+  useDocumentTitle(t('title'))
   const [search, setSearch] = useState('')
   const [ownership, setOwnership] = useState<'all' | Ownership>('all')
   const [state, setState] = useState('all')
@@ -77,39 +60,39 @@ export function DockerPage() {
   return (
     <>
       <PageHeader
-        title="Docker host"
-        description="Every container on this machine, whether or not the gateway knows about it."
+        title={t('title')}
+        description={t('description')}
         actions={
           <>
             <Select
               value={ownership}
               onChange={(event) => setOwnership(event.target.value as 'all' | Ownership)}
               className="w-40"
-              aria-label="Filter by ownership"
+              aria-label={t('filterOwnership')}
             >
-              <option value="all">All</option>
-              <option value="gateway">Dev Gateway</option>
-              <option value="integrated">Integrated</option>
-              <option value="external">External</option>
-              <option value="standalone">Standalone</option>
+              <option value="all">{tc('all')}</option>
+              <option value="gateway">{tc('ownership.gateway')}</option>
+              <option value="integrated">{tc('ownership.integrated')}</option>
+              <option value="external">{tc('ownership.external')}</option>
+              <option value="standalone">{tc('ownership.standalone')}</option>
             </Select>
             <Select
               value={state}
               onChange={(event) => setState(event.target.value)}
               className="w-32"
-              aria-label="Filter by state"
+              aria-label={t('filterState')}
             >
-              <option value="all">Any state</option>
-              <option value="running">Running</option>
-              <option value="stopped">Stopped</option>
-              <option value="unhealthy">Unhealthy</option>
+              <option value="all">{t('anyState', { defaultValue: 'Any state' })}</option>
+              <option value="running">{tc('running')}</option>
+              <option value="stopped">{tc('stopped')}</option>
+              <option value="unhealthy">{tc('unhealthy')}</option>
             </Select>
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search container, image, project"
+              placeholder={t('searchPlaceholder')}
               className="w-64"
-              aria-label="Search containers"
+              aria-label={t('searchAria')}
             />
           </>
         }
@@ -118,19 +101,22 @@ export function DockerPage() {
       {host.data ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <StatTile
-            label="Running"
+            label={t('stats.running')}
             value={host.data.containers.running}
-            hint={`${host.data.containers.total} containers total`}
+            hint={t('containersTotal', {
+              defaultValue: '{{total}} containers total',
+              total: host.data.containers.total,
+            })}
           />
-          <StatTile label="Dev Gateway" value={host.data.byOwnership.gateway} />
-          <StatTile label="Integrated" value={host.data.byOwnership.integrated} />
+          <StatTile label={t('stats.gateway')} value={host.data.byOwnership.gateway} />
+          <StatTile label={t('stats.integrated')} value={host.data.byOwnership.integrated} />
           <StatTile
-            label="External"
+            label={t('stats.external')}
             value={host.data.byOwnership.external + host.data.byOwnership.standalone}
           />
-          <StatTile label="Networks" value={host.data.networks.length} />
+          <StatTile label={t('stats.networks')} value={host.data.networks.length} />
           <StatTile
-            label="Port conflicts"
+            label={t('stats.portConflicts')}
             value={conflicts.length}
             tone={conflicts.length > 0 ? 'warn' : 'ok'}
           />
@@ -139,14 +125,14 @@ export function DockerPage() {
 
       <div className="mt-4 space-y-4">
         {ownership === 'all' ? (
-          GROUPS.map((group) => {
-            const rows = filtered.filter((container) => container.ownership === group.ownership)
+          GROUP_KEYS.map((key) => {
+            const rows = filtered.filter((container) => container.ownership === key)
             if (rows.length === 0) return null
             return (
               <ContainerGroup
-                key={group.ownership}
-                title={group.title}
-                description={group.description}
+                key={key}
+                title={t(`groups.${key}.title`)}
+                description={t(`groups.${key}.description`)}
                 containers={rows}
                 onDetails={setDetails}
               />
@@ -154,8 +140,8 @@ export function DockerPage() {
           })
         ) : (
           <ContainerGroup
-            title={GROUPS.find((group) => group.ownership === ownership)?.title ?? 'Containers'}
-            description={GROUPS.find((group) => group.ownership === ownership)?.description ?? ''}
+            title={t(`groups.${ownership}.title`, { defaultValue: t('containers') })}
+            description={t(`groups.${ownership}.description`, { defaultValue: '' })}
             containers={filtered}
             onDetails={setDetails}
           />
@@ -163,7 +149,7 @@ export function DockerPage() {
 
         {filtered.length === 0 ? (
           <Card>
-            <Empty title="No container matches the filters" />
+            <Empty title={t('empty')} />
           </Card>
         ) : null}
       </div>
@@ -172,18 +158,18 @@ export function DockerPage() {
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader
-              title="Published ports"
-              description="Useful for spotting the container that already holds the port you need."
+              title={t('publishedPorts.title')}
+              description={t('publishedPorts.description')}
             />
             {host.data.ports.length === 0 ? (
-              <Empty title="Nothing is published on the host" />
+              <Empty title={t('publishedPorts.empty')} />
             ) : (
-              <Table aria-label="Published ports">
+              <Table aria-label={t('publishedPorts.aria')}>
                 <thead>
                   <tr>
-                    <Th>Port</Th>
-                    <Th>Bound by</Th>
-                    <Th>Owner</Th>
+                    <Th>{t('publishedPorts.hostPort', { defaultValue: 'Port' })}</Th>
+                    <Th>{t('publishedPorts.container', { defaultValue: 'Bound by' })}</Th>
+                    <Th>{t('publishedPorts.owner', { defaultValue: 'Owner' })}</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -193,7 +179,7 @@ export function DockerPage() {
                         {port.hostPort}/{port.protocol}
                         {port.conflict ? (
                           <Badge tone="warn" className="ml-2">
-                            conflict
+                            {t('publishedPorts.conflictBadge', { defaultValue: 'conflict' })}
                           </Badge>
                         ) : null}
                       </Td>
@@ -206,11 +192,9 @@ export function DockerPage() {
                         ))}
                       </Td>
                       <Td>
-                        {[...new Set(port.bindings.map((binding) => binding.ownership))].map(
-                          (owner) => (
-                            <OwnershipBadge key={owner} ownership={owner} />
-                          ),
-                        )}
+                        {[...new Set(port.bindings.map((binding) => binding.ownership))].map((owner) => (
+                          <OwnershipBadge key={owner} ownership={owner} />
+                        ))}
                       </Td>
                     </Tr>
                   ))}
@@ -220,17 +204,17 @@ export function DockerPage() {
           </Card>
 
           <Card>
-            <CardHeader title="Engine" />
+            <CardHeader title={t('engine.title')} />
             <div className="px-4 py-3">
               <dl className="divide-y divide-line/60">
-                <KeyValue label="Docker">
+                <KeyValue label={t('engine.docker')}>
                   {host.data.engine.version} (API {host.data.engine.apiVersion})
                 </KeyValue>
-                <KeyValue label="Host">{host.data.engine.name}</KeyValue>
-                <KeyValue label="Platform">
+                <KeyValue label={t('engine.host')}>{host.data.engine.name}</KeyValue>
+                <KeyValue label={t('engine.platform')}>
                   {host.data.engine.os} · {host.data.engine.arch}
                 </KeyValue>
-                <KeyValue label="Resources">
+                <KeyValue label={t('engine.resources')}>
                   {host.data.engine.cpus} CPU · {bytes(host.data.engine.memoryBytes)}
                 </KeyValue>
               </dl>
@@ -261,6 +245,9 @@ function ContainerGroup({
   containers: ContainerSummary[]
   onDetails: (container: ContainerSummary) => void
 }) {
+  const { t } = useTranslation('docker')
+  const { shortImage, uptime } = useFormat()
+
   return (
     <Card>
       <CardHeader
@@ -275,14 +262,14 @@ function ContainerGroup({
       <Table aria-label={title}>
         <thead>
           <tr>
-            <Th>Container</Th>
-            <Th>Image</Th>
-            <Th>Status</Th>
-            <Th>Project</Th>
-            <Th>Ports</Th>
-            <Th>Networks</Th>
-            <Th>Up</Th>
-            <Th className="text-right">Actions</Th>
+            <Th>{t('table.name', { defaultValue: 'Container' })}</Th>
+            <Th>{t('table.image')}</Th>
+            <Th>{t('table.state')}</Th>
+            <Th>{t('table.project')}</Th>
+            <Th>{t('table.ports')}</Th>
+            <Th>{t('networks', { defaultValue: 'Networks' })}</Th>
+            <Th>{t('table.uptime', { defaultValue: 'Up' })}</Th>
+            <Th className="text-right">{t('table.actions')}</Th>
           </tr>
         </thead>
         <tbody>

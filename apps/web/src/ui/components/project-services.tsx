@@ -1,5 +1,6 @@
+import { useTranslation } from 'react-i18next'
 import type { ContainerSummary, RouteUrl, UrlScope } from '../../shared/types.ts'
-import { uptime, shortImage } from '../lib/format.ts'
+import { useFormat } from '../lib/use-format.ts'
 import { AddressLine } from './copy.tsx'
 import { ContainerActions } from './container-actions.tsx'
 import { ServiceIcon } from './service-icon.tsx'
@@ -9,7 +10,6 @@ import { ScopeBadge, StateBadge } from './status.tsx'
 const SCOPE_ORDER: Record<UrlScope, number> = { local: 0, vpn: 1, public: 2 }
 const SCHEME_ORDER: Record<RouteUrl['scheme'], number> = { https: 0, http: 1 }
 
-/** Stable display order: local HTTPS, local HTTP, then VPN and public. */
 export function orderedEndpoints(urls: RouteUrl[]): RouteUrl[] {
   return [...urls].sort(
     (left, right) =>
@@ -20,12 +20,17 @@ export function orderedEndpoints(urls: RouteUrl[]): RouteUrl[] {
 }
 
 export function ServiceEndpoints({ service }: { service: ContainerSummary }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'project.endpoints' })
   const name = service.service ?? service.name
 
   if (service.state !== 'running') {
     return (
       <span className="text-xs text-subtle">
-        No live endpoint while {name} is {service.state}.
+        {t('notRunning', {
+          defaultValue: 'No live endpoint while {{name}} is {{state}}.',
+          name,
+          state: service.state,
+        })}
       </span>
     )
   }
@@ -49,29 +54,33 @@ export function ServiceEndpoints({ service }: { service: ContainerSummary }) {
       return (
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-subtle">
           <Badge tone="neutral">{service.kind}</Badge>
-          <span>No exposed TCP port; this service is not available through Access.</span>
+          <span>{t('noTcpPort', { defaultValue: 'No exposed TCP port; this service is not available through Access.' })}</span>
         </div>
       )
     }
     return (
       <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
         <Badge tone="neutral">{service.kind}</Badge>
-        <span>TCP service · reachable through the</span>
+        <span>{t('tcpService', { defaultValue: 'TCP service · reachable through the' })}</span>
         <a className="font-medium text-accent hover:underline" href="#/access">
-          Access page
+          {t('accessPage', { defaultValue: 'Access page' })}
         </a>
       </div>
     )
   }
 
   if (!service.traefikEnabled) {
-    return <span className="text-xs text-subtle">HTTP service · not routed through the gateway.</span>
+    return (
+      <span className="text-xs text-subtle">
+        {t('httpNotRouted', { defaultValue: 'HTTP service · not routed through the gateway.' })}
+      </span>
+    )
   }
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-xs text-warn">
-      <Badge tone="warn">routing problem</Badge>
-      <span>Traefik is enabled, but no endpoint was discovered.</span>
+      <Badge tone="warn">{t('routingProblem', { defaultValue: 'routing problem' })}</Badge>
+      <span>{t('noEndpointDiscovered', { defaultValue: 'Traefik is enabled, but no endpoint was discovered.' })}</span>
     </div>
   )
 }
@@ -83,20 +92,24 @@ export function ServiceRow({
   service: ContainerSummary
   onShowDetails: () => void
 }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'project' })
+  const { shortImage, uptime } = useFormat()
   const name = service.service ?? service.name
-  const ports = service.exposedPorts.length > 0 ? service.exposedPorts.join(', ') : 'none exposed'
+  const ports = service.exposedPorts.length > 0 ? service.exposedPorts.join(', ') : t('noneExposed', { defaultValue: 'none exposed' })
   const metadata = [
     service.kind,
     shortImage(service.image),
-    `ports ${ports}`,
-    service.uptimeSeconds === null ? 'no current uptime' : `up ${uptime(service.uptimeSeconds)}`,
+    t('portsMeta', { defaultValue: 'ports {{ports}}', ports }),
+    service.uptimeSeconds === null
+      ? t('noUptime', { defaultValue: 'no current uptime' })
+      : t('upMeta', { defaultValue: 'up {{time}}', time: uptime(service.uptimeSeconds) }),
     service.name,
   ].join(' · ')
 
   return (
     <div
       role="group"
-      aria-label={`${name} service`}
+      aria-label={t('serviceRowLabel', { defaultValue: '{{name}} service', name })}
       className="grid min-w-0 gap-2 border-b border-line px-4 py-2 last:border-b-0 lg:grid-cols-[minmax(12rem,0.8fr)_minmax(16rem,1.4fr)_auto] lg:items-start"
     >
       <div className="min-w-0">

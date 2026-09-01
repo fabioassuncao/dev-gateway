@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { RefreshCw } from 'lucide-react'
 import type { LogsResponse, ProjectLogSource } from '../../shared/types.ts'
 import { Badge } from './ui/badge.tsx'
@@ -9,7 +10,6 @@ import { CopyButton } from './copy.tsx'
 import { Empty, ErrorBox, Loading } from './shell-bits.tsx'
 import { cn } from '../lib/utils.ts'
 
-/** A line that may carry the service that produced it. */
 interface ViewerLine {
   stream: 'stdout' | 'stderr'
   timestamp: string | null
@@ -19,12 +19,10 @@ interface ViewerLine {
 
 interface ViewerResponse extends Omit<LogsResponse, 'containerId' | 'name' | 'lines'> {
   lines: ViewerLine[]
-  /** Present when the response covers several services. */
   sources?: ProjectLogSource[]
   ordered?: boolean
 }
 
-/** Six stable tones, picked by a hash so a service keeps its colour. */
 const ORIGIN_TONES = [
   'text-accent',
   'text-info',
@@ -42,16 +40,6 @@ export function originTone(service: string): string {
   return ORIGIN_TONES[Math.abs(hash) % ORIGIN_TONES.length]!
 }
 
-/**
- * Recent lines, a filter, and a copy button. Deliberately not a log platform:
- * for anything more, the container's own tooling is a better place to look.
- *
- * With `sources`, the same component reads a whole project: a selector narrows
- * to one service, a status strip reports the sources that could not be read,
- * and `showOrigin` puts the service name in front of every line. The selector
- * comes from the caller so it lists every service; the strip comes from the
- * response, so it reports what this particular read found.
- */
 export function LogViewer({
   queryKey,
   load,
@@ -69,6 +57,7 @@ export function LogViewer({
   selectedService?: string | null
   onSelectService?: (service: string | null) => void
 }) {
+  const { t } = useTranslation('common')
   const [tail, setTail] = useState(200)
   const [filter, setFilter] = useState('')
   const [follow, setFollow] = useState(false)
@@ -108,9 +97,9 @@ export function LogViewer({
             value={selectedService ?? ''}
             onChange={(event) => onSelectService(event.target.value === '' ? null : event.target.value)}
             className="h-7 w-44"
-            aria-label="Service"
+            aria-label={t('logs.service')}
           >
-            <option value="">All services</option>
+            <option value="">{t('logs.allServices', { defaultValue: 'All services' })}</option>
             {sources.map((source) => (
               <option key={source.containerId} value={source.service}>
                 {source.service}
@@ -122,43 +111,45 @@ export function LogViewer({
         <Input
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
-          placeholder="Filter lines"
+          placeholder={t('logs.filterLines')}
           className="h-7 w-48"
-          aria-label="Filter log lines"
+          aria-label={t('logs.filterLogLines')}
         />
         <Select
           value={String(tail)}
           onChange={(event) => setTail(Number(event.target.value))}
           className="h-7 w-28"
-          aria-label="Number of lines"
+          aria-label={t('logs.numberOfLines')}
         >
-          <option value="100">100 lines</option>
-          <option value="200">200 lines</option>
-          <option value="500">500 lines</option>
-          <option value="1000">1000 lines</option>
+          <option value="100">100 {t('logs.lines', { defaultValue: 'lines' })}</option>
+          <option value="200">200 {t('logs.lines', { defaultValue: 'lines' })}</option>
+          <option value="500">500 {t('logs.lines', { defaultValue: 'lines' })}</option>
+          <option value="1000">1000 {t('logs.lines', { defaultValue: 'lines' })}</option>
         </Select>
         <Button
           size="sm"
           variant={follow ? 'primary' : 'default'}
           onClick={() => setFollow((value) => !value)}
-          title="Refresh every 3 seconds"
+          title={t('logs.refreshEvery3s')}
         >
           <RefreshCw className={cn('h-3.5 w-3.5', follow && 'animate-spin')} />
-          {follow ? 'Following' : 'Follow'}
+          {follow ? t('following') : t('follow')}
         </Button>
         <Button size="sm" onClick={() => void query.refetch()}>
-          Reload
+          {t('refresh')}
         </Button>
         <div className="ml-auto flex items-center gap-1">
-          <span className="text-xs text-subtle">{lines.length} lines</span>
-          <CopyButton value={asText} label="Copy log" />
+          <span className="text-xs text-subtle">
+            {t('logs.lineCount', { defaultValue: '{{count}} lines', count: lines.length })}
+          </span>
+          <CopyButton value={asText} label={t('copyLog')} />
         </div>
       </div>
 
       {sources && (failed.length > 0 || notRunning.length > 0 || approximateOrder) ? (
         <div
           role="status"
-          aria-label="Log sources"
+          aria-label={t('logs.logSources')}
           className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-3 py-1.5 text-xs"
         >
           {failed.map((source) => (
@@ -175,29 +166,35 @@ export function LogViewer({
           ))}
           {approximateOrder ? (
             <span className="text-subtle">
-              A source logs without timestamps, so ordering between services is approximate.
+              {t('logs.approximateOrder', {
+                defaultValue:
+                  'A source logs without timestamps, so ordering between services is approximate.',
+              })}
             </span>
           ) : null}
         </div>
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto bg-surface-2/50 scroll-thin">
-        {query.isPending ? <Loading label="Reading logs" /> : null}
+        {query.isPending ? <Loading label={t('logs.readingLogs')} /> : null}
         {query.error ? (
           <div className="p-3">
             <ErrorBox error={query.error} />
           </div>
         ) : null}
         {query.data && lines.length === 0 ? (
-          <Empty title={filter ? 'No line matches the filter' : 'No output yet'} />
+          <Empty
+            title={
+              filter
+                ? t('logs.noMatch', { defaultValue: 'No line matches the filter' })
+                : t('logs.noOutput', { defaultValue: 'No output yet' })
+            }
+          />
         ) : null}
         {lines.length > 0 ? (
           <pre className="p-3 font-mono text-[11.5px] leading-relaxed whitespace-pre-wrap">
             {lines.map((line, index) => (
-              <div
-                key={index}
-                className={line.stream === 'stderr' ? 'text-danger' : 'text-ink/90'}
-              >
+              <div key={index} className={line.stream === 'stderr' ? 'text-danger' : 'text-ink/90'}>
                 {showOrigin && line.service ? (
                   <span className={cn('mr-2 inline-block', originTone(line.service))}>
                     {line.service.padEnd(gutter, ' ').slice(0, gutter)} |

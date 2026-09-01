@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Plug, PlugZap, X } from 'lucide-react'
 import { api } from '../lib/api.ts'
 import type { Bridge, TcpService } from '../../shared/types.ts'
@@ -10,16 +11,12 @@ import { Table, Td, Th, Tr } from '../components/ui/table.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
 import { CopyButton } from '../components/copy.tsx'
 import { StateBadge } from '../components/status.tsx'
-import { expiresIn, shortImage } from '../lib/format.ts'
+import { useFormat } from '../lib/use-format.ts'
 import { ServiceIcon } from '../components/service-icon.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 
-/**
- * What the gateway can offer for this protocol. The point is to be plain about
- * the limits rather than hide them: MySQL cannot share a port by hostname, and
- * saying so beats leaving somebody to find out.
- */
 function GatewayAddress({ service, enabled }: { service: TcpService; enabled: boolean }) {
+  const { t } = useTranslation('access')
   const { gatewayAddress, gatewayConnectionString, routing } = service
 
   if (gatewayAddress) {
@@ -27,15 +24,13 @@ function GatewayAddress({ service, enabled }: { service: TcpService; enabled: bo
       <div>
         <div className="flex items-center gap-1">
           <span className="font-mono text-xs text-ink">{gatewayAddress}</span>
-          <CopyButton value={gatewayAddress} label="Copy address" />
+          <CopyButton value={gatewayAddress} label={t('services.copyAddress')} />
           {gatewayConnectionString ? (
-            <CopyButton value={gatewayConnectionString} label="Copy gateway connection string" />
+            <CopyButton value={gatewayConnectionString} label={t('services.copyGatewayConnectionString')} />
           ) : null}
         </div>
         <div className="text-[11px] text-subtle">
-          {routing === 'tls-sni'
-            ? 'TLS required, and the client must send the hostname'
-            : 'TLS required: sslmode=require'}
+          {routing === 'tls-sni' ? t('services.tlsRequiredHostname') : t('services.tlsRequiredSslmode')}
         </div>
       </div>
     )
@@ -44,32 +39,32 @@ function GatewayAddress({ service, enabled }: { service: TcpService; enabled: bo
   if (routing === 'unsupported') {
     return (
       <div>
-        <Badge tone="neutral">no hostname sharing</Badge>
-        <div className="text-[11px] text-subtle">
-          the server speaks first, so there is no hostname to route on
-        </div>
+        <Badge tone="neutral">{t('services.noHostnameSharing')}</Badge>
+        <div className="text-[11px] text-subtle">{t('services.serverSpeaksFirst')}</div>
       </div>
     )
   }
 
   if (routing === 'unevaluated') {
-    return <span className="text-xs text-subtle">not evaluated for this protocol</span>
+    return <span className="text-xs text-subtle">{t('services.notEvaluated')}</span>
   }
 
   return (
     <div>
       <span className="text-xs text-subtle">
-        {enabled ? 'not opted in' : 'hostname routing is off'}
+        {enabled ? t('services.notOptedIn') : t('services.routingOff')}
       </span>
       <div className="text-[11px] text-subtle">
-        {enabled ? 'add the TCP overlay to this project' : 'DEV_GATEWAY_TCP=false'}
+        {enabled ? t('services.addTcpOverlay') : t('services.tcpDisabled')}
       </div>
     </div>
   )
 }
 
 export function Access() {
-  useDocumentTitle('Access')
+  const { t } = useTranslation('access')
+  const { expiresIn, shortImage } = useFormat()
+  useDocumentTitle(t('title'))
   const queryClient = useQueryClient()
   const [error, setError] = useState<unknown>(null)
   const query = useQuery({ queryKey: ['access'], queryFn: api.access })
@@ -101,10 +96,7 @@ export function Access() {
 
   return (
     <>
-      <PageHeader
-        title="Access"
-        description="Databases, caches and other TCP services: by hostname where the protocol allows it, and by a bridge opened on demand everywhere else."
-      />
+      <PageHeader title={t('title')} description={t('description')} />
 
       {error ? (
         <div className="mb-4">
@@ -113,24 +105,18 @@ export function Access() {
       ) : null}
 
       <Card>
-        <CardHeader
-          title="Open bridges"
-          description="Each bridge binds 127.0.0.1 on a port the kernel picks, so nothing has to give up 5432."
-        />
+        <CardHeader title={t('bridges.title')} description={t('bridges.description')} />
         {bridges.length === 0 ? (
-          <Empty
-            title="No bridge is open"
-            hint="Open one from the list below, or from the CLI: dev-gateway access open --project <p> --service <s>"
-          />
+          <Empty title={t('bridges.empty')} hint={t('bridges.emptyHint')} />
         ) : (
-          <Table aria-label="Open bridges">
+          <Table aria-label={t('bridges.aria')}>
             <thead>
               <tr>
-                <Th>Service</Th>
-                <Th>Local address</Th>
-                <Th>Connection string</Th>
-                <Th>Expires</Th>
-                <Th className="text-right">Actions</Th>
+                <Th>{t('bridges.service')}</Th>
+                <Th>{t('bridges.localAddress')}</Th>
+                <Th>{t('bridges.connectionString')}</Th>
+                <Th>{t('bridges.expires')}</Th>
+                <Th className="text-right">{t('bridges.actions')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -151,11 +137,11 @@ export function Access() {
                       <span className="font-mono text-xs">
                         {bridge.bindIp}:{bridge.localPort ?? '?'}
                       </span>
-                      <CopyButton value={bridge.bindIp} label="Copy host" />
-                      <CopyButton value={String(bridge.localPort ?? '')} label="Copy port" />
+                      <CopyButton value={bridge.bindIp} label={t('bridges.copyHost')} />
+                      <CopyButton value={String(bridge.localPort ?? '')} label={t('bridges.copyPort')} />
                     </div>
                     <div className="text-[11px] text-subtle">
-                      target {bridge.service}:{bridge.targetPort}
+                      {t('bridges.target', { service: bridge.service, port: bridge.targetPort })}
                     </div>
                   </Td>
                   <Td>
@@ -163,11 +149,9 @@ export function Access() {
                       <span className="truncate font-mono text-xs text-muted">
                         {bridge.connectionString}
                       </span>
-                      <CopyButton value={bridge.connectionString} label="Copy connection string" />
+                      <CopyButton value={bridge.connectionString} label={t('bridges.copyConnectionString')} />
                     </div>
-                    <div className="text-[11px] text-subtle">
-                      credentials come from the project, not from here
-                    </div>
+                    <div className="text-[11px] text-subtle">{t('bridges.credentialsHint')}</div>
                   </Td>
                   <Td className="text-xs text-muted">{expiresIn(bridge.expiresAt)}</Td>
                   <Td className="text-right">
@@ -178,7 +162,7 @@ export function Access() {
                       onClick={() => close.mutate(bridge)}
                     >
                       <X className="h-3.5 w-3.5" />
-                      Close
+                      {t('bridges.close')}
                     </Button>
                   </Td>
                 </Tr>
@@ -190,27 +174,27 @@ export function Access() {
 
       <Card className="mt-4">
         <CardHeader
-          title="TCP services"
+          title={t('services.title')}
           description={
             query.data.tcpRoutingEnabled
-              ? 'Reached by hostname where the protocol allows it, and by a temporary loopback bridge everywhere else.'
-              : 'Nothing here is published permanently: a bridge exists only while you need it.'
+              ? t('services.descriptionEnabled')
+              : t('services.descriptionDisabled')
           }
         />
         {services.length === 0 ? (
-          <Empty title="No TCP service is running" />
+          <Empty title={t('services.empty')} />
         ) : (
-          <Table aria-label="TCP services">
+          <Table aria-label={t('services.aria')}>
             <thead>
               <tr>
-                <Th>Project</Th>
-                <Th>Service</Th>
-                <Th>Kind</Th>
-                <Th>Image</Th>
-                <Th>Port</Th>
-                <Th>Status</Th>
-                <Th>Gateway address</Th>
-                <Th className="text-right">Local access</Th>
+                <Th>{t('services.project')}</Th>
+                <Th>{t('services.service')}</Th>
+                <Th>{t('services.kind')}</Th>
+                <Th>{t('services.image')}</Th>
+                <Th>{t('services.port')}</Th>
+                <Th>{t('services.status')}</Th>
+                <Th>{t('services.gatewayAddress')}</Th>
+                <Th className="text-right">{t('services.localAccess')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -249,7 +233,7 @@ export function Access() {
                         onClick={() => open.mutate(service)}
                       >
                         <PlugZap className="h-3.5 w-3.5" />
-                        Open local access
+                        {t('services.openLocalAccess')}
                       </Button>
                     )}
                   </Td>
@@ -261,24 +245,18 @@ export function Access() {
       </Card>
 
       <Card className="mt-4">
-        <CardHeader
-          title="Published on the VPN"
-          description="Persistent forwarders created with dev-gateway service publish --private."
-        />
+        <CardHeader title={t('forwarders.title')} description={t('forwarders.description')} />
         {forwarders.length === 0 ? (
-          <Empty
-            title="Nothing is published privately"
-            hint="dev-gateway service publish --private --project <p> --service <s>"
-          />
+          <Empty title={t('forwarders.empty')} hint={t('forwarders.emptyHint')} />
         ) : (
-          <Table aria-label="Published on the VPN">
+          <Table aria-label={t('forwarders.aria')}>
             <thead>
               <tr>
-                <Th>Alias</Th>
-                <Th>Service</Th>
-                <Th>Port</Th>
-                <Th>Status</Th>
-                <Th>Networks</Th>
+                <Th>{t('forwarders.alias')}</Th>
+                <Th>{t('forwarders.service')}</Th>
+                <Th>{t('forwarders.port')}</Th>
+                <Th>{t('forwarders.status')}</Th>
+                <Th>{t('forwarders.networks')}</Th>
               </tr>
             </thead>
             <tbody>

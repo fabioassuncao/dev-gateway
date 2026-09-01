@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { MoreHorizontal, Play, RotateCw, ScrollText, Square, Trash2 } from 'lucide-react'
 import type { ContainerSummary } from '../../shared/types.ts'
 import { api } from '../lib/api.ts'
@@ -10,7 +11,7 @@ import { ErrorBox } from './shell-bits.tsx'
 import { Badge } from './ui/badge.tsx'
 import { OwnershipBadge } from './status.tsx'
 import { LogViewer } from './logs.tsx'
-import { shortImage } from '../lib/format.ts'
+import { useFormat } from '../lib/use-format.ts'
 
 export function ContainerActions({
   container,
@@ -19,7 +20,9 @@ export function ContainerActions({
   container: ContainerSummary
   onShowDetails?: () => void
 }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'containerActions' })
   const queryClient = useQueryClient()
+  const { shortImage } = useFormat()
   const [error, setError] = useState<unknown>(null)
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [showLogs, setShowLogs] = useState(false)
@@ -38,43 +41,43 @@ export function ContainerActions({
       <div className="flex items-center justify-end gap-1">
         {error ? (
           <Button variant="ghost" size="sm" onClick={() => setError(null)} className="text-danger">
-            error
+            {t('error')}
           </Button>
         ) : null}
         <Button
           variant="ghost"
           size="icon"
-          title="Logs"
-          aria-label="Logs"
+          title={t('logs')}
+          aria-label={t('logs')}
           onClick={() => setShowLogs(true)}
         >
           <ScrollText className="h-3.5 w-3.5" />
         </Button>
         <Menu>
           <MenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={`Actions for ${container.name}`}>
+            <Button variant="ghost" size="icon" aria-label={t('actionsFor', { name: container.name })}>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </MenuTrigger>
           <MenuContent>
             {onShowDetails ? (
               <>
-                <MenuItem onSelect={onShowDetails}>Details</MenuItem>
+                <MenuItem onSelect={onShowDetails}>{t('details')}</MenuItem>
                 <MenuSeparator />
               </>
             ) : null}
             <MenuItem disabled={running || isGateway || act.isPending} onSelect={() => act.mutate('start')}>
-              <Play className="h-3.5 w-3.5" /> Start
+              <Play className="h-3.5 w-3.5" /> {t('start')}
             </MenuItem>
             <MenuItem disabled={!running || isGateway || act.isPending} onSelect={() => act.mutate('stop')}>
-              <Square className="h-3.5 w-3.5" /> Stop
+              <Square className="h-3.5 w-3.5" /> {t('stop')}
             </MenuItem>
             <MenuItem disabled={isGateway || act.isPending} onSelect={() => act.mutate('restart')}>
-              <RotateCw className="h-3.5 w-3.5" /> Restart
+              <RotateCw className="h-3.5 w-3.5" /> {t('restart')}
             </MenuItem>
             <MenuSeparator />
             <MenuItem tone="danger" disabled={isGateway} onSelect={() => setConfirmRemove(true)}>
-              <Trash2 className="h-3.5 w-3.5" /> Remove container
+              <Trash2 className="h-3.5 w-3.5" /> {t('removeContainer')}
             </MenuItem>
           </MenuContent>
         </Menu>
@@ -86,16 +89,12 @@ export function ContainerActions({
         </div>
       ) : null}
 
-      <RemoveDialog
-        container={container}
-        open={confirmRemove}
-        onOpenChange={setConfirmRemove}
-      />
+      <RemoveDialog container={container} open={confirmRemove} onOpenChange={setConfirmRemove} />
 
       <Dialog
         open={showLogs}
         onOpenChange={setShowLogs}
-        title={`Logs · ${container.name}`}
+        title={t('logsTitle', { name: container.name })}
         description={shortImage(container.image)}
         className="w-[min(94vw,60rem)]"
       >
@@ -111,10 +110,6 @@ export function ContainerActions({
   )
 }
 
-/**
- * Removal is the only destructive action the panel offers, so it says exactly
- * what goes and what stays before it happens.
- */
 export function RemoveDialog({
   container,
   open,
@@ -124,6 +119,8 @@ export function RemoveDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'containerActions.remove' })
+  const { t: tc } = useTranslation('common')
   const queryClient = useQueryClient()
   const [error, setError] = useState<unknown>(null)
 
@@ -146,17 +143,17 @@ export function RemoveDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Remove this container?"
-      description="The container goes. Volumes, networks and images stay exactly where they are."
+      title={t('title')}
+      description={t('description')}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={() => onOpenChange(false)}>{tc('cancel')}</Button>
           <Button
             variant="danger"
             disabled={remove.isPending || preview.data?.allowed === false}
             onClick={() => remove.mutate()}
           >
-            {remove.isPending ? 'Removing…' : 'Remove container'}
+            {remove.isPending ? t('removing') : t('removeContainer')}
           </Button>
         </>
       }
@@ -173,16 +170,14 @@ export function RemoveDialog({
         {preview.data?.namedVolumes.length ? (
           <div className="rounded-md border border-warn/40 bg-warn/5 p-3">
             <div className="text-xs font-medium text-warn">
-              This container has {preview.data.namedVolumes.length} named volume(s)
+              {t('namedVolumes', { count: preview.data.namedVolumes.length })}
             </div>
             <ul className="mt-1 space-y-0.5 font-mono text-xs text-muted">
               {preview.data.namedVolumes.map((volume) => (
                 <li key={volume}>{volume}</li>
               ))}
             </ul>
-            <p className="mt-1.5 text-xs text-muted">
-              They are kept. The panel never removes a volume, and never runs a prune.
-            </p>
+            <p className="mt-1.5 text-xs text-muted">{t('volumesKept')}</p>
           </div>
         ) : null}
 
@@ -197,9 +192,7 @@ export function RemoveDialog({
           </ul>
         ) : null}
 
-        {preview.data?.allowed === false ? (
-          <Badge tone="danger">The panel does not remove its own infrastructure</Badge>
-        ) : null}
+        {preview.data?.allowed === false ? <Badge tone="danger">{t('notAllowed')}</Badge> : null}
 
         {error ? <ErrorBox error={error} /> : null}
       </div>

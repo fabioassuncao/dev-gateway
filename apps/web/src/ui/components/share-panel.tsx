@@ -1,33 +1,28 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Share2 } from 'lucide-react'
 import { api } from '../lib/api.ts'
-import { expiresIn } from '../lib/format.ts'
+import { useFormat } from '../lib/use-format.ts'
 import { Badge } from './ui/badge.tsx'
 import { Button } from './ui/button.tsx'
 import { AddressLine } from './copy.tsx'
 import type { ContainerSummary, Share } from '../../shared/types.ts'
 
-const TTLS = [
-  { label: '1 hour', seconds: 3600 },
-  { label: '4 hours', seconds: 4 * 3600 },
-  { label: '24 hours', seconds: 24 * 3600 },
-]
-
-/**
- * Exposure for one service: private, public, or protected, with an expiry.
- *
- * "Private" is the absence of a share rather than a deny rule, so the default
- * state here is the only one that exists today. A share is an additional
- * hostname; the project's own router is never touched.
- */
 export function SharePanel({ container }: { container: ContainerSummary }) {
+  const { t } = useTranslation('common', { keyPrefix: 'share' })
   const queryClient = useQueryClient()
   const [password, setPassword] = useState<string | null>(null)
-  const [ttl, setTtl] = useState(TTLS[1]!.seconds)
+  const [ttl, setTtl] = useState(4 * 3600)
 
   const query = useQuery({ queryKey: ['shares'], queryFn: api.shares })
   const share = query.data?.shares.find((entry) => entry.container === container.name) ?? null
+
+  const ttls = [
+    { label: t('ttl1h', { defaultValue: '1 hour' }), seconds: 3600 },
+    { label: t('ttl4h', { defaultValue: '4 hours' }), seconds: 4 * 3600 },
+    { label: t('ttl24h', { defaultValue: '24 hours' }), seconds: 24 * 3600 },
+  ]
 
   const done = () => {
     setPassword(null)
@@ -66,15 +61,15 @@ export function SharePanel({ container }: { container: ContainerSummary }) {
         />
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          <Badge>private</Badge>
-          <span className="text-subtle">Reachable only where it already is.</span>
+          <Badge>{t('private', { defaultValue: 'private' })}</Badge>
+          <span className="text-subtle">{t('privateHint', { defaultValue: 'Reachable only where it already is.' })}</span>
           <select
             className="rounded border border-line bg-surface px-1.5 py-1 text-xs"
             value={ttl}
             onChange={(event) => setTtl(Number(event.target.value))}
-            aria-label="Share expires after"
+            aria-label={t('expiresAfter', { defaultValue: 'Share expires after' })}
           >
-            {TTLS.map((option) => (
+            {ttls.map((option) => (
               <option key={option.seconds} value={option.seconds}>
                 {option.label}
               </option>
@@ -82,11 +77,11 @@ export function SharePanel({ container }: { container: ContainerSummary }) {
           </select>
           <Button size="sm" disabled={create.isPending} onClick={() => create.mutate('protected')}>
             <Share2 className="h-3.5 w-3.5" />
-            Share with a password
+            {t('shareWithPassword', { defaultValue: 'Share with a password' })}
           </Button>
           {query.data?.publicAllowed ? (
             <Button size="sm" disabled={create.isPending} onClick={() => create.mutate('public')}>
-              Share publicly
+              {t('sharePublicly', { defaultValue: 'Share publicly' })}
             </Button>
           ) : null}
         </div>
@@ -95,10 +90,14 @@ export function SharePanel({ container }: { container: ContainerSummary }) {
       {password ? (
         <div className="rounded border border-warn/40 bg-warn/10 px-2 py-1.5">
           <div className="font-medium">
-            Password: <span className="font-mono">{password}</span>
+            {t('passwordLabel', { defaultValue: 'Password:' })}{' '}
+            <span className="font-mono">{password}</span>
           </div>
           <div className="text-subtle">
-            This is the only time it is shown. Only its hash is stored, here and in Traefik.
+            {t('passwordHint', {
+              defaultValue:
+                'This is the only time it is shown. Only its hash is stored, here and in Traefik.',
+            })}
           </div>
         </div>
       ) : null}
@@ -124,6 +123,9 @@ function ActiveShare({
   onRegenerate: () => void
   busy: boolean
 }) {
+  const { t } = useTranslation('common', { keyPrefix: 'share' })
+  const { expiresIn } = useFormat()
+
   return (
     <div className="space-y-1">
       <div className="flex flex-wrap items-center gap-2">
@@ -131,20 +133,20 @@ function ActiveShare({
         {share.user ? <span className="font-mono text-muted">{share.user}</span> : null}
         <Badge tone={share.state === 'active' ? 'outline' : 'danger'}>
           {share.state === 'expired'
-            ? 'expired'
+            ? t('expired', { defaultValue: 'expired' })
             : share.state === 'dangling'
-              ? 'target is gone'
-              : `expires ${expiresIn(share.expiresAt)}`}
+              ? t('targetGone', { defaultValue: 'target is gone' })
+              : t('expiresIn', { defaultValue: 'expires {{time}}', time: expiresIn(share.expiresAt) })}
         </Badge>
       </div>
       <AddressLine value={share.url} href={share.url} />
       <div className="flex gap-2">
         <Button size="sm" disabled={busy} onClick={onRevoke}>
-          Revoke
+          {t('revoke')}
         </Button>
         {share.mode === 'protected' ? (
           <Button size="sm" disabled={busy} onClick={onRegenerate}>
-            Regenerate password
+            {t('regeneratePassword', { defaultValue: 'Regenerate password' })}
           </Button>
         ) : null}
       </div>

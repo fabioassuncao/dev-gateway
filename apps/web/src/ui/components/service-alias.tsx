@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api.ts'
 import type { ContainerSummary } from '../../shared/types.ts'
 import { Badge } from './ui/badge.tsx'
@@ -7,15 +8,6 @@ import { Button } from './ui/button.tsx'
 import { Input } from './ui/field.tsx'
 import { ErrorBox } from './shell-bits.tsx'
 
-/**
- * A nickname, never a rename.
- *
- * Docker cannot rewrite a label on a running container, so an alias can only
- * add a router beside the project's own: both hostnames answer, and both are
- * on screen. A hostname the gateway cannot serve, or one another container
- * already claims, is refused here with the reason rather than written and
- * silently dropped by Traefik.
- */
 export function ServiceAlias({
   project,
   service,
@@ -23,6 +15,8 @@ export function ServiceAlias({
   project: string
   service: ContainerSummary
 }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'settings.alias' })
+  const { t: tc } = useTranslation('common')
   const name = service.service ?? service.name
   const queryClient = useQueryClient()
   const [value, setValue] = useState(service.overrides?.alias ?? '')
@@ -50,27 +44,27 @@ export function ServiceAlias({
             {url.host}
           </Badge>
         ))}
-        {current ? <Badge tone="accent">alias: {current}</Badge> : null}
+        {current ? (
+          <Badge tone="accent">
+            {t('aliasBadge', { defaultValue: 'alias: {{alias}}', alias: current })}
+          </Badge>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <Input
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          placeholder="shop.localhost"
+          placeholder={t('placeholder')}
           className="h-7 w-56"
-          aria-label={`Hostname alias for ${name}`}
+          aria-label={t('aliasFor', { defaultValue: 'Hostname alias for {{name}}', name })}
         />
-        <Button
-          size="sm"
-          disabled={save.isPending || value.trim() === ''}
-          onClick={() => save.mutate()}
-        >
-          {current ? 'Update alias' : 'Add alias'}
+        <Button size="sm" disabled={save.isPending || value.trim() === ''} onClick={() => save.mutate()}>
+          {current ? t('update') : t('add')}
         </Button>
         {current ? (
           <Button size="sm" disabled={clear.isPending} onClick={() => clear.mutate()}>
-            Remove
+            {tc('remove')}
           </Button>
         ) : null}
       </div>
@@ -79,7 +73,9 @@ export function ServiceAlias({
       {clear.error ? <ErrorBox error={clear.error} /> : null}
 
       <p className="text-[11px] text-subtle">
-        An alias is additional: the project keeps answering on the hostname it derives.
+        {t('hint', {
+          defaultValue: 'An alias is additional: the project keeps answering on the hostname it derives.',
+        })}
       </p>
     </div>
   )
