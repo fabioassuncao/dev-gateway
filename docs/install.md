@@ -133,6 +133,17 @@ Each of these writes `.env`, renders the middleware, and recreates what needs
 recreating. Moving to `public` without a credential is refused; run
 `portta web auth set` first, which generates a password and shows it once.
 
+`config` is part of the full CLI, so it needs Node 22.12+. On a host without
+it — which is what the installer produces by default — the installer is the way
+to change the mode, and it is the same command that installed it:
+
+```bash
+curl -fsSL .../install.sh | bash -s -- --panel-access local
+```
+
+It finds the existing installation, changes only that setting, and recreates
+what needs recreating. Everything else is left exactly as it was.
+
 ## Updating
 
 Run the installer again.
