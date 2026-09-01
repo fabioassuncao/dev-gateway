@@ -226,3 +226,7 @@ change.
   durable decision in PostgreSQL and the generated Traefik artifact consumed
   as live routing configuration. Drift checks must compare them when issue #5
   implements that surface.
+- The three buckets above classify *where a value lives*.
+  [ADR 0016](0016-state-that-could-be-shared.md) classifies *whether a value
+  could ever travel between two gateways*. They agree: observations stay
+  with their live owner, and only project and user decisions are eligible.

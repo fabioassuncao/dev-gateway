@@ -16,6 +16,11 @@ Container state, health, ports, networks, URLs, logs, Git scans and Traefik
 status still come from their live owners. A stopped container disappears from
 the next Docker snapshot; PostgreSQL is not a stale inventory cache.
 
+Most of that state is true only of this machine. [ADR 0016](adr/0016-state-that-could-be-shared.md)
+classifies what could ever be shared between two gateways (project and user
+decisions) and what must never be (runtime observations and instance
+configuration). No synchronisation is implemented.
+
 The first migration creates `instance`, `projects`, `settings`,
 `project_settings`, `service_settings` and `integrations`. Applied migration
 filenames are recorded in `schema_migrations`. Startup takes a transaction

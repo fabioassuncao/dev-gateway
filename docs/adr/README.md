@@ -20,4 +20,5 @@ context, the decision, and what it costs us.
 | [0013](0013-what-the-panel-persists.md) | The panel persists decisions, never runtime observations | Accepted |
 | [0014](0014-monorepo-and-the-typescript-cli.md) | The repository is a small npm workspace, with a shared core | Accepted |
 | [0015](0015-node-on-the-host.md) | Node is not required for the core commands | Accepted |
+| [0016](0016-state-that-could-be-shared.md) | State that could be shared, and what must never be | Accepted |
 | [0017](0017-no-docker-sdk.md) | The panel speaks the Docker Engine API directly, without a general SDK | Accepted |

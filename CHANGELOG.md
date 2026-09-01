@@ -19,6 +19,12 @@ While the version is `0.x`, minor releases may contain breaking changes.
   [docs/monorepo.md](docs/monorepo.md) is the contributor map. No package is
   created yet; issue #8 performs the move.
 
+- **A classification of state that could be shared.**
+  [ADR 0016](docs/adr/0016-state-that-could-be-shared.md) records the
+  five-way split, portable project identity, instance UUID and alias-as-label
+  rule. No synchronisation is implemented. Issue #4 already shipped the
+  schema seams this page validates.
+
 
 
 - **Private, degradable persistence for the panel.** A pinned PostgreSQL 18
