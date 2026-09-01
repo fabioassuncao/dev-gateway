@@ -105,6 +105,11 @@ While the version is `0.x`, minor releases may contain breaking changes.
   that exact trap since it was written. Labels are now read out of the template
   and filtered in the shell, and a test fails the build if `hasPrefix` reappears
   in a shipped script.
+- **The panel called a hostname-routed database an HTTP service.** Opting a
+  datastore into TCP routing also sets `traefik.enable`, and the container's
+  kind was read from that label alone, so PostgreSQL was listed as `http`. It
+  is now derived from whether the container actually ended up with a URL, the
+  same question `urls` and the Access page already ask.
 
 ### Security
 

@@ -109,7 +109,7 @@ export function Services() {
                   <Td className="font-mono text-xs text-muted">{shortImage(service.image)}</Td>
                   <Td>
                     <Badge tone={service.traefikEnabled ? 'info' : 'neutral'}>
-                      {service.traefikEnabled ? 'http' : service.kind}
+                      {service.kind}
                     </Badge>
                   </Td>
                   <Td>

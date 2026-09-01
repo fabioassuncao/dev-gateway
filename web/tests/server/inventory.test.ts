@@ -121,6 +121,34 @@ describe('URLs', () => {
     ).toEqual([])
   })
 
+  it('calls a database routed by hostname a database, not an HTTP service', async () => {
+    // traefik.enable is set on a TCP-routed datastore too, so keying the kind
+    // off that label alone would label PostgreSQL `http` in the panel.
+    const { client } = fakeDocker({
+      containers: [
+        {
+          id: 'a-pg',
+          name: 'alpha-postgres-1',
+          image: 'postgres:18.6-alpine',
+          networks: ['alpha_default', 'dev-gateway-access'],
+          exposed: [5432],
+          labels: {
+            'com.docker.compose.project': 'alpha',
+            'com.docker.compose.service': 'postgres',
+            'traefik.enable': 'true',
+            'traefik.tcp.routers.alpha-postgres.rule': 'HostSNIRegexp(`^alpha-postgres\\..+$`)',
+          },
+        },
+      ],
+    })
+    const snapshot = await buildSnapshot(client, config)
+    const pg = snapshot.containers.find((c) => c.id === 'a-pg')
+
+    expect(pg?.kind).toBe('postgres')
+    expect(pg?.urls).toEqual([])
+    expect(pg?.traefikEnabled).toBe(true)
+  })
+
   it('still gives one to a service that is routed over both', () => {
     const urls = urlsFor(
       {

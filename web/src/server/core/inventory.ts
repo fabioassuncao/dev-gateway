@@ -212,6 +212,8 @@ export function summarise(
   const state = toState(inspect?.State.Status ?? item.State)
   const dirName = basename(workingDir)
 
+  const urls = urlsFor(labels, name, config)
+
   return {
     id: item.Id,
     name,
@@ -233,9 +235,12 @@ export function summarise(
     traefikEnabled: labels[LABELS.traefikEnable] === 'true',
     ports: publishedPorts(inspect, item),
     exposedPorts: exposedPorts(inspect),
-    kind: labels[LABELS.traefikEnable] === 'true' ? 'http' : serviceKind(image),
+    // Opting a database into hostname routing also sets traefik.enable, so
+    // asking that label alone would call PostgreSQL an HTTP service. What
+    // makes something HTTP is ending up with a URL.
+    kind: urls.length > 0 ? 'http' : serviceKind(image),
     tech: resolveServiceTech({ image, service, labels }),
-    urls: urlsFor(labels, name, config),
+    urls,
     mounts: (inspect?.Mounts ?? item.Mounts ?? []).map((mount) => ({
       type: mount.Type,
       name: mount.Name ?? null,

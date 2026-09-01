@@ -158,7 +158,7 @@ function ProjectCard({ project }: { project: Project }) {
                   <span>{service.service ?? service.name}</span>
                 </button>
                 <div className="text-[11px] text-subtle">
-                  {service.traefikEnabled ? 'http' : service.kind}
+                  {service.kind}
                 </div>
               </Td>
               <Td className="font-mono text-xs text-muted">{shortImage(service.image)}</Td>
