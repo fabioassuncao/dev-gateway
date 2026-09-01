@@ -1,0 +1,5 @@
+# Commits that are mechanical and would pollute git blame.
+# Apply with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Convert the repository to npm workspaces: git mv web apps/web
+e6123e8a3fecfaf4b5ab4469cde7e350a8ffc73e
