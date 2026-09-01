@@ -1,0 +1,24 @@
+# ============================================================================
+# demo-site: Dev Gateway integration overlay
+# ============================================================================
+# One HTTP service. Labels use the LIST form so Compose interpolates
+# ${COMPOSE_PROJECT_NAME} inside the Traefik service name.
+#
+#   docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+#   -> http://demo-site-web.localhost
+# ============================================================================
+
+services:
+  web:
+    networks:
+      - default
+      - dev-gateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-site}-web.loadbalancer.server.port=3000"
+
+networks:
+  dev-gateway:
+    external: true
+    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}

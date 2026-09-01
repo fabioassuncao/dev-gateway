@@ -18,6 +18,9 @@ Compose file, which is usually faster.
 | [`06-monorepo.yaml`](overlays/06-monorepo.yaml) | `apps/` and `services/` in one repository |
 | [`07-worktree.env`](overlays/07-worktree.env) | a second copy of a project, in parallel |
 | [`08-nonstandard-port.yaml`](overlays/08-nonstandard-port.yaml) | an HTTP service on an unusual internal port |
+| [`09-tcp-routing.yaml`](overlays/09-tcp-routing.yaml) | opt a datastore into hostname TCP routing |
+| [`10-mailpit.yaml`](overlays/10-mailpit.yaml) | Mailpit UI on the gateway (SMTP stays private) |
+| [`11-rustfs.yaml`](overlays/11-rustfs.yaml) | RustFS console on the gateway (S3 API stays private) |
 
 ## The two rules every template follows
 

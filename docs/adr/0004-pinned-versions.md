@@ -23,8 +23,11 @@ Every image pins an explicit version tag. As of this writing:
 | `postgres` | `18.6-alpine` | fixtures only |
 | `redis` | `8.10.1-alpine` | fixtures only |
 | `nginx` | `1.31.4-alpine` | fixtures only |
+| `mysql` | `8.4.7` | fixtures only (`demo-shop`) |
+| `axllent/mailpit` | `v1.31.0` | fixtures only (mail capture UI) |
+| `rustfs/rustfs` | `1.0.0-rc.4` | fixtures only (S3-compatible storage) |
 | `alpine` | `3.24.1` | toolbox base, fixtures |
-| `node` | `24.20.0-alpine` | web panel build and runtime |
+| `node` | `24.20.0-alpine` | web panel build and runtime; demo workers |
 | `dev-gateway-web` | `local` | the web panel, built from `web/` on this host |
 
 `tests/unit/audit.test.sh` fails the build if any image lacks an explicit tag,

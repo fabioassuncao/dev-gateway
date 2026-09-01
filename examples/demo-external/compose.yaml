@@ -1,0 +1,38 @@
+# ============================================================================
+# demo-external: a Compose project that never adopted the gateway
+# ============================================================================
+# Started with a plain `docker compose up -d` (no overlay). It appears under
+# External Docker in the panel: the gateway can see it, but does not route it,
+# open TCP bridges for it, or treat it as an integrated project.
+#
+# Intentionally left without compose.dev-gateway.yaml.
+# ============================================================================
+
+name: ${COMPOSE_PROJECT_NAME:-demo-external}
+
+services:
+  web:
+    image: nginx:1.31.4-alpine
+    restart: unless-stopped
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:8.10.1-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  redisdata:

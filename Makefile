@@ -9,7 +9,8 @@ GW    := ./bin/dev-gateway
 .DEFAULT_GOAL := help
 
 .PHONY: help bootstrap up down restart status doctor urls logs inspect update \
-        web web-dev web-down test test-all test-e2e lint demo-up demo-down
+        web web-dev web-down test test-all test-e2e lint \
+        demo-up demo-up-all demo-down demo-down-all
 
 help: ## Show this help
 	@printf 'Dev Gateway make targets\n\n'
@@ -68,11 +69,18 @@ test-e2e: ## End-to-end suites (requires Docker)
 test-all: ## Everything
 	@./tests/run.sh --all
 
-demo-up: ## Start the two example stacks on the gateway
+demo-up: ## Start every adopted demo (site, shop, monorepo, a, b)
 	@cd examples/demo-a && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
 	@cd examples/demo-b && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+	@cd examples/demo-site && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+	@cd examples/demo-shop && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+	@cd examples/demo-monorepo && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
 	@$(GW) urls
 
-demo-down: ## Stop the example stacks and drop their volumes
+demo-down: ## Stop every example stack (including external) and drop volumes
 	@cd examples/demo-a && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
 	@cd examples/demo-b && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
+	@cd examples/demo-site && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
+	@cd examples/demo-shop && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
+	@cd examples/demo-monorepo && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
+	@cd examples/demo-external && docker compose down -v

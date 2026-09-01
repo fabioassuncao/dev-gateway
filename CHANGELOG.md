@@ -81,6 +81,15 @@ While the version is `0.x`, minor releases may contain breaking changes.
   copying a file.
 - `dev-gateway services` and the panel's Access page show the hostname address
   where a protocol supports it, and say plainly when one does not.
+- Four more example stacks, so the shapes the gateway meets are all runnable:
+  [`demo-site`](examples/demo-site) (one service), [`demo-shop`](examples/demo-shop)
+  (web, API, worker, MySQL, Redis, Mailpit and RustFS),
+  [`demo-monorepo`](examples/demo-monorepo), and
+  [`demo-external`](examples/demo-external), which never adopts the gateway and
+  exists to be seen under External Docker. `demo-a` and `demo-b` stay the CI
+  pair. `make demo-up-all` starts every adopted one.
+- `templates/overlays/10-mailpit.yaml` and `templates/overlays/11-rustfs.yaml`:
+  the UI joins the gateway, SMTP and the S3 API stay on the project network.
 
 ### Fixed
 

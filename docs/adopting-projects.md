@@ -80,9 +80,13 @@ Set `COMPOSE_FILE=compose.yaml:compose.dev-gateway.yaml` in the project's
 `.env` to drop the `-f` flags entirely.
 
 Working examples: [`examples/demo-a`](../examples/demo-a) and
-[`examples/demo-b`](../examples/demo-b). Templates for the usual project shapes
-(single web, web + API, full stack, several APIs, monorepo, worktree,
-non-standard ports) are in [`templates/`](../templates/).
+[`examples/demo-b`](../examples/demo-b) for the CI pair; also
+[`demo-site`](../examples/demo-site) (single web),
+[`demo-shop`](../examples/demo-shop) (full stack with MySQL, Mailpit and RustFS),
+[`demo-monorepo`](../examples/demo-monorepo), and
+[`demo-external`](../examples/demo-external) (never adopted, for the panel's
+External Docker section). Templates for the usual project shapes are in
+[`templates/`](../templates/).
 
 ## Two rules that are easy to get wrong
 

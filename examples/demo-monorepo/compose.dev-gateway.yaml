@@ -1,0 +1,53 @@
+# ============================================================================
+# demo-monorepo: Dev Gateway integration overlay
+# ============================================================================
+# Routes web, admin, api and the Mailpit UI. Worker, postgres and redis stay
+# on the project network only.
+#
+#   -> http://demo-monorepo-web.localhost
+#   -> http://demo-monorepo-admin.localhost
+#   -> http://demo-monorepo-api.localhost
+#   -> http://demo-monorepo-mailpit.localhost
+# ============================================================================
+
+services:
+  web:
+    networks:
+      - default
+      - dev-gateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-monorepo}-web.loadbalancer.server.port=3000"
+
+  admin:
+    networks:
+      - default
+      - dev-gateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-monorepo}-admin.loadbalancer.server.port=3000"
+
+  api:
+    networks:
+      - default
+      - dev-gateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-monorepo}-api.loadbalancer.server.port=8000"
+
+  mailpit:
+    networks:
+      - default
+      - dev-gateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME:-demo-monorepo}-mailpit.loadbalancer.server.port=8025"
+
+networks:
+  dev-gateway:
+    external: true
+    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}

@@ -1,0 +1,24 @@
+# ============================================================================
+# Mailpit: capture outbound mail in development
+# ============================================================================
+# The UI (8025) is HTTP and joins the gateway. SMTP (1025) stays on the
+# project's private network and is reached with `dev-gateway access open`.
+#
+# The base Compose file should declare the mailpit service itself; this overlay
+# only adds the network and labels.
+#
+#   -> http://<COMPOSE_PROJECT_NAME>-mailpit.localhost
+# ============================================================================
+
+services:
+  mailpit:
+    networks: [default, dev-gateway]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${DEV_GATEWAY_NETWORK:-dev-gateway}"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-mailpit.loadbalancer.server.port=8025"
+
+networks:
+  dev-gateway:
+    external: true
+    name: ${DEV_GATEWAY_NETWORK:-dev-gateway}

@@ -1,0 +1,108 @@
+# ============================================================================
+# demo-shop: a fuller development stack
+# ============================================================================
+# Web + API + background worker + MySQL + Redis + Mailpit + RustFS (S3).
+# Intentionally denser than demo-a/demo-b so the panel and the gateway see
+# several technologies, private volumes, and a worker with no HTTP at all.
+#
+# Nothing publishes a host port. Databases and the S3 API stay on the project's
+# private network; Mailpit's UI and the RustFS console are routed by the
+# gateway overlay.
+#
+# Run it on its own:      docker compose up -d
+# Run it on the gateway:  docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+# ============================================================================
+
+name: ${COMPOSE_PROJECT_NAME:-demo-shop}
+
+services:
+  web:
+    image: nginx:1.31.4-alpine
+    restart: unless-stopped
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  api:
+    image: traefik/whoami:v1.12.0
+    command: ["--port", "8000", "--name", "demo-shop-api"]
+    restart: unless-stopped
+
+  # No HTTP, no Traefik labels: a background job that the panel still groups
+  # under the project because it shares the Compose project name.
+  worker:
+    image: node:24.20.0-alpine
+    command: ["sh", "-c", "while true; do echo demo-shop-worker tick; sleep 30; done"]
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.4.7
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: demo
+      MYSQL_DATABASE: demo
+      MYSQL_USER: demo
+      MYSQL_PASSWORD: demo
+    volumes:
+      - mysqldata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-udemo", "-pdemo"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  redis:
+    image: redis:8.10.1-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # UI on 8025 (routed by the overlay). SMTP on 1025 stays private.
+  mailpit:
+    image: axllent/mailpit:v1.31.0
+    restart: unless-stopped
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8025/api/v1/info"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # S3 API on 9000 (private). Console on 9001 (routed by the overlay).
+  rustfs:
+    image: rustfs/rustfs:1.0.0-rc.4
+    restart: unless-stopped
+    command: ["/data"]
+    environment:
+      RUSTFS_ACCESS_KEY: demodemo
+      RUSTFS_SECRET_KEY: demodemo123456
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_OBS_LOGGER_LEVEL: error
+    volumes:
+      - rustfsdata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  mysqldata:
+  redisdata:
+  rustfsdata:

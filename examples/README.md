@@ -1,23 +1,28 @@
 # Examples
 
-Two self-contained stacks used to prove the gateway's core promise: several
-projects running at once, on the same internal ports, without a single host
-port conflict.
+Self-contained stacks used to exercise the gateway against shapes that look
+like real development environments. `demo-a` and `demo-b` remain the CI
+fixtures: two unrelated projects on the same internal ports, with no host-port
+conflicts. The others cover simpler and denser layouts, a monorepo, and a
+project that never adopted the gateway.
 
-| | `demo-a` | `demo-b` |
+| Demo | Shape | On the gateway |
 |---|---|---|
-| web | whoami on **3000** | nginx on **3000** |
-| api | whoami on **8000** | whoami on **8000** |
-| database | postgres on **5432** | postgres on **5432** |
-| cache | redis on **6379** | redis on **6379** |
-| published host ports | none | none |
+| [`demo-a`](demo-a) | whoami web + api, postgres, redis | web, api |
+| [`demo-b`](demo-b) | nginx web + whoami api, postgres, redis | web, api |
+| [`demo-site`](demo-site) | single nginx site | web |
+| [`demo-shop`](demo-shop) | nginx, api, Node worker, MySQL, Redis, Mailpit, RustFS | web, api, mailpit UI, rustfs console |
+| [`demo-monorepo`](demo-monorepo) | web, admin, api, worker, postgres, redis, mailpit | web, admin, api, mailpit |
+| [`demo-external`](demo-external) | nginx + redis, **no overlay** | nothing (External Docker) |
 
-Each directory holds two files worth reading:
+Every adopted demo publishes **no** host ports. Databases, caches, workers and
+the S3 API stay on the project's private network; HTTP surfaces join
+`dev-gateway` through `compose.dev-gateway.yaml`.
 
-- `compose.yaml` is the project as it exists without the gateway. It still runs
-  standalone with `docker compose up -d`.
-- `compose.dev-gateway.yaml` is the whole integration, which is nothing but
-  networks and labels.
+Each directory holds:
+
+- `compose.yaml` — the project as it exists without the gateway
+- `compose.dev-gateway.yaml` — networks and labels only (except `demo-external`)
 
 ## Running them
 
@@ -31,15 +36,41 @@ docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
 cd ../demo-b
 docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
 
+cd ../demo-site
+docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+
+cd ../demo-shop
+docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+
+cd ../demo-monorepo
+docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+
+# never adopted: no overlay on purpose
+cd ../demo-external
+docker compose up -d
+
 dev-gateway urls
 ```
+
+Useful hostnames:
 
 ```
 http://demo-a-web.localhost
 http://demo-a-api.localhost
 http://demo-b-web.localhost
 http://demo-b-api.localhost
+http://demo-site-web.localhost
+http://demo-shop-web.localhost
+http://demo-shop-api.localhost
+http://demo-shop-mailpit.localhost
+http://demo-shop-rustfs.localhost/rustfs/console/
+http://demo-monorepo-web.localhost
+http://demo-monorepo-admin.localhost
+http://demo-monorepo-api.localhost
+http://demo-monorepo-mailpit.localhost
 ```
+
+Or: `make demo-up` for the CI pair, `make demo-up-all` for every adopted demo.
 
 ## Running the same project twice
 

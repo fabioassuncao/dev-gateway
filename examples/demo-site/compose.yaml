@@ -1,0 +1,25 @@
+# ============================================================================
+# demo-site: a single static web service
+# ============================================================================
+# The simplest shape the gateway sees: one HTTP container, no database, no
+# cache. Useful to prove that a one-service project still gets a hostname and
+# shows up as an integrated project in the panel.
+#
+# Run it on its own:      docker compose up -d
+# Run it on the gateway:  docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+# ============================================================================
+
+name: ${COMPOSE_PROJECT_NAME:-demo-site}
+
+services:
+  web:
+    image: nginx:1.31.4-alpine
+    restart: unless-stopped
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
