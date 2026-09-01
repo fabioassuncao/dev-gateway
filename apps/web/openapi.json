@@ -1003,6 +1003,13 @@
               "null"
             ]
           },
+          "issueRef": {
+            "description": "Optional dev-gateway.issue label, as declared",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "networks": {
             "type": "array",
             "items": {
@@ -1148,6 +1155,92 @@
         },
         "additionalProperties": false
       },
+      "IssueLinkSource": {
+        "type": "string",
+        "enum": [
+          "manual",
+          "label",
+          "branch",
+          "namespace"
+        ],
+        "description": "Why this environment is linked to this issue"
+      },
+      "EnvironmentIssue": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "title": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "issueType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/IssueLinkSource"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "htmlUrl": {
+            "type": "string"
+          },
+          "panelUrl": {
+            "type": "string"
+          },
+          "syncedAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          }
+        },
+        "required": [
+          "id",
+          "repository",
+          "number",
+          "title",
+          "state",
+          "issueType",
+          "status",
+          "priority",
+          "source",
+          "reason",
+          "htmlUrl",
+          "panelUrl",
+          "syncedAt"
+        ],
+        "additionalProperties": false
+      },
       "Project": {
         "type": "object",
         "properties": {
@@ -1189,6 +1282,13 @@
             ]
           },
           "gitRoot": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issueRef": {
+            "description": "Optional dev-gateway.issue label, as declared",
             "type": [
               "string",
               "null"
@@ -1257,6 +1357,17 @@
           },
           "overrides": {
             "$ref": "#/components/schemas/ProjectOverrides"
+          },
+          "issue": {
+            "description": "The issue this environment is running for, when the panel can tell",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EnvironmentIssue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -4042,6 +4153,74 @@
         ],
         "additionalProperties": false
       },
+      "IssueEnvironment": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string",
+            "description": "COMPOSE_PROJECT_NAME; the key the project endpoints use"
+          },
+          "source": {
+            "$ref": "#/components/schemas/IssueLinkSource"
+          },
+          "reason": {
+            "type": "string",
+            "description": "A sentence the UI can show instead of a bare source"
+          },
+          "running": {
+            "type": "boolean"
+          },
+          "serviceCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "runningCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "unhealthyCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RouteUrl"
+            }
+          },
+          "branch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "panelUrl": {
+            "type": "string",
+            "description": "Where this environment lives in the panel"
+          },
+          "logsUrl": {
+            "type": "string",
+            "description": "The project page, on its Logs tab"
+          }
+        },
+        "required": [
+          "project",
+          "source",
+          "reason",
+          "running",
+          "serviceCount",
+          "runningCount",
+          "unhealthyCount",
+          "urls",
+          "branch",
+          "panelUrl",
+          "logsUrl"
+        ],
+        "additionalProperties": false
+      },
       "Issue": {
         "type": "object",
         "properties": {
@@ -4156,6 +4335,13 @@
           "stale": {
             "type": "boolean",
             "description": "True past the staleness threshold; the projection is still shown"
+          },
+          "environments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssueEnvironment"
+            },
+            "description": "Where this issue is being worked, and why"
           }
         },
         "required": [
@@ -4178,7 +4364,8 @@
           "childIds",
           "githubUpdatedAt",
           "syncedAt",
-          "stale"
+          "stale",
+          "environments"
         ],
         "additionalProperties": false
       },
@@ -9013,6 +9200,121 @@
                 },
                 "additionalProperties": false,
                 "ref": "PatchIssueBody"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/issues/{id}/environments": {
+      "put": {
+        "operationId": "setIssueEnvironments",
+        "tags": [
+          "Issues"
+        ],
+        "summary": "Link an issue to the environments it is worked in",
+        "description": "Writes one row per link. No container, volume or environment is touched.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The projected issue id, not the GitHub number.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Issue"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "environments": {
+                    "maxItems": 32,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 255
+                    }
+                  }
+                },
+                "required": [
+                  "environments"
+                ],
+                "additionalProperties": false,
+                "ref": "IssueEnvironmentsBody"
               }
             }
           }

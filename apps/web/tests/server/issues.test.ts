@@ -213,6 +213,8 @@ function issueDatabase(rows = [issueRow()], relationships: { parentId: string; c
       listRelationships: async () => relationships,
       findRepository: async () => null,
       listRepositories: async () => [],
+      listIssueEnvironments: async () => [],
+      setIssueEnvironments: async () => undefined,
     },
   }
   return db as unknown as Database

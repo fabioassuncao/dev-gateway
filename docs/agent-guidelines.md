@@ -222,3 +222,23 @@ Always:
 If a port seems taken, that is the signal that something publishes a port it
 does not need. Fix that; do not free the port by force.
 ```
+
+## Naming an environment after the issue it belongs to
+
+The panel links a running environment to its GitHub issue by convention, so
+following one of these is enough — nothing has to be configured:
+
+```bash
+# a branch the panel can read
+git switch -c fix/182-tcp-proxy
+
+# a namespace dev-gateway already produces
+dev-gateway namespace --suffix issue182
+
+# or say it outright, in the overlay
+labels:
+  dev-gateway.issue: "owner/name#182"
+```
+
+The link is a row. It never starts, stops or removes anything, and a manual
+link in the panel always wins over an inferred one.

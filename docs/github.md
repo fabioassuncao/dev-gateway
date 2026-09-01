@@ -326,3 +326,62 @@ The host `gh` scan and the App can both report open pull requests. **When the
 App is configured and the repository is authorised, the App wins**; otherwise
 the scan's `forge` block stands exactly as it does today. A panel with no App
 sees `GET /api/projects/:project/git` behave precisely as before.
+
+## The issue and the environment it is worked in
+
+This is the join the rest of the sequence exists for. GitHub knows `#182` is
+*In Progress* on branch `fix/182-tcp-proxy`. Only the Dev Gateway knows that
+branch is running as `base-empresarial-issue182`, with `web` and `api` on
+`web.issue-182.localhost`, and what its logs say.
+
+```text
+#182 Proxy TCP perde conexão
+Bug · Priority: High · Status: In Progress
+Branch: fix/182-tcp-proxy · Environment: base-empresarial-issue182 (running)
+web.issue-182.localhost   api.issue-182.localhost
+```
+
+**Linking writes one row.** It never starts, stops, creates or removes
+anything.
+
+### Inferred, then corrected, with the reason recorded
+
+In order, first match wins:
+
+| Source | Meaning |
+|---|---|
+| `manual` | You linked them in the panel. Always wins |
+| `label` | The environment declares `dev-gateway.issue` as `owner/name#123`, or `#123` when the repository is unambiguous |
+| `branch` | The branch matches `(feat\|fix\|chore\|…)/<number>-…`, `issue-<number>` or `<number>-…`, and the repository coordinate resolves |
+| `namespace` | The Compose project or worktree ends in `issue<number>`, which is what `dev-gateway namespace` produces |
+
+Each rule is a pure function over data the panel already has — no Docker call,
+no GitHub call — so the UI can say *"linked because this environment is on
+branch `fix/182-tcp-proxy`"* rather than presenting a mysterious association. A
+coordinate that matches two projected issues links nothing and offers the
+choice.
+
+One issue may have several environments; an environment belongs to at most one
+issue.
+
+### Where it shows
+
+- **On the issue**, an Environments section: each linked environment with its
+  running count, its branch, its endpoints and a link straight into the project
+  page's Logs tab. A linked environment that is not running says how to start it
+  rather than showing an error — the panel never starts one for you.
+- **On the environment**, a compact issue block on the project page's Overview
+  tab: repository, number, title, type, priority, status, the reason for the
+  link, and links to GitHub and to the panel.
+
+`GET /api/projects/:project` gains a nullable `issue` block, so nothing that
+read it before breaks. `GET /api/issues/:id` gains `environments`, and
+`PUT /api/issues/:id/environments` is the manual link.
+
+### What is deliberately not built
+
+There is no `agent_runs` table. Nothing would write to it, and this project
+persists decisions rather than speculation. Adding one later is
+`CREATE TABLE agent_runs (… issue_id, project_id …)` and no change to anything
+above; `issue_environments.worktree_path` is reserved for the same reason and is
+null today.

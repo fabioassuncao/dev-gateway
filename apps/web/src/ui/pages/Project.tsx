@@ -174,6 +174,8 @@ function OverviewTab({ project }: { project: Project }) {
         />
       </div>
 
+      {project.issue ? <IssueBlock issue={project.issue} /> : null}
+
       <Card>
         <CardHeader title="Environment" description="What this Compose project is, and where it lives." />
         <CardBody>
@@ -433,6 +435,40 @@ function ServiceDetailCard({
           ) : null}
         </dl>
       </CardBody>
+    </Card>
+  )
+}
+
+/**
+ * The issue this environment is running for, when the panel can tell.
+ *
+ * The link is inferred from conventions already in use and can be corrected by
+ * hand; either way the card says which, so an association is never mysterious.
+ */
+function IssueBlock({ issue }: { issue: NonNullable<Project['issue']> }) {
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="flex flex-wrap items-center gap-2">
+            <Badge tone="outline">{issue.repository}</Badge>
+            <a
+              className="underline-offset-2 hover:text-accent hover:underline"
+              href={issue.htmlUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              #{issue.number}
+            </a>
+            <span className="min-w-0 truncate">{issue.title}</span>
+            {issue.issueType ? <Badge tone="neutral">{issue.issueType}</Badge> : null}
+            {issue.status ? <Badge tone="accent">{issue.status.replace('_', ' ')}</Badge> : null}
+            {issue.priority ? <Badge tone="warn">priority: {issue.priority}</Badge> : null}
+            {issue.state === 'closed' ? <Badge tone="ok">closed</Badge> : null}
+          </span>
+        }
+        description={issue.reason}
+      />
     </Card>
   )
 }

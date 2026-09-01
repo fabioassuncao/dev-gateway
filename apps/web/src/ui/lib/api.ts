@@ -134,6 +134,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  setIssueEnvironments: (id: string, environments: string[]) =>
+    request<Issue>(`/issues/${encodeURIComponent(id)}/environments`, {
+      method: 'PUT',
+      body: JSON.stringify({ environments }),
+    }),
   patchIssue: (id: string, body: Record<string, unknown>) =>
     request<Issue>(`/issues/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
 

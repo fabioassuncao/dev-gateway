@@ -242,6 +242,9 @@ function projectionDatabase(): { db: Database; store: FakeProjection } {
       },
       recordSync: async (scope: string, state: { cursor?: string | null; error?: string | null }) =>
         void store.sync.set(scope, { cursor: state.cursor ?? null, error: state.error ?? null }),
+      listIssues: async () => [],
+      listIssueEnvironments: async () => [],
+      listRelationships: async () => [],
       listSyncState: async () =>
         [...store.sync.entries()].map(([scope, value]) => ({
           scope, cursor: value.cursor, lastSyncedAt: new Date(0), lastError: value.error,

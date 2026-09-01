@@ -13,6 +13,9 @@ import {
   type WorkflowStatus,
 } from '../integrations/github/metadata.ts'
 import { normaliseIssue, type RawIssue } from '../integrations/github/issues.ts'
+import { environmentsFor, resolveLinks, type ResolvedLink } from '../core/issue-environments.ts'
+import { readProjectGit } from '../core/git.ts'
+import type { Snapshot } from '../core/inventory.ts'
 import { Issue } from '../../shared/types.ts'
 import { documentRoute } from '../openapi.ts'
 
@@ -60,6 +63,7 @@ function view(
   issue: StoredIssue,
   relationships: { parentId: string; childId: string }[],
   now: number,
+  environments: z.infer<typeof Issue>['environments'] = [],
 ): z.infer<typeof Issue> {
   const syncedAt = seconds(issue.syncedAt)
   return {
@@ -83,7 +87,34 @@ function view(
     githubUpdatedAt: seconds(issue.githubUpdatedAt),
     syncedAt,
     stale: now - syncedAt > STALE_AFTER_SECONDS,
+    environments,
   }
+}
+
+/**
+ * Where each running environment belongs, resolved once per request.
+ *
+ * Branches come from the host Git scan the panel already reads, so nothing here
+ * runs a command or makes a network call.
+ */
+async function linksFor(
+  deps: AppDeps,
+  db: Database,
+  snapshot: Snapshot,
+  issues: StoredIssue[],
+): Promise<Map<string, ResolvedLink>> {
+  const branches = new Map<string, string | null>(
+    snapshot.projects.map((project) => [
+      project.name,
+      readProjectGit(deps.config, project.name).git?.branch ?? null,
+    ]),
+  )
+  const manual = (await db.github.listIssueEnvironments()).map((row) => ({
+    issueId: row.issueId,
+    composeProject: row.composeProject,
+    branch: row.branch,
+  }))
+  return resolveLinks(snapshot, issues, manual, branches)
 }
 
 /** Repositories one workspace owns, as projection ids. */
@@ -149,12 +180,16 @@ export function issueRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
   async function listing(db: Database, repositoryIds: string[] | undefined, query: URLSearchParams) {
-    const [issues, relationships] = await Promise.all([
+    const [issues, relationships, snapshot] = await Promise.all([
       db.github.listIssues({ repositoryIds, state: query.get('state') ?? undefined }),
       db.github.listRelationships(),
+      deps.cache.get(),
     ])
+    const links = await linksFor(deps, db, snapshot, issues)
     const now = Math.floor(Date.now() / 1000)
-    return issues.filter((issue) => matches(issue, query)).map((issue) => view(issue, relationships, now))
+    return issues
+      .filter((issue) => matches(issue, query))
+      .map((issue) => view(issue, relationships, now, environmentsFor(issue.id, snapshot, links)))
   }
 
   app.get('/workspaces/:slug/issues', documentRoute({
@@ -189,7 +224,58 @@ export function issueRoutes(deps: AppDeps): Hono {
     const issue = await db.github.findIssue(c.req.param('id'))
     if (!issue) throw new HTTPException(404, { message: `no issue '${c.req.param('id')}'` })
     const relationships = await db.github.listRelationships()
-    return c.json(view(issue, relationships, Math.floor(Date.now() / 1000)))
+    const snapshot = await deps.cache.get()
+    const issues = await db.github.listIssues({})
+    const links = await linksFor(deps, db, snapshot, issues)
+    return c.json(
+      view(issue, relationships, Math.floor(Date.now() / 1000), environmentsFor(issue.id, snapshot, links)),
+    )
+  })
+
+  /**
+   * Links an issue to the environments it is being worked in, by hand.
+   *
+   * It writes one row. It never starts, stops, creates or removes anything, and
+   * a manual link always wins over every inferred one.
+   */
+  app.put('/issues/:id/environments', documentRoute({
+    tag: 'Issues', operationId: 'setIssueEnvironments',
+    summary: 'Link an issue to the environments it is worked in',
+    description: 'Writes one row per link. No container, volume or environment is touched.',
+    request: z.object({ environments: z.array(z.string().min(1).max(255)).max(32) }).strict()
+      .meta({ ref: 'IssueEnvironmentsBody' }),
+    response: Issue, parameters: [issueIdParameter], errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const issue = await db.github.findIssue(c.req.param('id'))
+    if (!issue) throw new HTTPException(404, { message: `no issue '${c.req.param('id')}'` })
+
+    const body = z
+      .object({ environments: z.array(z.string().min(1).max(255)).max(32) })
+      .strict()
+      .parse(await c.req.json())
+
+    const snapshot = await deps.cache.get()
+    for (const name of body.environments) {
+      if (!snapshot.projects.some((project) => project.name === name)) {
+        throw new OverrideRefused(`no project '${name}' is running`)
+      }
+    }
+
+    await db.github.setIssueEnvironments(
+      issue.id,
+      body.environments.map((name) => ({
+        composeProject: name,
+        branch: readProjectGit(deps.config, name).git?.branch ?? null,
+      })),
+    )
+
+    const relationships = await db.github.listRelationships()
+    const issues = await db.github.listIssues({})
+    const links = await linksFor(deps, db, snapshot, issues)
+    return c.json(
+      view(issue, relationships, Math.floor(Date.now() / 1000), environmentsFor(issue.id, snapshot, links)),
+    )
   })
 
   /**
@@ -257,6 +343,8 @@ export function issueRoutes(deps: AppDeps): Hono {
 
     const fresh = await db.github.findIssue(issue.id)
     const relationships = await db.github.listRelationships()
+    const snapshot = await deps.cache.get()
+    const links = await linksFor(deps, db, snapshot, await db.github.listIssues({}))
     deps.hub.publish({
       kind: 'config',
       action: 'issue',
@@ -266,7 +354,14 @@ export function issueRoutes(deps: AppDeps): Hono {
       ownership: null,
       at: Math.floor(Date.now() / 1000),
     })
-    return c.json(view(fresh ?? issue, relationships, Math.floor(Date.now() / 1000)))
+    return c.json(
+      view(
+        fresh ?? issue,
+        relationships,
+        Math.floor(Date.now() / 1000),
+        environmentsFor(issue.id, snapshot, links),
+      ),
+    )
   })
 
   /**

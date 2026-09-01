@@ -17,9 +17,12 @@ export const LABELS = {
   //   repo      `owner/name` or a remote URL, which gives forge links with no
   //             host-side Git at all
   //   gitRoot   the repository root, when the Compose file is not at it
+  //   issue     `owner/name#123`, or `#123` when the repository is unambiguous,
+  //             when this environment is running for one issue
   project: 'dev-gateway.project',
   repo: 'dev-gateway.repo',
   gitRoot: 'dev-gateway.git.root',
+  issue: 'dev-gateway.issue',
 
   composeProject: 'com.docker.compose.project',
   composeService: 'com.docker.compose.service',

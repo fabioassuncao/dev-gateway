@@ -52,6 +52,15 @@ export interface WorkspaceRepositoryRow {
   position: number
 }
 
+export interface IssueEnvironmentRow {
+  issueId: string
+  composeProject: string
+  source: string
+  branch: string | null
+  worktreePath: string | null
+  linkedAt: Date
+}
+
 export interface WorkspaceEnvironmentRow {
   workspaceId: string
   composeProject: string
@@ -509,6 +518,42 @@ export class DatabaseClient {
       SELECT parent_id::text AS "parentId", child_id::text AS "childId", position
       FROM github_issue_relationships ORDER BY position
     `
+  }
+
+  // ---- the issue / environment link ---------------------------------------
+  //
+  // Linking writes one row. Nothing here starts, stops, creates or removes
+  // anything, and nothing here writes to `projects` beyond referencing it.
+
+  async listIssueEnvironments(): Promise<IssueEnvironmentRow[]> {
+    return this.sql<IssueEnvironmentRow[]>`
+      SELECT
+        ie.issue_id::text AS "issueId",
+        p.compose_project AS "composeProject",
+        ie.source, ie.branch,
+        ie.worktree_path AS "worktreePath",
+        ie.linked_at AS "linkedAt"
+      FROM issue_environments ie
+      JOIN projects p ON p.id = ie.project_id
+    `
+  }
+
+  async setIssueEnvironments(
+    issueId: string,
+    links: { composeProject: string; branch: string | null }[],
+  ): Promise<void> {
+    await this.sql.begin(async (transaction) => {
+      await transaction`DELETE FROM issue_environments WHERE issue_id = ${issueId}`
+      for (const link of links) {
+        await transaction`
+          INSERT INTO issue_environments (issue_id, project_id, source, branch)
+          SELECT ${issueId}, p.id, 'manual', ${link.branch}
+          FROM projects p WHERE p.compose_project = ${link.composeProject}
+          ON CONFLICT (project_id) DO UPDATE SET
+            issue_id = EXCLUDED.issue_id, source = 'manual', branch = EXCLUDED.branch
+        `
+      }
+    })
   }
 
   // ---- workspaces ---------------------------------------------------------

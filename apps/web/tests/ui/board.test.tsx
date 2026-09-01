@@ -55,6 +55,7 @@ function issue(overrides: Partial<Issue> = {}): Issue {
     githubUpdatedAt: 1_700_000_000,
     syncedAt: 1_700_000_000,
     stale: false,
+    environments: [],
     ...overrides,
   }
 }

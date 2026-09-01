@@ -1,4 +1,4 @@
-import type { DatabaseClient } from './client.ts'
+import type { DatabaseClient, IssueEnvironmentRow } from './client.ts'
 import type { InstallationRecord, RepositoryRecord } from '../integrations/github/repositories.ts'
 import type { IssueRecord } from '../integrations/github/issues.ts'
 
@@ -116,6 +116,18 @@ export class GitHubRepository {
 
   listRelationships(): Promise<{ parentId: string; childId: string; position: number }[]> {
     return this.client.listGitHubRelationships()
+  }
+
+  /** The manual half of the issue/environment join. Inference is not stored. */
+  listIssueEnvironments(): Promise<IssueEnvironmentRow[]> {
+    return this.client.listIssueEnvironments()
+  }
+
+  setIssueEnvironments(
+    issueId: string,
+    links: { composeProject: string; branch: string | null }[],
+  ): Promise<void> {
+    return this.client.setIssueEnvironments(issueId, links)
   }
 
   recordSync(scope: string, state: { cursor?: string | null; error?: string | null }): Promise<void> {

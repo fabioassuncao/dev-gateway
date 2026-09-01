@@ -220,6 +220,33 @@ describe('Project page', () => {
     expect(projectLogs).not.toHaveBeenCalled()
   })
 
+  it('shows the issue this environment is running for, and why', async () => {
+    project.mockResolvedValue({
+      ...alpha,
+      issue: {
+        id: '1', repository: 'acme/alpha', number: 182, title: 'Proxy TCP perde conexão',
+        state: 'open', issueType: 'Bug', status: 'in_progress', priority: 'high',
+        source: 'branch', reason: 'this environment is on branch fix/182-tcp-proxy',
+        htmlUrl: 'https://github.com/acme/alpha/issues/182',
+        panelUrl: '#/issues/1', syncedAt: 1_700_000_000,
+      },
+    })
+    renderWithQuery(<ProjectPage project="alpha" tab="overview" service={null} />)
+
+    expect(await screen.findByRole('link', { name: '#182' })).toHaveAttribute(
+      'href',
+      'https://github.com/acme/alpha/issues/182',
+    )
+    expect(screen.getByText('this environment is on branch fix/182-tcp-proxy')).toBeInTheDocument()
+    expect(screen.getByText('Proxy TCP perde conexão')).toBeInTheDocument()
+  })
+
+  it('shows no issue block when nothing links', async () => {
+    renderWithQuery(<ProjectPage project="alpha" tab="overview" service={null} />)
+    await screen.findByText('/srv/dev/alpha')
+    expect(screen.queryByText(/this environment is on branch/)).not.toBeInTheDocument()
+  })
+
   it('titles the document with the tab and the project', async () => {
     renderWithQuery(<ProjectPage project="alpha" tab="git" service={null} />)
     await waitFor(() => expect(document.title).toBe('Git · alpha · Dev Gateway'))

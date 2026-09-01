@@ -101,6 +101,18 @@ While the version is `0.x`, minor releases may contain breaking changes.
   Drag support is a **devDependency**; the runtime image's package count is
   unchanged.
 
+- **The issue is the link between work, code and environment.** An issue now
+  shows the environments it is being worked in — state, services, endpoints,
+  branch, and a link straight into the project page's Logs tab — and an
+  environment shows the issue it belongs to on its Overview tab. The link is
+  inferred from conventions already in use (a `dev-gateway.issue` label, a
+  branch like `fix/182-…`, a namespace ending in `issue182`), can be corrected by
+  hand, and **always says which**, so an association is never mysterious. An
+  ambiguous match links nothing. One issue may have several environments; an
+  environment belongs to at most one issue. `GET /api/projects/:project` gains a
+  nullable `issue` block, so no existing client breaks, and linking writes one
+  row — no container, volume or environment is touched.
+
 ## [0.2.0] — 2026-09-01
 
 ### Added

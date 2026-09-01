@@ -89,6 +89,52 @@ export type MountSummary = z.infer<typeof MountSummary>
  * declared. Always additive: the derived name and hostname stay where they
  * were, so nothing is ever only-renamed.
  */
+export const IssueLinkSource = named(
+  z.enum(['manual', 'label', 'branch', 'namespace']).describe('Why this environment is linked to this issue'),
+  'IssueLinkSource',
+)
+export type IssueLinkSource = z.infer<typeof IssueLinkSource>
+
+/** One environment an issue is being worked in. */
+export const IssueEnvironment = named(
+  z.object({
+    project: z.string().describe('COMPOSE_PROJECT_NAME; the key the project endpoints use'),
+    source: IssueLinkSource,
+    reason: z.string().describe('A sentence the UI can show instead of a bare source'),
+    running: z.boolean(),
+    serviceCount: z.number().int(),
+    runningCount: z.number().int(),
+    unhealthyCount: z.number().int(),
+    urls: z.array(RouteUrl),
+    branch: z.string().nullable(),
+    panelUrl: z.string().describe('Where this environment lives in the panel'),
+    logsUrl: z.string().describe('The project page, on its Logs tab'),
+  }).strict(),
+  'IssueEnvironment',
+)
+export type IssueEnvironment = z.infer<typeof IssueEnvironment>
+
+/** The issue an environment is running for, when there is one. */
+export const EnvironmentIssue = named(
+  z.object({
+    id: z.string(),
+    repository: z.string(),
+    number: z.number().int(),
+    title: z.string(),
+    state: z.enum(['open', 'closed']),
+    issueType: z.string().nullable(),
+    status: z.string().nullable(),
+    priority: z.string().nullable(),
+    source: IssueLinkSource,
+    reason: z.string(),
+    htmlUrl: z.string(),
+    panelUrl: z.string(),
+    syncedAt: unixSeconds,
+  }).strict(),
+  'EnvironmentIssue',
+)
+export type EnvironmentIssue = z.infer<typeof EnvironmentIssue>
+
 export const ProjectOverrides = named(
   z.object({
     displayName: z.string().optional(),
@@ -135,6 +181,7 @@ export const ContainerSummary = named(
     repo: z.string().nullable().describe('Optional dev-gateway.repo label as supplied by the project'),
     repoUrl: z.string().nullable().describe('Repository web address derived from repo'),
     gitRoot: z.string().nullable().describe('Optional dev-gateway.git.root label'),
+    issueRef: z.string().nullable().optional().describe('Optional dev-gateway.issue label, as declared'),
     networks: z.array(z.string()),
     onGatewayNetwork: z.boolean(),
     traefikEnabled: z.boolean(),
@@ -163,6 +210,7 @@ export const Project = named(
     repo: z.string().nullable(),
     repoUrl: z.string().nullable(),
     gitRoot: z.string().nullable(),
+    issueRef: z.string().nullable().optional().describe('Optional dev-gateway.issue label, as declared'),
     services: z.array(ContainerSummary),
     serviceCount: z.number().int(),
     runningCount: z.number().int(),
@@ -174,6 +222,7 @@ export const Project = named(
     startedAt: unixSeconds.nullable(),
     uptimeSeconds: z.number().nullable(),
     overrides: ProjectOverrides.optional().describe('Absent when nothing was overridden'),
+    issue: EnvironmentIssue.nullable().optional().describe('The issue this environment is running for, when the panel can tell'),
   }).strict(),
   'Project',
 )
@@ -291,6 +340,7 @@ export const Issue = named(
     githubUpdatedAt: unixSeconds,
     syncedAt: unixSeconds.describe('When the panel last read this from GitHub'),
     stale: z.boolean().describe('True past the staleness threshold; the projection is still shown'),
+    environments: z.array(IssueEnvironment).describe('Where this issue is being worked, and why'),
   }).strict(),
   'Issue',
 )

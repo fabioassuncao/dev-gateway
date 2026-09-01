@@ -1,6 +1,20 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { IssueRows, nest } from '../../src/ui/components/issue-list.tsx'
+
+vi.mock('../../src/ui/lib/api.ts', () => ({
+  ApiError: class ApiError extends Error {},
+  api: { patchIssue: vi.fn(), createIssue: vi.fn() },
+}))
+
+vi.mock('@tanstack/react-query', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-query')>()
+  return {
+    ...actual,
+    useQueryClient: () => ({ invalidateQueries: () => undefined }),
+    useMutation: () => ({ mutate: () => undefined, isPending: false, error: null }),
+  }
+})
 import type { Issue } from '../../src/shared/types.ts'
 
 function issue(overrides: Partial<Issue> = {}): Issue {
@@ -25,6 +39,7 @@ function issue(overrides: Partial<Issue> = {}): Issue {
     githubUpdatedAt: 1_700_000_000,
     syncedAt: 1_700_000_000,
     stale: false,
+    environments: [],
     ...overrides,
   }
 }
@@ -86,5 +101,77 @@ describe('the issue rows', () => {
   it('explains an empty list rather than showing nothing', () => {
     render(<IssueRows issues={[]} />)
     expect(screen.getByText('No issue matches')).toBeInTheDocument()
+  })
+})
+
+describe('the environments an issue is worked in', () => {
+  it('says how to link one when nothing is', async () => {
+    const { IssueDialog } = await import('../../src/ui/components/issue-dialog.tsx')
+    render(<IssueDialog mode="edit" issue={issue()} open onOpenChange={() => {}} />)
+    expect(screen.getByText(/No environment is linked to this issue/)).toBeInTheDocument()
+    expect(screen.getByText('dev-gateway.issue')).toBeInTheDocument()
+  })
+
+  it('explains why each environment is linked, and offers its logs', async () => {
+    const { IssueDialog } = await import('../../src/ui/components/issue-dialog.tsx')
+    render(
+      <IssueDialog
+        mode="edit"
+        issue={issue({
+          environments: [
+            {
+              project: 'alpha-issue182',
+              source: 'branch',
+              reason: 'this environment is on branch fix/182-tcp-proxy',
+              running: true,
+              serviceCount: 2,
+              runningCount: 2,
+              unhealthyCount: 0,
+              urls: [
+                { url: 'http://web.issue-182.localhost', host: 'web.issue-182.localhost', scope: 'local', scheme: 'http' },
+              ],
+              branch: 'fix/182-tcp-proxy',
+              panelUrl: '#/projects/alpha-issue182',
+              logsUrl: '#/projects/alpha-issue182/logs',
+            },
+          ],
+        })}
+        open
+        onOpenChange={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('this environment is on branch fix/182-tcp-proxy')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'alpha-issue182' })).toHaveAttribute(
+      'href',
+      '#/projects/alpha-issue182',
+    )
+    expect(screen.getByRole('link', { name: 'Logs' })).toHaveAttribute(
+      'href',
+      '#/projects/alpha-issue182/logs',
+    )
+    expect(screen.getByText('web.issue-182.localhost')).toBeInTheDocument()
+  })
+
+  it('says how to start an environment that is linked but not running', async () => {
+    const { IssueDialog } = await import('../../src/ui/components/issue-dialog.tsx')
+    render(
+      <IssueDialog
+        mode="edit"
+        issue={issue({
+          environments: [
+            {
+              project: 'alpha-issue182', source: 'manual', reason: 'linked by hand',
+              running: false, serviceCount: 2, runningCount: 0, unhealthyCount: 0,
+              urls: [], branch: null,
+              panelUrl: '#/projects/alpha-issue182', logsUrl: '#/projects/alpha-issue182/logs',
+            },
+          ],
+        })}
+        open
+        onOpenChange={() => {}}
+      />,
+    )
+    expect(screen.getByText(/the panel never starts an environment for you/)).toBeInTheDocument()
   })
 })

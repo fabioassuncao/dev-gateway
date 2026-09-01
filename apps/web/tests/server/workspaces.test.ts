@@ -115,6 +115,9 @@ function workspaceDatabase(granted: string[] = ['acme/alpha', 'acme/api']): { db
       findRepository: async (fullName: string) =>
         store.granted.has(fullName) ? { id: `repo-${fullName}`, fullName } : null,
       listRepositories: async () => [],
+      listIssues: async () => [],
+      listIssueEnvironments: async () => [],
+      listRelationships: async () => [],
     },
     workspaces: {
       create: async (input: { slug: string; name: string; description: string | null }) => {

@@ -213,6 +213,7 @@ export function summarise(
   const declaredProject = labels[LABELS.project] ?? null
   const declaredRepo = labels[LABELS.repo] ?? null
   const gitRoot = labels[LABELS.gitRoot] ?? null
+  const declaredIssue = labels[LABELS.issue] ?? null
   const image = inspect?.Config.Image ?? item.Image
   const startedAt = epoch(inspect?.State.StartedAt)
   const state = toState(inspect?.State.Status ?? item.State)
@@ -240,6 +241,7 @@ export function summarise(
     repo: declaredRepo,
     repoUrl: declaredRepo ? (parseRemote(declaredRepo)?.repoUrl ?? null) : null,
     gitRoot,
+    issueRef: declaredIssue,
     networks,
     onGatewayNetwork,
     traefikEnabled: labels[LABELS.traefikEnable] === 'true',
@@ -306,6 +308,7 @@ export function groupProjects(containers: ContainerSummary[], now: number): Proj
       repo: withRepo?.repo ?? null,
       repoUrl: withRepo?.repoUrl ?? null,
       gitRoot: services.find((service) => service.gitRoot)?.gitRoot ?? null,
+      issueRef: services.find((service) => service.issueRef)?.issueRef ?? null,
       services,
       serviceCount: services.length,
       runningCount: services.filter((service) => service.state === 'running').length,

@@ -266,6 +266,15 @@ export function fakeDatabase(options: { available?: boolean } = {}): Database & 
       upsertSeen: async () => record,
       list: async () => [record],
     },
+    // Empty by default: an override test is not a GitHub test, and every join
+    // must degrade to nothing rather than throw.
+    github: {
+      listIssues: async () => [],
+      listIssueEnvironments: async () => [],
+      listRelationships: async () => [],
+      findRepository: async () => null,
+      listRepositories: async () => [],
+    },
     settings: {
       getProject: async (_id: string, key: string) => projectValues.get(key) ?? null,
       setProject: async (_id: string, key: string, value: unknown) => void projectValues.set(key, value),

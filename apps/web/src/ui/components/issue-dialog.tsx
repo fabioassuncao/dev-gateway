@@ -147,6 +147,7 @@ export function IssueDialog(
             >
               Open on GitHub
             </a>
+            <IssueEnvironments issue={editing!} />
             {editing!.metadataSource === 'labels' ? (
               <p className="text-[11px] text-subtle">
                 This issue’s status comes from the <span className="font-mono">status:</span> label
@@ -198,5 +199,67 @@ export function IssueDialog(
         </label>
       </div>
     </Dialog>
+  )
+}
+
+/**
+ * Where this issue is being worked, and why.
+ *
+ * Every component here already exists: the state badge, the endpoints, and a
+ * link into the project page's Logs tab. Nothing is duplicated, and nothing
+ * here starts, stops or creates anything.
+ */
+function IssueEnvironments({ issue }: { issue: Issue }) {
+  if (issue.environments.length === 0) {
+    return (
+      <div className="rounded-md border border-line bg-surface-2/40 px-3 py-2 text-xs text-subtle">
+        No environment is linked to this issue. Start one on a branch like{' '}
+        <span className="font-mono">fix/{issue.number}-…</span>, label it{' '}
+        <span className="font-mono">dev-gateway.issue</span>, or link one by hand.
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {issue.environments.map((environment) => (
+        <div key={environment.project} className="rounded-md border border-line px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              className="text-sm font-medium underline-offset-2 hover:text-accent hover:underline"
+              href={environment.panelUrl}
+            >
+              {environment.project}
+            </a>
+            <Badge tone={environment.running ? 'ok' : 'outline'}>
+              {environment.runningCount}/{environment.serviceCount} running
+            </Badge>
+            {environment.unhealthyCount > 0 ? (
+              <Badge tone="danger">{environment.unhealthyCount} unhealthy</Badge>
+            ) : null}
+            <a className="ml-auto text-xs text-accent hover:underline" href={environment.logsUrl}>
+              Logs
+            </a>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-subtle">
+            <span>{environment.reason}</span>
+            {environment.branch ? <span className="font-mono">{environment.branch}</span> : null}
+          </div>
+          {environment.running ? (
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted">
+              {environment.urls.slice(0, 4).map((url) => (
+                <a key={url.url} href={url.url} target="_blank" rel="noreferrer noopener" className="hover:text-accent">
+                  {url.host}
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-1 text-[11px] text-subtle">
+              Not running. Start it on the host; the panel never starts an environment for you.
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
   )
 }

@@ -5,6 +5,8 @@ import { HTTPException } from 'hono/http-exception'
 import { readProjectGit } from '../core/git.ts'
 import { mergeLogSources, type LogSourceLines } from '../core/projectlogs.ts'
 import { applyOverrides, loadOverrides } from '../core/overrides.ts'
+import { issueForEnvironment, resolveLinks } from '../core/issue-environments.ts'
+import type { Snapshot } from '../core/inventory.ts'
 import { Project, ProjectGit, ProjectLogsResponse, type ProjectGit as ProjectGitView, type ProjectLogSource } from '../../shared/types.ts'
 import { documentRoute, projectParameter, tailParameter } from '../openapi.ts'
 
@@ -61,6 +63,29 @@ async function withForgeFromApp(deps: AppDeps, git: ProjectGitView): Promise<Pro
   }
 }
 
+/**
+ * The issue this environment is running for, when the panel can tell.
+ *
+ * Every step degrades to `null`: no database, no projection, no match. Nothing
+ * here is required for a project page to render.
+ */
+async function issueOf(deps: AppDeps, snapshot: Snapshot, project: Project) {
+  if (!deps.db?.status().available) return null
+  const issues = await deps.db.github.listIssues({})
+  if (issues.length === 0) return null
+
+  const branches = new Map<string, string | null>(
+    snapshot.projects.map((item) => [item.name, readProjectGit(deps.config, item.name).git?.branch ?? null]),
+  )
+  const manual = (await deps.db.github.listIssueEnvironments()).map((row) => ({
+    issueId: row.issueId,
+    composeProject: row.composeProject,
+    branch: row.branch,
+  }))
+  const links = resolveLinks(snapshot, issues, manual, branches)
+  return issueForEnvironment(project, issues, links)
+}
+
 export function projectRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
@@ -92,7 +117,11 @@ export function projectRoutes(deps: AppDeps): Hono {
     const name = c.req.param('project')
     const project = snapshot.projects.find((item) => item.name === name)
     if (!project) throw new HTTPException(404, { message: `no project '${name}' is running` })
-    return c.json(applyOverrides([project], await loadOverrides(deps.db))[0]!)
+    const decorated = applyOverrides([project], await loadOverrides(deps.db))[0]!
+    // Additive, and nullable: a panel with no App, no database or no link gets
+    // exactly the object it got before.
+    const issue = await issueOf(deps, snapshot, decorated)
+    return c.json(issue === null ? decorated : { ...decorated, issue })
   })
 
   /**

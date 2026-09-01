@@ -396,6 +396,12 @@ is a URL:
 #/projects/storefront/logs       Logs
 ```
 
+When the panel can tell which issue an environment is running for, Overview
+opens with a compact issue block — repository, number, title, type, priority,
+status — and says **why** it was linked: the `dev-gateway.issue` label, the
+branch, the namespace, or by hand. See
+[github.md](github.md#the-issue-and-the-environment-it-is-worked-in).
+
 **Overview** answers "what is this and where does it live": services running,
 unhealthy count, routed URLs and uptime as tiles; the host directory, worktree,
 logical project, Git root, repository and networks as rows; every endpoint
