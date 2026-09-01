@@ -21,6 +21,14 @@ While the version is `0.x`, minor releases may contain breaking changes.
   stopped renders an empty state with a route back to the list. See
   [docs/web-ui.md](docs/web-ui.md).
 
+- **Every service's logs, in one place.** `GET /api/projects/:project/logs`
+  reads each service of a project concurrently and returns one stream ordered by
+  the timestamp Docker already stamps on each line, with the originating service
+  on every line. A source that could not be read is reported beside the ones
+  that answered instead of blanking the view, and a stopped container keeps
+  whatever it logged. The Logs tab on the project page renders it through the
+  existing log viewer, with a service selector whose choice lives in the URL.
+
 ## [0.2.0] — 2026-09-01
 
 ### Added

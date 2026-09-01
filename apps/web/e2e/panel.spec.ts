@@ -102,6 +102,23 @@ test.describe('the panel end to end', () => {
     await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true')
   })
 
+  test('the Logs tab reads every service at once and narrows to one', async ({ page }) => {
+    await page.goto('/#/projects/alpha/logs')
+    const output = page.locator('pre')
+    await expect(output).toBeVisible()
+
+    const origins = await page.locator('pre span').filter({ hasText: '|' }).allTextContents()
+    const services = new Set(origins.map((origin) => origin.replace('|', '').trim()))
+    expect(services.size).toBeGreaterThan(1)
+
+    await page.getByLabel('Service').selectOption('web')
+    await expect(page).toHaveURL(/#\/projects\/alpha\/logs\?service=web$/)
+    await expect(page.getByLabel('Service')).toHaveValue('web')
+
+    await page.reload()
+    await expect(page.getByLabel('Service')).toHaveValue('web')
+  })
+
   test('an unknown project says so instead of failing', async ({ page }) => {
     await page.goto('/#/projects/ghost')
     await expect(page.getByText("No project 'ghost' is running")).toBeVisible()

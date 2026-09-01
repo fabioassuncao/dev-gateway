@@ -416,6 +416,38 @@ Three cases render nothing at all rather than an error: `gh` is not installed,
 to. In the last case the Git line keeps its repository link, since that is
 derived from the remote and needs nobody's permission.
 
+#### Logs across a project
+
+The Logs tab reads **every** service of the project at once, interleaved by the
+timestamp Docker already puts on each line, with the service name in front:
+
+```text
+web      | 10:00:01  listening on 3000
+api      | 10:00:02  GET /health 200
+postgres | 10:00:03  ready to accept connections
+```
+
+A selector narrows the view to one service, and the choice is in the URL
+(`#/projects/alpha/logs?service=api`), so a link opens on exactly what you were
+reading. Tail size, the text filter, follow, timestamps and copy are the same
+controls the container dialog has, because it is the same component; copying an
+aggregated view prefixes each line with its service.
+
+Services are read concurrently on the server, and a source that could not be
+read is reported **beside** the ones that answered rather than replacing them: a
+stopped container is marked with its state, an unreadable one carries the
+reason, and four working services stay on screen. An unknown project is a 404; a
+known project whose sources all failed is a 200 that says why.
+
+The aggregated default is 100 lines per service (200 when reading one), clamped
+to 2000 overall, so a ten-service project cannot ask for twenty thousand lines.
+If a container logs through a driver that omits timestamps, the view says
+ordering between services is approximate rather than pretending otherwise.
+
+**Out of scope, deliberately:** streaming over SSE or WebSocket, retention,
+indexing, structured-log parsing, level filtering and download-as-file. This is
+a bounded tail on a three-second poll, and it is meant to stay one.
+
 #### Sharing it, temporarily
 
 The Exposure section on a service offers three states: **private** (the absence

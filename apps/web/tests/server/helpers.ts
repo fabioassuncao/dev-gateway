@@ -95,6 +95,8 @@ export interface FakeDockerOptions {
   containers?: FakeContainer[]
   networks?: Partial<DockerNetwork>[]
   logs?: LogLine[]
+  /** Per container: lines to return, or an Error the read should reject with. */
+  logsByContainer?: Record<string, LogLine[] | Error>
   failInspect?: string[]
 }
 
@@ -187,7 +189,11 @@ export function fakeDocker(options: FakeDockerOptions = {}): FakeDocker {
         memory_stats: { usage: 1024 * 1024 * 64, limit: 1024 * 1024 * 512, stats: {} },
       }
     },
-    async logs() {
+    async logs(id: string, logOptions?: { tail?: number }) {
+      record('logs', id, logOptions)
+      const specific = options.logsByContainer?.[id]
+      if (specific instanceof Error) throw specific
+      if (specific) return specific
       return (
         options.logs ?? [
           { stream: 'stdout' as const, timestamp: '2026-01-01T00:00:01Z', text: 'hello' },

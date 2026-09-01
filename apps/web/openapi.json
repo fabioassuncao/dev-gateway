@@ -1464,6 +1464,118 @@
         "additionalProperties": false,
         "description": "Metadata collected by dev-gateway git scan for one project"
       },
+      "ProjectLogSource": {
+        "type": "object",
+        "properties": {
+          "containerId": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string",
+            "description": "Compose service name, or the container name when unlabelled"
+          },
+          "name": {
+            "type": "string",
+            "description": "Container name"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ContainerState"
+          },
+          "lineCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "error": {
+            "description": "Why this source contributed no lines",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "containerId",
+          "service",
+          "name",
+          "state",
+          "lineCount",
+          "truncated",
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectLogLine": {
+        "type": "object",
+        "properties": {
+          "stream": {
+            "type": "string",
+            "enum": [
+              "stdout",
+              "stderr"
+            ]
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string",
+            "description": "Which source produced this line"
+          }
+        },
+        "required": [
+          "stream",
+          "timestamp",
+          "text",
+          "service"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectLogsResponse": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectLogSource"
+            }
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectLogLine"
+            },
+            "description": "Merged and ordered by timestamp where one exists"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "ordered": {
+            "type": "boolean",
+            "description": "False when a source logged without timestamps, so ordering is approximate"
+          }
+        },
+        "required": [
+          "project",
+          "sources",
+          "lines",
+          "truncated",
+          "ordered"
+        ],
+        "additionalProperties": false
+      },
       "ServicesResponse": {
         "type": "object",
         "properties": {
@@ -3453,6 +3565,96 @@
           },
           "500": {
             "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/projects/{project}/logs": {
+      "get": {
+        "operationId": "getProjectLogs",
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Read every service's recent logs",
+        "description": "Reads each service concurrently. A source that could not be read is reported beside the sources that answered.",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "COMPOSE_PROJECT_NAME of a running project.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tail",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of log lines, clamped to 1–2000.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2000,
+              "default": 200
+            }
+          },
+          {
+            "name": "service",
+            "in": "query",
+            "required": false,
+            "description": "Restrict the read to one Compose service.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectLogsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
             "content": {
               "application/json": {
                 "schema": {

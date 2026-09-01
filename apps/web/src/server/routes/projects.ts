@@ -3,10 +3,22 @@ import { z } from 'zod'
 import type { AppDeps } from './deps.ts'
 import { HTTPException } from 'hono/http-exception'
 import { readProjectGit } from '../core/git.ts'
-import { Project, ProjectGit } from '../../shared/types.ts'
-import { documentRoute, projectParameter } from '../openapi.ts'
+import { mergeLogSources, type LogSourceLines } from '../core/projectlogs.ts'
+import { Project, ProjectGit, ProjectLogsResponse, type ProjectLogSource } from '../../shared/types.ts'
+import { documentRoute, projectParameter, tailParameter } from '../openapi.ts'
 
 export const ProjectsResponse = z.object({ projects: z.array(Project) }).strict().meta({ ref: 'ProjectsResponse' })
+
+/** Per source, and overall: a ten-service project cannot ask for 20 000 lines. */
+const MAX_TAIL = 2000
+const DEFAULT_TAIL = 200
+const AGGREGATE_DEFAULT_TAIL = 100
+
+function clampTail(requested: string | undefined, fallback: number): number {
+  const value = Number(requested ?? String(fallback))
+  if (!Number.isFinite(value)) return fallback
+  return Math.min(Math.max(Math.trunc(value), 1), MAX_TAIL)
+}
 
 export function projectRoutes(deps: AppDeps): Hono {
   const app = new Hono()
@@ -57,6 +69,76 @@ export function projectRoutes(deps: AppDeps): Hono {
       throw new HTTPException(404, { message: `no project '${name}' is running` })
     }
     return c.json(readProjectGit(deps.config, name))
+  })
+
+  /**
+   * Every service of a project, interleaved.
+   *
+   * One unreadable container must not blank the four that answered, so sources
+   * are read concurrently and a failure is reported *in* the response rather
+   * than thrown. An unknown project is still a 404; a known project whose
+   * sources all failed is a 200 carrying the reasons.
+   */
+  app.get('/projects/:project/logs', documentRoute({
+    tag: 'Projects', operationId: 'getProjectLogs', summary: "Read every service's recent logs",
+    response: ProjectLogsResponse,
+    description: 'Reads each service concurrently. A source that could not be read is reported beside the sources that answered.',
+    parameters: [
+      projectParameter,
+      tailParameter,
+      {
+        name: 'service', in: 'query', required: false,
+        description: 'Restrict the read to one Compose service.',
+        schema: { type: 'string' },
+      },
+    ],
+    errors: [404, 500, 502],
+  }), async (c) => {
+    const snapshot = await deps.cache.get()
+    const name = c.req.param('project')
+    const project = snapshot.projects.find((item) => item.name === name)
+    if (!project) throw new HTTPException(404, { message: `no project '${name}' is running` })
+
+    const wanted = c.req.query('service')
+    const services = project.services.filter(
+      (service) => wanted === undefined || (service.service ?? service.name) === wanted,
+    )
+    const aggregating = services.length > 1
+    const tail = clampTail(c.req.query('tail'), aggregating ? AGGREGATE_DEFAULT_TAIL : DEFAULT_TAIL)
+
+    const reads = await Promise.allSettled(
+      services.map((service) => deps.client.logs(service.id, { tail })),
+    )
+
+    const sources: ProjectLogSource[] = []
+    const collected: LogSourceLines[] = []
+
+    services.forEach((service, index) => {
+      const label = service.service ?? service.name
+      const result = reads[index]!
+      const lines = result.status === 'fulfilled' ? result.value : []
+      if (result.status === 'fulfilled') collected.push({ service: label, lines })
+      sources.push({
+        containerId: service.id,
+        service: label,
+        name: service.name,
+        state: service.state,
+        lineCount: lines.length,
+        truncated: lines.length >= tail,
+        error: result.status === 'rejected'
+          ? `could not read logs: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`
+          : null,
+      })
+    })
+
+    const merged = mergeLogSources(collected, MAX_TAIL)
+    return c.json({
+      project: project.name,
+      sources,
+      lines: merged.lines,
+      truncated: merged.truncated || sources.some((source) => source.truncated),
+      ordered: merged.ordered,
+    })
   })
 
   return app

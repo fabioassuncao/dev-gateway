@@ -11,6 +11,7 @@ import type {
   Overview,
   Project,
   ProjectGit,
+  ProjectLogsResponse,
   RemovalPreview,
   Share,
   ServiceTraefik,
@@ -66,6 +67,15 @@ export const api = {
   projects: () => request<{ projects: Project[] }>('/projects').then((data) => data.projects),
   project: (name: string) => request<Project>(`/projects/${encodeURIComponent(name)}`),
   projectGit: (name: string) => request<ProjectGit>(`/projects/${encodeURIComponent(name)}/git`),
+  projectLogs: (name: string, options: { tail?: number; service?: string | null } = {}) => {
+    const query = new URLSearchParams()
+    if (options.tail !== undefined) query.set('tail', String(options.tail))
+    if (options.service) query.set('service', options.service)
+    const suffix = query.toString()
+    return request<ProjectLogsResponse>(
+      `/projects/${encodeURIComponent(name)}/logs${suffix ? `?${suffix}` : ''}`,
+    )
+  },
   services: () => request<{ services: ContainerSummary[] }>('/services').then((data) => data.services),
   serviceTraefik: (id: string) => request<ServiceTraefik>(`/services/${encodeURIComponent(id)}/traefik`),
   traefik: () => request<TraefikVerdict>('/gateway/traefik'),

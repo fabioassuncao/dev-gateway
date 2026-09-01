@@ -18,12 +18,14 @@ class ApiError extends Error {
 
 const project = vi.fn()
 const projectGit = vi.fn()
+const projectLogs = vi.fn()
 
 vi.mock('../../src/ui/lib/api.ts', () => ({
   ApiError,
   api: {
     project: (name: string) => project(name),
     projectGit: (name: string) => projectGit(name),
+    projectLogs: (name: string, options: unknown) => projectLogs(name, options),
     containerAction: vi.fn().mockResolvedValue({ ok: true }),
     logs: vi.fn().mockResolvedValue({ lines: [], truncated: false }),
     removalPreview: vi.fn().mockResolvedValue({ allowed: true, warnings: [], namedVolumes: [] }),
@@ -124,6 +126,19 @@ const gitScan: ProjectGit = {
 beforeEach(() => {
   project.mockReset().mockResolvedValue(alpha)
   projectGit.mockReset().mockResolvedValue(gitScan)
+  projectLogs.mockReset().mockResolvedValue({
+    project: 'alpha',
+    truncated: false,
+    ordered: true,
+    sources: [
+      { containerId: 'a-web', service: 'web', name: 'alpha-web-1', state: 'running', lineCount: 1, truncated: false, error: null },
+      { containerId: 'a-postgres', service: 'postgres', name: 'alpha-postgres-1', state: 'running', lineCount: 1, truncated: false, error: null },
+    ],
+    lines: [
+      { stream: 'stdout', timestamp: '2026-01-01T10:00:01Z', text: 'web up', service: 'web' },
+      { stream: 'stdout', timestamp: '2026-01-01T10:00:02Z', text: 'postgres ready', service: 'postgres' },
+    ],
+  })
   window.location.hash = '/projects/alpha'
 })
 
@@ -181,6 +196,28 @@ describe('Project page', () => {
     project.mockResolvedValue({ ...alpha, services: [], serviceCount: 0, runningCount: 0 })
     renderWithQuery(<ProjectPage project="alpha" tab="services" service={null} />)
     expect(await screen.findByText('This project has no services')).toBeInTheDocument()
+  })
+
+  it('reads every service of the project on the Logs tab', async () => {
+    renderWithQuery(<ProjectPage project="alpha" tab="logs" service={null} />)
+    expect(await screen.findByText('web up')).toBeInTheDocument()
+    expect(screen.getByText('postgres ready')).toBeInTheDocument()
+    expect(projectLogs).toHaveBeenCalledWith('alpha', { tail: 200, service: null })
+    expect(screen.getByLabelText('Service')).toHaveValue('')
+  })
+
+  it('reads one service when the URL names it', async () => {
+    renderWithQuery(<ProjectPage project="alpha" tab="logs" service="postgres" />)
+    await screen.findByText('postgres ready')
+    expect(projectLogs).toHaveBeenCalledWith('alpha', { tail: 200, service: 'postgres' })
+    expect(screen.getByLabelText('Service')).toHaveValue('postgres')
+  })
+
+  it('offers a Logs empty state for a project with no services', async () => {
+    project.mockResolvedValue({ ...alpha, services: [], serviceCount: 0, runningCount: 0 })
+    renderWithQuery(<ProjectPage project="alpha" tab="logs" service={null} />)
+    expect(await screen.findByText('This project has no services')).toBeInTheDocument()
+    expect(projectLogs).not.toHaveBeenCalled()
   })
 
   it('titles the document with the tab and the project', async () => {

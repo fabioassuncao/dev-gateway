@@ -670,6 +670,44 @@ export const LogsResponse = named(
 )
 export type LogsResponse = z.infer<typeof LogsResponse>
 
+/** One service of a project, and whether its output could be read. */
+export const ProjectLogSource = named(
+  z.object({
+    containerId: z.string(),
+    service: z.string().describe('Compose service name, or the container name when unlabelled'),
+    name: z.string().describe('Container name'),
+    state: ContainerState,
+    lineCount: z.number().int(),
+    truncated: z.boolean(),
+    error: z.string().nullable().describe('Why this source contributed no lines'),
+  }).strict(),
+  'ProjectLogSource',
+)
+export type ProjectLogSource = z.infer<typeof ProjectLogSource>
+
+export const ProjectLogLine = named(
+  z.object({
+    stream: z.enum(['stdout', 'stderr']),
+    timestamp: z.string().nullable(),
+    text: z.string(),
+    service: z.string().describe('Which source produced this line'),
+  }).strict(),
+  'ProjectLogLine',
+)
+export type ProjectLogLine = z.infer<typeof ProjectLogLine>
+
+export const ProjectLogsResponse = named(
+  z.object({
+    project: z.string(),
+    sources: z.array(ProjectLogSource),
+    lines: z.array(ProjectLogLine).describe('Merged and ordered by timestamp where one exists'),
+    truncated: z.boolean(),
+    ordered: z.boolean().describe('False when a source logged without timestamps, so ordering is approximate'),
+  }).strict(),
+  'ProjectLogsResponse',
+)
+export type ProjectLogsResponse = z.infer<typeof ProjectLogsResponse>
+
 export const ActionResult = named(
   z.object({ ok: z.boolean(), action: z.string(), containerId: z.string(), message: z.string() }).strict(),
   'ActionResult',
