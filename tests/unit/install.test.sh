@@ -99,6 +99,17 @@ assert_not_contains "$replaced" "config"
 it "an existing dynamic configuration file is kept"
 assert_contains "$SOURCE" 'if [ ! -e "$target" ]; then cp "$file" "$target"'
 
+it "a mode the installer does not offer is carried through, not rewritten"
+# `vpn` needs a domain and the remote-private profile, so the installer never
+# offers it. An update of a host already configured that way must leave it be.
+assert_contains "$SOURCE" 'vpn — routed by Traefik; kept as configured'
+
+it "and an access mode it cannot understand stops the run"
+assert_contains "$SOURCE" 'unknown panel access mode in $ENV_FILE'
+
+it "every mode that leaves this host requires a credential"
+assert_contains "$SOURCE" 'needs_auth() { [ "$PANEL_ACCESS" = "public" ] || [ "$PANEL_ACCESS" = "vpn" ]; }'
+
 it "an existing panel access mode is kept when no flag overrides it"
 assert_contains "$SOURCE" 'PANEL_ACCESS=$(env_get "$ENV_FILE" PORTTA_WEB_EXPOSE)'
 

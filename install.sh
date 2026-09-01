@@ -681,6 +681,17 @@ case "$PANEL_ACCESS" in
     PANEL_BIND="127.0.0.1"
     good "local — the panel will answer on 127.0.0.1 only"
     ;;
+  vpn)
+    # A mode the installer does not offer, because it needs a domain and the
+    # remote-private profile. An update must carry it through untouched rather
+    # than quietly rewriting somebody's routed panel into something else.
+    PANEL_BIND=$(env_get "$ENV_FILE" PORTTA_WEB_BIND_ADDRESS)
+    [ -n "$PANEL_BIND" ] || PANEL_BIND="127.0.0.1"
+    good "vpn — routed by Traefik; kept as configured"
+    ;;
+  *)
+    die "unknown panel access mode in $ENV_FILE: $PANEL_ACCESS. Set PORTTA_WEB_EXPOSE to public, tailscale, local or vpn"
+    ;;
 esac
 
 # ---------------------------------------------------------------------------
@@ -695,7 +706,9 @@ PANEL_AUTH_MODE="none"
 EXISTING_AUTH_USER=$(env_get "$ENV_FILE" PORTTA_WEB_AUTH_USER)
 EXISTING_AUTH_HASH=$(env_get "$ENV_FILE" PORTTA_WEB_AUTH_HASH)
 
-needs_auth() { [ "$PANEL_ACCESS" = "public" ]; }
+# The two modes that put the panel beyond this host without a network boundary
+# already in the way. `local` and `tailscale` have one.
+needs_auth() { [ "$PANEL_ACCESS" = "public" ] || [ "$PANEL_ACCESS" = "vpn" ]; }
 
 if needs_auth; then
   step "Panel authentication"
@@ -841,6 +854,10 @@ case "$PANEL_ACCESS" in
     ;;
   tailscale) ADVERTISED="$TAILSCALE_IP" ;;
   local) ADVERTISED="127.0.0.1" ;;
+  *)
+    ADVERTISED=$(env_get "$ENV_FILE" PORTTA_PANEL_ADVERTISED_HOST)
+    [ -n "$ADVERTISED" ] || ADVERTISED="$PANEL_BIND"
+    ;;
 esac
 env_set "$ENV_FILE" PORTTA_PANEL_ADVERTISED_HOST "$ADVERTISED"
 
@@ -1173,6 +1190,10 @@ case "$PANEL_ACCESS" in
   tailscale)
     printf '\n' >&2
     good "the panel is reachable only from your tailnet; nothing is published on the public interface"
+    ;;
+  vpn)
+    printf '\n' >&2
+    good "the panel is routed by Traefik on your private domain, as it was before"
     ;;
   local)
     printf '\n' >&2
