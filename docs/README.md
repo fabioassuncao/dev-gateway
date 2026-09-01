@@ -6,6 +6,7 @@ is the complete operator and contributor index. Historical build briefs under
 
 ## Getting started
 
+- [Installing and updating](install.md) — the one-command installer, PORTTA_HOME, panel access, and non-interactive use.
 - [Local development](local-development.md) — workstation setup, local DNS, and daily use.
 - [Configuration](configuration.md) — every managed environment setting and its default.
 - [Adopting projects](adopting-projects.md) — analyse a Compose project and add the integration overlay.

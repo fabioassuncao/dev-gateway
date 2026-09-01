@@ -91,11 +91,13 @@ services:
   # The panel: API and UI in one process
   # --------------------------------------------------------------------------
   web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      target: runtime
-    image: fabioassuncao/portta:local
+    # A normal installation never builds: the panel is a published image, and
+    # PORTTA_HOME holds no application source to build from. Developers opt
+    # back into a local build with PORTTA_WEB_BUILD=true
+    # (docker/compose/features/web-build.yaml), and `portta web dev` still
+    # builds the dev target. Keep the default tag in step with VERSION;
+    # tests/unit/audit.test.sh enforces that.
+    image: ${PORTTA_WEB_IMAGE:-ghcr.io/fabioassuncao/portta:0.2.0}
     restart: unless-stopped
     depends_on:
       web-socket-proxy:
@@ -195,8 +197,12 @@ services:
       # routed by Traefik. `webcontrol` for the socket proxy.
       - gateway
       - webcontrol
-    ports:
-      - "${PORTTA_WEB_BIND_ADDRESS:-127.0.0.1}:${PORTTA_WEB_PORT:-8081}:8081"
+    # Deliberately no `ports:` here. Exactly one overlay decides how the panel
+    # is reached, so the two ways can never both bind the same host port:
+    #   docker/compose/features/web-bind.yaml    publishes it on PORTTA_WEB_BIND_ADDRESS
+    #   docker/compose/features/panel-public.yaml routes it through Traefik's
+    #                                             own `panel` entrypoint, behind
+    #                                             BasicAuth
     labels:
       # Off unless docker/compose/features/web-vpn.yaml turns it on: the panel is
       # never routed through the public entrypoints by accident.

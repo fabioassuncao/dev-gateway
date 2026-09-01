@@ -140,6 +140,81 @@ else
   it "remote-private + tcp";        assert_success validate remote-private TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy PORTTA_TCP=true
 fi
 
+describe "panel access selects exactly one front door"
+
+# See docs/adr/0021-panel-access-modes.md. The invariant worth testing is that
+# `web-bind.yaml` (a host port on the panel container) and `panel-public.yaml`
+# (a Traefik entrypoint with BasicAuth) are never both applied, because they
+# would claim the same host port and one of them would bypass the credential.
+for mode in local tailscale vpn; do
+  it "$mode publishes the panel container, not a Traefik entrypoint"
+  # shellcheck disable=SC2086
+  selected=$(files_for local PORTTA_WEB=true "PORTTA_WEB_EXPOSE=$mode" $PORTTA_RUNTIME_CREDENTIAL)
+  assert_contains "$selected" "docker/compose/features/web-bind.yaml"
+  assert_not_contains "$selected" "docker/compose/features/panel-public.yaml"
+done
+
+it "public publishes a Traefik entrypoint, not the panel container"
+# shellcheck disable=SC2086
+selected=$(files_for local PORTTA_WEB=true PORTTA_WEB_EXPOSE=public $PORTTA_RUNTIME_CREDENTIAL)
+assert_contains "$selected" "docker/compose/features/panel-public.yaml"
+assert_not_contains "$selected" "docker/compose/features/web-bind.yaml"
+
+it "public without a credential is refused"
+assert_eq "REFUSED" "$(files_for local PORTTA_WEB=true PORTTA_WEB_EXPOSE=public)"
+
+it "public is refused where Traefik has no namespace of its own"
+# shellcheck disable=SC2086
+assert_eq "REFUSED" "$(files_for remote-private PRIVATE_DOMAIN=vpn.test TAILSCALE_ENABLED=true TS_AUTHKEY=dummy PORTTA_WEB=true PORTTA_WEB_EXPOSE=public $PORTTA_RUNTIME_CREDENTIAL)"
+
+it "a normal install never selects the build overlay"
+assert_not_contains "$(files_for local PORTTA_WEB=true)" "docker/compose/features/web-build.yaml"
+
+it "and a developer can opt back into it"
+assert_contains "$(files_for local PORTTA_WEB=true PORTTA_WEB_BUILD=true)" "docker/compose/features/web-build.yaml"
+
+describe "the shell and the TypeScript CLI select the same overlays"
+
+# ADR 0015: the core commands must run without Node, so the selection logic has
+# two implementations. This is what keeps them honest.
+if ! command -v node >/dev/null 2>&1 || [ ! -f "$PORTTA_ROOT/packages/core/dist/config.js" ]; then
+  it "parity"; skip "node or the built core package is unavailable"
+else
+  ts_files_for() {
+    ( for kv in "$@"; do export "${kv?}"; done
+      node --input-type=module -e '
+        import { loadGatewayConfig, composeFiles } from "'"$PORTTA_ROOT"'/packages/core/dist/config.js"
+        try { process.stdout.write(composeFiles(loadGatewayConfig(process.env)).join(" ") + " ") }
+        catch { process.stdout.write("REFUSED") }
+      ' 2>/dev/null )
+  }
+  for case_env in \
+    "PORTTA_PROFILE=local" \
+    "PORTTA_PROFILE=local PORTTA_TCP=true" \
+    "PORTTA_PROFILE=local PORTTA_DASHBOARD=true" \
+    "PORTTA_PROFILE=local TLS_ENABLED=true TLS_MODE=local" \
+    "PORTTA_PROFILE=local PORTTA_WEB=true" \
+    "PORTTA_PROFILE=local PORTTA_WEB=true PORTTA_WEB_BUILD=true" \
+    "PORTTA_PROFILE=remote-private PRIVATE_DOMAIN=vpn.test TAILSCALE_ENABLED=true" \
+    "PORTTA_PROFILE=remote-public PUBLIC_DOMAIN=d.test"
+  do
+    it "same files for: $case_env"
+    # shellcheck disable=SC2086
+    profile=$(printf '%s' "$case_env" | sed -n 's/.*PORTTA_PROFILE=\([a-z-]*\).*/\1/p')
+    # shellcheck disable=SC2086
+    assert_eq "$(files_for "$profile" $case_env)" "$(ts_files_for $case_env)"
+  done
+
+  # The panel modes are the new axis, and the one most likely to drift.
+  for mode in local tailscale public vpn; do
+    it "same files for panel access: $mode"
+    # shellcheck disable=SC2086
+    assert_eq \
+      "$(files_for local PORTTA_PROFILE=local PORTTA_WEB=true "PORTTA_WEB_EXPOSE=$mode" $PORTTA_RUNTIME_CREDENTIAL)" \
+      "$(ts_files_for PORTTA_PROFILE=local PORTTA_WEB=true "PORTTA_WEB_EXPOSE=$mode" $PORTTA_RUNTIME_CREDENTIAL)"
+  done
+fi
+
 describe "the private profile never publishes on a public interface"
 if ! docker compose version >/dev/null 2>&1; then
   it "rendered binds"; skip "docker compose unavailable"

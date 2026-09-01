@@ -6,6 +6,23 @@ export function isTrue(value: string | undefined | null): boolean {
 
 export type GatewayProfile = 'local' | 'remote-private' | 'remote-public'
 
+/**
+ * How the panel is reached. Deliberately independent of the gateway profile:
+ * publishing the panel must never publish an application, so `public` here is
+ * not `remote-public` there. See docs/adr/0021-panel-access-modes.md.
+ *
+ *   local      loopback only; reach it over an SSH tunnel
+ *   tailscale  bound to the node's tailnet address, nothing on the public NIC
+ *   public     Traefik's own `panel` entrypoint on every interface, BasicAuth
+ *   vpn        routed by Traefik at PORTTA_WEB_HOST.<domain> (remote-private)
+ */
+export const PANEL_ACCESS_MODES = ['local', 'tailscale', 'public', 'vpn'] as const
+export type PanelAccess = (typeof PANEL_ACCESS_MODES)[number]
+
+export function isPanelAccess(value: string): value is PanelAccess {
+  return (PANEL_ACCESS_MODES as readonly string[]).includes(value)
+}
+
 export interface GatewayConfig {
   profile: GatewayProfile
   projectName: string
@@ -28,7 +45,8 @@ export interface GatewayConfig {
   tcpEnabled: boolean
   webEnabled: boolean
   webDev: boolean
-  webExpose: string
+  webBuild: boolean
+  webExpose: PanelAccess
   webPort: number
   webReadOnly: boolean
 }
@@ -44,6 +62,8 @@ function optional(env: Record<string, string | undefined>, key: string): string 
 export function loadGatewayConfig(env: Record<string, string | undefined> = process.env): GatewayConfig {
   const profile = value(env, 'PORTTA_PROFILE', 'local')
   if (!['local', 'remote-private', 'remote-public'].includes(profile)) throw new Error(`unknown profile: ${profile}`)
+  const webExpose = value(env, 'PORTTA_WEB_EXPOSE', 'local')
+  if (!isPanelAccess(webExpose)) throw new Error(`unknown panel access mode: ${webExpose}`)
   const publicDomain = optional(env, 'PUBLIC_DOMAIN')
   const privateDomain = optional(env, 'PRIVATE_DOMAIN')
   let domain = value(env, 'PORTTA_DOMAIN', 'localhost')
@@ -53,6 +73,12 @@ export function loadGatewayConfig(env: Record<string, string | undefined> = proc
     if (!publicDomain) throw new Error('profile remote-public requires PUBLIC_DOMAIN')
     domain = publicDomain
     bindAddress = '0.0.0.0'
+  }
+  // The `public` panel entrypoint is a port on the Traefik container. Under the
+  // Tailscale attachment Traefik has no network namespace of its own, so there
+  // is no port to publish and the mode cannot be honoured.
+  if (webExpose === 'public' && profile !== 'local' && isTrue(env['TAILSCALE_ENABLED'])) {
+    throw new Error('panel access `public` is not available while Traefik runs inside the Tailscale namespace')
   }
   return {
     profile: profile as GatewayProfile,
@@ -76,7 +102,8 @@ export function loadGatewayConfig(env: Record<string, string | undefined> = proc
     tcpEnabled: isTrue(env['PORTTA_TCP']),
     webEnabled: isTrue(env['PORTTA_WEB']),
     webDev: isTrue(env['PORTTA_WEB_DEV']),
-    webExpose: value(env, 'PORTTA_WEB_EXPOSE', 'local'),
+    webBuild: isTrue(env['PORTTA_WEB_BUILD']),
+    webExpose,
     webPort: Number(value(env, 'PORTTA_WEB_PORT', '8081')),
     webReadOnly: isTrue(env['PORTTA_WEB_READ_ONLY']),
   }
@@ -99,6 +126,11 @@ export function composeFiles(config: GatewayConfig): string[] {
   if (config.tcpEnabled) files.push(attachment === 'tailscale' ? 'docker/compose/features/tcp-tailscale.yaml' : 'docker/compose/features/tcp.yaml')
   if (config.webEnabled) {
     files.push('docker/compose/features/web.yaml', 'docker/compose/features/db.yaml')
+    // Exactly one overlay owns the panel's front door, so `public` and a host
+    // publish can never both claim PORTTA_WEB_PORT.
+    if (config.webExpose === 'public') files.push('docker/compose/features/panel-public.yaml')
+    else files.push('docker/compose/features/web-bind.yaml')
+    if (config.webBuild) files.push('docker/compose/features/web-build.yaml')
     if (config.webDev) files.push('docker/compose/features/web-dev.yaml')
     if (config.webExpose === 'vpn') files.push('docker/compose/features/web-vpn.yaml')
   }

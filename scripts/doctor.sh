@@ -805,6 +805,145 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Panel access
+# ---------------------------------------------------------------------------
+# How the panel is reached is a security decision, so it is checked rather than
+# merely reported. See docs/adr/0021-panel-access-modes.md.
+
+if portta_is_true "$PORTTA_WEB"; then
+  case "$PORTTA_WEB_EXPOSE" in
+    local|tailscale|public|vpn)
+      check pass panel.access "panel access" "$PORTTA_WEB_EXPOSE (bind $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT)" "" ;;
+    *)
+      check fail panel.access "panel access" "unknown mode '$PORTTA_WEB_EXPOSE'" \
+        "portta config set panel.access public|tailscale|local" ;;
+  esac
+
+  panel_auth_ok=0
+  if [ "$PORTTA_WEB_AUTH" = "basic" ] \
+     && [ -n "$PORTTA_WEB_AUTH_USER" ] && [ -n "$PORTTA_WEB_AUTH_HASH" ]; then
+    panel_auth_ok=1
+  fi
+
+  case "$PORTTA_WEB_EXPOSE" in
+    public|vpn)
+      if [ "$panel_auth_ok" = "1" ]; then
+        check pass panel.auth "panel authentication" "basic, user $PORTTA_WEB_AUTH_USER" ""
+      else
+        check fail panel.auth "panel authentication" \
+          "the panel is reachable beyond this host with no credential" \
+          "portta web auth set"
+      fi
+      # A middleware Traefik cannot resolve fails the router closed, which is
+      # the right direction, but it is still a broken panel nobody asked for.
+      if [ -f "$PORTTA_ROOT/config/traefik/dynamic/portta-panel.yaml" ] \
+         && grep -q 'portta-web-auth' "$PORTTA_ROOT/config/traefik/dynamic/portta-panel.yaml" 2>/dev/null; then
+        check pass panel.middleware "panel auth middleware" "rendered" ""
+      else
+        check fail panel.middleware "panel auth middleware" "missing or empty" \
+          "portta web auth apply"
+      fi
+      ;;
+    *)
+      check pass panel.auth "panel authentication" \
+        "$([ "$panel_auth_ok" = "1" ] && printf 'basic' || printf 'none (not required on %s)' "$PORTTA_WEB_EXPOSE")" ""
+      ;;
+  esac
+
+  # The panel is a control plane over every container on this host. Bound to
+  # 0.0.0.0 without the proxy in front of it, it is an open one.
+  if [ "$PORTTA_WEB_BIND_ADDRESS" = "0.0.0.0" ] && [ "$PORTTA_WEB_EXPOSE" != "public" ]; then
+    check fail panel.bind "panel bind address" \
+      "0.0.0.0 without the authenticating entrypoint" \
+      "portta config set panel.access public   (or bind an address that is not 0.0.0.0)"
+  else
+    check pass panel.bind "panel bind address" "$PORTTA_WEB_BIND_ADDRESS" ""
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# Development environment
+# ---------------------------------------------------------------------------
+# Reported, never changed. Nothing below can fail the run: Portta needs Docker
+# and a shell, and everything here is a convenience on top of that.
+
+portta_tool_report() { # portta_tool_report <id> <title> <command> [version-args...]
+  local id="$1" title="$2" cmd="$3"; shift 3
+  local value
+  if portta_have "$cmd"; then
+    value=$("$cmd" "$@" 2>/dev/null | head -n1)
+    check pass "$id" "$title" "${value:-installed}" ""
+  else
+    check warn "$id" "$title" "not found" "optional; install it if you want it"
+  fi
+}
+
+portta_tool_report tools.git       "git"           git --version
+portta_tool_report tools.node      "node"          node --version
+portta_tool_report tools.npm       "npm"           npm --version
+portta_tool_report tools.gh        "github cli"    gh --version
+portta_tool_report tools.tailscale "tailscale"     tailscale version
+
+if portta_have npx; then
+  check pass tools.npx "npx" "available" ""
+else
+  check warn tools.npx "npx" "not found" "npx ships with npm; the full CLI needs Node 22.12+"
+fi
+
+if portta_have git; then
+  git_user=$(git config --global user.name 2>/dev/null || true)
+  git_mail=$(git config --global user.email 2>/dev/null || true)
+  if [ -n "$git_user" ] && [ -n "$git_mail" ]; then
+    check pass git.identity "git identity" "$git_user <$git_mail>" ""
+  else
+    check warn git.identity "git identity" "not configured globally" \
+      "git config --global user.name / user.email"
+  fi
+fi
+
+if portta_have gh; then
+  if gh auth status >/dev/null 2>&1; then
+    check pass github.auth "github cli auth" "authenticated" ""
+  else
+    check warn github.auth "github cli auth" "not authenticated" "gh auth login"
+  fi
+fi
+
+if portta_have tailscale; then
+  ts_addr=$(tailscale ip -4 2>/dev/null | head -n1 || true)
+  if [ -n "$ts_addr" ]; then
+    check pass vpn.tailscale "tailscale" "connected ($ts_addr)" ""
+  else
+    check warn vpn.tailscale "tailscale" "installed but not connected" \
+      "tailscale up   (run it yourself; Portta never authenticates it for you)"
+  fi
+else
+  check warn vpn.tailscale "tailscale" "not found" \
+    "optional; the panel can also be reached publicly or over an SSH tunnel"
+fi
+
+# ---------------------------------------------------------------------------
+# AI development agents
+# ---------------------------------------------------------------------------
+# Diagnostic only. Portta never installs, authenticates or reconfigures these.
+
+portta_agent_report() { # portta_agent_report <id> <title> <command>
+  local id="$1" title="$2" cmd="$3" value
+  if portta_have "$cmd"; then
+    value=$("$cmd" --version 2>/dev/null | head -n1)
+    check pass "$id" "$title" "${value:-installed}" ""
+  else
+    check warn "$id" "$title" "not found" ""
+  fi
+}
+
+portta_agent_report agents.claude    "claude code"   claude
+portta_agent_report agents.codex     "codex cli"     codex
+portta_agent_report agents.cursor    "cursor agent"  cursor-agent
+portta_agent_report agents.gemini    "gemini cli"    gemini
+portta_agent_report agents.antigravity "antigravity" antigravity
+
+# ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
 

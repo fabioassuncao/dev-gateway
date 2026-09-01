@@ -162,11 +162,38 @@ describe "the CLI drives it"
 it "web is a command"
 assert_success sh -c './bin/portta web --help >/dev/null 2>&1'
 
-it "publishing the panel publicly is refused outright"
-assert_contains "$(./bin/portta web up --expose public 2>&1)" "local or vpn"
+# `public` is a supported mode since ADR 0021, and it is the one the installer
+# offers first. What is refused is reaching the panel from another machine with
+# nothing in front of it.
+it "publishing the panel publicly without a credential is refused"
+assert_contains "$(./bin/portta web up --expose public 2>&1)" "needs a credential"
 
 it "an unknown expose value fails"
 assert_failure ./bin/portta web up --expose nonsense
+
+describe "a public panel is published by Traefik, never by the container"
+
+it "the public overlay gives the panel its own entrypoint"
+assert_contains "$(cat docker/compose/features/panel-public.yaml)" "TRAEFIK_ENTRYPOINTS_PANEL_ADDRESS"
+
+it "and attaches the panel router to that entrypoint only"
+assert_contains "$(cat docker/compose/features/panel-public.yaml)" "traefik.http.routers.portta-panel.entrypoints: panel"
+
+it "behind the same BasicAuth middleware the vpn mode uses"
+assert_contains "$(cat docker/compose/features/panel-public.yaml)" "portta-web-auth@file"
+
+it "the panel container publishes no host port of its own there"
+assert_eq "" "$(sed -n '/^  web:/,$p' docker/compose/features/panel-public.yaml | grep -E '^\s+ports:' || true)"
+
+it "so exactly one overlay owns the panel port"
+assert_contains "$(cat packages/core/src/config.ts)" "panel-public.yaml"
+assert_contains "$(cat packages/core/src/config.ts)" "web-bind.yaml"
+assert_contains "$(cat scripts/lib/docker.sh)" "features/panel-public.yaml"
+assert_contains "$(cat scripts/lib/docker.sh)" "features/web-bind.yaml"
+
+it "and publishing the panel publishes no application entrypoint"
+# The router is scoped to `panel`; nothing here touches web or websecure.
+assert_eq "" "$(grep -E 'entrypoints: (web|websecure)' docker/compose/features/panel-public.yaml || true)"
 
 describe "the panel is routed only behind a credential"
 
@@ -185,11 +212,11 @@ it "the hash is declared a secret, so the API never returns it"
 assert_contains "$(sed -n '/PORTTA_WEB_AUTH_HASH/,/},/p' apps/web/src/server/core/settings.ts)" "secret: true"
 
 it "routing the panel without a credential is refused by the profile resolver"
-assert_contains "$(cat scripts/lib/docker.sh)" "the routed panel has no credential in front of it"
+assert_contains "$(cat scripts/lib/docker.sh)" "the panel is reachable beyond this host with no credential in front of it"
 
 it "and by web up"
 out=$(PORTTA_WEB_AUTH=none ./bin/portta web up --expose vpn 2>&1 || true)
-assert_contains "$out" "a routed panel needs a credential"
+assert_contains "$out" "needs a credential"
 
 it "doctor fails a routed panel without one"
 assert_contains "$(cat scripts/doctor.sh)" "with nothing in front of it"

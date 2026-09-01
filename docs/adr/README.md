@@ -16,7 +16,7 @@ context, the decision, and what it costs us.
 | [0009](0009-tcp-routing-by-hostname.md) | Databases are told apart by hostname, with TLS terminated at the gateway | Accepted |
 | [0010](0010-git-collected-on-the-host.md) | Git is collected on the host, and the panel only reads the result | Accepted, amended by 0018 |
 | [0011](0011-panel-reads-traefik-writes-one-file.md) | The panel reads Traefik's API, and writes exactly two generated files | Accepted |
-| [0012](0012-panel-authentication-is-traefiks.md) | The panel's authentication is Traefik's, and public stays refused | Accepted |
+| [0012](0012-panel-authentication-is-traefiks.md) | The panel's authentication is Traefik's, and public stays refused | Accepted, amended by 0021 |
 | [0013](0013-what-the-panel-persists.md) | The panel persists decisions, never runtime observations | Accepted |
 | [0014](0014-monorepo-and-the-typescript-cli.md) | The repository is a small npm workspace, with a shared core | Accepted |
 | [0015](0015-node-on-the-host.md) | Node is not required for the core commands | Accepted |
@@ -24,3 +24,5 @@ context, the decision, and what it costs us.
 | [0017](0017-no-docker-sdk.md) | The panel speaks the Docker Engine API directly, without a general SDK | Accepted |
 | [0018](0018-github-access-lives-in-the-panel.md) | GitHub access lives in the panel, through a GitHub App | Accepted |
 | [0019](0019-compose-files-live-under-docker.md) | The compose files live under `docker/compose/`, one directory per axis | Accepted |
+| [0020](0020-installer-and-portta-home.md) | Installing means one directory and published images, not a checkout | Accepted |
+| [0021](0021-panel-access-modes.md) | Panel access is its own decision, and a public panel gets its own entrypoint | Accepted, amends 0012 |

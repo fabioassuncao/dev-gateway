@@ -34,7 +34,7 @@ if [ "$RUN_LINT" = "1" ]; then
   if command -v shellcheck >/dev/null 2>&1; then
     # Linting is a developer convenience here, never a runtime dependency:
     # when the tool is absent the suite says so instead of quietly passing.
-    files=$(find bin scripts tests -type f \( -name '*.sh' -o -name 'portta' \) | sort)
+    files=$(find bin scripts tests -type f \( -name '*.sh' -o -name 'portta' \) | sort; printf '%s\n' install.sh)
     # shellcheck disable=SC2086  # deliberate word splitting over the file list
     if shellcheck -S warning -x $files; then
       echo "  ok  $(printf '%s\n' "$files" | wc -l | tr -d ' ') files clean"
@@ -47,7 +47,7 @@ if [ "$RUN_LINT" = "1" ]; then
 
   bold "== executable bits =="
   missing=""
-  for f in bin/portta scripts/bootstrap.sh scripts/doctor.sh tests/run.sh; do
+  for f in bin/portta install.sh scripts/bootstrap.sh scripts/doctor.sh tests/run.sh; do
     [ -x "$f" ] || missing="$missing $f"
   done
   if [ -n "$missing" ]; then echo "  FAIL not executable:$missing"; FAILED=1

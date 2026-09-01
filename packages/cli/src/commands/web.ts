@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { isTrue, readEnvFile, renderPanelAuth as renderSharedPanelAuth, setEnvValue, writeEnvFile } from 'portta-core'
+import { PANEL_ACCESS_MODES, isPanelAccess, isTrue, readEnvFile, renderPanelAuth as renderSharedPanelAuth, setEnvValue, writeEnvFile } from 'portta-core'
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
 import { ensureNetwork, inspectContainers } from '../docker.js'
@@ -26,10 +26,13 @@ async function webCompose(command: Command, args: string[], extraEnv: NodeJS.Pro
 export async function webUp(options: { expose?: string; port?: string; readOnly?: boolean; writable?: boolean; dev?: boolean }, command: Command): Promise<void> {
   const initial = gatewayContext({ profile: globals(command).profile })
   const expose = options.expose ?? initial.config.webExpose
-  if (!['local', 'vpn'].includes(expose)) throw new UsageError('--expose must be local or vpn')
+  if (!isPanelAccess(expose)) throw new UsageError(`--expose must be one of: ${PANEL_ACCESS_MODES.join(', ')}`)
   if (expose === 'vpn' && initial.config.profile === 'remote-public') throw new RefusedError('the panel must not be routed on the remote-public profile')
   const authConfigured = initial.env['PORTTA_WEB_AUTH'] === 'basic' && Boolean(initial.env['PORTTA_WEB_AUTH_USER']) && Boolean(initial.env['PORTTA_WEB_AUTH_HASH'])
-  if (expose === 'vpn' && !authConfigured) throw new RefusedError('a routed panel needs a credential', 'run portta web auth set first')
+  // Anything the panel can be reached on from another machine sits behind the
+  // Traefik middleware first. `local` and `tailscale` publish a host port and
+  // are governed by the interface they bind, not by a credential.
+  if ((expose === 'vpn' || expose === 'public') && !authConfigured) throw new RefusedError(`panel access '${expose}' needs a credential`, 'run portta web auth set first')
   const readOnly = options.writable ? false : options.readOnly ?? (expose === 'vpn' ? true : initial.config.webReadOnly)
   const values: Record<string, string> = {
     PORTTA_WEB: 'true', PORTTA_WEB_EXPOSE: expose, PORTTA_WEB_READ_ONLY: String(readOnly), PORTTA_WEB_DEV: String(options.dev === true),
@@ -48,7 +51,10 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   // `--remove-orphans`, as `portta up` already does: leaving development
   // mode drops docker/compose/features/web-dev.yaml from the file list, and without this the
   // Vite container keeps serving a stale panel on its own port.
-  await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', '--build', '--remove-orphans', '--wait', '--wait-timeout', '180', ...services], { cwd: context.root, env: context.env, stdio: 'inherit' })
+  // `--build` only where a build overlay is actually applied: an installed
+  // PORTTA_HOME has no source tree, and asking Compose to build there fails.
+  const buildArgs = context.config.webDev || context.config.webBuild ? ['--build'] : []
+  await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', ...buildArgs, '--remove-orphans', '--wait', '--wait-timeout', '180', ...services], { cwd: context.root, env: context.env, stdio: 'inherit' })
   // The context was resolved before .env was rewritten, so `web dev` would
   // otherwise report the URL the previous mode used.
   new Output(globals(command)).data(webUrl(gatewayContext({ profile: globals(command).profile })))
@@ -64,6 +70,12 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
  */
 export function webUrl(context: ReturnType<typeof gatewayContext>): string {
   if (context.config.webExpose === 'vpn') return `${context.config.tlsEnabled ? 'https' : 'http'}://${context.env['PORTTA_WEB_HOST'] ?? 'portta-web'}.${context.config.domain}`
+  // In `public` mode the port belongs to Traefik and 0.0.0.0 is not an address
+  // anybody types, so report the host's own reachable address instead.
+  if (context.config.webExpose === 'public') {
+    const advertised = context.env['PORTTA_PANEL_ADVERTISED_HOST'] || null
+    return `http://${advertised ?? '<this-host>'}:${context.config.webPort}`
+  }
   const host = context.env['PORTTA_WEB_BIND_ADDRESS'] ?? '127.0.0.1'
   const port = context.config.webDev
     ? (context.env['PORTTA_WEB_DEV_PORT'] ?? '5173')

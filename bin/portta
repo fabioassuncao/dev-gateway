@@ -69,6 +69,12 @@ CORE
   update                 Pull the pinned component images and recreate
   version                Print the gateway version
 
+CONFIGURATION
+  config list            Named settings and their current values
+  config get <setting>   One setting
+  config set <s> <v>     Change one setting and apply it, for example:
+                           config set panel.access public|tailscale|local
+
 WEB PANEL
   web up                 Start the administration panel (loopback by default)
   web open|status|logs   Reach it, inspect it, follow it
@@ -587,7 +593,7 @@ main() {
     toolbox) cmd_toolbox "$@" ;;
     tls) portta_cmd_tls "$@" ;;
     remote) portta_cmd_remote "$@" ;;
-    restart|logs|urls|inspect|update|network|public|dns|analyze|analyse|init|adapt|namespace|ns|access|services|git|share|web|db|redis|service|project|setup)
+    restart|logs|urls|inspect|update|network|public|dns|analyze|analyse|init|adapt|namespace|ns|access|services|git|share|web|db|redis|service|project|setup|config)
       err "'$cmd' requires Node 22.12 or newer and the built TypeScript CLI"
       hint "run npm ci && npm run build --workspace=portta"
       exit 3

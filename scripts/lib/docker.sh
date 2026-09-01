@@ -126,17 +126,30 @@ portta_resolve_profile() {
     return 1
   fi
 
-  # A routed panel is one credential away from being an open control plane over
-  # every container on the host, so this is refused here too: `portta up`
-  # must not be a way around `portta web up`.
+  # A panel reachable beyond this machine is one credential away from being an
+  # open control plane over every container on the host, so this is refused
+  # here too: `portta up` must not be a way around `portta web up`.
   if portta_is_true "${PORTTA_WEB:-false}" \
-     && [ "${PORTTA_WEB_EXPOSE:-local}" = "vpn" ] \
+     && { [ "${PORTTA_WEB_EXPOSE:-local}" = "vpn" ] \
+          || [ "${PORTTA_WEB_EXPOSE:-local}" = "public" ]; } \
      && { [ "${PORTTA_WEB_AUTH:-none}" != "basic" ] \
           || [ -z "${PORTTA_WEB_AUTH_USER:-}" ] \
           || [ -z "${PORTTA_WEB_AUTH_HASH:-}" ]; }; then
-    err "the routed panel has no credential in front of it"
+    err "the panel is reachable beyond this host with no credential in front of it"
     hint "portta web auth set   generates one and shows it once"
     hint "or set PORTTA_WEB_EXPOSE=local to keep it on loopback"
+    return 1
+  fi
+
+  # The `public` panel entrypoint is a port on the Traefik container. Under the
+  # Tailscale attachment Traefik has no network namespace of its own, so there
+  # is no port to publish and the mode cannot be honoured.
+  if portta_is_true "${PORTTA_WEB:-false}" \
+     && [ "${PORTTA_WEB_EXPOSE:-local}" = "public" ] \
+     && [ "$(portta_attachment "$profile")" = "tailscale" ]; then
+    err "panel access 'public' cannot be combined with the Tailscale attachment"
+    hint "Traefik shares the Tailscale namespace there and publishes no port of its own"
+    hint "use PORTTA_WEB_EXPOSE=tailscale, or disable TAILSCALE_ENABLED"
     return 1
   fi
 
@@ -228,6 +241,16 @@ portta_compose_files() {
   # `portta up` and `portta web` cannot drift apart.
   if portta_is_true "${PORTTA_WEB:-false}"; then
     files="$files docker/compose/features/web.yaml docker/compose/features/db.yaml"
+    # Exactly one overlay owns the panel's front door, so a host publish and
+    # the public Traefik entrypoint can never both claim PORTTA_WEB_PORT.
+    if [ "${PORTTA_WEB_EXPOSE:-local}" = "public" ]; then
+      files="$files docker/compose/features/panel-public.yaml"
+    else
+      files="$files docker/compose/features/web-bind.yaml"
+    fi
+    if portta_is_true "${PORTTA_WEB_BUILD:-false}"; then
+      files="$files docker/compose/features/web-build.yaml"
+    fi
     if portta_is_true "${PORTTA_WEB_DEV:-false}"; then
       files="$files docker/compose/features/web-dev.yaml"
     fi

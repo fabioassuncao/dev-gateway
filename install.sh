@@ -1,0 +1,1065 @@
+#!/usr/bin/env bash
+# ============================================================================
+# Portta installer
+# ============================================================================
+#   curl -fsSL https://raw.githubusercontent.com/fabioassuncao/portta/main/install.sh | bash
+#
+# The same command installs, updates, and reconciles a broken configuration.
+# It is idempotent: running it twice changes nothing the second time except
+# the image tags it pulls.
+#
+# What it does NOT do, on purpose:
+#
+#   * clone the repository. A normal installation runs published images and a
+#     handful of configuration files; the source tree is for developing Portta,
+#     not for running it. See docs/adr/0020-installer-and-portta-home.md.
+#   * build anything. Builds belong in CI.
+#   * expose applications. It configures how you reach the PANEL and nothing
+#     else. Each project decides its own exposure later, from the panel or the
+#     CLI. See docs/adr/0021-panel-access-modes.md.
+#   * touch Tailscale, Git, GitHub or an AI agent CLI. It reports on them and
+#     stops there.
+#
+# Everything it writes lives under one directory (PORTTA_HOME), plus one
+# optional symlink in a bin directory on PATH.
+# ============================================================================
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Where the artefacts come from
+# ---------------------------------------------------------------------------
+
+PORTTA_REPO="${PORTTA_REPO:-fabioassuncao/portta}"
+# Branch, tag or commit to install the runtime files from. `main` is the
+# released line; CI and the test hosts override it.
+PORTTA_REF="${PORTTA_REF:-main}"
+# Namespace holding the published component images.
+PORTTA_REGISTRY="${PORTTA_REGISTRY:-ghcr.io/fabioassuncao}"
+
+PORTTA_INSTALLER_VERSION="1"
+
+# ---------------------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------------------
+
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+  C_RESET=$'\033[0m'; C_BOLD=$'\033[1m'; C_DIM=$'\033[2m'
+  C_RED=$'\033[31m'; C_GREEN=$'\033[32m'; C_YELLOW=$'\033[33m'
+else
+  C_RESET=""; C_BOLD=""; C_DIM=""; C_RED=""; C_GREEN=""; C_YELLOW=""
+fi
+
+step() { printf '\n%s%s%s\n\n' "$C_BOLD" "$*" "$C_RESET" >&2; }
+say()  { printf '  %s\n' "$*" >&2; }
+good() { printf '  %s✓%s %s\n' "$C_GREEN" "$C_RESET" "$*" >&2; }
+warn() { printf '  %s⚠%s %s\n' "$C_YELLOW" "$C_RESET" "$*" >&2; }
+bad()  { printf '  %s✗%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; }
+note() { printf '    %s%s%s\n' "$C_DIM" "$*" "$C_RESET" >&2; }
+die()  { printf '\n%serror%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; exit 1; }
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# ---------------------------------------------------------------------------
+# Interaction
+# ---------------------------------------------------------------------------
+# The script is normally piped into bash, so stdin is the script itself.
+# Prompts therefore read from the controlling terminal, never from stdin.
+
+PORTTA_TTY=""
+if [ -r /dev/tty ] && [ -w /dev/tty ] && { : >/dev/tty; } 2>/dev/null; then
+  PORTTA_TTY=/dev/tty
+fi
+
+ASSUME_YES=false
+NON_INTERACTIVE=false
+
+interactive() {
+  [ -n "$PORTTA_TTY" ] && [ "$NON_INTERACTIVE" != "true" ]
+}
+
+# ask <prompt> <default>: echoes the answer on stdout. Falls back to the
+# default without blocking when there is no terminal.
+ask() {
+  local prompt="$1" default="${2:-}" reply=""
+  if ! interactive; then printf '%s' "$default"; return 0; fi
+  if [ -n "$default" ]; then
+    printf '  %s [%s]: ' "$prompt" "$default" >/dev/tty
+  else
+    printf '  %s: ' "$prompt" >/dev/tty
+  fi
+  IFS= read -r reply </dev/tty || reply=""
+  printf '%s' "${reply:-$default}"
+}
+
+# ask_secret <prompt>: reads without echoing. Empty means "generate one".
+ask_secret() {
+  local prompt="$1" reply=""
+  if ! interactive; then printf ''; return 0; fi
+  printf '  %s: ' "$prompt" >/dev/tty
+  stty -echo </dev/tty 2>/dev/null || true
+  IFS= read -r reply </dev/tty || reply=""
+  stty echo </dev/tty 2>/dev/null || true
+  printf '\n' >/dev/tty
+  printf '%s' "$reply"
+}
+
+confirm() {
+  local prompt="$1" reply
+  [ "$ASSUME_YES" = "true" ] && return 0
+  if ! interactive; then return 1; fi
+  printf '  %s [y/N] ' "$prompt" >/dev/tty
+  IFS= read -r reply </dev/tty || reply=""
+  case "$reply" in y|Y|yes|YES|s|S|sim|SIM) return 0 ;; *) return 1 ;; esac
+}
+
+# ---------------------------------------------------------------------------
+# Secrets
+# ---------------------------------------------------------------------------
+
+random_hex() { # random_hex <bytes>
+  LC_ALL=C od -An -N "${1:-32}" -tx1 /dev/urandom | tr -d ' \n'
+}
+
+# A password a human has to retype once, so: no ambiguous characters, and
+# grouped. 20 characters out of an unbiased alphabet of 32 is ~100 bits.
+random_password() {
+  local raw alphabet="23456789abcdefghijkmnpqrstuvwxyz" out="" i byte
+  raw=$(LC_ALL=C od -An -N 20 -tu1 /dev/urandom | tr -s ' ' '\n' | grep -v '^$')
+  i=0
+  for byte in $raw; do
+    # 256 is a multiple of 32, so the modulo is uniform.
+    out="$out${alphabet:$((byte % 32)):1}"
+    i=$((i + 1))
+    if [ $((i % 5)) -eq 0 ] && [ "$i" -lt 20 ]; then out="$out-"; fi
+  done
+  printf '%s' "$out"
+}
+
+# An apr1 hash, which is what Traefik's BasicAuth middleware expects. openssl
+# is present on every distribution the installer supports; the container
+# fallback exists for the ones where it is not.
+hash_password() { # hash_password <password>
+  local password="$1" hashed=""
+  if have openssl; then
+    hashed=$(printf '%s\n' "$password" | openssl passwd -apr1 -stdin 2>/dev/null || true)
+  fi
+  if [ -z "$hashed" ] && have docker; then
+    hashed=$(docker run --rm --entrypoint htpasswd httpd:2.4-alpine -nbB portta "$password" 2>/dev/null \
+      | cut -d: -f2- || true)
+  fi
+  [ -n "$hashed" ] || die "cannot hash the panel password: install openssl, or run the installer where Docker can pull httpd:2.4-alpine"
+  printf '%s' "$hashed"
+}
+
+# ---------------------------------------------------------------------------
+# .env editing
+# ---------------------------------------------------------------------------
+# Same contract as portta_env_set in scripts/lib/common.sh: rewrite the line in
+# place when the key exists, append otherwise, and never truncate the file if
+# the run is interrupted.
+
+env_get() { # env_get <file> <key>
+  local raw
+  [ -f "$1" ] || return 0
+  raw=$(sed -n "s/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}$2=//p" "$1" | tail -n1)
+  case "$raw" in
+    \"*\") raw=${raw#\"}; raw=${raw%\"} ;;
+    "'"*"'") raw=${raw#\'}; raw=${raw%\'} ;;
+  esac
+  printf '%s' "$raw"
+}
+
+env_set() { # env_set <file> <key> <value>
+  local file="$1" key="$2" value="$3" tmp
+  case "$key" in ''|*[!A-Za-z0-9_]*) die "refusing to write invalid .env key: $key" ;; esac
+  # An apr1 hash is `$apr1$salt$digest`. Compose expands `$name` inside a
+  # dotenv value, and a shell would too, so quote anything containing one.
+  # Every reader here strips one layer of matching quotes.
+  case "$value" in
+    *\$*)
+      case "$value" in
+        *"'"*) die "refusing to write a value containing a single quote: $key" ;;
+      esac
+      value="'$value'"
+      ;;
+  esac
+  if [ ! -f "$file" ]; then
+    printf '%s=%s\n' "$key" "$value" > "$file"
+    chmod 600 "$file"
+    return 0
+  fi
+  tmp="$file.portta-tmp.$$"
+  if grep -q "^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}$key=" "$file"; then
+    awk -v k="$key" -v v="$value" '
+      $0 ~ "^[[:space:]]*(export[[:space:]]+)?" k "=" { print k "=" v; next }
+      { print }
+    ' "$file" > "$tmp"
+  else
+    cp "$file" "$tmp"
+    printf '%s=%s\n' "$key" "$value" >> "$tmp"
+  fi
+  chmod 600 "$tmp"
+  mv "$tmp" "$file"
+}
+
+# ---------------------------------------------------------------------------
+# Arguments
+# ---------------------------------------------------------------------------
+
+INSTALL_DIR=""
+PANEL_ACCESS=""
+PANEL_PORT=""
+PANEL_USER=""
+DOMAIN=""
+ACTION="install"
+SKIP_DEPS=false
+PULL_ONLY=false
+
+usage() {
+  cat >&2 <<'USAGE'
+Portta installer
+
+  curl -fsSL https://raw.githubusercontent.com/fabioassuncao/portta/main/install.sh | bash
+
+The same command installs and updates. Flags are passed after `-s --`:
+
+  curl -fsSL .../install.sh | bash -s -- --yes --panel-access public
+
+OPTIONS
+  --install-dir <path>    Where Portta keeps its data and configuration
+                          (default: /opt/portta as root, ~/.portta otherwise)
+  --panel-access <mode>   public | tailscale | local        (default: public)
+  --panel-port <port>     Host port for the panel            (default: 8081)
+  --panel-user <name>     Panel username                     (default: admin)
+  --domain <domain>       Base domain for routed services    (optional)
+  --version <ref>         Tag, branch or commit to install   (default: main)
+  --registry <namespace>  Image namespace  (default: ghcr.io/fabioassuncao)
+  --skip-deps             Never offer to install Docker
+  --pull-only             Pull images and exit; change nothing else
+  --uninstall             Stop Portta and remove PORTTA_HOME, keeping volumes
+  -y, --yes               Assume yes; still prompts for values it cannot detect
+  --non-interactive       Never prompt; every unset value takes its default
+  -h, --help              This text
+
+The panel password is never taken from the command line, where it would be
+visible in the shell history and in the process list. Set PORTTA_PANEL_PASSWORD
+in the environment to choose one, or let the installer generate a strong one
+and print it once.
+
+ENVIRONMENT
+  PORTTA_HOME              same as --install-dir
+  PORTTA_PANEL_PASSWORD    the panel password, read once and never echoed
+  PORTTA_REF               same as --version
+  PORTTA_REGISTRY          same as --registry
+USAGE
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --install-dir) shift; INSTALL_DIR="${1:-}" ;;
+    --install-dir=*) INSTALL_DIR="${1#*=}" ;;
+    --panel-access) shift; PANEL_ACCESS="${1:-}" ;;
+    --panel-access=*) PANEL_ACCESS="${1#*=}" ;;
+    --panel-port) shift; PANEL_PORT="${1:-}" ;;
+    --panel-port=*) PANEL_PORT="${1#*=}" ;;
+    --panel-user) shift; PANEL_USER="${1:-}" ;;
+    --panel-user=*) PANEL_USER="${1#*=}" ;;
+    --domain) shift; DOMAIN="${1:-}" ;;
+    --domain=*) DOMAIN="${1#*=}" ;;
+    --version) shift; PORTTA_REF="${1:-}" ;;
+    --version=*) PORTTA_REF="${1#*=}" ;;
+    --registry) shift; PORTTA_REGISTRY="${1:-}" ;;
+    --registry=*) PORTTA_REGISTRY="${1#*=}" ;;
+    --skip-deps) SKIP_DEPS=true ;;
+    --pull-only) PULL_ONLY=true ;;
+    --uninstall) ACTION="uninstall" ;;
+    -y|--yes) ASSUME_YES=true ;;
+    --non-interactive) NON_INTERACTIVE=true; ASSUME_YES=true ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage; die "unknown option: $1" ;;
+  esac
+  shift
+done
+
+case "$PANEL_ACCESS" in
+  ''|public|tailscale|local) ;;
+  *) die "--panel-access must be public, tailscale or local (got: $PANEL_ACCESS)" ;;
+esac
+case "$PANEL_PORT" in
+  ''|*[!0-9]*) [ -z "$PANEL_PORT" ] || die "--panel-port must be a number" ;;
+esac
+case "$PANEL_USER" in
+  ''|*[!A-Za-z0-9._-]*) [ -z "$PANEL_USER" ] || die "--panel-user may only contain letters, digits, dot, underscore and dash" ;;
+esac
+
+# ---------------------------------------------------------------------------
+# 1. Environment detection
+# ---------------------------------------------------------------------------
+# Nothing here is asked of the user: a machine can describe itself.
+
+OS_KERNEL=$(uname -s)
+ARCH_RAW=$(uname -m)
+case "$ARCH_RAW" in
+  x86_64|amd64) ARCH="amd64" ;;
+  aarch64|arm64) ARCH="arm64" ;;
+  *) ARCH="$ARCH_RAW" ;;
+esac
+
+OS_NAME="$OS_KERNEL"
+OS_ID=""
+case "$OS_KERNEL" in
+  Linux)
+    if [ -r /etc/os-release ]; then
+      # Parsed, never sourced: this file comes from the distribution but the
+      # habit of sourcing whatever is on disk is the one worth not having.
+      OS_NAME=$(sed -n 's/^PRETTY_NAME="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' /etc/os-release | head -n1)
+      OS_ID=$(sed -n 's/^ID="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' /etc/os-release | head -n1)
+    fi
+    ;;
+  Darwin)
+    OS_NAME="macOS $(sw_vers -productVersion 2>/dev/null || printf 'unknown')"
+    OS_ID="darwin"
+    ;;
+esac
+[ -n "$OS_NAME" ] || OS_NAME="$OS_KERNEL"
+
+CURRENT_USER=$(id -un)
+CURRENT_UID=$(id -u)
+CURRENT_GID=$(id -g)
+IS_ROOT=false
+[ "$CURRENT_UID" = "0" ] && IS_ROOT=true
+HOST_NAME=$(hostname 2>/dev/null || printf 'unknown')
+
+local_ip() {
+  local ip=""
+  if have ip; then
+    ip=$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -n1)
+  fi
+  if [ -z "$ip" ] && have ipconfig; then
+    ip=$(ipconfig getifaddr en0 2>/dev/null || true)
+  fi
+  if [ -z "$ip" ] && have hostname; then
+    ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+  fi
+  printf '%s' "$ip"
+}
+
+public_ip() {
+  local url ip=""
+  for url in https://api.ipify.org https://ifconfig.me/ip https://icanhazip.com; do
+    ip=$(curl -fsS --max-time 5 "$url" 2>/dev/null | tr -d '[:space:]' || true)
+    case "$ip" in
+      *[!0-9.]*|'') ip="" ;;
+      *) break ;;
+    esac
+  done
+  printf '%s' "$ip"
+}
+
+# port_free <port>: best effort. An unknown answer is treated as free, because
+# refusing to install over an inconclusive check helps nobody.
+port_free() {
+  local port="$1"
+  if have ss; then
+    ss -ltnH "sport = :$port" 2>/dev/null | grep -q . && return 1 || return 0
+  fi
+  if have lsof; then
+    lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1 && return 1 || return 0
+  fi
+  if have netstat; then
+    netstat -an 2>/dev/null | grep -q "[.:]$port .*LISTEN" && return 1 || return 0
+  fi
+  return 0
+}
+
+tool_version() { # tool_version <command> [args...]
+  local cmd="$1"; shift
+  have "$cmd" || return 1
+  "$cmd" "$@" 2>/dev/null | head -n1
+}
+
+step "Portta installer"
+say "installing from ${C_BOLD}${PORTTA_REPO}@${PORTTA_REF}${C_RESET}"
+
+step "Environment"
+good "$OS_NAME"
+good "$ARCH"
+good "user $CURRENT_USER (uid $CURRENT_UID)"
+good "hostname $HOST_NAME"
+LOCAL_IP=$(local_ip)
+[ -n "$LOCAL_IP" ] && good "local address $LOCAL_IP" || warn "no local IPv4 address detected"
+
+for required in curl tar; do
+  have "$required" || die "$required is required and was not found in PATH"
+done
+
+# ---------------------------------------------------------------------------
+# 2. Container runtime
+# ---------------------------------------------------------------------------
+
+install_docker() {
+  case "$OS_KERNEL" in
+    Linux) ;;
+    *) die "Docker is missing. Install Docker Desktop or OrbStack, then run this again" ;;
+  esac
+  [ "$IS_ROOT" = "true" ] || die "Docker is missing and installing it needs root. Install Docker, or re-run this as root"
+  say "installing Docker Engine from get.docker.com"
+  curl -fsSL https://get.docker.com | sh || die "the Docker installation script failed"
+  if have systemctl; then
+    systemctl enable --now docker >/dev/null 2>&1 || true
+  fi
+  have docker || die "Docker still not found after installation"
+}
+
+step "Container runtime"
+if ! have docker; then
+  bad "Docker not found"
+  if [ "$SKIP_DEPS" = "true" ]; then
+    die "Docker is required. Install it and run this again, or drop --skip-deps"
+  elif [ "$ASSUME_YES" = "true" ] || confirm "Install Docker Engine now (get.docker.com)?"; then
+    install_docker
+  else
+    die "Docker is required"
+  fi
+fi
+
+docker info >/dev/null 2>&1 || {
+  if have systemctl && [ "$IS_ROOT" = "true" ]; then
+    systemctl start docker >/dev/null 2>&1 || true
+  fi
+  docker info >/dev/null 2>&1 || die "the Docker daemon is unreachable. Start it (or add $CURRENT_USER to the docker group) and run this again"
+}
+
+DOCKER_VERSION=$(docker version --format '{{.Server.Version}}' 2>/dev/null || printf 'unknown')
+good "Docker $DOCKER_VERSION"
+
+docker compose version >/dev/null 2>&1 \
+  || die 'the Docker Compose v2 plugin is required; docker-compose v1 is not supported'
+COMPOSE_VERSION=$(docker compose version --short 2>/dev/null || printf 'unknown')
+good "Docker Compose $COMPOSE_VERSION"
+
+# ---------------------------------------------------------------------------
+# 3. VPN
+# ---------------------------------------------------------------------------
+# Read-only throughout. The installer never runs `tailscale up`, never logs in,
+# and never edits an existing Tailscale configuration.
+
+TAILSCALE_STATE="absent"
+TAILSCALE_IP=""
+step "VPN"
+if have tailscale; then
+  if TAILSCALE_IP=$(tailscale ip -4 2>/dev/null | head -n1) && [ -n "$TAILSCALE_IP" ]; then
+    TAILSCALE_STATE="connected"
+    good "Tailscale installed"
+    good "connected"
+    good "$TAILSCALE_IP"
+  else
+    TAILSCALE_STATE="disconnected"
+    warn "Tailscale is installed but not connected"
+    note "run 'tailscale up' yourself if you want the panel on the tailnet; the installer never does it for you"
+  fi
+else
+  warn "Tailscale not found"
+  note "optional: the panel can be reached publicly or over an SSH tunnel instead"
+fi
+
+# ---------------------------------------------------------------------------
+# 4. PORTTA_HOME
+# ---------------------------------------------------------------------------
+
+default_home() {
+  if [ "$IS_ROOT" = "true" ]; then printf '/opt/portta'; else printf '%s/.portta' "$HOME"; fi
+}
+
+step "Portta home"
+if [ -z "$INSTALL_DIR" ]; then INSTALL_DIR="${PORTTA_HOME:-}"; fi
+if [ -z "$INSTALL_DIR" ]; then
+  say "Where should Portta keep its data and configuration?"
+  say ""
+  INSTALL_DIR=$(ask "directory" "$(default_home)")
+fi
+# A tilde typed at a prompt arrives literally: the shell that would have
+# expanded it never saw it.
+# shellcheck disable=SC2088
+case "$INSTALL_DIR" in
+  "~") INSTALL_DIR="$HOME" ;;
+  "~/"*) INSTALL_DIR="$HOME/${INSTALL_DIR#\~/}" ;;
+esac
+case "$INSTALL_DIR" in
+  /*) ;;
+  *) INSTALL_DIR="$(pwd)/$INSTALL_DIR" ;;
+esac
+PORTTA_HOME="$INSTALL_DIR"
+
+if [ "$ACTION" = "uninstall" ]; then
+  step "Uninstall"
+  [ -d "$PORTTA_HOME" ] || die "no installation found at $PORTTA_HOME"
+  say "this stops Portta's own containers and removes $PORTTA_HOME"
+  say "named volumes (the panel database) are kept, and no project is touched"
+  confirm "Continue?" || die "aborted"
+  if [ -x "$PORTTA_HOME/bin/portta" ]; then
+    PORTTA_ROOT="$PORTTA_HOME" PORTTA_FORCE_BASH=true "$PORTTA_HOME/bin/portta" down >/dev/null 2>&1 || true
+  fi
+  docker ps -aq --filter "label=portta.managed=true" 2>/dev/null | while read -r cid; do
+    [ -n "$cid" ] && docker rm -f "$cid" >/dev/null 2>&1 || true
+  done
+  rm -rf "$PORTTA_HOME"
+  for candidate in /usr/local/bin/portta "$HOME/.local/bin/portta"; do
+    [ -L "$candidate" ] && rm -f "$candidate" 2>/dev/null || true
+  done
+  good "removed $PORTTA_HOME"
+  note "the panel database volume was kept: docker volume rm portta-db removes it"
+  note "the shared network was kept: other projects may still be attached"
+  exit 0
+fi
+
+MODE="install"
+if [ -f "$PORTTA_HOME/VERSION" ]; then
+  MODE="update"
+  PREVIOUS_VERSION=$(tr -d '[:space:]' < "$PORTTA_HOME/VERSION" 2>/dev/null || printf 'unknown')
+  good "existing installation found at $PORTTA_HOME (version $PREVIOUS_VERSION)"
+  note "data, credentials and configuration are preserved"
+elif [ -d "$PORTTA_HOME" ] && [ -n "$(ls -A "$PORTTA_HOME" 2>/dev/null || true)" ]; then
+  # A non-empty directory that is not a Portta install is somebody else's.
+  die "$PORTTA_HOME exists and is not a Portta installation. Choose another directory with --install-dir"
+else
+  good "installing into $PORTTA_HOME"
+fi
+
+mkdir -p "$PORTTA_HOME" 2>/dev/null \
+  || die "cannot create $PORTTA_HOME. Choose a writable directory with --install-dir, or run as root"
+[ -w "$PORTTA_HOME" ] || die "$PORTTA_HOME is not writable by $CURRENT_USER"
+
+ENV_FILE="$PORTTA_HOME/.env"
+
+# ---------------------------------------------------------------------------
+# 5. Panel access
+# ---------------------------------------------------------------------------
+# The one decision the installer genuinely cannot make on its own, and the only
+# one it asks about. It concerns the PANEL. It does not expose any application.
+
+step "Panel access"
+
+if [ "$MODE" = "update" ] && [ -z "$PANEL_ACCESS" ]; then
+  PANEL_ACCESS=$(env_get "$ENV_FILE" PORTTA_WEB_EXPOSE)
+  [ -n "$PANEL_ACCESS" ] || PANEL_ACCESS="local"
+  good "keeping the configured access mode: $PANEL_ACCESS"
+fi
+
+if [ -z "$PANEL_ACCESS" ]; then
+  say "How do you want to reach the Portta panel?"
+  say ""
+  say "  1. Public    — this server's address and a port  ${C_DIM}[default]${C_RESET}"
+  if [ "$TAILSCALE_STATE" = "connected" ]; then
+    say "  2. Tailscale — only over the VPN ($TAILSCALE_IP)"
+  elif [ "$TAILSCALE_STATE" = "disconnected" ]; then
+    say "  2. Tailscale — ${C_DIM}unavailable (Tailscale is not connected)${C_RESET}"
+  else
+    say "  2. Tailscale — ${C_DIM}unavailable (Tailscale not found)${C_RESET}"
+  fi
+  say "  3. Local     — localhost only, reached over an SSH tunnel"
+  say ""
+  choice=$(ask "choose" "1")
+  case "$choice" in
+    1|public|"") PANEL_ACCESS="public" ;;
+    2|tailscale) PANEL_ACCESS="tailscale" ;;
+    3|local) PANEL_ACCESS="local" ;;
+    *) die "invalid choice: $choice" ;;
+  esac
+fi
+
+if [ "$PANEL_ACCESS" = "tailscale" ] && [ "$TAILSCALE_STATE" != "connected" ]; then
+  die "panel access 'tailscale' needs a connected Tailscale node; this host has none. Connect it yourself with 'tailscale up', then run this again"
+fi
+
+if [ -z "$PANEL_PORT" ]; then
+  PANEL_PORT=$(env_get "$ENV_FILE" PORTTA_WEB_PORT)
+  [ -n "$PANEL_PORT" ] || PANEL_PORT="8081"
+fi
+
+# A port already held by something else fails late and confusingly inside
+# Compose, so say it now. On an update the holder is usually Portta itself.
+if [ "$MODE" = "install" ] && ! port_free "$PANEL_PORT"; then
+  warn "port $PANEL_PORT is already in use on this host"
+  if interactive; then
+    PANEL_PORT=$(ask "panel port" "8081")
+  else
+    die "port $PANEL_PORT is in use; pass --panel-port"
+  fi
+fi
+
+case "$PANEL_ACCESS" in
+  public)
+    PANEL_BIND="0.0.0.0"
+    good "public — the panel will answer on every interface, behind authentication"
+    ;;
+  tailscale)
+    PANEL_BIND="$TAILSCALE_IP"
+    good "tailscale — the panel will answer on $TAILSCALE_IP only"
+    ;;
+  local)
+    PANEL_BIND="127.0.0.1"
+    good "local — the panel will answer on 127.0.0.1 only"
+    ;;
+esac
+
+# ---------------------------------------------------------------------------
+# 6. Panel credential
+# ---------------------------------------------------------------------------
+# Required whenever the panel can be reached from another machine without a
+# network boundary already in the way. `public` is exactly that case.
+
+PANEL_PASSWORD=""
+PANEL_PASSWORD_GENERATED=false
+PANEL_AUTH_MODE="none"
+EXISTING_AUTH_USER=$(env_get "$ENV_FILE" PORTTA_WEB_AUTH_USER)
+EXISTING_AUTH_HASH=$(env_get "$ENV_FILE" PORTTA_WEB_AUTH_HASH)
+
+needs_auth() { [ "$PANEL_ACCESS" = "public" ]; }
+
+if needs_auth; then
+  step "Panel authentication"
+  if [ -n "$EXISTING_AUTH_HASH" ] && [ -z "$PANEL_USER" ] && [ -z "${PORTTA_PANEL_PASSWORD:-}" ]; then
+    PANEL_AUTH_MODE="basic"
+    PANEL_USER="$EXISTING_AUTH_USER"
+    good "keeping the existing credential for user '$PANEL_USER'"
+    note "portta web auth set replaces it and shows the new password once"
+  else
+    [ -n "$PANEL_USER" ] || PANEL_USER=$(ask "panel user" "${EXISTING_AUTH_USER:-admin}")
+    [ -n "$PANEL_USER" ] || PANEL_USER="admin"
+    case "$PANEL_USER" in
+      *[!A-Za-z0-9._-]*) die "invalid panel user: $PANEL_USER" ;;
+    esac
+    if [ -n "${PORTTA_PANEL_PASSWORD:-}" ]; then
+      PANEL_PASSWORD="$PORTTA_PANEL_PASSWORD"
+      good "using the password from PORTTA_PANEL_PASSWORD"
+    else
+      PANEL_PASSWORD=$(ask_secret "panel password (empty to generate a strong one)")
+    fi
+    if [ -z "$PANEL_PASSWORD" ]; then
+      PANEL_PASSWORD=$(random_password)
+      PANEL_PASSWORD_GENERATED=true
+      good "generated a strong password; it is printed once at the end"
+    else
+      good "using the password you supplied"
+    fi
+    PANEL_AUTH_MODE="basic"
+  fi
+elif [ -n "$EXISTING_AUTH_HASH" ]; then
+  # Moving from public to local does not throw the credential away.
+  PANEL_AUTH_MODE=$(env_get "$ENV_FILE" PORTTA_WEB_AUTH)
+  [ -n "$PANEL_AUTH_MODE" ] || PANEL_AUTH_MODE="basic"
+  PANEL_USER="$EXISTING_AUTH_USER"
+fi
+
+# ---------------------------------------------------------------------------
+# 7. Runtime files
+# ---------------------------------------------------------------------------
+# Compose files, the Traefik dynamic configuration, and the shell CLI, so a
+# host with no Node can still run `portta status`, `portta doctor` and
+# `portta up`. No application source, no lockfile, no node_modules: the panel
+# and the proxy are published images.
+
+step "Runtime files"
+
+WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/portta-install.XXXXXX") || die "cannot create a temporary directory"
+cleanup() { rm -rf "$WORK_DIR"; }
+trap cleanup EXIT INT TERM
+
+TARBALL_URL="https://codeload.github.com/${PORTTA_REPO}/tar.gz/${PORTTA_REF}"
+say "downloading $TARBALL_URL"
+curl -fsSL --retry 3 --retry-delay 2 "$TARBALL_URL" > "$WORK_DIR/portta.tar.gz" \
+  || die "could not download the runtime files. Check the network, or pass --version with a ref that exists"
+
+# The archive has a single top-level directory whose name embeds the ref, so
+# strip it rather than guessing the name.
+mkdir -p "$WORK_DIR/src"
+tar -xzf "$WORK_DIR/portta.tar.gz" -C "$WORK_DIR/src" --strip-components=1 \
+  || die "could not unpack the runtime files"
+
+[ -f "$WORK_DIR/src/VERSION" ] || die "the downloaded archive is not a Portta tree"
+NEW_VERSION=$(tr -d '[:space:]' < "$WORK_DIR/src/VERSION")
+
+# Replaced on every run: these are the product, and a stale copy is exactly the
+# problem an update is meant to fix.
+for path in VERSION .env.example bin scripts docker/compose toolbox; do
+  [ -e "$WORK_DIR/src/$path" ] || continue
+  target="$PORTTA_HOME/$path"
+  mkdir -p "$(dirname "$target")"
+  rm -rf "$target"
+  cp -R "$WORK_DIR/src/$path" "$target"
+done
+chmod +x "$PORTTA_HOME/bin/portta" "$PORTTA_HOME"/scripts/*.sh 2>/dev/null || true
+good "runtime files for $NEW_VERSION"
+
+# Never replaced: the Traefik dynamic directory holds generated credentials and
+# hand-written routing. New files appear on upgrade; existing ones are kept.
+mkdir -p "$PORTTA_HOME/config/traefik/dynamic" "$PORTTA_HOME/config/tls"
+added=0
+for file in "$WORK_DIR/src/config/traefik/dynamic/"*; do
+  [ -f "$file" ] || continue
+  target="$PORTTA_HOME/config/traefik/dynamic/$(basename "$file")"
+  if [ ! -e "$target" ]; then cp "$file" "$target"; added=$((added + 1)); fi
+done
+good "Traefik dynamic configuration ($added file(s) added, existing ones kept)"
+
+for directory in state/traefik/acme state/tailscale state/access state/git state/github; do
+  mkdir -p "$PORTTA_HOME/$directory"
+done
+chmod 700 "$PORTTA_HOME/state/traefik/acme" 2>/dev/null || true
+[ -f "$PORTTA_HOME/state/traefik/acme/acme.json" ] && chmod 600 "$PORTTA_HOME/state/traefik/acme/acme.json" 2>/dev/null || true
+good "state directories"
+
+# ---------------------------------------------------------------------------
+# 8. Configuration
+# ---------------------------------------------------------------------------
+
+step "Configuration"
+
+if [ ! -f "$ENV_FILE" ]; then
+  cp "$PORTTA_HOME/.env.example" "$ENV_FILE"
+  chmod 600 "$ENV_FILE"
+  good "created .env from the shipped example"
+else
+  chmod 600 "$ENV_FILE"
+  good "kept the existing .env; only the settings below were reconciled"
+fi
+
+# Generated once and never regenerated: rotating it would orphan the volume.
+if [ -z "$(env_get "$ENV_FILE" PORTTA_RUNTIME_DB_PASSWORD)" ]; then
+  env_set "$ENV_FILE" PORTTA_RUNTIME_DB_PASSWORD "$(random_hex 32)"
+  good "generated the panel database credential"
+fi
+
+PANEL_IMAGE="${PORTTA_REGISTRY}/portta:${NEW_VERSION}"
+
+env_set "$ENV_FILE" PORTTA_PROFILE "local"
+env_set "$ENV_FILE" PORTTA_WEB "true"
+env_set "$ENV_FILE" PORTTA_WEB_IMAGE "$PANEL_IMAGE"
+env_set "$ENV_FILE" PORTTA_WEB_BUILD "false"
+env_set "$ENV_FILE" PORTTA_WEB_DEV "false"
+env_set "$ENV_FILE" PORTTA_WEB_EXPOSE "$PANEL_ACCESS"
+env_set "$ENV_FILE" PORTTA_WEB_BIND_ADDRESS "$PANEL_BIND"
+env_set "$ENV_FILE" PORTTA_WEB_PORT "$PANEL_PORT"
+# The panel writes .env from its Settings page and reads it at startup, so it
+# runs as whoever owns PORTTA_HOME rather than as the image's default uid.
+env_set "$ENV_FILE" PORTTA_WEB_USER "${CURRENT_UID}:${CURRENT_GID}"
+
+if [ -n "$DOMAIN" ]; then
+  env_set "$ENV_FILE" PUBLIC_DOMAIN "$DOMAIN"
+  good "base domain recorded: $DOMAIN"
+  note "recorded only; applications stay unexposed until you publish them"
+fi
+
+# The panel's own address, for the summary and for `portta web status`. This
+# binds nothing: it is the address a human types.
+PUBLIC_IP=""
+case "$PANEL_ACCESS" in
+  public)
+    PUBLIC_IP=$(public_ip)
+    ADVERTISED="${PUBLIC_IP:-${LOCAL_IP:-$HOST_NAME}}"
+    ;;
+  tailscale) ADVERTISED="$TAILSCALE_IP" ;;
+  local) ADVERTISED="127.0.0.1" ;;
+esac
+env_set "$ENV_FILE" PORTTA_PANEL_ADVERTISED_HOST "$ADVERTISED"
+
+if [ "$PANEL_AUTH_MODE" = "basic" ]; then
+  if [ -n "$PANEL_PASSWORD" ]; then
+    PANEL_HASH=$(hash_password "$PANEL_PASSWORD")
+    env_set "$ENV_FILE" PORTTA_WEB_AUTH "basic"
+    env_set "$ENV_FILE" PORTTA_WEB_AUTH_USER "$PANEL_USER"
+    env_set "$ENV_FILE" PORTTA_WEB_AUTH_HASH "$PANEL_HASH"
+  else
+    PANEL_HASH="$EXISTING_AUTH_HASH"
+  fi
+  # The credential lives in the middleware file, which is what Traefik reads.
+  # .env keeps a copy so `portta web auth status` can report it as set.
+  cat > "$PORTTA_HOME/config/traefik/dynamic/portta-panel.yaml" <<YAML
+# ============================================================================
+# Generated by the Portta installer. Edits are overwritten.
+# ============================================================================
+# BasicAuth in front of the panel's own router. There is no session, no cookie
+# and no login form: the request either reaches the container or it does not.
+# See docs/adr/0012-panel-authentication-is-traefiks.md.
+# ============================================================================
+http:
+  middlewares:
+    portta-web-auth:
+      basicAuth:
+        users:
+          - "${PANEL_USER}:${PANEL_HASH}"
+        realm: "Portta"
+        removeHeader: true
+YAML
+  chmod 600 "$PORTTA_HOME/config/traefik/dynamic/portta-panel.yaml"
+  good "authentication configured for user '$PANEL_USER'"
+fi
+
+cat > "$PORTTA_HOME/install-manifest.json" <<JSON
+{
+  "installer": "$PORTTA_INSTALLER_VERSION",
+  "version": "$NEW_VERSION",
+  "ref": "$PORTTA_REF",
+  "repository": "$PORTTA_REPO",
+  "os": "$OS_NAME",
+  "osId": "$OS_ID",
+  "arch": "$ARCH",
+  "registry": "$PORTTA_REGISTRY",
+  "panelImage": "$PANEL_IMAGE",
+  "home": "$PORTTA_HOME",
+  "panelAccess": "$PANEL_ACCESS",
+  "panelPort": "$PANEL_PORT",
+  "installedBy": "$CURRENT_USER",
+  "updatedAt": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+}
+JSON
+good "recorded install-manifest.json"
+
+# ---------------------------------------------------------------------------
+# 9. Images
+# ---------------------------------------------------------------------------
+
+step "Images"
+
+portta() { # run the installed CLI against this PORTTA_HOME
+  PORTTA_ROOT="$PORTTA_HOME" PORTTA_FORCE_BASH=true PORTTA_ASSUME_YES=true \
+    "$PORTTA_HOME/bin/portta" "$@"
+}
+
+# The shared and control networks must exist before Compose resolves the
+# `external: true` references. bootstrap is idempotent and does exactly that.
+portta bootstrap --skip-pull >/dev/null 2>&1 || true
+
+COMPOSE_ARGS=$(PORTTA_ROOT="$PORTTA_HOME" bash -c '
+  set -e
+  . "$PORTTA_ROOT/scripts/lib/common.sh"
+  . "$PORTTA_ROOT/scripts/lib/docker.sh"
+  portta_load_env; portta_defaults
+  portta_compose_files "${PORTTA_PROFILE:-local}"
+') || die "the compose configuration could not be resolved"
+
+# `.env` is handed to Compose as a file, never sourced: a value there is data,
+# and the apr1 hash in it is full of characters a shell would happily act on.
+run_compose() {
+  # shellcheck disable=SC2086
+  ( cd "$PORTTA_HOME" && docker compose \
+      --project-directory "$PORTTA_HOME" \
+      --env-file "$ENV_FILE" \
+      $COMPOSE_ARGS "$@" )
+}
+
+say "pulling ${PANEL_IMAGE} and the pinned component images"
+if ! run_compose pull --quiet; then
+  bad "could not pull every image"
+  note "if $PANEL_IMAGE is not published yet, build it from a checkout or pass --registry"
+  die "image pull failed"
+fi
+good "images pulled"
+
+if [ "$PULL_ONLY" = "true" ]; then
+  step "Done"
+  say "--pull-only: images are up to date and nothing else was changed"
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# 10. Start
+# ---------------------------------------------------------------------------
+
+step "Starting Portta"
+
+run_compose up -d --remove-orphans --wait --wait-timeout 240 \
+  || die "the stack did not become healthy. Inspect it with: $PORTTA_HOME/bin/portta logs"
+good "containers started"
+
+# ---------------------------------------------------------------------------
+# 11. Health checks
+# ---------------------------------------------------------------------------
+
+step "Health checks"
+
+container_health() { # container_health <component>
+  local cid
+  cid=$(docker ps -q --filter "label=portta.component=$1" | head -n1)
+  [ -n "$cid" ] || { printf 'absent'; return; }
+  docker inspect "$cid" --format '{{ if .State.Health }}{{ .State.Health.Status }}{{ else }}{{ .State.Status }}{{ end }}' 2>/dev/null
+}
+
+HEALTH_OK=true
+for component in traefik socket-proxy web web-socket-proxy db; do
+  state=$(container_health "$component")
+  case "$state" in
+    healthy|running) good "$component: $state" ;;
+    absent) warn "$component: not running"; HEALTH_OK=false ;;
+    *) bad "$component: $state"; HEALTH_OK=false ;;
+  esac
+done
+
+# The panel's front door, checked from the outside rather than from inside the
+# container: in `public` mode an unauthenticated request must be refused, and
+# proving that is more useful than proving the process is up.
+probe() { curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$1" 2>/dev/null || printf '000'; }
+
+case "$PANEL_ACCESS" in
+  public)
+    code=$(probe "http://127.0.0.1:${PANEL_PORT}/api/health")
+    if [ "$code" = "401" ]; then
+      good "the panel refuses unauthenticated requests (HTTP 401)"
+    else
+      bad "expected HTTP 401 from the panel without credentials, got $code"
+      HEALTH_OK=false
+    fi
+    ;;
+  *)
+    code=$(probe "http://${PANEL_BIND}:${PANEL_PORT}/api/health")
+    if [ "$code" = "200" ]; then
+      good "the panel answers on ${PANEL_BIND}:${PANEL_PORT}"
+    else
+      bad "the panel did not answer on ${PANEL_BIND}:${PANEL_PORT} (HTTP $code)"
+      HEALTH_OK=false
+    fi
+    ;;
+esac
+
+# ---------------------------------------------------------------------------
+# 12. Put the CLI on PATH
+# ---------------------------------------------------------------------------
+
+LINK_TARGET=""
+for candidate in /usr/local/bin "$HOME/.local/bin"; do
+  [ -d "$candidate" ] || continue
+  [ -w "$candidate" ] || continue
+  LINK_TARGET="$candidate/portta"
+  break
+done
+if [ -n "$LINK_TARGET" ]; then
+  ln -sf "$PORTTA_HOME/bin/portta" "$LINK_TARGET"
+fi
+
+# ---------------------------------------------------------------------------
+# 13. Development environment, reported and never changed
+# ---------------------------------------------------------------------------
+
+step "Development environment"
+
+report() { # report <label> <command> [args...]
+  local label="$1"; shift
+  local value
+  if value=$(tool_version "$@"); then good "$label — $value"; else warn "$label — not found"; fi
+}
+
+report "Git"            git --version
+report "Docker"         docker --version
+report "Node.js"        node --version
+report "npm"            npm --version
+report "GitHub CLI"     gh --version
+report "Tailscale"      tailscale version
+
+if have git; then
+  git_name=$(git config --global user.name 2>/dev/null || true)
+  git_email=$(git config --global user.email 2>/dev/null || true)
+  if [ -n "$git_name" ] && [ -n "$git_email" ]; then
+    good "Git identity — $git_name <$git_email>"
+  else
+    warn "Git identity — not configured globally"
+  fi
+fi
+if have gh; then
+  if gh auth status >/dev/null 2>&1; then good "GitHub CLI — authenticated"; else warn "GitHub CLI — not authenticated"; fi
+fi
+if have npx; then good "npx — available"; else warn "npx — not found"; fi
+
+step "AI development agents"
+agent_report() { # agent_report <label> <command>
+  local label="$1" cmd="$2" value
+  if have "$cmd"; then
+    value=$("$cmd" --version 2>/dev/null | head -n1 || true)
+    good "$label — ${value:-installed}"
+  else
+    warn "$label — not found"
+  fi
+}
+agent_report "Claude Code"  claude
+agent_report "Codex CLI"    codex
+agent_report "Cursor Agent" cursor-agent
+agent_report "Gemini CLI"   gemini
+agent_report "Antigravity"  antigravity
+note "diagnostic only: the installer never installs, authenticates or reconfigures these"
+
+# ---------------------------------------------------------------------------
+# 14. Result
+# ---------------------------------------------------------------------------
+
+PANEL_URL="http://${ADVERTISED}:${PANEL_PORT}"
+
+step "Portta is ready"
+
+printf '  %-14s %s\n' "version" "$NEW_VERSION" >&2
+printf '  %-14s %s\n' "home" "$PORTTA_HOME" >&2
+printf '  %-14s %s\n' "panel access" "$PANEL_ACCESS" >&2
+printf '  %-14s %s\n' "panel" "$PANEL_URL" >&2
+
+if [ "$PANEL_AUTH_MODE" = "basic" ]; then
+  printf '  %-14s %s\n' "user" "$PANEL_USER" >&2
+  if [ -n "$PANEL_PASSWORD" ]; then
+    printf '  %-14s %s%s%s\n' "password" "$C_BOLD" "$PANEL_PASSWORD" "$C_RESET" >&2
+    if [ "$PANEL_PASSWORD_GENERATED" = "true" ]; then
+      note "this is the only time it is shown; store it now"
+    fi
+  else
+    printf '  %-14s %s\n' "password" "unchanged (only its hash is stored)" >&2
+    note "portta web auth set generates a new one and shows it once"
+  fi
+fi
+
+case "$PANEL_ACCESS" in
+  public)
+    printf '\n' >&2
+    warn "the panel is reachable from the internet on port $PANEL_PORT"
+    note "authentication is enforced by the proxy, and was verified above"
+    note "the connection is plain HTTP: credentials are protected by BasicAuth, not by TLS"
+    note "set a domain and TLS_ENABLED=true for a real certificate"
+    ;;
+  tailscale)
+    printf '\n' >&2
+    good "the panel is reachable only from your tailnet; nothing is published on the public interface"
+    ;;
+  local)
+    printf '\n' >&2
+    good "the panel is reachable only from this machine"
+    say "open an SSH tunnel to reach it from your laptop:"
+    say ""
+    say "    ssh -L ${PANEL_PORT}:127.0.0.1:${PANEL_PORT} ${CURRENT_USER}@${LOCAL_IP:-$HOST_NAME}"
+    say ""
+    say "then open  http://localhost:${PANEL_PORT}"
+    ;;
+esac
+
+printf '\n' >&2
+say "applications stay unexposed: publishing the panel published nothing else"
+say "each project chooses its own exposure from the panel or the CLI"
+
+printf '\n' >&2
+say "CLI:"
+if [ -n "$LINK_TARGET" ]; then
+  say "    portta status          (linked at $LINK_TARGET)"
+else
+  say "    $PORTTA_HOME/bin/portta status"
+  note "no writable bin directory on PATH; add $PORTTA_HOME/bin to PATH to drop the prefix"
+fi
+say "    npx portta doctor      full diagnostics, needs Node 22.12+"
+say ""
+say "re-run this installer at any time to update:"
+say "    curl -fsSL https://raw.githubusercontent.com/${PORTTA_REPO}/${PORTTA_REF}/install.sh | bash"
+
+if [ "$HEALTH_OK" != "true" ]; then
+  printf '\n' >&2
+  bad "some health checks did not pass"
+  note "$PORTTA_HOME/bin/portta doctor explains what is wrong"
+  exit 1
+fi
+
+printf '\n' >&2
+exit 0
