@@ -1023,12 +1023,18 @@ fi
 step "Development environment"
 
 report() { # report <label> <command> [args...]
-  local label="$1"; shift
-  local value
-  if value=$(tool_version "$@"); then
-    if have "$1"; then good "$label — $value"; else warn "$label — $value, but not on this PATH"; fi
+  local label="$1" cmd="$2"; shift 2
+  local path value
+  if ! path=$(locate_tool "$cmd"); then warn "$label — not found"; return 0; fi
+  value=$("$path" "$@" 2>/dev/null | head -n1 || true)
+  if have "$cmd"; then
+    good "$label — ${value:-installed}"
+  elif [ -n "$value" ]; then
+    warn "$label — $value, but not on this PATH"
   else
-    warn "$label — not found"
+    # Located, and it will not run: npm's shebang is `env node`, so nvm's npm
+    # is unusable from a shell that cannot see nvm's node either.
+    warn "$label — at $path, but not usable from this shell"
   fi
 }
 

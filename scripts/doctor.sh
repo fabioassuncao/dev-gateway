@@ -875,16 +875,21 @@ fi
 portta_tool_report() { # portta_tool_report <id> <title> <command> [version-args...]
   local id="$1" title="$2" cmd="$3"; shift 3
   local value path
-  if path=$(portta_locate "$cmd"); then
-    value=$("$path" "$@" 2>/dev/null | head -n1)
-    if portta_have "$cmd"; then
-      check pass "$id" "$title" "${value:-installed}" ""
-    else
-      check warn "$id" "$title" "${value:-installed} at $path, but not on this PATH" \
-        "it is wired into your interactive shell only; export PATH in ~/.profile to reach it from scripts"
-    fi
-  else
+  if ! path=$(portta_locate "$cmd"); then
     check warn "$id" "$title" "not found" "optional; install it if you want it"
+    return 0
+  fi
+  value=$("$path" "$@" 2>/dev/null | head -n1)
+  if portta_have "$cmd"; then
+    check pass "$id" "$title" "${value:-installed}" ""
+  elif [ -n "$value" ]; then
+    check warn "$id" "$title" "$value at $path, but not on this PATH" \
+      "it is wired into your interactive shell only; export PATH in ~/.profile to reach it from scripts"
+  else
+    # Located, and it will not run: npm's shebang is `env node`, so nvm's npm
+    # is unusable from a shell that cannot see nvm's node either.
+    check warn "$id" "$title" "at $path, but not usable from this shell" \
+      "put its directory on PATH in ~/.profile, not only in your interactive shell"
   fi
 }
 
