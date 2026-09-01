@@ -171,6 +171,18 @@ assert_contains "$(./bin/portta web up --expose public 2>&1)" "needs a credentia
 it "an unknown expose value fails"
 assert_failure ./bin/portta web up --expose nonsense
 
+describe "the panel is handed the settings it renders"
+
+# The panel container gets an explicit list of variables, so a setting added to
+# the gateway is invisible to the Settings page until it is added here too. The
+# domain mode was, and the page showed the resolved hostname with `mode: local`
+# beside it.
+it "every managed setting the panel reads is passed to its container"
+compose="$(cat docker/compose/features/web.yaml)"
+for key in PORTTA_DOMAIN PORTTA_DOMAIN_MODE PORTTA_PUBLIC_IP PORTTA_AUTO_DOMAIN_PROVIDER; do
+  assert_contains "$compose" "$key: \${$key"
+done
+
 describe "every panel command resolves the file list with the panel enabled"
 
 # The environment beats .env, so an inherited PORTTA_WEB=false drops the

@@ -127,6 +127,12 @@ services:
       PORTTA_TCP_POSTGRES_PORT: ${PORTTA_TCP_POSTGRES_PORT:-5432}
       PORTTA_TCP_REDIS_PORT: ${PORTTA_TCP_REDIS_PORT:-6379}
       PORTTA_DOMAIN: ${PORTTA_DOMAIN:-localhost}
+      # How that base was chosen, so the Settings page can show the mode and
+      # the address behind it rather than a bare hostname with no explanation.
+      # See docs/adr/0022-project-domain-modes.md.
+      PORTTA_DOMAIN_MODE: ${PORTTA_DOMAIN_MODE:-local}
+      PORTTA_PUBLIC_IP: ${PORTTA_PUBLIC_IP:-}
+      PORTTA_AUTO_DOMAIN_PROVIDER: ${PORTTA_AUTO_DOMAIN_PROVIDER:-sslip.io}
       PORTTA_BIND_ADDRESS: ${PORTTA_BIND_ADDRESS:-127.0.0.1}
       PORTTA_HTTP_PORT: ${PORTTA_HTTP_PORT:-80}
       PORTTA_HTTPS_PORT: ${PORTTA_HTTPS_PORT:-443}
