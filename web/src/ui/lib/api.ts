@@ -12,6 +12,8 @@ import type {
   Project,
   ProjectGit,
   RemovalPreview,
+  ServiceTraefik,
+  TraefikVerdict,
 } from '../../shared/types.ts'
 
 export class ApiError extends Error {
@@ -63,6 +65,8 @@ export const api = {
   project: (name: string) => request<Project>(`/projects/${encodeURIComponent(name)}`),
   projectGit: (name: string) => request<ProjectGit>(`/projects/${encodeURIComponent(name)}/git`),
   services: () => request<{ services: ContainerSummary[] }>('/services').then((data) => data.services),
+  serviceTraefik: (id: string) => request<ServiceTraefik>(`/services/${encodeURIComponent(id)}/traefik`),
+  traefik: () => request<TraefikVerdict>('/gateway/traefik'),
 
   containers: (params: { ownership?: string; state?: string; q?: string } = {}) => {
     const query = new URLSearchParams()

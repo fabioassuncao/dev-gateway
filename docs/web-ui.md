@@ -322,6 +322,37 @@ Three cases render nothing at all rather than an error: `gh` is not installed,
 to. In the last case the Git line keeps its repository link, since that is
 derived from the remote and needs nobody's permission.
 
+#### Why a route behaves like this
+
+Opening a service shows what Traefik itself says about it, next to what its
+labels say: the router it built, the rule, the entrypoints, the middlewares, the
+backend it resolved, and its status with Traefik's own error text when it
+refused one.
+
+```text
+Traefik   storefront-web@docker   enabled   websecure     dashboard →
+          Host(`storefront-web.dev.example.com`)
+          middlewares: dev-gateway-secure-headers@file
+          → http://172.18.0.7:3000
+```
+
+This is the one question labels cannot answer. The panel derives hostnames the
+same way Traefik does and is right about them, which is exactly why "the labels
+look right and it still 404s" had nowhere to go.
+
+It needs the Traefik API, which means `DEV_GATEWAY_DASHBOARD=true`, and that is
+off by default. When it is off the panel says **the API was not asked** rather
+than implying the labels were confirmed, and everything else is unchanged.
+`doctor` gains two checks when it is on: a routed service Traefik never built a
+router for, and a router Traefik refused, quoted.
+
+The read has its own timeout and its own cache and never runs while a page is
+rendering, so a slow or dead Traefik costs nothing but this block. The dashboard
+is linked to, never embedded: it is a good tool and duplicating it would need
+the insecure-mode API exposed more widely than it already is. See
+[ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md), and
+[security.md](security.md) for what enabling that API costs.
+
 ### Services
 
 Every service of every integrated project as a flat, filterable list: image,

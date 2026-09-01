@@ -195,6 +195,45 @@ export interface ProjectGit {
   refreshCommand: string
 }
 
+/** One router as Traefik itself reports it, not as the labels imply. */
+export interface TraefikRouter {
+  name: string
+  rule: string
+  /** Every Host(`...`) the rule names, lowercased. */
+  hosts: string[]
+  entryPoints: string[]
+  middlewares: string[]
+  service: string
+  provider: string
+  /** Traefik's own verdict: `enabled`, `disabled`, or `warning`. */
+  status: string
+  /** Traefik's own error text when it rejected the router. */
+  errors: string[]
+  /** The backends Traefik resolved for this router's service. */
+  servers: string[]
+}
+
+export interface TraefikVerdict {
+  /** False when the API is off or unreachable. Not the same as "no problem". */
+  available: boolean
+  reason: string | null
+  baseUrl: string
+  dashboardUrl: string | null
+  routers: TraefikRouter[]
+  fetchedAt: number
+}
+
+/** What Traefik says about one service, beside what its labels say. */
+export interface ServiceTraefik {
+  containerId: string
+  available: boolean
+  reason: string | null
+  /** Hostnames the panel derived from the labels, for comparison. */
+  expectedHosts: string[]
+  routers: (TraefikRouter & { dashboardUrl: string | null })[]
+  fetchedAt: number
+}
+
 export interface Diagnostic {
   id: string
   status: 'pass' | 'warn' | 'fail'

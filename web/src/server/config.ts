@@ -80,6 +80,10 @@ export interface PanelConfig {
   gitDir: string
   /** Past this age, collected Git metadata is marked stale rather than shown. */
   gitStaleSeconds: number
+  /** Traefik's own API, resolved per attachment. Read-only, and opt-in. */
+  traefikApi: string
+  traefikApiTtlMs: number
+  traefikApiTimeoutMs: number
 }
 
 export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
@@ -135,9 +139,29 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     dynamicDir: env('DG_WEB_DYNAMIC_DIR', '/app/state/traefik-dynamic'),
     gitDir: env('DG_WEB_GIT_DIR', '/app/state/git'),
     gitStaleSeconds: Number(env('DG_WEB_GIT_STALE_SECONDS', '600')),
+    traefikApi: env('DG_WEB_TRAEFIK_API', defaultTraefikApi()),
+    traefikApiTtlMs: Number(env('DG_WEB_TRAEFIK_API_TTL_MS', '7000')),
+    traefikApiTimeoutMs: Number(env('DG_WEB_TRAEFIK_API_TIMEOUT_MS', '1500')),
     ...overrides,
   }
   return config
+}
+
+/**
+ * Where Traefik's API answers, which depends on how Traefik is attached.
+ *
+ * With compose.attach-host.yaml Traefik has its own namespace and is reachable
+ * as `traefik`. With compose.attach-tailscale.yaml it runs inside the Tailscale
+ * container's namespace and has no name of its own, so the same API answers on
+ * `tailscale` ([ADR 0007](docs/adr/0007-tailscale-sidecar.md)). The internal
+ * port is always 8080; only the published one is configurable.
+ *
+ * Mirrors dg_attachment in scripts/lib/docker.sh: keep them in sync.
+ */
+function defaultTraefikApi(): string {
+  const profile = env('DEV_GATEWAY_PROFILE', 'local')
+  const attached = profile !== 'local' && isTrue(process.env.TAILSCALE_ENABLED) ? 'tailscale' : 'traefik'
+  return `http://${attached}:8080`
 }
 
 function readVersion(file: string): string {

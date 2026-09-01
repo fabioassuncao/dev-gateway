@@ -7,6 +7,7 @@ import { OwnershipBadge, ScopeBadge, StateBadge } from './status.tsx'
 import { AddressLine, Mono } from './copy.tsx'
 import { bytes, shortId, uptime } from '../lib/format.ts'
 import { ServiceIcon } from './service-icon.tsx'
+import { TraefikVerdictRow } from './traefik-verdict.tsx'
 
 export function ContainerDetails({
   container,
@@ -108,6 +109,12 @@ export function ContainerDetails({
                 </div>
               ))}
             </div>
+          </KeyValue>
+        ) : null}
+
+        {container.urls.length > 0 ? (
+          <KeyValue label="Traefik">
+            <TraefikVerdictRow container={container} enabled={open} />
           </KeyValue>
         ) : null}
 

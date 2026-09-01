@@ -11,7 +11,8 @@ import { isAuthenticated, isRouted } from '../config.ts'
 import { GENERATED_FILES, isDirWritable, readGenerated, renderPanelAuth } from './dynamic.ts'
 import type { Snapshot } from './inventory.ts'
 import { componentOf } from './gateway.ts'
-import type { Diagnostic } from '../../shared/types.ts'
+import { routersFor } from './traefik.ts'
+import type { Diagnostic, TraefikVerdict } from '../../shared/types.ts'
 
 function check(
   id: string,
@@ -23,7 +24,11 @@ function check(
   return { id, status, title, detail, fix }
 }
 
-export function diagnose(snapshot: Snapshot, config: PanelConfig): Diagnostic[] {
+export function diagnose(
+  snapshot: Snapshot,
+  config: PanelConfig,
+  verdict: TraefikVerdict | null = null,
+): Diagnostic[] {
   const results: Diagnostic[] = []
 
   if (!snapshot.reachable) {
@@ -208,6 +213,7 @@ export function diagnose(snapshot: Snapshot, config: PanelConfig): Diagnostic[] 
   }
 
   results.push(...panelChecks(config))
+  if (verdict) results.push(...traefikChecks(snapshot, verdict))
 
   if (config.tlsEnabled && config.tlsMode === 'acme' && !config.acmeEmailSet) {
     results.push(
@@ -224,6 +230,65 @@ export function diagnose(snapshot: Snapshot, config: PanelConfig): Diagnostic[] 
         'the private profile is bound to every interface',
         'set DEV_GATEWAY_BIND_ADDRESS to the VPN address, or enable Tailscale',
       ),
+    )
+  }
+
+  return results
+}
+
+/**
+ * The one check the labels cannot make: what Traefik actually did with them.
+ *
+ * Only possible when the dashboard is enabled, so its absence says "not asked"
+ * rather than "no problem". Everything else in this file stays true either way.
+ */
+function traefikChecks(snapshot: Snapshot, verdict: TraefikVerdict): Diagnostic[] {
+  if (!verdict.available) {
+    return [
+      check(
+        'traefik-verdict',
+        'warn',
+        "Traefik's own view",
+        verdict.reason ?? 'not available',
+        'set DEV_GATEWAY_DASHBOARD=true to let the panel read Traefik directly',
+      ),
+    ]
+  }
+
+  const results: Diagnostic[] = []
+  const routed = snapshot.containers.filter(
+    (container) => container.state === 'running' && container.ownership !== 'gateway' && container.urls.length > 0,
+  )
+
+  // The labels look right and it still 404s: Traefik built no router at all.
+  const missing = routed.filter((container) => routersFor(container, verdict).length === 0)
+  if (missing.length > 0) {
+    results.push(
+      check(
+        'traefik-no-router',
+        'fail',
+        'Services Traefik never routed',
+        missing.map((container) => `${container.name} (${container.urls[0]?.host ?? '?'})`).join(', '),
+        'check traefik.docker.network and that the container is on the shared network',
+      ),
+    )
+  }
+
+  // A router Traefik rejected, with Traefik's own words rather than a guess.
+  const rejected = routed.flatMap((container) =>
+    routersFor(container, verdict)
+      .filter((router) => router.status !== 'enabled')
+      .map((router) => `${router.name}: ${router.status}${router.errors.length ? ` (${router.errors.join('; ')})` : ''}`),
+  )
+  if (rejected.length > 0) {
+    results.push(
+      check('traefik-router-status', 'fail', 'Routers Traefik refused', rejected.join('; '), 'open the router in the Traefik dashboard'),
+    )
+  }
+
+  if (missing.length === 0 && rejected.length === 0) {
+    results.push(
+      check('traefik-verdict', 'pass', "Traefik's own view", `${verdict.routers.length} router(s), every routed service among them`),
     )
   }
 

@@ -127,6 +127,12 @@ services:
       DEV_GATEWAY_DASHBOARD: ${DEV_GATEWAY_DASHBOARD:-false}
       DEV_GATEWAY_DASHBOARD_BIND_ADDRESS: ${DEV_GATEWAY_DASHBOARD_BIND_ADDRESS:-127.0.0.1}
       DEV_GATEWAY_DASHBOARD_PORT: ${DEV_GATEWAY_DASHBOARD_PORT:-8080}
+      # Traefik's own API, read-only, and only when the dashboard is enabled.
+      # The panel resolves the host from the attachment (`traefik` normally,
+      # `tailscale` when Traefik shares that namespace) and reaches it over the
+      # shared network it is already on, never over `control`: see
+      # docs/adr/0011-panel-reads-traefik-writes-one-file.md.
+      DG_WEB_TRAEFIK_API: ${DG_WEB_TRAEFIK_API:-}
       DEV_GATEWAY_LOG_LEVEL: ${DEV_GATEWAY_LOG_LEVEL:-INFO}
       DEV_GATEWAY_ACCESS_LOG: ${DEV_GATEWAY_ACCESS_LOG:-false}
       DEV_GATEWAY_WEB_PORT: ${DEV_GATEWAY_WEB_PORT:-8081}

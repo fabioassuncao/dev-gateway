@@ -167,6 +167,33 @@ assert_contains "$(cat compose.web.yaml)" "./config/traefik/dynamic:/app/state/t
 it "no project directory is mounted into the panel"
 assert_eq "" "$(sed -n '/^    volumes:/,/^    networks:/p' compose.web.yaml | grep -E '^\s+- \./(examples|\.\.)' || true)"
 
+describe "the panel reads Traefik, and only reads it"
+
+traefik="web/src/server/core/traefik.ts"
+
+it "the client exists"
+assert_success test -f "$traefik"
+
+it "it reaches Traefik over the shared network, not the control one"
+assert_eq "" "$(grep -n 'control' web/src/server/config.ts | grep -i traefik || true)"
+
+it "and resolves the host from the attachment, because Traefik has no name of its own inside tailscale"
+assert_contains "$(cat web/src/server/config.ts)" "http://\${attached}:8080"
+
+for method in POST PUT PATCH DELETE; do
+  it "no $method is ever sent to the Traefik API"
+  assert_eq "" "$(grep -n "method: '$method'" "$traefik" || true)"
+done
+
+it "the dashboard is linked to, never embedded"
+assert_eq "" "$(grep -rn 'iframe' web/src/ui/ || true)"
+
+it "the verdict has its own timeout, so a dead Traefik cannot hang a request"
+assert_contains "$(cat "$traefik")" "AbortSignal.timeout"
+
+it "and its own cache, never the snapshot's"
+assert_contains "$(cat "$traefik")" "createVerdictCache"
+
 describe "the CLI and the panel render the same middleware, byte for byte"
 
 it "a drift between the two would lock the user out"

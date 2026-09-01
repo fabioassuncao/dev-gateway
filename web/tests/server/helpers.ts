@@ -6,6 +6,7 @@ import { createApp } from '../../src/server/app.ts'
 import { loadConfig, type PanelConfig } from '../../src/server/config.ts'
 import { createSnapshotCache } from '../../src/server/core/inventory.ts'
 import { LiveHub } from '../../src/server/core/events.ts'
+import { createVerdictCache } from '../../src/server/core/traefik.ts'
 import type { DockerClient, LogLine } from '../../src/server/docker/client.ts'
 import type {
   DockerContainerInspect,
@@ -232,8 +233,9 @@ export function makeApp(options: FakeDockerOptions = {}, configOverrides: Partia
   const config = testConfig(configOverrides)
   const cache = createSnapshotCache(docker.client, config, 0)
   const hub = new LiveHub(docker.client, cache)
-  const app: Hono = createApp({ config, client: docker.client, cache, hub })
-  return { app, docker, config, cache, hub }
+  const verdict = createVerdictCache(config, 0)
+  const app: Hono = createApp({ config, client: docker.client, cache, hub, verdict })
+  return { app, docker, config, cache, hub, verdict }
 }
 
 /** Same-origin by default: the API refuses cross-origin writes. */

@@ -65,6 +65,24 @@ While the version is `0.x`, minor releases may contain breaking changes.
   `--forge-ttl` seconds. No `gh`, a signed-out `gh` and a forge `gh` cannot talk
   to all render nothing rather than an error, and the repository link survives
   all three because it is derived from the remote.
+- **Traefik's own verdict on a route.** Opening a service shows the router
+  Traefik actually built, its rule, entrypoints, middlewares and resolved
+  backend, and its status with Traefik's own error text when it refused one.
+  That is the question labels cannot answer: the panel derives hostnames the
+  same way Traefik does and is right about them, so "the labels look right and
+  it still 404s" had nowhere to go.
+  - `doctor` gains two checks that use it: a routed service Traefik never built
+    a router for, and a router it refused, quoted rather than guessed at.
+  - Read-only, over the shared network the panel is already on and never over
+    `control`, which would put Traefik's read-only socket proxy within its
+    reach. The host is resolved from the attachment, since Traefik has no name
+    of its own inside the Tailscale namespace
+    ([ADR 0011](docs/adr/0011-panel-reads-traefik-writes-one-file.md)).
+  - Its own cache, its own timeout, and never on the path a page render waits
+    on. A dead Traefik API costs this block and nothing else.
+  - It needs `DEV_GATEWAY_DASHBOARD=true`, which is off by default, and the UI
+    then says the API **was not asked** rather than implying the labels were
+    confirmed. The dashboard is linked to, never embedded.
 - **Three optional labels, for the things inference cannot get right.**
   `dev-gateway.project` groups several worktrees under one heading when
   `COMPOSE_PROJECT_NAME` is a per-worktree namespace; `dev-gateway.repo`

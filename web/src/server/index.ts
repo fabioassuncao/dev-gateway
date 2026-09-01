@@ -9,6 +9,7 @@ import { isAuthenticated, loadConfig } from './config.ts'
 import { DockerClient } from './docker/client.ts'
 import { createSnapshotCache } from './core/inventory.ts'
 import { LiveHub } from './core/events.ts'
+import { createVerdictCache } from './core/traefik.ts'
 import { createApp } from './app.ts'
 import { GENERATED_FILES, reconcilePanelAuth } from './core/dynamic.ts'
 
@@ -33,8 +34,9 @@ if (rendered.written) {
 const client = new DockerClient(config.dockerApi)
 const cache = createSnapshotCache(client, config)
 const hub = new LiveHub(client, cache)
+const verdict = createVerdictCache(config)
 
-const app = createApp({ config, client, cache, hub })
+const app = createApp({ config, client, cache, hub, verdict })
 
 const indexHtml = join(config.uiDir, 'index.html')
 if (existsSync(indexHtml)) {

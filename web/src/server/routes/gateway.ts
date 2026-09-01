@@ -23,7 +23,10 @@ export function gatewayRoutes(deps: AppDeps): Hono {
   // certificate files, which this process cannot.
   app.post('/gateway/doctor', async (c) => {
     const snapshot = await deps.cache.get(true)
-    const checks = diagnose(snapshot, deps.config)
+    // Traefik's verdict is worth a network call here, where the user asked for
+    // diagnostics, and never on a page render.
+    const verdict = await deps.verdict.get(true)
+    const checks = diagnose(snapshot, deps.config, verdict)
     return c.json({
       checks,
       failures: checks.filter((check) => check.status === 'fail').length,
@@ -74,6 +77,12 @@ export function gatewayRoutes(deps: AppDeps): Hono {
       applyCommand: `./bin/dev-gateway up ${deps.config.profile}`,
     })
   })
+
+  /**
+   * Traefik's own routing table. The panel links into the dashboard rather than
+   * rebuilding it: this is the verdict, not a replacement view.
+   */
+  app.get('/gateway/traefik', async (c) => c.json(await deps.verdict.get()))
 
   app.get('/gateway/logs', async (c) => {
     const component = c.req.query('component') ?? 'traefik'
