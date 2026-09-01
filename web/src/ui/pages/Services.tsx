@@ -13,10 +13,12 @@ import { ContainerActions } from '../components/container-actions.tsx'
 import { ContainerDetails } from '../components/container-details.tsx'
 import { shortImage, uptime } from '../lib/format.ts'
 import { ServiceIcon } from '../components/service-icon.tsx'
+import { useDocumentTitle } from '../lib/title.ts'
 
 const SCOPES: UrlScope[] = ['local', 'vpn', 'public']
 
 export function Services() {
+  useDocumentTitle('Services')
   const [search, setSearch] = useState('')
   const [state, setState] = useState('all')
   const [details, setDetails] = useState<ContainerSummary | null>(null)

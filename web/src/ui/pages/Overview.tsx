@@ -8,8 +8,10 @@ import { Button } from '../components/ui/button.tsx'
 import { Empty, ErrorBox, KeyValue, Loading, PageHeader, StatTile } from '../components/shell-bits.tsx'
 import { AddressLine } from '../components/copy.tsx'
 import { ScopeBadge } from '../components/status.tsx'
+import { useDocumentTitle } from '../lib/title.ts'
 
 export function Overview() {
+  useDocumentTitle('Overview')
   const query = useQuery({ queryKey: ['status'], queryFn: api.overview })
 
   if (query.isPending) return <Loading label="Reading the gateway" />

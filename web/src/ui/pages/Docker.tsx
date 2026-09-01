@@ -13,6 +13,7 @@ import { ContainerActions } from '../components/container-actions.tsx'
 import { ContainerDetails } from '../components/container-details.tsx'
 import { bytes, shortImage, uptime } from '../lib/format.ts'
 import { ServiceIcon } from '../components/service-icon.tsx'
+import { useDocumentTitle } from '../lib/title.ts'
 
 const GROUPS: { ownership: Ownership; title: string; description: string }[] = [
   {
@@ -38,6 +39,7 @@ const GROUPS: { ownership: Ownership; title: string; description: string }[] = [
 ]
 
 export function DockerPage() {
+  useDocumentTitle('Docker')
   const [search, setSearch] = useState('')
   const [ownership, setOwnership] = useState<'all' | Ownership>('all')
   const [state, setState] = useState('all')

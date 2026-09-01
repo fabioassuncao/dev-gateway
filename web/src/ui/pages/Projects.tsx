@@ -17,8 +17,10 @@ import { shortImage, uptime } from '../lib/format.ts'
 import { navigate } from '../lib/router.ts'
 import { ServiceIcon } from '../components/service-icon.tsx'
 import { GitCard } from '../components/git-card.tsx'
+import { useDocumentTitle } from '../lib/title.ts'
 
 export function Projects({ selected }: { selected: string | null }) {
+  useDocumentTitle(selected ?? 'Projects')
   const [search, setSearch] = useState('')
   const query = useQuery({ queryKey: ['projects'], queryFn: api.projects })
 

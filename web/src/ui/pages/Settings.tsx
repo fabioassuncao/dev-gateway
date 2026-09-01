@@ -10,8 +10,10 @@ import { Input, Select } from '../components/ui/field.tsx'
 import { Switch } from '../components/ui/switch.tsx'
 import { ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
 import { CopyButton } from '../components/copy.tsx'
+import { useDocumentTitle } from '../lib/title.ts'
 
 export function Settings() {
+  useDocumentTitle('Settings')
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState<Record<string, string | null>>({})
   const [error, setError] = useState<unknown>(null)

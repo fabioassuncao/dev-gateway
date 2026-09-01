@@ -12,6 +12,7 @@ import { CopyButton } from '../components/copy.tsx'
 import { StateBadge } from '../components/status.tsx'
 import { expiresIn, shortImage } from '../lib/format.ts'
 import { ServiceIcon } from '../components/service-icon.tsx'
+import { useDocumentTitle } from '../lib/title.ts'
 
 /**
  * What the gateway can offer for this protocol. The point is to be plain about
@@ -68,6 +69,7 @@ function GatewayAddress({ service, enabled }: { service: TcpService; enabled: bo
 }
 
 export function Access() {
+  useDocumentTitle('Access')
   const queryClient = useQueryClient()
   const [error, setError] = useState<unknown>(null)
   const query = useQuery({ queryKey: ['access'], queryFn: api.access })

@@ -10,10 +10,12 @@ import { Empty, ErrorBox, KeyValue, Loading, PageHeader } from '../components/sh
 import { StateBadge } from '../components/status.tsx'
 import { LogViewer } from '../components/logs.tsx'
 import { relativeTime } from '../lib/format.ts'
+import { useDocumentTitle } from '../lib/title.ts'
 
 const COMPONENTS = ['traefik', 'socket-proxy', 'tailscale', 'db'] as const
 
 export function Gateway() {
+  useDocumentTitle('Gateway')
   const queryClient = useQueryClient()
   const [component, setComponent] = useState<string>('traefik')
   const [error, setError] = useState<unknown>(null)

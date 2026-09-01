@@ -7,6 +7,8 @@ import {
   LayoutDashboard,
   Moon,
   Network,
+  PanelLeftClose,
+  PanelLeftOpen,
   PlugZap,
   Settings as SettingsIcon,
   Sun,
@@ -15,6 +17,7 @@ import type { ComponentType } from 'react'
 import { useRoute, segments } from './lib/router.ts'
 import { useTheme } from './lib/theme.ts'
 import { useLive } from './lib/live.ts'
+import { useSidebarCollapsed } from './lib/sidebar.ts'
 import { api } from './lib/api.ts'
 import { cn } from './lib/utils.ts'
 import { Overview } from './pages/Overview.tsx'
@@ -46,6 +49,7 @@ const NAV: NavItem[] = [
 export function App() {
   const [path, go] = useRoute()
   const [theme, toggleTheme] = useTheme()
+  const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
   const live = useLive()
   const status = useQuery({ queryKey: ['status'], queryFn: api.overview })
 
@@ -54,8 +58,19 @@ export function App() {
 
   return (
     <div className="flex h-full min-h-0 flex-col md:flex-row">
-      <aside className="flex shrink-0 flex-col border-b border-line bg-surface md:w-52 md:border-r md:border-b-0">
-        <div className="flex items-center gap-2 px-4 py-3.5">
+      <aside
+        data-collapsed={sidebarCollapsed}
+        className={cn(
+          'flex shrink-0 flex-col border-b border-line bg-surface transition-[width] duration-200 md:border-r md:border-b-0',
+          sidebarCollapsed ? 'md:w-14' : 'md:w-52',
+        )}
+      >
+        <div
+          className={cn(
+            'flex items-center gap-2 px-4 py-3.5',
+            sidebarCollapsed && 'md:justify-center md:px-0',
+          )}
+        >
           <span
             className={cn(
               'h-2 w-2 rounded-full',
@@ -63,7 +78,7 @@ export function App() {
             )}
             title={gateway?.up ? 'Gateway up' : 'Gateway down'}
           />
-          <div className="min-w-0">
+          <div className={cn('min-w-0', sidebarCollapsed && 'md:hidden')}>
             <div className="text-sm font-semibold tracking-tight">Dev Gateway</div>
             <div className="truncate font-mono text-[11px] text-subtle">
               {gateway ? `${gateway.gatewayVersion} · ${gateway.profile}` : '…'}
@@ -71,7 +86,11 @@ export function App() {
           </div>
         </div>
 
-        <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:overflow-visible scroll-thin">
+        <nav
+          id="section-navigation"
+          aria-label="Sections"
+          className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:overflow-visible scroll-thin"
+        >
           {NAV.map((item) => {
             const Icon = item.icon
             const active = root === item.path
@@ -79,19 +98,28 @@ export function App() {
               <button
                 key={item.path}
                 onClick={() => go(item.path)}
+                aria-label={item.label}
+                aria-current={active ? 'page' : undefined}
+                title={item.label}
                 className={cn(
                   'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors',
+                  sidebarCollapsed && 'md:justify-center md:px-0',
                   active ? 'bg-accent/12 font-medium text-accent' : 'text-muted hover:bg-surface-2 hover:text-ink',
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                {item.label}
+                <span className={cn(sidebarCollapsed && 'md:sr-only')}>{item.label}</span>
               </button>
             )
           })}
         </nav>
 
-        <div className="mt-auto hidden items-center justify-between gap-2 border-t border-line px-3 py-2 md:flex">
+        <div
+          className={cn(
+            'mt-auto hidden items-center justify-between gap-2 border-t border-line px-3 py-2 md:flex',
+            sidebarCollapsed && 'md:flex-col md:px-2',
+          )}
+        >
           <span
             className="flex items-center gap-1.5 text-[11px] text-subtle"
             title="Live updates come from Docker events"
@@ -102,16 +130,32 @@ export function App() {
                 live.state === 'live' ? 'bg-ok' : live.state === 'connecting' ? 'bg-warn' : 'bg-danger',
               )}
             />
-            {live.state}
+            <span className={cn(sidebarCollapsed && 'md:sr-only')}>{live.state}</span>
           </span>
-          <button
-            onClick={toggleTheme}
-            className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"
-            aria-label="Toggle theme"
-            title="Toggle theme"
-          >
-            {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-          </button>
+          <div className={cn('flex items-center gap-1', sidebarCollapsed && 'md:flex-col')}>
+            <button
+              onClick={toggleTheme}
+              className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"
+              aria-label="Toggle theme"
+              title="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              onClick={toggleSidebar}
+              className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"
+              aria-controls="section-navigation"
+              aria-expanded={!sidebarCollapsed}
+              aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {sidebarCollapsed ? (
+                <PanelLeftOpen className="h-3.5 w-3.5" />
+              ) : (
+                <PanelLeftClose className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </div>
         </div>
       </aside>
 

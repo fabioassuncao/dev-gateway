@@ -18,6 +18,43 @@ test.describe('the panel end to end', () => {
     await expect(page.getByText('http://alpha-web.localhost')).toBeVisible()
   })
 
+  test('every section owns its title and project context can refine it', async ({ page }) => {
+    await page.goto('/#/overview')
+
+    const sections = ['Overview', 'Projects', 'Services', 'Docker', 'Network', 'Access', 'Gateway', 'Settings']
+    for (const section of sections) {
+      await page.getByRole('button', { name: section, exact: true }).click()
+      await expect(page).toHaveTitle(`${section} · Dev Gateway`)
+    }
+
+    await page.goto('/#/projects/alpha')
+    await expect(page).toHaveTitle('alpha · Dev Gateway')
+  })
+
+  test('the favicon is a built local SVG', async ({ request }) => {
+    const response = await request.get('/favicon.svg')
+    expect(response.ok()).toBe(true)
+    expect(response.headers()['content-type']).toContain('image/svg+xml')
+    expect(await response.text()).toContain('<svg')
+  })
+
+  test('the sidebar remembers its width without changing mobile navigation', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await page.goto('/#/overview')
+
+    await page.getByRole('button', { name: 'Collapse sidebar' }).click()
+    await expect(page.getByRole('complementary')).toHaveAttribute('data-collapsed', 'true')
+    await expect(page.getByRole('button', { name: 'Projects' })).toHaveAttribute('title', 'Projects')
+
+    await page.reload()
+    await expect(page.getByRole('button', { name: 'Expand sidebar' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
+
+    await page.setViewportSize({ width: 375, height: 700 })
+    await expect(page.getByRole('button', { name: 'Projects' })).toContainText('Projects')
+    await expect(page.getByRole('button', { name: 'Expand sidebar' })).toBeHidden()
+  })
+
   test('a URL can be copied in one click', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await page.goto('/')

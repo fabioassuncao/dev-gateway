@@ -6,6 +6,7 @@ import { Table, Td, Th, Tr } from '../components/ui/table.tsx'
 import { Empty, ErrorBox, KeyValue, Loading, PageHeader } from '../components/shell-bits.tsx'
 import { AddressLine } from '../components/copy.tsx'
 import { ScopeBadge, StateBadge } from '../components/status.tsx'
+import { useDocumentTitle } from '../lib/title.ts'
 
 const ROLE_TONE = {
   shared: 'accent',
@@ -16,6 +17,7 @@ const ROLE_TONE = {
 } as const
 
 export function NetworkPage() {
+  useDocumentTitle('Network')
   const query = useQuery({ queryKey: ['network'], queryFn: api.network })
 
   if (query.isPending) return <Loading />
