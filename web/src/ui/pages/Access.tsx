@@ -11,6 +11,7 @@ import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.t
 import { CopyButton } from '../components/copy.tsx'
 import { StateBadge } from '../components/status.tsx'
 import { expiresIn, shortImage } from '../lib/format.ts'
+import { ServiceIcon } from '../components/service-icon.tsx'
 
 /**
  * What the gateway can offer for this protocol. The point is to be plain about
@@ -214,7 +215,12 @@ export function Access() {
               {services.map((service) => (
                 <Tr key={service.containerId}>
                   <Td className="text-xs text-muted">{service.project}</Td>
-                  <Td className="font-medium">{service.service}</Td>
+                  <Td>
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <ServiceIcon tech={service.tech} />
+                      {service.service}
+                    </span>
+                  </Td>
                   <Td>
                     <Badge tone={service.kind === 'tcp' ? 'neutral' : 'info'}>{service.kind}</Badge>
                   </Td>

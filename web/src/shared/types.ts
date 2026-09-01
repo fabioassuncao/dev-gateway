@@ -4,6 +4,14 @@
 
 export type Ownership = 'gateway' | 'integrated' | 'external' | 'standalone'
 
+/** Brand or runtime identity behind a container, used to pick a panel icon. */
+export interface ServiceTech {
+  /** Stable key used to pick an icon, e.g. `postgres`, `nginx`, `docker`. */
+  id: string
+  /** Short human label shown next to the icon. */
+  label: string
+}
+
 export type ContainerState =
   | 'created'
   | 'running'
@@ -77,6 +85,8 @@ export interface ContainerSummary {
   ports: PublishedPort[]
   exposedPorts: number[]
   kind: ServiceKind
+  /** Brand/runtime identity for the panel icon. Never replaces the name. */
+  tech: ServiceTech
   urls: RouteUrl[]
   mounts: MountSummary[]
   labels: Record<string, string>
@@ -225,6 +235,7 @@ export interface TcpService {
   service: string
   image: string
   kind: ServiceKind
+  tech: ServiceTech
   state: ContainerState
   health: Health
   ports: number[]

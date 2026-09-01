@@ -12,6 +12,7 @@ import { ScopeBadge, StateBadge } from '../components/status.tsx'
 import { ContainerActions } from '../components/container-actions.tsx'
 import { ContainerDetails } from '../components/container-details.tsx'
 import { shortImage, uptime } from '../lib/format.ts'
+import { ServiceIcon } from '../components/service-icon.tsx'
 
 const SCOPES: UrlScope[] = ['local', 'vpn', 'public']
 
@@ -98,10 +99,11 @@ export function Services() {
                   <Td className="text-xs text-muted">{service.project}</Td>
                   <Td>
                     <button
-                      className="text-left font-medium text-ink hover:text-accent"
+                      className="flex items-center gap-1.5 text-left font-medium text-ink hover:text-accent"
                       onClick={() => setDetails(service)}
                     >
-                      {service.service ?? service.name}
+                      <ServiceIcon tech={service.tech} />
+                      <span>{service.service ?? service.name}</span>
                     </button>
                   </Td>
                   <Td className="font-mono text-xs text-muted">{shortImage(service.image)}</Td>

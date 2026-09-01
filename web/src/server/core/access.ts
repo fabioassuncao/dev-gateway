@@ -157,6 +157,7 @@ export function listTcpServices(snapshot: Snapshot, config: PanelConfig): TcpSer
         service: container.service ?? '',
         image: container.image,
         kind,
+        tech: container.tech,
         routing: tcpRouting(kind),
         routed: isTcpRouted(container),
         gatewayAddress: gateway?.address ?? null,

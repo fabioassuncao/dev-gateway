@@ -1,10 +1,13 @@
 import type { ContainerSummary, DockerHost } from '../../src/shared/types.ts'
+import { resolveServiceTech } from '../../src/server/core/tech.ts'
 
 export function makeContainer(overrides: Partial<ContainerSummary> = {}): ContainerSummary {
-  return {
+  const image = overrides.image ?? 'nginx:1.31.4-alpine'
+  const service = overrides.service ?? null
+  const base: ContainerSummary = {
     id: 'c1',
     name: 'container-1',
-    image: 'nginx:1.31.4-alpine',
+    image,
     state: 'running',
     status: 'Up 3 hours',
     health: 'none',
@@ -14,7 +17,7 @@ export function makeContainer(overrides: Partial<ContainerSummary> = {}): Contai
     ownership: 'external',
     gatewayComponent: null,
     project: null,
-    service: null,
+    service,
     workingDir: null,
     namespace: null,
     networks: ['bridge'],
@@ -23,13 +26,18 @@ export function makeContainer(overrides: Partial<ContainerSummary> = {}): Contai
     ports: [],
     exposedPorts: [],
     kind: 'tcp',
+    tech: resolveServiceTech({ image, service }),
     urls: [],
     mounts: [],
     labels: {},
     restartCount: 0,
     exitCode: null,
-    ...overrides,
   }
+  return { ...base, ...overrides, tech: overrides.tech ?? resolveServiceTech({
+    image: overrides.image ?? base.image,
+    service: overrides.service ?? base.service,
+    labels: overrides.labels ?? base.labels,
+  }) }
 }
 
 export const CONTAINERS: ContainerSummary[] = [

@@ -73,6 +73,41 @@ describe('the Projects page', () => {
     }
   })
 
+  it('keeps the service name next to a technology icon', async () => {
+    renderWithQuery(<Projects selected={null} />)
+    await screen.findByText('alpha')
+    const services = screen.getAllByRole('table')[0] as HTMLElement
+    const postgres = within(services).getByRole('button', { name: 'postgres' })
+    expect(postgres.querySelector('svg')).not.toBeNull()
+    expect(postgres).toHaveTextContent('postgres')
+  })
+
+  it('falls back to a generic mark for opaque images', async () => {
+    projects.mockResolvedValue([
+      {
+        ...alpha,
+        services: [
+          makeContainer({
+            id: 'a-web',
+            name: 'alpha-web-1',
+            image: 'traefik/whoami:v1.12.0',
+            project: 'alpha',
+            service: 'web',
+            ownership: 'integrated',
+            traefikEnabled: true,
+            kind: 'http',
+          }),
+        ],
+        serviceCount: 1,
+        runningCount: 1,
+      },
+    ])
+    renderWithQuery(<Projects selected={null} />)
+    const button = await screen.findByRole('button', { name: 'web' })
+    expect(button.querySelector('svg')).not.toBeNull()
+    expect(button).toHaveTextContent('web')
+  })
+
   it('flags the worktree and the unhealthy service', async () => {
     renderWithQuery(<Projects selected={null} />)
     expect(await screen.findByText('worktree: beta-issue59')).toBeInTheDocument()

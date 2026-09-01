@@ -12,6 +12,7 @@ import { OwnershipBadge, StateBadge } from '../components/status.tsx'
 import { ContainerActions } from '../components/container-actions.tsx'
 import { ContainerDetails } from '../components/container-details.tsx'
 import { bytes, shortImage, uptime } from '../lib/format.ts'
+import { ServiceIcon } from '../components/service-icon.tsx'
 
 const GROUPS: { ownership: Ownership; title: string; description: string }[] = [
   {
@@ -287,10 +288,11 @@ function ContainerGroup({
             <Tr key={container.id}>
               <Td>
                 <button
-                  className="text-left font-medium text-ink hover:text-accent"
+                  className="flex items-center gap-1.5 text-left font-medium text-ink hover:text-accent"
                   onClick={() => onDetails(container)}
                 >
-                  {container.name}
+                  <ServiceIcon tech={container.tech} />
+                  <span>{container.name}</span>
                 </button>
                 <div className="mt-0.5">
                   <OwnershipBadge ownership={container.ownership} />

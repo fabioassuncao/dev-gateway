@@ -16,6 +16,7 @@ import type { PanelConfig } from '../config.ts'
 import { schemeFor } from '../config.ts'
 import { LABELS, relevantLabels } from './labels.ts'
 import { serviceKind } from './kinds.ts'
+import { resolveServiceTech } from './tech.ts'
 import { slug } from './slug.ts'
 import type {
   ContainerState,
@@ -233,6 +234,7 @@ export function summarise(
     ports: publishedPorts(inspect, item),
     exposedPorts: exposedPorts(inspect),
     kind: labels[LABELS.traefikEnable] === 'true' ? 'http' : serviceKind(image),
+    tech: resolveServiceTech({ image, service, labels }),
     urls: urlsFor(labels, name, config),
     mounts: (inspect?.Mounts ?? item.Mounts ?? []).map((mount) => ({
       type: mount.Type,

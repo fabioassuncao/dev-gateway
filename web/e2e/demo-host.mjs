@@ -17,6 +17,7 @@ const DAY = 24 * HOUR
 const WHOAMI = 'traefik/whoami:v1.12.0'
 const POSTGRES = 'postgres:18.6-alpine'
 const REDIS = 'redis:8.10.1-alpine'
+const NGINX = 'nginx:1.31.4-alpine'
 
 export function initialState() {
   return [
@@ -67,7 +68,7 @@ export function initialState() {
     makeContainer({
       id: 'sfweb',
       name: 'storefront-web-1',
-      image: WHOAMI,
+      image: NGINX,
       health: 'healthy',
       networks: ['dev-gateway', 'storefront_default'],
       exposed: [3000],
@@ -252,6 +253,40 @@ export function initialState() {
       upSeconds: 26 * HOUR,
     }),
 
+    makeContainer({
+      id: 'ckmail',
+      name: 'checkout-mailpit-1',
+      image: 'axllent/mailpit:v1.31.0',
+      health: 'healthy',
+      networks: ['dev-gateway', 'checkout_default'],
+      exposed: [8025, 1025],
+      labels: composeLabels({
+        project: 'checkout',
+        service: 'mailpit',
+        workingDir: '/Projects/checkout',
+        routed: true,
+        port: 8025,
+      }),
+      upSeconds: 26 * HOUR,
+    }),
+    makeContainer({
+      id: 'ckrustfs',
+      name: 'checkout-rustfs-1',
+      image: 'rustfs/rustfs:1.0.0-rc.4',
+      health: 'healthy',
+      networks: ['dev-gateway', 'checkout_default'],
+      exposed: [9000, 9001],
+      labels: composeLabels({
+        project: 'checkout',
+        service: 'rustfs',
+        workingDir: '/Projects/checkout',
+        routed: true,
+        port: 9001,
+      }),
+      mounts: [volume('checkout_rustfsdata', '/data')],
+      upSeconds: 26 * HOUR,
+    }),
+
     // ---- a stack that never adopted the gateway -----------------------
     makeContainer({
       id: 'lgapi',
@@ -288,7 +323,7 @@ export function initialState() {
     makeContainer({
       id: 'mailpit',
       name: 'mailpit',
-      image: 'axllent/mailpit:v1.20.0',
+      image: 'axllent/mailpit:v1.31.0',
       health: 'healthy',
       networks: ['bridge'],
       exposed: [1025],

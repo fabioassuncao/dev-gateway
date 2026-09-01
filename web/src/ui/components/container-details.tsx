@@ -6,6 +6,7 @@ import { KeyValue } from './shell-bits.tsx'
 import { OwnershipBadge, ScopeBadge, StateBadge } from './status.tsx'
 import { AddressLine, Mono } from './copy.tsx'
 import { bytes, shortId, uptime } from '../lib/format.ts'
+import { ServiceIcon } from './service-icon.tsx'
 
 export function ContainerDetails({
   container,
@@ -27,8 +28,13 @@ export function ContainerDetails({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={container.name}
-      description={container.image}
+      title={
+        <span className="flex items-center gap-2">
+          <ServiceIcon tech={container.tech} className="text-ink" />
+          <span>{container.name}</span>
+        </span>
+      }
+      description={`${container.tech.label} · ${container.image}`}
       className="w-[min(94vw,46rem)]"
     >
       <dl className="divide-y divide-line/60">

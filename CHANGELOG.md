@@ -50,6 +50,10 @@ While the version is `0.x`, minor releases may contain breaking changes.
   panel against a fixed host (`cd web && npm run screenshots`) rather than
   taken by hand, so they stay in step with the UI and never contain whatever
   happened to be running on the machine that produced them.
+  - Each service carries the mark of the technology behind it, resolved from
+    the image, then the Compose service name, then the OCI title label, and
+    falling back to a generic container mark. It sits next to the name, never
+    instead of it, and is decorative: screen readers read the name only.
 
 - **Databases told apart by hostname, on one shared port.** With
   `DEV_GATEWAY_TCP=true` the gateway publishes one entrypoint per protocol and

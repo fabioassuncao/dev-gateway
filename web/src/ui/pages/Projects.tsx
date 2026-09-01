@@ -15,6 +15,7 @@ import { ContainerActions } from '../components/container-actions.tsx'
 import { ContainerDetails } from '../components/container-details.tsx'
 import { shortImage, uptime } from '../lib/format.ts'
 import { navigate } from '../lib/router.ts'
+import { ServiceIcon } from '../components/service-icon.tsx'
 
 export function Projects({ selected }: { selected: string | null }) {
   const [search, setSearch] = useState('')
@@ -150,10 +151,11 @@ function ProjectCard({ project }: { project: Project }) {
             <Tr key={service.id}>
               <Td>
                 <button
-                  className="text-left font-medium text-ink hover:text-accent"
+                  className="flex items-center gap-1.5 text-left font-medium text-ink hover:text-accent"
                   onClick={() => setDetails(service)}
                 >
-                  {service.service ?? service.name}
+                  <ServiceIcon tech={service.tech} />
+                  <span>{service.service ?? service.name}</span>
                 </button>
                 <div className="text-[11px] text-subtle">
                   {service.traefikEnabled ? 'http' : service.kind}
