@@ -1,52 +1,52 @@
 {
-  "title": "Network",
-  "description": "Domains, routes, DNS, TLS and the Docker networks behind them.",
+  "title": "Rede",
+  "description": "Domínios, rotas, DNS, TLS e as redes Docker por trás delas.",
   "domains": {
-    "title": "Domains",
-    "routedDomain": "Routed domain",
-    "vpnDomain": "VPN domain",
-    "publicDomain": "Public domain",
-    "scheme": "Scheme"
+    "title": "Domínios",
+    "routedDomain": "Domínio roteado",
+    "vpnDomain": "Domínio VPN",
+    "publicDomain": "Domínio público",
+    "scheme": "Esquema"
   },
   "tls": {
     "title": "TLS",
     "https": "HTTPS",
-    "mode": "Mode",
-    "acmeContact": "ACME contact",
-    "directory": "Directory"
+    "mode": "Modo",
+    "acmeContact": "Contato ACME",
+    "directory": "Diretório"
   },
   "vpnDns": {
-    "title": "VPN and DNS",
+    "title": "VPN e DNS",
     "tailscale": "Tailscale",
-    "tailnetHostname": "Tailnet hostname",
-    "dnsProvider": "DNS-01 provider",
+    "tailnetHostname": "Hostname da tailnet",
+    "dnsProvider": "Provedor DNS-01",
     "cloudflare": "Cloudflare"
   },
   "routes": {
-    "title": "Routes",
-    "description": "Derived from Docker labels, exactly like Traefik derives them.",
-    "empty": "No service is routed yet",
-    "project": "Project",
-    "service": "Service",
+    "title": "Rotas",
+    "description": "Derivadas de labels Docker, exatamente como o Traefik as deriva.",
+    "empty": "Nenhum serviço está roteado ainda",
+    "project": "Projeto",
+    "service": "Serviço",
     "status": "Status",
-    "targetPort": "Target port",
-    "addresses": "Addresses"
+    "targetPort": "Porta de destino",
+    "addresses": "Endereços"
   },
   "networks": {
-    "title": "Docker networks",
-    "name": "Name",
-    "role": "Role",
+    "title": "Redes Docker",
+    "name": "Nome",
+    "role": "Papel",
     "driver": "Driver",
     "containers": "Containers",
     "flags": "Flags",
-    "internal": "internal",
+    "internal": "interna",
     "gateway": "gateway",
     "roles": {
-      "shared": "shared",
-      "control": "control",
-      "access": "access",
-      "project": "project",
-      "other": "other"
+      "shared": "compartilhada",
+      "control": "controle",
+      "access": "acesso",
+      "project": "projeto",
+      "other": "outra"
     }
   }
 }

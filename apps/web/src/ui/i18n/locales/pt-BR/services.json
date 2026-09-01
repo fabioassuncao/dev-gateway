@@ -1,19 +1,19 @@
 {
-  "title": "Services",
-  "description": "Every service of every integrated project, and how to reach it.",
-  "filterAria": "Filter services",
-  "searchPlaceholder": "Search service, image, hostname",
-  "searchAria": "Search services",
-  "empty": "No service matches the filters",
+  "title": "Serviços",
+  "description": "Todos os serviços de cada projeto integrado e como alcançá-los.",
+  "filterAria": "Filtrar serviços",
+  "searchPlaceholder": "Buscar serviço, imagem, hostname",
+  "searchAria": "Buscar serviços",
+  "empty": "Nenhum serviço corresponde aos filtros",
   "table": {
-    "project": "Project",
-    "service": "Service",
-    "state": "State",
-    "health": "Health",
-    "image": "Image",
-    "uptime": "Uptime",
+    "project": "Projeto",
+    "service": "Serviço",
+    "state": "Estado",
+    "health": "Saúde",
+    "image": "Imagem",
+    "uptime": "Tempo ativo",
     "urls": "URLs",
-    "actions": "Actions"
+    "actions": "Ações"
   },
   "filters": {
     "http": "HTTP",

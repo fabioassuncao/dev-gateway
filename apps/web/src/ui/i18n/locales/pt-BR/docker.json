@@ -1,62 +1,62 @@
 {
   "title": "Docker",
-  "description": "Every container on this machine, whether or not the gateway knows about it.",
-  "filterOwnership": "Filter by ownership",
-  "filterState": "Filter by state",
-  "searchPlaceholder": "Search container, image, project",
-  "searchAria": "Search containers",
+  "description": "Todos os containers desta máquina, com ou sem conhecimento do gateway.",
+  "filterOwnership": "Filtrar por propriedade",
+  "filterState": "Filtrar por estado",
+  "searchPlaceholder": "Buscar container, imagem, projeto",
+  "searchAria": "Buscar containers",
   "stats": {
-    "running": "Running",
+    "running": "Em execução",
     "gateway": "Dev Gateway",
-    "integrated": "Integrated",
-    "external": "External",
-    "networks": "Networks",
-    "portConflicts": "Port conflicts"
+    "integrated": "Integrados",
+    "external": "Externos",
+    "networks": "Redes",
+    "portConflicts": "Conflitos de porta"
   },
   "groups": {
     "gateway": {
       "title": "Dev Gateway",
-      "description": "The gateway's own infrastructure."
+      "description": "A infraestrutura própria do gateway."
     },
     "integrated": {
-      "title": "Integrated projects",
-      "description": "Compose projects the gateway manages."
+      "title": "Projetos integrados",
+      "description": "Projetos Compose gerenciados pelo gateway."
     },
     "external": {
-      "title": "External Docker",
-      "description": "Compose projects on this host that the gateway does not manage."
+      "title": "Docker externo",
+      "description": "Projetos Compose neste host que o gateway não gerencia."
     },
     "standalone": {
-      "title": "Standalone containers",
-      "description": "Started by hand, outside any Compose project."
+      "title": "Containers avulsos",
+      "description": "Iniciados manualmente, fora de qualquer projeto Compose."
     }
   },
-  "empty": "No container matches the filters",
+  "empty": "Nenhum container corresponde aos filtros",
   "containers": "Containers",
   "publishedPorts": {
-    "title": "Published ports",
-    "description": "Useful for spotting the container that already holds the port you need.",
-    "empty": "Nothing is published on the host",
-    "aria": "Published ports",
-    "hostPort": "Host port",
-    "protocol": "Protocol",
+    "title": "Portas publicadas",
+    "description": "Útil para identificar o container que já ocupa a porta que você precisa.",
+    "empty": "Nada está publicado no host",
+    "aria": "Portas publicadas",
+    "hostPort": "Porta do host",
+    "protocol": "Protocolo",
     "container": "Container",
-    "conflict": "Conflict"
+    "conflict": "Conflito"
   },
   "engine": {
     "title": "Engine",
     "docker": "Docker",
     "host": "Host",
-    "platform": "Platform",
-    "resources": "Resources"
+    "platform": "Plataforma",
+    "resources": "Recursos"
   },
   "table": {
-    "name": "Name",
-    "state": "State",
-    "health": "Health",
-    "image": "Image",
-    "project": "Project",
-    "ports": "Ports",
-    "actions": "Actions"
+    "name": "Nome",
+    "state": "Estado",
+    "health": "Saúde",
+    "image": "Imagem",
+    "project": "Projeto",
+    "ports": "Portas",
+    "actions": "Ações"
   }
 }

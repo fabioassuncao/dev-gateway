@@ -1,191 +1,191 @@
 {
-  "title": "Settings",
-  "description": "The gateway's .env, edited through a fixed list of keys.",
-  "saved": "Saved. Traefik reads its static configuration at startup, so these values take effect once the gateway containers are recreated on the host:",
-  "notWritable": "The panel cannot write {{path}}. Edit it on the host instead.",
-  "sectionNotFound": "Settings section “{{group}}” does not exist",
-  "chooseGroup": "Choose one of the available groups.",
-  "secretsNote": "Secrets are never returned by the API: the panel only reports whether a token is set. Values are written to {{path}} with mode 600.",
+  "title": "Configurações",
+  "description": "O .env do gateway, editado por uma lista fixa de chaves.",
+  "saved": "Salvo. O Traefik lê a configuração estática na inicialização; estes valores passam a valer quando os containers do gateway forem recriados no host:",
+  "notWritable": "O painel não pode gravar {{path}}. Edite no host.",
+  "sectionNotFound": "A seção de configurações “{{group}}” não existe",
+  "chooseGroup": "Escolha um dos grupos disponíveis.",
+  "secretsNote": "Segredos nunca são retornados pela API: o painel só informa se um token está definido. Valores são gravados em {{path}} com mode 600.",
   "groups": {
     "Gateway": "Gateway",
     "Traefik": "Traefik",
     "TLS": "TLS",
     "VPN": "VPN",
-    "Public access": "Public access",
+    "Public access": "Acesso público",
     "DNS": "DNS",
-    "Panel": "Panel",
+    "Panel": "Painel",
     "GitHub": "GitHub"
   },
   "fields": {
     "DEV_GATEWAY_PROFILE": {
-      "label": "Profile",
-      "help": "Which set of Compose overlays the gateway starts with."
+      "label": "Perfil",
+      "help": "Conjunto de overlays Compose com que o gateway inicia."
     },
     "DEV_GATEWAY_DOMAIN": {
-      "label": "Local domain",
-      "help": "Base domain for generated hostnames: <project>-<service>.<domain>."
+      "label": "Domínio local",
+      "help": "Domínio base para hostnames gerados: <project>-<service>.<domain>."
     },
     "DEV_GATEWAY_BIND_ADDRESS": {
-      "label": "Bind address",
-      "help": "Host interface Traefik publishes on. 127.0.0.1 keeps it off the local network."
+      "label": "Endereço de bind",
+      "help": "Interface do host em que o Traefik publica. 127.0.0.1 mantém fora da rede local."
     },
     "DEV_GATEWAY_HTTP_PORT": {
-      "label": "HTTP port",
-      "help": "Host port for plain HTTP."
+      "label": "Porta HTTP",
+      "help": "Porta do host para HTTP simples."
     },
     "DEV_GATEWAY_HTTPS_PORT": {
-      "label": "HTTPS port",
-      "help": "Host port for HTTPS."
+      "label": "Porta HTTPS",
+      "help": "Porta do host para HTTPS."
     },
     "DEV_GATEWAY_LOG_LEVEL": {
-      "label": "Log level",
-      "help": "Log level for the gateway components."
+      "label": "Nível de log",
+      "help": "Nível de log dos componentes do gateway."
     },
     "DEV_GATEWAY_ACCESS_LOG": {
-      "label": "Traefik access log",
-      "help": "Useful while debugging routing, noisy otherwise."
+      "label": "Log de acesso do Traefik",
+      "help": "Útil ao depurar roteamento; ruidoso no resto do tempo."
     },
     "DEV_GATEWAY_DASHBOARD": {
-      "label": "Traefik dashboard",
-      "help": "Traefik's own dashboard, published on loopback only."
+      "label": "Dashboard do Traefik",
+      "help": "Dashboard próprio do Traefik, publicado apenas em loopback."
     },
     "DEV_GATEWAY_DASHBOARD_PORT": {
-      "label": "Dashboard port",
-      "help": "Host port for the Traefik dashboard."
+      "label": "Porta do dashboard",
+      "help": "Porta do host para o dashboard do Traefik."
     },
     "TLS_ENABLED": {
       "label": "HTTPS",
-      "help": "Master switch. With it off, only the HTTP entrypoint serves routes."
+      "help": "Interruptor principal. Desligado, só o entrypoint HTTP atende rotas."
     },
     "TLS_MODE": {
-      "label": "TLS mode",
-      "help": "local uses a certificate from a local CA; acme uses Let's Encrypt over DNS-01."
+      "label": "Modo TLS",
+      "help": "local usa certificado de uma CA local; acme usa Let's Encrypt via DNS-01."
     },
     "ACME_EMAIL": {
-      "label": "ACME contact",
-      "help": "Required when TLS_MODE=acme."
+      "label": "Contato ACME",
+      "help": "Obrigatório quando TLS_MODE=acme."
     },
     "ACME_CA_SERVER": {
-      "label": "ACME directory",
-      "help": "Point at the staging endpoint while testing to avoid rate limits."
+      "label": "Diretório ACME",
+      "help": "Aponte para o endpoint de staging ao testar, para evitar rate limits."
     },
     "ACME_DNS_PROVIDER": {
-      "label": "DNS-01 provider",
-      "help": "Provider name as understood by Traefik/lego."
+      "label": "Provedor DNS-01",
+      "help": "Nome do provedor como o Traefik/lego entende."
     },
     "TAILSCALE_ENABLED": {
       "label": "Tailscale",
-      "help": "Run Traefik inside the Tailscale container's network namespace."
+      "help": "Executa o Traefik no namespace de rede do container Tailscale."
     },
     "TAILSCALE_HOSTNAME": {
-      "label": "Tailscale hostname",
-      "help": "Name this node takes on the tailnet."
+      "label": "Hostname Tailscale",
+      "help": "Nome que este nó assume na tailnet."
     },
     "TS_AUTHKEY": {
-      "label": "Tailscale auth key",
-      "help": "Prefer an ephemeral, tagged, pre-authorised key. Never leaves the host."
+      "label": "Chave de autenticação Tailscale",
+      "help": "Prefira uma chave efêmera, com tag e pré-autorizada. Nunca sai do host."
     },
     "PRIVATE_DOMAIN": {
-      "label": "VPN domain",
-      "help": "Private wildcard namespace served only over the VPN."
+      "label": "Domínio VPN",
+      "help": "Namespace wildcard privado atendido apenas pela VPN."
     },
     "PUBLIC_ENABLED": {
-      "label": "Public access",
-      "help": "Publishes 80/443 on every interface. Only opted-in HTTP services are routed."
+      "label": "Acesso público",
+      "help": "Publica 80/443 em todas as interfaces. Só serviços HTTP opt-in são roteados."
     },
     "PUBLIC_DOMAIN": {
-      "label": "Public domain",
-      "help": "Public wildcard namespace, for example dev.example.com."
+      "label": "Domínio público",
+      "help": "Namespace wildcard público, por exemplo dev.example.com."
     },
     "CLOUDFLARE_ENABLED": {
-      "label": "Cloudflare DNS",
-      "help": "Use Cloudflare for the wildcard record and DNS-01 challenges."
+      "label": "DNS Cloudflare",
+      "help": "Usa Cloudflare para o registro wildcard e desafios DNS-01."
     },
     "CLOUDFLARE_ZONE": {
-      "label": "Cloudflare zone",
-      "help": "The zone the wildcard record lives in."
+      "label": "Zona Cloudflare",
+      "help": "Zona em que o registro wildcard reside."
     },
     "CF_DNS_API_TOKEN": {
-      "label": "Cloudflare API token",
-      "help": "A scoped token (Zone:DNS:Edit), never the global API key."
+      "label": "Token de API Cloudflare",
+      "help": "Token com escopo (Zone:DNS:Edit), nunca a chave global de API."
     },
     "DEV_GATEWAY_WEB_PORT": {
-      "label": "Panel port",
-      "help": "Host port this panel is published on."
+      "label": "Porta do painel",
+      "help": "Porta do host em que este painel é publicado."
     },
     "DEV_GATEWAY_WEB_BIND_ADDRESS": {
-      "label": "Panel bind address",
-      "help": "Keep 127.0.0.1: the panel is never meant to face the internet."
+      "label": "Endereço de bind do painel",
+      "help": "Mantenha 127.0.0.1: o painel nunca deve ficar exposto à internet."
     },
     "DEV_GATEWAY_WEB_EXPOSE": {
-      "label": "Reachable from",
-      "help": "local is loopback only. vpn adds a Traefik router, and requires panel authentication."
+      "label": "Acessível a partir de",
+      "help": "local é só loopback. vpn adiciona um router Traefik e exige autenticação do painel."
     },
     "DEV_GATEWAY_WEB_READ_ONLY": {
-      "label": "Read-only",
-      "help": "Refuse every mutating endpoint. The default whenever the panel is routed."
+      "label": "Somente leitura",
+      "help": "Recusa todo endpoint mutável. Padrão sempre que o painel é roteado."
     },
     "DEV_GATEWAY_WEB_AUTH": {
-      "label": "Panel authentication",
-      "help": "basic puts a Traefik BasicAuth middleware in front of the panel. Required once it is routed."
+      "label": "Autenticação do painel",
+      "help": "basic coloca um middleware Traefik BasicAuth na frente do painel. Obrigatório quando roteado."
     },
     "DEV_GATEWAY_WEB_AUTH_USER": {
-      "label": "Panel username",
-      "help": "The user half of the credential. `dev-gateway web auth set` writes both."
+      "label": "Usuário do painel",
+      "help": "Metade usuário da credencial. `dev-gateway web auth set` grava ambos."
     },
     "DEV_GATEWAY_WEB_AUTH_HASH": {
-      "label": "Panel password hash",
-      "help": "A hash, never a password. Generate one with `dev-gateway web auth set`."
+      "label": "Hash da senha do painel",
+      "help": "Um hash, nunca uma senha. Gere com `dev-gateway web auth set`."
     },
     "DG_WEB_API_DOCS": {
-      "label": "API browser",
-      "help": "Serve the offline API browser. Empty uses the safe default: on for loopback, off when routed."
+      "label": "Navegador de API",
+      "help": "Serve o navegador de API offline. Vazio usa o padrão seguro: ligado em loopback, desligado quando roteado."
     },
     "DG_WEB_DB_PASSWORD": {
-      "label": "Database password",
-      "help": "Generated bootstrap credential for the panel-owned PostgreSQL database."
+      "label": "Senha do banco de dados",
+      "help": "Credencial bootstrap gerada para o PostgreSQL do painel."
     },
     "GITHUB_APP_ENABLED": {
       "label": "GitHub App",
-      "help": "Off by default. With this off the panel makes no outbound request and behaves exactly as before."
+      "help": "Desativado por padrão. Desligado, o painel não faz requisições externas e se comporta exatamente como antes."
     },
     "GITHUB_APP_ID": {
       "label": "App id",
-      "help": "The numeric id GitHub shows on the App settings page. Not a secret."
+      "help": "Id numérico que o GitHub mostra na página de configurações do App. Não é segredo."
     },
     "GITHUB_APP_PRIVATE_KEY_FILE": {
-      "label": "Private key file",
-      "help": "Path to the .pem, mounted read-only at mode 600. The key itself is never a .env value."
+      "label": "Arquivo de chave privada",
+      "help": "Caminho para o .pem, montado somente leitura com mode 600. A chave em si nunca vai no .env."
     },
     "GITHUB_APP_WEBHOOK_SECRET": {
-      "label": "Webhook secret",
-      "help": "Verifies deliveries GitHub sends. Stored as a secret and never returned."
+      "label": "Segredo do webhook",
+      "help": "Verifica entregas enviadas pelo GitHub. Armazenado como segredo e nunca retornado."
     },
     "GITHUB_API_URL": {
-      "label": "API base URL",
-      "help": "https://api.github.com, or your GitHub Enterprise Server API root."
+      "label": "URL base da API",
+      "help": "https://api.github.com, ou a raiz da API do seu GitHub Enterprise Server."
     }
   },
   "validation": {
-    "mustBeHostname": "must be a hostname, for example dev.example.com",
-    "mustBePort": "must be a port between 1 and 65535",
-    "mustBeIpv4": "must be an IPv4 address",
-    "mustBeUsername": "must be 1 to 64 characters of letters, digits, dot, dash or underscore",
-    "mustBePasswordHash": "must be an apr1, bcrypt or SHA1 hash; run: dev-gateway web auth set",
-    "mustBeEmail": "must be an email address",
-    "mustBeHttpsUrl": "must be an https URL",
-    "mustBeUrl": "must be a URL",
-    "mustBeNumericAppId": "must be the numeric App id",
-    "mustBeAbsolutePath": "must be an absolute path",
-    "notManaged": "is not a setting the panel manages",
-    "mustBeBoolean": "must be true or false",
-    "mustBeOneOf": "must be one of {{choices}}",
-    "publicDomainRequired": "is required by the remote-public profile",
-    "bindAddressPrivate": "the remote-private profile must not bind 0.0.0.0",
-    "acmeEmailRequired": "is required when TLS_MODE is acme",
-    "tailscaleHostnameRequired": "is required when Tailscale is enabled",
-    "authBasicRequired": "must be basic while the panel is routed",
-    "credentialRequired": "a routed panel needs a credential: run dev-gateway web auth set",
-    "panelNotOnEveryInterface": "the panel is not published on every interface; reach it over the VPN instead"
+    "mustBeHostname": "deve ser um hostname, por exemplo dev.example.com",
+    "mustBePort": "deve ser uma porta entre 1 e 65535",
+    "mustBeIpv4": "deve ser um endereço IPv4",
+    "mustBeUsername": "deve ter de 1 a 64 caracteres: letras, dígitos, ponto, hífen ou underscore",
+    "mustBePasswordHash": "deve ser um hash apr1, bcrypt ou SHA1; execute: dev-gateway web auth set",
+    "mustBeEmail": "deve ser um endereço de e-mail",
+    "mustBeHttpsUrl": "deve ser uma URL https",
+    "mustBeUrl": "deve ser uma URL",
+    "mustBeNumericAppId": "deve ser o App id numérico",
+    "mustBeAbsolutePath": "deve ser um caminho absoluto",
+    "notManaged": "não é uma configuração gerenciada pelo painel",
+    "mustBeBoolean": "deve ser true ou false",
+    "mustBeOneOf": "deve ser um de {{choices}}",
+    "publicDomainRequired": "é obrigatório pelo perfil remote-public",
+    "bindAddressPrivate": "o perfil remote-private não pode fazer bind em 0.0.0.0",
+    "acmeEmailRequired": "é obrigatório quando TLS_MODE é acme",
+    "tailscaleHostnameRequired": "é obrigatório quando o Tailscale está ativado",
+    "authBasicRequired": "deve ser basic enquanto o painel estiver roteado",
+    "credentialRequired": "um painel roteado precisa de credencial: execute dev-gateway web auth set",
+    "panelNotOnEveryInterface": "o painel não é publicado em todas as interfaces; acesse pela VPN"
   }
 }

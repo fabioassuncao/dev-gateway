@@ -1,136 +1,136 @@
 {
   "title": "Gateway",
-  "description": "The gateway's own components: status, diagnostics and logs.",
-  "checking": "Checking…",
-  "runDiagnostics": "Run diagnostics",
-  "restartTraefik": "Restart Traefik",
-  "restarted": "Restarted {{components}}. {{note}}:",
+  "description": "Os componentes próprios do gateway: status, diagnósticos e logs.",
+  "checking": "Verificando…",
+  "runDiagnostics": "Executar diagnósticos",
+  "restartTraefik": "Reiniciar Traefik",
+  "restarted": "{{components}} reiniciado(s). {{note}}:",
   "components": {
-    "title": "Components",
+    "title": "Componentes",
     "traefik": "Traefik",
-    "socketProxy": "Socket proxy",
-    "persistence": "Persistence",
+    "socketProxy": "Proxy de socket",
+    "persistence": "Persistência",
     "tailscale": "Tailscale",
-    "notRunning": "not running",
-    "sharedNetwork": "Shared network",
-    "attached": "{{count}} attached",
-    "missing": "missing",
-    "routedServices": "Routed services"
+    "notRunning": "não em execução",
+    "sharedNetwork": "Rede compartilhada",
+    "attached": "{{count}} anexado(s)",
+    "missing": "ausente",
+    "routedServices": "Serviços roteados"
   },
   "versions": {
-    "title": "Versions and profile",
+    "title": "Versões e perfil",
     "gateway": "Gateway",
-    "panel": "Panel",
-    "profile": "Profile",
-    "domain": "Domain",
-    "traefikDashboard": "Traefik dashboard",
-    "thisPanel": "This panel",
-    "loopbackOnly": "loopback only",
-    "routedBasicAuth": "routed, behind BasicAuth",
-    "routedNoCredential": "routed with no credential",
-    "readOnly": "read-only"
+    "panel": "Painel",
+    "profile": "Perfil",
+    "domain": "Domínio",
+    "traefikDashboard": "Dashboard do Traefik",
+    "thisPanel": "Este painel",
+    "loopbackOnly": "apenas loopback",
+    "routedBasicAuth": "roteado, com BasicAuth",
+    "routedNoCredential": "roteado sem credencial",
+    "readOnly": "somente leitura"
   },
   "diagnostics": {
-    "title": "Diagnostics",
-    "summary": "{{failures}} failure(s), {{warnings}} warning(s) · {{time}}",
-    "description": "Checks the panel can make from inside its container.",
-    "notRun": "Not run yet",
-    "notRunHint": "For host-level checks (PATH, listening sockets, DNS, certificate files) run dev-gateway doctor.",
-    "deeperChecks": "deeper, host-level checks:"
+    "title": "Diagnósticos",
+    "summary": "{{failures}} falha(s), {{warnings}} aviso(s) · {{time}}",
+    "description": "Verificações que o painel pode fazer de dentro do seu container.",
+    "notRun": "Ainda não executado",
+    "notRunHint": "Para verificações no host (PATH, sockets em escuta, DNS, arquivos de certificado), execute dev-gateway doctor.",
+    "deeperChecks": "verificações mais profundas no host:"
   },
   "logs": {
     "title": "Logs",
-    "componentAria": "Gateway component"
+    "componentAria": "Componente do gateway"
   },
   "project": {
     "tabs": {
-      "overview": "Overview",
-      "services": "Services",
+      "overview": "Visão geral",
+      "services": "Serviços",
       "git": "Git",
       "logs": "Logs"
     },
-    "notFound": "No project '{{name}}' is running",
+    "notFound": "Nenhum projeto '{{name}}' está em execução",
     "stats": {
-      "services": "Services",
-      "running": "running",
-      "unhealthy": "Unhealthy",
-      "routedUrls": "Routed URLs",
-      "uptime": "Uptime"
+      "services": "Serviços",
+      "running": "em execução",
+      "unhealthy": "Não saudáveis",
+      "routedUrls": "URLs roteadas",
+      "uptime": "Tempo ativo"
     },
     "environment": {
-      "title": "Environment",
-      "description": "What this Compose project is, and where it lives.",
-      "hostDirectory": "Host directory",
-      "integrated": "Integrated",
+      "title": "Ambiente",
+      "description": "O que é este projeto Compose e onde ele está.",
+      "hostDirectory": "Diretório no host",
+      "integrated": "Integrado",
       "worktree": "Worktree",
-      "logicalProject": "Logical project",
-      "gitRoot": "Git root",
-      "repository": "Repository",
-      "networks": "Networks"
+      "logicalProject": "Projeto lógico",
+      "gitRoot": "Raiz Git",
+      "repository": "Repositório",
+      "networks": "Redes"
     },
     "endpoints": {
       "title": "Endpoints",
-      "description": "Every address this project answers on, grouped by service.",
-      "empty": "This project has no services"
+      "description": "Todos os endereços em que este projeto responde, agrupados por serviço.",
+      "empty": "Este projeto não tem serviços"
     },
     "repository": {
-      "title": "Repository",
-      "description": "Collected on the host; see the Git tab for the whole snapshot."
+      "title": "Repositório",
+      "description": "Coletado no host; veja a aba Git para o snapshot completo."
     },
     "git": {
-      "reading": "Reading collected Git metadata",
-      "empty": "No Git metadata collected for this project"
+      "reading": "Lendo metadados Git coletados",
+      "empty": "Nenhum metadado Git coletado para este projeto"
     },
-    "servicesEmpty": "This project has no services",
-    "servicesEmptyHint": "A project joins by adding the gateway overlay: see docs/adopting-projects.md."
+    "servicesEmpty": "Este projeto não tem serviços",
+    "servicesEmptyHint": "Um projeto entra adicionando o overlay do gateway: veja docs/adopting-projects.md."
   },
   "settings": {
     "overrides": {
-      "description": "Kept in the gateway's own database. Nothing is written inside the project.",
-      "displayName": "Display name",
-      "descriptionLabel": "Description",
-      "primaryService": "Primary service",
-      "pinned": "Pinned",
-      "archived": "Archived",
-      "save": "Save overrides"
+      "description": "Mantidos no banco de dados próprio do gateway. Nada é gravado dentro do projeto.",
+      "displayName": "Nome de exibição",
+      "descriptionLabel": "Descrição",
+      "primaryService": "Serviço principal",
+      "pinned": "Fixado",
+      "archived": "Arquivado",
+      "save": "Salvar substituições"
     },
     "alias": {
       "placeholder": "shop.localhost",
-      "update": "Update alias",
-      "add": "Add alias"
+      "update": "Atualizar alias",
+      "add": "Adicionar alias"
     },
     "github": {
-      "reading": "Reading the GitHub connection",
+      "reading": "Lendo a conexão com o GitHub",
       "title": "GitHub App",
-      "description": "Off by default.",
-      "notConfigured": "No GitHub App is configured",
-      "notConfiguredHint": "Set GITHUB_APP_ENABLED, GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY_FILE above. See docs/github.md for the App to create and the exact permissions it needs.",
-      "installations": "Installations",
-      "repositories": "Repositories",
-      "rateLimit": "Rate limit",
-      "lastSync": "Last sync",
-      "sync": "Sync"
+      "description": "Desativado por padrão.",
+      "notConfigured": "Nenhum GitHub App configurado",
+      "notConfiguredHint": "Defina GITHUB_APP_ENABLED, GITHUB_APP_ID e GITHUB_APP_PRIVATE_KEY_FILE acima. Veja docs/github.md para o App a criar e as permissões exatas necessárias.",
+      "installations": "Instalações",
+      "repositories": "Repositórios",
+      "rateLimit": "Limite de taxa",
+      "lastSync": "Última sincronização",
+      "sync": "Sincronizar"
     }
   },
   "containerActions": {
     "logs": "Logs",
-    "actionsFor": "Actions for {{name}}",
-    "details": "Details",
-    "start": "Start",
-    "stop": "Stop",
-    "restart": "Restart",
-    "removeContainer": "Remove container",
-    "error": "error",
+    "actionsFor": "Ações para {{name}}",
+    "details": "Detalhes",
+    "start": "Iniciar",
+    "stop": "Parar",
+    "restart": "Reiniciar",
+    "removeContainer": "Remover container",
+    "error": "erro",
     "logsTitle": "Logs · {{name}}",
     "remove": {
-      "title": "Remove this container?",
-      "description": "The container goes. Volumes, networks and images stay exactly where they are.",
-      "cancel": "Cancel",
-      "removing": "Removing…",
-      "removeContainer": "Remove container",
-      "namedVolumes": "This container has {{count}} named volume(s)",
-      "volumesKept": "They are kept. The panel never removes a volume, and never runs a prune.",
-      "notAllowed": "The panel does not remove its own infrastructure"
+      "title": "Remover este container?",
+      "description": "O container será removido. Volumes, redes e imagens permanecem exatamente onde estão.",
+      "cancel": "Cancelar",
+      "removing": "Removendo…",
+      "removeContainer": "Remover container",
+      "namedVolumes": "Este container tem {{count}} volume(s) nomeado(s)",
+      "volumesKept": "Eles são mantidos. O painel nunca remove um volume e nunca executa prune.",
+      "notAllowed": "O painel não remove sua própria infraestrutura"
     }
   }
 }

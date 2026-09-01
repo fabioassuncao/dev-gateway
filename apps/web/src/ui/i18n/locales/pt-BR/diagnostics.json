@@ -2,221 +2,221 @@
   "github": {
     "title": "GitHub App",
     "pass": {
-      "detail": "connected as app {{appId}}",
-      "detailWithBudget": "connected as app {{appId}}, {{budget}} requests left"
+      "detail": "conectado como app {{appId}}",
+      "detailWithBudget": "conectado como app {{appId}}, {{budget}} requisições restantes"
     },
     "warn": {
-      "detail": "GitHub is unreachable; the projection is still readable",
-      "fix": "see docs/github.md"
+      "detail": "GitHub inacessível; a projeção ainda pode ser lida",
+      "fix": "veja docs/github.md"
     }
   },
   "database": {
-    "title": "Panel persistence",
+    "title": "Persistência do painel",
     "pass": {
-      "detail": "{{count}} migration(s) applied"
+      "detail": "{{count}} migration(s) aplicada(s)"
     },
     "warn": {
-      "detail": "PostgreSQL is unreachable; stored preferences are unavailable",
+      "detail": "PostgreSQL inacessível; preferências armazenadas indisponíveis",
       "fix": "dev-gateway db status"
     }
   },
   "docker": {
     "title": "Docker API",
     "fail": {
-      "detail": "the panel cannot reach its socket proxy",
+      "detail": "o painel não alcança seu socket proxy",
       "fix": "dev-gateway web restart"
     },
     "pass": {
-      "detail": "reachable through the panel socket proxy"
+      "detail": "acessível pelo socket proxy do painel"
     }
   },
   "traefik": {
     "title": "Traefik",
     "fail": {
-      "notFound": "no gateway container found",
-      "state": "container is {{state}}",
-      "unhealthy": "container is unhealthy",
+      "notFound": "nenhum container do gateway encontrado",
+      "state": "container está {{state}}",
+      "unhealthy": "container não está saudável",
       "fixUp": "dev-gateway up {{profile}}",
       "fixLogs": "dev-gateway logs traefik"
     },
     "warn": {
-      "starting": "health check is still starting"
+      "starting": "health check ainda está iniciando"
     },
     "pass": {
-      "detail": "running ({{health}})"
+      "detail": "em execução ({{health}})"
     }
   },
   "socket-proxy": {
-    "title": "Traefik socket proxy",
+    "title": "Socket proxy do Traefik",
     "fail": {
-      "state": "container is {{state}}",
-      "missing": "missing",
+      "state": "container está {{state}}",
+      "missing": "ausente",
       "fix": "dev-gateway up {{profile}}"
     },
     "pass": {
-      "detail": "running"
+      "detail": "em execução"
     }
   },
   "network": {
-    "title": "Shared network",
+    "title": "Rede compartilhada",
     "fail": {
-      "detail": "{{network}} does not exist",
+      "detail": "{{network}} não existe",
       "fix": "dev-gateway bootstrap"
     },
     "pass": {
-      "detail": "{{network}}: {{count}} container(s) attached"
+      "detail": "{{network}}: {{count}} container(s) anexado(s)"
     }
   },
   "routes-off-network": {
-    "title": "Routed services off the shared network",
+    "title": "Serviços roteados fora da rede compartilhada",
     "fail": {
-      "fix": "attach them to the {{network}} network; see docs/adopting-projects.md"
+      "fix": "anexe-os à rede {{network}}; veja docs/adopting-projects.md"
     },
     "pass": {
-      "title": "Routed services",
-      "detail": "every routed service is on the shared network"
+      "title": "Serviços roteados",
+      "detail": "todo serviço roteado está na rede compartilhada"
     }
   },
   "hostname-collision": {
-    "title": "Hostname collisions",
+    "title": "Colisões de hostname",
     "fail": {
-      "fix": "give the projects distinct COMPOSE_PROJECT_NAMEs: dev-gateway namespace"
+      "fix": "dê COMPOSE_PROJECT_NAME distintos aos projetos: namespace dev-gateway"
     },
     "pass": {
       "title": "Hostnames",
-      "detail": "no collisions"
+      "detail": "sem colisões"
     }
   },
   "port-conflict": {
-    "title": "Published port conflicts",
+    "title": "Conflitos de portas publicadas",
     "warn": {
-      "fix": "stop one of the containers, or move it off the port"
+      "fix": "pare um dos containers ou mova-o para outra porta"
     },
     "pass": {
-      "title": "Published ports",
-      "detail": "no port is claimed twice"
+      "title": "Portas publicadas",
+      "detail": "nenhuma porta está em uso duplicado"
     }
   },
   "gateway-ports": {
-    "title": "Gateway ports taken by other containers",
+    "title": "Portas do gateway ocupadas por outros containers",
     "warn": {
-      "fix": "stop the container, or change DEV_GATEWAY_HTTP_PORT / DEV_GATEWAY_HTTPS_PORT"
+      "fix": "pare o container ou altere DEV_GATEWAY_HTTP_PORT / DEV_GATEWAY_HTTPS_PORT"
     }
   },
   "unhealthy": {
-    "title": "Unhealthy containers",
+    "title": "Containers não saudáveis",
     "warn": {
-      "fix": "open the container logs"
+      "fix": "abra os logs do container"
     },
     "pass": {
-      "title": "Container health",
-      "detail": "nothing is unhealthy"
+      "title": "Saúde dos containers",
+      "detail": "nada está não saudável"
     }
   },
   "stale-bridges": {
-    "title": "Stale access bridges",
+    "title": "Pontes de acesso expiradas",
     "warn": {
-      "detail": "{{count}} bridge(s) expired or stopped",
+      "detail": "{{count}} ponte(s) expirada(s) ou parada(s)",
       "fix": "dev-gateway access gc"
     }
   },
   "public": {
-    "title": "Public access",
+    "title": "Acesso público",
     "warn": {
-      "detail": "HTTP services are reachable on {{domain}}",
-      "fix": "dev-gateway public disable turns this off"
+      "detail": "serviços HTTP acessíveis em {{domain}}",
+      "fix": "dev-gateway public disable desativa isso"
     }
   },
   "acme-email": {
     "title": "ACME",
     "fail": {
-      "detail": "TLS_MODE=acme without ACME_EMAIL",
-      "fix": "set ACME_EMAIL in Settings"
+      "detail": "TLS_MODE=acme sem ACME_EMAIL",
+      "fix": "defina ACME_EMAIL em Configurações"
     }
   },
   "bind-address": {
-    "title": "Bind address",
+    "title": "Endereço de bind",
     "fail": {
-      "detail": "the private profile is bound to every interface",
-      "fix": "set DEV_GATEWAY_BIND_ADDRESS to the VPN address, or enable Tailscale"
+      "detail": "o perfil privado está em bind em todas as interfaces",
+      "fix": "defina DEV_GATEWAY_BIND_ADDRESS para o endereço VPN ou ative o Tailscale"
     }
   },
   "aliases": {
-    "title": "Hostname aliases",
+    "title": "Aliases de hostname",
     "pass": {
-      "detail": "{{count}} routed beside their derived hostname"
+      "detail": "{{count}} roteado(s) além do hostname derivado"
     }
   },
   "aliases-dangling": {
-    "title": "Aliases pointing at a container that is gone",
+    "title": "Aliases apontando para container inexistente",
     "warn": {
-      "fix": "remove the alias, or set it again once the environment is back"
+      "fix": "remova o alias ou redefina-o quando o ambiente voltar"
     }
   },
   "shares-expired": {
-    "title": "Expired shares",
+    "title": "Shares expirados",
     "warn": {
       "fix": "dev-gateway share gc"
     }
   },
   "shares-dangling": {
-    "title": "Shares pointing at a container that is gone",
+    "title": "Shares apontando para container inexistente",
     "warn": {
-      "fix": "revoke them, or recreate them against the new container"
+      "fix": "revogue-os ou recrie-os contra o novo container"
     }
   },
   "shares": {
-    "title": "Temporary shares",
+    "title": "Shares temporários",
     "pass": {
-      "detail": "{{count}} active, all with an expiry"
+      "detail": "{{count}} ativo(s), todos com expiração"
     }
   },
   "traefik-verdict": {
-    "title": "Traefik's own view",
+    "title": "Visão própria do Traefik",
     "warn": {
-      "detail": "not available",
-      "fix": "set DEV_GATEWAY_DASHBOARD=true to let the panel read Traefik directly"
+      "detail": "indisponível",
+      "fix": "defina DEV_GATEWAY_DASHBOARD=true para o painel ler o Traefik diretamente"
     },
     "pass": {
-      "detail": "{{count}} router(s), every routed service among them"
+      "detail": "{{count}} router(s), todo serviço roteado entre eles"
     }
   },
   "traefik-no-router": {
-    "title": "Services Traefik never routed",
+    "title": "Serviços que o Traefik nunca roteou",
     "fail": {
-      "fix": "check traefik.docker.network and that the container is on the shared network"
+      "fix": "verifique traefik.docker.network e se o container está na rede compartilhada"
     }
   },
   "traefik-router-status": {
-    "title": "Routers Traefik refused",
+    "title": "Routers recusados pelo Traefik",
     "fail": {
-      "fix": "open the router in the Traefik dashboard"
+      "fix": "abra o router no dashboard do Traefik"
     }
   },
   "panel-auth": {
-    "title": "Panel authentication",
+    "title": "Autenticação do painel",
     "pass": {
-      "exposure": "Panel exposure",
-      "exposureDetail": "reachable on loopback only, where a password adds nothing",
-      "authDetail": "Traefik BasicAuth as {{user}}"
+      "exposure": "Exposição do painel",
+      "exposureDetail": "acessível apenas em loopback, onde senha não agrega nada",
+      "authDetail": "Traefik BasicAuth como {{user}}"
     },
     "fail": {
-      "detail": "the panel is routed (expose: {{expose}}) with no credential in front of it",
+      "detail": "o painel está roteado (expose: {{expose}}) sem credencial na frente",
       "fix": "dev-gateway web auth set"
     }
   },
   "panel-read-only": {
-    "title": "Panel is routed and writable",
+    "title": "Painel roteado e gravável",
     "warn": {
-      "detail": "anyone who gets past the credential can stop and remove containers",
+      "detail": "quem passar pela credencial pode parar e remover containers",
       "fix": "dev-gateway web up --read-only"
     }
   },
   "panel-auth-file": {
-    "title": "Panel middleware is out of step",
+    "title": "Middleware do painel desatualizado",
     "warn": {
-      "detail": "{{file}} does not match the current settings",
-      "detailNotWritable": ", and the directory is not writable by the panel",
+      "detail": "{{file}} não corresponde às configurações atuais",
+      "detailNotWritable": ", e o diretório não é gravável pelo painel",
       "fix": "dev-gateway web auth apply"
     }
   }

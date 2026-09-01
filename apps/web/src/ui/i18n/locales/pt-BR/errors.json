@@ -1,37 +1,37 @@
 {
   "hints": {
-    "notSaved": "the value was not saved",
-    "databaseUnavailable": "existing Docker-backed pages remain available; run dev-gateway db status",
-    "panelLimit": "this is a panel limit, not a Docker one",
-    "unexpected": "unexpected failure"
+    "notSaved": "o valor não foi salvo",
+    "databaseUnavailable": "páginas existentes baseadas em Docker continuam disponíveis; execute dev-gateway db status",
+    "panelLimit": "este é um limite do painel, não do Docker",
+    "unexpected": "falha inesperada"
   },
-  "readOnly": "the panel is running in read-only mode",
-  "crossOrigin": "cross-origin writes are refused",
-  "notFound": "no such endpoint: {{path}}",
-  "bridgeClosed": "bridge closed; the service itself was not touched",
-  "shareExpired": "share expired",
-  "shareDangling": "share points at a container that is gone",
+  "readOnly": "o painel está em modo somente leitura",
+  "crossOrigin": "gravações cross-origin são recusadas",
+  "notFound": "endpoint inexistente: {{path}}",
+  "bridgeClosed": "ponte fechada; o serviço em si não foi alterado",
+  "shareExpired": "share expirado",
+  "shareDangling": "share aponta para um container que não existe mais",
   "actionRefused": {
-    "gatewayContainer": "the panel does not stop or remove its own infrastructure",
-    "notRunning": "the container is not running",
-    "alreadyRunning": "the container is already running"
+    "gatewayContainer": "o painel não para nem remove sua própria infraestrutura",
+    "notRunning": "o container não está em execução",
+    "alreadyRunning": "o container já está em execução"
   },
   "access": {
-    "alreadyOpen": "a bridge is already open for this service",
-    "notRunning": "the service is not running",
-    "unsupported": "this protocol cannot be bridged"
+    "alreadyOpen": "já existe uma ponte aberta para este serviço",
+    "notRunning": "o serviço não está em execução",
+    "unsupported": "este protocolo não pode ser ponteado"
   },
   "override": {
-    "notIntegrated": "overrides apply only to integrated projects"
+    "notIntegrated": "substituições se aplicam apenas a projetos integrados"
   },
   "dynamic": {
-    "notWritable": "the dynamic configuration directory is not writable"
+    "notWritable": "o diretório de configuração dinâmica não é gravável"
   },
   "github": {
-    "unavailable": "GitHub is unreachable",
-    "forbidden": "the GitHub App lacks permission for this action"
+    "unavailable": "GitHub inacessível",
+    "forbidden": "o GitHub App não tem permissão para esta ação"
   },
   "docker": {
-    "accessDenied": "this container is outside the panel's allowlist"
+    "accessDenied": "este container está fora da allowlist do painel"
   }
 }
