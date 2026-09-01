@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import { api } from '../lib/api.ts'
 import { navigate } from '../lib/router.ts'
@@ -8,13 +9,15 @@ import { Button } from '../components/ui/button.tsx'
 import { Empty, ErrorBox, KeyValue, Loading, PageHeader, StatTile } from '../components/shell-bits.tsx'
 import { AddressLine } from '../components/copy.tsx'
 import { ScopeBadge } from '../components/status.tsx'
+import { DiagnosticText } from '../components/diagnostic-text.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 
 export function Overview() {
-  useDocumentTitle('Overview')
+  const { t } = useTranslation('overview')
+  useDocumentTitle(t('title'))
   const query = useQuery({ queryKey: ['status'], queryFn: api.overview })
 
-  if (query.isPending) return <Loading label="Reading the gateway" />
+  if (query.isPending) return <Loading label={t('readingGateway')} />
   if (query.error) return <ErrorBox error={query.error} />
   if (!query.data) return null
 
@@ -24,48 +27,55 @@ export function Overview() {
   return (
     <>
       <PageHeader
-        title="Overview"
-        description="What the gateway is serving right now, and what else is running beside it."
+        title={t('title')}
+        description={t('description')}
         actions={
           <Badge tone={gateway.up ? 'ok' : 'danger'}>
-            {gateway.up ? 'Gateway running' : 'Gateway down'}
+            {gateway.up ? t('gatewayRunning') : t('gatewayDown')}
           </Badge>
         }
       />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <StatTile
-          label="Projects"
+          label={t('stats.projects')}
           value={counts.integratedProjects}
-          hint={`${counts.projects} Compose project(s) on the host`}
+          hint={t('stats.projectsHint', { count: counts.projects })}
         />
         <StatTile
-          label="Services"
+          label={t('stats.services')}
           value={`${counts.servicesRunning}/${counts.services}`}
-          hint={`${counts.servicesHealthy} healthy`}
+          hint={t('stats.servicesHint', { healthy: counts.servicesHealthy })}
           tone={counts.servicesUnhealthy > 0 ? 'warn' : undefined}
         />
-        <StatTile label="Routed URLs" value={counts.routes} hint={`over ${gateway.scheme}`} />
         <StatTile
-          label="Containers running"
+          label={t('stats.routedUrls')}
+          value={counts.routes}
+          hint={t('stats.routedUrlsHint', { scheme: gateway.scheme })}
+        />
+        <StatTile
+          label={t('stats.containersRunning')}
           value={counts.containersRunning}
-          hint={`${counts.containersTotal} in total`}
+          hint={t('stats.containersRunningHint', { total: counts.containersTotal })}
         />
         <StatTile
-          label="Outside the gateway"
+          label={t('stats.outsideGateway')}
           value={counts.containersExternal + counts.containersStandalone}
-          hint={`${counts.containersGateway} gateway · ${counts.containersIntegrated} integrated`}
+          hint={t('stats.outsideGatewayHint', {
+            gateway: counts.containersGateway,
+            integrated: counts.containersIntegrated,
+          })}
         />
         <StatTile
-          label="Problems"
+          label={t('stats.problems')}
           value={problems.length}
           tone={failures.length > 0 ? 'danger' : problems.length > 0 ? 'warn' : 'ok'}
           hint={
             failures.length > 0
-              ? `${failures.length} need attention`
+              ? t('stats.problemsHintFail', { count: failures.length })
               : problems.length > 0
-                ? 'warnings only, nothing blocking'
-                : 'nothing blocking'
+                ? t('stats.problemsHintWarn')
+                : t('stats.problemsHintOk')
           }
         />
       </div>
@@ -73,11 +83,11 @@ export function Overview() {
       <div className="mt-4 grid items-start gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader
-            title="Detected problems"
-            description="Everything the panel can check from inside the container."
+            title={t('detectedProblems.title')}
+            description={t('detectedProblems.description')}
             actions={
               <Button size="sm" onClick={() => navigate('/gateway')}>
-                Run diagnostics
+                {t('detectedProblems.runDiagnostics')}
               </Button>
             }
           />
@@ -85,7 +95,7 @@ export function Overview() {
             <CardBody>
               <div className="flex items-center gap-2 text-sm text-ok">
                 <CheckCircle2 className="h-4 w-4" />
-                No problems detected.
+                {t('detectedProblems.none')}
               </div>
             </CardBody>
           ) : (
@@ -98,10 +108,14 @@ export function Overview() {
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warn" />
                   )}
                   <div className="min-w-0">
-                    <div className="text-sm font-medium text-ink">{problem.title}</div>
-                    <div className="text-xs text-muted">{problem.detail}</div>
+                    <DiagnosticText diagnostic={problem} part="title" className="text-sm font-medium text-ink" />
+                    <DiagnosticText diagnostic={problem} part="detail" className="text-xs text-muted" />
                     {problem.fix ? (
-                      <div className="mt-0.5 font-mono text-[11px] text-subtle">{problem.fix}</div>
+                      <DiagnosticText
+                        diagnostic={problem}
+                        part="fix"
+                        className="mt-0.5 font-mono text-[11px] text-subtle"
+                      />
                     ) : null}
                   </div>
                 </li>
@@ -111,44 +125,49 @@ export function Overview() {
         </Card>
 
         <Card>
-          <CardHeader title="Gateway" />
+          <CardHeader title={t('gatewayCard.title')} />
           <CardBody>
             <dl className="divide-y divide-line/60">
-              <KeyValue label="Profile">{gateway.profile}</KeyValue>
-              <KeyValue label="Domain">
+              <KeyValue label={t('gatewayCard.profile')}>{gateway.profile}</KeyValue>
+              <KeyValue label={t('gatewayCard.domain')}>
                 <span className="font-mono text-xs">{gateway.domain}</span>
               </KeyValue>
-              <KeyValue label="Listening">
+              <KeyValue label={t('gatewayCard.listening')}>
                 <span className="font-mono text-xs">
                   {gateway.bindAddress}:{gateway.httpPort} / {gateway.httpsPort}
                 </span>
               </KeyValue>
-              <KeyValue label="TLS">
+              <KeyValue label={t('gatewayCard.tls')}>
                 {gateway.tls.enabled ? (
-                  <Badge tone="ok">enabled ({gateway.tls.mode})</Badge>
+                  <Badge tone="ok">{t('gatewayCard.tlsEnabled', { mode: gateway.tls.mode })}</Badge>
                 ) : (
-                  <Badge>disabled</Badge>
+                  <Badge>{t('disabled', { ns: 'common' })}</Badge>
                 )}
               </KeyValue>
-              <KeyValue label="Tailscale">
+              <KeyValue label={t('gatewayCard.tailscale')}>
                 {gateway.tailscale.enabled ? (
                   <Badge tone={gateway.tailscale.running ? 'ok' : 'warn'}>
-                    {gateway.tailscale.running ? 'running' : 'enabled, not running'}
+                    {gateway.tailscale.running
+                      ? t('gatewayCard.tailscaleRunning')
+                      : t('gatewayCard.tailscaleEnabledNotRunning')}
                   </Badge>
                 ) : (
-                  <Badge>disabled</Badge>
+                  <Badge>{t('disabled', { ns: 'common' })}</Badge>
                 )}
               </KeyValue>
-              <KeyValue label="Public access">
+              <KeyValue label={t('gatewayCard.publicAccess')}>
                 {gateway.publicAccess.enabled ? (
-                  <Badge tone="warn">{gateway.publicAccess.domain ?? 'enabled'}</Badge>
+                  <Badge tone="warn">{gateway.publicAccess.domain ?? t('enabled', { ns: 'common' })}</Badge>
                 ) : (
-                  <Badge>disabled</Badge>
+                  <Badge>{t('disabled', { ns: 'common' })}</Badge>
                 )}
               </KeyValue>
-              <KeyValue label="Shared network">
+              <KeyValue label={t('gatewayCard.sharedNetwork')}>
                 <span className="font-mono text-xs">
-                  {gateway.network.name} · {gateway.network.attached} attached
+                  {t('gatewayCard.attached', {
+                    name: gateway.network.name,
+                    count: gateway.network.attached,
+                  })}
                 </span>
               </KeyValue>
             </dl>
@@ -158,19 +177,16 @@ export function Overview() {
 
       <Card className="mt-4">
         <CardHeader
-          title="Available URLs"
-          description="Read from the labels Traefik itself routes on."
+          title={t('availableUrls.title')}
+          description={t('availableUrls.description')}
           actions={
             <Button size="sm" onClick={() => navigate('/network')}>
-              All routes
+              {t('availableUrls.allRoutes')}
             </Button>
           }
         />
         {urls.length === 0 ? (
-          <Empty
-            title="No service is currently routed"
-            hint="A service joins by setting traefik.enable=true and attaching to the shared network."
-          />
+          <Empty title={t('availableUrls.empty')} hint={t('availableUrls.emptyHint')} />
         ) : (
           <ul className="divide-y divide-line/70">
             {urls.slice(0, 12).map((url) => (

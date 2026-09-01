@@ -525,6 +525,7 @@ export const Diagnostic = named(
     title: z.string(),
     detail: z.string(),
     fix: z.string(),
+    params: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
   }).strict(),
   'Diagnostic',
 )

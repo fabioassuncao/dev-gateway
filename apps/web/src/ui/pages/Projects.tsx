@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { RotateCw } from 'lucide-react'
 import { api } from '../lib/api.ts'
 import type { ContainerSummary, Project } from '../../shared/types.ts'
@@ -9,13 +10,15 @@ import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/field.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
 import { ContainerDetails } from '../components/container-details.tsx'
-import { uptime } from '../lib/format.ts'
 import { GitCard } from '../components/git-card.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 import { ServiceRow } from '../components/project-services.tsx'
 
+import { useFormat } from '../lib/use-format.ts'
+
 export function Projects() {
-  useDocumentTitle('Projects')
+  const { t } = useTranslation('projects')
+  useDocumentTitle(t('title'))
   const [search, setSearch] = useState('')
   const query = useQuery({ queryKey: ['projects'], queryFn: api.projects })
 
@@ -43,25 +46,22 @@ export function Projects() {
   return (
     <>
       <PageHeader
-        title="Projects"
-        description="Compose projects with at least one service on the gateway."
+        title={t('title')}
+        description={t('description')}
         actions={
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search project, service, image"
+            placeholder={t('searchPlaceholder')}
             className="w-64"
-            aria-label="Search projects"
+            aria-label={t('searchAria')}
           />
         }
       />
 
       {projects.length === 0 ? (
         <Card>
-          <Empty
-            title="No integrated project is running"
-            hint="A project joins by adding the gateway overlay: see docs/adopting-projects.md."
-          />
+          <Empty title={t('empty')} hint={t('emptyHint')} />
         </Card>
       ) : (
         <div className="space-y-4">
@@ -75,6 +75,8 @@ export function Projects() {
 }
 
 function ProjectCard({ project }: { project: Project }) {
+  const { t } = useTranslation('projects')
+  const { uptime: formatUptime } = useFormat()
   const queryClient = useQueryClient()
   const [details, setDetails] = useState<ContainerSummary | null>(null)
 
@@ -101,20 +103,20 @@ function ProjectCard({ project }: { project: Project }) {
             <a
               href={`#/projects/${encodeURIComponent(project.name)}`}
               className="underline-offset-2 hover:text-accent hover:underline"
-              title={project.overrides?.displayName ? `derived name: ${project.name}` : undefined}
+              title={project.overrides?.displayName ? t('derivedName', { name: project.name }) : undefined}
             >
               {project.overrides?.displayName ?? project.name}
             </a>
-            {project.overrides?.pinned ? <Badge tone="accent">pinned</Badge> : null}
-            {project.overrides?.archived ? <Badge tone="outline">archived</Badge> : null}
+            {project.overrides?.pinned ? <Badge tone="accent">{t('pinned')}</Badge> : null}
+            {project.overrides?.archived ? <Badge tone="outline">{t('archived')}</Badge> : null}
             <Badge tone={project.runningCount === project.serviceCount ? 'ok' : 'warn'}>
-              {project.runningCount}/{project.serviceCount} running
+              {t('running', { running: project.runningCount, total: project.serviceCount })}
             </Badge>
             {project.unhealthyCount > 0 ? (
-              <Badge tone="danger">{project.unhealthyCount} unhealthy</Badge>
+              <Badge tone="danger">{t('unhealthy', { count: project.unhealthyCount })}</Badge>
             ) : null}
-            {project.namespace ? <Badge tone="outline">worktree: {project.namespace}</Badge> : null}
-            {project.group ? <Badge tone="outline">part of {project.group}</Badge> : null}
+            {project.namespace ? <Badge tone="outline">{t('worktree', { name: project.namespace })}</Badge> : null}
+            {project.group ? <Badge tone="outline">{t('partOf', { group: project.group })}</Badge> : null}
             {project.repoUrl ? (
               <a
                 className="text-xs text-muted underline-offset-2 hover:text-accent hover:underline"
@@ -131,7 +133,7 @@ function ProjectCard({ project }: { project: Project }) {
           [
             project.overrides?.displayName ? project.name : null,
             project.overrides?.description ?? null,
-            project.uptimeSeconds !== null ? `up ${uptime(project.uptimeSeconds)}` : null,
+            project.uptimeSeconds !== null ? t('up', { time: formatUptime(project.uptimeSeconds) }) : null,
             project.workingDir,
           ]
             .filter(Boolean)
@@ -140,7 +142,7 @@ function ProjectCard({ project }: { project: Project }) {
         actions={
           <Button size="sm" disabled={restart.isPending} onClick={() => restart.mutate()}>
             <RotateCw className={restart.isPending ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
-            Restart services
+            {t('restartServices')}
           </Button>
         }
       />
@@ -156,7 +158,7 @@ function ProjectCard({ project }: { project: Project }) {
       {collapsed.length > 0 ? (
         <details className="border-t border-line px-4 py-2">
           <summary className="cursor-pointer text-xs text-subtle">
-            {collapsed.length} collapsed {collapsed.length === 1 ? 'service' : 'services'}
+            {t(collapsed.length === 1 ? 'collapsedService' : 'collapsedServices', { count: collapsed.length })}
           </summary>
           <div className="-mx-4 mt-2">
             {collapsed.map((service) => (

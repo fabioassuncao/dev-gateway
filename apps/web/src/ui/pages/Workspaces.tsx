@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import { api, ApiError } from '../lib/api.ts'
 import type { WorkspaceSummary } from '../../shared/types.ts'
@@ -19,7 +20,8 @@ import { useDocumentTitle } from '../lib/title.ts'
  * later, issues. That is the whole reason it is persisted rather than derived.
  */
 export function Workspaces() {
-  useDocumentTitle('Workspaces')
+  const { t } = useTranslation('workspaces')
+  useDocumentTitle(t('title'))
   const [creating, setCreating] = useState(false)
   const query = useQuery({ queryKey: ['workspaces'], queryFn: api.workspaces, retry: false })
 
@@ -30,12 +32,12 @@ export function Workspaces() {
   return (
     <>
       <PageHeader
-        title="Workspaces"
-        description="What you are working on: repositories, and the environments that belong to them."
+        title={t('title')}
+        description={t('description')}
         actions={
           <Button variant="primary" disabled={unavailable} onClick={() => setCreating(true)}>
             <Plus className="h-3.5 w-3.5" />
-            New workspace
+            {t('newWorkspace')}
           </Button>
         }
       />
@@ -43,20 +45,14 @@ export function Workspaces() {
       {query.error ? (
         unavailable ? (
           <Card>
-            <Empty
-              title="Workspaces need the panel's database"
-              hint="They are decisions rather than observations, so they are persisted. Start PostgreSQL and this page comes back; every Docker-backed page works without it."
-            />
+            <Empty title={t('needsDatabase')} hint={t('needsDatabaseHint')} />
           </Card>
         ) : (
           <ErrorBox error={query.error} />
         )
       ) : (query.data ?? []).length === 0 ? (
         <Card>
-          <Empty
-            title="No workspace yet"
-            hint="A workspace groups the repositories of one product and the environments running for it. Create one, then attach repositories the GitHub App was granted."
-          />
+          <Empty title={t('empty')} hint={t('emptyHint')} />
         </Card>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -72,6 +68,7 @@ export function Workspaces() {
 }
 
 function WorkspaceCard({ workspace }: { workspace: WorkspaceSummary }) {
+  const { t } = useTranslation('workspaces')
   return (
     <Card>
       <CardHeader
@@ -83,17 +80,22 @@ function WorkspaceCard({ workspace }: { workspace: WorkspaceSummary }) {
             >
               {workspace.name}
             </a>
-            {workspace.archived ? <Badge tone="outline">archived</Badge> : null}
+            {workspace.archived ? <Badge tone="outline">{t('archived')}</Badge> : null}
           </span>
         }
         description={workspace.description ?? undefined}
       />
       <div className="flex flex-wrap items-center gap-1.5 px-4 py-3">
         <Badge tone="outline">
-          {workspace.repositoryCount} {workspace.repositoryCount === 1 ? 'repository' : 'repositories'}
+          {t(workspace.repositoryCount === 1 ? 'repository' : 'repositories', {
+            count: workspace.repositoryCount,
+          })}
         </Badge>
         <Badge tone={workspace.runningEnvironmentCount > 0 ? 'ok' : 'neutral'}>
-          {workspace.runningEnvironmentCount}/{workspace.environmentCount} running
+          {t('running', {
+            running: workspace.runningEnvironmentCount,
+            total: workspace.environmentCount,
+          })}
         </Badge>
       </div>
     </Card>
@@ -107,6 +109,7 @@ function CreateWorkspaceDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const { t } = useTranslation('workspaces')
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -130,8 +133,8 @@ function CreateWorkspaceDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="New workspace"
-      description="A name and a slug. Repositories and environments are attached afterwards."
+      title={t('create.title')}
+      description={t('create.description')}
       footer={
         <Button
           variant="primary"
@@ -139,35 +142,32 @@ function CreateWorkspaceDialog({
           disabled={name.trim() === '' || create.isPending}
           onClick={() => create.mutate()}
         >
-          Create
+          {t('create.create')}
         </Button>
       }
     >
       {create.error ? <ErrorBox error={create.error} /> : null}
       <div className="space-y-3">
         <label className="block">
-          <span className="text-xs text-subtle">Name</span>
-          <Input value={name} onChange={(event) => setName(event.target.value)} aria-label="Name" />
+          <span className="text-xs text-subtle">{t('create.name')}</span>
+          <Input value={name} onChange={(event) => setName(event.target.value)} aria-label={t('create.name')} />
         </label>
         <label className="block">
-          <span className="text-xs text-subtle">Slug</span>
+          <span className="text-xs text-subtle">{t('create.slug')}</span>
           <Input
             value={slug}
             onChange={(event) => setSlug(event.target.value)}
             placeholder={name.trim() === '' ? 'meu-produto' : slugify(name)}
-            aria-label="Slug"
+            aria-label={t('create.slug')}
           />
-          <span className="mt-0.5 block text-[11px] text-subtle">
-            Also what a project’s <span className="font-mono">dev-gateway.project</span> label must say to
-            be adopted automatically.
-          </span>
+          <span className="mt-0.5 block text-[11px] text-subtle">{t('create.slugHint')}</span>
         </label>
         <label className="block">
-          <span className="text-xs text-subtle">Description</span>
+          <span className="text-xs text-subtle">{t('create.descriptionLabel')}</span>
           <Input
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            aria-label="Description"
+            aria-label={t('create.descriptionLabel')}
           />
         </label>
       </div>
