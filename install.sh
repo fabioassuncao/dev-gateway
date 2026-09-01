@@ -113,6 +113,18 @@ confirm() {
   case "$reply" in y|Y|yes|YES|s|S|sim|SIM) return 0 ;; *) return 1 ;; esac
 }
 
+# For the one question whose only other answer is "then I cannot continue".
+# Still asked, because installing Docker Engine changes the machine; defaulted
+# to yes, because refusing it ends the run with an error either way.
+confirm_default_yes() {
+  local prompt="$1" reply
+  [ "$ASSUME_YES" = "true" ] && return 0
+  if ! interactive; then return 1; fi
+  printf '  %s [Y/n] ' "$prompt" >/dev/tty
+  IFS= read -r reply </dev/tty || reply=""
+  case "$reply" in n|N|no|NO|nao|NAO|"não") return 1 ;; *) return 0 ;; esac
+}
+
 # ---------------------------------------------------------------------------
 # Secrets
 # ---------------------------------------------------------------------------
@@ -417,7 +429,7 @@ if ! have docker; then
   bad "Docker not found"
   if [ "$SKIP_DEPS" = "true" ]; then
     die "Docker is required. Install it and run this again, or drop --skip-deps"
-  elif [ "$ASSUME_YES" = "true" ] || confirm "Install Docker Engine now (get.docker.com)?"; then
+  elif [ "$ASSUME_YES" = "true" ] || confirm_default_yes "Install Docker Engine now, from get.docker.com?"; then
     install_docker
   else
     die "Docker is required"
