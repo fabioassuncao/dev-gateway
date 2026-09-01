@@ -1,0 +1,142 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { screen, waitFor } from '@testing-library/react'
+import { userEvent } from '@testing-library/user-event'
+import { renderWithQuery } from './render.tsx'
+import type { ConfigView } from '../../src/shared/types.ts'
+
+const config = vi.fn()
+const patchConfig = vi.fn()
+
+vi.mock('../../src/ui/lib/api.ts', () => ({
+  ApiError: class ApiError extends Error {},
+  api: {
+    config: () => config(),
+    patchConfig: (...args: unknown[]) => patchConfig(...args),
+  },
+}))
+
+const { Settings } = await import('../../src/ui/pages/Settings.tsx')
+
+const view: ConfigView = {
+  applyCommand: './bin/dev-gateway up local',
+  pendingRestart: false,
+  groups: ['Gateway', 'VPN'],
+  envFile: { path: '/app/state/.env', exists: true, writable: true },
+  fields: [
+    {
+      key: 'DEV_GATEWAY_DOMAIN',
+      value: 'localhost',
+      runtimeValue: 'localhost',
+      secret: false,
+      isSet: true,
+      pending: false,
+      kind: 'string',
+      group: 'Gateway',
+      label: 'Local domain',
+      help: 'Base domain for generated hostnames.',
+      restartRequired: true,
+    },
+    {
+      key: 'TLS_ENABLED',
+      value: 'false',
+      runtimeValue: 'false',
+      secret: false,
+      isSet: true,
+      pending: false,
+      kind: 'boolean',
+      group: 'Gateway',
+      label: 'HTTPS',
+      help: 'Master switch.',
+      restartRequired: true,
+    },
+    {
+      key: 'TS_AUTHKEY',
+      value: null,
+      runtimeValue: null,
+      secret: true,
+      isSet: true,
+      pending: false,
+      kind: 'string',
+      group: 'VPN',
+      label: 'Tailscale auth key',
+      help: 'Never leaves the host.',
+      restartRequired: true,
+    },
+  ],
+}
+
+beforeEach(() => {
+  config.mockReset().mockResolvedValue(view)
+  patchConfig.mockReset().mockResolvedValue({ ok: true, saved: [], pendingRestart: true, applyCommand: view.applyCommand, view })
+})
+
+describe('Settings', () => {
+  it('never shows a secret, only whether it is set', async () => {
+    renderWithQuery(<Settings />)
+    await screen.findByLabelText('Tailscale auth key')
+
+    const input = screen.getByLabelText('Tailscale auth key') as HTMLInputElement
+    expect(input.type).toBe('password')
+    expect(input.value).toBe('')
+    expect(input.placeholder).toContain('unchanged')
+    expect(screen.getByText('set')).toBeInTheDocument()
+  })
+
+  it('sends only what was edited', async () => {
+    renderWithQuery(<Settings />)
+    const domain = await screen.findByLabelText('Local domain')
+
+    await userEvent.clear(domain)
+    await userEvent.type(domain, 'dev.test')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(patchConfig).toHaveBeenCalledWith({ DEV_GATEWAY_DOMAIN: 'dev.test' }))
+  })
+
+  it('will not save when nothing changed', async () => {
+    renderWithQuery(<Settings />)
+    await screen.findByLabelText('Local domain')
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+  })
+
+  it('clears a secret only on an explicit request', async () => {
+    renderWithQuery(<Settings />)
+    await screen.findByLabelText('Tailscale auth key')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(patchConfig).toHaveBeenCalledWith({ TS_AUTHKEY: null }))
+  })
+
+  it('says what to run on the host after saving', async () => {
+    config.mockResolvedValue({ ...view, pendingRestart: true })
+    renderWithQuery(<Settings />)
+    expect(await screen.findByText('./bin/dev-gateway up local')).toBeInTheDocument()
+    expect(screen.getByText(/take effect once the gateway containers are recreated/)).toBeInTheDocument()
+  })
+
+  it('shows the validation error and does not pretend it saved', async () => {
+    patchConfig.mockRejectedValue(
+      Object.assign(new Error('DEV_GATEWAY_HTTP_PORT: must be a port between 1 and 65535'), {
+        hint: 'the value was not saved',
+      }),
+    )
+    renderWithQuery(<Settings />)
+    const domain = await screen.findByLabelText('Local domain')
+    await userEvent.type(domain, 'x')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText(/must be a port between 1 and 65535/)).toBeInTheDocument()
+    expect(screen.getByText('the value was not saved')).toBeInTheDocument()
+  })
+
+  it('says so when it cannot write the file, rather than failing on save', async () => {
+    config.mockResolvedValue({
+      ...view,
+      envFile: { path: '/app/state/.env', exists: true, writable: false },
+    })
+    renderWithQuery(<Settings />)
+    expect(await screen.findByText(/cannot write/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+  })
+})

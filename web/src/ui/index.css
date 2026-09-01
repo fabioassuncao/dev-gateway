@@ -1,0 +1,98 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+/* A graphite base with one accent. The panel is read far more often than it is
+   clicked, so contrast and density matter more than colour. */
+:root {
+  --dg-bg: oklch(0.985 0.002 250);
+  --dg-surface: oklch(1 0 0);
+  --dg-surface-2: oklch(0.972 0.003 250);
+  --dg-border: oklch(0.905 0.005 250);
+  --dg-border-strong: oklch(0.83 0.008 250);
+  --dg-text: oklch(0.24 0.012 260);
+  --dg-muted: oklch(0.52 0.012 260);
+  --dg-subtle: oklch(0.64 0.01 260);
+  --dg-accent: oklch(0.55 0.16 264);
+  --dg-accent-fg: oklch(0.99 0 0);
+  --dg-ok: oklch(0.6 0.13 155);
+  --dg-warn: oklch(0.68 0.14 75);
+  --dg-danger: oklch(0.57 0.2 22);
+  --dg-info: oklch(0.6 0.12 232);
+}
+
+.dark {
+  --dg-bg: oklch(0.19 0.008 260);
+  --dg-surface: oklch(0.225 0.009 260);
+  --dg-surface-2: oklch(0.26 0.01 260);
+  --dg-border: oklch(0.31 0.011 260);
+  --dg-border-strong: oklch(0.4 0.013 260);
+  --dg-text: oklch(0.94 0.004 260);
+  --dg-muted: oklch(0.71 0.01 260);
+  --dg-subtle: oklch(0.58 0.011 260);
+  --dg-accent: oklch(0.68 0.15 264);
+  --dg-accent-fg: oklch(0.17 0.01 260);
+  --dg-ok: oklch(0.72 0.15 155);
+  --dg-warn: oklch(0.78 0.15 75);
+  --dg-danger: oklch(0.68 0.19 22);
+  --dg-info: oklch(0.72 0.13 232);
+}
+
+@theme inline {
+  --color-bg: var(--dg-bg);
+  --color-surface: var(--dg-surface);
+  --color-surface-2: var(--dg-surface-2);
+  --color-line: var(--dg-border);
+  --color-line-strong: var(--dg-border-strong);
+  --color-ink: var(--dg-text);
+  --color-muted: var(--dg-muted);
+  --color-subtle: var(--dg-subtle);
+  --color-accent: var(--dg-accent);
+  --color-accent-fg: var(--dg-accent-fg);
+  --color-ok: var(--dg-ok);
+  --color-warn: var(--dg-warn);
+  --color-danger: var(--dg-danger);
+  --color-info: var(--dg-info);
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono:
+    ui-monospace, 'SF Mono', SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, 'Liberation Mono',
+    monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--dg-border);
+  }
+  html,
+  body {
+    background: var(--dg-bg);
+    color: var(--dg-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--dg-accent) 30%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--dg-accent);
+    outline-offset: 1px;
+  }
+}
+
+@layer utilities {
+  .scroll-thin::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .scroll-thin::-webkit-scrollbar-thumb {
+    background: var(--dg-border-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 9999px;
+  }
+  .scroll-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}

@@ -1,0 +1,229 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, statSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { parseEnv, setEnvValue } from '../../src/server/core/envfile.ts'
+import { buildConfigView, patchConfig } from '../../src/server/core/configview.ts'
+import { validateCombination, validateValue, ValidationError } from '../../src/server/core/settings.ts'
+import { makeApp, testConfig } from './helpers.ts'
+import type { ConfigView } from '../../src/shared/types.ts'
+
+describe('parsing .env the way the CLI does', () => {
+  it('reads plain assignments and skips comments', () => {
+    const values = parseEnv('# a comment\nFOO=bar\n\nBAZ=qux\n')
+    expect(values.get('FOO')).toBe('bar')
+    expect(values.get('BAZ')).toBe('qux')
+    expect(values.size).toBe(2)
+  })
+
+  it('tolerates `export` and strips one layer of quotes', () => {
+    const values = parseEnv('export FOO="bar"\nBAR=\'baz\'\n')
+    expect(values.get('FOO')).toBe('bar')
+    expect(values.get('BAR')).toBe('baz')
+  })
+
+  it('never executes what it reads', () => {
+    const values = parseEnv('FOO=$(rm -rf /)\nBAR=`whoami`\n')
+    expect(values.get('FOO')).toBe('$(rm -rf /)')
+    expect(values.get('BAR')).toBe('`whoami`')
+  })
+
+  it('ignores a key that is not a shell identifier', () => {
+    expect(parseEnv('not a key=value\nA-B=c\n').size).toBe(0)
+  })
+})
+
+describe('rewriting .env', () => {
+  it('replaces a value in place, keeping the comments around it', () => {
+    const before = '# the domain\nDEV_GATEWAY_DOMAIN=localhost\n# tls\nTLS_ENABLED=false\n'
+    const after = setEnvValue(before, 'DEV_GATEWAY_DOMAIN', 'dev.test')
+    expect(after).toBe('# the domain\nDEV_GATEWAY_DOMAIN=dev.test\n# tls\nTLS_ENABLED=false\n')
+  })
+
+  it('appends a key that is not there yet', () => {
+    expect(setEnvValue('A=1\n', 'B', '2')).toBe('A=1\nB=2\n')
+  })
+
+  it('refuses a key or a value that would corrupt the file', () => {
+    expect(() => setEnvValue('', 'BAD KEY', 'x')).toThrowError(/invalid .env key/)
+    expect(() => setEnvValue('', 'GOOD', 'line1\nEVIL=1')).toThrowError(/multi-line/)
+  })
+})
+
+describe('validation', () => {
+  it('checks each value against its own rules', () => {
+    expect(() => validateValue('DEV_GATEWAY_HTTP_PORT', '70000')).toThrow(ValidationError)
+    expect(() => validateValue('DEV_GATEWAY_DOMAIN', 'not a domain')).toThrow(ValidationError)
+    expect(() => validateValue('TLS_MODE', 'sometimes')).toThrow(ValidationError)
+    expect(() => validateValue('TLS_ENABLED', 'maybe')).toThrow(ValidationError)
+    expect(() => validateValue('ACME_EMAIL', 'nope')).toThrow(ValidationError)
+    expect(() => validateValue('SOMETHING_ELSE', 'x')).toThrowError(/not a setting the panel manages/)
+  })
+
+  it('accepts the values the gateway actually uses', () => {
+    expect(() => validateValue('DEV_GATEWAY_DOMAIN', 'vpn.example.com')).not.toThrow()
+    expect(() => validateValue('DEV_GATEWAY_BIND_ADDRESS', '100.64.0.1')).not.toThrow()
+    expect(() => validateValue('PUBLIC_DOMAIN', '')).not.toThrow()
+    expect(() => validateValue('DEV_GATEWAY_PROFILE', 'remote-private')).not.toThrow()
+  })
+
+  it('refuses combinations the CLI would refuse at startup', () => {
+    expect(() =>
+      validateCombination(new Map([['DEV_GATEWAY_PROFILE', 'remote-public']])),
+    ).toThrowError(/PUBLIC_DOMAIN/)
+
+    expect(() =>
+      validateCombination(
+        new Map([
+          ['DEV_GATEWAY_PROFILE', 'remote-private'],
+          ['DEV_GATEWAY_BIND_ADDRESS', '0.0.0.0'],
+        ]),
+      ),
+    ).toThrowError(/must not bind 0.0.0.0/)
+
+    expect(() =>
+      validateCombination(
+        new Map([
+          ['TLS_ENABLED', 'true'],
+          ['TLS_MODE', 'acme'],
+        ]),
+      ),
+    ).toThrowError(/ACME_EMAIL/)
+  })
+
+  it('refuses to publish the panel on every interface', () => {
+    expect(() =>
+      validateCombination(new Map([['DEV_GATEWAY_WEB_BIND_ADDRESS', '0.0.0.0']])),
+    ).toThrowError(/not published on every interface/)
+  })
+})
+
+describe('the Settings view and its writes', () => {
+  let dir: string
+  let envFile: string
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'dg-web-'))
+    envFile = join(dir, '.env')
+    writeFileSync(
+      envFile,
+      '# gateway\nDEV_GATEWAY_DOMAIN=localhost\nTLS_ENABLED=false\nTS_AUTHKEY=tskey_auth_secret_value\n',
+    )
+  })
+
+  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('never returns a secret value', () => {
+    const view = buildConfigView(testConfig({ envFile }))
+    const token = view.fields.find((field) => field.key === 'TS_AUTHKEY')
+    expect(token?.secret).toBe(true)
+    expect(token?.isSet).toBe(true)
+    expect(token?.value).toBeNull()
+    expect(JSON.stringify(view)).not.toContain('tskey_auth_secret_value')
+  })
+
+  it('flags a saved value that the running gateway has not picked up', () => {
+    process.env['DEV_GATEWAY_DOMAIN'] = 'localhost'
+    const before = buildConfigView(testConfig({ envFile }))
+    expect(before.fields.find((f) => f.key === 'DEV_GATEWAY_DOMAIN')?.pending).toBe(false)
+
+    patchConfig(testConfig({ envFile }), { DEV_GATEWAY_DOMAIN: 'dev.test' })
+    const after = buildConfigView(testConfig({ envFile }))
+    expect(after.fields.find((f) => f.key === 'DEV_GATEWAY_DOMAIN')?.pending).toBe(true)
+    expect(after.pendingRestart).toBe(true)
+    expect(after.applyCommand).toBe('./bin/dev-gateway up local')
+    delete process.env['DEV_GATEWAY_DOMAIN']
+  })
+
+  it('writes the file with mode 600', () => {
+    patchConfig(testConfig({ envFile }), { DEV_GATEWAY_DOMAIN: 'dev.test' })
+    expect(statSync(envFile).mode & 0o777).toBe(0o600)
+  })
+
+  it('leaves a secret alone when the form sends an empty string', () => {
+    patchConfig(testConfig({ envFile }), { TS_AUTHKEY: '' })
+    expect(readFileSync(envFile, 'utf8')).toContain('TS_AUTHKEY=tskey_auth_secret_value')
+  })
+
+  it('clears a secret when explicitly asked to', () => {
+    patchConfig(testConfig({ envFile }), { TS_AUTHKEY: null })
+    expect(readFileSync(envFile, 'utf8')).toContain('TS_AUTHKEY=\n')
+    expect(readFileSync(envFile, 'utf8')).not.toContain('tskey_auth_secret_value')
+  })
+
+  it('normalises the spellings people write for a boolean', () => {
+    patchConfig(testConfig({ envFile }), { TLS_ENABLED: 'yes' })
+    expect(readFileSync(envFile, 'utf8')).toContain('TLS_ENABLED=true')
+  })
+
+  it('writes nothing at all when one value in the batch is invalid', () => {
+    const before = readFileSync(envFile, 'utf8')
+    expect(() =>
+      patchConfig(testConfig({ envFile }), {
+        DEV_GATEWAY_DOMAIN: 'dev.test',
+        DEV_GATEWAY_HTTP_PORT: '-1',
+      }),
+    ).toThrow(ValidationError)
+    expect(readFileSync(envFile, 'utf8')).toBe(before)
+  })
+
+  it('refuses a key that is not in the catalogue', () => {
+    expect(() => patchConfig(testConfig({ envFile }), { PATH: '/tmp' })).toThrowError(
+      /not a setting the panel manages/,
+    )
+    expect(readFileSync(envFile, 'utf8')).not.toContain('PATH=')
+  })
+
+  it('keeps the comments in the file', () => {
+    patchConfig(testConfig({ envFile }), { DEV_GATEWAY_DOMAIN: 'dev.test' })
+    expect(readFileSync(envFile, 'utf8')).toContain('# gateway')
+  })
+})
+
+describe('the config endpoints', () => {
+  let dir: string
+  let envFile: string
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'dg-web-api-'))
+    envFile = join(dir, '.env')
+    writeFileSync(envFile, 'DEV_GATEWAY_DOMAIN=localhost\nCF_DNS_API_TOKEN=super-secret\n')
+  })
+
+  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('serves the catalogue without any secret in it', async () => {
+    const { app } = makeApp({ containers: [] }, { envFile })
+    const body = await (await app.request('/api/config')).text()
+    expect(body).not.toContain('super-secret')
+    const view = JSON.parse(body) as ConfigView
+    expect(view.envFile.writable).toBe(true)
+    expect(view.groups).toContain('Gateway')
+  })
+
+  it('saves through PATCH and reports what needs recreating', async () => {
+    const { app } = makeApp({ containers: [] }, { envFile })
+    const response = await app.request('/api/config', {
+      method: 'PATCH',
+      body: JSON.stringify({ values: { DEV_GATEWAY_DOMAIN: 'dev.test' } }),
+      headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },
+    })
+    expect(response.status).toBe(200)
+    const result = await response.json()
+    expect(result.saved).toEqual(['DEV_GATEWAY_DOMAIN'])
+    expect(result.applyCommand).toContain('dev-gateway up')
+    expect(readFileSync(envFile, 'utf8')).toContain('DEV_GATEWAY_DOMAIN=dev.test')
+  })
+
+  it('answers 400 with the offending key, and writes nothing', async () => {
+    const { app } = makeApp({ containers: [] }, { envFile })
+    const response = await app.request('/api/config', {
+      method: 'PATCH',
+      body: JSON.stringify({ values: { DEV_GATEWAY_HTTP_PORT: 'eighty' } }),
+      headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },
+    })
+    expect(response.status).toBe(400)
+    expect((await response.json()).error).toContain('DEV_GATEWAY_HTTP_PORT')
+    expect(readFileSync(envFile, 'utf8')).not.toContain('eighty')
+  })
+})

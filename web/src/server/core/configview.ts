@@ -1,0 +1,111 @@
+// The Settings view, and the only path that writes to .env.
+
+import type { PanelConfig } from '../config.ts'
+import { parseEnv, readEnvFile, setEnvValue, writeEnvFile, isWritable } from './envfile.ts'
+import { FIELDS, FIELDS_BY_KEY, ValidationError, validateCombination, validateValue } from './settings.ts'
+import type { ConfigField, ConfigPatchResult, ConfigView } from '../../shared/types.ts'
+import { existsSync } from 'node:fs'
+
+/** Values the running gateway was actually started with. */
+function runtimeValue(key: string): string | null {
+  const value = process.env[key]
+  return value === undefined ? null : value
+}
+
+function normaliseBoolean(value: string): string {
+  return ['1', 'true', 'yes', 'on', 'enabled'].includes(value.trim().toLowerCase()) ? 'true' : 'false'
+}
+
+export function buildConfigView(config: PanelConfig): ConfigView {
+  const text = readEnvFile(config.envFile)
+  const saved = parseEnv(text)
+
+  const fields: ConfigField[] = FIELDS.map((spec) => {
+    const stored = saved.get(spec.key) ?? null
+    const running = runtimeValue(spec.key)
+    const secret = spec.secret === true
+    const compare = (value: string | null) =>
+      value === null || value === '' ? '' : spec.kind === 'boolean' ? normaliseBoolean(value) : value
+
+    return {
+      key: spec.key,
+      value: secret ? null : stored,
+      runtimeValue: secret ? null : running,
+      secret,
+      isSet: stored !== null && stored !== '',
+      // Pending means "saved here, not yet in the running gateway". A key
+      // absent from .env is on the CLI's default, which is what is running.
+      pending: stored !== null && running !== null && compare(stored) !== compare(running),
+      kind: spec.kind,
+      ...(spec.choices ? { choices: spec.choices } : {}),
+      group: spec.group,
+      label: spec.label,
+      help: spec.help,
+      restartRequired: spec.restartRequired,
+    }
+  })
+
+  return {
+    fields,
+    envFile: {
+      path: config.envFile,
+      exists: existsSync(config.envFile),
+      writable: isWritable(config.envFile),
+    },
+    pendingRestart: fields.some((field) => field.pending),
+    applyCommand: `./bin/dev-gateway up ${config.profile}`,
+    groups: [...new Set(FIELDS.map((spec) => spec.group))],
+  }
+}
+
+/**
+ * Save, then validate, then report. A patch is all-or-nothing: the file is
+ * rewritten once, after every value has been checked on its own and in
+ * combination with the others.
+ *
+ * A secret sent as an empty string means "leave it alone" (the UI never has the
+ * current value to send back); sending null clears it.
+ */
+export function patchConfig(
+  config: PanelConfig,
+  updates: Record<string, string | null>,
+): ConfigPatchResult {
+  if (!isWritable(config.envFile)) {
+    throw new ValidationError('.env', 'is not writable by the panel')
+  }
+
+  const text = readEnvFile(config.envFile)
+  const merged = parseEnv(text)
+  const applied = new Map<string, string>()
+
+  for (const [key, raw] of Object.entries(updates)) {
+    const spec = FIELDS_BY_KEY.get(key)
+    if (!spec) throw new ValidationError(key, 'is not a setting the panel manages')
+
+    if (raw === null) {
+      applied.set(key, '')
+      continue
+    }
+    if (spec.secret && raw === '') continue
+
+    const value = spec.kind === 'boolean' ? normaliseBoolean(raw) : raw.trim()
+    validateValue(key, value)
+    applied.set(key, value)
+  }
+
+  for (const [key, value] of applied) merged.set(key, value)
+  validateCombination(merged)
+
+  let next = text
+  for (const [key, value] of applied) next = setEnvValue(next, key, value)
+  writeEnvFile(config.envFile, next)
+
+  const view = buildConfigView(config)
+  return {
+    ok: true,
+    saved: [...applied.keys()],
+    pendingRestart: view.pendingRestart,
+    applyCommand: view.applyCommand,
+    view,
+  }
+}

@@ -1,0 +1,343 @@
+// The host the documentation screenshots describe.
+//
+// It is a plausible workstation rather than any particular machine: three
+// projects on the gateway (one of them a second worktree of the first), a
+// legacy stack that never adopted it, containers somebody started by hand and
+// forgot, an open TCP bridge, one unhealthy service and one port claimed
+// twice. Everything the panel is for is visible at once, the images are
+// reproducible, and no real environment ends up in a public README.
+//
+// Regenerate the images with: npm run screenshots
+
+import { composeLabels, gatewayLabels, makeBridge, makeContainer, volume } from './container.mjs'
+
+const HOUR = 3600
+const DAY = 24 * HOUR
+
+const WHOAMI = 'traefik/whoami:v1.12.0'
+const POSTGRES = 'postgres:18.6-alpine'
+const REDIS = 'redis:8.10.1-alpine'
+
+export function initialState() {
+  return [
+    // ---- the gateway itself ------------------------------------------
+    makeContainer({
+      id: 'gwtraefik',
+      name: 'dev-gateway-traefik-1',
+      image: 'traefik:v3.7.12',
+      health: 'healthy',
+      networks: ['dev-gateway', 'dev-gateway-control'],
+      labels: gatewayLabels('traefik'),
+      published: [
+        { hostIp: '127.0.0.1', hostPort: 80, containerPort: 80 },
+        { hostIp: '127.0.0.1', hostPort: 443, containerPort: 443 },
+      ],
+      upSeconds: 6 * DAY,
+    }),
+    makeContainer({
+      id: 'gwproxy',
+      name: 'dev-gateway-socket-proxy-1',
+      image: 'tecnativa/docker-socket-proxy:v0.5.0',
+      health: 'healthy',
+      networks: ['dev-gateway-control'],
+      labels: gatewayLabels('socket-proxy'),
+      upSeconds: 6 * DAY,
+    }),
+    makeContainer({
+      id: 'gwweb',
+      name: 'dev-gateway-web-1',
+      image: 'dev-gateway-web:local',
+      health: 'healthy',
+      networks: ['dev-gateway', 'dev-gateway-web'],
+      labels: gatewayLabels('web'),
+      published: [{ hostIp: '127.0.0.1', hostPort: 8081, containerPort: 8081 }],
+      upSeconds: 4 * HOUR,
+    }),
+    makeContainer({
+      id: 'gwwebproxy',
+      name: 'dev-gateway-web-socket-proxy-1',
+      image: 'tecnativa/docker-socket-proxy:v0.5.0',
+      health: 'healthy',
+      networks: ['dev-gateway-web'],
+      labels: gatewayLabels('web-socket-proxy'),
+      upSeconds: 4 * HOUR,
+    }),
+
+    // ---- storefront: the project being worked on ----------------------
+    makeContainer({
+      id: 'sfweb',
+      name: 'storefront-web-1',
+      image: WHOAMI,
+      health: 'healthy',
+      networks: ['dev-gateway', 'storefront_default'],
+      exposed: [3000],
+      labels: composeLabels({
+        project: 'storefront',
+        service: 'web',
+        workingDir: '/Projects/storefront',
+        routed: true,
+        port: 3000,
+      }),
+      upSeconds: 3 * HOUR,
+    }),
+    makeContainer({
+      id: 'sfapi',
+      name: 'storefront-api-1',
+      image: WHOAMI,
+      health: 'healthy',
+      networks: ['dev-gateway', 'storefront_default'],
+      exposed: [8000],
+      labels: composeLabels({
+        project: 'storefront',
+        service: 'api',
+        workingDir: '/Projects/storefront',
+        routed: true,
+        port: 8000,
+      }),
+      upSeconds: 3 * HOUR,
+    }),
+    makeContainer({
+      id: 'sfpg',
+      name: 'storefront-postgres-1',
+      image: POSTGRES,
+      health: 'healthy',
+      networks: ['storefront_default'],
+      exposed: [5432],
+      labels: composeLabels({
+        project: 'storefront',
+        service: 'postgres',
+        workingDir: '/Projects/storefront',
+      }),
+      mounts: [volume('storefront_pgdata', '/var/lib/postgresql')],
+      upSeconds: 3 * HOUR,
+    }),
+    makeContainer({
+      id: 'sfredis',
+      name: 'storefront-redis-1',
+      image: REDIS,
+      health: 'healthy',
+      networks: ['storefront_default'],
+      exposed: [6379],
+      labels: composeLabels({
+        project: 'storefront',
+        service: 'redis',
+        workingDir: '/Projects/storefront',
+      }),
+      upSeconds: 3 * HOUR,
+    }),
+
+    // ---- the same project, a second worktree, running side by side ----
+    makeContainer({
+      id: 'sf312web',
+      name: 'storefront-issue312-web-1',
+      image: WHOAMI,
+      health: 'healthy',
+      networks: ['dev-gateway', 'storefront-issue312_default'],
+      exposed: [3000],
+      labels: composeLabels({
+        project: 'storefront-issue312',
+        service: 'web',
+        workingDir: '/Projects/worktrees/issue-312',
+        routed: true,
+        port: 3000,
+      }),
+      upSeconds: 40 * 60,
+    }),
+    makeContainer({
+      id: 'sf312api',
+      name: 'storefront-issue312-api-1',
+      image: WHOAMI,
+      networks: ['dev-gateway', 'storefront-issue312_default'],
+      exposed: [8000],
+      labels: composeLabels({
+        project: 'storefront-issue312',
+        service: 'api',
+        workingDir: '/Projects/worktrees/issue-312',
+        routed: true,
+        port: 8000,
+      }),
+      upSeconds: 40 * 60,
+    }),
+    makeContainer({
+      id: 'sf312pg',
+      name: 'storefront-issue312-postgres-1',
+      image: POSTGRES,
+      health: 'healthy',
+      networks: ['storefront-issue312_default'],
+      exposed: [5432],
+      labels: composeLabels({
+        project: 'storefront-issue312',
+        service: 'postgres',
+        workingDir: '/Projects/worktrees/issue-312',
+      }),
+      mounts: [volume('storefront-issue312_pgdata', '/var/lib/postgresql')],
+      upSeconds: 40 * 60,
+    }),
+
+    // ---- checkout: another project, with something wrong with it ------
+    makeContainer({
+      id: 'ckweb',
+      name: 'checkout-web-1',
+      image: WHOAMI,
+      health: 'healthy',
+      networks: ['dev-gateway', 'checkout_default'],
+      exposed: [3000],
+      labels: composeLabels({
+        project: 'checkout',
+        service: 'web',
+        workingDir: '/Projects/checkout',
+        routed: true,
+        port: 3000,
+      }),
+      upSeconds: 26 * HOUR,
+    }),
+    makeContainer({
+      id: 'ckworker',
+      name: 'checkout-worker-1',
+      image: 'python:3.13-alpine',
+      health: 'unhealthy',
+      networks: ['checkout_default'],
+      labels: composeLabels({
+        project: 'checkout',
+        service: 'worker',
+        workingDir: '/Projects/checkout',
+      }),
+      upSeconds: 26 * HOUR,
+    }),
+    makeContainer({
+      id: 'ckpg',
+      name: 'checkout-postgres-1',
+      image: POSTGRES,
+      health: 'healthy',
+      networks: ['checkout_default'],
+      exposed: [5432],
+      labels: composeLabels({
+        project: 'checkout',
+        service: 'postgres',
+        workingDir: '/Projects/checkout',
+      }),
+      mounts: [volume('checkout_pgdata', '/var/lib/postgresql')],
+      upSeconds: 26 * HOUR,
+    }),
+
+    // ---- a stack that never adopted the gateway -----------------------
+    makeContainer({
+      id: 'lgapi',
+      name: 'legacy-billing-api-1',
+      image: 'legacy-billing-api:dev',
+      networks: ['legacy-billing_default'],
+      exposed: [8000],
+      published: [{ hostIp: '127.0.0.1', hostPort: 8090, containerPort: 8000 }],
+      labels: composeLabels({
+        project: 'legacy-billing',
+        service: 'api',
+        workingDir: '/Projects/legacy-billing',
+      }),
+      upSeconds: 9 * DAY,
+    }),
+    makeContainer({
+      id: 'lgpg',
+      name: 'legacy-billing-postgres-1',
+      image: 'postgres:14-alpine',
+      health: 'healthy',
+      networks: ['legacy-billing_default'],
+      exposed: [5432],
+      published: [{ hostIp: '127.0.0.1', hostPort: 5432, containerPort: 5432 }],
+      labels: composeLabels({
+        project: 'legacy-billing',
+        service: 'postgres',
+        workingDir: '/Projects/legacy-billing',
+      }),
+      mounts: [volume('legacy-billing_pgdata', '/var/lib/postgresql/data')],
+      upSeconds: 9 * DAY,
+    }),
+
+    // ---- started by hand, and forgotten -------------------------------
+    makeContainer({
+      id: 'mailpit',
+      name: 'mailpit',
+      image: 'axllent/mailpit:v1.20.0',
+      health: 'healthy',
+      networks: ['bridge'],
+      exposed: [1025],
+      published: [{ hostIp: '0.0.0.0', hostPort: 8025, containerPort: 8025 }],
+      upSeconds: 21 * DAY,
+    }),
+    makeContainer({
+      id: 'pgscratch',
+      name: 'pg-scratch',
+      image: 'postgres:16-alpine',
+      networks: ['bridge'],
+      exposed: [5432],
+      // A second claim on 5432, on another interface. The panel flags it, and
+      // this is usually the answer to "why will my database not start".
+      published: [{ hostIp: '192.168.64.2', hostPort: 5432, containerPort: 5432 }],
+      mounts: [volume('pg-scratch-data', '/var/lib/postgresql/data')],
+      upSeconds: 5 * DAY,
+    }),
+    makeContainer({
+      id: 'oldbox',
+      name: 'import-script-run',
+      image: 'alpine:3.24.1',
+      state: 'exited',
+      networks: ['bridge'],
+      upSeconds: 0,
+    }),
+
+    // ---- an access bridge somebody opened this morning ----------------
+    makeBridge({
+      id: 'bridge1',
+      name: 'dg-access-storefront-postgres-a41f2c',
+      targetPort: 5432,
+      hostPort: 55431,
+      network: 'storefront_default',
+      labels: {
+        'dev-gateway.managed': 'true',
+        'dev-gateway.component': 'access-bridge',
+        'dev-gateway.access.id': 'a41f2c',
+        'dev-gateway.access.project': 'storefront',
+        'dev-gateway.access.service': 'postgres',
+        'dev-gateway.access.port': '5432',
+        'dev-gateway.access.network': 'storefront_default',
+        'dev-gateway.access.kind': 'postgres',
+        'dev-gateway.access.created': String(Math.floor(Date.now() / 1000) - 900),
+        'traefik.enable': 'false',
+      },
+    }),
+  ]
+}
+
+function network(name, { internal = false, managed = false } = {}) {
+  return {
+    Id: `net-${name}`,
+    Name: name,
+    Driver: 'bridge',
+    Scope: 'local',
+    Internal: internal,
+    Labels: managed ? { 'dev-gateway.managed': 'true' } : {},
+    Containers: {},
+  }
+}
+
+/** What `GET /info` answers. A plausible workstation, not this machine. */
+export const INFO = {
+  Name: 'workstation',
+  Images: 64,
+  NCPU: 10,
+  MemTotal: 34_359_738_368,
+  OperatingSystem: 'OrbStack',
+  Architecture: 'aarch64',
+  ServerVersion: '29.4.0',
+}
+
+export const NETWORKS = [
+  network('dev-gateway', { managed: true }),
+  network('dev-gateway-control', { internal: true, managed: true }),
+  network('dev-gateway-web', { internal: true, managed: true }),
+  network('dev-gateway-access', { managed: true }),
+  network('storefront_default'),
+  network('storefront-issue312_default'),
+  network('checkout_default'),
+  network('legacy-billing_default'),
+  network('bridge'),
+]
