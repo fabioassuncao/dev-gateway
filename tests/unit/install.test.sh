@@ -173,6 +173,12 @@ ln -sf "$PORTTA_ROOT/bin/portta" "$link"
 assert_contains "$("$link" version 2>&1)" "portta "
 rm -f "$link"
 
+it "and that link does not shadow a globally installed npm CLI"
+# PORTTA_HOME has no packages/ directory, so without this the linked entry
+# point would answer with the reduced shell command set even where the full
+# TypeScript CLI is installed.
+assert_contains "$(cat "$PORTTA_ROOT/bin/portta")" "lib/node_modules/portta/dist/cli.js"
+
 it "and it links only into a directory already on PATH"
 assert_contains "$SOURCE" 'for candidate in /usr/local/bin "$HOME/.local/bin"'
 

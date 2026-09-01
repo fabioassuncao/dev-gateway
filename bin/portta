@@ -27,7 +27,18 @@ unset _portta_entry _portta_dir
 # must still be able to bootstrap, start, stop, inspect status and run doctor
 # without Node (ADR 0015). Shell-native drivers can deliberately set
 # PORTTA_FORCE_BASH when the TypeScript command delegates to openssl/ssh/toolbox.
-PORTTA_TS_CLI="$PORTTA_BIN_DIR/../packages/cli/dist/cli.js"
+PORTTA_TS_CLI="${PORTTA_TS_CLI:-$PORTTA_BIN_DIR/../packages/cli/dist/cli.js}"
+# An installed PORTTA_HOME has no packages/ directory, and its bin/portta is
+# linked onto PATH, where it would otherwise shadow a globally installed
+# `portta` npm package and quietly give the reduced command set. npm puts a
+# global package in lib/node_modules next to the node binary's own directory.
+if [ ! -f "$PORTTA_TS_CLI" ] && command -v node >/dev/null 2>&1; then
+  _portta_node_prefix=$(dirname "$(dirname "$(command -v node)")")
+  if [ -f "$_portta_node_prefix/lib/node_modules/portta/dist/cli.js" ]; then
+    PORTTA_TS_CLI="$_portta_node_prefix/lib/node_modules/portta/dist/cli.js"
+  fi
+  unset _portta_node_prefix
+fi
 if [ "${PORTTA_FORCE_BASH:-false}" != "true" ] \
    && command -v node >/dev/null 2>&1 \
    && [ -f "$PORTTA_TS_CLI" ] \
