@@ -15,3 +15,4 @@ context, the decision, and what it costs us.
 | [0008](0008-web-panel-socket-proxy.md) | The web panel gets its own Docker socket proxy | Accepted |
 | [0009](0009-tcp-routing-by-hostname.md) | Databases are told apart by hostname, with TLS terminated at the gateway | Accepted |
 | [0010](0010-git-collected-on-the-host.md) | Git is collected on the host, and the panel only reads the result | Accepted |
+| [0011](0011-panel-reads-traefik-writes-one-file.md) | The panel reads Traefik's API, and writes exactly two generated files | Accepted |
