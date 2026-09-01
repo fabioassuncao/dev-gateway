@@ -17,9 +17,12 @@ network.
 | Traefik | `traefik:v3.7.12` | The only process holding 80/443. Routes by hostname. |
 | Docker socket proxy | `tecnativa/docker-socket-proxy:v0.5.0` | Read-only, filtered Docker API for discovery. |
 | `bin/dev-gateway` | — | The operational contract: bootstrap, up/down, doctor, urls, access. |
+| Web panel | `dev-gateway-web:local` | Optional. Read-mostly administration UI on loopback. |
+| Panel socket proxy | `tecnativa/docker-socket-proxy:v0.5.0` | Optional. The panel's own filtered Docker API. |
 
-That is the whole permanent footprint: two small containers. Bridges and
-toolbox containers are created on demand and removed when done.
+That is the whole permanent footprint: two small containers, or four with the
+panel enabled. Bridges and toolbox containers are created on demand and removed
+when done.
 
 ## Networks
 
@@ -49,6 +52,12 @@ survives `dev-gateway down` and is never removed automatically.
 **`dev-gateway-control`** is created with `internal: true`, so it has no route
 off the host. Only Traefik and the socket proxy are on it. This is what keeps
 the Docker API away from anything that handles network traffic.
+
+**`dev-gateway-web`** exists only when the panel is enabled. It is also
+`internal: true`, and carries nothing but the panel and its own socket proxy.
+The two proxies are separate because their permission sets are:
+Traefik's is read-only, the panel's adds the container lifecycle
+([ADR 0008](adr/0008-web-panel-socket-proxy.md)).
 
 **`<project>_default`** is each project's own network, created by its own
 Compose file. Postgres, Redis, queues and search live here and nowhere else.

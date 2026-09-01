@@ -142,6 +142,33 @@ backend port, the service missing from the shared network, a Traefik service
 name colliding with another project's, or labels written in map form so
 `${COMPOSE_PROJECT_NAME}` was never interpolated.
 
+## Reading the host without touching it
+
+The panel's API is a read-only view of everything above, in JSON, and it is
+often faster than several `docker inspect` calls:
+
+```bash
+curl -s http://127.0.0.1:8081/api/status          # gateway health, counts, problems
+curl -s http://127.0.0.1:8081/api/projects        # integrated projects and their services
+curl -s http://127.0.0.1:8081/api/docker/host     # networks, published ports, conflicts
+curl -s http://127.0.0.1:8081/api/access          # TCP services and open bridges
+```
+
+It only exists when somebody ran `dev-gateway web up`; the CLI's `--json` flags
+cover the same ground and always work.
+
+If you are given the panel to drive, run it read-only, which refuses every
+mutating endpoint:
+
+```bash
+dev-gateway web up --read-only
+```
+
+The rules above do not change because there is an API: the panel refuses to
+remove a volume, a network or a gateway component, but it will happily stop a
+container you did not create if you ask it to. That is still your
+responsibility, not the tool's.
+
 ## Remote hosts
 
 Databases and caches on a VPS are reached over the VPN, never over the

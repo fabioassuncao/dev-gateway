@@ -72,6 +72,28 @@ never through the `web`/`websecure` entrypoints, so it can never appear under
 the public wildcard domain. `doctor` fails if it is enabled on a non-loopback
 address.
 
+## Web panel
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DEV_GATEWAY_WEB` | `false` | Start the administration panel with the gateway |
+| `DEV_GATEWAY_WEB_BIND_ADDRESS` | `127.0.0.1` | Interface the panel is published on |
+| `DEV_GATEWAY_WEB_PORT` | `8081` | Host port |
+| `DEV_GATEWAY_WEB_EXPOSE` | `local` | `local`, or `vpn` to add a Traefik router |
+| `DEV_GATEWAY_WEB_HOST` | `dev-gateway-web` | Hostname label used by `vpn` |
+| `DEV_GATEWAY_WEB_READ_ONLY` | `false` | Refuse every mutating endpoint |
+| `DEV_GATEWAY_WEB_DEV` | `false` | Development mode, Vite with HMR in front |
+| `DEV_GATEWAY_WEB_DEV_PORT` | `5173` | Vite's host port in development mode |
+| `DEV_GATEWAY_WEB_NETWORK` | `dev-gateway-web` | The panel's own internal control network |
+| `DEV_GATEWAY_WEB_USER` | `node` | User the container runs as |
+
+The panel has no authentication, so it binds loopback and is never routed
+through the public entrypoints. `DEV_GATEWAY_WEB_EXPOSE=vpn` is refused on the
+`remote-public` profile. On a Linux host set `DEV_GATEWAY_WEB_USER` to
+`$(id -u):$(id -g)` if you want the Settings page to be able to write `.env`.
+
+`dev-gateway web up` sets these for you. See [web-ui.md](web-ui.md).
+
 ## TLS
 
 | Variable | Default | Meaning |

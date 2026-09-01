@@ -81,6 +81,30 @@ attached only to Traefik's internal entrypoint, so it is never routed through
 `web`/`websecure` and cannot appear under a public wildcard domain. `doctor`
 fails if it is enabled on a non-loopback address.
 
+## The web panel
+
+Off by default. It is the one component that can start, stop and remove
+containers, so it is fenced on three sides.
+
+- **Network.** Loopback by default, never attached to the `web`/`websecure`
+  entrypoints, and `dev-gateway web up --expose public` is refused. Routing it
+  over a VPN is a separate overlay, itself refused on the `remote-public`
+  profile where Traefik answers the internet.
+- **Docker.** Its own socket proxy, not Traefik's, which stays read-only. It
+  grants the read endpoints plus the container lifecycle, and denies images,
+  volumes, exec, build, swarm, secrets, plugins and the system endpoints. The
+  panel then refuses to emit any call outside its own allowlist, so `prune`,
+  `exec`, `archive` and `attach` are denied even where the proxy would forward
+  them. See [ADR 0008](adr/0008-web-panel-socket-proxy.md).
+- **Blast radius.** A removal always sends `v=0&link=0`: volumes, networks and
+  images outlive the container. The only container the panel can create is the
+  socat TCP bridge, with a fixed image and no host access at all. Gateway
+  components cannot be removed from it.
+
+A mutating request must come from the panel's own origin, so a page on another
+site cannot drive it through `127.0.0.1`. `DEV_GATEWAY_WEB_READ_ONLY=true`
+refuses every write, which is the right setting when an agent is driving it.
+
 ## Secrets
 
 - `.env` is git-ignored; `bootstrap` creates it `0600`; `doctor` warns if it
@@ -92,6 +116,9 @@ fails if it is enabled on a non-loopback address.
 - The gateway never reads a consumer project's `.env` to "helpfully" print
   credentials. Connection strings it shows are templates with the secret
   omitted.
+- The web panel's API never returns a secret value, in whole or in part. It
+  reports whether one is set, and writing `.env` goes through a temporary file
+  with mode `0600`.
 
 For Cloudflare, use a scoped API Token limited to `Zone:DNS:Edit` on one zone.
 Never the Global API Key: it authenticates everything in the account and cannot

@@ -22,6 +22,13 @@ issue-flow                   web            http://issue-flow-web.localhost
 All of those run `web` on internal port 3000 and `api` on 8000. Each has its
 own Postgres on 5432 and Redis on 6379. None of them publishes a host port.
 
+The same host, in the optional web panel:
+
+![The Dev Gateway panel: three projects on the gateway with their services and URLs, how many containers are running outside it, and the two problems it found](.github/images/panel-overview.png)
+
+Off by default, published on loopback: `dev-gateway web up`, then
+<http://127.0.0.1:8081>. See [the panel](#web-panel).
+
 ---
 
 ## The problem
@@ -190,6 +197,45 @@ dev-gateway access open --project base-empresarial --service postgres
 
 See [docs/tcp-access.md](docs/tcp-access.md).
 
+## Web panel
+
+Optional, off by default, loopback only. It answers the lookups that come up
+when several environments are running at once: which URL does this project have
+today, what is holding that port, which containers are still up from last week,
+and how do I point a GUI client at this database.
+
+```bash
+dev-gateway web up
+dev-gateway web open      # http://127.0.0.1:8081
+```
+
+**Projects, not a list of containers.** Services are grouped by
+`COMPOSE_PROJECT_NAME`, databases included, with every address one click from
+the clipboard.
+
+![The Projects page: each Compose project with its services, health, uptime and URLs, including a second worktree of the same project running beside it](.github/images/panel-projects.png)
+
+**Everything else on the host, kept separate.** Containers the gateway does not
+manage are shown for diagnosis, never mixed in with the projects it does, and
+the port that is already taken has a name next to it.
+
+![The Docker page: External Docker and Standalone sections, and the published ports table flagging 5432 as claimed twice](.github/images/panel-docker-external.png)
+
+**Databases without publishing a port.** A bridge on a free loopback port,
+opened when you need it and closed when you do not, with the connection string
+ready to copy and no password in it.
+
+![The Access page: an open bridge to storefront/postgres on 127.0.0.1:55431, and the other TCP services with an Open local access button](.github/images/panel-access.png)
+
+It also offers logs, start, stop, restart, a careful removal, gateway
+diagnostics and the common settings, and nothing more: it is not a Docker
+management tool.
+
+The panel runs in containers (the host still needs no Node), reads Docker
+through its own filtered socket proxy, and is never published on the internet.
+
+See **[docs/web-ui.md](docs/web-ui.md)** for the rest of it.
+
 ## Commands
 
 | | |
@@ -202,6 +248,7 @@ See [docs/tcp-access.md](docs/tcp-access.md).
 | `dev-gateway urls` | Hostnames currently being served |
 | `dev-gateway inspect` | Resolved configuration and compose files |
 | `dev-gateway update` | Pull pinned images and recreate |
+| `dev-gateway web up` | Start the administration panel on loopback |
 
 `--json` is available on `status`, `doctor` and `urls`. `make` targets mirror
 these for convenience; Make is never required.
@@ -218,6 +265,9 @@ Short version: nothing is exposed unless you ask for it.
   through the public entrypoints.
 - Databases, caches and the Docker API are never published publicly, and
   `doctor` fails if they are.
+- The web panel is off by default, binds loopback, and refuses to be published
+  on the internet. It reaches Docker through a socket proxy of its own, so
+  Traefik's stays read-only ([ADR 0008](docs/adr/0008-web-panel-socket-proxy.md)).
 
 Details: **[docs/security.md](docs/security.md)**.
 
@@ -243,6 +293,7 @@ Details: **[docs/security.md](docs/security.md)**.
 | [redis-access.md](docs/redis-access.md) | Reaching Redis |
 | [remote-tunnels.md](docs/remote-tunnels.md) | Reaching a VPS's private services |
 | [tailscale-services.md](docs/tailscale-services.md) | A persistent private address |
+| [web-ui.md](docs/web-ui.md) | The administration panel |
 | [agent-guidelines.md](docs/agent-guidelines.md) | Rules for autonomous agents |
 | [templates/](templates/) | Overlay templates for the usual project shapes |
 | [security.md](docs/security.md) | Threat model and hardening |
