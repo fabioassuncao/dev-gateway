@@ -11,6 +11,16 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Added
 
+- **A discoverable API contract for people and agents.** The panel now serves
+  an OpenAPI 3.1 document at `/api/openapi.json`, generated from the registered
+  Hono routes and the same Zod schemas that define the TypeScript contracts.
+  Every endpoint carries parameters, request bodies, response and error
+  schemas, status codes, read-only and cross-origin refusals, and the SSE event
+  payload. `web/openapi.json` is checked in and CI fails on byte-level drift.
+  `/api/docs` is a self-contained interactive browser with no external assets;
+  it defaults on for loopback and off for a routed panel unless
+  `DG_WEB_API_DOCS=true` explicitly enables it.
+
 - **The panel has a front door, and it is Traefik's.** `--expose vpn` used to
   put start, stop, restart and remove over every container on the host behind
   nothing but the tailnet. It now requires a credential and is refused without

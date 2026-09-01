@@ -1,10 +1,13 @@
 import type { MiddlewareHandler } from 'hono'
 import { Hono } from 'hono'
+import { HTTPException } from 'hono/http-exception'
 import { describeRoute, generateSpecs, resolver } from 'hono-openapi'
 import type { DescribeRouteOptions, GenerateSpecOptions } from 'hono-openapi'
 import type { OpenAPIV3_1 } from 'openapi-types'
 import { z } from 'zod'
 import { ApiError, LiveEvent } from '../shared/types.ts'
+import type { PanelConfig } from './config.ts'
+import { apiDocsHtml } from './openapi-docs.ts'
 
 export type ApiTag =
   | 'Status'
@@ -134,6 +137,8 @@ export const OpenApiDocument = z.object({
   components: z.record(z.string(), z.unknown()).optional(),
 }).passthrough().meta({ ref: 'OpenApiDocument' })
 
+const HtmlDocument = z.string().describe('Self-contained HTML document with no external assets')
+
 export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
   return { excludeStaticFile: false, documentation: {
     info: {
@@ -176,7 +181,7 @@ export async function generateOpenApi(api: Hono, version: string) {
   return generateSpecs(api, openApiOptions(version))
 }
 
-export function registerOpenApiRoutes(api: Hono, version: string): void {
+export function registerOpenApiRoutes(api: Hono, config: PanelConfig): void {
   api.get(
     '/openapi.json',
     documentRoute({
@@ -186,7 +191,24 @@ export function registerOpenApiRoutes(api: Hono, version: string): void {
       response: OpenApiDocument,
       responseDescription: 'The contract generated from the registered routes.',
     }),
-    async (c) => c.json(await generateOpenApi(api, version)),
+    async (c) => c.json(await generateOpenApi(api, config.gatewayVersion)),
+  )
+
+  api.get(
+    '/docs',
+    documentRoute({
+      tag: 'Documentation',
+      operationId: 'browseApiDocumentation',
+      summary: 'Browse and try the API locally',
+      description: 'Available by default on loopback and opt-in when the panel is routed. All assets are inline.',
+      response: HtmlDocument,
+      mediaType: 'text/html',
+      errors: [404],
+    }),
+    (c) => {
+      if (!config.apiDocs) throw new HTTPException(404, { message: 'the API browser is disabled' })
+      return c.html(apiDocsHtml)
+    },
   )
 }
 

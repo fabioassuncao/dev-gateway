@@ -154,6 +154,12 @@ curl -s http://127.0.0.1:8081/api/docker/host     # networks, published ports, c
 curl -s http://127.0.0.1:8081/api/access          # TCP services and open bridges
 ```
 
+Read `http://127.0.0.1:8081/api/openapi.json` before driving the panel: it is
+the complete OpenAPI 3.1 contract, including path and query parameters,
+request and response schemas, error statuses, read-only refusals and the SSE
+event shape. On a loopback panel, `/api/docs` provides the same contract as an
+offline interactive browser.
+
 It only exists when somebody ran `dev-gateway web up`; the CLI's `--json` flags
 cover the same ground and always work.
 

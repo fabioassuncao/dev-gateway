@@ -154,6 +154,19 @@ test.describe('the panel end to end', () => {
     await expect(page.locator('body')).not.toContainText('fixture-value-never-returned')
   })
 
+  test('the offline API browser filters operations and tries a GET', async ({ page }) => {
+    await page.goto('/api/docs')
+
+    await expect(page.getByRole('heading', { name: 'Dev Gateway API' })).toBeVisible()
+    await page.getByLabel('Filter API operations').fill('health')
+    const operation = page.locator('details.route').filter({ hasText: '/health' })
+    await expect(operation).toBeVisible()
+    await operation.locator(':scope > summary').click()
+    await operation.getByRole('button', { name: 'Try GET' }).click()
+    await expect(operation.getByText('200 OK')).toBeVisible()
+    await expect(operation.locator('pre').first()).toContainText('panelVersion')
+  })
+
   test('the theme can be switched', async ({ page }) => {
     await page.goto('/')
     const html = page.locator('html')

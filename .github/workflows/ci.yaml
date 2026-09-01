@@ -97,6 +97,9 @@ jobs:
       - name: Types
         run: cd web && npm run typecheck
 
+      - name: OpenAPI snapshot has no drift
+        run: cd web && npm run openapi:check
+
       - name: Unit, API and component suites
         run: cd web && npm test
 

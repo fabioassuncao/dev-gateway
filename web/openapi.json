@@ -5745,6 +5745,45 @@
           }
         ]
       }
+    },
+    "/docs": {
+      "get": {
+        "operationId": "browseApiDocumentation",
+        "tags": [
+          "Documentation"
+        ],
+        "summary": "Browse and try the API locally",
+        "description": "Available by default on loopback and opt-in when the panel is routed. All assets are inline.",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string",
+                  "description": "Self-contained HTML document with no external assets"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
     }
   }
 }

@@ -64,6 +64,8 @@ export interface PanelConfig {
   gatewayVersion: string
   /** Read-only mode refuses every mutating endpoint. */
   readOnly: boolean
+  /** Serve the self-contained API browser. The OpenAPI document is always served. */
+  apiDocs: boolean
   /** Where the panel can be reached from: `local` or `vpn`. */
   webExpose: string
   /** `none`, or `basic` for a Traefik BasicAuth middleware on its own router. */
@@ -132,6 +134,7 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     panelVersion: env('DG_WEB_VERSION', '0.1.0'),
     gatewayVersion: readVersion(versionFile),
     readOnly: isTrue(process.env.DG_WEB_READ_ONLY),
+    apiDocs: false,
     webExpose: env('DEV_GATEWAY_WEB_EXPOSE', 'local'),
     webAuth: env('DEV_GATEWAY_WEB_AUTH', 'none'),
     webAuthUser: env('DEV_GATEWAY_WEB_AUTH_USER', ''),
@@ -143,6 +146,10 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     traefikApiTtlMs: Number(env('DG_WEB_TRAEFIK_API_TTL_MS', '7000')),
     traefikApiTimeoutMs: Number(env('DG_WEB_TRAEFIK_API_TIMEOUT_MS', '1500')),
     ...overrides,
+  }
+  if (overrides.apiDocs === undefined) {
+    const configured = optional('DG_WEB_API_DOCS')
+    config.apiDocs = configured === null ? !isRouted(config) : isTrue(configured)
   }
   return config
 }

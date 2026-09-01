@@ -134,3 +134,23 @@ describe('response contracts against the realistic host fixture', () => {
     }
   })
 })
+
+describe('the offline API browser', () => {
+  it('is available on loopback and loads no third-party assets', async () => {
+    const { app } = makeApp({ containers: [] })
+    const response = await app.request('/api/docs')
+    const html = await response.text()
+    expect(response.status).toBe(200)
+    expect(html).toContain('/api/openapi.json')
+    expect(html).not.toMatch(/(?:src|href)=["']https?:\/\//)
+  })
+
+  it('is off by default when routed and can be opted in explicitly', async () => {
+    const routed = makeApp({ containers: [] }, { webExpose: 'vpn' })
+    expect((await routed.app.request('/api/docs')).status).toBe(404)
+
+    const optedIn = makeApp({ containers: [] }, { webExpose: 'vpn', apiDocs: true })
+    expect((await optedIn.app.request('/api/docs')).status).toBe(200)
+    expect((await optedIn.app.request('/api/openapi.json')).status).toBe(200)
+  })
+})

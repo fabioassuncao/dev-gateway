@@ -109,6 +109,9 @@ services:
       DG_WEB_ENV_FILE: /app/state/.env
       DG_WEB_VERSION_FILE: /app/state/VERSION
       DG_WEB_READ_ONLY: ${DEV_GATEWAY_WEB_READ_ONLY:-false}
+      # The machine contract is always served; its browser defaults on only
+      # while the panel stays on loopback.
+      DG_WEB_API_DOCS: ${DG_WEB_API_DOCS:-}
       # The resolved gateway configuration, so the panel and the CLI always
       # describe the same gateway.
       DEV_GATEWAY_PROFILE: ${DEV_GATEWAY_PROFILE:-local}

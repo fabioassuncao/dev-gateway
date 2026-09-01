@@ -338,6 +338,14 @@ export const FIELDS: FieldSpec[] = [
     restartRequired: true,
     validate: passwordHash,
   },
+  {
+    key: 'DG_WEB_API_DOCS',
+    group: 'Panel',
+    label: 'API browser',
+    help: 'Serve the offline API browser. Empty uses the safe default: on for loopback, off when routed.',
+    kind: 'boolean',
+    restartRequired: true,
+  },
 ]
 
 export const FIELDS_BY_KEY = new Map(FIELDS.map((field) => [field.key, field]))

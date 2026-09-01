@@ -71,7 +71,7 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', gatewayRoutes(deps))
   api.route('/', configRoutes(deps))
   api.route('/', eventRoutes(deps))
-  registerOpenApiRoutes(api, deps.config.gatewayVersion)
+  registerOpenApiRoutes(api, deps.config)
 
   api.all('*', (c) => c.json({ error: `no such endpoint: ${c.req.path}` }, 404))
 

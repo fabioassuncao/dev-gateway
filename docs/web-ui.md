@@ -118,7 +118,30 @@ npm run dev        # API on :8081, expects a socket proxy at DG_WEB_DOCKER_API
 npm run dev:ui     # Vite on :5173, proxies /api to :8081
 npm test           # Vitest: API, core and component suites
 npm run test:e2e   # Playwright, against a fake Docker API (no daemon needed)
+npm run openapi    # refresh web/openapi.json from the registered routes
 ```
+
+### API contract
+
+The panel publishes an OpenAPI 3.1 contract at
+`http://127.0.0.1:8081/api/openapi.json`. It is generated from the same route
+registrations and Zod schemas the server and UI use: parameters, request
+bodies, response shapes, status codes, read-only refusals and the SSE payload
+are all part of the document. Authentication is declared as HTTP Basic, while
+[ADR 0012](adr/0012-panel-authentication-is-traefiks.md) remains the important
+boundary: Traefik enforces it before a request reaches the application.
+
+`http://127.0.0.1:8081/api/docs` is a small interactive browser for that
+document. Its HTML, CSS and JavaScript are served from the panel image; it
+loads no CDN, font, telemetry or third-party code. The page is enabled by
+default only while the panel stays on loopback. A routed panel returns 404
+unless `DG_WEB_API_DOCS=true` explicitly opts in. The JSON contract stays
+available because a caller that reached the API can already inspect it.
+
+`web/openapi.json` is checked in so an API change is visible in review.
+`npm run openapi:check` regenerates it in memory and fails on byte-level drift;
+CI runs that check before the API suites. Adding or changing a route therefore
+requires updating its attached description and running `npm run openapi`.
 
 ### Regenerating the screenshots
 
