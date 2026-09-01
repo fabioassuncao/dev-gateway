@@ -1062,6 +1062,13 @@ else
   note "no writable bin directory on PATH; add $PORTTA_HOME/bin to PATH to drop the prefix"
 fi
 say "    npx portta doctor      full diagnostics, needs Node 22.12+"
+case "$PORTTA_HOME" in
+  /opt/portta|"$HOME/.portta"|/var/lib/portta) ;;
+  *)
+    # `npx portta` looks in the conventional locations; this is not one.
+    note "this is a custom directory, so export PORTTA_HOME=$PORTTA_HOME for npx portta"
+    ;;
+esac
 say ""
 say "re-run this installer at any time to update:"
 say "    curl -fsSL https://raw.githubusercontent.com/${PORTTA_REPO}/${PORTTA_REF}/install.sh | bash"

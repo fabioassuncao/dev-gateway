@@ -27,6 +27,14 @@ unset _portta_entry _portta_dir
 # must still be able to bootstrap, start, stop, inspect status and run doctor
 # without Node (ADR 0015). Shell-native drivers can deliberately set
 # PORTTA_FORCE_BASH when the TypeScript command delegates to openssl/ssh/toolbox.
+# This entry point knows which installation it belongs to; the TypeScript CLI
+# would otherwise have to guess from the working directory, and would not find
+# a PORTTA_HOME outside the conventional locations.
+if [ -z "${PORTTA_ROOT:-}" ] && [ -f "$PORTTA_BIN_DIR/../VERSION" ]; then
+  PORTTA_ROOT=$(cd -P "$PORTTA_BIN_DIR/.." && pwd)
+  export PORTTA_ROOT
+fi
+
 PORTTA_TS_CLI="${PORTTA_TS_CLI:-$PORTTA_BIN_DIR/../packages/cli/dist/cli.js}"
 # An installed PORTTA_HOME has no packages/ directory, and its bin/portta is
 # linked onto PATH, where it would otherwise shadow a globally installed

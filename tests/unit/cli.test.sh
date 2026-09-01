@@ -87,7 +87,13 @@ it "an operational failure is 1"; assert_exit 1 env PORTTA_ROOT="$failure_root" 
 rm -rf "$failure_root"
 it "usage is 2"; assert_exit 2 "$GW" definitely-not-a-command
 it "a missing runtime precondition is 3"
-assert_exit 3 sh -c "cd /tmp && env -u PORTTA_ROOT '$GW' inspect >/dev/null 2>&1"
+# Through the TypeScript CLI directly, because bin/portta deliberately carries
+# the root it lives in: an installed PORTTA_HOME links its entry point onto
+# PATH, and running it from elsewhere must still address that installation.
+assert_exit 3 sh -c "cd /tmp && env -u PORTTA_ROOT -u PORTTA_HOME node '$PORTTA_ROOT/packages/cli/dist/cli.js' inspect >/dev/null 2>&1"
+
+it "and the entry point addresses the installation it belongs to"
+assert_contains "$(cd /tmp && env -u PORTTA_ROOT "$GW" inspect 2>&1)" "PORTTA_ROOT"
 it "a refused unsafe operation is 4"
 assert_exit 4 "$GW" service publish --public --project demo --service db
 
