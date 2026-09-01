@@ -408,7 +408,9 @@ dg_web_up() {
   # Git cards are populated the first time somebody opens the panel, rather
   # than empty with an instruction.
   if dg_have git; then
-    dg_git_scan >/dev/null 2>&1 || true
+    # In a subshell: `dg_git_scan` calls `die` on an unwritable state
+    # directory, and `die` exits the script. Best effort has to mean it.
+    ( dg_git_scan ) >/dev/null 2>&1 || true
   fi
 
   ok "panel is up"

@@ -175,7 +175,9 @@ cmd_up() {
   # Best effort, and never fatal: the panel reads what this collects, and a
   # host without git simply has nothing to read. See docs/adr/0010.
   if dg_have git; then
-    dg_git_scan >/dev/null 2>&1 || true
+    # In a subshell: `dg_git_scan` calls `die` on an unwritable state
+    # directory, and `die` exits the script. Best effort has to mean it.
+    ( dg_git_scan ) >/dev/null 2>&1 || true
   fi
 
   ok "gateway is up"
