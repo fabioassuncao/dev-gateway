@@ -385,10 +385,31 @@ port_free() {
   return 0
 }
 
+# locate_tool <command>: the command's path, looking beyond PATH.
+#
+# A developer's toolchain is usually wired into an interactive shell — nvm in
+# .zshrc, agent CLIs symlinked into ~/.local/bin — and the shell running this
+# installer sees none of it. Reporting "not found" for a tool the machine
+# plainly has is worse than saying nothing. Mirrors portta_locate in
+# scripts/lib/common.sh.
+locate_tool() {
+  local cmd="$1" candidate
+  if command -v "$cmd" >/dev/null 2>&1; then command -v "$cmd"; return 0; fi
+  for candidate in \
+    "$HOME/.local/bin/$cmd" "$HOME/.bun/bin/$cmd" "$HOME/.cargo/bin/$cmd" \
+    "$HOME/.deno/bin/$cmd" /usr/local/bin/"$cmd" /opt/homebrew/bin/"$cmd" \
+    "$HOME"/.nvm/versions/node/*/bin/"$cmd" \
+    "$HOME"/.local/share/fnm/node-versions/*/installation/bin/"$cmd" \
+    "$HOME"/.volta/bin/"$cmd"; do
+    if [ -x "$candidate" ]; then printf '%s' "$candidate"; return 0; fi
+  done
+  return 1
+}
+
 tool_version() { # tool_version <command> [args...]
-  local cmd="$1"; shift
-  have "$cmd" || return 1
-  "$cmd" "$@" 2>/dev/null | head -n1
+  local cmd="$1" path; shift
+  path=$(locate_tool "$cmd") || return 1
+  "$path" "$@" 2>/dev/null | head -n1
 }
 
 step "Portta installer"
@@ -1004,7 +1025,11 @@ step "Development environment"
 report() { # report <label> <command> [args...]
   local label="$1"; shift
   local value
-  if value=$(tool_version "$@"); then good "$label — $value"; else warn "$label — not found"; fi
+  if value=$(tool_version "$@"); then
+    if have "$1"; then good "$label — $value"; else warn "$label — $value, but not on this PATH"; fi
+  else
+    warn "$label — not found"
+  fi
 }
 
 report "Git"            git --version

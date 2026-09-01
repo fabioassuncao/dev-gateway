@@ -26,6 +26,26 @@ assert_contains "$(bash "$INSTALLER" --help 2>&1)" "Portta installer"
 it "documents that the same command updates"
 assert_contains "$(bash "$INSTALLER" --help 2>&1)" "The same command installs and updates"
 
+describe "every helper it calls is a helper it defines"
+
+# `bash -n` and shellcheck both accept a call to a function that does not
+# exist; it fails at runtime, on the machine of whoever ran the installer.
+# The helpers here are snake_case with an underscore, which external commands
+# in this script are not, so the two sets can be compared.
+it "no call resolves to nothing"
+defined=$(grep -oE '^[a-z][a-z0-9_]*\(\)' "$INSTALLER" | tr -d '()' | sort -u)
+called=$(grep -v '^[[:space:]]*#' "$INSTALLER" \
+  | grep -oE '(^|[[:space:];&|(]|\$\()[a-z][a-z0-9]*_[a-z0-9_]+[[:space:]]' \
+  | sed -E 's/^[^a-z]*//; s/[[:space:]]*$//' | sort -u)
+# sw_vers is macOS. The portta_* helpers are called inside the subshell that
+# sources the installed scripts/lib, and are defined there.
+allowed="portta_compose_files
+portta_defaults
+portta_load_env
+sw_vers"
+missing=$(comm -23 <(printf '%s\n' "$called") <(printf '%s\n%s\n' "$defined" "$allowed" | sort -u) | tr '\n' ' ')
+assert_eq "" "$(printf '%s' "$missing" | sed 's/[[:space:]]*$//')"
+
 describe "arguments are validated before anything is detected"
 
 it "an unknown flag fails"
