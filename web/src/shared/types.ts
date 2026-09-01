@@ -380,6 +380,7 @@ export const GatewayStatus = named(
     dashboard: GatewayDashboard,
     traefik: GatewayComponent,
     socketProxy: GatewaySocketProxy,
+    database: GatewayComponent,
     network: GatewayNetwork,
     routes: z.number().int(),
   }).strict(),

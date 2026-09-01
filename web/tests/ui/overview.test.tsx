@@ -41,6 +41,7 @@ const data: OverviewData = {
     dashboard: { enabled: false, bindAddress: '127.0.0.1', port: '8080' },
     traefik: { containerId: 'gw', state: 'running', health: 'healthy' },
     socketProxy: { containerId: 'sp', state: 'running' },
+    database: { containerId: 'db', state: 'running', health: 'healthy' },
     network: { name: 'dev-gateway', exists: true, attached: 3, internal: false },
     routes: 3,
   },

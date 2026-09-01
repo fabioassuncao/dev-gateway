@@ -10,17 +10,19 @@ export interface AppliedMigration {
 }
 
 export async function migrate(sql: Sql, directory: URL = DEFAULT_DIRECTORY): Promise<AppliedMigration[]> {
-  const connection = await sql.reserve()
-  try {
-    await connection`SELECT pg_advisory_lock(${MIGRATION_LOCK})`
-    await connection`
+  return sql.begin(async (transaction) => {
+    // A transaction-scoped lock covers discovery, DDL and recording. Two panel
+    // containers either see the whole migration set or wait for it; no manual
+    // unlock path can be skipped by a crashed process.
+    await transaction`SELECT pg_advisory_xact_lock(${MIGRATION_LOCK})`
+    await transaction`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         version TEXT PRIMARY KEY,
         applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `
 
-    const applied = await connection<{ version: string }[]>`
+    const applied = await transaction<{ version: string }[]>`
       SELECT version FROM schema_migrations ORDER BY version
     `
     const known = new Set(applied.map((row) => row.version))
@@ -31,20 +33,15 @@ export async function migrate(sql: Sql, directory: URL = DEFAULT_DIRECTORY): Pro
     for (const version of files) {
       if (known.has(version)) continue
       const source = readFileSync(new URL(version, directory), 'utf8')
-      await connection.begin(async (transaction) => {
-        await transaction.unsafe(source)
-        await transaction`INSERT INTO schema_migrations (version) VALUES (${version})`
-      })
+      await transaction.unsafe(source)
+      await transaction`INSERT INTO schema_migrations (version) VALUES (${version})`
     }
 
-    const rows = await connection<{ version: string; appliedAt: Date }[]>`
+    const rows = await transaction<{ version: string; appliedAt: Date }[]>`
       SELECT version, applied_at AS "appliedAt"
       FROM schema_migrations
       ORDER BY version
     `
     return rows.map((row) => ({ version: row.version, appliedAt: row.appliedAt }))
-  } finally {
-    await connection`SELECT pg_advisory_unlock(${MIGRATION_LOCK})`.catch(() => undefined)
-    connection.release()
-  }
+  })
 }

@@ -21,6 +21,7 @@ import { ValidationError } from './core/settings.ts'
 import { DockerApiError } from './docker/client.ts'
 import { DockerAccessDenied } from './docker/allowlist.ts'
 import { registerOpenApiRoutes } from './openapi.ts'
+import { DatabaseUnavailable } from './db/index.ts'
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
@@ -95,6 +96,12 @@ export function createApp(deps: AppDeps): Hono {
     }
     if (error instanceof ValidationError) {
       return c.json({ error: error.message, hint: 'the value was not saved' }, 400)
+    }
+    if (error instanceof DatabaseUnavailable) {
+      return c.json(
+        { error: error.message, hint: 'existing Docker-backed pages remain available; run dev-gateway db status' },
+        503,
+      )
     }
     if (error instanceof DockerAccessDenied) {
       return c.json({ error: error.message, hint: 'this is a panel limit, not a Docker one' }, 403)

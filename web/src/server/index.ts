@@ -12,6 +12,7 @@ import { LiveHub } from './core/events.ts'
 import { createVerdictCache } from './core/traefik.ts'
 import { createApp } from './app.ts'
 import { GENERATED_FILES, reconcilePanelAuth } from './core/dynamic.ts'
+import { Database } from './db/index.ts'
 
 const config = loadConfig()
 
@@ -32,11 +33,24 @@ if (rendered.written) {
 }
 
 const client = new DockerClient(config.dockerApi)
-const cache = createSnapshotCache(client, config)
+let db: Database | null = null
+if (config.databaseUrl !== null) {
+  const candidate = Database.open(config.databaseUrl)
+  try {
+    await candidate.initialize()
+    db = candidate
+    process.stdout.write(`database ready: ${candidate.status().migrations.join(', ') || 'no migrations'}\n`)
+  } catch (error) {
+    process.stdout.write(`database unavailable; persistence disabled: ${String(error)}\n`)
+    await candidate.close().catch(() => undefined)
+  }
+}
+
+const cache = createSnapshotCache(client, config, 1000, (snapshot) => db?.recordSeen(snapshot.projects))
 const hub = new LiveHub(client, cache)
 const verdict = createVerdictCache(config)
 
-const app = createApp({ config, client, cache, hub, verdict })
+const app = createApp({ config, client, cache, hub, verdict, db })
 
 const indexHtml = join(config.uiDir, 'index.html')
 if (existsSync(indexHtml)) {
@@ -66,7 +80,10 @@ const server = serve({ fetch: app.fetch, hostname: config.host, port: config.por
 function shutdown(signal: string): void {
   process.stdout.write(`\n${signal}: shutting the panel down\n`)
   hub.stop()
-  server.close(() => process.exit(0))
+  server.close(() => {
+    if (db) void db.close().finally(() => process.exit(0))
+    else process.exit(0)
+  })
   setTimeout(() => process.exit(0), 3000).unref()
 }
 

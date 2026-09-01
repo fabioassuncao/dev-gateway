@@ -3,6 +3,11 @@ import { describe, expect, it, vi } from 'vitest'
 import type { DatabaseClient } from '../../src/server/db/client.ts'
 import { GLOBAL_KEYS, UnknownSettingKey, globalSchema, projectSchema, serviceSchema } from '../../src/server/db/keys.ts'
 import { SettingsRepository } from '../../src/server/db/settings.ts'
+import { requireDatabase, unavailableDatabaseStatus } from '../../src/server/db/index.ts'
+import { diagnose } from '../../src/server/core/diagnostics.ts'
+import { buildSnapshot } from '../../src/server/core/inventory.ts'
+import { fakeDocker, makeApp, testConfig } from './helpers.ts'
+import { FULL_HOST } from './fixtures.ts'
 
 describe('the persistence schema', () => {
   const migration = readFileSync(new URL('../../migrations/0001_initial.sql', import.meta.url), 'utf8')
@@ -57,5 +62,42 @@ describe('the closed setting catalogue', () => {
 
     await settings.setGlobal('theme', 'dark')
     expect(setGlobalSetting).toHaveBeenCalledWith('theme', 'dark')
+  })
+})
+
+describe('degraded operation', () => {
+  it('keeps every existing read surface available with db null', async () => {
+    const { app } = makeApp({ containers: FULL_HOST })
+    const paths = [
+      '/api/health',
+      '/api/status',
+      '/api/projects',
+      '/api/services',
+      '/api/docker/containers',
+      '/api/docker/host',
+      '/api/network',
+      '/api/access',
+      '/api/gateway',
+      '/api/config',
+      '/api/openapi.json',
+    ]
+
+    for (const path of paths) {
+      expect((await app.request(path)).status, path).toBe(200)
+    }
+  })
+
+  it('reports an unavailable configured database as a warning', async () => {
+    const config = testConfig()
+    const docker = fakeDocker({ containers: FULL_HOST })
+    const snapshot = await buildSnapshot(docker.client, config)
+    const status = unavailableDatabaseStatus(true, 'connection refused')
+    const database = diagnose(snapshot, config, null, [], status).find((check) => check.id === 'database')
+
+    expect(database).toMatchObject({ status: 'warn', fix: 'dev-gateway db status' })
+  })
+
+  it('turns a future persistence write into a clear 503 boundary', () => {
+    expect(() => requireDatabase(null)).toThrow(/persistence is unavailable/)
   })
 })

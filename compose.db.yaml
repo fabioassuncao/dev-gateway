@@ -52,5 +52,6 @@ services:
   web:
     environment:
       DG_WEB_DATABASE_URL: ${DG_WEB_DATABASE_URL:-postgres://devgateway:${DG_WEB_DB_PASSWORD}@db:5432/devgateway}
+      DEV_GATEWAY_DB_NETWORK: ${DEV_GATEWAY_DB_NETWORK:-dev-gateway-data}
     networks:
       - webdata

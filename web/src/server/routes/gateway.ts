@@ -7,6 +7,7 @@ import { diagnose } from '../core/diagnostics.ts'
 import { readLogs } from './services.ts'
 import { Diagnostic, GatewayStatus, LogsResponse, TraefikVerdict } from '../../shared/types.ts'
 import { documentRoute, tailParameter } from '../openapi.ts'
+import { unavailableDatabaseStatus } from '../db/index.ts'
 
 const restartBody = z
   .object({ components: z.array(z.enum(RESTARTABLE_COMPONENTS)).min(1).optional() })
@@ -43,7 +44,14 @@ export function gatewayRoutes(deps: AppDeps): Hono {
     // Traefik's verdict is worth a network call here, where the user asked for
     // diagnostics, and never on a page render.
     const verdict = await deps.verdict.get(true)
-    const checks = diagnose(snapshot, deps.config, verdict)
+    const checks = diagnose(
+      snapshot,
+      deps.config,
+      verdict,
+      [],
+      deps.db?.status() ??
+        unavailableDatabaseStatus(deps.config.databaseUrl !== null, 'PostgreSQL was unavailable at startup'),
+    )
     return c.json({
       checks,
       failures: checks.filter((check) => check.status === 'fail').length,

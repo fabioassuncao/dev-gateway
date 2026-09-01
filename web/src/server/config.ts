@@ -36,6 +36,10 @@ export interface PanelConfig {
   controlNetwork: string
   accessNetwork: string
   webNetwork: string
+  /** Private network shared only by the panel and its PostgreSQL database. */
+  databaseNetwork: string
+  /** Bootstrap connection string. Null keeps persistence entirely optional. */
+  databaseUrl: string | null
   domain: string
   privateDomain: string | null
   publicDomain: string | null
@@ -103,6 +107,8 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     controlNetwork: env('DEV_GATEWAY_CONTROL_NETWORK', 'dev-gateway-control'),
     accessNetwork: env('DEV_GATEWAY_ACCESS_NETWORK', 'dev-gateway-access'),
     webNetwork: env('DEV_GATEWAY_WEB_NETWORK', 'dev-gateway-web'),
+    databaseNetwork: env('DEV_GATEWAY_DB_NETWORK', 'dev-gateway-data'),
+    databaseUrl: optional('DG_WEB_DATABASE_URL'),
     domain: env('DEV_GATEWAY_DOMAIN', 'localhost'),
     privateDomain: optional('PRIVATE_DOMAIN'),
     publicDomain: optional('PUBLIC_DOMAIN'),

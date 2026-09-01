@@ -17,6 +17,7 @@ export function gatewayStatus(snapshot: Snapshot, config: PanelConfig): GatewayS
   const traefik = componentOf(snapshot, 'traefik')
   const socketProxy = componentOf(snapshot, 'socket-proxy')
   const tailscale = componentOf(snapshot, 'tailscale')
+  const database = componentOf(snapshot, 'db')
   const network = snapshot.networks.find((item) => item.name === config.network) ?? null
   const routes = snapshot.containers.filter(
     (container) =>
@@ -67,6 +68,11 @@ export function gatewayStatus(snapshot: Snapshot, config: PanelConfig): GatewayS
       containerId: socketProxy?.id ?? null,
       state: (socketProxy?.state ?? 'absent') as ContainerState | 'absent',
     },
+    database: {
+      containerId: database?.id ?? null,
+      state: (database?.state ?? 'absent') as ContainerState | 'absent',
+      health: (database?.health ?? 'none') as Health,
+    },
     network: {
       name: config.network,
       exists: network !== null,
@@ -78,4 +84,4 @@ export function gatewayStatus(snapshot: Snapshot, config: PanelConfig): GatewayS
 }
 
 /** Gateway components the panel is allowed to restart. */
-export const RESTARTABLE_COMPONENTS = ['traefik', 'socket-proxy', 'tailscale'] as const
+export const RESTARTABLE_COMPONENTS = ['traefik', 'socket-proxy', 'tailscale', 'db'] as const

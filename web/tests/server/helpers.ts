@@ -234,7 +234,7 @@ export function makeApp(options: FakeDockerOptions = {}, configOverrides: Partia
   const cache = createSnapshotCache(docker.client, config, 0)
   const hub = new LiveHub(docker.client, cache)
   const verdict = createVerdictCache(config, 0)
-  const app: Hono = createApp({ config, client: docker.client, cache, hub, verdict })
+  const app: Hono = createApp({ config, client: docker.client, cache, hub, verdict, db: null })
   return { app, docker, config, cache, hub, verdict }
 }
 

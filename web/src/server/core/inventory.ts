@@ -1,8 +1,8 @@
 // One snapshot of the host, built from Docker at request time.
 //
 // Everything the panel shows (projects, services, URLs, networks, ports,
-// bridges) is a view over this. There is no database: a container that
-// disappears simply stops appearing in the next snapshot.
+// bridges) remains a view over this. Persistence records only that a project
+// was seen; a container that disappears still stops appearing in this view.
 
 import type { DockerClient } from '../docker/client.ts'
 import type {
@@ -457,7 +457,12 @@ export async function buildSnapshot(client: DockerClient, config: PanelConfig): 
  * once; rebuilding the snapshot for each of them would hammer the proxy for no
  * new information.
  */
-export function createSnapshotCache(client: DockerClient, config: PanelConfig, ttlMs = 1000) {
+export function createSnapshotCache(
+  client: DockerClient,
+  config: PanelConfig,
+  ttlMs = 1000,
+  onSnapshot?: (snapshot: Snapshot) => void | Promise<void>,
+) {
   let pending: Promise<Snapshot> | null = null
   let cached: { at: number; snapshot: Snapshot } | null = null
 
@@ -469,6 +474,10 @@ export function createSnapshotCache(client: DockerClient, config: PanelConfig, t
       pending = buildSnapshot(client, config)
         .then((snapshot) => {
           cached = { at: Date.now(), snapshot }
+          // Persistence is deliberately off the request path. A slow or dead
+          // database never delays the Docker view that has always powered the
+          // panel; its observer owns and reports its own failure.
+          if (onSnapshot) void Promise.resolve(onSnapshot(snapshot)).catch(() => undefined)
           return snapshot
         })
         .finally(() => {

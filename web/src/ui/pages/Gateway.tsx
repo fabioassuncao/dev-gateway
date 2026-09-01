@@ -11,7 +11,7 @@ import { StateBadge } from '../components/status.tsx'
 import { LogViewer } from '../components/logs.tsx'
 import { relativeTime } from '../lib/format.ts'
 
-const COMPONENTS = ['traefik', 'socket-proxy', 'tailscale'] as const
+const COMPONENTS = ['traefik', 'socket-proxy', 'tailscale', 'db'] as const
 
 export function Gateway() {
   const queryClient = useQueryClient()
@@ -88,6 +88,9 @@ export function Gateway() {
               </KeyValue>
               <KeyValue label="Socket proxy">
                 <StateBadge state={gateway.socketProxy.state} />
+              </KeyValue>
+              <KeyValue label="Persistence">
+                <StateBadge state={gateway.database.state} health={gateway.database.health} />
               </KeyValue>
               <KeyValue label="Tailscale">
                 {gateway.tailscale.enabled ? (

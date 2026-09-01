@@ -41,6 +41,9 @@ export class DatabaseClient {
         connect_timeout: 2,
         idle_timeout: 20,
         max_lifetime: 60 * 30,
+        // Expected idempotent DDL (for example CREATE TABLE IF NOT EXISTS)
+        // must not turn every panel restart into a noisy notice dump.
+        onnotice: () => undefined,
       }),
     )
   }

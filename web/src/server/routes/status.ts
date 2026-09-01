@@ -7,6 +7,7 @@ import { listBridges, listForwarders } from '../core/access.ts'
 import { listShares } from '../core/shares.ts'
 import { Overview, OverviewCounts } from '../../shared/types.ts'
 import { documentRoute } from '../openapi.ts'
+import { unavailableDatabaseStatus } from '../db/index.ts'
 
 export const HealthResponse = z.object({
   ok: z.literal(true),
@@ -65,7 +66,16 @@ export function statusRoutes(deps: AppDeps): Hono {
       urls: snapshot.containers
         .filter((container) => container.ownership !== 'gateway' && container.state === 'running')
         .flatMap((container) => container.urls),
-      problems: problemsOnly(diagnose(snapshot, deps.config, null, shares)),
+      problems: problemsOnly(
+        diagnose(
+          snapshot,
+          deps.config,
+          null,
+          shares,
+          deps.db?.status() ??
+            unavailableDatabaseStatus(deps.config.databaseUrl !== null, 'PostgreSQL was unavailable at startup'),
+        ),
+      ),
       generatedAt: snapshot.at,
     }
     return c.json(overview)

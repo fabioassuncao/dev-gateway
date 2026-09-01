@@ -347,6 +347,37 @@
             ],
             "additionalProperties": false
           },
+          "database": {
+            "type": "object",
+            "properties": {
+              "containerId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "state": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ContainerState"
+                  },
+                  {
+                    "type": "string",
+                    "const": "absent"
+                  }
+                ]
+              },
+              "health": {
+                "$ref": "#/components/schemas/Health"
+              }
+            },
+            "required": [
+              "containerId",
+              "state",
+              "health"
+            ],
+            "additionalProperties": false
+          },
           "network": {
             "type": "object",
             "properties": {
@@ -399,6 +430,7 @@
           "dashboard",
           "traefik",
           "socketProxy",
+          "database",
           "network",
           "routes"
         ],
@@ -5380,7 +5412,8 @@
                       "enum": [
                         "traefik",
                         "socket-proxy",
-                        "tailscale"
+                        "tailscale",
+                        "db"
                       ]
                     }
                   }
@@ -5457,7 +5490,8 @@
               "enum": [
                 "traefik",
                 "socket-proxy",
-                "tailscale"
+                "tailscale",
+                "db"
               ],
               "default": "traefik"
             }

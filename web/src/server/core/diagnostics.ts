@@ -13,6 +13,7 @@ import type { Snapshot } from './inventory.ts'
 import { componentOf } from './gateway.ts'
 import { routersFor } from './traefik.ts'
 import type { Diagnostic, Share, TraefikVerdict } from '../../shared/types.ts'
+import type { DatabaseStatus } from '../db/index.ts'
 
 function check(
   id: string,
@@ -29,8 +30,27 @@ export function diagnose(
   config: PanelConfig,
   verdict: TraefikVerdict | null = null,
   shares: Share[] = [],
+  database: DatabaseStatus | null = null,
 ): Diagnostic[] {
   const results: Diagnostic[] = []
+
+  if (database?.configured) {
+    if (database.available) {
+      results.push(
+        check('database', 'pass', 'Panel persistence', `${database.migrations.length} migration(s) applied`),
+      )
+    } else {
+      results.push(
+        check(
+          'database',
+          'warn',
+          'Panel persistence',
+          database.reason ?? 'PostgreSQL is unreachable; stored preferences are unavailable',
+          'dev-gateway db status',
+        ),
+      )
+    }
+  }
 
   if (!snapshot.reachable) {
     results.push(
