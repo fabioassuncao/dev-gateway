@@ -318,6 +318,42 @@ turning the project card into a horizontally scrolling table.
 
 ![The Projects page: checkout with an unhealthy worker, storefront with four healthy services, and a second worktree of storefront running beside it, each with its own URLs](../.github/images/panel-projects.png)
 
+#### One project, one page
+
+Clicking a project name opens `#/projects/<name>`, a page of its own rather
+than the list filtered down to one card. It is organised in tabs, and each tab
+is a URL:
+
+```text
+#/projects/storefront            Overview
+#/projects/storefront/services   Services
+#/projects/storefront/git        Git
+#/projects/storefront/logs       Logs
+```
+
+**Overview** answers "what is this and where does it live": services running,
+unhealthy count, routed URLs and uptime as tiles; the host directory, worktree,
+logical project, Git root, repository and networks as rows; every endpoint
+grouped by service; and a one-line Git summary linking to the Git tab.
+
+**Services** gives each service the room the list cannot: endpoints, container
+and published ports, networks, mounts, restart count, exit code, what Traefik
+says about it, and its Exposure controls. The full container dialog is still one
+click away.
+
+**Git** shows the whole of what the host collected — branch, HEAD, the working
+tree spelled out, ahead/behind against the upstream, the remote, and **every**
+open pull request rather than the first few the card had room for.
+
+**Logs** reads the project's services together; see
+[Logs across a project](#logs-across-a-project).
+
+Tabs are links, so the browser's back button moves between them, a tab survives
+a reload, and a filtered view is something you can paste to someone. They are
+operable from the keyboard with the arrow keys, `Home` and `End`. A project that
+stopped between the list and the page renders an empty state with a route back
+to the list, never an error.
+
 #### What the environment is running
 
 Each project carries a line of Git: the branch, HEAD with its subject, how much

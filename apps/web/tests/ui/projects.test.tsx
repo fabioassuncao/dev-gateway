@@ -99,7 +99,7 @@ beforeEach(() => {
 
 describe('the Projects page', () => {
   it('shows projects and their services, not a flat container list', async () => {
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
     await screen.findByText('alpha')
 
     expect(screen.getByText('4/4 running')).toBeInTheDocument()
@@ -109,7 +109,7 @@ describe('the Projects page', () => {
   })
 
   it('keeps the service name next to a technology icon', async () => {
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
     await screen.findByText('alpha')
     const postgres = within(screen.getByRole('group', { name: 'postgres service' })).getByRole('button', { name: 'postgres' })
     expect(postgres.querySelector('svg')).not.toBeNull()
@@ -136,20 +136,20 @@ describe('the Projects page', () => {
         runningCount: 1,
       },
     ])
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
     const button = await screen.findByRole('button', { name: 'web' })
     expect(button.querySelector('svg')).not.toBeNull()
     expect(button).toHaveTextContent('web')
   })
 
   it('flags the worktree and the unhealthy service', async () => {
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
     expect(await screen.findByText('worktree: beta-issue59')).toBeInTheDocument()
     expect(screen.getByText('1 unhealthy')).toBeInTheDocument()
   })
 
   it('offers the project URLs for copying', async () => {
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
     const web = (await screen.findAllByRole('group', { name: 'web service' }))[0] as HTMLElement
     expect(within(web).getByText('http://alpha-web.localhost')).toBeInTheDocument()
     await userEvent.click(within(web).getByRole('button', { name: 'Copy' }))
@@ -163,7 +163,7 @@ describe('the Projects page', () => {
       'https://alpha-api.vpn.example.test',
     ])
 
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
     const api = await screen.findByRole('group', { name: 'api service' })
     const addresses = [...api.querySelectorAll('a[target="_blank"]')]
       .map((link) => link.textContent)
@@ -178,7 +178,7 @@ describe('the Projects page', () => {
   })
 
   it('explains TCP access and flags an HTTP routing problem', async () => {
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
 
     const postgres = await screen.findByRole('group', { name: 'postgres service' })
     expect(within(postgres).getByText(/reachable through the/)).toBeInTheDocument()
@@ -212,14 +212,14 @@ describe('the Projects page', () => {
       },
     ])
 
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
     const web = (await screen.findAllByRole('group', { name: 'web service' }))[0] as HTMLElement
     expect(within(web).getByText(/No live endpoint while web is exited/)).toBeInTheDocument()
     expect(within(web).queryByText(WEB_URL.url)).not.toBeInTheDocument()
   })
 
   it('keeps image, kind, ports, uptime, details and actions in the service row', async () => {
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
     const web = (await screen.findAllByRole('group', { name: 'web service' }))[0] as HTMLElement
 
     expect(web).toHaveTextContent('http')
@@ -241,7 +241,7 @@ describe('the Projects page', () => {
       },
     ])
 
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
     const postgres = await screen.findByRole('group', { name: 'postgres service' })
     expect(within(postgres).getByRole('link', { name: 'Access page' })).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
@@ -269,19 +269,19 @@ describe('the Projects page', () => {
       },
     ])
 
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
     const worker = await screen.findByRole('group', { name: 'worker service' })
     expect(within(worker).getByText(/No exposed TCP port/)).toBeInTheDocument()
     expect(within(worker).queryByRole('link', { name: 'Access page' })).not.toBeInTheDocument()
   })
 
   it('links the project heading to its contextual route', async () => {
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
     expect(await screen.findByRole('link', { name: 'alpha' })).toHaveAttribute('href', '#/projects/alpha')
   })
 
   it('restarts every running service of one project only', async () => {
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
     await screen.findByText('alpha')
 
     await userEvent.click(screen.getAllByRole('button', { name: /Restart services/ })[0] as HTMLElement)
@@ -295,14 +295,8 @@ describe('the Projects page', () => {
     expect(containerAction.mock.calls.every((call) => call[1] === 'restart')).toBe(true)
   })
 
-  it('narrows to one project when the route names it', async () => {
-    renderWithQuery(<Projects selected="beta" />)
-    await screen.findByText('worktree: beta-issue59')
-    expect(screen.queryByText('4/4 running')).not.toBeInTheDocument()
-  })
-
   it('filters by search across services and images', async () => {
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
     await screen.findByText('alpha')
 
     await userEvent.type(screen.getByLabelText('Search projects'), 'redis')
@@ -311,7 +305,7 @@ describe('the Projects page', () => {
 
   it('explains how to adopt a project when there is none', async () => {
     projects.mockResolvedValue([])
-    renderWithQuery(<Projects selected={null} />)
+    renderWithQuery(<Projects />)
     expect(await screen.findByText('No integrated project is running')).toBeInTheDocument()
     expect(screen.getByText(/docs\/adopting-projects.md/)).toBeInTheDocument()
   })

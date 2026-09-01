@@ -9,6 +9,18 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+### Added
+
+- **A page per project, organised in tabs.** `#/projects/<name>` is now a
+  destination of its own instead of the list filtered to one card: Overview,
+  Services, Git and Logs, each addressable, reloadable and reachable with the
+  browser's back button. Overview carries the tiles, the host directory and the
+  endpoints grouped by service; Services gives each service its ports, networks,
+  mounts, restart count, Traefik verdict and Exposure controls; Git shows the
+  whole collected snapshot including **every** open pull request. A project that
+  stopped renders an empty state with a route back to the list. See
+  [docs/web-ui.md](docs/web-ui.md).
+
 ## [0.2.0] — 2026-09-01
 
 ### Added

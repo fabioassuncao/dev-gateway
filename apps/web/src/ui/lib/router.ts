@@ -26,6 +26,15 @@ export function useRoute(): [string, (to: string) => void] {
   return [path, go]
 }
 
+/** Path segments, with any `?query` suffix removed. */
 export function segments(path: string): string[] {
-  return path.split('/').filter(Boolean)
+  const end = path.indexOf('?')
+  return (end < 0 ? path : path.slice(0, end)).split('/').filter(Boolean)
+}
+
+/** One query parameter from a hash path such as `/projects/a/logs?service=api`. */
+export function queryParam(path: string, key: string): string | null {
+  const start = path.indexOf('?')
+  if (start < 0) return null
+  return new URLSearchParams(path.slice(start + 1)).get(key)
 }

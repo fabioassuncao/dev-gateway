@@ -305,7 +305,16 @@ function ContainerGroup({
                 <StateBadge state={container.state} health={container.health} />
               </Td>
               <Td className="text-xs text-muted">
-                {container.project ?? '-'}
+                {container.project ? (
+                  <a
+                    className="underline-offset-2 hover:text-accent hover:underline"
+                    href={`#/projects/${encodeURIComponent(container.project)}`}
+                  >
+                    {container.project}
+                  </a>
+                ) : (
+                  '-'
+                )}
                 {container.service ? (
                   <span className="text-subtle"> · {container.service}</span>
                 ) : null}

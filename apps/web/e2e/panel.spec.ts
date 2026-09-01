@@ -83,6 +83,43 @@ test.describe('the panel end to end', () => {
     await expect(postgres.getByRole('link', { name: 'Access page' })).toBeVisible()
   })
 
+  test('a project has a page of its own, with deep-linkable tabs', async ({ page }) => {
+    await page.goto('/#/projects')
+    await page.getByRole('link', { name: 'alpha', exact: true }).click()
+    await expect(page).toHaveURL(/#\/projects\/alpha$/)
+    await expect(page).toHaveTitle('alpha · Dev Gateway')
+    await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true')
+
+    await page.getByRole('tab', { name: 'Git' }).click()
+    await expect(page).toHaveURL(/#\/projects\/alpha\/git$/)
+    await expect(page).toHaveTitle('Git · alpha · Dev Gateway')
+
+    await page.reload()
+    await expect(page.getByRole('tab', { name: 'Git' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('button', { name: 'Projects' })).toHaveAttribute('aria-current', 'page')
+
+    await page.goBack()
+    await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  test('an unknown project says so instead of failing', async ({ page }) => {
+    await page.goto('/#/projects/ghost')
+    await expect(page.getByText("No project 'ghost' is running")).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Back to all projects' })).toBeVisible()
+  })
+
+  test('the project page never makes the page scroll sideways', async ({ page }) => {
+    for (const width of [375, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto('/#/projects/alpha/services')
+      await expect(page.getByRole('heading', { name: 'alpha' })).toBeVisible()
+      const overflows = await page.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      )
+      expect(overflows, `${width}px viewport`).toBe(false)
+    }
+  })
+
   test('project service rows never make the page scroll sideways', async ({ page }) => {
     for (const width of [375, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 900 })

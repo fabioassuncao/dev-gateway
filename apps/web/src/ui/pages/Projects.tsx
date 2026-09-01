@@ -10,28 +10,26 @@ import { Input } from '../components/ui/field.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
 import { ContainerDetails } from '../components/container-details.tsx'
 import { uptime } from '../lib/format.ts'
-import { navigate } from '../lib/router.ts'
 import { GitCard } from '../components/git-card.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 import { ServiceRow } from '../components/project-services.tsx'
 
-export function Projects({ selected }: { selected: string | null }) {
-  useDocumentTitle(selected ?? 'Projects')
+export function Projects() {
+  useDocumentTitle('Projects')
   const [search, setSearch] = useState('')
   const query = useQuery({ queryKey: ['projects'], queryFn: api.projects })
 
   const projects = useMemo(() => {
     const all = query.data ?? []
-    const scoped = selected ? all.filter((project) => project.name === selected) : all
-    if (search.trim() === '') return scoped
+    if (search.trim() === '') return all
     const needle = search.toLowerCase()
-    return scoped.filter((project) =>
+    return all.filter((project) =>
       [project.name, ...project.services.map((service) => `${service.service} ${service.image}`)]
         .join(' ')
         .toLowerCase()
         .includes(needle),
     )
-  }, [query.data, search, selected])
+  }, [query.data, search])
 
   if (query.isPending) return <Loading />
   if (query.error) return <ErrorBox error={query.error} />
@@ -39,23 +37,16 @@ export function Projects({ selected }: { selected: string | null }) {
   return (
     <>
       <PageHeader
-        title={selected ? selected : 'Projects'}
+        title="Projects"
         description="Compose projects with at least one service on the gateway."
         actions={
-          <>
-            {selected ? (
-              <Button size="sm" onClick={() => navigate('/projects')}>
-                All projects
-              </Button>
-            ) : null}
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search project, service, image"
-              className="w-64"
-              aria-label="Search projects"
-            />
-          </>
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search project, service, image"
+            className="w-64"
+            aria-label="Search projects"
+          />
         }
       />
 
@@ -97,7 +88,7 @@ function ProjectCard({ project }: { project: Project }) {
         title={
           <span className="flex flex-wrap items-center gap-2">
             <a
-              href={`#/projects/${project.name}`}
+              href={`#/projects/${encodeURIComponent(project.name)}`}
               className="underline-offset-2 hover:text-accent hover:underline"
             >
               {project.name}

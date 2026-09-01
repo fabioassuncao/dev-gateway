@@ -14,7 +14,7 @@ import {
   Sun,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
-import { useRoute, segments } from './lib/router.ts'
+import { useRoute, segments, queryParam } from './lib/router.ts'
 import { useTheme } from './lib/theme.ts'
 import { useLive } from './lib/live.ts'
 import { useSidebarCollapsed } from './lib/sidebar.ts'
@@ -22,6 +22,7 @@ import { api } from './lib/api.ts'
 import { cn } from './lib/utils.ts'
 import { Overview } from './pages/Overview.tsx'
 import { Projects } from './pages/Projects.tsx'
+import { ProjectPage } from './pages/Project.tsx'
 import { Services } from './pages/Services.tsx'
 import { DockerPage } from './pages/Docker.tsx'
 import { NetworkPage } from './pages/Network.tsx'
@@ -168,11 +169,23 @@ export function App() {
   )
 }
 
+function decode(segment: string): string {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return segment
+  }
+}
+
 function Page({ path }: { path: string }) {
   const parts = segments(path)
   switch (parts[0]) {
     case 'projects':
-      return <Projects selected={parts[1] ?? null} />
+      // #/projects/:project[/:tab] is a page of its own; the list keeps the
+      // bare path. Segments arrive percent-encoded, so decode before matching.
+      return parts[1]
+        ? <ProjectPage project={decode(parts[1])} tab={parts[2] ?? null} service={queryParam(path, 'service')} />
+        : <Projects />
     case 'services':
       return <Services />
     case 'docker':

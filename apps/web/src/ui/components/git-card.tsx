@@ -36,7 +36,7 @@ export function GitCard({ project }: { project: string }) {
   )
 }
 
-function NotCollected({ data }: { data: ProjectGit }) {
+export function NotCollected({ data }: { data: ProjectGit }) {
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line px-4 py-2 text-xs text-subtle">
       <GitBranch className="h-3.5 w-3.5" />
@@ -51,7 +51,7 @@ function NotCollected({ data }: { data: ProjectGit }) {
  * a signed-out `gh` and a remote on a forge `gh` cannot talk to all render
  * nothing at all, which is the documented degradation rather than an error.
  */
-function ForgeRow({ data }: { data: ProjectGit }) {
+export function ForgeRow({ data }: { data: ProjectGit }) {
   const forge = data.forge
   if (!forge || !forge.authenticated) return null
 
@@ -72,7 +72,7 @@ function ForgeRow({ data }: { data: ProjectGit }) {
   )
 }
 
-function PullRequest({ pull }: { pull: ForgePullRequest }) {
+export function PullRequest({ pull }: { pull: ForgePullRequest }) {
   const review =
     pull.reviewDecision === 'APPROVED'
       ? { tone: 'ok' as const, label: 'approved' }
@@ -111,7 +111,7 @@ function PullRequest({ pull }: { pull: ForgePullRequest }) {
   )
 }
 
-function GitRow({ data }: { data: ProjectGit }) {
+export function GitRow({ data }: { data: ProjectGit }) {
   const git = data.git!
   const head = git.head
   const changed = git.staged + git.unstaged + git.untracked + git.unmerged
