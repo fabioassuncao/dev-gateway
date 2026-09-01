@@ -4794,7 +4794,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "Opaque share id returned when the share was created.",
+            "description": "Gateway-owned bridge container id returned when the bridge was opened.",
             "schema": {
               "type": "string"
             }

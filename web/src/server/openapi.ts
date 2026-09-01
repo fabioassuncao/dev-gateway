@@ -122,6 +122,14 @@ export const shareIdParameter: OpenAPIV3_1.ParameterObject = {
   schema: { type: 'string' },
 }
 
+export const bridgeIdParameter: OpenAPIV3_1.ParameterObject = {
+  name: 'id',
+  in: 'path',
+  required: true,
+  description: 'Gateway-owned bridge container id returned when the bridge was opened.',
+  schema: { type: 'string' },
+}
+
 export const tailParameter: OpenAPIV3_1.ParameterObject = {
   name: 'tail',
   in: 'query',

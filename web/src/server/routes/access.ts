@@ -4,7 +4,7 @@ import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from './deps.ts'
 import { closeBridge, listBridges, listForwarders, listTcpServices, openBridge } from '../core/access.ts'
 import { AccessView, Bridge } from '../../shared/types.ts'
-import { documentRoute, shareIdParameter } from '../openapi.ts'
+import { bridgeIdParameter, documentRoute } from '../openapi.ts'
 
 const openBody = z
   .object({
@@ -63,7 +63,7 @@ export function accessRoutes(deps: AppDeps): Hono {
 
   app.delete('/access/:id', documentRoute({
     tag: 'Access', operationId: 'closeAccess', summary: 'Close a gateway-owned bridge',
-    response: CloseBridgeResponse, parameters: [shareIdParameter], errors: [400, 403, 404, 500, 502],
+    response: CloseBridgeResponse, parameters: [bridgeIdParameter], errors: [400, 403, 404, 500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get(true)
     await closeBridge(deps.client, snapshot, c.req.param('id'))
