@@ -183,12 +183,12 @@ if [ -n "$traefik_id" ]; then
   case "$timg" in
     *:latest)
       check warn traefik.image "traefik image" "$timg uses the floating 'latest' tag" \
-        "pin a version in compose.yaml; see docs/adr/0004-pinned-versions.md" ;;
+        "pin a version in docker/compose/compose.yaml; see docs/adr/0004-pinned-versions.md" ;;
     *:*)
       check pass traefik.image "traefik image" "$timg" "" ;;
     *)
       check warn traefik.image "traefik image" "$timg has no tag, which implies :latest" \
-        "pin a version in compose.yaml; see docs/adr/0004-pinned-versions.md" ;;
+        "pin a version in docker/compose/compose.yaml; see docs/adr/0004-pinned-versions.md" ;;
   esac
 
   # Traefik must reach Docker only through the socket proxy.
@@ -258,7 +258,7 @@ if [ -n "$db_id" ]; then
     check pass db.exposure "panel database exposure" "no host ports published" ""
   else
     check fail db.exposure "panel database exposure" "publishes host ports: $db_published" \
-      "remove every ports entry from compose.db.yaml and recreate the database container"
+      "remove every ports entry from docker/compose/features/db.yaml and recreate the database container"
   fi
 
   db_networks=$(docker inspect "$db_id" \
@@ -278,7 +278,7 @@ if [ -n "$db_id" ]; then
       check pass db.network.internal "panel data network" "$DEV_GATEWAY_DB_NETWORK (internal)" ""
     else
       check fail db.network.internal "panel data network" "$DEV_GATEWAY_DB_NETWORK is not internal" \
-        "recreate the panel database network from compose.db.yaml"
+        "recreate the panel database network from docker/compose/features/db.yaml"
     fi
   else
     check warn db.network.internal "panel data network" "not created yet" "dev-gateway web up"
@@ -586,7 +586,7 @@ if dg_is_true "$DEV_GATEWAY_WEB"; then
     if [ -n "$web_proxy_ports" ]; then
       check fail web.proxy "web panel socket proxy" \
         "published on the host: $web_proxy_ports" \
-        "it must be reachable only from the panel; do not add a ports: entry to compose.web.yaml"
+        "it must be reachable only from the panel; do not add a ports: entry to docker/compose/features/web.yaml"
     else
       check pass web.proxy "web panel socket proxy" "unpublished, reachable only from the panel" ""
     fi

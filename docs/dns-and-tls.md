@@ -100,7 +100,7 @@ the gateway depends on it.
 
 For another provider, set the provider name and pass its credentials to Traefik
 as environment variables, following that provider's lego documentation. The
-`CF_DNS_API_TOKEN` line in `compose.remote.yaml` is the template.
+`CF_DNS_API_TOKEN` line in `docker/compose/profiles/remote.yaml` is the template.
 
 ## The ACME store
 

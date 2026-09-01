@@ -44,7 +44,7 @@ export DEV_GATEWAY_TCP_POSTGRES_PORT="$PG_PORT"
 export DEV_GATEWAY_TCP_REDIS_PORT="$REDIS_PORT"
 
 compose_env() {
-  ( cd "$DG_ROOT/examples/demo-a" && COMPOSE_PROJECT_NAME="$1" docker compose \
+  ( cd "$DG_ROOT/docker/examples/demo-a" && COMPOSE_PROJECT_NAME="$1" docker compose \
       -f compose.yaml -f compose.dev-gateway.yaml -f compose.dev-gateway-tcp.yaml "${@:2}" )
 }
 

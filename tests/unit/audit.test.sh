@@ -20,7 +20,7 @@ cd "$DG_ROOT" || exit 1
 # own text, so keep the patterns here and the enforcement here only.
 SELF="tests/unit/audit.test.sh"
 tracked() { git ls-files "$@" 2>/dev/null | grep -v '^docs/prompts/' | grep -vx "$SELF"; }
-code() { git ls-files 'bin/*' 'scripts/**' 'compose*.yaml' 'toolbox/*' '.github/**' 2>/dev/null | grep -vx "$SELF"; }
+code() { git ls-files 'bin/*' 'scripts/**' 'docker/**' 'toolbox/*' '.github/**' 2>/dev/null | grep -vx "$SELF"; }
 
 describe "the gateway stays decoupled from consumer projects"
 
@@ -44,7 +44,7 @@ it "no consumer directory is mounted into the gateway"
 #   /dev/net/tun               Tailscale's kernel networking
 # Anything else would be reaching into somebody's project.
 # A bind mount is `src:dst`; a tmpfs entry has no colon, so require one.
-assert_eq "" "$(grep -hE '^\s+- [./][^ ]*:' compose*.yaml \
+assert_eq "" "$(grep -hE '^\s+- [./][^ ]*:' docker/compose/compose.yaml docker/compose/*/*.yaml \
   | grep -vE '\./(config|state|apps|packages)/' \
   | grep -vE '\./(\.env|VERSION):' \
   | grep -vE '/var/run/docker\.sock:/var/run/docker\.sock:ro' \
@@ -103,22 +103,22 @@ it "the dashboard is off in the example configuration"
 assert_contains "$(cat .env.example)" "DEV_GATEWAY_DASHBOARD=false"
 
 it "traefik does not expose containers by default"
-assert_contains "$(cat compose.yaml)" 'TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT: "false"'
+assert_contains "$(cat docker/compose/compose.yaml)" 'TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT: "false"'
 
 it "the socket proxy publishes no host port"
-assert_eq "" "$(sed -n '/socket-proxy:/,/^  [a-z]/p' compose.yaml | grep -E '^\s+ports:' || true)"
+assert_eq "" "$(sed -n '/socket-proxy:/,/^  [a-z]/p' docker/compose/compose.yaml | grep -E '^\s+ports:' || true)"
 
 it "the socket proxy mounts the socket read-only"
-assert_contains "$(cat compose.yaml)" "/var/run/docker.sock:/var/run/docker.sock:ro"
+assert_contains "$(cat docker/compose/compose.yaml)" "/var/run/docker.sock:/var/run/docker.sock:ro"
 
 it "the socket proxy denies writes"
-assert_contains "$(cat compose.yaml)" 'POST: "0"'
+assert_contains "$(cat docker/compose/compose.yaml)" 'POST: "0"'
 
 it "the control network is internal"
-assert_contains "$(cat compose.yaml)" "internal: true"
+assert_contains "$(cat docker/compose/compose.yaml)" "internal: true"
 
 it "the docker socket is never mounted into traefik"
-assert_eq "" "$(sed -n '/^  traefik:/,$p' compose.yaml | grep 'docker.sock' || true)"
+assert_eq "" "$(sed -n '/^  traefik:/,$p' docker/compose/compose.yaml | grep 'docker.sock' || true)"
 
 describe "SSH keeps host verification on"
 
@@ -133,18 +133,18 @@ describe "supply chain"
 it "every image pins an explicit version"
 # Multi-stage builds refer to their own earlier stages by name, and `FROM x AS y`
 # carries the stage name on the end. Neither is an unpinned image.
-assert_eq "" "$(grep -rhE '^\s*(image|FROM):?\s' compose*.yaml examples/*/compose*.yaml toolbox/Dockerfile apps/web/Dockerfile 2>/dev/null \
+assert_eq "" "$(grep -rhE '^\s*(image|FROM):?\s' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml toolbox/Dockerfile apps/web/Dockerfile 2>/dev/null \
   | sed -E 's/[[:space:]]+[Aa][Ss][[:space:]]+[A-Za-z0-9_.-]+[[:space:]]*$//' \
   | grep -vE '^[[:space:]]*FROM[[:space:]]+(deps|base|build|dev|runtime)[[:space:]]*$' \
   | grep -vE ':[A-Za-z0-9][A-Za-z0-9._-]*[[:space:]]*$' || true)"
 
 it "no floating latest tag"
-assert_eq "" "$(grep -rn ':latest' compose*.yaml examples/*/compose*.yaml toolbox/Dockerfile apps/web/Dockerfile 2>/dev/null || true)"
+assert_eq "" "$(grep -rn ':latest' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml toolbox/Dockerfile apps/web/Dockerfile 2>/dev/null || true)"
 
 it "the versions table in ADR 0004 lists every pinned image"
 adr="docs/adr/0004-pinned-versions.md"
 missing=""
-for img in $(grep -rhoE 'image: [a-z0-9./_-]+' compose*.yaml examples/*/compose*.yaml scripts/lib/discovery.sh 2>/dev/null \
+for img in $(grep -rhoE 'image: [a-z0-9./_-]+' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml scripts/lib/discovery.sh 2>/dev/null \
              | awk '{print $2}' | sort -u); do
   grep -q "$(basename "$img")" "$adr" || missing="$missing $img"
 done
@@ -162,7 +162,7 @@ assert_eq ".env,.git,config/tls,state" "$ignore"
 
 it "the Dockerfile builds from the repository root"
 assert_contains "$(cat apps/web/Dockerfile)" "COPY package.json package-lock.json ./"
-assert_contains "$(cat compose.web.yaml)" "dockerfile: apps/web/Dockerfile"
+assert_contains "$(cat docker/compose/features/web.yaml)" "dockerfile: apps/web/Dockerfile"
 
 
 describe "the TypeScript CLI never constructs a shell command from input"

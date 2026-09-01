@@ -46,7 +46,7 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', 'db'], { cwd: context.root, env: context.env, reject: false })
   const services = options.dev ? ['web', 'web-ui', 'web-socket-proxy'] : ['web', 'web-socket-proxy']
   // `--remove-orphans`, as `dev-gateway up` already does: leaving development
-  // mode drops compose.web-dev.yaml from the file list, and without this the
+  // mode drops docker/compose/features/web-dev.yaml from the file list, and without this the
   // Vite container keeps serving a stale panel on its own port.
   await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', '--build', '--remove-orphans', '--wait', '--wait-timeout', '180', ...services], { cwd: context.root, env: context.env, stdio: 'inherit' })
   // The context was resolved before .env was rewritten, so `web dev` would

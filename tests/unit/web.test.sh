@@ -13,15 +13,15 @@ DG_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 DG_ROOT=$(cd -P "$DG_TEST_DIR/.." && pwd); export DG_ROOT
 cd "$DG_ROOT" || exit 1
 
-web_proxy() { sed -n '/^  web-socket-proxy:/,/^  web:/p' compose.web.yaml; }
+web_proxy() { sed -n '/^  web-socket-proxy:/,/^  web:/p' docker/compose/features/web.yaml; }
 
 describe "the panel gets its own socket proxy, not Traefik's"
 
 it "Traefik's proxy still denies every write"
-assert_contains "$(cat compose.yaml)" 'POST: "0"'
+assert_contains "$(cat docker/compose/compose.yaml)" 'POST: "0"'
 
 it "the panel's proxy is a separate service"
-assert_contains "$(cat compose.web.yaml)" "web-socket-proxy:"
+assert_contains "$(cat docker/compose/features/web.yaml)" "web-socket-proxy:"
 
 it "and mounts the socket read-only"
 assert_contains "$(web_proxy)" "/var/run/docker.sock:/var/run/docker.sock:ro"
@@ -44,13 +44,13 @@ done
 describe "the panel's control network is private"
 
 it "the panel network is internal"
-assert_contains "$(cat compose.web.yaml)" "internal: true"
+assert_contains "$(cat docker/compose/features/web.yaml)" "internal: true"
 
 it "the panel is not routed by default"
-assert_contains "$(cat compose.web.yaml)" 'traefik.enable: "false"'
+assert_contains "$(cat docker/compose/features/web.yaml)" 'traefik.enable: "false"'
 
 it "routing it is a separate, opt-in overlay"
-assert_contains "$(cat compose.web-vpn.yaml)" 'traefik.enable: "true"'
+assert_contains "$(cat docker/compose/features/web-vpn.yaml)" 'traefik.enable: "true"'
 
 it "the panel binds loopback in the example configuration"
 assert_contains "$(cat .env.example)" "DEV_GATEWAY_WEB_BIND_ADDRESS=127.0.0.1"
@@ -61,24 +61,24 @@ assert_contains "$(cat .env.example)" "DEV_GATEWAY_WEB=false"
 describe "the panel database is private and durable"
 
 it "uses a pinned PostgreSQL image"
-assert_contains "$(cat compose.db.yaml)" "image: postgres:18.6-alpine"
+assert_contains "$(cat docker/compose/features/db.yaml)" "image: postgres:18.6-alpine"
 
 it "publishes no host port"
-assert_eq "" "$(grep -E '^\s+ports:' compose.db.yaml || true)"
+assert_eq "" "$(grep -E '^\s+ports:' docker/compose/features/db.yaml || true)"
 
 it "has its own internal network"
-assert_contains "$(cat compose.db.yaml)" "name: \${DEV_GATEWAY_DB_NETWORK:-dev-gateway-data}"
-assert_contains "$(cat compose.db.yaml)" "internal: true"
+assert_contains "$(cat docker/compose/features/db.yaml)" "name: \${DEV_GATEWAY_DB_NETWORK:-dev-gateway-data}"
+assert_contains "$(cat docker/compose/features/db.yaml)" "internal: true"
 
 it "never joins the shared HTTP network"
-assert_eq "" "$(grep -n 'DEV_GATEWAY_NETWORK' compose.db.yaml || true)"
+assert_eq "" "$(grep -n 'DEV_GATEWAY_NETWORK' docker/compose/features/db.yaml || true)"
 
 it "uses a named, gateway-owned volume"
-assert_contains "$(cat compose.db.yaml)" "name: \${DEV_GATEWAY_DB_VOLUME:-dev-gateway-db}"
-assert_contains "$(cat compose.db.yaml)" 'dev-gateway.component: db-volume'
+assert_contains "$(cat docker/compose/features/db.yaml)" "name: \${DEV_GATEWAY_DB_VOLUME:-dev-gateway-db}"
+assert_contains "$(cat docker/compose/features/db.yaml)" 'dev-gateway.component: db-volume'
 
 it "the overlay follows the panel"
-assert_contains "$(DEV_GATEWAY_WEB=true DG_WEB_DB_PASSWORD=test bash -c '. scripts/lib/common.sh; . scripts/lib/docker.sh; dg_defaults; dg_compose_files local')" "compose.db.yaml"
+assert_contains "$(DEV_GATEWAY_WEB=true DG_WEB_DB_PASSWORD=test bash -c '. scripts/lib/common.sh; . scripts/lib/docker.sh; dg_defaults; dg_compose_files local')" "docker/compose/features/db.yaml"
 
 it "the password is generated and declared secret"
 assert_contains "$(cat scripts/bootstrap.sh)" "dg_env_set DG_WEB_DB_PASSWORD"
@@ -171,7 +171,7 @@ assert_failure ./bin/dev-gateway web up --expose nonsense
 describe "the panel is routed only behind a credential"
 
 it "the vpn overlay names a middleware"
-assert_contains "$(cat compose.web-vpn.yaml)" "dev-gateway-web-auth@file"
+assert_contains "$(cat docker/compose/features/web-vpn.yaml)" "dev-gateway-web-auth@file"
 
 for key in DEV_GATEWAY_WEB_AUTH DEV_GATEWAY_WEB_AUTH_USER DEV_GATEWAY_WEB_AUTH_HASH; do
   it "$key is in the example configuration"
@@ -217,10 +217,10 @@ it "the generated files are git-ignored: they carry a password hash"
 assert_contains "$(cat .gitignore)" "config/traefik/dynamic/dev-gateway-panel.yaml"
 
 it "the panel mounts the dynamic directory and nothing wider"
-assert_contains "$(cat compose.web.yaml)" "./config/traefik/dynamic:/app/state/traefik-dynamic"
+assert_contains "$(cat docker/compose/features/web.yaml)" "./config/traefik/dynamic:/app/state/traefik-dynamic"
 
 it "no project directory is mounted into the panel"
-assert_eq "" "$(sed -n '/^    volumes:/,/^    networks:/p' compose.web.yaml | grep -E '^\s+- \./(examples|\.\.)' || true)"
+assert_eq "" "$(sed -n '/^    volumes:/,/^    networks:/p' docker/compose/features/web.yaml | grep -E '^\s+- \./(docker/examples|examples|\.\.)' || true)"
 
 describe "the panel reads Traefik, and only reads it"
 
@@ -287,12 +287,12 @@ assert_contains "$(cat apps/web/package.json)" "--conditions=development"
 describe "the panel in development mode"
 
 it "runs the package script rather than restating its flags"
-assert_contains "$(cat compose.web-dev.yaml)" 'command: ["npm", "run", "dev"]'
+assert_contains "$(cat docker/compose/features/web-dev.yaml)" 'command: ["npm", "run", "dev"]'
 
 it "mounts the shared package so editing it reloads the panel"
-assert_contains "$(cat compose.web-dev.yaml)" "./packages/core/src:/app/packages/core/src"
+assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/core/src:/app/packages/core/src"
 
 it "publishes the UI on its own port, which is where the panel answers"
-assert_contains "$(cat compose.web-dev.yaml)" "DEV_GATEWAY_WEB_DEV_PORT:-5173"
+assert_contains "$(cat docker/compose/features/web-dev.yaml)" "DEV_GATEWAY_WEB_DEV_PORT:-5173"
 
 t_summary

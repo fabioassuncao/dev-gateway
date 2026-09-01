@@ -20,7 +20,10 @@ dev-gateway/
 ├── packages/cli/            @fabioassuncao/dev-gateway — TypeScript CLI
 ├── bin/dev-gateway          Bash entry point; delegates when Node is present
 ├── scripts/                 Bash commands; shrinks as they migrate
-├── compose*.yaml, config/, docs/, tests/, examples/, templates/
+├── docker/
+│   ├── compose/              gateway Compose base and overlays
+│   └── examples/             self-contained demonstration stacks
+├── config/, docs/, tests/, templates/
 └── package.json             workspaces: ["apps/*", "packages/*"]
 ```
 

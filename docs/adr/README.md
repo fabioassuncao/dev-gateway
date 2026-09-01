@@ -23,3 +23,4 @@ context, the decision, and what it costs us.
 | [0016](0016-state-that-could-be-shared.md) | State that could be shared, and what must never be | Accepted |
 | [0017](0017-no-docker-sdk.md) | The panel speaks the Docker Engine API directly, without a general SDK | Accepted |
 | [0018](0018-github-access-lives-in-the-panel.md) | GitHub access lives in the panel, through a GitHub App | Accepted |
+| [0019](0019-compose-files-live-under-docker.md) | The compose files live under `docker/compose/`, one directory per axis | Accepted |

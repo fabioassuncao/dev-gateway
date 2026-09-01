@@ -62,16 +62,16 @@ it "the entrypoints are off in the example configuration"
 assert_contains "$(cat .env.example)" "DEV_GATEWAY_TCP=false"
 
 it "Traefik still routes nothing by default"
-assert_contains "$(cat compose.yaml)" 'TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT: "false"'
+assert_contains "$(cat docker/compose/compose.yaml)" 'TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT: "false"'
 
 it "the entrypoints follow the gateway's bind address"
-assert_contains "$(cat compose.tcp.yaml)" '${DEV_GATEWAY_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_TCP_POSTGRES_PORT:-5432}'
+assert_contains "$(cat docker/compose/features/tcp.yaml)" '${DEV_GATEWAY_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_TCP_POSTGRES_PORT:-5432}'
 
 it "the Tailscale attachment publishes them from the Tailscale container"
-assert_contains "$(sed -n '/^  tailscale:/,/^  traefik:/p' compose.tcp-tailscale.yaml)" "DEV_GATEWAY_TCP_POSTGRES_PORT"
+assert_contains "$(sed -n '/^  tailscale:/,/^  traefik:/p' docker/compose/features/tcp-tailscale.yaml)" "DEV_GATEWAY_TCP_POSTGRES_PORT"
 
 it "and Traefik declares no ports of its own there"
-assert_eq "" "$(sed -n '/^  traefik:/,$p' compose.tcp-tailscale.yaml | grep -E '^\s+ports:' || true)"
+assert_eq "" "$(sed -n '/^  traefik:/,$p' docker/compose/features/tcp-tailscale.yaml | grep -E '^\s+ports:' || true)"
 
 describe "a routed datastore joins the access network, never the HTTP one"
 
@@ -82,7 +82,7 @@ it "and nowhere claims the shared network"
 assert_eq "" "$(grep -E '^\s+- dev-gateway$' templates/overlays/09-tcp-routing.yaml || true)"
 
 it "the example follows the same rule"
-assert_eq "" "$(grep -E '^\s+- dev-gateway$' examples/demo-a/compose.dev-gateway-tcp.yaml || true)"
+assert_eq "" "$(grep -E '^\s+- dev-gateway$' docker/examples/demo-a/compose.dev-gateway-tcp.yaml || true)"
 
 it "MySQL is absent from the template rather than half-supported"
 assert_eq "" "$(sed -n '/^services:/,/^networks:/p' templates/overlays/09-tcp-routing.yaml | grep -E '^  (mysql|mariadb):' || true)"

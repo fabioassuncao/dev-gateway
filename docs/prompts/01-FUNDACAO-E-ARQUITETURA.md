@@ -256,11 +256,13 @@ Crie uma organização limpa. Use como referência, adaptando se necessário:
 
 ```text
 .
-├── compose.yaml
-├── compose.local.yaml
-├── compose.remote.yaml
-├── compose.public.yaml
-├── compose.tailscale.yaml
+├── docker/
+│   ├── compose/
+│       ├── compose.yaml
+│       ├── attach/
+│       ├── features/
+│       └── profiles/
+│   └── examples/
 ├── .env.example
 ├── Makefile
 ├── bin/
@@ -277,7 +279,6 @@ Crie uma organização limpa. Use como referência, adaptando se necessário:
 │   └── install.sh
 ├── templates/
 │   └── project/
-├── examples/
 ├── tests/
 └── docs/
     ├── architecture.md

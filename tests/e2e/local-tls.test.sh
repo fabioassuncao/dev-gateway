@@ -29,7 +29,7 @@ ORIG_TLS="${TLS_ENABLED:-false}"
 HAD_CA=0; [ -f "$CA" ] && HAD_CA=1
 
 cleanup() {
-  ( cd "$DG_ROOT/examples/demo-a" && docker compose \
+  ( cd "$DG_ROOT/docker/examples/demo-a" && docker compose \
       -f compose.yaml -f compose.dev-gateway.yaml down -v ) >/dev/null 2>&1
   dg_env_set TLS_ENABLED "$ORIG_TLS" >/dev/null 2>&1
   if [ "$HAD_CA" = "0" ]; then
@@ -57,7 +57,7 @@ describe "serving over HTTPS"
 # .env for any child process. Drop it so the CLI reads what `tls init` wrote.
 unset TLS_ENABLED TLS_MODE
 "$GW" up local >/dev/null 2>&1
-( cd "$DG_ROOT/examples/demo-a" && docker compose \
+( cd "$DG_ROOT/docker/examples/demo-a" && docker compose \
     -f compose.yaml -f compose.dev-gateway.yaml up -d --wait --wait-timeout 120 ) >/dev/null 2>&1
 sleep 5
 

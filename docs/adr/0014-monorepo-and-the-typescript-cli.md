@@ -41,7 +41,7 @@ packages/
   cli/                      ← @fabioassuncao/dev-gateway (published by #9)
 bin/dev-gateway             ← stays; see ADR 0015
 scripts/                    ← shrinks as commands migrate
-compose*.yaml, config/, docs/, tests/, examples/   ← unchanged, at the root
+docker/{compose,examples}/, config/, docs/, tests/   ← stay at the root
 ```
 
 npm workspaces, not pnpm or Turborepo. The repository has one Node package

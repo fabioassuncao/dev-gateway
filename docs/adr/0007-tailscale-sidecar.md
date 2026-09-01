@@ -43,8 +43,8 @@ Three settings follow from the choice and are not optional:
 
 Because `networks:` and `network_mode:` are mutually exclusive, and Compose
 merges rather than replaces both, Traefik's attachment cannot live in the base
-file and be undone later. `compose.yaml` therefore declares neither, and
-exactly one `compose.attach-*.yaml` overlay supplies it.
+file and be undone later. `docker/compose/compose.yaml` therefore declares
+neither, and exactly one overlay under `docker/compose/attach/` supplies it.
 
 ## Consequences
 

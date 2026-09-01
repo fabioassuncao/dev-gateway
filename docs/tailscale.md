@@ -9,7 +9,7 @@ node's tailnet address.
 
 ## How it is wired
 
-`compose.attach-tailscale.yaml` runs one Tailscale container and puts Traefik
+`docker/compose/attach/tailscale.yaml` runs one Tailscale container and puts Traefik
 **inside its network namespace**:
 
 ```yaml

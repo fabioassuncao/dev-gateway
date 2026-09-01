@@ -33,7 +33,7 @@ cleanup() {
   curl -s -X DELETE "$BASE/api/access/$BRIDGE_ID" >/dev/null 2>&1
   "$GW" access close --all >/dev/null 2>&1
   docker rm -f "$STRAY" >/dev/null 2>&1
-  ( cd "$DG_ROOT/examples/demo-a" && docker compose \
+  ( cd "$DG_ROOT/docker/examples/demo-a" && docker compose \
       -f compose.yaml -f compose.dev-gateway.yaml down -v ) >/dev/null 2>&1
   dg_is_true "$WEB_WAS_ENABLED" || "$GW" web disable >/dev/null 2>&1
 }
@@ -50,7 +50,7 @@ jq_py() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
 
 describe "the panel starts through the CLI"
 
-( cd "$DG_ROOT/examples/demo-a" && docker compose \
+( cd "$DG_ROOT/docker/examples/demo-a" && docker compose \
     -f compose.yaml -f compose.dev-gateway.yaml up -d --wait --wait-timeout 180 ) >/dev/null 2>&1
 
 # A container that belongs to nobody: exactly what the Docker page exists for.

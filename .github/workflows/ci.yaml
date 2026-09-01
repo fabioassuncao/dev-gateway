@@ -253,9 +253,9 @@ jobs:
       - name: A database bridge stays on loopback
         run: |
           set -euo pipefail
-          cd examples/demo-a
+          cd docker/examples/demo-a
           docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d --wait --wait-timeout 180
-          cd ../..
+          cd ../../..
           ./bin/dev-gateway access open --project demo-a --service postgres --quiet
           binds=$(docker ps --format '{{.Names}} {{.Ports}}' | grep '^dg-access-')
           echo "$binds"
@@ -306,4 +306,4 @@ jobs:
         if: always()
         run: |
           ./bin/dev-gateway access close --all || true
-          cd examples/demo-a && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v || true
+          cd docker/examples/demo-a && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v || true

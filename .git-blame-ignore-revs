@@ -3,3 +3,6 @@
 
 # Convert the repository to npm workspaces: git mv web apps/web
 e6123e8a3fecfaf4b5ab4469cde7e350a8ffc73e
+
+# Move the compose files and the demos under docker/
+0820a1070d452894620bbb12c67566223d511d65

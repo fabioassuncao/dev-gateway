@@ -82,20 +82,25 @@ export function loadGatewayConfig(env: Record<string, string | undefined> = proc
   }
 }
 
+/**
+ * The overlays live under docker/compose/, one directory per axis of the decision.
+ * Must stay in step with dg_compose_files in scripts/lib/docker.sh: the shell
+ * gateway and this CLI are two implementations of the same contract.
+ */
 export function composeFiles(config: GatewayConfig): string[] {
   const attachment = config.profile !== 'local' && config.tailscaleEnabled ? 'tailscale' : 'host'
-  const files = ['compose.yaml', `compose.attach-${attachment}.yaml`]
+  const files = ['docker/compose/compose.yaml', `docker/compose/attach/${attachment}.yaml`]
   if (config.profile === 'local') {
-    files.push('compose.local.yaml')
-    if (config.tlsEnabled && config.tlsMode === 'local') files.push('compose.local-tls.yaml')
-  } else files.push('compose.remote.yaml')
-  if (config.profile === 'remote-public') files.push('compose.public.yaml')
-  if (config.dashboardEnabled) files.push(attachment === 'tailscale' ? 'compose.dashboard-tailscale.yaml' : 'compose.dashboard.yaml')
-  if (config.tcpEnabled) files.push(attachment === 'tailscale' ? 'compose.tcp-tailscale.yaml' : 'compose.tcp.yaml')
+    files.push('docker/compose/profiles/local.yaml')
+    if (config.tlsEnabled && config.tlsMode === 'local') files.push('docker/compose/profiles/local-tls.yaml')
+  } else files.push('docker/compose/profiles/remote.yaml')
+  if (config.profile === 'remote-public') files.push('docker/compose/profiles/public.yaml')
+  if (config.dashboardEnabled) files.push(attachment === 'tailscale' ? 'docker/compose/features/dashboard-tailscale.yaml' : 'docker/compose/features/dashboard.yaml')
+  if (config.tcpEnabled) files.push(attachment === 'tailscale' ? 'docker/compose/features/tcp-tailscale.yaml' : 'docker/compose/features/tcp.yaml')
   if (config.webEnabled) {
-    files.push('compose.web.yaml', 'compose.db.yaml')
-    if (config.webDev) files.push('compose.web-dev.yaml')
-    if (config.webExpose === 'vpn') files.push('compose.web-vpn.yaml')
+    files.push('docker/compose/features/web.yaml', 'docker/compose/features/db.yaml')
+    if (config.webDev) files.push('docker/compose/features/web-dev.yaml')
+    if (config.webExpose === 'vpn') files.push('docker/compose/features/web-vpn.yaml')
   }
   return files
 }

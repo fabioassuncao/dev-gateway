@@ -70,17 +70,21 @@ test-all: ## Everything
 	@./tests/run.sh --all
 
 demo-up: ## Start every adopted demo (site, shop, monorepo, a, b)
-	@cd examples/demo-a && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
-	@cd examples/demo-b && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
-	@cd examples/demo-site && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
-	@cd examples/demo-shop && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
-	@cd examples/demo-monorepo && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+	@cd docker/examples/demo-a && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+	@cd docker/examples/demo-b && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+	@cd docker/examples/demo-site && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+	@cd docker/examples/demo-shop && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
+	@cd docker/examples/demo-monorepo && docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
 	@$(GW) urls
 
+demo-up-all: demo-up ## Alias for demo-up
+
 demo-down: ## Stop every example stack (including external) and drop volumes
-	@cd examples/demo-a && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
-	@cd examples/demo-b && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
-	@cd examples/demo-site && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
-	@cd examples/demo-shop && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
-	@cd examples/demo-monorepo && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
-	@cd examples/demo-external && docker compose down -v
+	@cd docker/examples/demo-a && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
+	@cd docker/examples/demo-b && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
+	@cd docker/examples/demo-site && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
+	@cd docker/examples/demo-shop && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
+	@cd docker/examples/demo-monorepo && docker compose -f compose.yaml -f compose.dev-gateway.yaml down -v
+	@cd docker/examples/demo-external && docker compose down -v
+
+demo-down-all: demo-down ## Alias for demo-down

@@ -850,7 +850,7 @@ credential.
 
 **Authentication.** Traefik's, not the panel's: a BasicAuth middleware the
 panel renders into `config/traefik/dynamic/dev-gateway-panel.yaml`, referenced
-by the router in `compose.web-vpn.yaml`. The password is generated, shown once
+by the router in `docker/compose/features/web-vpn.yaml`. The password is generated, shown once
 and stored only as a hash; `DEV_GATEWAY_WEB_AUTH_HASH` is a secret in the
 settings catalogue, so the API reports it as set and never returns it. A
 middleware Traefik cannot resolve makes the router fail closed. `doctor` and the

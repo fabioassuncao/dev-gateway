@@ -1,8 +1,8 @@
 # ============================================================================
 # Traefik dashboard overlay for the Tailscale attachment
 # ============================================================================
-# Same as compose.dashboard.yaml, but the port is published by the Tailscale
-# container, because Traefik has no network namespace of its own here.
+# Same as docker/compose/features/dashboard.yaml, but the port is published by the
+# Tailscale container, because Traefik has no network namespace of its own here.
 #
 # Note that the dashboard also becomes reachable over the tailnet at
 # http://<tailscale-hostname>:8080 without being published at all. Restrict it

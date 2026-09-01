@@ -9,7 +9,7 @@
 #
 #   ./bin/dev-gateway up local
 #
-# compose.yaml alone is intentionally incomplete: it declares no Traefik
+# docker/compose/compose.yaml alone is intentionally incomplete: it declares no Traefik
 # networks or ports, because exactly one attach-* overlay decides those.
 #
 # Traefik's static configuration lives in `environment:` (TRAEFIK_* variables)
@@ -110,10 +110,10 @@ services:
         condition: service_healthy
     # No `networks:` and no `ports:` here on purpose. How Traefik is attached to
     # the world is a per-profile decision made by exactly one overlay:
-    #   compose.attach-host.yaml      : its own namespace, ports on the host
-    #   compose.attach-tailscale.yaml : inside the Tailscale container's
-    #                                    network namespace, reachable over the
-    #                                    tailnet with nothing published
+    #   docker/compose/attach/host.yaml      : its own namespace, ports on the host
+    #   docker/compose/attach/tailscale.yaml : inside the Tailscale container's
+    #                                  network namespace, reachable over the
+    #                                  tailnet with nothing published
     # `networks:` and `network_mode:` are mutually exclusive and Compose merges
     # rather than replaces both, so neither can be declared here and undone later.
     environment:
@@ -127,7 +127,8 @@ services:
       TRAEFIK_PING: "true"
 
       # -- api / dashboard -------------------------------------------------
-      # Off by default. compose.dashboard.yaml turns it on, bound to loopback.
+      # Off by default. docker/compose/features/dashboard.yaml turns it on, bound
+      # to loopback.
       TRAEFIK_API: "false"
 
       # -- entrypoints -----------------------------------------------------

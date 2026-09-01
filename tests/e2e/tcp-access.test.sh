@@ -26,12 +26,12 @@ dg_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit
 
 up_env() {
   local dir="demo-a"; [ "$1" = "demo-b" ] && dir="demo-b"
-  ( cd "$DG_ROOT/examples/$dir" && COMPOSE_PROJECT_NAME="$1" docker compose \
+  ( cd "$DG_ROOT/docker/examples/$dir" && COMPOSE_PROJECT_NAME="$1" docker compose \
       -f compose.yaml -f compose.dev-gateway.yaml up -d --wait --wait-timeout 180 ) >/dev/null 2>&1
 }
 down_env() {
   local dir="demo-a"; [ "$1" = "demo-b" ] && dir="demo-b"
-  ( cd "$DG_ROOT/examples/$dir" && COMPOSE_PROJECT_NAME="$1" docker compose \
+  ( cd "$DG_ROOT/docker/examples/$dir" && COMPOSE_PROJECT_NAME="$1" docker compose \
       -f compose.yaml -f compose.dev-gateway.yaml down -v ) >/dev/null 2>&1
 }
 

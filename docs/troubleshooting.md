@@ -127,7 +127,8 @@ the variable is `TRAEFIK_ENTRYPOINTS_WEB_HTTP_ALIASHEADERSSTRATEGY`, not
 ## The socket proxy is unhealthy
 
 Its entrypoint renders a config into `/tmp`, and the container runs
-`read_only: true`. It needs the tmpfs mounts declared in `compose.yaml`:
+`read_only: true`. It needs the tmpfs mounts declared in
+`docker/compose/compose.yaml`:
 
 ```bash
 docker logs dev-gateway-socket-proxy-1

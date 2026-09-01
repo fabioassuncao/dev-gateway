@@ -176,8 +176,8 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
 /**
  * Where Traefik's API answers, which depends on how Traefik is attached.
  *
- * With compose.attach-host.yaml Traefik has its own namespace and is reachable
- * as `traefik`. With compose.attach-tailscale.yaml it runs inside the Tailscale
+ * With docker/compose/attach/host.yaml Traefik has its own namespace and is reachable
+ * as `traefik`. With docker/compose/attach/tailscale.yaml it runs inside the Tailscale
  * container's namespace and has no name of its own, so the same API answers on
  * `tailscale` ([ADR 0007](docs/adr/0007-tailscale-sidecar.md)). The internal
  * port is always 8080; only the published one is configurable.

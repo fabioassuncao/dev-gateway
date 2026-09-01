@@ -139,7 +139,7 @@ code path that can remove a consumer container, network or volume.
 | `remote-public` | the internet, opt-in | ACME wildcard |
 
 Profiles are Compose overlays that add only the keys they change, over a shared
-`compose.yaml` ([ADR 0003](adr/0003-traefik-static-config-via-env.md)).
+`docker/compose/compose.yaml` ([ADR 0003](adr/0003-traefik-static-config-via-env.md)).
 
 ## What the gateway deliberately cannot do
 

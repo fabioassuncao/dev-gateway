@@ -66,7 +66,7 @@ create by hand, and `dns check` still verifies it.
 
 For certificates, set `ACME_DNS_PROVIDER` to your provider's lego name and pass
 its credentials to Traefik as environment variables. The `CF_DNS_API_TOKEN`
-line in `compose.remote.yaml` is the template to copy.
+line in `docker/compose/profiles/remote.yaml` is the template to copy.
 
 ## Troubleshooting
 

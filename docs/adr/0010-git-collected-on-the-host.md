@@ -57,7 +57,7 @@ already knows every project's directory is the CLI.
 
 `dev-gateway git scan` reads the Compose labels, walks to each project's
 working directory, runs read-only `git` there, and writes one file per project
-under `state/git/`, mode `600`. `compose.web.yaml` mounts that directory into
+under `state/git/`, mode `600`. `docker/compose/features/web.yaml` mounts that directory into
 the panel read-only, and `GET /api/projects/:project/git` reads the file.
 
 ```

@@ -33,7 +33,6 @@ apps/web/playwright.config.ts
 apps/web/vitest.config.ts
 
 docs
-examples
 templates
 tests
 toolbox
@@ -45,4 +44,4 @@ CHANGELOG.md
 LICENSE
 Makefile
 VERSION
-compose*.yaml
+docker

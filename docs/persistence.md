@@ -34,7 +34,7 @@ the cache as the only copy.
 
 ## Isolation and lifecycle
 
-PostgreSQL uses the pinned image in `compose.db.yaml`, a named volume and the
+PostgreSQL uses the pinned image in `docker/compose/features/db.yaml`, a named volume and the
 dedicated `dev-gateway-data` network. The network is `internal`; the database
 publishes no host port and never joins the shared `dev-gateway` HTTP network.
 `doctor` fails if either invariant is broken.

@@ -5,7 +5,7 @@
 #
 # The panel is a development tool, so it is published on loopback by default
 # and never routed through the public entrypoints. Reaching it over a VPN is a
-# separate, explicit overlay: compose.web-vpn.yaml.
+# separate, explicit overlay: docker/compose/features/web-vpn.yaml.
 #
 # It gets its OWN Docker socket proxy rather than sharing Traefik's. Traefik
 # needs a strictly read-only view; the panel needs to start, stop, restart and
@@ -198,8 +198,8 @@ services:
     ports:
       - "${DEV_GATEWAY_WEB_BIND_ADDRESS:-127.0.0.1}:${DEV_GATEWAY_WEB_PORT:-8081}:8081"
     labels:
-      # Off unless compose.web-vpn.yaml turns it on: the panel is never routed
-      # through the public entrypoints by accident.
+      # Off unless docker/compose/features/web-vpn.yaml turns it on: the panel is
+      # never routed through the public entrypoints by accident.
       traefik.enable: "false"
       dev-gateway.managed: "true"
       dev-gateway.component: web

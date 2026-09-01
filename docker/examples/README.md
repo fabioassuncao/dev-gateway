@@ -30,7 +30,7 @@ Each directory holds:
 # from the dev-gateway repository
 dev-gateway up local
 
-cd examples/demo-a
+cd docker/examples/demo-a
 docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
 
 cd ../demo-b
@@ -70,7 +70,7 @@ http://demo-monorepo-api.localhost
 http://demo-monorepo-mailpit.localhost
 ```
 
-Or: `make demo-up` for the CI pair, `make demo-up-all` for every adopted demo.
+Or use `make demo-up` or its `make demo-up-all` alias for every adopted demo.
 
 ## Running the same project twice
 
@@ -79,7 +79,7 @@ a second, fully independent copy, with its own containers, volumes, network and
 hostnames:
 
 ```bash
-cd examples/demo-a
+cd docker/examples/demo-a
 COMPOSE_PROJECT_NAME=demo-a-issue-1 \
   docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
 # -> http://demo-a-issue-1-web.localhost

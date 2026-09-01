@@ -77,11 +77,11 @@ assert_contains "$("$GW" version)" "$(tr -d '[:space:]' < "$DG_ROOT/VERSION")"
 describe "exit codes have a stable machine contract"
 it "success is 0"; assert_success "$GW" version
 failure_root=$(mktemp -d "${TMPDIR:-/tmp}/dg-cli-exit.XXXXXX")
-mkdir -p "$failure_root/state/git"
+mkdir -p "$failure_root/state/git" "$failure_root/docker/compose/attach" "$failure_root/docker/compose/profiles"
 printf '0.1.1\n' > "$failure_root/VERSION"
-printf '{}\n' > "$failure_root/compose.yaml"
-printf '{}\n' > "$failure_root/compose.attach-host.yaml"
-printf '{}\n' > "$failure_root/compose.local.yaml"
+printf '{}\n' > "$failure_root/docker/compose/compose.yaml"
+printf '{}\n' > "$failure_root/docker/compose/attach/host.yaml"
+printf '{}\n' > "$failure_root/docker/compose/profiles/local.yaml"
 printf '{broken\n' > "$failure_root/state/git/broken.json"
 it "an operational failure is 1"; assert_exit 1 env DG_ROOT="$failure_root" "$GW" git status
 rm -rf "$failure_root"

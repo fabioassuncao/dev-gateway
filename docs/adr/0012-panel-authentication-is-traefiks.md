@@ -6,7 +6,7 @@
 
 The panel has no authentication at all. `docs/web-ui.md` lists it under *Out of
 scope*, `dev-gateway web up --expose public` is refused outright, and
-`compose.web-vpn.yaml` adds a Traefik router with no middleware in front of it.
+`docker/compose/features/web-vpn.yaml` adds a Traefik router with no middleware in front of it.
 `docs/security.md` states the position plainly under *What is not protected*:
 there is no identity layer, and the network is the boundary.
 
@@ -34,7 +34,7 @@ The panel gets BasicAuth, and none of it lives in the panel.
 Traefik holds the middleware; the panel renders it into
 `config/traefik/dynamic/dev-gateway-panel.yaml`
 ([ADR 0011](0011-panel-reads-traefik-writes-one-file.md)), and
-`compose.web-vpn.yaml` points its router at it. There is no login form, no
+`docker/compose/features/web-vpn.yaml` points its router at it. There is no login form, no
 session, no cookie, no user store and no code path inside the panel that can be
 bypassed: a request either reaches the container or it does not.
 

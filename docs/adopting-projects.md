@@ -79,12 +79,12 @@ docker compose -f compose.yaml -f compose.dev-gateway.yaml up -d
 Set `COMPOSE_FILE=compose.yaml:compose.dev-gateway.yaml` in the project's
 `.env` to drop the `-f` flags entirely.
 
-Working examples: [`examples/demo-a`](../examples/demo-a) and
-[`examples/demo-b`](../examples/demo-b) for the CI pair; also
-[`demo-site`](../examples/demo-site) (single web),
-[`demo-shop`](../examples/demo-shop) (full stack with MySQL, Mailpit and RustFS),
-[`demo-monorepo`](../examples/demo-monorepo), and
-[`demo-external`](../examples/demo-external) (never adopted, for the panel's
+Working examples: [`docker/examples/demo-a`](../docker/examples/demo-a) and
+[`docker/examples/demo-b`](../docker/examples/demo-b) for the CI pair; also
+[`demo-site`](../docker/examples/demo-site) (single web),
+[`demo-shop`](../docker/examples/demo-shop) (full stack with MySQL, Mailpit and RustFS),
+[`demo-monorepo`](../docker/examples/demo-monorepo), and
+[`demo-external`](../docker/examples/demo-external) (never adopted, for the panel's
 External Docker section). Templates for the usual project shapes are in
 [`templates/`](../templates/).
 

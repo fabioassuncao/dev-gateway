@@ -15,8 +15,8 @@
 # datastore additionally has to join the access network. Nothing here publishes
 # a database by itself. See docs/tcp-routing.md.
 #
-# This overlay is for the `host` attachment. compose.tcp-tailscale.yaml is the
-# same thing for the Tailscale attachment, where the ports belong to the
+# This overlay is for the `host` attachment. docker/compose/features/tcp-tailscale.yaml
+# is the same thing for the Tailscale attachment, where the ports belong to the
 # Tailscale container because Traefik has no namespace of its own.
 # ============================================================================
 

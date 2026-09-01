@@ -12,8 +12,14 @@ export interface GatewayContext {
   version: string
 }
 
+// The compose files live under docker/compose/ (ADR 0019). A published CLI
+// outlives the checkout it is pointed at in both directions, so both earlier
+// layouts remain recognised as gateway roots rather than "not a checkout".
 function isGatewayRoot(path: string): boolean {
-  return existsSync(join(path, 'compose.yaml')) && existsSync(join(path, 'VERSION'))
+  if (!existsSync(join(path, 'VERSION'))) return false
+  return existsSync(join(path, 'docker', 'compose', 'compose.yaml'))
+    || existsSync(join(path, 'docker', 'compose.yaml'))
+    || existsSync(join(path, 'compose.yaml'))
 }
 
 export function findGatewayRoot(start = process.cwd()): string | null {
@@ -56,6 +62,9 @@ export function gatewayContext(options: { root?: string; profile?: string; requi
   }
 }
 
+// --project-directory anchors every relative path in the overlays (./config,
+// ./state, ./.env, and the build contexts) at the repository root. Without it
+// Compose would resolve them against docker/compose/, where the first -f file lives.
 export function composeArguments(context: GatewayContext): string[] {
-  return context.composeFiles.flatMap((file) => ['-f', join(context.root, file)])
+  return ['--project-directory', context.root, ...context.composeFiles.flatMap((file) => ['-f', join(context.root, file)])]
 }

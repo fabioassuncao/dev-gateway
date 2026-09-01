@@ -18,11 +18,11 @@ dg_load_env; dg_defaults
 GW="$DG_ROOT/bin/dev-gateway"
 
 up_demo() {
-  ( cd "$DG_ROOT/examples/$1" && COMPOSE_PROJECT_NAME="$1" docker compose \
+  ( cd "$DG_ROOT/docker/examples/$1" && COMPOSE_PROJECT_NAME="$1" docker compose \
       -f compose.yaml -f compose.dev-gateway.yaml up -d --wait --wait-timeout 120 ) >/dev/null 2>&1
 }
 down_demo() {
-  ( cd "$DG_ROOT/examples/$1" && COMPOSE_PROJECT_NAME="$1" docker compose \
+  ( cd "$DG_ROOT/docker/examples/$1" && COMPOSE_PROJECT_NAME="$1" docker compose \
       -f compose.yaml -f compose.dev-gateway.yaml down -v ) >/dev/null 2>&1
 }
 # http_code <url>: resolves the hostname to the gateway's bind address

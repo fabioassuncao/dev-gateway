@@ -119,7 +119,7 @@ it "warns against sharing a database between worktrees"
 assert_contains "$(cat "$DG_ROOT/templates/overlays/07-worktree.env")" "worktrees writing to one database"
 
 describe "the examples follow the same rules"
-for ov in "$DG_ROOT"/examples/*/compose.dev-gateway.yaml; do
+for ov in "$DG_ROOT"/docker/examples/*/compose.dev-gateway.yaml; do
   name=$(basename "$(dirname "$ov")")
   it "$name writes labels in list form"
   assert_eq "" "$(grep -nE '^[[:space:]]+traefik\.[^ ]*:' "$ov" || true)"
@@ -139,14 +139,14 @@ it "no template requires one"
 assert_eq "" "$(grep -rn '^ *- "dev-gateway\.\(project\|repo\|git\)' templates/overlays/ || true)"
 
 it "the example that declares them is the monorepo, where inference cannot"
-assert_contains "$(cat examples/demo-monorepo/compose.dev-gateway.yaml)" "dev-gateway.git.root="
+assert_contains "$(cat docker/examples/demo-monorepo/compose.dev-gateway.yaml)" "dev-gateway.git.root="
 
 for demo in demo-a demo-b demo-site demo-shop; do
   it "$demo declares none, and needs none"
-  assert_eq "" "$(grep -n 'dev-gateway\.\(project\|repo\|git\.root\)' "examples/$demo/compose.dev-gateway.yaml" 2>/dev/null || true)"
+  assert_eq "" "$(grep -n 'dev-gateway\.\(project\|repo\|git\.root\)' "docker/examples/$demo/compose.dev-gateway.yaml" 2>/dev/null || true)"
 done
 
 it "analyze reports them, and says so plainly when there are none"
-assert_contains "$(./bin/dev-gateway analyze examples/demo-a 2>&1)" "none (inferred from the Compose labels)"
+assert_contains "$(./bin/dev-gateway analyze docker/examples/demo-a 2>&1)" "none (inferred from the Compose labels)"
 
 t_summary

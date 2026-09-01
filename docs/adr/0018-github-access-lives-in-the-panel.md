@@ -69,7 +69,7 @@ panel with no App configured, exactly as ADR 0010 described it.
 
 ### 1. Egress is opt-in in code, on a network the panel already has
 
-`compose.web.yaml` already attaches the panel to the shared `gateway`
+`docker/compose/features/web.yaml` already attaches the panel to the shared `gateway`
 network, which is **not** `internal`. Docker therefore already gives the
 container a default route. Today's "no egress" is a property of the
 process: the only outbound `fetch` is to Traefik. It is not a property of

@@ -39,8 +39,8 @@ base URL resolved per attachment and overridable with `DG_WEB_TRAEFIK_API`:
 
 | Attachment | Base URL | Why |
 |---|---|---|
-| `compose.attach-host.yaml` | `http://traefik:8080` | Traefik has its own namespace |
-| `compose.attach-tailscale.yaml` | `http://tailscale:8080` | Traefik shares the Tailscale container's namespace and has no name of its own ([ADR 0007](0007-tailscale-sidecar.md)) |
+| `docker/compose/attach/host.yaml` | `http://traefik:8080` | Traefik has its own namespace |
+| `docker/compose/attach/tailscale.yaml` | `http://tailscale:8080` | Traefik shares the Tailscale container's namespace and has no name of its own ([ADR 0007](0007-tailscale-sidecar.md)) |
 
 **Not over `control`.** Attaching the panel to the control network would be
 narrower in one sense and much wider in the one that matters: `control` is

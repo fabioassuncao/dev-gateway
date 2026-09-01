@@ -30,8 +30,8 @@ COPY packages/core/src ./packages/core/src
 RUN npm run build --workspace=@dev-gateway/core && npm run build --workspace=dev-gateway-web
 
 # --- development -------------------------------------------------------------
-# Used by compose.web-dev.yaml, which bind-mounts the source over /app/apps/web
-# and runs either the API with `node --watch` or Vite with HMR.
+# Used by docker/compose/features/web-dev.yaml, which bind-mounts the source over
+# /app/apps/web and runs either the API with `node --watch` or Vite with HMR.
 FROM deps AS dev
 WORKDIR /app
 ENV NODE_ENV=development

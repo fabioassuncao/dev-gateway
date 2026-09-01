@@ -24,7 +24,8 @@ files_for() {
   ( for kv in "$@"; do export "${kv?}"; done
     dg_defaults
     dg_resolve_profile "$profile" >/dev/null 2>&1 || { printf 'REFUSED'; return 0; }
-    dg_compose_files "$profile" | tr ' ' '\n' | grep -v '^-f$' | sed 's#.*/##' | tr '\n' ' ' )
+    # Repo-relative, so the assertions name the same paths the docs do.
+    dg_compose_files "$profile" | tr ' ' '\n' | grep -v '^-f$' | sed "s#^$DG_ROOT/##" | tr '\n' ' ' )
 }
 
 # A routed panel is refused without one, so every case that routes it carries
@@ -63,55 +64,55 @@ assert_eq "d.test" "$(resolve remote-public DEV_GATEWAY_DOMAIN PUBLIC_DOMAIN=d.t
 
 describe "exactly one attachment overlay is selected"
 it "local attaches to the host"
-assert_contains "$(files_for local)" "compose.attach-host.yaml"
+assert_contains "$(files_for local)" "docker/compose/attach/host.yaml"
 it "remote-private with Tailscale uses the namespace attachment"
-assert_contains "$(files_for remote-private TAILSCALE_ENABLED=true)" "compose.attach-tailscale.yaml"
+assert_contains "$(files_for remote-private TAILSCALE_ENABLED=true)" "docker/compose/attach/tailscale.yaml"
 it "remote-private without Tailscale falls back to the host attachment"
-assert_contains "$(files_for remote-private DEV_GATEWAY_BIND_ADDRESS=100.64.0.1)" "compose.attach-host.yaml"
+assert_contains "$(files_for remote-private DEV_GATEWAY_BIND_ADDRESS=100.64.0.1)" "docker/compose/attach/host.yaml"
 it "never both"
-assert_not_contains "$(files_for remote-private TAILSCALE_ENABLED=true)" "compose.attach-host.yaml"
+assert_not_contains "$(files_for remote-private TAILSCALE_ENABLED=true)" "docker/compose/attach/host.yaml"
 
 describe "profile overlays"
 it "remote-public includes the public overlay"
-assert_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test)" "compose.public.yaml"
+assert_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test)" "docker/compose/profiles/public.yaml"
 it "local does not"
-assert_not_contains "$(files_for local)" "compose.public.yaml"
+assert_not_contains "$(files_for local)" "docker/compose/profiles/public.yaml"
 it "local TLS pulls in the local-tls overlay"
-assert_contains "$(files_for local TLS_ENABLED=true TLS_MODE=local)" "compose.local-tls.yaml"
+assert_contains "$(files_for local TLS_ENABLED=true TLS_MODE=local)" "docker/compose/profiles/local-tls.yaml"
 it "the dashboard overlay follows the attachment"
-assert_contains "$(files_for remote-private TAILSCALE_ENABLED=true DEV_GATEWAY_DASHBOARD=true)" "compose.dashboard-tailscale.yaml"
+assert_contains "$(files_for remote-private TAILSCALE_ENABLED=true DEV_GATEWAY_DASHBOARD=true)" "docker/compose/features/dashboard-tailscale.yaml"
 
 describe "the web panel is opt-in and never public"
 it "off by default"
-assert_not_contains "$(files_for local)" "compose.web.yaml"
+assert_not_contains "$(files_for local)" "docker/compose/features/web.yaml"
 it "enabled by DEV_GATEWAY_WEB"
-assert_contains "$(files_for local DEV_GATEWAY_WEB=true)" "compose.web.yaml"
+assert_contains "$(files_for local DEV_GATEWAY_WEB=true)" "docker/compose/features/web.yaml"
 it "development mode adds the HMR overlay"
-assert_contains "$(files_for local DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_DEV=true)" "compose.web-dev.yaml"
+assert_contains "$(files_for local DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_DEV=true)" "docker/compose/features/web-dev.yaml"
 it "and does not add it otherwise"
-assert_not_contains "$(files_for local DEV_GATEWAY_WEB=true)" "compose.web-dev.yaml"
+assert_not_contains "$(files_for local DEV_GATEWAY_WEB=true)" "docker/compose/features/web-dev.yaml"
 it "the VPN overlay is opt-in"
-assert_contains "$(files_for remote-private DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_EXPOSE=vpn TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test $DG_WEB_CREDENTIAL)" "compose.web-vpn.yaml"
+assert_contains "$(files_for remote-private DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_EXPOSE=vpn TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test $DG_WEB_CREDENTIAL)" "docker/compose/features/web-vpn.yaml"
 it "routing the panel on remote-public is REFUSED"
 assert_eq "REFUSED" "$(resolve remote-public DEV_GATEWAY_DOMAIN PUBLIC_DOMAIN=d.test DEV_GATEWAY_WEB=true DEV_GATEWAY_WEB_EXPOSE=vpn)"
 it "the panel itself still runs there, just not routed"
-assert_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test DEV_GATEWAY_WEB=true)" "compose.web.yaml"
+assert_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test DEV_GATEWAY_WEB=true)" "docker/compose/features/web.yaml"
 it "and gets no Traefik router"
-assert_not_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test DEV_GATEWAY_WEB=true)" "compose.web-vpn.yaml"
+assert_not_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test DEV_GATEWAY_WEB=true)" "docker/compose/features/web-vpn.yaml"
 
 describe "TCP entrypoints are opt-in and never public"
 it "off by default"
-assert_not_contains "$(files_for local)" "compose.tcp.yaml"
+assert_not_contains "$(files_for local)" "docker/compose/features/tcp.yaml"
 it "enabled by DEV_GATEWAY_TCP"
-assert_contains "$(files_for local DEV_GATEWAY_TCP=true)" "compose.tcp.yaml"
+assert_contains "$(files_for local DEV_GATEWAY_TCP=true)" "docker/compose/features/tcp.yaml"
 it "the Tailscale attachment publishes them from the Tailscale container"
-assert_contains "$(files_for remote-private DEV_GATEWAY_TCP=true TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test)" "compose.tcp-tailscale.yaml"
+assert_contains "$(files_for remote-private DEV_GATEWAY_TCP=true TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test)" "docker/compose/features/tcp-tailscale.yaml"
 it "and never both overlays at once"
-assert_not_contains "$(files_for remote-private DEV_GATEWAY_TCP=true TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test)" "compose.tcp.yaml "
+assert_not_contains "$(files_for remote-private DEV_GATEWAY_TCP=true TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test)" "docker/compose/features/tcp.yaml"
 it "a database on the public profile is REFUSED"
 assert_eq "REFUSED" "$(resolve remote-public DEV_GATEWAY_DOMAIN PUBLIC_DOMAIN=d.test DEV_GATEWAY_TCP=true)"
 it "and the public profile still starts without them"
-assert_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test)" "compose.public.yaml"
+assert_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test)" "docker/compose/profiles/public.yaml"
 
 describe "every profile renders a valid compose configuration"
 if ! docker compose version >/dev/null 2>&1; then

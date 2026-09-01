@@ -178,55 +178,61 @@ dg_attachment() {
 }
 
 # dg_compose_files <profile>: echo the -f arguments for a profile, in order.
+#
+# The files live under docker/compose/, one directory per axis of the decision:
+# docker/compose/attach/ (how Traefik meets the world), docker/compose/profiles/ (which
+# entrypoints answer) and docker/compose/features/ (what is opted into). Their relative
+# paths still resolve against the repository root, because dg_compose passes
+# --project-directory. See docs/adr/0019-compose-files-live-under-docker.md.
 dg_compose_files() {
   local profile="$1"
-  local files="compose.yaml"
+  local files="docker/compose/compose.yaml"
   local attachment
   attachment=$(dg_attachment "$profile")
 
-  # Exactly one attach-* overlay, always.
-  files="$files compose.attach-$attachment.yaml"
+  # Exactly one attachment overlay, always.
+  files="$files docker/compose/attach/$attachment.yaml"
 
   case "$profile" in
     local)
-      files="$files compose.local.yaml"
+      files="$files docker/compose/profiles/local.yaml"
       # A locally-issued certificate flips the default entrypoint to :443.
       if dg_is_true "${TLS_ENABLED:-false}" && [ "${TLS_MODE:-local}" = "local" ]; then
-        files="$files compose.local-tls.yaml"
+        files="$files docker/compose/profiles/local-tls.yaml"
       fi
       ;;
-    remote-private) files="$files compose.remote.yaml" ;;
-    remote-public) files="$files compose.remote.yaml compose.public.yaml" ;;
+    remote-private) files="$files docker/compose/profiles/remote.yaml" ;;
+    remote-public) files="$files docker/compose/profiles/remote.yaml docker/compose/profiles/public.yaml" ;;
   esac
 
   if dg_is_true "${DEV_GATEWAY_DASHBOARD:-false}"; then
     # The dashboard port has to be published by whichever container owns the
     # network namespace.
     if [ "$attachment" = "tailscale" ]; then
-      files="$files compose.dashboard-tailscale.yaml"
+      files="$files docker/compose/features/dashboard-tailscale.yaml"
     else
-      files="$files compose.dashboard.yaml"
+      files="$files docker/compose/features/dashboard.yaml"
     fi
   fi
 
   # Hostname routing for databases: one entrypoint per protocol, opt-in.
   if dg_is_true "${DEV_GATEWAY_TCP:-false}"; then
     if [ "$attachment" = "tailscale" ]; then
-      files="$files compose.tcp-tailscale.yaml"
+      files="$files docker/compose/features/tcp-tailscale.yaml"
     else
-      files="$files compose.tcp.yaml"
+      files="$files docker/compose/features/tcp.yaml"
     fi
   fi
 
   # The panel is opt-in and rides along with the gateway once enabled, so
   # `dev-gateway up` and `dev-gateway web` cannot drift apart.
   if dg_is_true "${DEV_GATEWAY_WEB:-false}"; then
-    files="$files compose.web.yaml compose.db.yaml"
+    files="$files docker/compose/features/web.yaml docker/compose/features/db.yaml"
     if dg_is_true "${DEV_GATEWAY_WEB_DEV:-false}"; then
-      files="$files compose.web-dev.yaml"
+      files="$files docker/compose/features/web-dev.yaml"
     fi
     if [ "${DEV_GATEWAY_WEB_EXPOSE:-local}" = "vpn" ]; then
-      files="$files compose.web-vpn.yaml"
+      files="$files docker/compose/features/web-vpn.yaml"
     fi
   fi
 
@@ -243,12 +249,16 @@ dg_compose_files() {
 }
 
 # dg_compose <profile> <compose args...>
+#
+# --project-directory anchors every relative path in the overlays (./config,
+# ./state, ./.env, and the build contexts) at the repository root. Without it
+# Compose would resolve them against docker/compose/, where the first -f file lives.
 dg_compose() {
   local profile="$1"; shift
   local files
   files=$(dg_compose_files "$profile") || return 1
   # shellcheck disable=SC2086
-  ( cd "$DG_ROOT" && docker compose $files "$@" )
+  ( cd "$DG_ROOT" && docker compose --project-directory "$DG_ROOT" $files "$@" )
 }
 
 # ---------------------------------------------------------------------------

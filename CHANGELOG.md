@@ -126,6 +126,31 @@ While the version is `0.x`, minor releases may contain breaking changes.
   nullable `issue` block, so no existing client breaks, and linking writes one
   row — no container, volume or environment is touched.
 
+### Changed
+
+- **The fifteen compose files moved out of the repository root into
+  `docker/compose/`, one directory per axis of the decision.**
+  `docker/compose/attach/` decides how Traefik meets the world,
+  `docker/compose/profiles/` which entrypoints answer, and
+  `docker/compose/features/` what is opted into — the matrix that was previously
+  legible only inside `dg_compose_files`. Names drop the prefix the directory carries:
+  `compose.attach-host.yaml` is `docker/compose/attach/host.yaml`. Nothing was deleted,
+  merged or renamed semantically, and `git mv` carried the history; the
+  `*-tailscale` pairs stay separate because Compose profiles gate whole services,
+  not the one `ports:` entry that differs between them. Every invocation now
+  passes `--project-directory`, so the relative bind mounts and the monorepo
+  build context resolve exactly where they did before, and the project name is
+  unchanged — container names, networks and volumes are identical. `make` and
+  `./bin/dev-gateway` are unaffected; only a hand-written
+  `docker compose -f compose.yaml …` needs the new paths. See
+  [ADR 0019](docs/adr/0019-compose-files-live-under-docker.md).
+
+- **The self-contained Compose demos now live under `docker/examples/`.** Each
+  stack moved with its supporting web content and configuration, so relative
+  mounts and default Compose project names remain unchanged. Make targets, CI,
+  E2E tests and documentation now use the new paths; `demo-up-all` and
+  `demo-down-all` are working aliases for the existing demo targets.
+
 ## [0.2.0] — 2026-09-01
 
 ### Added
@@ -370,15 +395,15 @@ While the version is `0.x`, minor releases may contain breaking changes.
   - Refused on the `remote-public` profile: a database is never reachable from
     the internet.
 - `templates/overlays/09-tcp-routing.yaml` and
-  `examples/demo-a/compose.dev-gateway-tcp.yaml`, so a project opts in by
+  `docker/examples/demo-a/compose.dev-gateway-tcp.yaml`, so a project opts in by
   copying a file.
 - `dev-gateway services` and the panel's Access page show the hostname address
   where a protocol supports it, and say plainly when one does not.
 - Four more example stacks, so the shapes the gateway meets are all runnable:
-  [`demo-site`](examples/demo-site) (one service), [`demo-shop`](examples/demo-shop)
+  [`demo-site`](docker/examples/demo-site) (one service), [`demo-shop`](docker/examples/demo-shop)
   (web, API, worker, MySQL, Redis, Mailpit and RustFS),
-  [`demo-monorepo`](examples/demo-monorepo), and
-  [`demo-external`](examples/demo-external), which never adopts the gateway and
+  [`demo-monorepo`](docker/examples/demo-monorepo), and
+  [`demo-external`](docker/examples/demo-external), which never adopts the gateway and
   exists to be seen under External Docker. `demo-a` and `demo-b` stay the CI
   pair. `make demo-up-all` starts every adopted one.
 - `templates/overlays/10-mailpit.yaml` and `templates/overlays/11-rustfs.yaml`:

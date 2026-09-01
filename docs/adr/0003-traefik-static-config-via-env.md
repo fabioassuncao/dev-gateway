@@ -23,8 +23,9 @@ overlays, so the configuration mechanism has to compose too.
 
 ## Decision
 
-Static configuration is `TRAEFIK_*` environment variables in `compose.yaml`,
-with each profile overlay contributing only the keys it changes.
+Static configuration is `TRAEFIK_*` environment variables in
+`docker/compose/compose.yaml`, with each profile overlay contributing only the
+keys it changes.
 
 Dynamic configuration (middlewares, TLS options) stays in real YAML under
 `config/traefik/dynamic/`, loaded by the file provider and hot-reloaded. That

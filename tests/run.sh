@@ -61,19 +61,24 @@ if [ "$RUN_LINT" = "1" ]; then
     # Some overlays are fragments that only make sense on top of another one
     # (the dashboard variant extends the Tailscale attachment), so try the
     # progressively larger combinations before calling a file broken.
-    for f in compose*.yaml; do
-      if docker compose -f "$f" config --quiet >/dev/null 2>&1 \
-         || docker compose -f compose.yaml -f "$f" config --quiet >/dev/null 2>&1 \
-         || TS_AUTHKEY=x docker compose -f compose.yaml -f compose.attach-tailscale.yaml \
+    # --project-directory mirrors what the CLI does: it anchors the relative
+    # paths in the overlays at the repository root, not at docker/compose/.
+    for f in docker/compose/compose.yaml docker/compose/*/*.yaml; do
+      if docker compose --project-directory . -f "$f" config --quiet >/dev/null 2>&1 \
+         || docker compose --project-directory . \
+              -f docker/compose/compose.yaml -f "$f" config --quiet >/dev/null 2>&1 \
+         || TS_AUTHKEY=x docker compose --project-directory . \
+              -f docker/compose/compose.yaml -f docker/compose/attach/tailscale.yaml \
               -f "$f" config --quiet >/dev/null 2>&1 \
-         || docker compose -f compose.yaml -f compose.attach-host.yaml \
-              -f compose.web.yaml -f "$f" config --quiet >/dev/null 2>&1; then
+         || docker compose --project-directory . \
+              -f docker/compose/compose.yaml -f docker/compose/attach/host.yaml \
+              -f docker/compose/features/web.yaml -f "$f" config --quiet >/dev/null 2>&1; then
         echo "  ok  $f parses"
       else
         echo "  FAIL $f does not parse"; FAILED=1
       fi
     done
-    for d in examples/demo-a examples/demo-b; do
+    for d in docker/examples/demo-a docker/examples/demo-b; do
       if ( cd "$d" && docker compose -f compose.yaml -f compose.dev-gateway.yaml config --quiet ); then
         echo "  ok  $d config is valid"
       else
@@ -86,7 +91,7 @@ if [ "$RUN_LINT" = "1" ]; then
 
   bold "== no pinned-to-latest images =="
   # A floating tag turns an unrelated upstream release into an outage.
-  floating=$(grep -rnE '^\s*image:\s*\S+(:latest)?\s*$' compose*.yaml examples/*/compose*.yaml \
+  floating=$(grep -rnE '^\s*image:\s*\S+(:latest)?\s*$' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml \
     | grep -vE 'image:\s*\S+:[A-Za-z0-9]' || true)
   if [ -n "$floating" ]; then
     echo "  FAIL images without an explicit tag:"; printf '%s\n' "$floating" | sed 's/^/       /'; FAILED=1

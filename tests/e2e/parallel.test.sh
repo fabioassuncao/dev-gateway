@@ -24,13 +24,13 @@ ENVS="demo-a demo-a-issue-1 demo-a-issue-2"
 GW="$DG_ROOT/bin/dev-gateway"
 
 up_env() { # up_env <namespace> <example-dir>
-  ( cd "$DG_ROOT/examples/$2" \
+  ( cd "$DG_ROOT/docker/examples/$2" \
     && COMPOSE_PROJECT_NAME="$1" docker compose \
          -f compose.yaml -f compose.dev-gateway.yaml up -d --wait --wait-timeout 120 ) >/dev/null 2>&1
 }
 
 down_env() {
-  ( cd "$DG_ROOT/examples/$2" \
+  ( cd "$DG_ROOT/docker/examples/$2" \
     && COMPOSE_PROJECT_NAME="$1" docker compose \
          -f compose.yaml -f compose.dev-gateway.yaml down -v ) >/dev/null 2>&1
 }
