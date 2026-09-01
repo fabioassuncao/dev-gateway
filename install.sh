@@ -966,12 +966,17 @@ run_compose up -d --wait --wait-timeout 120 db \
 
 DB_CONTAINER=$(docker ps -q --filter "label=portta.component=db" | head -n1)
 if [ -n "$DB_CONTAINER" ]; then
-  # Compose already put the password in that container's environment, so it
-  # never crosses a command line here, and psql quotes it as a literal rather
-  # than the shell interpolating it into SQL.
-  if docker exec "$DB_CONTAINER" sh -c \
-       'psql -U portta -d portta -v ON_ERROR_STOP=1 -q -v p="$POSTGRES_PASSWORD" \
-          -c "ALTER USER portta WITH PASSWORD :'"'"'p'"'"'"' >/dev/null 2>&1; then
+  # The statement text comes from here and carries no secret; the password
+  # comes from the container's own environment, where Compose already put it,
+  # into a psql variable that psql quotes as a literal. Nothing interpolates a
+  # password into SQL, and it never reaches a command line on this host.
+  #
+  # On stdin rather than through -c: psql expands :'var' only in input it
+  # reads, never in a -c string.
+  if printf "ALTER USER portta WITH PASSWORD :'p';\n" \
+     | docker exec -i "$DB_CONTAINER" sh -c \
+         'psql -U portta -d portta -v ON_ERROR_STOP=1 -q -v p="$POSTGRES_PASSWORD"' \
+       >/dev/null 2>&1; then
     good "panel database credential reconciled"
   else
     warn "could not reconcile the panel database credential"
