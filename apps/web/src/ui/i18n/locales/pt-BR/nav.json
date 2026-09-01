@@ -12,6 +12,10 @@
   "settings": "Configurações",
   "gatewayUp": "Gateway ativo",
   "gatewayDown": "Gateway inativo",
+  "connection": {
+    "offline": "Sem conexão com o painel. As atualizações ao vivo estão pausadas.",
+    "reconnecting": "Reconectando…"
+  },
   "liveUpdatesHint": "Atualizações ao vivo vêm de eventos do Docker",
   "toggleTheme": "Alternar tema",
   "expandSidebar": "Expandir barra lateral",

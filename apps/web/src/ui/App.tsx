@@ -25,6 +25,8 @@ import { api } from './lib/api.ts'
 import { cn } from './lib/utils.ts'
 import { useLocale, type Locale } from './i18n/use-locale.ts'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from './components/ui/menu.tsx'
+import { GatewayStatusDot } from './components/gateway-status-dot.tsx'
+import { ConnectionBanner } from './components/connection-banner.tsx'
 import { Overview } from './pages/Overview.tsx'
 import { Projects } from './pages/Projects.tsx'
 import { ProjectPage } from './pages/Project.tsx'
@@ -81,8 +83,12 @@ export function App() {
   const root = `/${first === 'board' ? 'workspaces' : first}`
   const gateway = status.data?.gateway
 
+  const gatewayTitle = gateway?.up ? t('gatewayUp') : t('gatewayDown')
+
   return (
-    <div className="flex h-full min-h-0 flex-col md:flex-row">
+    <div className="flex h-full min-h-0 flex-col">
+      <ConnectionBanner state={live.state} />
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
       <aside
         data-collapsed={sidebarCollapsed}
         className={cn(
@@ -92,23 +98,21 @@ export function App() {
       >
         <div
           className={cn(
-            'flex items-center gap-2 px-4 py-3.5',
+            'flex items-center justify-between gap-2 px-4 py-3.5',
             sidebarCollapsed && 'md:justify-center md:px-0',
           )}
         >
-          <span
-            className={cn(
-              'h-2 w-2 rounded-full',
-              gateway?.up ? 'bg-ok' : status.isPending ? 'bg-subtle' : 'bg-danger',
-            )}
-            title={gateway?.up ? t('gatewayUp') : t('gatewayDown')}
-          />
           <div className={cn('min-w-0', sidebarCollapsed && 'md:hidden')}>
             <div className="text-sm font-semibold tracking-tight">{t('appName')}</div>
             <div className="truncate font-mono text-[11px] text-subtle">
               {gateway ? `${gateway.gatewayVersion} · ${gateway.profile}` : '…'}
             </div>
           </div>
+          <GatewayStatusDot
+            up={gateway?.up}
+            pending={status.isPending}
+            title={gatewayTitle}
+          />
         </div>
 
         <nav
@@ -142,22 +146,10 @@ export function App() {
 
         <div
           className={cn(
-            'mt-auto hidden items-center justify-between gap-2 border-t border-line px-3 py-2 md:flex',
+            'mt-auto hidden items-center justify-end gap-2 border-t border-line px-3 py-2 md:flex',
             sidebarCollapsed && 'md:flex-col md:px-2',
           )}
         >
-          <span
-            className="flex items-center gap-1.5 text-[11px] text-subtle"
-            title={t('liveUpdatesHint')}
-          >
-            <span
-              className={cn(
-                'h-1.5 w-1.5 rounded-full',
-                live.state === 'live' ? 'bg-ok' : live.state === 'connecting' ? 'bg-warn' : 'bg-danger',
-              )}
-            />
-            <span className={cn(sidebarCollapsed && 'md:sr-only')}>{t(`live.${live.state}`)}</span>
-          </span>
           <div className={cn('flex items-center gap-1', sidebarCollapsed && 'md:flex-col')}>
             <Menu>
               <MenuTrigger
@@ -207,6 +199,7 @@ export function App() {
           <Page path={path} readOnly={gateway?.panel.readOnly ?? false} />
         </div>
       </main>
+      </div>
     </div>
   )
 }

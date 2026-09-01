@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
-import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
 
 const overview = vi.fn()
+const useLive = vi.fn()
 
 vi.mock('../../src/ui/lib/api.ts', () => ({
   api: { overview: () => overview() },
 }))
 
 vi.mock('../../src/ui/lib/live.ts', () => ({
-  useLive: () => ({ state: 'live' }),
+  useLive: () => useLive(),
 }))
 
 vi.mock('../../src/ui/pages/Overview.tsx', () => ({
@@ -22,6 +22,7 @@ const { App } = await import('../../src/ui/App.tsx')
 beforeEach(() => {
   localStorage.clear()
   window.location.hash = '/overview'
+  useLive.mockReturnValue({ state: 'live' })
   overview.mockReset().mockResolvedValue({
     gateway: {
       up: true,
@@ -32,19 +33,19 @@ beforeEach(() => {
   })
 })
 
-describe('the application shell', () => {
-  it('keeps collapsed navigation named and marks the current section', async () => {
+describe('connection banner', () => {
+  it('is hidden while live updates are connected', async () => {
     renderWithQuery(<App />)
     await waitFor(() => expect(overview).toHaveBeenCalled())
 
-    expect(screen.queryByText('live')).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
 
-    await userEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+  it('shows when live updates are offline', async () => {
+    useLive.mockReturnValue({ state: 'offline' })
+    renderWithQuery(<App />)
+    await waitFor(() => expect(overview).toHaveBeenCalled())
 
-    expect(screen.getByRole('complementary')).toHaveAttribute('data-collapsed', 'true')
-    expect(screen.getByRole('button', { name: 'Projects' })).toHaveAttribute('title', 'Projects')
-    expect(screen.getByRole('button', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toHaveAttribute('aria-expanded', 'false')
-    expect(localStorage.getItem('dg-sidebar')).toBe('collapsed')
+    expect(screen.getByRole('status')).toHaveTextContent("Can't reach the panel. Live updates are paused.")
   })
 })

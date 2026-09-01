@@ -12,6 +12,10 @@
   "settings": "Settings",
   "gatewayUp": "Gateway up",
   "gatewayDown": "Gateway down",
+  "connection": {
+    "offline": "Can't reach the panel. Live updates are paused.",
+    "reconnecting": "Reconnecting…"
+  },
   "liveUpdatesHint": "Live updates come from Docker events",
   "toggleTheme": "Toggle theme",
   "expandSidebar": "Expand sidebar",
