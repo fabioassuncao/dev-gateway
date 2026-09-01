@@ -160,7 +160,23 @@ for (const [name, description] of [['remote', 'Operate another gateway over ssh'
   describe(program.command(`${name} [args...]`), description).allowUnknownOption(true).allowExcessArguments(true).action((args, _options, command) => legacy(name, args, command))
 }
 
+/**
+ * `portta status | head -3` is an ordinary thing to type, and it made Node
+ * throw an unhandled EPIPE and print a stack trace over the output the reader
+ * asked for. A closed downstream pipe is not an error here: it means the
+ * reader has what they wanted.
+ */
+function tolerateClosedOutput(): void {
+  for (const stream of [process.stdout, process.stderr]) {
+    stream.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EPIPE') process.exit(0)
+      throw error
+    })
+  }
+}
+
 async function main(): Promise<void> {
+  tolerateClosedOutput()
   try {
     if (process.argv.length === 2) {
       program.outputHelp()

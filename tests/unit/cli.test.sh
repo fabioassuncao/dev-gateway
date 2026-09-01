@@ -92,6 +92,17 @@ for fn in $(grep -oE '^cmd_[a-z_]+' "$GW" | sed 's/^cmd_//' | sort -u); do
 done
 assert_eq "" "$missing"
 
+describe "a closed pipe is not an error"
+
+# `portta status | head -3` is ordinary, and it used to end in an unhandled
+# EPIPE and a Node stack trace printed over the output the reader asked for.
+for c in status doctor urls inspect; do
+  it "portta $c | head -2 exits cleanly"
+  assert_success sh -c "'$GW' $c 2>/dev/null | head -2 >/dev/null"
+  it "and prints no stack trace"
+  assert_not_contains "$("$GW" "$c" 2>/dev/null | head -2)" "EPIPE"
+done
+
 describe "one doctor, two surfaces"
 # The deep diagnostics live in scripts/doctor.sh. The TypeScript CLI runs it
 # rather than reimplementing a thinner version, so `portta doctor` and
