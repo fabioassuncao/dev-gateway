@@ -238,6 +238,56 @@ else
     "dev-gateway up $DEV_GATEWAY_PROFILE"
 fi
 
+# The panel-owned database follows the same rules the gateway enforces for a
+# project's datastore: no host port and no attachment to the shared HTTP
+# network. A volume is intentionally not inspected here; doctor never treats
+# persisted data as disposable.
+db_id=$(dg_gateway_container db)
+if [ -n "$db_id" ]; then
+  db_state=$(dg_container_state "$db_id")
+  if [ "$db_state" = "running" ]; then
+    check pass db.state "panel database" "running" ""
+  else
+    check warn db.state "panel database" "state=$db_state; the panel runs without persistence" \
+      "dev-gateway web up"
+  fi
+
+  db_published=$(docker inspect "$db_id" \
+    --format '{{ range $p, $conf := .NetworkSettings.Ports }}{{ range $conf }}{{ .HostIp }}:{{ .HostPort }} {{ end }}{{ end }}' 2>/dev/null)
+  if [ -z "$db_published" ]; then
+    check pass db.exposure "panel database exposure" "no host ports published" ""
+  else
+    check fail db.exposure "panel database exposure" "publishes host ports: $db_published" \
+      "remove every ports entry from compose.db.yaml and recreate the database container"
+  fi
+
+  db_networks=$(docker inspect "$db_id" \
+    --format '{{ range $name, $_ := .NetworkSettings.Networks }}{{ $name }} {{ end }}' 2>/dev/null)
+  case " $db_networks " in
+    *" $DEV_GATEWAY_NETWORK "*)
+      check fail db.network.shared "panel database network" \
+        "attached to the shared HTTP network '$DEV_GATEWAY_NETWORK'" \
+        "detach it; the panel database belongs only on '$DEV_GATEWAY_DB_NETWORK'" ;;
+    *)
+      check pass db.network.shared "panel database network" "off the shared HTTP network" "" ;;
+  esac
+
+  if dg_network_exists "$DEV_GATEWAY_DB_NETWORK"; then
+    db_internal=$(docker network inspect "$DEV_GATEWAY_DB_NETWORK" --format '{{ .Internal }}' 2>/dev/null)
+    if [ "$db_internal" = "true" ]; then
+      check pass db.network.internal "panel data network" "$DEV_GATEWAY_DB_NETWORK (internal)" ""
+    else
+      check fail db.network.internal "panel data network" "$DEV_GATEWAY_DB_NETWORK is not internal" \
+        "recreate the panel database network from compose.db.yaml"
+    fi
+  else
+    check warn db.network.internal "panel data network" "not created yet" "dev-gateway web up"
+  fi
+elif dg_is_true "${DEV_GATEWAY_WEB:-false}"; then
+  check warn db.state "panel database" "container not created; the panel runs without persistence" \
+    "dev-gateway web up"
+fi
+
 # ---------------------------------------------------------------------------
 # Exposure
 # ---------------------------------------------------------------------------

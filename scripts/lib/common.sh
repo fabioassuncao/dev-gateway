@@ -62,6 +62,12 @@ step() { printf '\n%s\n' "$(dg_bold "$*")" >&2; }
 # hint <text>: an actionable suggestion printed under an error or warning.
 hint() { printf '   %s %s\n' "$(dg_dim '->')" "$*" >&2; }
 
+# A bootstrap secret, written straight to .env and never printed. `od` is in
+# POSIX userlands (including macOS) and the finite pipeline cannot SIGPIPE.
+dg_random_hex() {
+  LC_ALL=C od -An -N "${1:-32}" -tx1 /dev/urandom | tr -d ' \n'
+}
+
 # ---------------------------------------------------------------------------
 # Environment
 # ---------------------------------------------------------------------------
@@ -145,6 +151,10 @@ dg_defaults() {
   : "${DEV_GATEWAY_WEB_AUTH_USER:=}"
   : "${DEV_GATEWAY_WEB_AUTH_HASH:=}"
   : "${DG_WEB_API_DOCS:=}"
+  : "${DEV_GATEWAY_DB_NETWORK:=dev-gateway-data}"
+  : "${DEV_GATEWAY_DB_VOLUME:=dev-gateway-db}"
+  : "${DG_WEB_DB_PASSWORD:=}"
+  : "${DG_WEB_DATABASE_URL:=}"
   : "${DEV_GATEWAY_TCP:=false}"
   : "${DEV_GATEWAY_TCP_POSTGRES_PORT:=5432}"
   : "${DEV_GATEWAY_TCP_REDIS_PORT:=6379}"
@@ -176,7 +186,8 @@ dg_defaults() {
     DEV_GATEWAY_WEB_DEV_PORT DEV_GATEWAY_WEB_DEV DEV_GATEWAY_WEB_EXPOSE \
     DEV_GATEWAY_WEB_HOST DEV_GATEWAY_WEB_NETWORK DEV_GATEWAY_WEB_READ_ONLY \
     DEV_GATEWAY_WEB_AUTH DEV_GATEWAY_WEB_AUTH_USER DEV_GATEWAY_WEB_AUTH_HASH \
-    DG_WEB_API_DOCS \
+    DG_WEB_API_DOCS DEV_GATEWAY_DB_NETWORK DEV_GATEWAY_DB_VOLUME \
+    DG_WEB_DB_PASSWORD DG_WEB_DATABASE_URL \
     DEV_GATEWAY_TCP DEV_GATEWAY_TCP_POSTGRES_PORT DEV_GATEWAY_TCP_REDIS_PORT \
     TLS_ENABLED TLS_MODE ACME_CA_SERVER ACME_DNS_PROVIDER ACME_DNS_RESOLVERS \
     TAILSCALE_ENABLED TAILSCALE_HOSTNAME PUBLIC_ENABLED CLOUDFLARE_ENABLED

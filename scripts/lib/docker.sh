@@ -221,7 +221,7 @@ dg_compose_files() {
   # The panel is opt-in and rides along with the gateway once enabled, so
   # `dev-gateway up` and `dev-gateway web` cannot drift apart.
   if dg_is_true "${DEV_GATEWAY_WEB:-false}"; then
-    files="$files compose.web.yaml"
+    files="$files compose.web.yaml compose.db.yaml"
     if dg_is_true "${DEV_GATEWAY_WEB_DEV:-false}"; then
       files="$files compose.web-dev.yaml"
     fi

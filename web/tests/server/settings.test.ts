@@ -122,6 +122,17 @@ describe('the Settings view and its writes', () => {
     expect(JSON.stringify(view)).not.toContain('tskey_auth_secret_value')
   })
 
+  it('never returns the panel database password', () => {
+    writeFileSync(envFile, `${readFileSync(envFile, 'utf8')}DG_WEB_DB_PASSWORD=database-secret-value\n`)
+    const view = buildConfigView(testConfig({ envFile }))
+    const password = view.fields.find((field) => field.key === 'DG_WEB_DB_PASSWORD')
+
+    expect(password?.secret).toBe(true)
+    expect(password?.isSet).toBe(true)
+    expect(password?.value).toBeNull()
+    expect(JSON.stringify(view)).not.toContain('database-secret-value')
+  })
+
   it('flags a saved value that the running gateway has not picked up', () => {
     process.env['DEV_GATEWAY_DOMAIN'] = 'localhost'
     const before = buildConfigView(testConfig({ envFile }))

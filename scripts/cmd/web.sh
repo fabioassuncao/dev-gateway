@@ -64,6 +64,12 @@ dg_web_prepare_mounts() {
   mkdir -p "$(dg_web_dynamic_dir)"
 }
 
+dg_web_prepare_database_secret() {
+  [ -n "${DG_WEB_DB_PASSWORD:-}" ] && return 0
+  dg_env_set DG_WEB_DB_PASSWORD "$(dg_random_hex 32)"
+  info "generated the panel database credential in .env"
+}
+
 # The panel opens TCP bridges through the Docker API, which cannot pull an
 # image. Doing it here, on the host, keeps that failure out of the browser.
 dg_web_prepare_bridge_image() {
@@ -359,6 +365,7 @@ dg_web_up() {
 
   # Persisted, so `dev-gateway up` brings the panel along from now on.
   dg_env_set DEV_GATEWAY_WEB true
+  dg_web_prepare_database_secret
   [ -z "$expose" ] || dg_env_set DEV_GATEWAY_WEB_EXPOSE "$expose"
   [ -z "$port" ] || dg_env_set DEV_GATEWAY_WEB_PORT "$port"
   # Routed and writable is a choice, not a default: the read-only mode already
@@ -393,6 +400,11 @@ dg_web_up() {
   services=$(dg_web_services)
 
   info "starting the panel (profile: $DEV_GATEWAY_PROFILE, expose: $DEV_GATEWAY_WEB_EXPOSE)"
+  # PostgreSQL is useful but not a condition for the panel to listen. Starting
+  # it separately keeps Compose's --wait from turning degraded mode into a
+  # fatal startup dependency.
+  dg_compose "$DEV_GATEWAY_PROFILE" up -d db >/dev/null 2>&1 \
+    || warn "the panel database did not start; the panel will run without persistence"
   # `--wait`, so "panel is up" means the panel answers, not that a container was
   # created. The image declares a healthcheck; without this the URL printed
   # below is dead for the first few seconds and every caller has to guess how
@@ -437,9 +449,9 @@ dg_web_down() {
   info "stopping the panel"
   # `stop` then `rm`, never `down`: `down` would take the whole gateway with it.
   # shellcheck disable=SC2086
-  dg_compose "$DEV_GATEWAY_PROFILE" stop $DG_WEB_DEV_SERVICES >/dev/null 2>&1
+  dg_compose "$DEV_GATEWAY_PROFILE" stop db $DG_WEB_DEV_SERVICES >/dev/null 2>&1
   # shellcheck disable=SC2086
-  dg_compose "$DEV_GATEWAY_PROFILE" rm -f $DG_WEB_DEV_SERVICES >/dev/null 2>&1
+  dg_compose "$DEV_GATEWAY_PROFILE" rm -f db $DG_WEB_DEV_SERVICES >/dev/null 2>&1
   ok "panel stopped; Traefik and the projects were not touched"
 }
 

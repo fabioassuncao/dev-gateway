@@ -93,6 +93,11 @@ else
 fi
 
 # Re-resolve after a possible .env creation.
+if [ -f "$DG_ROOT/.env" ] && [ -z "${DG_WEB_DB_PASSWORD:-}" ]; then
+  dg_env_set DG_WEB_DB_PASSWORD "$(dg_random_hex 32)"
+  ok "generated the panel database credential in .env"
+fi
+
 dg_resolve_profile "$DEV_GATEWAY_PROFILE" || exit 1
 info "profile: $DEV_GATEWAY_PROFILE, domain: $DEV_GATEWAY_DOMAIN"
 

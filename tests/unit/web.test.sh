@@ -58,6 +58,36 @@ assert_contains "$(cat .env.example)" "DEV_GATEWAY_WEB_BIND_ADDRESS=127.0.0.1"
 it "and is off by default"
 assert_contains "$(cat .env.example)" "DEV_GATEWAY_WEB=false"
 
+describe "the panel database is private and durable"
+
+it "uses a pinned PostgreSQL image"
+assert_contains "$(cat compose.db.yaml)" "image: postgres:18.6-alpine"
+
+it "publishes no host port"
+assert_eq "" "$(grep -E '^\s+ports:' compose.db.yaml || true)"
+
+it "has its own internal network"
+assert_contains "$(cat compose.db.yaml)" "name: \${DEV_GATEWAY_DB_NETWORK:-dev-gateway-data}"
+assert_contains "$(cat compose.db.yaml)" "internal: true"
+
+it "never joins the shared HTTP network"
+assert_eq "" "$(grep -n 'DEV_GATEWAY_NETWORK' compose.db.yaml || true)"
+
+it "uses a named, gateway-owned volume"
+assert_contains "$(cat compose.db.yaml)" "name: \${DEV_GATEWAY_DB_VOLUME:-dev-gateway-db}"
+assert_contains "$(cat compose.db.yaml)" 'dev-gateway.component: db-volume'
+
+it "the overlay follows the panel"
+assert_contains "$(DEV_GATEWAY_WEB=true DG_WEB_DB_PASSWORD=test bash -c '. scripts/lib/common.sh; . scripts/lib/docker.sh; dg_defaults; dg_compose_files local')" "compose.db.yaml"
+
+it "the password is generated and declared secret"
+assert_contains "$(cat scripts/bootstrap.sh)" "dg_env_set DG_WEB_DB_PASSWORD"
+assert_contains "$(sed -n '/DG_WEB_DB_PASSWORD/,/},/p' web/src/server/core/settings.ts)" "secret: true"
+
+it "doctor refuses a published or shared database"
+assert_contains "$(cat scripts/doctor.sh)" "db.exposure"
+assert_contains "$(cat scripts/doctor.sh)" "db.network.shared"
+
 describe "the API cannot reach a Docker endpoint it does not name"
 
 allowlist="web/src/server/docker/allowlist.ts"

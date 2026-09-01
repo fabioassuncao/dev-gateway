@@ -346,6 +346,15 @@ export const FIELDS: FieldSpec[] = [
     kind: 'boolean',
     restartRequired: true,
   },
+  {
+    key: 'DG_WEB_DB_PASSWORD',
+    group: 'Panel',
+    label: 'Database password',
+    help: 'Generated bootstrap credential for the panel-owned PostgreSQL database.',
+    kind: 'string',
+    secret: true,
+    restartRequired: true,
+  },
 ]
 
 export const FIELDS_BY_KEY = new Map(FIELDS.map((field) => [field.key, field]))
