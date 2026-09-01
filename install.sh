@@ -835,7 +835,16 @@ fi
 
 PANEL_IMAGE="${PORTTA_REGISTRY}/portta:${NEW_VERSION}"
 
-env_set "$ENV_FILE" PORTTA_PROFILE "local"
+# A fresh install starts on the local profile, so publishing the panel
+# publishes no application. An update must not reimpose that: `portta public
+# enable` writes remote-public deliberately, and overwriting it here would
+# silently un-expose a host on every routine update.
+EXISTING_PROFILE=$(env_get "$ENV_FILE" PORTTA_PROFILE)
+if [ -z "$EXISTING_PROFILE" ]; then
+  env_set "$ENV_FILE" PORTTA_PROFILE "local"
+else
+  good "keeping the configured profile: $EXISTING_PROFILE"
+fi
 env_set "$ENV_FILE" PORTTA_WEB "true"
 env_set "$ENV_FILE" PORTTA_WEB_IMAGE "$PANEL_IMAGE"
 env_set "$ENV_FILE" PORTTA_WEB_BUILD "false"

@@ -190,6 +190,12 @@ describe "the installer configures panel access, and nothing else"
 it "it pins the gateway to the local profile, so applications stay unexposed"
 assert_contains "$SOURCE" 'env_set "$ENV_FILE" PORTTA_PROFILE "local"'
 
+it "an update keeps a profile the operator chose"
+# `portta public enable` writes remote-public deliberately. Reimposing `local`
+# on every update would silently un-expose the host.
+assert_contains "$SOURCE" 'EXISTING_PROFILE=$(env_get "$ENV_FILE" PORTTA_PROFILE)'
+assert_contains "$SOURCE" 'keeping the configured profile'
+
 it "it never enables public application exposure"
 assert_eq "" "$(printf '%s' "$SOURCE" | grep -n 'PUBLIC_ENABLED "true"' || true)"
 
