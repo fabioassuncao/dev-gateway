@@ -228,8 +228,19 @@ portta_compose_files() {
         files="$files docker/compose/profiles/local-tls.yaml"
       fi
       ;;
-    remote-private) files="$files docker/compose/profiles/remote.yaml" ;;
-    remote-public) files="$files docker/compose/profiles/remote.yaml docker/compose/profiles/public.yaml" ;;
+    remote-private|remote-public)
+      # Redirecting :80 to :443 without a certificate the browser accepts turns
+      # a working URL into a warning page, so the TLS overlay is applied only
+      # when there is TLS. See docs/adr/0022-project-domain-modes.md.
+      if portta_is_true "${TLS_ENABLED:-false}"; then
+        files="$files docker/compose/profiles/remote-tls.yaml"
+      else
+        files="$files docker/compose/profiles/remote.yaml"
+      fi
+      if [ "$profile" = "remote-public" ]; then
+        files="$files docker/compose/profiles/public.yaml"
+      fi
+      ;;
   esac
 
   if portta_is_true "${PORTTA_DASHBOARD:-false}"; then

@@ -183,6 +183,29 @@ assert_contains "$(cat "$PORTTA_ROOT/bin/portta")" 'portta_network_ensure "$PORT
 it "and so does the TypeScript one"
 assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" 'ensureNetwork(context.config.accessNetwork)'
 
+describe "a remote profile without TLS serves plain HTTP"
+
+# Redirecting :80 to :443 without a certificate the browser accepts turns a
+# working URL into a warning page. An auto domain can never have one: no public
+# CA issues a wildcard for sslip.io.
+it "no TLS means the plain overlay, and no redirect"
+selected=$(files_for remote-public PUBLIC_DOMAIN=d.test)
+assert_contains "$selected" "docker/compose/profiles/remote.yaml"
+assert_not_contains "$selected" "docker/compose/profiles/remote-tls.yaml"
+
+it "and TLS swaps it for the one that redirects"
+selected=$(files_for remote-public PUBLIC_DOMAIN=d.test TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test)
+assert_contains "$selected" "docker/compose/profiles/remote-tls.yaml"
+assert_not_contains "$selected" "docker/compose/profiles/remote.yaml"
+
+it "the public overlay comes along either way"
+assert_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test)" "docker/compose/profiles/public.yaml"
+assert_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test)" "docker/compose/profiles/public.yaml"
+
+it "the redirect lives only in the TLS overlay"
+assert_eq "" "$(grep -l REDIRECTIONS "$PORTTA_ROOT/docker/compose/profiles/remote.yaml" 2>/dev/null || true)"
+assert_contains "$(cat "$PORTTA_ROOT/docker/compose/profiles/remote-tls.yaml")" "REDIRECTIONS"
+
 describe "the base domain comes from the mode"
 
 # See docs/adr/0022-project-domain-modes.md. `localhost` is right for a machine
@@ -284,7 +307,9 @@ else
     "PORTTA_PROFILE=local PORTTA_WEB=true" \
     "PORTTA_PROFILE=local PORTTA_WEB=true PORTTA_WEB_BUILD=true" \
     "PORTTA_PROFILE=remote-private PRIVATE_DOMAIN=vpn.test TAILSCALE_ENABLED=true" \
-    "PORTTA_PROFILE=remote-public PUBLIC_DOMAIN=d.test"
+    "PORTTA_PROFILE=remote-public PUBLIC_DOMAIN=d.test" \
+    "PORTTA_PROFILE=remote-public PUBLIC_DOMAIN=d.test TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test" \
+    "PORTTA_PROFILE=remote-private PRIVATE_DOMAIN=vpn.test TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test"
   do
     it "same files for: $case_env"
     # shellcheck disable=SC2086

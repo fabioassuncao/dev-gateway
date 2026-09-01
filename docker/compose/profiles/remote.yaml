@@ -1,36 +1,23 @@
 # ============================================================================
-# Remote profiles: settings shared by remote-private and remote-public
+# Remote profiles without TLS: plain HTTP on :80
 # ============================================================================
-# HTTPS is the point of running remotely, so this overlay wires up ACME and
-# makes websecure the default entrypoint. Certificates are issued over DNS-01
-# because a wildcard cannot be issued any other way, and because DNS-01 works
-# for a private domain that the ACME server can never reach.
+# Applied on a remote profile when TLS_ENABLED=false, which is the default and
+# the only thing that works on an automatic domain: no public certificate
+# authority issues a wildcard for sslip.io or nip.io, and neither offers the
+# DNS-01 API that a wildcard needs.
+#
+# The point is what this does NOT do. The TLS overlay redirects :80 to :443
+# permanently, and doing that without a certificate the browser accepts turns a
+# URL that works into a warning page — the opposite of the goal. So a host with
+# no TLS answers on :80 and says so.
+#
+# docker/compose/profiles/remote-tls.yaml replaces this once TLS is configured.
 # ============================================================================
 
 services:
   traefik:
     environment:
-      # Routers that name no entrypoint attach to :443 only; :80 just redirects.
-      TRAEFIK_ENTRYPOINTS_WEBSECURE_ASDEFAULT: "true"
-      TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_TO: websecure
-      TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_SCHEME: https
-      TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_PERMANENT: "true"
-
-      # TLS terminates at the entrypoint, so a project gets HTTPS without a
-      # single certificate label of its own.
-      TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS_CERTRESOLVER: letsencrypt
-      TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS_DOMAINS_0_MAIN: ${PORTTA_DOMAIN}
-      TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS_DOMAINS_0_SANS: "*.${PORTTA_DOMAIN}"
-
-      # -- ACME ------------------------------------------------------------
-      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL: ${ACME_EMAIL:-}
-      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_CASERVER: ${ACME_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
-      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_STORAGE: /etc/traefik/acme/acme.json
-      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_DNSCHALLENGE: "true"
-      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_DNSCHALLENGE_PROVIDER: ${ACME_DNS_PROVIDER:-cloudflare}
-      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_DNSCHALLENGE_RESOLVERS: ${ACME_DNS_RESOLVERS:-1.1.1.1:53,8.8.8.8:53}
-
-      # -- DNS provider credentials ----------------------------------------
-      # Read by lego inside Traefik. Empty unless the provider is configured;
-      # a scoped token, never a global API key. See docs/cloudflare.md.
-      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:-}
+      # Routers that name no entrypoint attach to :80 only, exactly as they do
+      # on the local profile. Nothing answers on :443, rather than answering
+      # with a certificate nobody can verify.
+      TRAEFIK_ENTRYPOINTS_WEB_ASDEFAULT: "true"

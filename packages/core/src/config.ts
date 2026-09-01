@@ -147,7 +147,12 @@ export function composeFiles(config: GatewayConfig): string[] {
   if (config.profile === 'local') {
     files.push('docker/compose/profiles/local.yaml')
     if (config.tlsEnabled && config.tlsMode === 'local') files.push('docker/compose/profiles/local-tls.yaml')
-  } else files.push('docker/compose/profiles/remote.yaml')
+  } else {
+    // Redirecting :80 to :443 without a certificate the browser accepts turns a
+    // working URL into a warning page, so the TLS overlay is applied only when
+    // there is TLS. See docs/adr/0022-project-domain-modes.md.
+    files.push(config.tlsEnabled ? 'docker/compose/profiles/remote-tls.yaml' : 'docker/compose/profiles/remote.yaml')
+  }
   if (config.profile === 'remote-public') files.push('docker/compose/profiles/public.yaml')
   if (config.dashboardEnabled) files.push(attachment === 'tailscale' ? 'docker/compose/features/dashboard-tailscale.yaml' : 'docker/compose/features/dashboard.yaml')
   if (config.tcpEnabled) files.push(attachment === 'tailscale' ? 'docker/compose/features/tcp-tailscale.yaml' : 'docker/compose/features/tcp.yaml')
