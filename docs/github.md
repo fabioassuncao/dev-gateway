@@ -209,6 +209,7 @@ order they appear:
 | **Private key file** | `GITHUB_APP_PRIVATE_KEY_FILE` | `/app/state/github/` and the filename you used in step 4 | it is not under `/app/state/github/` |
 | **Webhook secret** | `GITHUB_APP_WEBHOOK_SECRET` | leave it empty for now | — |
 | **API base URL** | `GITHUB_API_URL` | `https://api.github.com`, or `https://ghe.example.com/api/v3` on Enterprise Server | it is not a URL |
+| **Reconciliation interval** | `GITHUB_SYNC_INTERVAL_MINUTES` | `15`, or `0` on a panel that receives webhooks | it is not a whole number |
 
 Three of those are worth a sentence each.
 
@@ -291,10 +292,14 @@ On the App's settings page, under *Webhook*:
 | **Secret** | the string you just generated |
 
 Then *Permissions & events* → *Subscribe to events*, and tick exactly these
-nine, which are the ones the panel acts on:
+eight, which are the ones the panel acts on:
 
-*Issues* · *Issue comment* · *Label* · *Milestone* · *Sub-issues* ·
+*Issues* · *Label* · *Milestone* · *Sub-issues* ·
 *Pull request* · *Repository* · *Installation* · *Installation repositories*
+
+*Issue comment* is deliberately **not** among them. Nothing projects a comment,
+so a delivery would buy a whole repository reconciliation to refresh one
+timestamp — on the event that fires most often in an active repository.
 
 Anything else is acknowledged and dropped. An unhandled event is not an error.
 
@@ -395,7 +400,13 @@ a staleness flag, exactly as `ProjectGit` carries `collectedAt` and `stale`.
 
 Comments are deliberately not projected. They are large, they change often, and
 a link to GitHub beats a worse comment reader — the same reasoning
-[ADR 0010](adr/0010-git-collected-on-the-host.md) used for commit lists.
+[ADR 0010](adr/0010-git-collected-on-the-host.md) used for commit lists. There
+is no `github_issue_comments` table and a test asserts there is not.
+
+That is an argument about *projecting* a comment, not about writing one: a
+write-through endpoint that posts straight to GitHub and returns what GitHub
+returned creates no cache to keep in step. ADR 0018's 2026-09-02 amendment
+allows it; it is not built yet.
 
 ### Status and priority: fields where they exist, labels where they do not
 
@@ -429,16 +440,37 @@ surprised by it.
 Only the dimension being changed is cleared, so setting a priority never
 silently drops a status.
 
+#### What this does not read: GitHub Projects v2
+
+`metadataSource` is `fields`, `labels` or `none`. Projects v2 fields are
+**GraphQL-only**, and Portta has no GraphQL client, so a repository whose board
+lives in a Project is invisible here — and worse, Portta's `status:*` label
+writes will not move its cards, which is exactly the second source of truth
+[ADR 0018](adr/0018-github-access-lives-in-the-panel.md) exists to forbid.
+
+The seam for it is deliberate: `project` would be a fourth `MetadataSource`,
+added *only when a real repository demands it*, together with the GraphQL client
+it needs. Recorded as an extension point in ADR 0018's 2026-09-02 amendment, and
+not a plan. Sub-issues and issue types are REST, and already in use.
+
 ### Three sync paths
 
 | Path | When | How |
 |---|---|---|
 | **Initial** | A repository is newly authorised | Page through its issues, project them, then resolve sub-issue links in a second pass so a child seen before its parent is not lost |
-| **Reconciliation** | On demand, and on a timer | Ask only for issues updated since the stored cursor. Bounded per run; rate-limit pressure ends the run rather than failing it, and the next run resumes from the cursor |
+| **Reconciliation** | On demand, and every `GITHUB_SYNC_INTERVAL_MINUTES` (default 15; `0` turns the timer off) | Ask only for issues updated since the stored cursor. Bounded per run; rate-limit pressure ends the run rather than failing it, and the next run resumes from the cursor. A tick that arrives while the previous pass is still running is skipped |
 | **Webhook** | A delivery arrives | A signal to re-read, never data to trust |
 
 `POST /api/integrations/github/sync` runs the repository sync and a
-reconciliation pass: one button, one meaning.
+reconciliation pass: one button, one meaning. The timer calls the same
+`reconcile`, so pressing the button is asking for the next pass now rather than
+for something different.
+
+The timer is what makes a **loopback panel** correct rather than merely
+possible: it cannot receive a webhook delivery, so without it the projection is
+only as fresh as the last time somebody pressed Sync. Turn it off with
+`GITHUB_SYNC_INTERVAL_MINUTES=0` on a panel that does receive deliveries, where
+it would otherwise do the same work twice.
 
 ### The webhook, and the hole it is allowed to make
 
@@ -453,13 +485,16 @@ mode still refuses the route, and a delivery for a repository the installation
 never granted changes nothing: the projection is the boundary, and deliveries do
 not widen it.
 
-Handled events: `issues`, `issue_comment`, `label`, `milestone`, `sub_issues`,
-`pull_request`, `repository`, `installation`, `installation_repositories`.
-Anything else is acknowledged and dropped — an unhandled event is not an error.
+Handled events: `issues`, `label`, `milestone`, `sub_issues`, `pull_request`,
+`repository`, `installation`, `installation_repositories`. Anything else —
+including `issue_comment` — is acknowledged and dropped, and an unhandled event
+is not an error.
 
 Webhooks stay optional. A loopback panel cannot receive them, and correctness
-comes from reconciliation; they are an optimisation for a panel you have already
-published.
+comes from reconciliation — which now runs on a timer as well as on demand, so
+"correctness comes from reconciliation" is a statement about what the panel does
+rather than about what it could do. They are an optimisation for a panel you
+have already published.
 
 ### Sub-issues
 

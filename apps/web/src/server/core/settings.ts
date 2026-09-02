@@ -463,6 +463,15 @@ export const FIELDS: FieldSpec[] = [
     restartRequired: true,
     validate: url,
   },
+  {
+    key: 'GITHUB_SYNC_INTERVAL_MINUTES',
+    group: 'GitHub',
+    label: 'Reconciliation interval',
+    help: 'Minutes between passes that re-read what changed. A loopback panel cannot receive webhooks, so this is what keeps the projection fresh. 0 turns it off.',
+    kind: 'string',
+    restartRequired: true,
+    validate: (value) => (value === '' || /^\d+$/.test(value) ? null : 'must be a whole number of minutes, or 0 to turn it off'),
+  },
 ]
 
 export const FIELDS_BY_KEY = new Map(FIELDS.map((field) => [field.key, field]))

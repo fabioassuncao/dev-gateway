@@ -14,6 +14,7 @@ import { createApp } from './app.ts'
 import { GENERATED_FILES, reconcilePanelProtection } from './core/dynamic.ts'
 import { Database } from './db/index.ts'
 import { GitHubIntegration } from './integrations/github/index.ts'
+import { createReconciliationSchedule, intervalMinutes } from './integrations/github/sync/schedule.ts'
 
 const config = loadConfig()
 
@@ -67,6 +68,24 @@ if (github.status().configured) {
   })
 }
 
+// Reconciliation on an interval, which is what makes the projection fresh on
+// the documented default: a loopback panel cannot receive webhook deliveries,
+// so without this the only trigger is somebody pressing Sync. See
+// integrations/github/sync/schedule.ts, and set GITHUB_SYNC_INTERVAL_MINUTES=0
+// on a panel that does receive webhooks.
+const schedule = db && github.status().configured
+  ? createReconciliationSchedule(() => github.require(), db, {
+      minutes: intervalMinutes(process.env['GITHUB_SYNC_INTERVAL_MINUTES']),
+      onError: (error) => process.stdout.write(`github reconciliation failed; the projection is unchanged: ${String(error)}\n`),
+    })
+  : null
+if (schedule) {
+  schedule.start()
+  if (schedule.running) {
+    process.stdout.write(`github: reconciling every ${intervalMinutes(process.env['GITHUB_SYNC_INTERVAL_MINUTES'])} minute(s)\n`)
+  }
+}
+
 const cache = createSnapshotCache(client, config, 1000, (snapshot) => db?.recordSeen(snapshot.projects))
 const hub = new LiveHub(client, cache)
 const verdict = createVerdictCache(config)
@@ -101,6 +120,7 @@ const server = serve({ fetch: app.fetch, hostname: config.host, port: config.por
 function shutdown(signal: string): void {
   process.stdout.write(`\n${signal}: shutting the panel down\n`)
   hub.stop()
+  schedule?.stop()
   server.close(() => {
     if (db) void db.close().finally(() => process.exit(0))
     else process.exit(0)

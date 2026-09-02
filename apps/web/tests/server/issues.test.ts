@@ -12,7 +12,7 @@ import {
   STATUS_LABELS,
 } from '../../src/server/integrations/github/metadata.ts'
 import { normaliseIssue, visibleLinks, wouldCycle } from '../../src/server/integrations/github/issues.ts'
-import { planDelivery, verifySignature } from '../../src/server/integrations/github/sync/webhook.ts'
+import { HANDLED_EVENTS, planDelivery, verifySignature } from '../../src/server/integrations/github/sync/webhook.ts'
 import type { Database } from '../../src/server/db/index.ts'
 import type { Issue } from '../../src/shared/types.ts'
 
@@ -170,6 +170,19 @@ describe('what a delivery means', () => {
 
   it('re-reads what is authorised when the installation changed', () => {
     expect(planDelivery('installation_repositories', {}).action).toBe('sync-installations')
+  })
+
+  // Nothing projects a comment, so a delivery bought a whole repository
+  // reconciliation to refresh one `updated_at` -- on the event that fires most
+  // often. #25 dropped it; ADR 0018's amendment records why.
+  it('ignores a comment, because nothing projects one', () => {
+    expect(planDelivery('issue_comment', { repository: { full_name: 'acme/api' } }).action).toBe('ignored')
+  })
+
+  it('and every event it does act on names something the projection holds', () => {
+    for (const event of HANDLED_EVENTS) {
+      expect(planDelivery(event, { repository: { full_name: 'acme/api' } }).action, event).not.toBe('ignored')
+    }
   })
 })
 

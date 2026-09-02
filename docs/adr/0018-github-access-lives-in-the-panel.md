@@ -1,6 +1,6 @@
 # 0018. GitHub access lives in the panel, through a GitHub App
 
-**Status:** Accepted
+**Status:** Accepted, amended 2026-09-02 by the audit in #25
 
 Issue #17 asked for ADR 0013. That number was already taken by
 [ADR 0013](0013-what-the-panel-persists.md) (what the panel persists) and
@@ -256,6 +256,88 @@ The meta-package is never added to close a gap that `fetch` can close.
 
 Issue #18 names the exact packages it adds and updates this budget if
 the count moves.
+
+## Amendment, 2026-09-02: the audit in #25
+
+Issue #25 read the delivered integration against this record, decision by
+decision. Three of them were deliberate omissions carried forward from the
+brief without ever being measured, and one sentence in this record had become
+untrue. The verdicts:
+
+### Octokit: **keep the purpose-built client**, and here is the measurement
+
+`docs/github.md` set the test itself — *"it is revisited if the surface grows
+past what is honest to maintain"* — so this is measured rather than inherited.
+
+| | Lines | What Octokit would replace |
+|---|---:|---|
+| `integrations/github/app.ts` | 156 | ~80: the RS256 JWT and the installation-token cache (`@octokit/auth-app`) |
+| `integrations/github/client.ts` | 167 | ~60: Link pagination and rate-limit accounting (`@octokit/plugin-paginate-rest`) |
+| The rest | 87 | Nothing. Typed errors (`GitHubUnavailable`, `GitHubRateLimited`, `GitHubForbidden`) are the panel's *degradation contract*, and no client library has an opinion about them |
+
+So Octokit would replace roughly **140 lines** — both of them already written
+and tested. Measured 2026-09-02 with `npm install @octokit/rest@22
+@octokit/auth-app@8`: **25 packages, 19 MB on disk**, against a panel
+production tree of **18 resolved packages**. It more than doubles the tree the
+§9 budget forbids doubling, to delete 140 lines that work.
+
+**Verdict: keep.** The reversal condition is unchanged and now has a number
+attached: revisit if the transport half grows past ~300 lines, or if a needed
+endpoint turns out to be one `fetch` cannot reach.
+
+### GraphQL and Projects v2: **amend — a conditional fourth source**
+
+Two questions with different answers. *Do we need GraphQL?* Only for Projects v2
+fields; sub-issues and issue types are REST and already in use. *Do we need
+Projects v2?* Only if a repository Portta touches uses a Project as its board —
+and if it does, Portta's `status:*` labels become the second source of truth
+this record exists to forbid.
+
+`metadata.ts` already has the seam: `MetadataSource` is `fields | labels |
+none`. The extension point is recorded here as **`project`**, a fourth source
+that is built *only when a real repository demands it*, and `docs/github.md`
+describes it as a documented extension point rather than a plan. Nothing is
+implemented, and the GraphQL client stays unwritten until then.
+
+**Verdict: amend.** The omission stands, with the seam and the trigger named.
+
+### Comments: **amend — never projected, and writable through**
+
+The original reasoning is about *projecting* comments: they are large, they
+change often, and a link beats a worse reader. It does not argue against
+*writing* one.
+
+- **Not projected** stands: no `github_issue_comments` table, no sync path,
+  reading is a link to GitHub. `apps/web/tests/server/issues.test.ts` asserts
+  the table does not exist.
+- **A write-through `POST` is allowed**, going straight to GitHub and returning
+  what GitHub returned, exactly as `PATCH /api/issues/:id` already does. That
+  gives an agent "add a comment" without creating a cache to keep in step. #26
+  builds it; the specification is in the scope comment on #25.
+
+**`issue_comment` is removed from `HANDLED_EVENTS`.** It was listed there and
+nothing acted on it: a delivery bought a whole repository reconciliation to
+refresh one `updated_at`, on the event that fires most often in an active
+repository. Wiring it to a projection would contradict the paragraph above; the
+honest resolution is to stop asking GitHub to send it.
+
+### §2 was describing a timer that did not exist
+
+This record says reconciliation is the baseline and webhooks the optimisation,
+and `docs/github.md` said reconciliation runs *"on demand, and on a timer"*. The
+timer did not exist. `grep -rn setInterval apps/web/src/server` found nothing
+outside tests, and the only trigger was `POST /api/integrations/github/sync` —
+so on the configuration this record calls the *default*, a loopback panel that
+cannot receive deliveries, freshness depended entirely on somebody pressing a
+button.
+
+That is a correctness gap in the exact posture the record defends, so the timer
+was built rather than the sentence deleted:
+`integrations/github/sync/schedule.ts`, calling the same bounded `reconcile` the
+button calls, every `GITHUB_SYNC_INTERVAL_MINUTES` (default 15, `0` to turn it
+off on a panel that does receive webhooks). No table, no route, no dependency,
+and a tick that arrives while the previous pass is still running is skipped.
+
 
 ## Consequences
 

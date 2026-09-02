@@ -7,10 +7,19 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-/** Events the panel acts on. Anything else is acknowledged and dropped. */
+/**
+ * Events the panel acts on. Anything else is acknowledged and dropped.
+ *
+ * `issue_comment` was here and is not any more. Nothing projects a comment —
+ * no table stores one, no route reads or writes one — so a delivery bought a
+ * whole repository reconciliation to refresh one `updated_at`, on the event
+ * that fires most often. The verdict is recorded in
+ * docs/adr/0018-github-access-lives-in-the-panel.md: comments stay unprojected,
+ * and a write-through endpoint is #26's to build. Reading them is a link to
+ * GitHub, which is already what the board offers.
+ */
 export const HANDLED_EVENTS = [
   'issues',
-  'issue_comment',
   'label',
   'milestone',
   'sub_issues',

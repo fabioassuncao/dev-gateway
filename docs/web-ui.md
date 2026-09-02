@@ -997,10 +997,19 @@ volume management, network management, arbitrary container creation, arbitrary
 Traefik configuration, an embedded Traefik dashboard, a tunnel service, or
 being a replacement for Portainer or Docker Desktop.
 
-GitHub issues, a board and write-back are designed in
-[ADR 0018](adr/0018-github-access-lives-in-the-panel.md) and summarised in
-[github.md](github.md). They are not in the panel yet. Local Git stays
-host-collected ([ADR 0010](adr/0010-git-collected-on-the-host.md)).
+GitHub issues, a board and write-back **shipped**: the Board and Workspaces
+pages, `GET /api/issues`, `PATCH /api/issues/:id` and
+`POST /api/repositories/:owner/:repo/issues`. This paragraph said they were not
+in the panel yet, which #25 found to be the opposite of what the code does.
+[github.md](github.md) describes what exists;
+[ADR 0018](adr/0018-github-access-lives-in-the-panel.md) records the decisions
+and, in its 2026-09-02 amendment, what is deliberately still absent.
+
+What remains out of scope there: comments are never projected (reading one is a
+link to GitHub), and GitHub Projects v2 fields are not read — a repository whose
+board lives in a Project is invisible to Portta, and Portta's `status:*` labels
+will not move its cards. Local Git stays host-collected
+([ADR 0010](adr/0010-git-collected-on-the-host.md)).
 
 Sharing is deliberately narrow: one additional hostname per service, with an
 expiry, on a network the gateway already answers. It is not authentication for
