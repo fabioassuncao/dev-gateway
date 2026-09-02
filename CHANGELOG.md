@@ -9,7 +9,28 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-09-02
+
 ### Fixed
+
+- **A procfs path hung the whole panel suite on every Linux CI run.** Two tests
+  needed a directory that cannot be written and used a path inside procfs. macOS
+  has no such filesystem, so the write failed immediately and both passed in
+  milliseconds; on Linux `mkdirSync(…, { recursive: true })` there never returns,
+  and the spin is synchronous, so no test timeout can interrupt it. Every test
+  that reported was passing, and the run simply never finished. Reproduced in a
+  two-CPU Linux container, then replaced with a path whose parent is a regular
+  file, which fails `ENOTDIR` instantly for every user including root. Fixing it
+  surfaced four more defects that had been unreachable behind it, each also fixed
+  here: a stale end-to-end assertion, a locale still calling the base domain
+  "Local domain" after it became the `custom` value, an awk escape that behaved
+  differently on mawk, and a CI job that never built the package its server
+  imports.
+
+- **Every CI job now declares a timeout.** Without one a hung step sat for
+  GitHub's six-hour default reporting nothing, twice, which is how the above
+  stayed invisible for so long.
+
 
 - **The panel started in development mode and the production image did not
   build at all.** Four defects in the same path, each dating from the workspace
@@ -23,6 +44,76 @@ While the version is `0.x`, minor releases may contain breaking changes.
   server serves no UI, and `doctor` printed a fix under checks that had passed.
 
 ### Added
+
+- **Installing and updating with one command.** `curl -fsSL …/install.sh | bash`
+  installs, updates, recovers and prepares a host. The same command does all
+  four, and running it twice changes nothing the second time. It never clones:
+  it downloads only the files needed to run published images, keeps everything
+  under one `PORTTA_HOME`, and never overwrites `.env`, `state/`, `config/tls/`
+  or an existing dynamic Traefik file. Panel access is chosen during install
+  (`public` behind mandatory BasicAuth, `tailscale`, or loopback only) and can
+  be changed later without reinstalling. Publishing the panel publishes no
+  application: a public panel gets its own Traefik entrypoint, which keeps the
+  two decisions separate at the router level. `--non-interactive` and eight
+  flags cover automation, and a credential is never accepted as an argument
+  where `ps` would show it. See
+  [ADR 0020](docs/adr/0020-installer-and-portta-home.md),
+  [ADR 0021](docs/adr/0021-panel-access-modes.md) and [installing](docs/install.md).
+
+- **The base domain is a mode, so a host with no domain still hands out URLs
+  that resolve.** `local` keeps `*.localhost`, `auto` derives a name from the
+  machine's address through sslip.io or nip.io with no record to create, and
+  `custom` uses a wildcard you own. Hostnames are derived and never persisted,
+  so changing the mode relabels every project at once with nothing to migrate.
+  A mode that cannot be honoured falls back and says why rather than refusing to
+  start. See [ADR 0022](docs/adr/0022-project-domain-modes.md).
+
+- **Cloudflare Tunnel, as an optional way in.** A gateway can be reached over
+  HTTPS from the internet with no open port, no public address and no
+  certificate on the host, which is the only arrangement that works behind
+  CGNAT or in a home lab. The connector carries **one** wildcard ingress rule
+  for the whole gateway; Traefik keeps routing by Host, so publishing a project
+  is a Docker operation and needs no Cloudflare change. Setup asks only for the
+  tunnel token, which decodes into the credentials file a locally managed
+  tunnel reads. The token is stored `0600`, never written to `.env`, never
+  returned by any endpoint, never logged, and refused as a command-line
+  argument. Measured against a live tunnel before being built: the wildcard
+  matched every derived hostname, the Host header survived to the container,
+  WebSocket completed a 101 upgrade, and each failure mode is distinguishable.
+  Configured through the CLI and the API; the panel interface is still to come.
+  See [ADR 0025](docs/adr/0025-cloudflare-tunnel.md) and
+  [the guide](docs/cloudflare-tunnel.md).
+
+- **A service has endpoints, not an access mode.** Capabilities are detected
+  (localhost, LAN, Tailscale and its DNS, HTTPS and Funnel, a public address, an
+  automatic or custom domain, a tunnel, Access), each with six states rather than
+  yes or no, so "cannot" and "could, once somebody decides" stay distinct. A
+  capability never publishes anything. Endpoints carry `usable` and `shareable`
+  separately, and a name that resolves to an address Traefik does not listen on
+  is reported as broken instead of offered as a URL. Detection is shell so the
+  gateway still runs without Node, the verdicts are shared TypeScript, and a
+  contract test compares the two shapes field by field. Present in the core and
+  not yet exposed in the interface. See
+  [ADR 0024](docs/adr/0024-capabilities-providers-endpoints.md).
+
+- **`backup`, `restore` and `repair`.** `backup` archives what an installation
+  cannot regenerate, `.env`, `config/` and `state/`, plus a `pg_dump` of the
+  panel database taken by PostgreSQL rather than copied from its volume. It
+  deliberately excludes the code, so restoring onto a newer Portta cannot
+  silently downgrade it, and the archive is created under a private umask rather
+  than chmod'ed afterwards. `restore` refuses a running gateway by default and
+  always keeps what it replaced. `repair` recreates missing bind-mount
+  directories, tightens permissions on files that must be private, recreates the
+  networks and reconciles containers, without ever deleting data or touching a
+  volume. `--dry-run` reports without acting.
+
+- **A service's whole name lives in one DNS label.** `service--project` and
+  `service--project--context` separate components with `--`, which `slug` can
+  never produce inside one, so a hostname can be read back. Measured, not
+  assumed: Cloudflare's Universal SSL covers the apex and first-level subdomains
+  only, so a second level needs a paid add-on, and no wildcard certificate covers
+  it either. The original `project-service` style stays the default so no
+  existing URL moves. See [ADR 0023](docs/adr/0023-flat-hostname-labels.md).
 
 - **A page per project, organised in tabs.** `#/projects/<name>` is now a
   destination of its own instead of the list filtered to one card: Overview,
