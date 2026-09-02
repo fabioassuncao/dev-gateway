@@ -312,6 +312,32 @@ assert_contains "$(cat packages/core/src/config.ts)" "LOCAL_PORTA_IMAGE = 'fabio
 assert_eq "" "$(sed -n '/export function checkoutLocalEnv/,/^}/p' packages/cli/src/commands/lifecycle.ts | grep -E 'ghcr.io/fabioassuncao' || true)"
 
 
+describe "a unit test never reaches the developer's own Docker"
+
+# `portta repair` and `portta up` end by reconciling containers. A unit test
+# that runs one against a temporary PORTTA_ROOT, on a machine that has Docker,
+# recreates the *developer's* gateway with every bind mount aimed at a
+# directory the test is about to delete -- and the gateway keeps running,
+# pointing at nothing, until somebody notices. Found exactly that way.
+#
+# Every suite that runs a command which can reach `compose up` must go through
+# a stubbed PATH.
+it "no unit suite runs a container-reconciling command against the real PATH"
+offenders=""
+for suite in "$PORTTA_ROOT"/tests/unit/*.test.sh; do
+  case "$(basename "$suite")" in audit.test.sh) continue ;; esac
+  # A call that names `repair` or `up` without a --dry-run and without a
+  # stubbed PATH on the same line.
+  while IFS= read -r line; do
+    case "$line" in
+      *--dry-run*|*PATH=*|*STUB*|*'#'*) continue ;;
+      *run_in_home*repair*|*run_in_home*' up'*)
+        offenders="$offenders $(basename "$suite")" ;;
+    esac
+  done < "$suite"
+done
+assert_eq "" "$offenders"
+
 describe "the TypeScript CLI never constructs a shell command from input"
 
 it "the process primitive disables shell execution"

@@ -232,12 +232,17 @@ assert_contains "$SECOND" "nothing to repair"
 
 # repair created state/cloudflared with the default umask and then reported it
 # as needing 700 — work it had just made for itself, on a healthy install.
-# Behavioural, not a grep: the mode on disk is the thing that matters. The
-# compose step afterwards fails without Docker, which is fine; the directories
-# are created before it runs.
+# Behavioural, not a grep: the mode on disk is the thing that matters.
+#
+# Through the stub, and this is not a detail. `repair` ends by reconciling
+# containers, and on a machine that *has* Docker that meant a unit test running
+# `compose up` with --project-directory pointing at this temporary home: it
+# recreated the developer's own gateway with every bind mount aimed at a
+# directory the test was about to delete. The directories are created before
+# the compose step, so the stub costs the assertion nothing.
 it "creates a private directory private, rather than fixing it afterwards"
 HOME_D=$(make_home)
-run_in_home "$HOME_D" repair >/dev/null 2>&1 || true
+run_isolated "$HOME_D" repair >/dev/null 2>&1 || true
 assert_eq "700" "$(portta_file_mode "$HOME_D/state/cloudflared")"
 
 it "and leaves an ordinary directory ordinary"
