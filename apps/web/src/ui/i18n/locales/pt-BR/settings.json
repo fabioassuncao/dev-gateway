@@ -169,7 +169,7 @@
     },
     "GITHUB_APP_PRIVATE_KEY_FILE": {
       "label": "Arquivo de chave privada",
-      "help": "Caminho para o .pem, montado somente leitura com mode 600. A chave em si nunca vai no .env."
+      "help": "O .pem dentro do container. O diretório é fixo pelo mount; o nome do arquivo é o que o GitHub deu. Somente leitura com mode 600, e nunca um valor do .env."
     },
     "GITHUB_APP_WEBHOOK_SECRET": {
       "label": "Segredo do webhook",
@@ -190,7 +190,7 @@
     "mustBeHttpsUrl": "deve ser uma URL https",
     "mustBeUrl": "deve ser uma URL",
     "mustBeNumericAppId": "deve ser o App id numérico",
-    "mustBeAbsolutePath": "deve ser um caminho absoluto",
+    "mustBeUnderGithubKeyDir": "deve estar em /app/state/github/, o diretório montado no painel",
     "notManaged": "não é uma configuração gerenciada pelo painel",
     "mustBeBoolean": "deve ser true ou false",
     "mustBeOneOf": "deve ser um de {{choices}}",

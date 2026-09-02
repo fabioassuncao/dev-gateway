@@ -520,12 +520,22 @@ if portta_is_true "${GITHUB_APP_ENABLED:-false}"; then
     check fail github.app "github app" "enabled with no GITHUB_APP_ID" \
       "set GITHUB_APP_ID from the App's settings page; see docs/github.md"
   else
-    github_key="${GITHUB_APP_PRIVATE_KEY_FILE:-$PORTTA_ROOT/state/github/app.pem}"
-    case "$github_key" in
-      /app/state/github/*) github_key="$PORTTA_ROOT/state/github/${github_key##*/}" ;;
+    # `./state/github` is the only directory the panel mounts the key from, so
+    # the container path is the host path with that prefix swapped. Anything
+    # else names a file the panel cannot open, and saying so is the point:
+    # passing here on a file the panel never reads is worse than no check.
+    github_wanted="${GITHUB_APP_PRIVATE_KEY_FILE:-/app/state/github/app.pem}"
+    case "$github_wanted" in
+      */../*|*/..) github_key="" ;;
+      /app/state/github/?*) github_key="$PORTTA_ROOT/state/github/${github_wanted#/app/state/github/}" ;;
+      *) github_key="" ;;
     esac
 
-    if [ ! -f "$github_key" ]; then
+    if [ -z "$github_key" ]; then
+      check fail github.key "github app key" \
+        "$github_wanted is outside /app/state/github/, the only directory mounted into the panel" \
+        "move the .pem into state/github/ and set GITHUB_APP_PRIVATE_KEY_FILE to /app/state/github/<filename>"
+    elif [ ! -f "$github_key" ]; then
       check fail github.key "github app key" "no private key at $github_key" \
         "download the .pem from the App's settings page into state/github/ and chmod 600 it"
     elif [ ! -r "$github_key" ]; then

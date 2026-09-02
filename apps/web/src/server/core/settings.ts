@@ -69,6 +69,25 @@ function email(value: string): string | null {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value) ? null : 'must be an email address'
 }
 
+/**
+ * The directory `docker/compose/features/web.yaml` mounts the key from. It is
+ * the whole constraint on this setting: a path outside it names a file that is
+ * not in the container at all, so the panel could never read it.
+ */
+const GITHUB_KEY_DIR = '/app/state/github/'
+
+/**
+ * The filename is the operator's, the directory is not. Refusing anything
+ * outside the mount is what stops the Settings page and `portta doctor`
+ * disagreeing about which file authenticates the App.
+ */
+function githubKeyFile(value: string): string | null {
+  if (value === '') return null
+  const outside = 'must be under /app/state/github/, the directory mounted into the panel'
+  if (!value.startsWith(GITHUB_KEY_DIR) || value === GITHUB_KEY_DIR) return outside
+  return value.split('/').includes('..') ? outside : null
+}
+
 function url(value: string): string | null {
   if (value === '') return null
   try {
@@ -421,10 +440,10 @@ export const FIELDS: FieldSpec[] = [
     key: 'GITHUB_APP_PRIVATE_KEY_FILE',
     group: 'GitHub',
     label: 'Private key file',
-    help: 'Path to the .pem, mounted read-only at mode 600. The key itself is never a .env value.',
+    help: 'The .pem inside the container. The directory is fixed by the mount; the filename is the one GitHub gave you. Read-only at mode 600, and never a .env value.',
     kind: 'string',
     restartRequired: true,
-    validate: (value) => (value === '' || value.startsWith('/') ? null : 'must be an absolute path'),
+    validate: githubKeyFile,
   },
   {
     key: 'GITHUB_APP_WEBHOOK_SECRET',

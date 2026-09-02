@@ -177,10 +177,16 @@ services:
       # panel makes no request to github.com. The private key is passed as a
       # PATH, never as a value, because the panel can write this .env and must
       # not be able to write the key that authenticates it.
+      #
+      # The path is the operator's: the Settings field writes it here, and this
+      # is the value the panel reads. What is fixed is the DIRECTORY, because
+      # `./state/github` below is the only place the key is mounted from; the
+      # filename is whatever GitHub called the .pem. The panel refuses a path
+      # outside that directory on save, and `portta doctor` fails on one.
       # See docs/github.md and docs/security.md.
       GITHUB_APP_ENABLED: ${GITHUB_APP_ENABLED:-false}
       GITHUB_APP_ID: ${GITHUB_APP_ID:-}
-      GITHUB_APP_PRIVATE_KEY_FILE: /app/state/github/app.pem
+      GITHUB_APP_PRIVATE_KEY_FILE: ${GITHUB_APP_PRIVATE_KEY_FILE:-/app/state/github/app.pem}
       GITHUB_APP_WEBHOOK_SECRET: ${GITHUB_APP_WEBHOOK_SECRET:-}
       GITHUB_API_URL: ${GITHUB_API_URL:-https://api.github.com}
     volumes:

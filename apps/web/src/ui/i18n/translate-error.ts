@@ -10,7 +10,8 @@ const VALIDATION_MAP: Record<string, string> = {
   'must be an https URL': 'validation.mustBeHttpsUrl',
   'must be a URL': 'validation.mustBeUrl',
   'must be the numeric App id': 'validation.mustBeNumericAppId',
-  'must be an absolute path': 'validation.mustBeAbsolutePath',
+  'must be under /app/state/github/, the directory mounted into the panel':
+    'validation.mustBeUnderGithubKeyDir',
   'is not a setting the panel manages': 'validation.notManaged',
   'must be true or false': 'validation.mustBeBoolean',
   'is required by the remote-public profile': 'validation.publicDomainRequired',
