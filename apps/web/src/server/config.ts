@@ -74,6 +74,8 @@ export interface PanelConfig {
   dashboardEnabled: boolean
   dashboardBindAddress: string
   dashboardPort: string
+  dashboardExpose: 'local' | 'domain'
+  dashboardAdvertisedHost: string
   tcpEnabled: boolean
   tcpPorts: Record<string, number>
   bridgeImage: string
@@ -174,6 +176,8 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     dashboardEnabled: gateway.dashboardEnabled,
     dashboardBindAddress: env('PORTTA_DASHBOARD_BIND_ADDRESS', '127.0.0.1'),
     dashboardPort: env('PORTTA_DASHBOARD_PORT', '8080'),
+    dashboardExpose: gateway.dashboardExpose,
+    dashboardAdvertisedHost: gateway.dashboardAdvertisedHost,
     tcpEnabled: isTrue(process.env.PORTTA_TCP),
     tcpPorts: {
       postgres: Number(env('PORTTA_TCP_POSTGRES_PORT', '5432')),

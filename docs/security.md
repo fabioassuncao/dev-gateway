@@ -94,6 +94,14 @@ why it is off by default, and it is the same API the panel reads for a router's
 status ([ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md)). Nothing
 sensitive to a project's own users is there, but the inventory of the host is.
 
+`PORTTA_DASHBOARD_EXPOSE=domain` is a second, independent path: the dashboard
+answers on one derived hostname (`<project>-traefik.<domain>`) through
+`api@internal`, behind the same ForwardAuth as the panel. It publishes no host
+port and does not set `TRAEFIK_API_INSECURE`. The CLI refuses it without a
+credential or a real domain. If `portta-auth.yaml` is missing the router fails
+closed (404), never unauthenticated. `doctor` still fails a non-loopback
+`PORTTA_DASHBOARD_BIND_ADDRESS`.
+
 ## Databases reached by hostname
 
 Off by default. Turning it on publishes one port per protocol; it does not

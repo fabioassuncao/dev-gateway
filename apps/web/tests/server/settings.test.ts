@@ -295,6 +295,35 @@ describe('the panel refuses to be routed without a credential', () => {
   })
 })
 
+describe('a dashboard on the domain', () => {
+  it('needs a credential and a real domain', () => {
+    expect(() =>
+      validateCombination(new Map([
+        ['PORTTA_DASHBOARD', 'true'],
+        ['PORTTA_DASHBOARD_EXPOSE', 'domain'],
+        ['PORTTA_DOMAIN', 'localhost'],
+      ])),
+    ).toThrow(ValidationError)
+    expect(() =>
+      validateCombination(new Map([
+        ['PORTTA_DASHBOARD', 'true'],
+        ['PORTTA_DASHBOARD_EXPOSE', 'domain'],
+        ['PORTTA_DOMAIN', 'dev.example.com'],
+      ])),
+    ).toThrow(ValidationError)
+    expect(() =>
+      validateCombination(new Map([
+        ['PORTTA_DASHBOARD', 'true'],
+        ['PORTTA_DASHBOARD_EXPOSE', 'domain'],
+        ['PORTTA_DOMAIN', 'dev.example.com'],
+        ['PORTTA_WEB_AUTH', 'basic'],
+        ['PORTTA_WEB_AUTH_USER', 'dev'],
+        ['PORTTA_WEB_AUTH_HASH', '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1'],
+      ])),
+    ).not.toThrow()
+  })
+})
+
 describe('the password hash field takes a hash, never a password', () => {
   it('accepts what Traefik accepts', () => {
     expect(() =>

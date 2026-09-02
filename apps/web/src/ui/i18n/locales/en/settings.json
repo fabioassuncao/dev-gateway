@@ -6,6 +6,18 @@
   "sectionNotFound": "Settings section “{{group}}” does not exist",
   "chooseGroup": "Choose one of the available groups.",
   "secretsNote": "Secrets are never returned by the API: the panel only reports whether a token is set. Values are written to {{path}} with mode 600.",
+  "dashboard": {
+    "title": "Traefik dashboard",
+    "description": "Status, address and who can reach it. Apply saved settings from the bar at the bottom.",
+    "authenticated": "behind Portta login",
+    "noCredential": "no credential",
+    "loopbackOnly": "loopback only",
+    "loopbackHint": "This address only works on this machine. Set dashboard access to domain to reach it from the panel, behind the same login.",
+    "tailnetWarning": "On a Tailscale attachment, :8080 is also reachable on the tailnet with no login while the loopback overlay is active. Domain access is the supported fix.",
+    "copyAddress": "Copy address",
+    "open": "Open the Traefik dashboard",
+    "openDisabled": "No usable address from here. The loopback URL only works on the host."
+  },
   "projectDomain": {
     "title": "Project hostnames",
     "description": "Every project gets <project>-<service>.<base>. This is the base in use right now.",
@@ -61,11 +73,19 @@
     },
     "PORTTA_DASHBOARD": {
       "label": "Traefik dashboard",
-      "help": "Traefik's own dashboard, published on loopback only."
+      "help": "Traefik's own dashboard. local publishes :8080 on loopback; domain routes it behind the panel login."
     },
     "PORTTA_DASHBOARD_PORT": {
       "label": "Dashboard port",
-      "help": "Host port for the Traefik dashboard."
+      "help": "Host port for the Traefik dashboard when access is local."
+    },
+    "PORTTA_DASHBOARD_EXPOSE": {
+      "label": "Dashboard access",
+      "help": "local keeps :8080 on loopback. domain routes the dashboard on the gateway domain, behind the panel login."
+    },
+    "PORTTA_DASHBOARD_ADVERTISED_HOST": {
+      "label": "Dashboard hostname",
+      "help": "Derived as <project>-traefik.<domain> unless you override it."
     },
     "TLS_ENABLED": {
       "label": "HTTPS",

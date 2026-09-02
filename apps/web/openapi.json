@@ -133,6 +133,18 @@
         "additionalProperties": false,
         "description": "Uniform error envelope returned by the panel API"
       },
+      "EndpointScope": {
+        "type": "string",
+        "enum": [
+          "internal",
+          "local",
+          "lan",
+          "private",
+          "protected",
+          "public"
+        ],
+        "description": "Who can reach an endpoint"
+      },
       "ContainerState": {
         "type": "string",
         "enum": [
@@ -306,12 +318,70 @@
               },
               "port": {
                 "type": "string"
+              },
+              "expose": {
+                "type": "string",
+                "enum": [
+                  "local",
+                  "domain"
+                ]
+              },
+              "advertisedHost": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "authenticated": {
+                "type": "boolean"
+              },
+              "endpoints": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "scope": {
+                      "$ref": "#/components/schemas/EndpointScope"
+                    },
+                    "usable": {
+                      "type": "boolean"
+                    },
+                    "shareable": {
+                      "type": "boolean"
+                    },
+                    "problem": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "provider",
+                    "url",
+                    "scope",
+                    "usable",
+                    "shareable",
+                    "problem"
+                  ],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
               "enabled",
               "bindAddress",
-              "port"
+              "port",
+              "expose",
+              "advertisedHost",
+              "authenticated",
+              "endpoints"
             ],
             "additionalProperties": false
           },
@@ -3561,18 +3631,6 @@
           "tcpRoutingEnabled"
         ],
         "additionalProperties": false
-      },
-      "EndpointScope": {
-        "type": "string",
-        "enum": [
-          "internal",
-          "local",
-          "lan",
-          "private",
-          "protected",
-          "public"
-        ],
-        "description": "Who can reach an endpoint"
       },
       "ServiceEndpoint": {
         "type": "object",

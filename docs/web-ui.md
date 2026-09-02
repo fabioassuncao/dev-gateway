@@ -798,6 +798,12 @@ writes every changed key in one transaction. A key that is not in the
 catalogue cannot be read or written through the API, whatever a request asks
 for.
 
+The Traefik group shows the dashboard's status, every address that applies,
+and an Open action that is enabled only when an endpoint is usable. Changing
+`PORTTA_DASHBOARD` needs the gateway recreated; the apply bar at the bottom
+is how that happens. `PORTTA_DASHBOARD_EXPOSE=domain` puts the dashboard on
+the derived hostname behind the same login as the panel.
+
 ![The Gateway settings group: a stable group navigation beside each field, the key it writes and what it means](../.github/images/panel-settings.png)
 
 ### Light and dark

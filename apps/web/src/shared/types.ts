@@ -563,7 +563,22 @@ const GatewayPanel = z.object({
   /** Whether this panel serves the documentation, so the UI never links to a 404. */
   docs: z.boolean(),
 }).strict()
-const GatewayDashboard = z.object({ enabled: z.boolean(), bindAddress: z.string(), port: z.string() }).strict()
+const GatewayDashboard = z.object({
+  enabled: z.boolean(),
+  bindAddress: z.string(),
+  port: z.string(),
+  expose: z.enum(['local', 'domain']),
+  advertisedHost: z.string().nullable(),
+  authenticated: z.boolean(),
+  endpoints: z.array(z.object({
+    provider: z.string(),
+    url: z.string(),
+    scope: EndpointScope,
+    usable: z.boolean(),
+    shareable: z.boolean(),
+    problem: z.string().nullable(),
+  }).strict()),
+}).strict()
 const GatewayComponent = z.object({
   containerId: z.string().nullable(),
   state: ContainerState.or(z.literal('absent')),

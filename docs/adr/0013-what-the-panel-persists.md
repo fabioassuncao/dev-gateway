@@ -64,6 +64,8 @@ This table is the worked example; the rule above governs new keys.
 | `PORTTA_DASHBOARD` | Compose decides whether to enable and publish the dashboard. |
 | `PORTTA_DASHBOARD_BIND_ADDRESS` | Compose binds the optional dashboard before the panel can query anything. |
 | `PORTTA_DASHBOARD_PORT` | Compose publishes the optional dashboard on this host port. |
+| `PORTTA_DASHBOARD_EXPOSE` | Compose chooses the loopback overlay or the domain overlay. |
+| `PORTTA_DASHBOARD_ADVERTISED_HOST` | Traefik's dashboard router is generated from this hostname. |
 | `PORTTA_TCP` | Compose decides whether hostname-routed TCP entrypoints exist. |
 | `PORTTA_TCP_POSTGRES_PORT` | Compose publishes the PostgreSQL entrypoint at container creation. |
 | `PORTTA_TCP_REDIS_PORT` | Compose publishes the Redis entrypoint at container creation. |

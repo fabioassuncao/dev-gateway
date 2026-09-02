@@ -208,6 +208,23 @@ export const FIELDS: FieldSpec[] = [
     validate: port,
   },
   {
+    key: 'PORTTA_DASHBOARD_EXPOSE',
+    group: 'Traefik',
+    label: 'Dashboard access',
+    help: 'local keeps :8080 on loopback. domain routes the dashboard on the gateway domain, behind the panel login.',
+    kind: 'choice',
+    choices: ['local', 'domain'],
+    restartRequired: true,
+  },
+  {
+    key: 'PORTTA_DASHBOARD_ADVERTISED_HOST',
+    group: 'Traefik',
+    label: 'Dashboard hostname',
+    help: 'Derived as <project>-traefik.<domain> unless you override it. Required when access is domain.',
+    kind: 'string',
+    restartRequired: true,
+  },
+  {
     key: 'TLS_ENABLED',
     group: 'TLS',
     label: 'HTTPS',
@@ -562,6 +579,19 @@ export function validateCombination(values: Map<string, string>): void {
       throw new ValidationError(
         'PORTTA_WEB_AUTH_USER',
         'a routed panel needs a credential: run portta web auth set',
+      )
+    }
+  }
+
+  if (get('PORTTA_DASHBOARD_EXPOSE') === 'domain' && truthy('PORTTA_DASHBOARD')) {
+    const domain = get('PORTTA_DOMAIN')
+    if (domain === '' || domain === 'localhost') {
+      throw new ValidationError('PORTTA_DASHBOARD_EXPOSE', 'a dashboard on the domain needs a domain of its own')
+    }
+    if (get('PORTTA_WEB_AUTH') !== 'basic' || get('PORTTA_WEB_AUTH_USER') === '' || get('PORTTA_WEB_AUTH_HASH') === '') {
+      throw new ValidationError(
+        'PORTTA_DASHBOARD_EXPOSE',
+        'a dashboard on the domain needs a panel credential: run portta web auth set',
       )
     }
   }

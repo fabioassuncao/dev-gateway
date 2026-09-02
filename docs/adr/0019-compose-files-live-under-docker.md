@@ -23,7 +23,7 @@ The structure was never flat. Each file is chosen by a distinct condition in
 | Base | `compose.yaml` | always |
 | Attachment | `attach/{host,tailscale}.yaml` | exactly one, always |
 | Profile | `profiles/{local,local-tls,remote,public}.yaml` | the profile, plus TLS mode |
-| Dashboard | `features/dashboard{,-tailscale}.yaml` | `PORTTA_DASHBOARD` |
+| Dashboard | `features/dashboard{,-tailscale,-domain}.yaml` | `PORTTA_DASHBOARD` and `PORTTA_DASHBOARD_EXPOSE` |
 | TCP | `features/tcp{,-tailscale}.yaml` | `PORTTA_TCP` |
 | Panel | `features/{web,web-dev,web-vpn,db}.yaml` | `PORTTA_WEB` and friends |
 

@@ -22,7 +22,7 @@ function payload(docs: boolean) {
       tailscale: { enabled: false, running: false, hostname: 'portta' },
       publicAccess: { enabled: false, domain: null },
       panel: { expose: 'local', routed: false, auth: 'none', authenticated: false, user: '', readOnly: false, docs },
-      dashboard: { enabled: false, bindAddress: '127.0.0.1', port: '8080' },
+      dashboard: { enabled: false, bindAddress: '127.0.0.1', port: '8080', expose: 'local', advertisedHost: null, authenticated: false, endpoints: [] },
       traefik: { containerId: 'a', state: 'running', health: 'healthy' },
       socketProxy: { containerId: 'b', state: 'running' },
       database: { containerId: null, state: 'absent', health: 'none' },

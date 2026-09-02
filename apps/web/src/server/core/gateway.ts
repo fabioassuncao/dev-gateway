@@ -1,9 +1,76 @@
 // The gateway's own state, read from the containers it labels as its own.
 
+import { capabilitiesFrom, endpointsFor } from 'portta-core'
 import type { PanelConfig } from '../config.ts'
 import { isAuthenticated, isRouted, schemeFor } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import type { ContainerSummary, GatewayStatus, Health, ContainerState } from '../../shared/types.ts'
+import { exposuresFromConfig, factsFromConfig } from './access.ts'
+
+function dashboardStatus(config: PanelConfig): GatewayStatus['dashboard'] {
+  const loopback = {
+    provider: 'local',
+    url: `http://${config.dashboardBindAddress}:${config.dashboardPort}/dashboard/`,
+    scope: 'local' as const,
+    usable: true,
+    shareable: false,
+    problem: null,
+  }
+  if (!config.dashboardEnabled) {
+    return {
+      enabled: false,
+      bindAddress: config.dashboardBindAddress,
+      port: config.dashboardPort,
+      expose: config.dashboardExpose,
+      advertisedHost: null,
+      authenticated: false,
+      endpoints: [],
+    }
+  }
+  if (config.dashboardExpose !== 'domain') {
+    return {
+      enabled: true,
+      bindAddress: config.dashboardBindAddress,
+      port: config.dashboardPort,
+      expose: 'local',
+      advertisedHost: null,
+      authenticated: false,
+      endpoints: [loopback],
+    }
+  }
+  const facts = factsFromConfig(config)
+  const endpoints = endpointsFor(
+    {
+      project: config.projectName,
+      service: 'traefik',
+      container: 'portta-traefik-1',
+      port: 8080,
+      kind: 'http',
+    },
+    {
+      facts,
+      capabilities: capabilitiesFrom(facts),
+      exposures: exposuresFromConfig(config),
+      style: config.hostnameStyle,
+    },
+  ).map((entry) => ({
+    provider: entry.provider,
+    url: entry.url.endsWith('/dashboard/') || entry.scope === 'internal' ? entry.url : `${entry.url}/dashboard/`,
+    scope: entry.scope,
+    usable: entry.usable,
+    shareable: entry.shareable,
+    problem: entry.problem,
+  }))
+  return {
+    enabled: true,
+    bindAddress: config.dashboardBindAddress,
+    port: config.dashboardPort,
+    expose: 'domain',
+    advertisedHost: config.dashboardAdvertisedHost,
+    authenticated: isAuthenticated(config),
+    endpoints,
+  }
+}
 
 export function componentOf(snapshot: Snapshot, component: string): ContainerSummary | null {
   return (
@@ -55,11 +122,7 @@ export function gatewayStatus(snapshot: Snapshot, config: PanelConfig): GatewayS
       readOnly: config.readOnly,
       docs: config.docs,
     },
-    dashboard: {
-      enabled: config.dashboardEnabled,
-      bindAddress: config.dashboardBindAddress,
-      port: config.dashboardPort,
-    },
+    dashboard: dashboardStatus(config),
     traefik: {
       containerId: traefik?.id ?? null,
       state: (traefik?.state ?? 'absent') as ContainerState | 'absent',

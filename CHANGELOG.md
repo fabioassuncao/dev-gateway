@@ -11,6 +11,12 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Added
 
+- **The Traefik dashboard is reachable from the panel, behind ForwardAuth.**
+  `PORTTA_DASHBOARD_EXPOSE=domain` routes `api@internal` on a derived
+  hostname, with the same login as the panel and without `TRAEFIK_API_INSECURE`.
+  Settings show the address, its scope, and Open only when it is usable.
+  The loopback path and the `doctor` verdict are unchanged.
+
 - **Every address a datastore has, and a connection string that works.**
   TCP services share the endpoint model HTTP already used, so a routed
   Postgres shows one address per network that can carry it, in the hostname

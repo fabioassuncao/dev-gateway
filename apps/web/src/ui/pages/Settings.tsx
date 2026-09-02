@@ -12,6 +12,7 @@ import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.t
 import { SettingsGroup } from '../components/settings/settings-group.tsx'
 import { SettingsNav } from '../components/settings/settings-nav.tsx'
 import { GitHubStatusCard } from '../components/github-status.tsx'
+import { DashboardCard } from '../components/dashboard-card.tsx'
 import { ProjectDomainCard } from '../components/project-domain.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 
@@ -128,6 +129,7 @@ export function Settings({ group }: { group: string | null }) {
             <SettingsGroup name={activeGroup} fields={fields} valueOf={valueOf} onChange={setValue} />
             {activeGroup === 'GitHub' ? <GitHubStatusCard /> : null}
             {activeGroup === 'Project domain' ? <ProjectDomainCard domain={view.projectDomain} /> : null}
+            {activeGroup === 'Traefik' ? <DashboardCard /> : null}
           </div>
         ) : (
           <div className="min-w-0 flex-1 rounded-lg border border-line bg-surface">

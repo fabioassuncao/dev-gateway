@@ -39,7 +39,7 @@ const data: OverviewData = {
       readOnly: false,
       docs: true,
     },
-    dashboard: { enabled: false, bindAddress: '127.0.0.1', port: '8080' },
+      dashboard: { enabled: false, bindAddress: '127.0.0.1', port: '8080', expose: 'local', advertisedHost: null, authenticated: false, endpoints: [] },
     traefik: { containerId: 'gw', state: 'running', health: 'healthy' },
     socketProxy: { containerId: 'sp', state: 'running' },
     database: { containerId: 'db', state: 'running', health: 'healthy' },

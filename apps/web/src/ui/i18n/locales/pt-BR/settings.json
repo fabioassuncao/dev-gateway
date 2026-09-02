@@ -6,6 +6,18 @@
   "sectionNotFound": "A seção de configurações “{{group}}” não existe",
   "chooseGroup": "Escolha um dos grupos disponíveis.",
   "secretsNote": "Segredos nunca são retornados pela API: o painel só informa se um token está definido. Valores são gravados em {{path}} com mode 600.",
+  "dashboard": {
+    "title": "Dashboard do Traefik",
+    "description": "Estado, endereço e quem pode alcançá-lo. Aplique as configurações salvas pela barra no rodapé.",
+    "authenticated": "atrás do login Portta",
+    "noCredential": "sem credencial",
+    "loopbackOnly": "apenas loopback",
+    "loopbackHint": "Este endereço só funciona nesta máquina. Defina o acesso do dashboard como domain para alcançá-lo pelo painel, atrás do mesmo login.",
+    "tailnetWarning": "Num attachment Tailscale, a :8080 também fica alcançável na tailnet sem login enquanto o overlay de loopback estiver ativo. O acesso domain é a correção suportada.",
+    "copyAddress": "Copiar endereço",
+    "open": "Abrir o dashboard do Traefik",
+    "openDisabled": "Nenhum endereço utilizável daqui. O URL de loopback só funciona no host."
+  },
   "projectDomain": {
     "title": "Endereços dos projetos",
     "description": "Cada projeto recebe <projeto>-<serviço>.<base>. Esta é a base em uso agora.",
@@ -61,11 +73,19 @@
     },
     "PORTTA_DASHBOARD": {
       "label": "Dashboard do Traefik",
-      "help": "Dashboard próprio do Traefik, publicado apenas em loopback."
+      "help": "Dashboard próprio do Traefik. local publica :8080 em loopback; domain roteia atrás do login do painel."
     },
     "PORTTA_DASHBOARD_PORT": {
       "label": "Porta do dashboard",
-      "help": "Porta do host para o dashboard do Traefik."
+      "help": "Porta do host para o dashboard do Traefik quando o acesso é local."
+    },
+    "PORTTA_DASHBOARD_EXPOSE": {
+      "label": "Acesso ao dashboard",
+      "help": "local mantém :8080 em loopback. domain roteia o dashboard no domínio do gateway, atrás do login do painel."
+    },
+    "PORTTA_DASHBOARD_ADVERTISED_HOST": {
+      "label": "Hostname do dashboard",
+      "help": "Derivado como <projeto>-traefik.<domínio>, a menos que você o substitua."
     },
     "TLS_ENABLED": {
       "label": "HTTPS",

@@ -66,11 +66,15 @@ by the public profile.
 | `PORTTA_DASHBOARD` | `false` | Enable Traefik's dashboard |
 | `PORTTA_DASHBOARD_BIND_ADDRESS` | `127.0.0.1` | Interface for the dashboard port |
 | `PORTTA_DASHBOARD_PORT` | `8080` | Host port |
+| `PORTTA_DASHBOARD_EXPOSE` | `local` | `local` publishes `:8080` on loopback; `domain` routes `api@internal` behind ForwardAuth |
+| `PORTTA_DASHBOARD_ADVERTISED_HOST` | `<project>-traefik.<domain>` | Hostname for the routed dashboard; derived, never hardcoded |
 
-The dashboard exposes your full routing table. It is served on its own port,
-never through the `web`/`websecure` entrypoints, so it can never appear under
-the public wildcard domain. `doctor` fails if it is enabled on a non-loopback
-address.
+The loopback path exposes your full routing table on its own port, never
+through `web`/`websecure`, so it can never appear under the public wildcard
+domain. `doctor` still fails if that port is bound anywhere but loopback.
+`PORTTA_DASHBOARD_EXPOSE=domain` is a separate path: no host port, no
+`TRAEFIK_API_INSECURE`, and the same login as the panel. It is refused
+without a credential or a real domain.
 
 ## Databases by hostname
 

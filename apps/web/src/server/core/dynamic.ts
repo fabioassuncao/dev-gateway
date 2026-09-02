@@ -23,6 +23,7 @@ import {
 import { join } from 'node:path'
 import {
   PANEL_AUTH_MIDDLEWARE,
+  dashboardProtectionRecord,
   panelProtectionRecord,
   quoteDynamicValue,
   readProtectionStore,
@@ -188,7 +189,17 @@ export function reconcilePanelProtection(
     const same = record && existing
       ? JSON.stringify({ ...existing, epoch: undefined }) === JSON.stringify({ ...record, epoch: undefined })
       : record === null && existing === undefined
-    const next = same ? current : record ? setProtection(current, record) : removeProtection(current, 'panel')
+    let next = same ? current : record ? setProtection(current, record) : removeProtection(current, 'panel')
+    const dashboard = dashboardProtectionRecord({
+      expose: config.dashboardExpose,
+      advertisedHost: config.dashboardAdvertisedHost,
+      mode: auth.mode,
+      user: auth.user,
+      hash: auth.hash,
+      tlsEnabled: config.tlsEnabled,
+      projectName: config.projectName,
+    })
+    next = dashboard ? setProtection(next, dashboard) : removeProtection(next, 'dashboard')
     const unchanged = JSON.stringify(current) === JSON.stringify(next)
     if (!unchanged) writeProtectionStore(config.authStore, next)
     const wantedAuth = renderAuthDynamic(next)
