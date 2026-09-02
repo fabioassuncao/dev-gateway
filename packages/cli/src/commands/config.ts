@@ -41,6 +41,11 @@ const SETTINGS: Record<string, Setting> = {
   'private.domain': { key: 'PRIVATE_DOMAIN', description: 'wildcard namespace served over the VPN' },
   'tls.enabled': { key: 'TLS_ENABLED', description: 'serve HTTPS', allowed: ['true', 'false'] },
   'tls.mode': { key: 'TLS_MODE', description: 'local certificate authority or ACME', allowed: ['local', 'acme'] },
+  // Without these three, an ACME setup could be started from the CLI and not
+  // finished with it: TLS_MODE=acme is refused until ACME_EMAIL is set.
+  'acme.email': { key: 'ACME_EMAIL', description: 'contact address for the ACME account' },
+  'acme.challenge': { key: 'ACME_CHALLENGE', description: 'one wildcard over DNS-01, or one per hostname over HTTP-01', allowed: ['dns', 'http'] },
+  'acme.caServer': { key: 'ACME_CA_SERVER', description: 'ACME directory URL; point at staging while testing' },
   'dashboard.enabled': { key: 'PORTTA_DASHBOARD', description: "Traefik's own dashboard, on loopback", allowed: ['true', 'false'] },
   'tcp.enabled': { key: 'PORTTA_TCP', description: 'route datastores by hostname', allowed: ['true', 'false'] },
   'tailscale.enabled': { key: 'TAILSCALE_ENABLED', description: 'run the Tailscale sidecar', allowed: ['true', 'false'] },

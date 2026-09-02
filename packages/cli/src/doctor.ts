@@ -718,8 +718,12 @@ async function domainChecks(config: GatewayContext['config'], env: Record<string
       ? check('dns.wildcard', 'pass', 'wildcard DNS', `*.${domain} -> ${resolved}`)
       : resolved === expected
         ? check('dns.wildcard', 'pass', 'wildcard DNS', `*.${domain} -> ${resolved} (this host)`)
-        : check('dns.wildcard', 'fail', 'wildcard DNS', `*.${domain} -> ${resolved}, and this host is ${expected}`,
-            'point the wildcard here, or refresh the address: portta config set domain.mode auto'))
+        // Not a failure: a proxied domain resolves to the proxy by design, and
+        // Cloudflare's orange cloud is the ordinary case. The record being
+        // stale is the other cause, and only the operator can tell them apart
+        // -- so name both rather than assert the wrong one.
+        : check('dns.wildcard', 'warn', 'wildcard DNS', `*.${domain} -> ${resolved}, and this host is ${expected}`,
+            'normal behind a proxy or CDN that forwards here; otherwise point the wildcard at this host, or refresh the address: portta config set domain.mode auto'))
   }
 
   const bind = config.bindAddress
