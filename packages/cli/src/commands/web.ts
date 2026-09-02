@@ -8,6 +8,7 @@ import { ensureNetwork, inspectContainers } from '../docker.js'
 import { PreconditionError, RefusedError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
+import { refreshGitMetadata } from './git.js'
 
 function globals(command: Command) { return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string } }
 
@@ -75,9 +76,11 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   // PORTTA_HOME has no source tree, and asking Compose to build there fails.
   const buildArgs = context.config.webDev || context.config.webBuild ? ['--build'] : []
   await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', ...buildArgs, '--remove-orphans', '--wait', '--wait-timeout', '180', ...services], { cwd: context.root, env: context.env, stdio: 'inherit' })
+  const output = new Output(globals(command))
+  await refreshGitMetadata(context.config.profile, output)
   // The context was resolved before .env was rewritten, so `web dev` would
   // otherwise report the URL the previous mode used.
-  new Output(globals(command)).data(webUrl(gatewayContext({ profile: globals(command).profile, overrides: values })))
+  output.data(webUrl(gatewayContext({ profile: globals(command).profile, overrides: values })))
 }
 
 /**

@@ -241,14 +241,6 @@ cmd_up() {
     portta_compose "$profile" up --remove-orphans
   fi
 
-  # Best effort, and never fatal: the panel reads what this collects, and a
-  # host without git simply has nothing to read. See docs/adr/0010.
-  if portta_have git; then
-    # In a subshell: `portta_git_scan` calls `die` on an unwritable state
-    # directory, and `die` exits the script. Best effort has to mean it.
-    ( portta_git_scan ) >/dev/null 2>&1 || true
-  fi
-
   # The optional applier, so the panel can recreate these containers itself.
   # Off unless PORTTA_APPLY=true, and never fatal. See scripts/lib/apply.sh.
   portta_apply_ensure

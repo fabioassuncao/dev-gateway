@@ -9,6 +9,8 @@ import { runProcess } from '../process.js'
 
 function globals(command: Command) { return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string } }
 
+export interface GitScanOptions { project?: string; withPrs?: boolean; forgeTtl?: string }
+
 async function git(cwd: string, args: string[]): Promise<string | null> {
   const result = await runProcess('git', ['-C', cwd, ...args], { reject: false })
   return result.exitCode === 0 ? result.stdout.trim() : null
@@ -97,9 +99,9 @@ export async function collectGitProject(project: string, path: string, declaredR
   return value
 }
 
-export async function gitScan(options: { project?: string; withPrs?: boolean; forgeTtl?: string }, command: Command): Promise<void> {
+export async function scanGitProjects(options: GitScanOptions, profile?: string): Promise<Array<Record<string, unknown>>> {
   if (options.forgeTtl !== undefined && !/^\d+$/.test(options.forgeTtl)) throw new UsageError('--forge-ttl must be a number of seconds')
-  const context = gatewayContext({ profile: globals(command).profile })
+  const context = gatewayContext({ profile })
   const directory = join(context.root, 'state/git')
   mkdirSync(directory, { recursive: true })
   const projects = new Map<string, { path: string; declared: string }>()
@@ -108,7 +110,7 @@ export async function gitScan(options: { project?: string; withPrs?: boolean; fo
     const path = workdir(container.labels)
     if (name && path && (!options.project || options.project === name)) projects.set(name, { path, declared: container.labels['portta.repo'] ?? '' })
   }
-  const scanned: unknown[] = []
+  const scanned: Array<Record<string, unknown>> = []
   for (const [project, coordinate] of projects) {
     const target = join(directory, `${project}.json`)
     const forgeTtl = Number(options.forgeTtl ?? 300)
@@ -125,6 +127,19 @@ export async function gitScan(options: { project?: string; withPrs?: boolean; fo
     chmodSync(target, 0o600)
     scanned.push(value)
   }
+  return scanned
+}
+
+export async function refreshGitMetadata(profile: string | undefined, output: Output): Promise<void> {
+  try {
+    await scanGitProjects({}, profile)
+  } catch (error) {
+    output.warning(`Git metadata could not be refreshed: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+export async function gitScan(options: GitScanOptions, command: Command): Promise<void> {
+  const scanned = await scanGitProjects(options, globals(command).profile)
   const output = new Output(globals(command))
   if (output.json) output.data({ projects: scanned })
   else output.progress(`scanned ${scanned.length} project(s)`)

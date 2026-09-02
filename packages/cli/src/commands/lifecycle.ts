@@ -10,6 +10,7 @@ import { runProcess } from '../process.js'
 import { CLI_VERSION } from '../version.js'
 import { confirm } from '../confirm.js'
 import { ensureApplier, removeApplier } from './apply.js'
+import { refreshGitMetadata } from './git.js'
 
 function globals(command: Command) {
   return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string }
@@ -119,10 +120,12 @@ export async function upCommand(profile: string | undefined, options: { attach?:
   if (context.config.tcpEnabled) await ensureNetwork(context.config.accessNetwork)
   await compose(command, ['up', options.attach ? '' : '-d', options.attach ? '' : '--remove-orphans'].filter(Boolean))
 
+  const output = new Output(globals(command))
+  await refreshGitMetadata(context.config.profile, output)
+
   // The optional applier, so the panel can recreate these containers itself.
   // Off unless PORTTA_APPLY=true, and never fatal: the gateway is up either way.
   const applier = await ensureApplier(context)
-  const output = new Output(globals(command))
   if (applier.action === 'created') output.progress('ok       applier ready; the panel can apply settings without a terminal')
   if (applier.action === 'removed') output.progress('ok       applier removed (PORTTA_APPLY is false)')
   if (applier.action === 'refused') output.progress(`warn     not preparing the applier: ${applier.reason}`)

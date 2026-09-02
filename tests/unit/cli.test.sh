@@ -92,6 +92,19 @@ for fn in $(grep -oE '^cmd_[a-z_]+' "$GW" | sed 's/^cmd_//' | sort -u); do
 done
 assert_eq "" "$missing"
 
+describe "automatic Git collection uses the implementation that exists"
+
+# Git collection moved to the full TypeScript CLI. Leaving the old shell call
+# behind made every `up` silently invoke an undefined function.
+it "the Bash fallback has no reference to the removed helper"
+assert_not_contains "$(cat "$GW")" "portta_git_scan"
+
+it "the full up command refreshes Git metadata"
+assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" "await refreshGitMetadata(context.config.profile, output)"
+
+it "web up refreshes the same metadata"
+assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/web.ts")" "await refreshGitMetadata(context.config.profile, output)"
+
 describe "a closed pipe is not an error"
 
 # `portta status | head -3` is ordinary, and it used to end in an unhandled
