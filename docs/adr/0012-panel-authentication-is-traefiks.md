@@ -1,6 +1,10 @@
 # 0012. The panel's authentication is Traefik's, and public stays refused
 
-**Status:** Accepted
+**Status:** Superseded by [0027](0027-forward-authentication-service.md)
+
+ADR 0027 preserves this decision's proxy-before-panel boundary but replaces
+BasicAuth with a separate ForwardAuth process, a branded login and host-scoped
+sessions.
 
 ## Context
 

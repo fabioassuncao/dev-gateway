@@ -1,6 +1,6 @@
 # 0021. Panel access is its own decision, and a public panel gets its own entrypoint
 
-**Status:** Accepted, amends [0012](0012-panel-authentication-is-traefiks.md)
+**Status:** Accepted, amended by [0027](0027-forward-authentication-service.md)
 
 ## Context
 

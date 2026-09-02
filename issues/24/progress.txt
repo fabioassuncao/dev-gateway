@@ -1,0 +1,28 @@
+# Progress Log — Issue #24
+
+## Codebase Patterns
+- Local facts shared by panel and CLI belong in `packages/core`; durable panel decisions stay behind the panel API.
+- Core lifecycle commands must retain a Bash path that does not require Node.
+- Generated Traefik writes are allowlisted by filename and written atomically with mode 0600.
+- The published Portta image is built from the workspace root and may host separate process commands.
+
+---
+
+## 2026-09-02T01:35:00-03:00 - US-001: Record the ForwardAuth architecture
+
+### What was implemented
+Recorded the separate ForwardAuth process, protection store, session boundary,
+legacy compatibility, rate limiting, reserved path and fourth generated file as
+ADR 0027. Updated every ADR whose status or write boundary changed.
+
+### Files changed
+- `docs/adr/0027-forward-authentication-service.md` — accepted architecture.
+- `docs/adr/README.md` — indexed the decision and amended statuses.
+- `docs/adr/0011-panel-reads-traefik-writes-one-file.md` — four-file boundary.
+- `docs/adr/0012-panel-authentication-is-traefiks.md` — superseded BasicAuth.
+- `docs/adr/0021-panel-access-modes.md` — ForwardAuth amendment.
+
+### Learnings for future iterations
+- ADR 0026 landed after issue #24 was written; the next safe number is 0027.
+
+---

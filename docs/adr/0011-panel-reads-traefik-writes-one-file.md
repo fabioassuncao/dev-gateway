@@ -1,6 +1,6 @@
-# 0011. The panel reads Traefik's API, and writes exactly three generated files
+# 0011. The panel reads Traefik's API, and writes exactly four generated files
 
-**Status:** Accepted
+**Status:** Accepted, amended by [0027](0027-forward-authentication-service.md)
 
 ## Context
 
@@ -70,17 +70,18 @@ endpoint, which means an exporter and a store, which is a monitoring stack.
 `PORTTA_ACCESS_LOG=true` plus the existing log viewer is the proportionate
 answer when a request needs tracing.
 
-### Writing: three generated files, and nothing else in the directory
+### Writing: four generated files, and nothing else in the directory
 
 `config/traefik/dynamic/` is mounted read-write into the panel. The capability
 is real, so it is bounded by name rather than by intention. The panel may write
-exactly three paths:
+exactly four paths:
 
 | File | Contents |
 |---|---|
 | `portta-panel.yaml` | The BasicAuth middleware guarding the panel's own router ([ADR 0012](0012-panel-authentication-is-traefiks.md)) |
 | `portta-shares.yaml` | The routers, services and middlewares for temporary shares |
 | `portta-aliases.yaml` | One router and service per hostname alias set from the panel |
+| `portta-auth.yaml` | ForwardAuth middleware, internal service and reserved-path routers ([ADR 0027](0027-forward-authentication-service.md)) |
 
 Any other path is refused in the panel's own process, the way
 `apps/web/src/server/docker/allowlist.ts` refuses a Docker call: the check is on the
