@@ -363,4 +363,27 @@ for state in installed unavailable; do
   assert_contains "$SOURCE" "$state)"
 done
 
+describe "--tls is the one flag that turns a domain into HTTPS"
+
+# The installer asked for a domain and then left the operator on plain HTTP
+# with no flag to say otherwise. HTTP-01 is what makes this a single flag:
+# DNS-01 would need a provider credential the installer has no business
+# prompting for.
+it "writes the four settings the ACME overlay reads"
+for key in TLS_ENABLED TLS_MODE ACME_CHALLENGE ACME_EMAIL; do
+  assert_contains "$SOURCE" "env_set \"\$ENV_FILE\" $key"
+done
+
+it "and asks for HTTP-01, which needs nothing but :80"
+assert_contains "$SOURCE" 'env_set "$ENV_FILE" ACME_CHALLENGE http'
+
+# No public CA issues a certificate for a bare IP or an sslip.io name, so the
+# flag has to refuse rather than configure an issuance that can only fail.
+it "refuses a domain no certificate authority will sign"
+assert_contains "$SOURCE" 'localhost|*.sslip.io|*.nip.io'
+assert_contains "$SOURCE" '--tls needs a real domain'
+
+it "the contact address is a flag, never a prompt"
+assert_contains "$SOURCE" '--tls) shift; TLS_EMAIL='
+
 t_summary

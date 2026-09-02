@@ -9,6 +9,17 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-09-02
+
+### Added
+
+- **`install.sh --tls <email>`.** The installer asked for a domain and then left
+  the operator on plain HTTP with no flag to say otherwise; enabling HTTPS meant
+  editing `.env` by hand afterwards. It is one flag now, and HTTP-01 is what
+  makes that possible: DNS-01 would need a provider credential the installer has
+  no business prompting for. It refuses a bare IP or an auto domain, because no
+  public CA will sign one.
+
 ## [0.6.0] — 2026-09-02
 
 ### Added

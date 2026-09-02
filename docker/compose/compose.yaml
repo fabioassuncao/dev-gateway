@@ -181,7 +181,7 @@ services:
   # ForwardAuth: browser login and host-scoped sessions
   # --------------------------------------------------------------------------
   portta-auth:
-    image: ${PORTTA_AUTH_IMAGE:-ghcr.io/fabioassuncao/portta:0.6.0}
+    image: ${PORTTA_AUTH_IMAGE:-ghcr.io/fabioassuncao/portta:0.6.1}
     restart: unless-stopped
     read_only: true
     # The store it reads is owner-only and belongs to whoever installed Portta,
@@ -217,7 +217,7 @@ services:
   # separate, explicitly targeted one-shot service so its two write mounts do
   # not inherit the persistent service's read-only volume metadata.
   portta-auth-migrate:
-    image: ${PORTTA_AUTH_IMAGE:-ghcr.io/fabioassuncao/portta:0.6.0}
+    image: ${PORTTA_AUTH_IMAGE:-ghcr.io/fabioassuncao/portta:0.6.1}
     profiles: [migration]
     read_only: true
     # Same reason as the service above: it reads a 600 .env and writes a 700

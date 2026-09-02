@@ -124,9 +124,17 @@ challenge, and neither service offers an API for one. Auto domains serve HTTP.
 Use a custom domain for TLS. The reasoning is in
 [ADR 0022](adr/0022-project-domain-modes.md).
 
-With a custom domain on a public IP you can skip the DNS credential entirely by
-setting `ACME_CHALLENGE=http`, which issues a certificate per hostname over
-`:80` instead of one wildcard. [DNS and TLS](dns-and-tls.md) compares the two.
+With a custom domain on a public IP, `--tls` is the whole of it:
+
+```
+curl -fsSL .../install.sh | bash -s -- --yes \
+  --domain dev.example.com --domain-mode custom --tls you@example.com
+```
+
+That issues a certificate per hostname over `:80` — no DNS credential, because
+HTTP-01 needs none. `*.dev.example.com` must resolve here and `:80` must be
+reachable from the internet. For one wildcard instead, configure DNS-01
+afterwards; [DNS and TLS](dns-and-tls.md) compares the two.
 
 ## Panel access
 

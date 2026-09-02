@@ -224,6 +224,7 @@ PANEL_PORT=""
 PANEL_USER=""
 DOMAIN=""
 DOMAIN_MODE=""
+TLS_EMAIL=""
 ACTION="install"
 SKIP_DEPS=false
 PULL_ONLY=false
@@ -247,6 +248,12 @@ OPTIONS
   --domain <domain>       Base domain for routed services    (optional)
   --domain-mode <mode>    Project hostnames: local | auto | custom
                           (default: auto on a server, local otherwise)
+  --tls <email>           Serve HTTPS. Needs --domain and a wildcard record
+                          pointing here; certificates come from Let's Encrypt
+                          over HTTP-01, one per hostname, and :80 must be
+                          reachable from the internet. The address is the ACME
+                          account contact. For one wildcard instead, configure
+                          DNS-01 afterwards: see docs/dns-and-tls.md
   --version <ref>         Tag, branch or commit to install   (default: main)
   --registry <namespace>  Image namespace  (default: ghcr.io/fabioassuncao)
   --skip-deps             Never offer to install Docker
@@ -283,6 +290,8 @@ while [ $# -gt 0 ]; do
     --domain=*) DOMAIN="${1#*=}" ;;
     --domain-mode) shift; DOMAIN_MODE="${1:-}" ;;
     --domain-mode=*) DOMAIN_MODE="${1#*=}" ;;
+    --tls) shift; TLS_EMAIL="${1:-}" ;;
+    --tls=*) TLS_EMAIL="${1#*=}" ;;
     --version) shift; PORTTA_REF="${1:-}" ;;
     --version=*) PORTTA_REF="${1#*=}" ;;
     --registry) shift; PORTTA_REGISTRY="${1:-}" ;;
@@ -977,6 +986,25 @@ case "$DOMAIN_MODE" in
     note "that only resolves on this machine; --domain-mode auto gives one that resolves anywhere"
     ;;
 esac
+
+# TLS, once the domain is settled: it is the domain the certificate is for, and
+# there is no certificate a public CA will issue for a bare IP or an auto
+# domain. HTTP-01 rather than DNS-01 because it needs no provider credential,
+# which is the only reason this can be a single flag at all; a wildcard is a
+# deliberate second step. See docs/dns-and-tls.md.
+if [ -n "$TLS_EMAIL" ]; then
+  case "$PROJECT_DOMAIN" in
+    localhost|*.sslip.io|*.nip.io)
+      die "--tls needs a real domain: pass --domain dev.example.com --domain-mode custom (no public CA issues a certificate for ${PROJECT_DOMAIN})" ;;
+  esac
+  env_set "$ENV_FILE" TLS_ENABLED true
+  env_set "$ENV_FILE" TLS_MODE acme
+  env_set "$ENV_FILE" ACME_CHALLENGE http
+  env_set "$ENV_FILE" ACME_EMAIL "$TLS_EMAIL"
+  good "HTTPS: Let's Encrypt over HTTP-01, one certificate per hostname"
+  note "*.${PROJECT_DOMAIN} must resolve here and :80 must be reachable, or issuance fails"
+  note "one wildcard instead needs a DNS credential: docs/dns-and-tls.md"
+fi
 
 # The panel's own address, for the summary and for `portta web status`. This
 # binds nothing: it is the address a human types.
