@@ -338,6 +338,30 @@ for suite in "$PORTTA_ROOT"/tests/unit/*.test.sh; do
 done
 assert_eq "" "$offenders"
 
+# The same failure from the other direction. `composeArguments` is what carries
+# --project-directory; a hand-built `-f` list omits it, and Compose then anchors
+# every relative bind at docker/compose/, where it creates `.env`, `VERSION`,
+# the dynamic directory and the auth store as empty directories. The gateway
+# comes back up healthy and reading none of its own configuration.
+#
+# Found on a real host: `portta public enable` did exactly this, and the panel
+# answered 500 EISDIR with a gateway version of "unknown".
+it "every compose invocation that names a gateway file goes through composeArguments"
+offenders=""
+for source in packages/cli/src/*.ts packages/cli/src/commands/*.ts; do
+  case "$source" in *.test.ts) continue ;; esac
+  while IFS= read -r line; do
+    case "$line" in
+      *composeArguments*) continue ;;
+      # A -f whose path is joined onto the gateway root is a gateway compose
+      # file; a consumer project's own compose file is not.
+      *"'compose'"*"join("*".root,"*)
+        offenders="$offenders $(basename "$source")" ;;
+    esac
+  done < "$source"
+done
+assert_eq "" "$offenders"
+
 describe "the TypeScript CLI never constructs a shell command from input"
 
 it "the process primitive disables shell execution"

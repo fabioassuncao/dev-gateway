@@ -2,7 +2,7 @@ import { lookup } from 'node:dns/promises'
 import { join } from 'node:path'
 import type { Command } from 'commander'
 import { confirm } from '../confirm.js'
-import { gatewayContext } from '../context.js'
+import { composeArguments, gatewayContext } from '../context.js'
 import { inspectContainers } from '../docker.js'
 import { PreconditionError, RefusedError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
@@ -65,7 +65,12 @@ export async function publicEnable(command: Command): Promise<void> {
   if (!context.config.publicDomain) await writeSetting('PUBLIC_DOMAIN', publicDomain, command)
   await writeSetting('PORTTA_PROFILE', 'remote-public', command)
   const refreshed = gatewayContext({ profile: 'remote-public' })
-  await runProcess('docker', ['compose', ...refreshed.composeFiles.flatMap((file) => ['-f', join(refreshed.root, file)]), 'up', '-d'], { cwd: refreshed.root, env: refreshed.env, stdio: 'inherit' })
+  // composeArguments, not a hand-built file list: it is what carries
+  // --project-directory. Without it Compose anchors every relative bind at
+  // docker/compose/, so `.env`, `VERSION`, the dynamic directory and the auth
+  // store are all created there as empty directories and the gateway comes
+  // back up reading none of its own configuration.
+  await runProcess('docker', ['compose', ...composeArguments(refreshed), 'up', '-d'], { cwd: refreshed.root, env: refreshed.env, stdio: 'inherit' })
 }
 
 export async function publicDisable(command: Command): Promise<void> {
