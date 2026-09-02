@@ -20,7 +20,7 @@ import {
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
 import { ensureNetwork, inspectContainers } from '../docker.js'
-import { PreconditionError, RefusedError, UsageError } from '../errors.js'
+import { EXIT, RefusedError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
 import { refreshGitMetadata } from './git.js'
@@ -244,10 +244,23 @@ export async function webAuthApply(command: Command): Promise<void> {
   new Output(globals(command)).progress(`rendered ${authPath(context.root)} from .env`)
 }
 
+/**
+ * A passthrough to the shell implementation of a command the TypeScript CLI
+ * has not taken over yet. It must be transparent in both directions: the child
+ * inherits the terminal, so its prompts, streaming and Ctrl-C work, and its
+ * exit code is adopted verbatim.
+ *
+ * Adopting the code matters for the recovery commands. Wrapping every failure
+ * as a precondition turned `portta restore` with no argument from the shell's
+ * exit 1 into exit 3, and printed a second, vaguer error over the first one —
+ * so a script could not tell "you named no archive" from "Docker is down", and
+ * `backup`, `restore` and `repair` are the commands that run when something is
+ * already wrong.
+ */
 export async function legacy(commandName: string, args: string[], command: Command): Promise<void> {
   const context = gatewayContext({ profile: globals(command).profile })
   const forwarded = [...args]
   if (commandName === 'remote' && globals(command).json && ['status', 'doctor', 'urls'].includes(forwarded[0] ?? '')) forwarded.push('--json')
   const result = await runProcess(join(context.root, 'bin/portta'), [commandName, ...forwarded], { cwd: context.root, env: { ...context.env, PORTTA_FORCE_BASH: 'true', PORTTA_ASSUME_YES: globals(command).yes ? 'true' : context.env['PORTTA_ASSUME_YES'] }, stdio: 'inherit', reject: false })
-  if (result.exitCode !== 0) throw new PreconditionError(`${commandName} failed`, `see portta ${commandName} --help`)
+  if (result.exitCode !== 0) process.exitCode = result.exitCode ?? EXIT.failure
 }

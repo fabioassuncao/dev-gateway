@@ -167,8 +167,35 @@ describe(projectOption(redis.command('cli')), 'Run redis-cli inside the project 
 const tls = describe(program.command('tls'), 'Drive local certificates with openssl')
 describe(tls.command('status', { isDefault: true }), 'Show certificate and TLS configuration').action((_options, command) => tlsStatus(command))
 for (const name of ['init', 'trust', 'untrust']) describe(tls.command(`${name} [args...]`), `${name} local certificate material`).allowUnknownOption(true).action((args, _options, command) => legacy('tls', [name, ...args], command))
-for (const [name, description] of [['remote', 'Operate another gateway over ssh'], ['toolbox', 'Run pinned operational tools in Docker']] as const) {
-  describe(program.command(`${name} [args...]`), description).allowUnknownOption(true).allowExcessArguments(true).action((args, _options, command) => legacy(name, args, command))
+/**
+ * `bin/portta` hands over to this file whenever Node is present, so a command
+ * the Bash dispatcher has and Commander does not is unreachable on every host
+ * the installer touched — `portta tunnel status` exited 2 with `unknown
+ * command` while its implementation sat intact behind `PORTTA_FORCE_BASH`.
+ *
+ * These passthroughs are the cheap half of the fix and are deliberately
+ * temporary: #29 deletes each one in the change that ports it. The parity
+ * assertion in `tests/unit/cli.test.sh` is what stops the two surfaces
+ * drifting apart again.
+ */
+const passthroughs = [
+  ['remote', 'Operate another gateway over ssh'],
+  ['toolbox', 'Run pinned operational tools in Docker'],
+  ['tunnel', 'Run the Cloudflare tunnel connector'],
+  ['backup', 'Archive gateway state and the panel database'],
+  ['restore', 'Restore gateway state from an archive'],
+  ['repair', 'Recover a gateway that will not start'],
+] as const
+for (const [name, description] of passthroughs) {
+  /**
+   * `helpOption(false)` matters more than it looks. Each of these commands
+   * already prints a page of its own — subcommands, flags, and the reason
+   * `tunnel setup` refuses a token on the command line. Commander's built-in
+   * `--help` would intercept that and answer with a four-line stub naming
+   * `[args...]`, which is how `portta remote --help` has been answering.
+   * Forwarding the flag keeps the real page.
+   */
+  describe(program.command(`${name} [args...]`), description).helpOption(false).allowUnknownOption(true).allowExcessArguments(true).action((args, _options, command) => legacy(name, args, command))
 }
 
 /**

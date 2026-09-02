@@ -675,7 +675,13 @@ main() {
     restore) portta_cmd_restore "$@" ;;
     repair) portta_cmd_repair "$@" ;;
     remote) portta_cmd_remote "$@" ;;
-    network|public|dns|analyze|analyse|init|adapt|namespace|ns|access|services|git|share|auth|web|db|redis|service|project|setup|config|dev)
+    # Names the full CLI implements. Reporting the requirement beats an
+    # `unknown command` a reader would have to disprove. Every name here is
+    # registered in the Commander tree, and `tests/unit/cli.test.sh` fails if
+    # one stops being: a spelling only this list knows is a command that does
+    # not exist on any host with Node, which is every host the installer
+    # touched. `analyse` and `adapt` were exactly that.
+    network|public|dns|analyze|init|namespace|ns|access|services|git|share|auth|web|db|redis|service|project|setup|config|dev)
       err "'$cmd' requires Node 22.12 or newer and the full CLI"
       hint "npm install -g portta   (or run it inside a built checkout)"
       exit 3

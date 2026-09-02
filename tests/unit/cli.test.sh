@@ -19,7 +19,7 @@ GW="$PORTTA_ROOT/bin/portta"
 # per group proves the same thing — a leaf that was never wired up is missing
 # from its parent's help — at a fifteenth of the cost.
 COMMAND_TREE=(
-  ":version setup bootstrap up down restart status logs doctor urls inspect update project network public dns tls remote analyze init namespace access services service db redis web auth git share toolbox"
+  ":version setup bootstrap up down restart status logs doctor urls inspect update project network public dns tls remote analyze init namespace access services service db redis web auth git share toolbox tunnel backup restore repair"
   "project:list show services analyze init namespace"
   "network:status"
   "public:status enable disable"
@@ -63,8 +63,46 @@ for group in "${COMMAND_TREE[@]}"; do
   done
 done
 
-it "remote is a passthrough that still answers --help"
-assert_contains "$("$GW" remote --help 2>&1)" "Usage: portta remote"
+# A passthrough forwards `--help` rather than answering it. Commander's own
+# help option would print a stub naming `[args...]` over the page the shell
+# implementation writes, which is the page that lists the subcommands.
+for c in remote tunnel backup restore repair; do
+  it "portta $c --help is the implementation's page, not a stub"
+  assert_eq "$(PORTTA_FORCE_BASH=true "$GW" "$c" --help 2>&1)" "$("$GW" "$c" --help 2>&1)"
+done
+
+# A passthrough that rewrites the child's exit code hides which failure
+# happened. `restore` with no argument is a usage mistake and exits 1; wrapping
+# it as a precondition made it exit 3 and printed a second, vaguer error over
+# the shell's own, so a script could not tell it from "Docker is unreachable".
+for c in "restore" "tunnel test"; do
+  it "portta $c reports the shell implementation's exit code and output"
+  # shellcheck disable=SC2086
+  bash_out=$(PORTTA_FORCE_BASH=true "$GW" $c 2>&1); bash_rc=$?
+  # shellcheck disable=SC2086
+  node_out=$("$GW" $c 2>&1); node_rc=$?
+  if [ "$bash_rc" != "$node_rc" ]; then _t_fail "exit $node_rc, shell exits $bash_rc"
+  else assert_eq "$bash_out" "$node_out"; fi
+done
+
+describe "the two entry points offer the same commands"
+
+# bin/portta hands over to the TypeScript CLI whenever Node is present, so a
+# command the dispatcher names and Commander does not is unreachable on every
+# host the installer touched. `tunnel`, `backup`, `restore` and `repair` were
+# exactly that: intact implementations behind an `unknown command` and exit 2,
+# reachable only through the undocumented PORTTA_FORCE_BASH.
+it "every command bin/portta dispatches is registered in the Commander tree"
+# Commander prints `  name|alias  description`, so splitting on the bar gives
+# every spelling the tree answers to, aliases included.
+registered=$("$GW" --help 2>&1 | sed -n 's/^  \([a-z][a-z|-]*\).*/\1/p' | tr '|' '\n' | sort -u)
+missing=""
+for arm in $(sed -n '/^  case "${cmd:-}" in$/,/^  esac$/p' "$GW" \
+  | grep -oE '^    [a-z|]+\)' | tr -d ' )' | tr '|' '\n' | sort -u); do
+  case "$arm" in help) continue ;; esac
+  printf '%s\n' "$registered" | grep -qx "$arm" || missing="$missing $arm"
+done
+assert_eq "" "$missing"
 
 describe "unknown input fails clearly instead of doing something"
 it "an unknown command exits non-zero"; assert_failure "$GW" definitely-not-a-command
