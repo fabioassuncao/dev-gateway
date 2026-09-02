@@ -151,14 +151,25 @@ if [ "$RUN_UNIT" = "1" ]; then
       fi
     done
 
-    # Only the panel's types are checked here. `npm run typecheck` at the root
-    # covers every workspace and is what CI runs; this is the one that catches
-    # the mistakes made most often, at a cost worth paying on every run.
-    bold "== web panel types =="
-    if ( cd apps/web && npm run --silent typecheck ); then
-      echo "  ok  types check"
+    # Every workspace, not just the panel: this used to run in CI, and with the
+    # workflow gone it would otherwise run nowhere. It costs about a second,
+    # and it subsumes the panel-only check it replaced.
+    bold "== types =="
+    if npm run --silent typecheck >/dev/null; then
+      echo "  ok  every workspace type checks"
     else
+      npm run typecheck >&2 || true
       echo "  FAIL typecheck"; FAILED=1
+    fi
+
+    # `apps/web/openapi.json` is committed so an API change is visible in
+    # review, and it drifts silently the moment nothing regenerates it. Half a
+    # second, and the last release shipped with it already out of date.
+    bold "== openapi contract =="
+    if ( cd apps/web && npm run --silent openapi:check >/dev/null ); then
+      echo "  ok  openapi.json matches the routes"
+    else
+      echo "  FAIL openapi.json is stale (run: npm run openapi --workspace=portta-web)"; FAILED=1
     fi
   fi
 fi

@@ -60,9 +60,11 @@ both take minutes:
 ./tests/run.sh --all    # everything above in one run
 ```
 
-CI runs all of it on every push, so the local end-to-end run is for when you
-have a specific reason to believe it will fail — a change to the lifecycle
-commands, the compose files, the installer, or the panel's routing.
+**Nothing runs these for you.** The repository's one workflow publishes the
+Docker image and checks nothing; a push is not verified by anything but you. So
+the expensive layers are not a safety net someone else holds — run `--e2e`
+yourself before a merge that touches the lifecycle commands, the compose files,
+the installer or the panel's routing, and `--all` before a release.
 
 ## What belongs in the suite
 

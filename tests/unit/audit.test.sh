@@ -99,26 +99,6 @@ it "the panel gains no new Docker permission for it"
 assert_eq "4" "$(grep -c "method: 'POST'" apps/web/src/server/docker/allowlist.ts)"
 assert_eq "1" "$(grep -c 'containers..create' apps/web/src/server/docker/allowlist.ts)"
 
-describe "every job that runs the panel end to end builds what it imports"
-
-# The Playwright web server runs the *built* panel, which imports portta-core
-# through its `dist`. A job that runs that suite without building the package
-# dies with ERR_MODULE_NOT_FOUND before a single test starts. Two jobs carried
-# the build and a third did not, and nobody could tell: the step was never
-# reached while the suite hung.
-it "no e2e job runs the panel suite without building portta-core"
-assert_eq "" "$(python3 - <<'PORTTA_PY'
-import yaml
-spec = yaml.safe_load(open(".github/workflows/ci.yaml"))
-bad = []
-for name, job in spec["jobs"].items():
-    runs = " ".join(step.get("run", "") for step in job.get("steps", []))
-    if "test:e2e" in runs and "build --workspace=portta-core" not in runs:
-        bad.append(name)
-print(" ".join(bad))
-PORTTA_PY
-)"
-
 describe "file modes are read portably"
 
 # `stat -f` means "file system status" to GNU stat: it exits 0 and prints

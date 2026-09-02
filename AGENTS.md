@@ -43,9 +43,12 @@ Append a filename or `-t <name>` to narrow further:
 
 Run `./tests/run.sh` when you finish a feature, when the change is structural
 or touches something shared (`packages/core`, `src/shared/types.ts`, a compose
-overlay, the installer), and before a merge or a release. Keep `--e2e` and
-`--all` for when you have a specific reason to expect them to fail; CI runs
-them on every push either way.
+overlay, the installer), and before a merge or a release.
+
+**Nothing runs these for you.** The only workflow left publishes the Docker
+image; there is no CI that re-checks a push. Run `--e2e` before a merge that
+touches the lifecycle commands, the compose files, the installer or the panel's
+routing, and `--all` before a release.
 
 [docs/testing.md](docs/testing.md) has the costs of each layer, and what does
 and does not deserve a test.

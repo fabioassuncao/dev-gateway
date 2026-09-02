@@ -168,9 +168,9 @@ unless `PORTTA_RUNTIME_API_DOCS=true` explicitly opts in. The JSON contract stay
 available because a caller that reached the API can already inspect it.
 
 `apps/web/openapi.json` is checked in so an API change is visible in review.
-`npm run openapi:check` regenerates it in memory and fails on byte-level drift;
-CI runs that check before the API suites. Adding or changing a route therefore
-requires updating its attached description and running `npm run openapi`.
+`npm run openapi:check` regenerates it in memory and fails on byte-level drift.
+Adding or changing a route therefore requires updating its attached description
+and running `npm run openapi`.
 
 ### Regenerating the screenshots
 

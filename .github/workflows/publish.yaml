@@ -37,12 +37,23 @@ jobs:
         id: version
         run: echo "value=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
 
-      # The compose default tag and VERSION have to agree, or an installation
-      # pinned by the file would pull an image that was never published.
-      - name: The compose default tag matches VERSION
+      # Every compose default tag and VERSION have to agree, or an installation
+      # pinned by those files would pull an image that was never published.
+      # This checked only the panel's overlay, and portta-auth sat a release
+      # behind through 0.4.0 because of it. With the test workflow gone this is
+      # the last automated guard on what the installer will pull.
+      - name: Every compose default tag matches VERSION
         run: |
           set -euo pipefail
           version=$(tr -d '[:space:]' < VERSION)
+          stale=$(grep -rhoE 'ghcr\.io/[^/]+/portta:[0-9][^}]*' \
+            docker/compose/compose.yaml docker/compose/*/*.yaml \
+            | sort -u | grep -v ":${version}\$" || true)
+          if [ -n "$stale" ]; then
+            echo "these default to a tag this workflow is not publishing (VERSION is ${version}):"
+            printf '  %s\n' $stale
+            exit 1
+          fi
           grep -Fq "portta:${version}" docker/compose/features/web.yaml \
             || { echo "docker/compose/features/web.yaml does not default to portta:${version}"; exit 1; }
 
