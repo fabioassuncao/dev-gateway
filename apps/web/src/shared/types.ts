@@ -1006,11 +1006,31 @@ export const ApplyState = named(
 )
 export type ApplyState = z.infer<typeof ApplyState>
 
+/**
+ * Why there is no applier, as a value the UI can translate rather than a
+ * sentence it can only print. The three cases have three different fixes, and
+ * telling an operator to set a key that is already set sends them to the wrong
+ * file: `disabled` is a setting, `not-prepared` is a command, and `refused` is
+ * a posture this host deliberately took.
+ */
+export const ApplyUnavailableReason = named(
+  z.enum(['disabled', 'refused', 'not-prepared']),
+  'ApplyUnavailableReason',
+)
+export type ApplyUnavailableReason = z.infer<typeof ApplyUnavailableReason>
+
 export const ApplyStatus = named(
   z.object({
     state: ApplyState,
     available: z.boolean().describe('An applier container exists on this host'),
     reason: z.string().nullable().describe('Why the panel cannot apply, in one line'),
+    // The same fact as `reason`, as a case the UI can translate. Null whenever
+    // an applier exists, which is exactly when `reason` is null too.
+    unavailableReason: ApplyUnavailableReason.nullable(),
+    // This host builds its own images, so an apply carries a Docker build in
+    // front of it. On a first run that is minutes, not seconds — long enough
+    // that a progress dialog which does not say so reads as a hang.
+    buildsImages: z.boolean(),
     startedAt: unixSeconds.nullable(),
     finishedAt: unixSeconds.nullable(),
     exitCode: z.number().int().nullable(),

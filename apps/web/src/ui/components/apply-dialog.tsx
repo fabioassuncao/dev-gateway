@@ -64,6 +64,11 @@ export function ApplyDialog({ machine }: { machine: ApplyMachine }) {
             <span>{t('confirmMoves')}</span>
           </p>
         ) : null}
+        {/* The difference between ten seconds and five minutes. Without it, a
+            first apply on a checkout reads as a hang. */}
+        {status?.buildsImages ? (
+          <p className="mt-2 text-xs text-muted">{t('confirmBuild')}</p>
+        ) : null}
         <p className="mt-2 text-xs text-subtle">{t('confirmKeepTab')}</p>
       </Dialog>
     )

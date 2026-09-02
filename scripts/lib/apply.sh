@@ -19,7 +19,7 @@
 # portta_compose_files mirrors composeFiles: the core commands must run without
 # Node (ADR 0015). tests/unit/apply.test.sh keeps the two identical.
 
-PORTTA_APPLY_IMAGE="fabioassuncao/portta-apply:0.1.0"
+PORTTA_APPLY_IMAGE="fabioassuncao/portta-apply:0.2.0"
 PORTTA_APPLY_CONTAINER="portta-apply"
 PORTTA_APPLY_CONTEXT="$PORTTA_ROOT/docker/images/apply"
 
@@ -45,16 +45,15 @@ portta_apply_spec() {
 
 # portta_apply_refusal: why this host must not prepare an applier, or empty.
 # Mirrors applyRefusal in packages/core/src/apply.ts.
+#
+# Building the panel image is deliberately not a refusal. PORTTA_WEB_BUILD and
+# PORTTA_WEB_DEV add a `build:` stanza whose context is the repository root, and
+# this used to refuse both on the grounds that the applier would build the image
+# inside itself. It does not: the applier holds the host's Docker socket, so
+# `compose build` streams the context over that unix socket and the host daemon
+# does the build, with the host's network and its layer cache. What the applier
+# needs is the buildx plugin, which docker/images/apply/Dockerfile installs.
 portta_apply_refusal() {
-  # Both overlays add a `build:` stanza whose context is the repository root.
-  # The applier has no network and no toolchain, so it would try to build the
-  # panel image inside itself and fail after taking the gateway down.
-  if portta_is_true "${PORTTA_WEB_BUILD:-false}"; then
-    printf 'PORTTA_WEB_BUILD is true: the applier cannot build the panel image'; return 0
-  fi
-  if portta_is_true "${PORTTA_WEB_DEV:-false}"; then
-    printf 'PORTTA_WEB_DEV is true: the applier cannot build the panel image'; return 0
-  fi
   # Applying rewrites how the whole host is exposed. Handing that to whoever
   # reaches a public panel is a different decision from handing it to whoever
   # reaches a loopback one, and it is not one this feature makes for you.

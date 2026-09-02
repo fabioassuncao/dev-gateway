@@ -139,13 +139,18 @@
     "barApplying": "Aplicando as configurações salvas…",
     "barAction": "Aplicar e reiniciar",
     "barManual": "Aplique no host com:",
-    "barEnableHint": "Defina PORTTA_APPLY=true no host para fazer isso daqui.",
+    "unavailable": {
+      "disabled": "Defina PORTTA_APPLY=true no .env do host e rode o comando uma vez.",
+      "refused": "Este host recusa aplicar pelo painel: {{reason}}.",
+      "notPrepared": "PORTTA_APPLY já está ligado; o applier ainda não foi preparado. Rode o comando uma vez no host."
+    },
     "confirmTitle": "Aplicar as configurações salvas?",
     "confirmDescription": "O Portta recria os próprios containers para esses valores salvos passarem a valer.",
     "confirmPanel": "Este painel é um deles: ele sai do ar por alguns segundos e volta sozinho.",
     "confirmProjects": "Seus projetos não são tocados. Só os containers do próprio Portta são recriados, e a rede compartilhada fica como está.",
     "confirmMoves": "Uma configuração pendente muda o endereço em que este painel responde, então esta aba não vai reconectar sozinha.",
     "confirmKeepTab": "Mantenha esta aba aberta enquanto roda.",
+    "confirmBuild": "Este host constrói as próprias imagens, então o apply inclui um build Docker. O primeiro pode levar vários minutos.",
     "confirm": "Aplicar e reiniciar",
     "keepTabOpen": "Não feche esta aba. O painel volta sozinho.",
     "phase": {

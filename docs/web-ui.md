@@ -830,6 +830,12 @@ the panel goes offline and comes back, and reports the applier's exit code and
 output if it failed. If a pending setting moves the panel's own address, the
 confirmation says the tab will not reconnect on its own.
 
+On a repository checkout the apply rebuilds the local images first, which takes
+minutes rather than seconds on a cold cache. The confirmation says so, and the
+panel waits longer before declaring a timeout. If there is no applier at all,
+the bar names which of the three reasons applies — the key is off, this host
+refuses, or `portta up` has not prepared one yet — rather than guessing.
+
 Turning this on is a host decision, deliberately: the key is not in the panel's
 field catalogue, so the panel cannot enable itself. Be clear about what it
 grants — anyone who can write through the panel can then run `portta up` on the

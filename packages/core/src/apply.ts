@@ -15,7 +15,7 @@
 // portta_apply_create in scripts/lib/apply.sh, because the core commands must
 // run without Node (ADR 0015). tests/unit/apply.test.sh keeps them identical.
 
-export const APPLY_IMAGE = 'fabioassuncao/portta-apply:0.1.0'
+export const APPLY_IMAGE = 'fabioassuncao/portta-apply:0.2.0'
 export const APPLY_CONTAINER = 'portta-apply'
 export const APPLY_COMPONENT = 'apply'
 
@@ -79,16 +79,19 @@ export function applySpec(root: string, version: string): string {
   return `${APPLY_IMAGE}|${root}|${version}`
 }
 
-/** Why this host must not prepare an applier, or null when it may. */
+/**
+ * Why this host must not prepare an applier, or null when it may.
+ *
+ * Building the panel image is deliberately *not* a refusal. `PORTTA_WEB_BUILD`
+ * and `PORTTA_WEB_DEV` add a `build:` stanza whose context is the repository
+ * root, and this used to refuse both on the grounds that the applier would
+ * "build the image inside itself". It does not: the applier holds the host's
+ * Docker socket, so `compose build` streams the context over that unix socket
+ * and the *host daemon* does the build, with the host's network and its layer
+ * cache. `--network none` never had a say in it. What the applier does need is
+ * the buildx plugin, which docker/images/apply/Dockerfile now installs.
+ */
 export function applyRefusal(env: Record<string, string | undefined>): string | null {
-  const on = (key: string) => (env[key] ?? '').trim().toLowerCase() === 'true'
-
-  // Both overlays add a `build:` stanza whose context is the repository root.
-  // The applier has no network and no toolchain, so it would try to build the
-  // panel image inside itself and fail after taking the gateway down.
-  if (on('PORTTA_WEB_BUILD')) return 'PORTTA_WEB_BUILD is true: the applier cannot build the panel image'
-  if (on('PORTTA_WEB_DEV')) return 'PORTTA_WEB_DEV is true: the applier cannot build the panel image'
-
   // Applying rewrites how the whole host is exposed. Handing that to whoever
   // reaches a public panel is a different decision from handing it to whoever
   // reaches a loopback one, and it is not one this feature makes for you.

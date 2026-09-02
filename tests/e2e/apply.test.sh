@@ -28,10 +28,13 @@ portta_load_env; portta_defaults
 GW="$PORTTA_ROOT/bin/portta"
 ORIGINAL_LOG_LEVEL="$PORTTA_LOG_LEVEL"
 
-# A host in panel development mode, or building the panel image, refuses to
-# prepare an applier at all -- correctly, and that is asserted in
-# tests/unit/apply.test.sh. There is nothing to exercise here on such a host,
-# and failing would say the feature is broken when it is behaving.
+# A publicly exposed panel, or the remote-public profile, refuses to prepare an
+# applier at all -- correctly, and that is asserted in tests/unit/apply.test.sh.
+# There is nothing to exercise here on such a host, and failing would say the
+# feature is broken when it is behaving.
+#
+# A development checkout is no longer one of those: it runs the whole suite, and
+# each apply carries a `--build`, so expect this to take minutes on a cold cache.
 REFUSAL=$(portta_apply_refusal)
 if [ -n "$REFUSAL" ]; then
   describe "applying settings without a terminal"

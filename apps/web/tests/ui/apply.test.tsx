@@ -34,6 +34,8 @@ const IDLE: ApplyStatus = {
   state: 'idle',
   available: true,
   reason: null,
+  unavailableReason: null,
+  buildsImages: false,
   startedAt: null,
   finishedAt: null,
   exitCode: null,
@@ -77,10 +79,40 @@ describe('the pending bar', () => {
       state: 'unavailable',
       available: false,
       reason: 'set PORTTA_APPLY=true on the host, then run the command once',
+      unavailableReason: 'disabled',
     })
     renderWithQuery(<ApplyBar readOnly={false} />)
     expect(await screen.findByText('./bin/portta up local')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Apply and restart' })).not.toBeInTheDocument()
+    expect(screen.getByText(/Set PORTTA_APPLY=true/)).toBeInTheDocument()
+  })
+
+  // The bug this replaced: the bar told an operator who had already set the key
+  // to set the key, because one fixed sentence covered three situations.
+  it('does not tell an operator to set a key that is already set', async () => {
+    applyStatus.mockResolvedValue({
+      ...IDLE,
+      state: 'unavailable',
+      available: false,
+      reason: 'PORTTA_APPLY is true, but the applier has not been prepared yet: run the command once',
+      unavailableReason: 'not-prepared',
+      buildsImages: true,
+    })
+    renderWithQuery(<ApplyBar readOnly={false} />)
+    expect(await screen.findByText(/already on/)).toBeInTheDocument()
+    expect(screen.queryByText(/Set PORTTA_APPLY=true/)).not.toBeInTheDocument()
+  })
+
+  it("carries the host's own wording when the host refuses", async () => {
+    applyStatus.mockResolvedValue({
+      ...IDLE,
+      state: 'unavailable',
+      available: false,
+      reason: 'the panel is exposed publicly: apply on the host instead',
+      unavailableReason: 'refused',
+    })
+    renderWithQuery(<ApplyBar readOnly={false} />)
+    expect(await screen.findByText(/exposed publicly/)).toBeInTheDocument()
   })
 
   it('offers no button in read-only mode, only the command', async () => {

@@ -4,6 +4,7 @@ import { Button } from './ui/button.tsx'
 import { CopyButton } from './copy.tsx'
 import { ApplyDialog } from './apply-dialog.tsx'
 import { useApply } from '../lib/use-apply.ts'
+import type { ApplyStatus } from '../../shared/types.ts'
 
 /**
  * Saved settings that are not running yet used to be visible only on the
@@ -51,14 +52,41 @@ export function ApplyBar({ readOnly }: { readOnly: boolean }) {
             <span className="ml-auto">{t('barManual')}</span>
             <code className="font-mono text-ink">{status.applyCommand}</code>
             <CopyButton value={status.applyCommand} label={tc('copyCommand')} />
-            {/* Why there is no button, in one sentence that says what to do
-                about it. Read-only is a deliberate posture, so it gets no
-                instructions for undoing itself. */}
-            {!readOnly ? <span className="text-subtle">{t('barEnableHint')}</span> : null}
+            {/* Read-only is a deliberate posture, so it gets no instructions
+                for undoing itself. */}
+            {!readOnly ? <Unavailable status={status} /> : null}
           </>
         )}
       </div>
       {dialog}
     </>
+  )
+}
+
+/**
+ * Why there is no button, in one sentence that says what to do about it.
+ *
+ * Three situations look identical from here — the applier container is simply
+ * absent — and they have three different fixes. One fixed sentence used to
+ * cover all of them, which meant telling an operator who had already set
+ * PORTTA_APPLY to go and set PORTTA_APPLY.
+ *
+ * Spelled out rather than interpolated, like the phases in the dialog: the keys
+ * are type-checked against the catalogue this way. `refused` is the one case
+ * the panel quotes the host for, because the host phrased it better.
+ */
+function Unavailable({ status }: { status: ApplyStatus }) {
+  const { t } = useTranslation('gateway', { keyPrefix: 'apply' })
+  const reason = status.unavailableReason
+  if (!reason) return null
+
+  return (
+    <span className="text-subtle">
+      {reason === 'disabled'
+        ? t('unavailable.disabled')
+        : reason === 'not-prepared'
+          ? t('unavailable.notPrepared')
+          : t('unavailable.refused', { reason: status.reason ?? '' })}
+    </span>
   )
 }

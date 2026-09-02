@@ -32,7 +32,16 @@ const PROBE_MS = 1_500
  * panel with nothing pending and declare success immediately.
  */
 const GRACE_MS = 5_000
-const BUDGET_MS = 180_000
+/**
+ * How long to keep probing before calling it a timeout. The host's own
+ * `--wait-timeout` is 180s, and matching it exactly leaves no room for the
+ * apply to be *slower* than the gateway convergence it waits on — which is
+ * every apply on a checkout, where `up --build` runs `npm ci` before Compose
+ * converges at all. So: comfortably past the host on a host that builds, and
+ * just past it on one that does not.
+ */
+const BUDGET_MS = 240_000
+const BUILD_BUDGET_MS = 900_000
 
 export interface ApplyMachine {
   phase: ApplyPhase
@@ -87,6 +96,10 @@ export function useApply(): ApplyMachine {
     return () => clearInterval(timer)
   }, [startedAtMs])
 
+  // Stable across a run: the value comes from the host's .env, not from the
+  // poll, so this never re-enters the loop below mid-apply.
+  const budget = status?.buildsImages ? BUILD_BUDGET_MS : BUDGET_MS
+
   useEffect(() => {
     if (phase !== 'applying' && phase !== 'waiting') return
     let cancelled = false
@@ -129,7 +142,7 @@ export function useApply(): ApplyMachine {
       }
 
       if (cancelled) return
-      if (Date.now() - (startedAtMs ?? 0) > BUDGET_MS) return setPhase('timeout')
+      if (Date.now() - (startedAtMs ?? 0) > budget) return setPhase('timeout')
       timer = setTimeout(() => void round(), POLL_MS)
     }
 
@@ -138,7 +151,7 @@ export function useApply(): ApplyMachine {
       cancelled = true
       if (timer) clearTimeout(timer)
     }
-  }, [phase, sawOffline, startedAtMs, queryClient])
+  }, [phase, sawOffline, startedAtMs, queryClient, budget])
 
   const open = useCallback(() => {
     setError(null)

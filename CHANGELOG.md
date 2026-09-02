@@ -38,6 +38,20 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Fixed
 
+- **The panel can now apply settings on a development checkout, and says why
+  when it cannot.** With `PORTTA_APPLY=true` already set, a checkout still got
+  no **Apply and restart** button and a bar that advised setting
+  `PORTTA_APPLY=true` — advice for a key that was on. Two faults: `up` refused to
+  prepare the applier whenever `PORTTA_WEB_BUILD` or `PORTTA_WEB_DEV` was set,
+  on the incorrect grounds that the applier would build the panel image inside
+  itself; it does not, because it holds the host's Docker socket and the host
+  daemon runs the build, so the refusal is gone and the image carries buildx.
+  And the panel described every missing applier with one fixed sentence, so it
+  now reports which of the three reasons it is — the key is off, this host
+  refuses, or `portta up` has not prepared one yet — translated rather than
+  printed. An apply that rebuilds images announces it in the confirmation and
+  gets a longer budget before the browser calls it a timeout.
+
 - **The panel could not save settings from a checkout, and lost sight of `.env`
   entirely after any host-side write.** Two defects stacked. `.env` is
   owner-only, so the container has to run as whoever owns it; `install.sh`

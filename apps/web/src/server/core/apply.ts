@@ -12,12 +12,18 @@
 // here, because the apply recreates this process: whatever we held in memory is
 // gone by the time there is an answer to report.
 
+import { applyRefusal, isTrue, parseEnv, readEnvFile } from 'portta-core'
 import type { DockerClient } from '../docker/client.ts'
 import type { PanelConfig } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import { componentOf } from './gateway.ts'
 import { buildConfigView } from './configview.ts'
-import type { ApplyState, ApplyStatus, ConfigField } from '../../shared/types.ts'
+import type {
+  ApplyState,
+  ApplyStatus,
+  ApplyUnavailableReason,
+  ConfigField,
+} from '../../shared/types.ts'
 
 /** The label `portta up` puts on the container it prepares. */
 export const APPLY_COMPONENT = 'apply'
@@ -47,6 +53,51 @@ function movesPanel(pending: ConfigField[], config: PanelConfig): boolean {
   return config.webExpose !== 'local' && keys.includes('PORTTA_DOMAIN')
 }
 
+/**
+ * Three different situations produce the same missing container, and each has a
+ * different fix. Telling someone to set a key they have already set — which is
+ * what a single fixed sentence did — sends them to the wrong file entirely.
+ *
+ * The saved `.env` is the only place to read this from. `PORTTA_APPLY` is
+ * deliberately not in the panel's field catalogue and is never passed into this
+ * container's environment, so that the panel cannot enable itself (ADR 0026);
+ * reading the file to *explain* itself takes nothing that was withheld.
+ */
+function whyUnavailable(saved: Map<string, string>): {
+  unavailableReason: ApplyUnavailableReason
+  reason: string
+} {
+  const env = Object.fromEntries(saved)
+
+  if (!isTrue(saved.get('PORTTA_APPLY') ?? 'false')) {
+    return {
+      unavailableReason: 'disabled',
+      reason: 'set PORTTA_APPLY=true on the host, then run the command once',
+    }
+  }
+
+  // The host's own words, so the panel and the terminal agree on the reason.
+  const refusal = applyRefusal(env)
+  if (refusal !== null) return { unavailableReason: 'refused', reason: refusal }
+
+  // The key is on and nothing objects, so the applier is simply not built yet:
+  // `up` prepares it, and has not run since the key was turned on.
+  return {
+    unavailableReason: 'not-prepared',
+    reason: 'PORTTA_APPLY is true, but the applier has not been prepared yet: run the command once',
+  }
+}
+
+/**
+ * Whether `up` will build before it converges. Both overlays add a `build:`
+ * stanza whose context is the repository root, and on a cold cache that is
+ * `npm ci` twice over — minutes. The panel says so up front rather than
+ * letting a long silence look like a failure.
+ */
+function buildsImages(saved: Map<string, string>): boolean {
+  return isTrue(saved.get('PORTTA_WEB_BUILD') ?? 'false') || isTrue(saved.get('PORTTA_WEB_DEV') ?? 'false')
+}
+
 export function applier(snapshot: Snapshot) {
   return componentOf(snapshot, APPLY_COMPONENT)
 }
@@ -59,24 +110,27 @@ export async function applyStatus(
 ): Promise<ApplyStatus> {
   const view = buildConfigView(config)
   const pending = view.fields.filter((field) => field.pending)
+  // The file the host will read on its next `up`, not this process's
+  // environment: the panel is explaining a decision the host makes.
+  const saved = parseEnv(readEnvFile(config.envFile))
   const common = {
     pendingRestart: view.pendingRestart,
     pendingKeys: pending.map((field) => field.key),
     movesPanel: movesPanel(pending, config),
+    buildsImages: buildsImages(saved),
     profile: config.profile,
     applyCommand: view.applyCommand,
   }
 
   const container = applier(snapshot)
   if (!container) {
+    const { unavailableReason, reason } = whyUnavailable(saved)
     return {
       ...common,
       state: 'unavailable',
       available: false,
-      // Two different situations, and the fix differs: one is a setting, the
-      // other is a command. Saying "unavailable" for both would send the
-      // operator looking in the wrong place.
-      reason: 'set PORTTA_APPLY=true on the host, then run the command once',
+      reason,
+      unavailableReason,
       startedAt: null,
       finishedAt: null,
       exitCode: null,
@@ -111,5 +165,15 @@ export async function applyStatus(
         .map((line) => line.text)
     : []
 
-  return { ...common, state, available: true, reason: null, startedAt, finishedAt, exitCode, logTail }
+  return {
+    ...common,
+    state,
+    available: true,
+    reason: null,
+    unavailableReason: null,
+    startedAt,
+    finishedAt,
+    exitCode,
+    logTail,
+  }
 }

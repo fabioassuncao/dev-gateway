@@ -139,13 +139,18 @@
     "barApplying": "Applying saved settings…",
     "barAction": "Apply and restart",
     "barManual": "Apply them on the host with:",
-    "barEnableHint": "Set PORTTA_APPLY=true on the host to do this from here.",
+    "unavailable": {
+      "disabled": "Set PORTTA_APPLY=true in the host's .env, then run the command once.",
+      "refused": "This host refuses to apply from the panel: {{reason}}.",
+      "notPrepared": "PORTTA_APPLY is already on; the applier is not prepared yet. Run the command once on the host."
+    },
     "confirmTitle": "Apply saved settings?",
     "confirmDescription": "Portta recreates its own containers so these saved values take effect.",
     "confirmPanel": "This panel is one of them: it goes offline for a few seconds and comes back on its own.",
     "confirmProjects": "Your projects are not touched. Only Portta's own containers are recreated, and the shared network stays as it is.",
     "confirmMoves": "A pending setting changes where this panel answers, so this tab will not reconnect on its own.",
     "confirmKeepTab": "Keep this tab open while it runs.",
+    "confirmBuild": "This host builds its own images, so the apply includes a Docker build. The first one can take several minutes.",
     "confirm": "Apply and restart",
     "keepTabOpen": "Do not close this tab. The panel comes back on its own.",
     "phase": {

@@ -53,7 +53,7 @@ docker create --name portta-apply
   --workdir  $PORTTA_ROOT
   --volume   /var/run/docker.sock:/var/run/docker.sock
   --volume   $PORTTA_ROOT:$PORTTA_ROOT
-  fabioassuncao/portta-apply:0.1.0
+  fabioassuncao/portta-apply:0.2.0
   bash $PORTTA_ROOT/bin/portta up --wait
 ```
 
@@ -150,10 +150,9 @@ What bounds it:
   pivot. The cost is that enabling a component whose image is not yet on the
   host fails at Compose's pull phase — which runs before convergence, so the
   failure is clean and the gateway is never left half applied.
-- The host refuses to prepare one at all when `PORTTA_WEB_BUILD` or
-  `PORTTA_WEB_DEV` is set (the applier would try to build the panel image inside
-  itself, with no network, after taking the gateway down), when the panel is
-  exposed publicly, or on the `remote-public` profile.
+- The host refuses to prepare one at all when the panel is exposed publicly, or
+  on the `remote-public` profile. It used to refuse `PORTTA_WEB_BUILD` and
+  `PORTTA_WEB_DEV` as well; the amendment below says why that was wrong.
 
 **What can still go wrong.** If the saved configuration is valid enough to write
 but not to start, `up` can take the panel down and fail before recreating it.
@@ -175,3 +174,47 @@ only difference is that it now says so on every page rather than only on the
 Settings page. Consumer projects are never touched, in either case
 ([ADR 0001](0001-decoupled-infrastructure.md)): the applier drives the
 gateway's own Compose project and no other.
+
+### Amendment: a host that builds its own images may still prepare an applier
+
+The refusal above originally covered two more cases, `PORTTA_WEB_BUILD` and
+`PORTTA_WEB_DEV`, on the grounds that the applier "would try to build the panel
+image inside itself, with no network". That reasoning was wrong on both counts,
+and it cost the one host where applying from the panel is most useful — a
+development checkout, where settings change constantly — the ability to do it at
+all. The panel then compounded it: with no applier to find, it reported
+`set PORTTA_APPLY=true`, telling operators to set a key they had already set.
+
+**Nothing is built inside the applier.** It holds the host's Docker socket, so
+`compose build` packs the context and sends it over that socket; the *host
+daemon* runs the build, with the host's network and its layer cache.
+`--network none` never had a say in it — the socket is a unix socket, which is
+exactly why the applier can have no network and still drive Compose. What the
+image did lack is the buildx plugin that the Compose CLI reaches the daemon's
+builder through, and it now carries `docker-cli-buildx`.
+
+**A failed build cannot leave the gateway half applied**, which was the sharper
+half of the fear. Compose builds before it stops anything, so a build that fails
+aborts the plan with every container still running — a strictly better failure
+than the ones this ADR already accepts.
+
+What is genuinely different on such a host is *time*. `up --build` on a cold
+cache runs `npm ci` twice, once for the panel's `dev` target and once for the
+authentication image, and that is minutes rather than the few seconds the
+progress dialog was written for. So `ApplyStatus` carries `buildsImages`, the
+confirmation says an apply includes a Docker build before the operator commits
+to it, and the browser's polling budget rises to 900s when it is set. Without
+that, the first apply on a checkout looks like a hang and gets abandoned halfway.
+
+The image is therefore `0.2.0`. The tag has to move: `up` builds the applier
+image only when it is *absent*, so a host with `0.1.0` cached would keep an
+image with no buildx forever. Because `applySpec` embeds the image reference in
+the `portta.apply.spec` label, the next `up` also finds the existing container
+stale and recreates it. No migration, and nothing for an operator to do.
+
+**The panel now says which case it is in.** Three situations produce the same
+missing container and have three different fixes, so `ApplyStatus` gained
+`unavailableReason` — `disabled`, `refused`, or `not-prepared` — and the bar
+picks a translated sentence from it instead of printing one fixed English hint
+for all three. `refused` is the only one that quotes the host's own wording,
+because there the host phrased it better than the panel can.

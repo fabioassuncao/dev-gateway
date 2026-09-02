@@ -15,6 +15,12 @@
 #
 # bash, not ash: bin/portta is a bash script, and the bash path is the only CLI
 # an installed PORTTA_HOME has (install.sh copies bin and scripts, never packages).
+#
+# buildx, because `up` passes --build on a repository checkout. Nothing is built
+# in here: the context is streamed over the mounted socket and the host daemon
+# does the work, with the host's network and layer cache. The plugin is only how
+# the compose CLI reaches that daemon, which is why --network none is no
+# obstacle -- and why this image needs no toolchain of its own.
 # ============================================================================
 FROM alpine:3.24.1
 
@@ -23,6 +29,7 @@ FROM alpine:3.24.1
 RUN apk add --no-cache \
       bash \
       docker-cli \
+      docker-cli-buildx \
       docker-cli-compose
 
 LABEL org.opencontainers.image.title="portta-apply" \

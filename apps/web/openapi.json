@@ -3689,6 +3689,14 @@
           "failed"
         ]
       },
+      "ApplyUnavailableReason": {
+        "type": "string",
+        "enum": [
+          "disabled",
+          "refused",
+          "not-prepared"
+        ]
+      },
       "ApplyStatus": {
         "type": "object",
         "properties": {
@@ -3705,6 +3713,19 @@
               "string",
               "null"
             ]
+          },
+          "unavailableReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApplyUnavailableReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "buildsImages": {
+            "type": "boolean"
           },
           "startedAt": {
             "anyOf": [
@@ -3770,6 +3791,8 @@
           "state",
           "available",
           "reason",
+          "unavailableReason",
+          "buildsImages",
           "startedAt",
           "finishedAt",
           "exitCode",

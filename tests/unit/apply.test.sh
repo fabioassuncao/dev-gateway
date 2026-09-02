@@ -40,14 +40,17 @@ refusal() {
 it "a plain local host is fine"
 assert_eq "" "$(refusal PORTTA_PROFILE=local)"
 
-# Both overlays add a `build:` stanza whose context is the repository root. The
-# applier has no network and no toolchain: it would take the gateway down and
-# then fail trying to build the panel image.
-it "a host building the panel image is refused"
-assert_contains "$(refusal PORTTA_WEB_BUILD=true)" "cannot build the panel image"
+# Both overlays add a `build:` stanza whose context is the repository root, and
+# both used to be refused on the grounds that the applier would build the image
+# "inside itself". It does not: it holds the host's Docker socket, so the
+# context is streamed over that socket and the host daemon does the build, with
+# the host's network and layer cache. Compose also builds *before* it stops
+# anything, so a build that fails leaves the gateway untouched.
+it "a host building the panel image is served"
+assert_eq "" "$(refusal PORTTA_WEB_BUILD=true)"
 
-it "a host in panel development mode is refused"
-assert_contains "$(refusal PORTTA_WEB_DEV=true)" "cannot build the panel image"
+it "a host in panel development mode is served"
+assert_eq "" "$(refusal PORTTA_WEB_DEV=true)"
 
 # Applying rewrites how the whole host is exposed. That is a different decision
 # from the one the operator made when they opened the panel on loopback.
