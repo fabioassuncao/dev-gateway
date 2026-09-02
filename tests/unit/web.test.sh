@@ -287,6 +287,17 @@ assert_contains "$doctor_source" "PORTTA_AUTH_SECRET is unset"
 assert_contains "$doctor_source" "credentials must be owner-only"
 assert_contains "$doctor_source" "authentication service"
 
+# `portta bootstrap` ends by running doctor, on a host where nothing has been
+# started yet. Both auth checks failed on that, so bootstrap exited 1 and every
+# CI job that boots the gateway died before `up`. A component that does not
+# exist yet is a warning, which is the rule traefik.state already followed; a
+# component in a bad state stays a failure.
+it "doctor separates an unstarted auth component from a broken one"
+assert_contains "$doctor_source" 'check warn auth.store "authentication store" "not created yet"'
+assert_contains "$doctor_source" 'check warn auth.service "authentication service" "container not created"'
+assert_contains "$doctor_source" 'check fail auth.store "authentication store" "missing while the service is running"'
+assert_contains "$doctor_source" 'check warn traefik.state "traefik" "container not created"'
+
 it "the password never reaches a command line, where ps would show it"
 assert_contains "$(cat packages/cli/src/commands/web.ts)" "hashPassword(password)"
 assert_eq "" "$(grep -nE "runProcess\([^]]*password" packages/cli/src/commands/web.ts || true)"

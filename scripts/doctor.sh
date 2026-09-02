@@ -479,9 +479,18 @@ else
   check pass auth.secret "authentication signing secret" "set" ""
 fi
 
+# `portta bootstrap` runs this before anything has ever been started, so a
+# component that does not exist yet is a warning and not a failure — the same
+# rule traefik.state follows above. Only a gateway that HAS an auth container
+# and no store is broken rather than unstarted.
+auth_id=$(portta_gateway_container auth)
+
 auth_store="$PORTTA_ROOT/state/auth/protections.json"
-if [ ! -f "$auth_store" ]; then
-  check fail auth.store "authentication store" "missing" "portta up   (creates and migrates it)"
+if [ ! -f "$auth_store" ] && [ -z "$auth_id" ]; then
+  check warn auth.store "authentication store" "not created yet" "portta up   (creates and migrates it)"
+elif [ ! -f "$auth_store" ]; then
+  check fail auth.store "authentication store" "missing while the service is running" \
+    "portta up   (creates and migrates it)"
 else
   auth_mode=$(portta_file_mode "$auth_store")
   if [ "$auth_mode" = "600" ]; then
@@ -492,9 +501,8 @@ else
   fi
 fi
 
-auth_id=$(portta_gateway_container auth)
 if [ -z "$auth_id" ]; then
-  check fail auth.service "authentication service" "container is missing" "portta up"
+  check warn auth.service "authentication service" "container not created" "portta up"
 else
   auth_state=$(portta_container_state "$auth_id")
   auth_health=$(portta_container_health "$auth_id")
