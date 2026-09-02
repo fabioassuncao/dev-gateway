@@ -49,3 +49,19 @@ anyone's data; several gateways could even coexist on different networks.
 Costs: the gateway cannot fix a project that misconfigures itself. It can only
 detect and report, which is why `doctor` and `analyze` carry so much weight. It
 also cannot start or stop applications for you, by design.
+
+### Amendment: the panel may operate a project, without owning it
+
+**Amended 2026-09-02 by [ADR 0030](0030-the-panel-and-a-project-lifecycle.md).**
+The Decision above is unchanged as an *ownership* claim: Portta still does not
+move or clone projects, mount their directories into the gateway, own their
+volumes or networks, or run `docker system prune`. What the letter no longer
+matches is the shipped panel, which already starts, stops, restarts and removes
+one consumer container at a time.
+
+ADR 0030 redraws that line: Portta may operate a project's runtime state on
+request, and may ask Compose to rebuild or take a project down through one
+opt-in runner whose command is fixed at creation. It still does not own the
+project. The Consequences sentence "cannot start or stop applications for you,
+by design" is the part this amendment replaces; everything else in this record
+stands.

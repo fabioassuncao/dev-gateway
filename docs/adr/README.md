@@ -5,7 +5,7 @@ context, the decision, and what it costs us.
 
 | # | Decision | Status |
 |---|---|---|
-| [0001](0001-decoupled-infrastructure.md) | The gateway is infrastructure, not a parent project | Accepted |
+| [0001](0001-decoupled-infrastructure.md) | The gateway is infrastructure, not a parent project | Accepted, amended by 0030 |
 | [0002](0002-docker-socket-proxy.md) | Traefik reaches Docker through a filtered read-only proxy | Accepted |
 | [0003](0003-traefik-static-config-via-env.md) | Traefik static configuration lives in environment variables | Accepted |
 | [0004](0004-pinned-versions.md) | Every component image pins an explicit version | Accepted |
@@ -34,3 +34,4 @@ context, the decision, and what it costs us.
 | [0027](0027-forward-authentication-service.md) | Protected HTTP access is checked by a separate ForwardAuth service | Accepted, supersedes 0012 and amends 0011/0021 |
 | [0028](0028-operational-images-live-under-docker.md) | Operational image contexts live under `docker/images/` | Accepted |
 | [0029](0029-shell-only-for-bootstrap.md) | Shell is for bootstrap; TypeScript is the default | Accepted, supersedes 0014's script inventory |
+| [0030](0030-the-panel-and-a-project-lifecycle.md) | The panel may operate a project, without owning it | Accepted, amends 0001 |
