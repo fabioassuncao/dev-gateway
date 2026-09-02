@@ -55,6 +55,8 @@ export interface GatewayConfig {
   httpsPort: number
   tlsEnabled: boolean
   tlsMode: string
+  /** 'dns' issues one wildcard and needs a provider credential; 'http' issues per hostname and needs :80. */
+  acmeChallenge: string
   tailscaleEnabled: boolean
   publicEnabled: boolean
   publicDomain: string | null
@@ -138,6 +140,7 @@ export function loadGatewayConfig(env: Record<string, string | undefined> = proc
     httpsPort: Number(value(env, 'PORTTA_HTTPS_PORT', '443')),
     tlsEnabled: isTrue(env['TLS_ENABLED']),
     tlsMode: value(env, 'TLS_MODE', 'local'),
+    acmeChallenge: value(env, 'ACME_CHALLENGE', 'dns'),
     tailscaleEnabled: isTrue(env['TAILSCALE_ENABLED']),
     publicEnabled: isTrue(env['PUBLIC_ENABLED']),
     publicDomain,
@@ -192,7 +195,16 @@ export function composeFiles(config: GatewayConfig): string[] {
     // Redirecting :80 to :443 without a certificate the browser accepts turns a
     // working URL into a warning page, so the TLS overlay is applied only when
     // there is TLS. See docs/adr/0022-project-domain-modes.md.
-    files.push(config.tlsEnabled ? 'docker/compose/profiles/remote-tls.yaml' : 'docker/compose/profiles/remote.yaml')
+    if (config.tlsEnabled) {
+      // Exactly one challenge overlay rides with the shared TLS one. DNS-01 is
+      // the default because it is the only challenge that issues a wildcard,
+      // and the only one a private gateway can use at all; HTTP-01 is the
+      // trade for a public host that would rather not hold a DNS credential.
+      files.push('docker/compose/profiles/remote-tls.yaml')
+      files.push(config.acmeChallenge === 'http'
+        ? 'docker/compose/profiles/remote-tls-http.yaml'
+        : 'docker/compose/profiles/remote-tls-dns.yaml')
+    } else files.push('docker/compose/profiles/remote.yaml')
   }
   if (config.profile === 'remote-public') files.push('docker/compose/profiles/public.yaml')
   if (config.dashboardEnabled) files.push(attached === 'tailscale' ? 'docker/compose/features/dashboard-tailscale.yaml' : 'docker/compose/features/dashboard.yaml')

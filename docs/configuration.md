@@ -128,12 +128,16 @@ dependency: the Docker-backed panel still starts if it is unavailable. See
 | `TLS_MODE` | `local` | `local` (local CA) or `acme` (Let's Encrypt) |
 | `ACME_EMAIL` | — | Required when `TLS_MODE=acme` |
 | `ACME_CA_SERVER` | production LE | Point at staging while testing |
+| `ACME_CHALLENGE` | `dns` | `dns` (one wildcard, needs a credential) or `http` (one per hostname, needs `:80`) |
 | `ACME_DNS_PROVIDER` | `cloudflare` | lego provider name for DNS-01 |
 | `ACME_DNS_RESOLVERS` | `1.1.1.1:53,8.8.8.8:53` | Propagation checks |
 
-Wildcard certificates require DNS-01; HTTP-01 cannot issue them. Use
-`ACME_CA_SERVER` with the staging endpoint while you get DNS working, because
-Let's Encrypt rate limits are unforgiving.
+Wildcard certificates require DNS-01; HTTP-01 cannot issue them, which is why
+`dns` is the default. A public gateway that would rather not hold a DNS
+credential can set `ACME_CHALLENGE=http` and get a certificate per hostname
+instead — see [DNS and TLS](dns-and-tls.md). Use `ACME_CA_SERVER` with the
+staging endpoint while you get either working, because Let's Encrypt rate
+limits are unforgiving.
 
 ## Private access
 

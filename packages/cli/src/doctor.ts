@@ -482,9 +482,28 @@ export async function runDoctor(context: GatewayContext): Promise<DoctorCheck[]>
 
   if (config.tlsEnabled) {
     if (config.tlsMode === 'acme') {
+      const overHttp = config.acmeChallenge === 'http'
       add(env['ACME_EMAIL']
-        ? check('tls.acme', 'pass', 'ACME configuration', `${env['ACME_EMAIL']} via ${env['ACME_DNS_PROVIDER'] ?? ''}`)
+        ? check('tls.acme', 'pass', 'ACME configuration',
+            overHttp ? `${env['ACME_EMAIL']} over HTTP-01` : `${env['ACME_EMAIL']} via ${env['ACME_DNS_PROVIDER'] ?? ''}`)
         : check('tls.acme', 'fail', 'ACME configuration', 'ACME_EMAIL is not set', 'set ACME_EMAIL in .env'))
+      // Each challenge fails for its own reason, and both failures look the
+      // same from outside: no certificate, and a browser warning.
+      if (overHttp) {
+        add(check('tls.acme.challenge', 'pass', 'ACME challenge',
+          'HTTP-01: one certificate per hostname, issued on first request'))
+        add(config.bindAddress === '0.0.0.0'
+          ? check('tls.acme.reachable', 'pass', 'ACME reachability', ':80 is bound on every interface')
+          : check('tls.acme.reachable', 'fail', 'ACME reachability',
+              `HTTP-01 needs :80 reachable from the internet, and Traefik binds ${config.bindAddress}`,
+              'portta public enable, or use ACME_CHALLENGE=dns'))
+      } else {
+        add(check('tls.acme.challenge', 'pass', 'ACME challenge', `DNS-01: one wildcard for *.${config.domain}`))
+        add(env['CF_DNS_API_TOKEN']
+          ? check('tls.acme.credential', 'pass', 'ACME DNS credential', 'CF_DNS_API_TOKEN is set')
+          : check('tls.acme.credential', 'fail', 'ACME DNS credential', 'DNS-01 cannot issue anything without a provider credential',
+              'set CF_DNS_API_TOKEN, or use ACME_CHALLENGE=http for per-hostname certificates'))
+      }
       const store = join(stateDir, 'traefik/acme/acme.json')
       if (existsSync(store)) {
         const mode = fileMode(store)

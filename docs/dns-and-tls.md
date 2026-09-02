@@ -53,21 +53,58 @@ portta dns setup --apply  # create it, via Cloudflare
 `dns check` queries a name that can only match the wildcard, so a stray A
 record on the apex cannot make a broken wildcard look healthy.
 
-## Why DNS-01
+## Two challenges, and which one you want
 
-**HTTP-01 cannot issue a wildcard.** That alone settles it.
+`ACME_CHALLENGE` picks one. They differ in what they ask of you, not in the
+certificate a browser ends up trusting.
 
-DNS-01 has a second advantage that matters here: the ACME server never needs to
-reach your host, only to see a TXT record. So a private, VPN-only gateway gets
-a real, publicly-trusted certificate without exposing anything.
+| | `dns` (default) | `http` |
+|---|---|---|
+| Certificates | one wildcard, `*.example.com` | one per hostname |
+| Needs | a DNS provider credential | `:80` reachable from the internet |
+| Private / VPN-only gateway | works | impossible |
+| A hostname nothing is serving yet | already has HTTPS | gets none until a router exists |
+| First request to a new service | immediate | waits a second or two for issuance |
+| Let's Encrypt limits | one certificate covers everything | each name counts against the weekly limit for the domain |
+
+### `dns`: one wildcard
+
+**HTTP-01 cannot issue a wildcard.** That is why this is the default: Portta
+routes `<project>-<service>.<domain>`, and a wildcard means every one of those
+names works over HTTPS the moment it exists.
+
+DNS-01 has a second advantage: the ACME server never needs to reach your host,
+only to see a TXT record. So a private, VPN-only gateway gets a real,
+publicly-trusted certificate without exposing anything.
 
 ```env
 TLS_ENABLED=true
 TLS_MODE=acme
+ACME_CHALLENGE=dns
 ACME_EMAIL=you@example.com
 ACME_DNS_PROVIDER=cloudflare
 ACME_DNS_RESOLVERS=1.1.1.1:53,8.8.8.8:53
+CF_DNS_API_TOKEN=...    # scoped: Zone:DNS:Edit + Zone:Zone:Read
 ```
+
+### `http`: no credential
+
+A public gateway on a public IP can skip the credential entirely. Traefik asks
+for a certificate the first time a router is created for a hostname, Let's
+Encrypt fetches a token from this host over `:80`, and the certificate arrives.
+This is what a platform that only ever publishes on public names does, and it
+is why those platforms ask you for nothing but an A record.
+
+```env
+TLS_ENABLED=true
+TLS_MODE=acme
+ACME_CHALLENGE=http
+ACME_EMAIL=you@example.com
+```
+
+`:80` must be reachable from the internet — `portta public enable`, and nothing
+in front of it that refuses `/.well-known/acme-challenge/`. `portta doctor`
+checks both the challenge and its one prerequisite.
 
 Traefik terminates TLS at the entrypoint, so a project gets HTTPS without a
 single certificate label of its own:

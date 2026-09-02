@@ -234,6 +234,15 @@ portta_compose_files() {
       # when there is TLS. See docs/adr/0022-project-domain-modes.md.
       if portta_is_true "${TLS_ENABLED:-false}"; then
         files="$files docker/compose/profiles/remote-tls.yaml"
+        # Exactly one challenge overlay rides with it. DNS-01 is the default
+        # because it is the only challenge that issues a wildcard, and the only
+        # one a private gateway can use; HTTP-01 is the trade for a public host
+        # that would rather not hold a DNS credential.
+        if [ "${ACME_CHALLENGE:-dns}" = "http" ]; then
+          files="$files docker/compose/profiles/remote-tls-http.yaml"
+        else
+          files="$files docker/compose/profiles/remote-tls-dns.yaml"
+        fi
       else
         files="$files docker/compose/profiles/remote.yaml"
       fi

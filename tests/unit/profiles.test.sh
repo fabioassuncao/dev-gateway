@@ -210,6 +210,38 @@ it "the public overlay comes along either way"
 assert_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test)" "docker/compose/profiles/public.yaml"
 assert_contains "$(files_for remote-public PUBLIC_DOMAIN=d.test TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test)" "docker/compose/profiles/public.yaml"
 
+describe "exactly one ACME challenge overlay, and DNS-01 is the default"
+
+# A wildcard is the reason DNS-01 is the default: it is the only challenge that
+# can issue `*.example.com`, and the only one a gateway the ACME server cannot
+# reach can use at all. HTTP-01 is the trade a public host may prefer -- one
+# certificate per hostname, issued on demand, and no DNS credential to hold.
+it "TLS without a choice takes DNS-01"
+selected=$(files_for remote-public PUBLIC_DOMAIN=d.test TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test)
+assert_contains "$selected" "docker/compose/profiles/remote-tls-dns.yaml"
+assert_not_contains "$selected" "docker/compose/profiles/remote-tls-http.yaml"
+
+it "and ACME_CHALLENGE=http swaps the one overlay, keeping the shared one"
+selected=$(files_for remote-public PUBLIC_DOMAIN=d.test TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test ACME_CHALLENGE=http)
+assert_contains "$selected" "docker/compose/profiles/remote-tls.yaml"
+assert_contains "$selected" "docker/compose/profiles/remote-tls-http.yaml"
+assert_not_contains "$selected" "docker/compose/profiles/remote-tls-dns.yaml"
+
+it "no challenge overlay at all without TLS"
+selected=$(files_for remote-public PUBLIC_DOMAIN=d.test ACME_CHALLENGE=http)
+assert_not_contains "$selected" "remote-tls"
+
+# A wildcard SAN cannot be issued over HTTP-01, and asking for one makes every
+# issuance fail rather than fall back. The overlay must not carry the domains.
+it "the HTTP-01 overlay never asks for a wildcard"
+http_overlay=$(cat "$PORTTA_ROOT/docker/compose/profiles/remote-tls-http.yaml")
+assert_contains "$http_overlay" "ACME_HTTPCHALLENGE"
+assert_eq "" "$(printf '%s' "$http_overlay" | grep 'TLS_DOMAINS' || true)"
+
+it "and the DNS-01 overlay is the only one holding a provider credential"
+assert_contains "$(cat "$PORTTA_ROOT/docker/compose/profiles/remote-tls-dns.yaml")" "CF_DNS_API_TOKEN"
+assert_eq "" "$(grep -l CF_DNS_API_TOKEN "$PORTTA_ROOT/docker/compose/profiles/remote-tls.yaml" "$PORTTA_ROOT/docker/compose/profiles/remote-tls-http.yaml" 2>/dev/null || true)"
+
 it "the redirect lives only in the TLS overlay"
 assert_eq "" "$(grep -l REDIRECTIONS "$PORTTA_ROOT/docker/compose/profiles/remote.yaml" 2>/dev/null || true)"
 assert_contains "$(cat "$PORTTA_ROOT/docker/compose/profiles/remote-tls.yaml")" "REDIRECTIONS"
