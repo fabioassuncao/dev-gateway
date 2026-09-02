@@ -193,6 +193,13 @@ it "but the template's default is not mistaken for a choice on a fresh install"
 assert_contains "$SOURCE" 'ENV_WAS_CREATED=true'
 assert_contains "$SOURCE" 'if [ -z "$DOMAIN_MODE" ] && [ "$ENV_WAS_CREATED" = "false" ]; then'
 
+# A bind-mounted directory the installer does not create is created by Docker,
+# owned by root at 0755. For the tunnel credential that is both the wrong mode
+# and the wrong owner: the panel has to write it.
+it "creates the directories it bind-mounts, privately where they hold a secret"
+assert_contains "$SOURCE" 'state/github state/cloudflared'
+assert_contains "$SOURCE" 'chmod 700 "$PORTTA_HOME/state/traefik/acme" "$PORTTA_HOME/state/cloudflared"'
+
 it "and the same distinction guards the profile"
 assert_contains "$SOURCE" '[ "$ENV_WAS_CREATED" = "false" ] && EXISTING_PROFILE=$(env_get "$ENV_FILE" PORTTA_PROFILE)'
 
