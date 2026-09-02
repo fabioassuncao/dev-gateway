@@ -257,7 +257,9 @@ PORTTA_HELP
   [ -f "$PORTTA_ROOT/state/cloudflared/credentials.json" ] && { portta_repair_mode state/cloudflared/credentials.json 600 "$dry" && fixed=$((fixed + 1)); }
 
   # 3. The networks. The shared one is external and outlives the stack, so a
-  #    `docker network prune` on the host removes it and nothing recreates it.
+  #    housekeeping sweep on the host can remove it and nothing brings it back.
+  #    (The gateway itself never prunes anything; tests/unit/audit.test.sh
+  #    enforces that by refusing the literal command anywhere in this tree.)
   local network
   for network in "${PORTTA_NETWORK:-portta}" "${PORTTA_ACCESS_NETWORK:-portta-access}"; do
     if ! docker network inspect "$network" >/dev/null 2>&1; then
