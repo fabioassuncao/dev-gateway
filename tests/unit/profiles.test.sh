@@ -246,6 +246,32 @@ it "the redirect lives only in the TLS overlay"
 assert_eq "" "$(grep -l REDIRECTIONS "$PORTTA_ROOT/docker/compose/profiles/remote.yaml" 2>/dev/null || true)"
 assert_contains "$(cat "$PORTTA_ROOT/docker/compose/profiles/remote-tls.yaml")" "REDIRECTIONS"
 
+describe "the panel's front door is owned by exactly one overlay"
+
+# `domain` routes the panel on the gateway's own entrypoint. A published host
+# port beside that router would be a second way in, and the middleware would
+# never see it -- so the bind overlay must not come along.
+it "domain routes the panel and publishes no host port"
+selected=$(files_for remote-public PUBLIC_DOMAIN=d.test PORTTA_WEB=true PORTTA_WEB_EXPOSE=domain $PORTTA_RUNTIME_CREDENTIAL)
+assert_contains "$selected" "docker/compose/features/panel-domain.yaml"
+assert_not_contains "$selected" "docker/compose/features/web-bind.yaml"
+assert_not_contains "$selected" "docker/compose/features/panel-public.yaml"
+
+it "public keeps its own entrypoint and no router on the domain"
+selected=$(files_for remote-public PUBLIC_DOMAIN=d.test PORTTA_WEB=true PORTTA_WEB_EXPOSE=public $PORTTA_RUNTIME_CREDENTIAL)
+assert_contains "$selected" "docker/compose/features/panel-public.yaml"
+assert_not_contains "$selected" "docker/compose/features/panel-domain.yaml"
+
+it "and local publishes a host port, routing nothing"
+selected=$(files_for local PORTTA_WEB=true PORTTA_WEB_EXPOSE=local)
+assert_contains "$selected" "docker/compose/features/web-bind.yaml"
+assert_not_contains "$selected" "docker/compose/features/panel-domain.yaml"
+
+# The middleware is the panel scope, never the project one: a project's
+# protection must not be able to open the panel.
+it "the routed panel carries the panel-scoped middleware"
+assert_contains "$(cat "$PORTTA_ROOT/docker/compose/features/panel-domain.yaml")" "portta-web-auth@file"
+
 describe "the base domain comes from the mode"
 
 # See docs/adr/0022-project-domain-modes.md. `localhost` is right for a machine

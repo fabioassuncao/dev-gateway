@@ -932,10 +932,18 @@ host file and does write inside the image, where only `node` has permission.
 The panel is the one component that can start, stop and remove containers, so
 what it cannot do matters more than what it can.
 
-**Network.** Loopback by default. VPN routing and the dedicated public panel
-entrypoint are separate, explicit overlays and are refused without a
-credential. Public panel exposure does not publish the application's
-`web`/`websecure` entrypoints.
+**Network.** Loopback by default. VPN routing, the dedicated public panel
+entrypoint and routing on the gateway's own domain are separate, explicit
+overlays and all three are refused without a credential. Public panel exposure
+does not publish the application's `web`/`websecure` entrypoints.
+
+`PORTTA_WEB_EXPOSE=domain` routes the panel at one hostname of the gateway's
+domain, on `websecure`, so it gets the certificate that entrypoint already
+terminates instead of the plain HTTP the `panel` entrypoint serves. It requires
+TLS and a credential, publishes no host port, and names exactly one host — an
+application is still reachable only through a router of its own. What it gives
+up, and why, is written down in
+[ADR 0021](adr/0021-panel-access-modes.md#amendment-2026-09-02-domain-and-what-it-costs).
 
 **Authentication.** Traefik calls the separate `portta-auth` process before
 forwarding a protected request. The password is generated, shown once and

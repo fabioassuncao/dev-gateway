@@ -52,7 +52,7 @@ function panelRecord(env: Map<string, string>): Omit<ProtectionRecord, 'epoch'> 
   const hash = env.get('PORTTA_WEB_AUTH_HASH') ?? ''
   if (!user || !isSupportedHash(hash)) throw new Error('the configured panel credential cannot be migrated')
   const expose = env.get('PORTTA_WEB_EXPOSE') ?? 'local'
-  if (expose !== 'vpn' && expose !== 'public') return null
+  if (expose !== 'vpn' && expose !== 'public' && expose !== 'domain') return null
   if (expose === 'public') {
     const advertised = env.get('PORTTA_PANEL_ADVERTISED_HOST') || env.get('PORTTA_PUBLIC_IP')
     if (!advertised) throw new Error('a public panel needs PORTTA_PANEL_ADVERTISED_HOST before authentication can migrate')
@@ -62,7 +62,17 @@ function panelRecord(env: Map<string, string>): Omit<ProtectionRecord, 'epoch'> 
       tech: { id: 'docker', label: 'Portta' },
     }
   }
-  const host = `${env.get('PORTTA_WEB_HOST') ?? 'portta-web'}.${env.get('PORTTA_DOMAIN') ?? 'localhost'}`
+  // `domain` is the advertised host verbatim, with no port: the entrypoint it
+  // shares with every application already carries one. The Compose router
+  // matches on the same value, and the two must agree or the panel fails
+  // closed. `vpn` derives one from the panel's own hostname instead.
+  const host = expose === 'domain'
+    ? (() => {
+        const advertised = env.get('PORTTA_PANEL_ADVERTISED_HOST')
+        if (!advertised) throw new Error('a panel routed on the domain needs PORTTA_PANEL_ADVERTISED_HOST before authentication can migrate')
+        return advertised
+      })()
+    : `${env.get('PORTTA_WEB_HOST') ?? 'portta-web'}.${env.get('PORTTA_DOMAIN') ?? 'localhost'}`
   return {
     scope: 'panel', host, entryPoints: [truthy(env.get('TLS_ENABLED')) ? 'websecure' : 'web'],
     user, hash, label: 'Portta panel', project: env.get('PORTTA_PROJECT_NAME') ?? 'portta', service: 'web',

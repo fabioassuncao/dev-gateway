@@ -451,8 +451,18 @@ export async function runDoctor(context: GatewayContext): Promise<DoctorCheck[]>
     }
 
     if (env['PORTTA_WEB_EXPOSE'] === 'vpn' && config.profile === 'remote-public') {
-      add(check('web.expose', 'fail', 'web panel routing', 'routed by Traefik on a profile that answers the internet',
-        'set PORTTA_WEB_EXPOSE=local'))
+      add(check('web.expose', 'fail', 'web panel routing', 'routed on the tailnet hostname while Traefik answers the internet',
+        'portta web up --expose domain, or set PORTTA_WEB_EXPOSE=local'))
+    }
+    // `domain` is routed deliberately, so what is worth checking is that the
+    // router and the credential name the same host: they are written from the
+    // same setting, and a mismatch fails the panel closed rather than open.
+    if (env['PORTTA_WEB_EXPOSE'] === 'domain') {
+      const advertised = env['PORTTA_PANEL_ADVERTISED_HOST'] ?? ''
+      add(config.tlsEnabled
+        ? check('web.expose', 'pass', 'web panel routing', `routed on ${advertised} over HTTPS, behind portta-web-auth`)
+        : check('web.expose', 'fail', 'web panel routing', 'routed on the domain with TLS off, so the credential crosses in clear text',
+            'portta config set tls.enabled true'))
     }
 
     add(!web
@@ -614,7 +624,7 @@ export async function runDoctor(context: GatewayContext): Promise<DoctorCheck[]>
   // than merely reported. See docs/adr/0021-panel-access-modes.md.
   if (config.webEnabled) {
     const expose = env['PORTTA_WEB_EXPOSE'] || 'local'
-    add(['local', 'tailscale', 'public', 'vpn'].includes(expose)
+    add(['local', 'tailscale', 'public', 'vpn', 'domain'].includes(expose)
       ? check('panel.access', 'pass', 'panel access', `${expose} (bind ${webBind}:${webPort})`)
       : check('panel.access', 'fail', 'panel access', `unknown mode '${expose}'`,
           'portta config set panel.access public|tailscale|local'))

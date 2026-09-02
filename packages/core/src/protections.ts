@@ -60,15 +60,25 @@ function authority(host: string, port: string): string {
 
 /** Derive the panel's exact routed host from the same settings as Compose. */
 export function panelProtectionRecord(input: PanelProtectionInput): Omit<ProtectionRecord, 'epoch'> | null {
-  if (input.mode !== 'basic' || !input.user || !input.hash || !['vpn', 'public'].includes(input.expose)) return null
+  if (input.mode !== 'basic' || !input.user || !input.hash || !['vpn', 'public', 'domain'].includes(input.expose)) return null
   if (input.expose === 'public' && !input.advertisedHost) {
     throw new InvalidProtectionStore('a public panel needs an advertised host')
   }
+  // `domain` is routed on the gateway's own entrypoint, so the host is a bare
+  // hostname with no port: the entrypoint's port is the one every application
+  // answers on. It is the advertised host verbatim, which is what the Compose
+  // router matches on -- the two must agree or the panel fails closed.
+  if (input.expose === 'domain' && !input.advertisedHost) {
+    throw new InvalidProtectionStore('a panel routed on the domain needs an advertised host')
+  }
   const host = input.expose === 'public'
     ? authority(input.advertisedHost!, input.port)
-    : `${input.webHost}.${input.domain}`
+    : input.expose === 'domain'
+      ? input.advertisedHost!
+      : `${input.webHost}.${input.domain}`
   return {
-    scope: 'panel', host, entryPoints: [input.expose === 'public' ? 'panel' : input.tlsEnabled ? 'websecure' : 'web'],
+    scope: 'panel', host,
+    entryPoints: [input.expose === 'public' ? 'panel' : input.tlsEnabled ? 'websecure' : 'web'],
     user: input.user, hash: input.hash, label: 'Portta panel', project: input.projectName,
     service: 'web', tech: { id: 'docker', label: 'Portta' },
   }

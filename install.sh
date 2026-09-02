@@ -242,7 +242,10 @@ The same command installs and updates. Flags are passed after `-s --`:
 OPTIONS
   --install-dir <path>    Where Portta keeps its data and configuration
                           (default: /opt/portta as root, ~/.portta otherwise)
-  --panel-access <mode>   public | tailscale | local        (default: public)
+  --panel-access <mode>   public | tailscale | local | domain
+                          (default: public). `domain` routes the panel at one
+                          hostname of --domain over HTTPS, behind the same
+                          login page a protected project gets; it needs --tls
   --panel-port <port>     Host port for the panel            (default: 8081)
   --panel-user <name>     Panel username                     (default: admin)
   --domain <domain>       Base domain for routed services    (optional)
@@ -308,8 +311,8 @@ while [ $# -gt 0 ]; do
 done
 
 case "$PANEL_ACCESS" in
-  ''|public|tailscale|local) ;;
-  *) die "--panel-access must be public, tailscale or local (got: $PANEL_ACCESS)" ;;
+  ''|public|tailscale|local|domain) ;;
+  *) die "--panel-access must be public, tailscale, local or domain (got: $PANEL_ACCESS)" ;;
 esac
 case "$DOMAIN_MODE" in
   ''|local|auto|custom) ;;
@@ -698,6 +701,12 @@ case "$PANEL_ACCESS" in
     PANEL_BIND="127.0.0.1"
     good "local — the panel will answer on 127.0.0.1 only"
     ;;
+  domain)
+    # The router is the front door; nothing is published on the host, so the
+    # bind address is the loopback the container never uses.
+    PANEL_BIND="127.0.0.1"
+    good "domain — the panel will answer on the gateway's own domain, over HTTPS"
+    ;;
   vpn)
     # A mode the installer does not offer, because it needs a domain and the
     # remote-private profile. An update must carry it through untouched rather
@@ -1014,6 +1023,18 @@ case "$PANEL_ACCESS" in
     ;;
   tailscale) ADVERTISED="$TAILSCALE_IP" ;;
   local) ADVERTISED="127.0.0.1" ;;
+  domain)
+    # The Compose router matches this exact value and so does the credential
+    # lookup, so it is the one setting that decides where the panel answers.
+    ADVERTISED=$(env_get "$ENV_FILE" PORTTA_PANEL_ADVERTISED_HOST)
+    [ -n "$ADVERTISED" ] || ADVERTISED="$PROJECT_DOMAIN"
+    case "$ADVERTISED" in
+      localhost|*.sslip.io|*.nip.io|[0-9]*.[0-9]*.[0-9]*.[0-9]*)
+        die "--panel-access domain needs a real hostname to route on, and this host would advertise $ADVERTISED. Pass --domain and --domain-mode custom" ;;
+    esac
+    [ "$(env_get "$ENV_FILE" TLS_ENABLED)" = "true" ] \
+      || die "--panel-access domain would carry the panel credential in clear text. Pass --tls <email>"
+    ;;
   *)
     ADVERTISED=$(env_get "$ENV_FILE" PORTTA_PANEL_ADVERTISED_HOST)
     [ -n "$ADVERTISED" ] || ADVERTISED="$PANEL_BIND"

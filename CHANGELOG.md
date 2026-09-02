@@ -9,6 +9,35 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-09-02
+
+### Added
+
+- **`PORTTA_WEB_EXPOSE=domain`: the panel on the gateway's own domain, over
+  HTTPS.** The `public` mode the installer offers first puts the panel on its
+  own Traefik entrypoint, which terminates no TLS — by design, because there is
+  no certificate a public CA will issue for a bare IP. Once a host has a real
+  domain that constraint is gone, and what remained was a panel credential
+  crossing the internet in clear text on every request. `domain` routes the
+  panel at one hostname on `websecure`, where the certificate the gateway
+  already terminates covers it, behind the same login page a protected project
+  gets. It requires TLS and a credential, and is refused without either.
+
+  It keeps both properties that made `public` safe enough to be the default:
+  the router names exactly one host, so publishing the panel still publishes no
+  application, and no host port is published beside it, so there is no second
+  door the middleware never sees. It gives up one — `websecure` carries every
+  routed application, where the `panel` entrypoint carried only the panel.
+  [ADR 0021](docs/adr/0021-panel-access-modes.md) records the trade, and why
+  ADR 0012's blanket refusal of a routed panel on a public profile no longer
+  applies now that [ADR 0027](docs/adr/0027-forward-authentication-service.md)
+  replaced BasicAuth with a real login page, host-scoped sessions and a limiter.
+- **`install.sh --panel-access domain`** and **`portta config set panel.host`**,
+  the hostname the router matches and the credential is looked up by. They are
+  one setting because a mismatch fails the panel closed.
+- **`portta doctor` checks a routed panel**: that TLS is on, and which host it
+  answers on.
+
 ## [0.6.1] — 2026-09-02
 
 ### Added

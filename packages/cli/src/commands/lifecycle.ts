@@ -173,7 +173,13 @@ export async function upCommand(profile: string | undefined, options: { attach?:
   if (profile) command.setOptionValueWithSource('profile', profile, 'cli')
   const context = gatewayContext({ profile: profile ?? globals(command).profile })
   if (context.config.profile === 'remote-public' && context.config.tcpEnabled) throw new RefusedError('TCP entrypoints must not run on the remote-public profile')
-  if (context.config.profile === 'remote-public' && context.config.webEnabled && context.config.webExpose === 'vpn') throw new RefusedError('the panel must not be routed on the remote-public profile')
+  // `vpn` routes the panel on the tailnet hostname; with Traefik bound to every
+  // interface that router answers the internet too, which is not what the mode
+  // means. `domain` is the deliberate version of the same thing.
+  if (context.config.profile === 'remote-public' && context.config.webEnabled && context.config.webExpose === 'vpn') {
+    throw new RefusedError('the panel must not be routed on the tailnet hostname while Traefik binds every interface',
+      "portta web up --expose domain   routes it on the gateway's own domain, behind the same login page")
+  }
   await requireDocker()
   // Both networks are `external: true` in the overlays, so Compose refuses to
   // start until they exist. The shell entry point creates both; this created

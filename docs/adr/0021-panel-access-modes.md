@@ -1,6 +1,6 @@
 # 0021. Panel access is its own decision, and a public panel gets its own entrypoint
 
-**Status:** Accepted, amended by [0027](0027-forward-authentication-service.md)
+**Status:** Accepted, amended by [0027](0027-forward-authentication-service.md) and by the `domain` mode below (2026-09-02)
 
 ## Context
 
@@ -37,7 +37,7 @@ precisely so that is a separate, deliberate act.
 ## Decision
 
 **Panel access is a first-class setting, independent of the gateway profile.**
-`PORTTA_WEB_EXPOSE` takes four values, and none of them changes what
+`PORTTA_WEB_EXPOSE` takes five values, and none of them changes what
 applications are reachable:
 
 | Mode | Where the panel answers | Credential |
@@ -46,10 +46,11 @@ applications are reachable:
 | `tailscale` | `100.x.y.z:<port>`, the tailnet address only | not required |
 | `public` | every interface, on Traefik's `panel` entrypoint | **mandatory** |
 | `vpn` | `portta-web.<domain>`, routed (`remote-private`) | **mandatory** |
+| `domain` | one hostname of the gateway's domain, on `websecure` | **mandatory**, and TLS |
 
-`portta config set panel.access public|tailscale|local` moves between them on a
-running host and recreates what needs recreating. The installer asks the same
-question once and writes the same variable.
+`portta config set panel.access public|tailscale|local|domain` moves between
+them on a running host and recreates what needs recreating. The installer asks
+the same question once and writes the same variable.
 
 ### A public panel gets its own Traefik entrypoint
 
@@ -80,6 +81,43 @@ cannot resolve the middleware and the router does not serve — the panel answer
 and the installer each refuse `public` without a credential, and the installer
 verifies the outcome by asking for `/api/health` without credentials and
 requiring a 401 before it reports success.
+
+### Amendment (2026-09-02): `domain`, and what it costs
+
+`public` was the answer to "a fresh VPS with an IP address and nothing else",
+and it is still the right first screen. It has one property this record did not
+weigh, because at the time every mode shared it: **the `panel` entrypoint
+terminates no TLS.** There is no certificate a public CA will issue for a bare
+IP, so `public` was designed for plain HTTP and says so. Once the host has a
+real domain that is no longer a constraint, and what remains is a panel
+credential crossing the internet in clear text on every request.
+
+`domain` routes the panel at one hostname on `websecure`, where the certificate
+the gateway already terminates covers it. It costs exactly one of the three
+properties above:
+
+- **Publishing the panel publishes nothing else** — *kept.* The router names one
+  host. An application is reachable only through a router of its own, and no
+  rule on `websecure` matches a hostname nobody claimed.
+- **No second door that bypasses Traefik** — *kept.* `web-bind.yaml` is not
+  applied in `domain` either, so the panel container publishes no host port.
+  Exactly one overlay still owns the front door.
+- **The panel's entrypoint carries nothing else** — *given up.* `websecure`
+  carries every routed application. This is the whole of the trade.
+
+That is a smaller loss than it looks, because entrypoint separation was never
+the boundary: `portta-web-auth@file` is, and it is unchanged. What separation
+bought was a panel that needs no hostname, which is precisely what a host with
+a domain does not need.
+
+ADR 0012's refusal — "a routed panel is refused on `remote-public`" — was
+written when the panel's protection was Traefik's BasicAuth: an unbranded
+dialog, no session, no logout, no rate limit. [ADR 0027](0027-forward-authentication-service.md)
+replaced that with a login page, host-scoped sessions, epochs that sign sessions
+out, and a limiter. The refusal survives for `vpn`, which routes on a *tailnet*
+hostname and would answer the internet by accident on a profile that binds every
+interface. `domain` answers there on purpose, with TLS and a credential both
+required, and is refused without either.
 
 ### The password
 

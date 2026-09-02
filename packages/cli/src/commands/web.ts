@@ -76,12 +76,29 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   const initial = gatewayContext({ profile: globals(command).profile })
   const expose = options.expose ?? initial.config.webExpose
   if (!isPanelAccess(expose)) throw new UsageError(`--expose must be one of: ${PANEL_ACCESS_MODES.join(', ')}`)
-  if (expose === 'vpn' && initial.config.profile === 'remote-public') throw new RefusedError('the panel must not be routed on the remote-public profile')
+  if (expose === 'vpn' && initial.config.profile === 'remote-public') {
+    throw new RefusedError('the panel must not be routed on the tailnet hostname while Traefik binds every interface',
+      "portta web up --expose domain   routes it on the gateway's own domain, behind the same login page")
+  }
+  // `domain` is the one routed mode a public profile may have, and only with a
+  // hostname to route on: the router matches Host(...), so without one there is
+  // nothing to match and the panel would answer nothing.
+  if (expose === 'domain') {
+    const advertised = initial.env['PORTTA_PANEL_ADVERTISED_HOST'] ?? ''
+    if (!advertised || advertised === 'localhost' || /^[0-9.]+$/.test(advertised)) {
+      throw new RefusedError(`panel access 'domain' needs a hostname to route on, and this host advertises ${advertised || 'nothing'}`,
+        'portta config set panel.host portta.example.com')
+    }
+    if (!initial.config.tlsEnabled) {
+      throw new RefusedError("a panel routed on the domain would carry its credential in clear text",
+        'enable TLS first: portta config set tls.enabled true')
+    }
+  }
   const authConfigured = initial.env['PORTTA_WEB_AUTH'] === 'basic' && Boolean(initial.env['PORTTA_WEB_AUTH_USER']) && Boolean(initial.env['PORTTA_WEB_AUTH_HASH'])
   // Anything the panel can be reached on from another machine sits behind the
   // Traefik middleware first. `local` and `tailscale` publish a host port and
   // are governed by the interface they bind, not by a credential.
-  if ((expose === 'vpn' || expose === 'public') && !authConfigured) throw new RefusedError(`panel access '${expose}' needs a credential`, 'run portta web auth set first')
+  if ((expose === 'vpn' || expose === 'public' || expose === 'domain') && !authConfigured) throw new RefusedError(`panel access '${expose}' needs a credential`, 'run portta web auth set first')
   const readOnly = options.writable ? false : options.readOnly ?? (expose === 'vpn' ? true : initial.config.webReadOnly)
   const values: Record<string, string> = {
     PORTTA_WEB: 'true', PORTTA_WEB_EXPOSE: expose, PORTTA_WEB_READ_ONLY: String(readOnly), PORTTA_WEB_DEV: String(options.dev === true),
@@ -141,6 +158,9 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
  */
 export function webUrl(context: ReturnType<typeof gatewayContext>): string {
   if (context.config.webExpose === 'vpn') return `${context.config.tlsEnabled ? 'https' : 'http'}://${context.env['PORTTA_WEB_HOST'] ?? 'portta-web'}.${context.config.domain}`
+  if (context.config.webExpose === 'domain') {
+    return `${context.config.tlsEnabled ? 'https' : 'http'}://${context.env['PORTTA_PANEL_ADVERTISED_HOST'] ?? context.config.domain}`
+  }
   // In `public` mode the port belongs to Traefik and 0.0.0.0 is not an address
   // anybody types, so report the host's own reachable address instead.
   if (context.config.webExpose === 'public') {
@@ -237,7 +257,7 @@ export async function webAuthSet(options: { user?: string; passwordStdin?: boole
 
 export async function webAuthClear(command: Command): Promise<void> {
   const context = gatewayContext({ profile: globals(command).profile })
-  if (context.config.webExpose === 'vpn' || context.config.webExpose === 'public') throw new RefusedError('refusing to leave a routed panel without a credential', 'run portta web up --expose local first')
+  if (['vpn', 'public', 'domain'].includes(context.config.webExpose)) throw new RefusedError('refusing to leave a routed panel without a credential', 'run portta web up --expose local first')
   setValues(context.root, { PORTTA_WEB_AUTH: 'none', PORTTA_WEB_AUTH_USER: '', PORTTA_WEB_AUTH_HASH: '' })
   renderAuth(context.root)
   new Output(globals(command)).progress('panel credential removed')

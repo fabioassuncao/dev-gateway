@@ -279,7 +279,9 @@ portta_compose_files() {
     # the public Traefik entrypoint can never both claim PORTTA_WEB_PORT.
     if [ "${PORTTA_WEB_EXPOSE:-local}" = "public" ]; then
       files="$files docker/compose/features/panel-public.yaml"
-    else
+    elif [ "${PORTTA_WEB_EXPOSE:-local}" != "domain" ]; then
+      # `domain` owns the front door too: a host publish beside the router
+      # would be a second way in that the middleware never sees.
       files="$files docker/compose/features/web-bind.yaml"
     fi
     if portta_is_true "${PORTTA_WEB_BUILD:-false}"; then
@@ -290,6 +292,9 @@ portta_compose_files() {
     fi
     if [ "${PORTTA_WEB_EXPOSE:-local}" = "vpn" ]; then
       files="$files docker/compose/features/web-vpn.yaml"
+    fi
+    if [ "${PORTTA_WEB_EXPOSE:-local}" = "domain" ]; then
+      files="$files docker/compose/features/panel-domain.yaml"
     fi
   fi
 

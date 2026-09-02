@@ -65,4 +65,22 @@ describe('protection store', () => {
     expect(panelProtectionRecord({ ...base, expose: 'local' })).toBeNull()
     expect(() => panelProtectionRecord({ ...base, expose: 'public' })).toThrow('advertised host')
   })
+
+  // The Compose router matches Host(PORTTA_PANEL_ADVERTISED_HOST) and the
+  // credential is looked up by the forwarded host. They are the same value
+  // here, verbatim: a mismatch fails the panel closed, which is the right
+  // direction to fail but a confusing one to debug.
+  it('routes the panel on the advertised host itself, with no port', () => {
+    const base = { mode: 'basic', user: 'dev', hash: '$apr1$a$b', webHost: 'portta-web', domain: 'dev.example.com', port: '8081', tlsEnabled: true, projectName: 'portta' }
+    expect(panelProtectionRecord({ ...base, expose: 'domain', advertisedHost: 'dev.example.com' }))
+      .toMatchObject({ host: 'dev.example.com', entryPoints: ['websecure'] })
+    // A subdomain of the gateway domain is the same case, not a special one.
+    expect(panelProtectionRecord({ ...base, expose: 'domain', advertisedHost: 'panel.dev.example.com' }))
+      .toMatchObject({ host: 'panel.dev.example.com', entryPoints: ['websecure'] })
+    // Without TLS the entrypoint is :80, and the credential would cross in
+    // clear text -- the CLI refuses that, but the record still has to be honest.
+    expect(panelProtectionRecord({ ...base, expose: 'domain', advertisedHost: 'dev.example.com', tlsEnabled: false }))
+      .toMatchObject({ entryPoints: ['web'] })
+    expect(() => panelProtectionRecord({ ...base, expose: 'domain' })).toThrow('advertised host')
+  })
 })

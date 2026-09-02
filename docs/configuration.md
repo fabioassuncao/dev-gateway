@@ -93,7 +93,8 @@ See [tcp-routing.md](tcp-routing.md).
 | `PORTTA_WEB` | `false` | Start the administration panel with the gateway |
 | `PORTTA_WEB_BIND_ADDRESS` | `127.0.0.1` | Interface the panel is published on |
 | `PORTTA_WEB_PORT` | `8081` | Host port |
-| `PORTTA_WEB_EXPOSE` | `local` | `local`, or `vpn` to add a Traefik router |
+| `PORTTA_WEB_EXPOSE` | `local` | `local`, `tailscale`, `public`, `vpn`, or `domain` to route it on the gateway's domain over HTTPS |
+| `PORTTA_PANEL_ADVERTISED_HOST` | derived | The hostname `domain` routes on, and the address a human types |
 | `PORTTA_WEB_HOST` | `portta-web` | Hostname label used by `vpn` |
 | `PORTTA_WEB_READ_ONLY` | `false` | Refuse every mutating endpoint |
 | `PORTTA_WEB_DEV` | `false` | Development mode, Vite with HMR in front |

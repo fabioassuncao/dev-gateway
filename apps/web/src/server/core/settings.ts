@@ -360,10 +360,11 @@ export const FIELDS: FieldSpec[] = [
     group: 'Panel',
     label: 'Reachable from',
     help:
-      'local is loopback only. tailscale binds the tailnet address. public and vpn put the panel beyond ' +
-      'this host and both require panel authentication. See docs/adr/0021-panel-access-modes.md.',
+      'local is loopback only. tailscale binds the tailnet address. public, vpn and domain put the panel ' +
+      'beyond this host and all three require panel authentication. domain routes it on one hostname of the ' +
+      "gateway's own domain, over the same HTTPS an application gets. See docs/adr/0021-panel-access-modes.md.",
     kind: 'choice',
-    choices: ['local', 'tailscale', 'public', 'vpn'],
+    choices: ['local', 'tailscale', 'public', 'vpn', 'domain'],
     restartRequired: true,
   },
   {
@@ -553,7 +554,7 @@ export function validateCombination(values: Map<string, string>): void {
 
   // A routed panel can stop containers and, since ADR 0010, says what is being
   // worked on. The tailnet is a good boundary and a poor last one.
-  if (get('PORTTA_WEB_EXPOSE') === 'vpn' || get('PORTTA_WEB_EXPOSE') === 'public') {
+  if (['vpn', 'public', 'domain'].includes(get('PORTTA_WEB_EXPOSE'))) {
     if (get('PORTTA_WEB_AUTH') !== 'basic') {
       throw new ValidationError('PORTTA_WEB_AUTH', 'must be basic while the panel is reachable beyond this host')
     }

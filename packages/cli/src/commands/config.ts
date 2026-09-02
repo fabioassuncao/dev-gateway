@@ -28,6 +28,7 @@ const SETTINGS: Record<string, Setting> = {
   'panel.access': { key: 'PORTTA_WEB_EXPOSE', description: 'how the panel is reached', allowed: PANEL_ACCESS_MODES },
   'panel.port': { key: 'PORTTA_WEB_PORT', description: 'host port the panel answers on' },
   'panel.user': { key: 'PORTTA_WEB_AUTH_USER', description: 'panel username' },
+  'panel.host': { key: 'PORTTA_PANEL_ADVERTISED_HOST', description: 'hostname the panel answers on, and the address a human types' },
   'panel.readOnly': { key: 'PORTTA_WEB_READ_ONLY', description: 'refuse every mutating panel endpoint', allowed: ['true', 'false'] },
   'panel.image': { key: 'PORTTA_WEB_IMAGE', description: 'published panel image' },
   'gateway.profile': { key: 'PORTTA_PROFILE', description: 'local, remote-private or remote-public', allowed: ['local', 'remote-private', 'remote-public'] },
@@ -197,14 +198,15 @@ async function setPanelAccess(root: string, value: string, output: Output): Prom
   const credentialled = context.env['PORTTA_WEB_AUTH'] === 'basic'
     && Boolean(context.env['PORTTA_WEB_AUTH_USER']) && Boolean(context.env['PORTTA_WEB_AUTH_HASH'])
 
-  if ((value === 'public' || value === 'vpn') && !credentialled) {
+  if ((value === 'public' || value === 'vpn' || value === 'domain') && !credentialled) {
     throw new RefusedError(
       `panel access '${value}' would put the panel beyond this host with no credential in front of it`,
       'run portta web auth set first; it generates a password and shows it once',
     )
   }
   if (value === 'vpn' && context.config.profile === 'remote-public') {
-    throw new RefusedError('the panel must not be routed on the remote-public profile')
+    throw new RefusedError('the panel must not be routed on the tailnet hostname while Traefik binds every interface',
+      "portta config set panel.access domain   routes it on the gateway's own domain, behind the same login page")
   }
 
   switch (value) {
@@ -215,6 +217,25 @@ async function setPanelAccess(root: string, value: string, output: Output): Prom
       values['PORTTA_WEB_BIND_ADDRESS'] = '0.0.0.0'
       output.warning('the panel will be reachable from every network this host is on; authentication is enforced by the proxy')
       break
+    case 'domain': {
+      // The router matches Host(...), so a hostname is the whole precondition,
+      // and TLS is what makes routing the panel an improvement on `public`
+      // rather than the same exposure without the separate entrypoint.
+      const advertised = context.env['PORTTA_PANEL_ADVERTISED_HOST'] ?? ''
+      if (!advertised || advertised === 'localhost' || /^[0-9.]+$/.test(advertised)) {
+        throw new RefusedError(`panel access 'domain' needs a hostname to route on, and this host advertises ${advertised || 'nothing'}`,
+          'portta config set panel.host portta.example.com')
+      }
+      if (!context.config.tlsEnabled) {
+        throw new RefusedError('a panel routed on the domain would carry its credential in clear text',
+          'enable TLS first: portta config set tls.enabled true')
+      }
+      // The panel's front door is the router now; a published host port beside
+      // it would be a second way in that the middleware never sees.
+      values['PORTTA_WEB_BIND_ADDRESS'] = '127.0.0.1'
+      output.warning(`the panel will answer on https://${advertised}, behind the same login page a protected project gets`)
+      break
+    }
     case 'tailscale': {
       const address = await tailscaleAddress()
       if (!address) throw new PreconditionError('this host has no Tailscale address', 'connect it yourself with `tailscale up`, then set this again')

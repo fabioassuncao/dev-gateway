@@ -68,8 +68,15 @@ assert_failure bash "$INSTALLER" --panel-port eighty
 it "a panel user with shell metacharacters fails"
 assert_failure bash "$INSTALLER" --panel-user 'admin;rm'
 
-it "the three supported access modes reach the parser"
-assert_contains "$SOURCE" "''|public|tailscale|local) ;;"
+it "the four supported access modes reach the parser"
+assert_contains "$SOURCE" "''|public|tailscale|local|domain) ;;"
+
+# `domain` routes the panel on the gateway's own entrypoint, so it needs a
+# hostname a certificate can be issued for, and TLS to issue it. Neither can be
+# guessed, and configuring the mode without them fails the panel closed.
+it "and domain refuses a name no certificate can cover, or TLS being off"
+assert_contains "$SOURCE" "--panel-access domain needs a real hostname"
+assert_contains "$SOURCE" "--panel-access domain would carry the panel credential in clear text"
 
 describe "the password never reaches a command line"
 

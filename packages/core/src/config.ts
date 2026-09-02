@@ -34,7 +34,7 @@ export function isGatewayProfile(value: string): value is GatewayProfile {
  *   public     Traefik's own `panel` entrypoint on every interface, ForwardAuth
  *   vpn        routed by Traefik at PORTTA_WEB_HOST.<domain> (remote-private)
  */
-export const PANEL_ACCESS_MODES = ['local', 'tailscale', 'public', 'vpn'] as const
+export const PANEL_ACCESS_MODES = ['local', 'tailscale', 'public', 'vpn', 'domain'] as const
 export type PanelAccess = (typeof PANEL_ACCESS_MODES)[number]
 
 export function isPanelAccess(value: string): value is PanelAccess {
@@ -214,10 +214,13 @@ export function composeFiles(config: GatewayConfig): string[] {
     // Exactly one overlay owns the panel's front door, so `public` and a host
     // publish can never both claim PORTTA_WEB_PORT.
     if (config.webExpose === 'public') files.push('docker/compose/features/panel-public.yaml')
-    else files.push('docker/compose/features/web-bind.yaml')
+    // `domain` owns the panel's front door too: a host publish alongside a
+    // router would be a second, unauthenticated way in.
+    else if (config.webExpose !== 'domain') files.push('docker/compose/features/web-bind.yaml')
     if (config.webBuild) files.push('docker/compose/features/web-build.yaml')
     if (config.webDev) files.push('docker/compose/features/web-dev.yaml')
     if (config.webExpose === 'vpn') files.push('docker/compose/features/web-vpn.yaml')
+    if (config.webExpose === 'domain') files.push('docker/compose/features/panel-domain.yaml')
   }
   // Auth is a gateway service, not a panel extra: the migrator runs on `up`
   // even when the panel is off. The overlay is selected by the local-build
