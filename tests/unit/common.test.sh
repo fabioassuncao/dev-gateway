@@ -102,4 +102,25 @@ assert_eq "-rw-------" "$(ls -l "$env_file" | cut -c1-10)"
 
 rm -rf "$env_dir"
 
+describe "the constants the zero-Node fallback shares with portta-core"
+
+# ADR 0015 keeps a Bash implementation of the core commands, so a handful of
+# facts exist twice. Each one is a contract, not a second source of truth, and
+# these assertions are what a "keep them in sync" comment used to be.
+if ! command -v node >/dev/null 2>&1; then
+  it "constant parity"; skip "node is unavailable"
+else
+  core_const() {
+    node --input-type=module -e "
+      import * as core from '$PORTTA_ROOT/packages/core/src/index.ts'
+      process.stdout.write(String(core.$1))
+    " 2>/dev/null
+  }
+
+  it "slugs agree, because Traefik serves the name the panel prints"
+  for value in 'BaseEmpresarial' 'base_empresarial' 'a___b' '_abc' 'abc_' 'a.b.c' 'Base_Empresarial/Issue#59'; do
+    assert_eq "$(portta_slug "$value")" "$(core_const "slug('$value')")"
+  done
+fi
+
 t_summary

@@ -3,8 +3,13 @@
 # Databases by hostname: the invariants
 # ============================================================================
 # The end-to-end suite proves the mechanism works. This one keeps the promises
-# about what it will not do, and keeps the protocol registry honest: nothing is
-# claimed routable that was not verified with two live instances.
+# about what it will not do: what is published, what joins which network, and
+# that TLS is never optional.
+#
+# The protocol registry itself -- which kinds are routable, on which
+# entrypoint, under what hostname -- is one table in
+# packages/core/src/discovery.ts and is asserted in its own Vitest suite. It
+# used to be a second table in scripts/lib/discovery.sh, tested here.
 # ============================================================================
 set -uo pipefail
 
@@ -14,47 +19,7 @@ PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
 cd "$PORTTA_ROOT" || exit 1
 . "$PORTTA_ROOT/scripts/lib/common.sh"
 . "$PORTTA_ROOT/scripts/lib/docker.sh"
-. "$PORTTA_ROOT/scripts/lib/discovery.sh"
 portta_defaults
-
-describe "the protocol registry states only what was verified"
-
-it "PostgreSQL routes on STARTTLS then SNI"
-assert_eq "starttls-sni" "$(portta_routing_for_kind postgres)"
-
-it "Redis routes on SNI, TLS from the first byte"
-assert_eq "tls-sni" "$(portta_routing_for_kind redis)"
-
-it "MySQL cannot: the server speaks first"
-assert_eq "unsupported" "$(portta_routing_for_kind mysql)"
-
-for kind in mongodb memcached search amqp clickhouse smtp tcp; do
-  it "$kind is not claimed to work, because nobody tested it"
-  assert_eq "unevaluated" "$(portta_routing_for_kind "$kind")"
-done
-
-it "only the verified protocols get an entrypoint"
-assert_eq "postgres redis" "$(printf '%s %s' "$(portta_tcp_entrypoint_for_kind postgres)" "$(portta_tcp_entrypoint_for_kind redis)")"
-
-it "and an unsupported one gets none"
-assert_eq "" "$(portta_tcp_entrypoint_for_kind mysql)"
-
-describe "hostnames are flat, so one wildcard certificate covers them"
-
-it "the shape matches the HTTP convention"
-assert_eq "storefront-postgres.localhost" \
-  "$(PORTTA_DOMAIN=localhost portta_tcp_hostname storefront postgres)"
-
-it "a project name with spaces or capitals is slugged the same way Traefik does"
-assert_eq "base-empresarial-postgres.localhost" \
-  "$(PORTTA_DOMAIN=localhost portta_tcp_hostname 'Base Empresarial' postgres)"
-
-it "the domain follows the profile"
-assert_eq "storefront-postgres.vpn.example.com" \
-  "$(PORTTA_DOMAIN=vpn.example.com portta_tcp_hostname storefront postgres)"
-
-it "never two levels: a wildcard certificate covers exactly one label"
-assert_not_contains "$(PORTTA_DOMAIN=localhost portta_tcp_hostname storefront postgres)" "postgres.storefront"
 
 describe "nothing is published without being asked for"
 

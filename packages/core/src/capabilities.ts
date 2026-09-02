@@ -11,11 +11,11 @@
  * to publish a service is a separate, deliberate act, one service at a time.
  * See docs/adr/0024-capabilities-providers-endpoints.md.
  *
- * Detection itself lives on the outside — `scripts/lib/capabilities.sh` for the
- * shell, the panel's collector for Node — and hands this module plain facts, so
- * that both surfaces reach the same verdict from the same evidence. That split
- * is the same one [ADR 0015](../../../docs/adr/0015-node-on-the-host.md) draws
- * for everything else: the gateway must work without Node.
+ * Detection itself lives on the outside — `packages/cli/src/detect.ts` — and
+ * hands this module plain facts, so the same evidence yields the same verdict
+ * wherever it is read. Keeping the probes out there is what lets these
+ * verdicts be tested without a host, and what keeps this package free of
+ * process execution.
  */
 
 export const CAPABILITIES = [

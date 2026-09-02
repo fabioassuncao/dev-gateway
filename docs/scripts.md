@@ -21,6 +21,12 @@ A `.sh` file survives only if at least one holds:
 Being the interface to an *external binary* is not one of them. `execa` runs
 `openssl`, `ssh`, `docker` and `cloudflared` with argument arrays and no shell.
 
+**"Migrate" does not mean "delete the fallback."** Where ADR 0015 requires a
+command to run with no Node, the shell keeps an implementation. What changes is
+its standing: it stops being a source of truth, shrinks to what the fallback
+actually calls, and is pinned to the TypeScript version by a test that runs both
+and compares the results.
+
 ## The call graph
 
 ```text
@@ -36,21 +42,20 @@ bin/portta ──(Node 22.12+ and dist/cli.js present)──> packages/cli/dist/
                                                        └──> scripts/cmd/*.sh
 ```
 
-Three places still cross from TypeScript back into Bash. Each is a migration
-step with an owning issue, never a destination:
+Two places still cross from TypeScript back into Bash. Each is a migration step
+with an owning issue, never a destination:
 
 | Crossing | Where | Removed by |
 |---|---|---|
 | `bash scripts/doctor.sh --json`, parsed | `packages/cli/src/commands/lifecycle.ts` | #30 |
 | `legacy()` re-invokes `bin/portta` with `PORTTA_FORCE_BASH=true` | `packages/cli/src/commands/web.ts` | #29, except `toolbox` |
-| `DetectedFacts` derived from `scripts/lib/capabilities.sh` JSON | `packages/core/src/capabilities.ts` | #28 |
 
 `packages/core/src/apply.ts` also runs `bin/portta up` inside the applier
 container. That is the applier's contract, not a fallback, and it stays.
 
 ## The inventory
 
-Measured 2026-09-02, on `develop`.
+Measured 2026-09-02, on `develop`, after #28.
 
 ### Stays shell
 
@@ -60,37 +65,51 @@ Measured 2026-09-02, on `develop`.
 | `bin/portta` | 697 | (a) the ADR 0015 dispatcher | Its Bash fallback set stays exactly the commands ADR 0015 names |
 | `scripts/doctor.sh` | 1119 | (a) a bare host is diagnosed before anything is installed | Shrinks to the zero-Node checks (#30) |
 | `scripts/bootstrap.sh` | 177 | (a) ADR 0015 | Shrinks to the zero-Node fallback (#30) |
+| `scripts/lib/apply.sh` | 143 | (a) preparing the applier is part of `up` | Pinned to `packages/core/src/apply.ts` by `tests/unit/apply.test.sh` |
 | `scripts/lib/toolbox.sh` | 73 | (b) the `docker run` wrapper the zero-Node path needs | — |
+| `scripts/lib/discovery.sh` | 37 | (a) the container lookups `doctor` calls | Was 193; the kind, port, routing and hostname tables moved to core |
 | `scripts/lib/auth.sh` | 25 | (a) renders the middleware file `bootstrap.sh` needs before the panel exists | — |
 
-### Migrates
+### Still to migrate
 
 | File | Lines | Destination | Issue |
 |---|---:|---|---|
-| `scripts/lib/apply.sh` | 143 | delete; `packages/core/src/apply.ts` already mirrors it | #28 |
-| `scripts/lib/discovery.sh` | 193 | `packages/core/src/discovery.ts` | #28 |
-| `scripts/lib/capabilities.sh` | 256 | `packages/cli/src/detect.ts`, filling `DetectedFacts` | #28 |
-| `scripts/lib/common.sh` | 466 | `packages/core` (`env`, `config`), `packages/cli/src/host.ts`; output helpers stay for the fallback | #28 |
-| `scripts/lib/docker.sh` | 471 | `packages/core/src/config.ts` (pure), `packages/cli/src/docker.ts` (effects) | #28 |
+| `scripts/lib/common.sh` | 466 | `packages/core` (`env`, `config`); output helpers and `portta_load_env` stay for the fallback | #30 |
+| `scripts/lib/docker.sh` | 471 | `packages/core/src/config.ts` (pure), `packages/cli/src/docker.ts` (effects) | #30 |
 | `scripts/cmd/tls.sh` | 215 | `packages/cli/src/commands/tls.ts` | #29 |
 | `scripts/cmd/remote-access.sh` | 208 | `packages/cli` | #29 |
 | `scripts/cmd/remote.sh` | 217 | `packages/cli` | #29 |
 | `scripts/cmd/maintenance.sh` | 324 | `packages/cli` | #29 |
 | `scripts/cmd/tunnel.sh` | 387 | `packages/cli`, over `packages/core/src/tunnel.ts` | #29 |
 
-## Behaviour that still lives in two places
+### Deleted
 
-Each of these is a comment holding two implementations together. The port that
-removes the duplication deletes the comment; a surviving comment means the port
-is unfinished.
+| File | Lines | Why |
+|---|---:|---|
+| `scripts/lib/capabilities.sh` | 256 | Sourced by nothing but its own test. The probes are now `packages/cli/src/detect.ts` and `packages/cli/src/host.ts`; nothing in the zero-Node command set reads a capability |
 
-- `packages/core/src/config.ts` (`composeFiles`) ↔ `portta_compose_files`
-- `apps/web/src/server/config.ts` (`attachment`) ↔ `portta_attachment`
-- `apps/web/src/shared/slug.ts` ↔ `portta_slug`
-- `apps/web/src/server/core/kinds.ts` ↔ the kind table in `scripts/lib/discovery.sh`
-- `apps/web/src/server/config.ts` ↔ the bridge image pinned in `scripts/lib/discovery.sh`
-- `packages/core/src/apply.ts` ↔ `scripts/lib/apply.sh`
-- `packages/core/src/capabilities.ts` ↔ `scripts/lib/capabilities.sh`
+## Behaviour that lives in two places, and what holds it
+
+Each of these exists twice because ADR 0015 requires a Bash implementation of
+the same contract. None of them is held by a comment: every row names the test
+that runs both and compares.
+
+| Contract | Source of truth | Fallback | Pinned by |
+|---|---|---|---|
+| Which Compose overlays a profile selects | `composeFiles` in `packages/core/src/config.ts` | `portta_compose_files` | `tests/unit/profiles.test.sh` |
+| How the base domain resolves | `loadGatewayConfig` | `portta_resolve_domain` | `tests/unit/profiles.test.sh` |
+| The applier's `docker create` arguments | `applyCreateArguments` | `portta_apply_create` | `tests/unit/apply.test.sh` |
+| Hostname slugging | `slug` in `packages/core` | `portta_slug` | `tests/unit/common.test.sh` |
+
+`apps/web/src/shared/slug.ts` is a third copy, and deliberately: the browser
+bundle must not import `portta-core`, whose index reaches the password module,
+and the UI dev container carries neither that package's source nor its build.
+`apps/web/tests/server/slug.test.ts` asserts it answers exactly what core
+answers, and the panel's *server* imports core directly.
+
+The same file pins the wire schema's `ServiceKind` and `TcpRouting` enums to the
+tables in `packages/core/src/discovery.ts`, which cannot be one declaration
+without pulling zod into core or core into the browser.
 
 ## The two surfaces must agree
 

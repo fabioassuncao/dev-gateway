@@ -1,0 +1,168 @@
+// What a service *is*, and how a client is supposed to reach it.
+//
+// This is the one table. It used to be four: `portta_service_kind` and
+// `portta_default_port_for_image` in scripts/lib/discovery.sh, KIND_RULES in
+// the panel, and DEFAULT_PORTS in the CLI's access command. They had already
+// drifted — the shell knew Cassandra's 9042 and Neo4j's 7687 and neither
+// TypeScript copy did, and only the shell knew Mailpit's 1025 — so `portta
+// access open` guessed no port for services the shell would have connected to.
+//
+// Everything here is a pure derivation from an image reference or a kind. The
+// probes that supply those inputs run Docker, and live in packages/cli.
+
+import { slug } from './namespace.ts'
+
+/** Every way Portta can classify a service. `tcp` is the honest fallback. */
+export const SERVICE_KINDS = [
+  'http', 'postgres', 'mysql', 'redis', 'mongodb', 'memcached',
+  'search', 'amqp', 'clickhouse', 'smtp', 'tcp',
+] as const
+export type ServiceKind = (typeof SERVICE_KINDS)[number]
+
+/**
+ * Whether a protocol can be told apart by hostname on a shared port, and how.
+ * Every entry was verified with two live instances and a real client; see
+ * docs/tcp-routing.md. Nothing is listed as routable because a neighbouring
+ * protocol behaves that way.
+ *
+ *   starttls-sni  client opens in plaintext, asks to upgrade, then sends SNI
+ *   tls-sni       client sends a TLS ClientHello first, so SNI is there at once
+ *   unsupported   the server speaks first, so there is no SNI to route on
+ *   unevaluated   not tested, and therefore not offered
+ */
+export const TCP_ROUTINGS = ['starttls-sni', 'tls-sni', 'unsupported', 'unevaluated'] as const
+export type TcpRouting = (typeof TCP_ROUTINGS)[number]
+
+/** Pinned; see docs/adr/0004-pinned-versions.md. */
+export const BRIDGE_IMAGE = 'alpine/socat:1.8.1.3'
+
+/**
+ * Matched against a lower-cased image reference, in order. A rule may carry a
+ * port without carrying a kind of its own: Cassandra and Neo4j are reached as
+ * plain TCP, but their well-known port is still the right guess.
+ */
+const KIND_RULES: { match: RegExp; kind: ServiceKind; port: number }[] = [
+  { match: /postgres|postgis|timescale/, kind: 'postgres', port: 5432 },
+  { match: /mysql|mariadb|percona/, kind: 'mysql', port: 3306 },
+  { match: /redis|valkey|keydb/, kind: 'redis', port: 6379 },
+  { match: /mongo/, kind: 'mongodb', port: 27017 },
+  { match: /memcached/, kind: 'memcached', port: 11211 },
+  { match: /elasticsearch|opensearch/, kind: 'search', port: 9200 },
+  { match: /rabbitmq/, kind: 'amqp', port: 5672 },
+  { match: /clickhouse/, kind: 'clickhouse', port: 9000 },
+  { match: /cassandra/, kind: 'tcp', port: 9042 },
+  { match: /neo4j/, kind: 'tcp', port: 7687 },
+  { match: /mailpit|mailhog/, kind: 'smtp', port: 1025 },
+]
+
+function rule(image: string) {
+  const lower = (image ?? '').toLowerCase()
+  return KIND_RULES.find((candidate) => candidate.match.test(lower))
+}
+
+/** How a service should be reached, from its image reference alone. */
+export function serviceKind(image: string): ServiceKind {
+  return rule(image)?.kind ?? 'tcp'
+}
+
+/**
+ * The well-known port, used only when a container exposes several and we have
+ * to guess. An explicit `--port` always wins.
+ */
+export function defaultPortForImage(image: string): number | null {
+  return rule(image)?.port ?? null
+}
+
+/**
+ * Datastores the gateway refuses to publish publicly. A `tcp` service is not
+ * on this list because nothing is known about it — the refusal has to name a
+ * reason, and "it might be a database" is not one.
+ */
+export const SENSITIVE_KINDS: ServiceKind[] = [
+  'postgres', 'mysql', 'redis', 'mongodb', 'memcached', 'search', 'amqp', 'clickhouse',
+]
+
+export function isSensitiveKind(kind: ServiceKind): boolean {
+  return SENSITIVE_KINDS.includes(kind)
+}
+
+const TCP_ROUTING: Partial<Record<ServiceKind, TcpRouting>> = {
+  postgres: 'starttls-sni',
+  redis: 'tls-sni',
+  mysql: 'unsupported',
+}
+
+export function tcpRouting(kind: ServiceKind): TcpRouting {
+  return TCP_ROUTING[kind] ?? 'unevaluated'
+}
+
+export function isHostnameRoutable(kind: ServiceKind): boolean {
+  const routing = tcpRouting(kind)
+  return routing === 'starttls-sni' || routing === 'tls-sni'
+}
+
+/** The Traefik entrypoint that serves a kind, or null when it cannot be routed. */
+export function tcpEntrypoint(kind: ServiceKind): string | null {
+  switch (kind) {
+    case 'postgres': return 'postgres'
+    case 'redis': return 'redis'
+    default: return null
+  }
+}
+
+/** The host port that entrypoint is published on. */
+export function tcpHostPort(kind: ServiceKind, env: Record<string, string | undefined> = {}): number | null {
+  switch (kind) {
+    case 'postgres': return Number(env['PORTTA_TCP_POSTGRES_PORT'] || 5432)
+    case 'redis': return Number(env['PORTTA_TCP_REDIS_PORT'] || 6379)
+    default: return null
+  }
+}
+
+/**
+ * The name a TCP client connects to.
+ *
+ * Flat on purpose, and the same shape the HTTP routers use: a wildcard
+ * certificate covers exactly one label, so `postgres.storefront.<domain>` would
+ * need a certificate per project. See docs/adr/0023-flat-hostname-labels.md.
+ */
+export function tcpHostname(project: string, service: string, domain: string): string {
+  return `${slug(project)}-${slug(service)}.${domain || 'localhost'}`
+}
+
+/**
+ * How a client is told which instance it wants, when it connects through the
+ * gateway's shared TCP entrypoint. PostgreSQL puts it in the connection
+ * string; redis-cli needs an explicit flag, because it does not derive SNI
+ * from `-h`.
+ */
+export function gatewayConnectionString(kind: ServiceKind, host: string, port: number): string {
+  switch (kind) {
+    case 'postgres':
+      return `postgresql://<user>@${host}:${port}/<database>?sslmode=require`
+    case 'redis':
+      return `redis-cli -h 127.0.0.1 -p ${port} --tls --sni ${host}`
+    default:
+      return `${host}:${port}`
+  }
+}
+
+/** A connection string template. Credentials come from the project, never from here. */
+export function connectionString(kind: ServiceKind, host: string, port: number): string {
+  switch (kind) {
+    case 'postgres':
+      return `postgresql://<user>@${host}:${port}/<database>`
+    case 'mysql':
+      return `mysql://<user>@${host}:${port}/<database>`
+    case 'redis':
+      return `redis://${host}:${port}`
+    case 'mongodb':
+      return `mongodb://<user>@${host}:${port}/<database>`
+    case 'clickhouse':
+      return `clickhouse://<user>@${host}:${port}/<database>`
+    case 'amqp':
+      return `amqp://<user>@${host}:${port}/`
+    default:
+      return `${host}:${port}`
+  }
+}

@@ -5,7 +5,7 @@
 // Gateway-wide defaults are owned by portta-core.
 
 import { readFileSync, existsSync } from 'node:fs'
-import { isTrue, loadGatewayConfig } from 'portta-core'
+import { attachment, BRIDGE_IMAGE, isTrue, loadGatewayConfig } from 'portta-core'
 
 export { isTrue }
 
@@ -161,14 +161,14 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     dashboardEnabled: gateway.dashboardEnabled,
     dashboardBindAddress: env('PORTTA_DASHBOARD_BIND_ADDRESS', '127.0.0.1'),
     dashboardPort: env('PORTTA_DASHBOARD_PORT', '8080'),
-    // Pinned in scripts/lib/discovery.sh; the panel must create the very same
-    // bridge the CLI creates, or `portta access list` would not see it.
     tcpEnabled: isTrue(process.env.PORTTA_TCP),
     tcpPorts: {
       postgres: Number(env('PORTTA_TCP_POSTGRES_PORT', '5432')),
       redis: Number(env('PORTTA_TCP_REDIS_PORT', '6379')),
     },
-    bridgeImage: env('PORTTA_RUNTIME_BRIDGE_IMAGE', 'alpine/socat:1.8.1.3'),
+    // The panel must create the very same bridge the CLI creates, or
+    // `portta access list` would not recognise it. One pin, in portta-core.
+    bridgeImage: env('PORTTA_RUNTIME_BRIDGE_IMAGE', BRIDGE_IMAGE),
     bridgeSettleMs: Number(env('PORTTA_RUNTIME_BRIDGE_SETTLE_MS', '800')),
     panelVersion: env('PORTTA_RUNTIME_VERSION', '0.1.0'),
     gatewayVersion: readVersion(versionFile),
@@ -203,20 +203,21 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
 }
 
 /**
- * Where Traefik's API answers, which depends on how Traefik is attached.
+ * Where Traefik's API answers. The internal port is always 8080; only the
+ * published one is configurable.
  *
- * With docker/compose/attach/host.yaml Traefik has its own namespace and is reachable
- * as `traefik`. With docker/compose/attach/tailscale.yaml it runs inside the Tailscale
- * container's namespace and has no name of its own, so the same API answers on
- * `tailscale` ([ADR 0007](docs/adr/0007-tailscale-sidecar.md)). The internal
- * port is always 8080; only the published one is configurable.
- *
- * Mirrors portta_attachment in scripts/lib/docker.sh: keep them in sync.
+ * The attachment decides the name: under docker/compose/attach/tailscale.yaml
+ * Traefik runs inside the Tailscale container's namespace and has none of its
+ * own, so the same API answers on `tailscale`. `attachment()` in portta-core
+ * is the one implementation of that rule; it is also what selects the overlay,
+ * and the two must not be able to disagree.
  */
 function defaultTraefikApi(): string {
-  const profile = env('PORTTA_PROFILE', 'local')
-  const attached = profile !== 'local' && isTrue(process.env.TAILSCALE_ENABLED) ? 'tailscale' : 'traefik'
-  return `http://${attached}:8080`
+  const attached = attachment({
+    profile: env('PORTTA_PROFILE', 'local'),
+    tailscaleEnabled: isTrue(process.env.TAILSCALE_ENABLED),
+  })
+  return `http://${attached === 'tailscale' ? 'tailscale' : 'traefik'}:8080`
 }
 
 function readVersion(file: string): string {

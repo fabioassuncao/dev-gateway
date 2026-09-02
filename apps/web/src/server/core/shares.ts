@@ -20,13 +20,13 @@ import {
   renderShares,
   setProtection,
   shareRouterName,
+  slug,
   SHARES_MARKER as MARKER,
   writeProtectionStore,
 } from 'portta-core'
 import type { PanelConfig } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import { GENERATED_FILES, readGenerated, writeGenerated } from './dynamic.ts'
-import { slug } from '../../shared/slug.ts'
 import type { ContainerSummary, Share, ShareMode, ShareState } from '../../shared/types.ts'
 
 const DEFAULT_TTL_SECONDS = 4 * 3600

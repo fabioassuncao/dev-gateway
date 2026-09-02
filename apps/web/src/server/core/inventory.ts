@@ -15,9 +15,8 @@ import type {
 import type { PanelConfig } from '../config.ts'
 import { schemeFor } from '../config.ts'
 import { LABELS, relevantLabels } from './labels.ts'
-import { serviceKind } from './kinds.ts'
 import { resolveServiceTech } from './tech.ts'
-import { slug } from '../../shared/slug.ts'
+import { serviceKind, slug } from 'portta-core'
 import { parseRemote } from './forge.ts'
 import type {
   ContainerState,

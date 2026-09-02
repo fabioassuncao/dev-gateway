@@ -59,11 +59,11 @@ dispatcher knows and Commander does not is a defect, not a fallback:
 | `scripts/doctor.sh` | 1119 | **Stays shell, shrinks to the zero-Node fallback** | (a) ADR 0015. A bare host is diagnosed before anything is installed; that is a handful of checks, not a thousand lines |
 | `scripts/lib/toolbox.sh` | 73 | **Stays shell** | (b) the `docker run` wrapper the zero-Node path needs |
 | `scripts/lib/auth.sh` | 25 | **Stays shell** | (a) it renders the middleware file `bootstrap.sh` needs before the panel exists |
+| `scripts/lib/apply.sh` | 143 | **Stays shell, as a fallback of a TypeScript contract** | (a) preparing the applier is part of what `up` does, and `up` is an ADR 0015 command. `packages/core/src/apply.ts` is the source of truth; `tests/unit/apply.test.sh` runs both and compares the `docker create` argument lists |
 | `scripts/lib/common.sh` | 466 | **Migrate** → `packages/core`, keeping the output helpers and `portta_load_env` for the fallback |
 | `scripts/lib/docker.sh` | 471 | **Migrate** → `packages/core` (pure) and `packages/cli` (effects) |
-| `scripts/lib/discovery.sh` | 193 | **Migrate** → `packages/core` |
-| `scripts/lib/capabilities.sh` | 256 | **Migrate** → `packages/cli/src/detect.ts`, filling the `DetectedFacts` shape `packages/core` already owns |
-| `scripts/lib/apply.sh` | 143 | **Migrate** → already mirrored by `packages/core/src/apply.ts`; delete the shell copy |
+| `scripts/lib/discovery.sh` | 193 | **Migrate** → `packages/core`, keeping the container lookups `doctor` calls |
+| `scripts/lib/capabilities.sh` | 256 | **Delete** | Sourced by nothing but its own test. Its probes become `packages/cli/src/detect.ts`; nothing in the zero-Node command set reads a capability, so (a) never applied |
 | `scripts/cmd/tunnel.sh` | 387 | **Migrate** → `packages/cli` (`packages/core/src/tunnel.ts` already holds the config, token and state model) |
 | `scripts/cmd/maintenance.sh` | 324 | **Migrate** → `packages/cli` |
 | `scripts/cmd/tls.sh` | 215 | **Migrate** → `packages/cli`, keeping the toolbox container as the `openssl` runner |
@@ -72,6 +72,13 @@ dispatcher knows and Commander does not is a defect, not a fallback:
 
 Measured 2026-09-02. `docs/scripts.md` carries the live inventory, the call
 graph and the rule; this record carries the decision.
+
+**"Migrate" does not mean "delete the fallback".** Where ADR 0015 requires a
+command to work with no Node, the shell keeps an implementation — but it stops
+being a *source of truth*, shrinks to what the fallback actually calls, and is
+pinned to the TypeScript version by a test that runs both and compares the
+results. A comment asking a human to keep two files in step is not that test,
+and is treated as an unfinished port.
 
 ### What this does not decide
 

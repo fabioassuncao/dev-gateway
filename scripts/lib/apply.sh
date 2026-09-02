@@ -15,9 +15,13 @@
 #
 # Off unless PORTTA_APPLY=true.
 #
-# This mirrors applyCreateArguments in packages/core/src/apply.ts, the way
-# portta_compose_files mirrors composeFiles: the core commands must run without
-# Node (ADR 0015). tests/unit/apply.test.sh keeps the two identical.
+# `up` is one of the commands ADR 0015 requires to work with no Node on the
+# host, and preparing the applier is part of what `up` does -- so this file is
+# the zero-Node implementation of a contract whose source of truth is
+# applyCreateArguments in packages/core/src/apply.ts, the same way
+# portta_compose_files is for composeFiles. tests/unit/apply.test.sh runs both
+# and compares the resulting `docker create` argument lists, so the two cannot
+# drift without a test failing. See docs/adr/0029-shell-only-for-bootstrap.md.
 
 PORTTA_APPLY_IMAGE="fabioassuncao/portta-apply:0.2.0"
 PORTTA_APPLY_CONTAINER="portta-apply"

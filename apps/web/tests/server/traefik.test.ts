@@ -69,6 +69,17 @@ describe('where the Traefik API is', () => {
     vi.unstubAllEnvs()
   })
 
+  // The name and the overlay come from one `attachment()` in portta-core, so a
+  // local profile keeps Traefik's own namespace however Tailscale is set: the
+  // sidecar attachment is a remote-profile decision. The two must not be able
+  // to disagree, or the panel would poll a host the gateway never created.
+  it('keeps Traefik\'s own namespace on the local profile, whatever Tailscale says', () => {
+    vi.stubEnv('PORTTA_PROFILE', 'local')
+    vi.stubEnv('TAILSCALE_ENABLED', 'true')
+    expect(loadConfig({}).traefikApi).toBe('http://traefik:8080')
+    vi.unstubAllEnvs()
+  })
+
   it('stays on the shared network, never the control one', () => {
     // Joining `control` would put Traefik's read-only socket proxy within the
     // panel's reach, which is the separation ADR 0008 exists to keep.

@@ -31,8 +31,8 @@ portta/
 | Workspace | Name | Published | Holds |
 |---|---|---|---|
 | `apps/web` | `portta-web` | no | Panel server, UI, migrations, Dockerfile, panel tests |
-| `packages/core` | `portta-core` | no | `env`, `config`, `docker`, `inventory`, `traefik`, `schemas` |
-| `packages/cli` | `portta` | ready, not published by repository changes | Commands, formatting, process execution, provisioning |
+| `packages/core` | `portta-core` | no | Pure derivations: `env`, `config`, `discovery`, `capabilities`, `endpoints`, `inventory`, `apply`, `tunnel`, `password`. No process execution, ever |
+| `packages/cli` | `portta` | ready, not published by repository changes | Commands, formatting, provisioning, and every effect: `process`, `docker`, `host`, `detect` |
 
 `bin/` and `scripts/` stay at the root. They are not a workspace.
 
@@ -55,7 +55,8 @@ locally through core.
 | Parsing `.env`, inventory, Traefik files, the Docker allowlist | `packages/core`, the first time a second consumer needs it |
 | A CLI command | `packages/cli` `src/commands/`, colocated `*.test.ts` |
 | Host diagnostics, Compose, filesystem provisioning | `packages/cli` calling `packages/core` |
-| `openssl`, `ssh`, or a one-shot `docker run` wrapper | Bash under `scripts/`, if shell is the right interface |
+| A host probe: an address, a tool's location, a file mode | `packages/cli` `src/host.ts`, with the verdict it feeds in `packages/core` |
+| Anything else you were about to write in Bash | `packages/cli`. See [shell scripts](scripts.md): being the interface to `openssl`, `ssh` or `docker run` is not a reason |
 | Persistent settings, project overrides, integrations | The panel API, never a second database client |
 | A document | `docs/`, linked from [docs/README.md](README.md) |
 

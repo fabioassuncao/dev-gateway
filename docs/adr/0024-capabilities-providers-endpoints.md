@@ -60,12 +60,22 @@ up and not connected is the single most useful thing to say, and the version of
 this model that dropped it produced an empty panel with no explanation. A test
 pins that behaviour.
 
-Detection lives in `scripts/lib/capabilities.sh` and emits JSON. The verdicts —
-which facts add up to which state — live in `packages/core/src/capabilities.ts`.
-That split is [ADR 0015](0015-node-on-the-host.md)'s: the gateway must run
-without Node, and the panel and CLI must not each invent their own answer.
-`tests/unit/capabilities.test.sh` compares the two shapes field by field, so
-they cannot drift.
+Detection lives in `packages/cli/src/detect.ts`, over the host probes in
+`packages/cli/src/host.ts`. The verdicts — which facts add up to which state —
+live in `packages/core/src/capabilities.ts`. The split is what lets the
+verdicts be tested without a host and keeps `packages/core` free of process
+execution; `packages/cli/src/detect.test.ts` asserts that the detected shape is
+exactly the shape the verdicts declare, and drives the verdicts from it.
+
+> **Amended 2026-09-02 by [ADR 0029](0029-shell-only-for-bootstrap.md).** This
+> record originally named `scripts/lib/capabilities.sh` as the detection layer,
+> on the grounds that ADR 0015 requires the gateway to run without Node. That
+> reasoning does not hold for this model: nothing in the zero-Node command set
+> reads capabilities, and by the time it was measured the shell file was
+> sourced by nothing but its own test — 256 lines reachable from no command on
+> any host. It has been deleted and its probes ported. ADR 0015 is unchanged:
+> `bootstrap`, `up`, `down`, `status` and `doctor` still run with no Node, and
+> none of them needs a capability verdict.
 
 ### A capability is not an exposure
 

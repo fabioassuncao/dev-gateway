@@ -15,9 +15,9 @@ import {
   defaultPortForImage,
   gatewayConnectionString,
   serviceKind,
+  slug,
   tcpRouting,
-} from './kinds.ts'
-import { slug } from '../../shared/slug.ts'
+} from 'portta-core'
 import type {
   Bridge,
   ContainerSummary,

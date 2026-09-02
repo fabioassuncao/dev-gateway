@@ -66,10 +66,15 @@ needs the CA. A client that connects without TLS, or to an IP, gets an
 `HTTP/1.1 400 Bad Request` from Traefik's fallback muxer, which surfaces as
 "received H". The documentation says so, because the error does not.
 
-The protocol registry lives in two places that must agree,
-`scripts/lib/discovery.sh` and `apps/web/src/server/core/kinds.ts`, and a protocol
-is listed as routable only after two instances were reached through one port.
-`unevaluated` is a real state, and the default.
+The protocol registry lives in one place, `packages/core/src/discovery.ts`, and
+a protocol is listed as routable only after two instances were reached through
+one port. `unevaluated` is a real state, and the default.
+
+> **Amended 2026-09-02 (#28).** This paragraph originally read "lives in two
+> places that must agree", naming `scripts/lib/discovery.sh` and
+> `apps/web/src/server/core/kinds.ts`. They had already stopped agreeing — the
+> shell knew Cassandra's and Neo4j's ports and neither TypeScript copy did — so
+> the table was moved to `packages/core` and both copies deleted.
 
 Everything here is additive. With `PORTTA_TCP=false`, which is the
 default, nothing changes: the bridges, the clients and the published ports all

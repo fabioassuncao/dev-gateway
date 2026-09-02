@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { isTrue, slug } from 'portta-core'
+import { BRIDGE_IMAGE, defaultPortForImage, isTrue, serviceKind, slug } from 'portta-core'
 import type { Command } from 'commander'
 import { confirm } from '../confirm.js'
 import { gatewayContext } from '../context.js'
@@ -8,17 +8,9 @@ import { RefusedError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
 
-const BRIDGE_IMAGE = 'alpine/socat:1.8.1.3'
-const DEFAULT_PORTS: Array<[RegExp, number, string]> = [
-  [/postgres|postgis|timescale/i, 5432, 'postgres'], [/mysql|mariadb|percona/i, 3306, 'mysql'],
-  [/redis|valkey|keydb/i, 6379, 'redis'], [/mongo/i, 27017, 'mongodb'], [/memcached/i, 11211, 'memcached'],
-  [/elasticsearch|opensearch/i, 9200, 'search'], [/rabbitmq/i, 5672, 'amqp'], [/clickhouse/i, 9000, 'clickhouse'],
-]
-
 function globals(command: Command) { return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string } }
 function kindAndPort(image: string): { kind: string; port: number | null } {
-  const match = DEFAULT_PORTS.find(([pattern]) => pattern.test(image))
-  return match ? { port: match[1], kind: match[2] } : { port: null, kind: 'tcp' }
+  return { kind: serviceKind(image), port: defaultPortForImage(image) }
 }
 function duration(value: string): number {
   const match = /^(\d+)([smhd]?)$/.exec(value)

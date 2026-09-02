@@ -330,9 +330,6 @@ traefik="apps/web/src/server/core/traefik.ts"
 it "it reaches Traefik over the shared network, not the control one"
 assert_eq "" "$(grep -n 'control' apps/web/src/server/config.ts | grep -i traefik || true)"
 
-it "and resolves the host from the attachment, because Traefik has no name of its own inside tailscale"
-assert_contains "$(cat apps/web/src/server/config.ts)" "http://\${attached}:8080"
-
 for method in POST PUT PATCH DELETE; do
   it "no $method is ever sent to the Traefik API"
   assert_eq "" "$(grep -n "method: '$method'" "$traefik" || true)"

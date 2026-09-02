@@ -153,13 +153,32 @@ export function loadGatewayConfig(env: Record<string, string | undefined> = proc
 }
 
 /**
+ * How Traefik is attached to the network, which decides both the overlay set
+ * and where Traefik's API answers.
+ *
+ * With docker/compose/attach/host.yaml Traefik has its own namespace and is
+ * reachable as `traefik`. With docker/compose/attach/tailscale.yaml it runs
+ * inside the Tailscale container's namespace and has no name of its own, so
+ * the same API answers on `tailscale`. See
+ * docs/adr/0007-tailscale-sidecar.md.
+ */
+export function attachment(config: { profile: string; tailscaleEnabled: boolean }): 'tailscale' | 'host' {
+  return config.profile !== 'local' && config.tailscaleEnabled ? 'tailscale' : 'host'
+}
+
+/**
  * The overlays live under docker/compose/, one directory per axis of the decision.
- * Must stay in step with portta_compose_files in scripts/lib/docker.sh: the shell
- * gateway and this CLI are two implementations of the same contract.
+ *
+ * `portta_compose_files` in scripts/lib/docker.sh is the zero-Node fallback's
+ * implementation of the same contract, not a second source of truth: ADR 0015
+ * requires `up`, `down`, `status` and `doctor` to work with no Node on the
+ * host. The two are held together by the parity assertions in
+ * tests/unit/profiles.test.sh, which run both and compare the file lists and
+ * the resolved domain across every profile and domain mode.
  */
 export function composeFiles(config: GatewayConfig): string[] {
-  const attachment = config.profile !== 'local' && config.tailscaleEnabled ? 'tailscale' : 'host'
-  const files = ['docker/compose/compose.yaml', `docker/compose/attach/${attachment}.yaml`]
+  const attached = attachment(config)
+  const files = ['docker/compose/compose.yaml', `docker/compose/attach/${attached}.yaml`]
   if (config.profile === 'local') {
     files.push('docker/compose/profiles/local.yaml')
     if (config.tlsEnabled && config.tlsMode === 'local') files.push('docker/compose/profiles/local-tls.yaml')
@@ -170,8 +189,8 @@ export function composeFiles(config: GatewayConfig): string[] {
     files.push(config.tlsEnabled ? 'docker/compose/profiles/remote-tls.yaml' : 'docker/compose/profiles/remote.yaml')
   }
   if (config.profile === 'remote-public') files.push('docker/compose/profiles/public.yaml')
-  if (config.dashboardEnabled) files.push(attachment === 'tailscale' ? 'docker/compose/features/dashboard-tailscale.yaml' : 'docker/compose/features/dashboard.yaml')
-  if (config.tcpEnabled) files.push(attachment === 'tailscale' ? 'docker/compose/features/tcp-tailscale.yaml' : 'docker/compose/features/tcp.yaml')
+  if (config.dashboardEnabled) files.push(attached === 'tailscale' ? 'docker/compose/features/dashboard-tailscale.yaml' : 'docker/compose/features/dashboard.yaml')
+  if (config.tcpEnabled) files.push(attached === 'tailscale' ? 'docker/compose/features/tcp-tailscale.yaml' : 'docker/compose/features/tcp.yaml')
   if (config.webEnabled) {
     files.push('docker/compose/features/web.yaml', 'docker/compose/features/db.yaml')
     // Exactly one overlay owns the panel's front door, so `public` and a host

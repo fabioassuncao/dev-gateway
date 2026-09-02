@@ -11,9 +11,10 @@
 // at creation time and reads nothing from the panel. Starting it is a
 // permission the panel already has. See ADR 0026.
 //
-// Like composeFiles, this has two implementations — the other is
-// portta_apply_create in scripts/lib/apply.sh, because the core commands must
-// run without Node (ADR 0015). tests/unit/apply.test.sh keeps them identical.
+// This is the source of truth. scripts/lib/apply.sh carries a second
+// implementation because `up` must work with no Node on the host (ADR 0015),
+// and tests/unit/apply.test.sh runs both and compares the `docker create`
+// argument lists rather than asking anyone to keep them in step.
 
 export const APPLY_IMAGE = 'fabioassuncao/portta-apply:0.2.0'
 export const APPLY_CONTAINER = 'portta-apply'
