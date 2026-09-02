@@ -25,6 +25,7 @@ import { EXIT, RefusedError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
 import { refreshGitMetadata } from './git.js'
+import { refreshHostResources } from './host.js'
 
 function globals(command: Command) { return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string } }
 
@@ -154,6 +155,7 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', ...buildArgs, '--remove-orphans', '--wait', '--wait-timeout', '180', ...services], { cwd: context.root, env: context.env, stdio: 'inherit' })
   const output = new Output(globals(command))
   await refreshGitMetadata(context.config.profile, output)
+  await refreshHostResources(context.config.profile, output)
   // The context was resolved before .env was rewritten, so `web dev` would
   // otherwise report the URL the previous mode used.
   output.data(webUrl(gatewayContext({ profile: globals(command).profile, overrides: values })))

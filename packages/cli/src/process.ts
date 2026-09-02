@@ -7,6 +7,8 @@ export interface RunOptions {
   input?: string | Uint8Array
   reject?: boolean
   stdio?: 'inherit' | 'pipe'
+  /** Kill the process after this many milliseconds. Used for optional probes. */
+  timeout?: number
 }
 
 export interface ProcessResult {
@@ -25,6 +27,7 @@ export async function runProcess(file: string, args: readonly string[] = [], opt
     reject: options.reject ?? true,
     shell: false,
     stdio: options.stdio ?? 'pipe',
+    timeout: options.timeout,
   }
   const result = await execa(file, [...args], execaOptions)
   return {

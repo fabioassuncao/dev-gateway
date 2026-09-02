@@ -150,6 +150,7 @@ REMOTE HOSTS
 WHAT AN ENVIRONMENT IS RUNNING
   git scan               Collect each project's branch, HEAD and dirty state
   git status             What was collected, and how old it is
+  host collect           CPU, memory, disk and GPU for the Overview, into state/host
 
 ADOPTING A PROJECT
   analyze <path>         Read-only report on how a project would adopt the gateway
@@ -673,7 +674,7 @@ main() {
     # one stops being: a spelling only this list knows is a command that does
     # not exist on any host with Node, which is every host the installer
     # touched. `analyse` and `adapt` were exactly that.
-    tls|tunnel|remote|backup|restore|repair|network|public|dns|analyze|init|namespace|ns|access|services|git|share|auth|web|db|redis|service|project|setup|config|dev)
+    tls|tunnel|remote|backup|restore|repair|network|public|dns|analyze|init|namespace|ns|access|services|git|host|share|auth|web|db|redis|service|project|setup|config|dev)
       err "'$cmd' requires Node 22.12 or newer and the full CLI"
       hint "npm install -g portta   (or run it inside a built checkout)"
       exit 3

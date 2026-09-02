@@ -19,7 +19,7 @@ GW="$PORTTA_ROOT/bin/portta"
 # per group proves the same thing — a leaf that was never wired up is missing
 # from its parent's help — at a fifteenth of the cost.
 COMMAND_TREE=(
-  ":version setup bootstrap up down restart status logs doctor urls inspect update project network public dns tls remote analyze init namespace access services service db redis web auth git share toolbox tunnel backup restore repair mcp"
+  ":version setup bootstrap up down restart status logs doctor urls inspect update project network public dns tls remote analyze init namespace access services service db redis web auth git host share toolbox tunnel backup restore repair mcp"
   "project:list show services analyze init namespace"
   "network:status"
   "public:status enable disable"
@@ -36,6 +36,7 @@ COMMAND_TREE=(
   "web auth:status set clear apply"
   "auth:status protect unprotect"
   "git:scan status clear"
+  "host:collect"
   "share:list revoke gc"
 )
 
@@ -161,6 +162,12 @@ assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" "
 
 it "web up refreshes the same metadata"
 assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/web.ts")" "await refreshGitMetadata(context.config.profile, output)"
+
+it "the full up command collects host resources"
+assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" "await refreshHostResources(context.config.profile, output)"
+
+it "web up collects the same host resources"
+assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/web.ts")" "await refreshHostResources(context.config.profile, output)"
 
 describe "a closed pipe is not an error"
 

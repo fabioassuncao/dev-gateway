@@ -7,6 +7,7 @@ import { analyzeCommand, initCommand, namespaceCommand, projectList, projectShow
 import { bootstrapCommand, devCommand, doctorCommand, downCommand, inspectCommand, logsCommand, restartCommand, statusCommand, updateCommand, upCommand, urlsCommand, versionCommand } from './commands/lifecycle.js'
 import { dnsCheck, dnsSetup, dnsStatus, networkStatus, publicDisable, publicEnable, publicStatus } from './commands/network.js'
 import { gitClear, gitScan, gitStatus } from './commands/git.js'
+import { hostCollect } from './commands/host.js'
 import { configGet, configList, configSet } from './commands/config.js'
 import { setupCommand } from './commands/setup.js'
 import { authProtect, authStatus, authUnprotect } from './commands/auth.js'
@@ -140,6 +141,8 @@ const git = describe(program.command('git'), 'Collect project Git metadata on th
 describe(git.command('scan'), 'Collect Git state into state/git').option('--project <name>').option('--with-prs').option('--forge-ttl <seconds>').action(gitScan)
 describe(git.command('status'), 'Show collected Git state and age').action((_options, command) => gitStatus(command))
 describe(git.command('clear'), 'Remove collected Git files').action((_options, command) => gitClear(command))
+const host = describe(program.command('host'), 'Collect host resource facts for the panel')
+describe(host.command('collect'), 'Write CPU, memory, disk and GPU into state/host').action((_options, command) => hostCollect(command))
 const share = describe(program.command('share'), 'Manage panel-created temporary shares')
 describe(share.command('list'), 'List shares').action((_options, command) => shareList(command))
 describe(share.command('revoke <id>'), 'Revoke one share without touching its project').action((id, _options, command) => shareRevoke(id, command))

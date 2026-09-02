@@ -10,9 +10,22 @@
 // scripts/lib/common.sh, which survive only for the zero-Node fallback
 // (ADR 0015).
 
-import { homedir, networkInterfaces } from 'node:os'
-import { accessSync, constants, globSync, statSync } from 'node:fs'
+import { homedir, loadavg, networkInterfaces, uptime } from 'node:os'
+import { accessSync, constants, existsSync, globSync, readFileSync, statfsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  cpuUtilisation,
+  mergeStorage,
+  parseCpuinfo,
+  parseLoadavg,
+  parseMeminfo,
+  parseNvidiaSmi,
+  parseProcStat,
+  parseSysctlBoottime,
+  parseUptime,
+  type CollectedHost,
+  type CollectedStorage,
+} from 'portta-core'
 import { runProcess } from './process.js'
 
 /**
@@ -152,4 +165,127 @@ export async function detectPublicIp(timeoutMs = 5000): Promise<string | null> {
     }
   }
   return null
+}
+
+function readText(path: string): string | null {
+  try {
+    return existsSync(path) ? readFileSync(path, 'utf8') : null
+  } catch {
+    return null
+  }
+}
+
+async function sysctl(name: string): Promise<string | null> {
+  const result = await runProcess('sysctl', ['-n', name], { reject: false, timeout: 2000 })
+  return result.failed ? null : result.stdout.trim() || null
+}
+
+function filesystemOf(path: string): CollectedStorage | null {
+  try {
+    const stats = statfsSync(path)
+    const totalBytes = Number(stats.blocks) * Number(stats.bsize)
+    const availableBytes = Number(stats.bavail) * Number(stats.bsize)
+    if (totalBytes <= 0) return null
+    return {
+      path,
+      role: 'portta',
+      totalBytes,
+      usedBytes: Math.max(0, totalBytes - availableBytes),
+      availableBytes,
+    }
+  } catch {
+    return null
+  }
+}
+
+function deviceOf(path: string): number | null {
+  try {
+    return statSync(path).dev
+  } catch {
+    return null
+  }
+}
+
+async function dockerRootDir(): Promise<string | null> {
+  const result = await runProcess('docker', ['info', '--format', '{{.DockerRootDir}}'], {
+    reject: false,
+    timeout: 5000,
+  })
+  const path = result.failed ? '' : result.stdout.trim()
+  return path === '' ? null : path
+}
+
+async function cpuModel(): Promise<string | null> {
+  return parseCpuinfo(readText('/proc/cpuinfo') ?? '') ?? (await sysctl('machdep.cpu.brand_string'))
+}
+
+async function hostUptimeSeconds(): Promise<number | null> {
+  const proc = parseUptime(readText('/proc/uptime') ?? '')
+  if (proc !== null) return proc
+  const boot = await sysctl('kern.boottime')
+  if (boot) {
+    const parsed = parseSysctlBoottime(boot, Math.floor(Date.now() / 1000))
+    if (parsed !== null) return parsed
+  }
+  const seconds = uptime()
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : null
+}
+
+function hostLoad(): ReturnType<typeof parseLoadavg> {
+  return parseLoadavg(readText('/proc/loadavg') ?? '') ?? (() => {
+    const [one, five, fifteen] = loadavg()
+    if ([one, five, fifteen].some((value) => !Number.isFinite(value))) return null
+    return { one, five, fifteen }
+  })()
+}
+
+async function cpuBusyShare(): Promise<number | null> {
+  const firstText = readText('/proc/stat')
+  if (firstText === null) return null
+  const first = parseProcStat(firstText)
+  if (first === null) return null
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  const second = parseProcStat(readText('/proc/stat') ?? '')
+  if (second === null) return null
+  return cpuUtilisation(first, second)
+}
+
+async function nvidiaGpus(): Promise<CollectedHost['gpu']> {
+  const tool = await locate('nvidia-smi')
+  if (!tool) return []
+  const result = await runProcess(
+    tool,
+    ['--query-gpu=name,memory.total,memory.used,utilization.gpu', '--format=csv,noheader,nounits'],
+    { reject: false, timeout: 3000 },
+  )
+  if (result.failed) return []
+  return parseNvidiaSmi(result.stdout)
+}
+
+/**
+ * What this host looks like right now, as one snapshot for `state/host/host.json`.
+ *
+ * Runs on the host. `/proc` and `os.*` here describe the machine, not a
+ * container. A missing probe is a missing field, never a thrown error.
+ */
+export async function collectHostSnapshot(root: string, now = Date.now()): Promise<CollectedHost> {
+  const dockerDir = await dockerRootDir()
+  const dockerFs = dockerDir ? filesystemOf(dockerDir) : null
+  if (dockerFs) dockerFs.role = 'docker'
+  const porttaFs = filesystemOf(root)
+  const sameDevice =
+    dockerDir !== null && deviceOf(dockerDir) !== null && deviceOf(dockerDir) === deviceOf(root)
+
+  return {
+    collectedAt: Math.floor(now / 1000),
+    uptimeSeconds: await hostUptimeSeconds(),
+    load: hostLoad(),
+    cpu: {
+      model: await cpuModel(),
+      utilisation: await cpuBusyShare(),
+    },
+    memory: parseMeminfo(readText('/proc/meminfo') ?? ''),
+    storage: mergeStorage(dockerFs, porttaFs, sameDevice),
+    gpu: await nvidiaGpus(),
+  }
 }

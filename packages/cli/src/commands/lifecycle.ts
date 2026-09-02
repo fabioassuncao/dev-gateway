@@ -14,6 +14,7 @@ import { runDoctor } from '../doctor.js'
 import { ensureApplier, removeApplier } from './apply.js'
 import { ensureRunner, removeRunner } from './runner.js'
 import { refreshGitMetadata } from './git.js'
+import { refreshHostResources } from './host.js'
 import { webUp } from './web.js'
 
 export function checkoutLocalEnv(): Record<string, string> {
@@ -201,6 +202,7 @@ export async function upCommand(profile: string | undefined, options: { attach?:
 
   const output = new Output(globals(command))
   await refreshGitMetadata(context.config.profile, output)
+  await refreshHostResources(context.config.profile, output)
 
   // The optional applier, so the panel can recreate these containers itself.
   // Off unless PORTTA_APPLY=true, and never fatal: the gateway is up either way.
