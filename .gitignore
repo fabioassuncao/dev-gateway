@@ -52,3 +52,6 @@ packages/*/dist/
 # Test artifacts
 tests/.tmp/
 tests/**/.env
+
+# Local issue execution state
+/issues/
