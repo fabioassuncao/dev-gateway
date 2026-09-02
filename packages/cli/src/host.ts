@@ -112,10 +112,16 @@ export async function have(tool: string): Promise<boolean> {
   return (await locate(tool)) !== null
 }
 
-/** The permission bits as four octal digits, or null when the file is unreadable. */
+/**
+ * The permission bits in octal, or null when the file cannot be read.
+ *
+ * Unpadded, the way `stat -c %a` and `stat -f %Lp` report them, because that
+ * is the spelling every message, comparison and document in the tree already
+ * uses: `chmod 600`, "mode 600", "would change .env from 644 to 600".
+ */
 export function fileMode(path: string): string | null {
   try {
-    return (statSync(path).mode & 0o7777).toString(8).padStart(4, '0')
+    return (statSync(path).mode & 0o7777).toString(8)
   } catch {
     return null
   }

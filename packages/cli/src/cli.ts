@@ -11,7 +11,10 @@ import { configGet, configList, configSet } from './commands/config.js'
 import { setupCommand } from './commands/setup.js'
 import { authProtect, authStatus, authUnprotect } from './commands/auth.js'
 import { shareGc, shareList, shareRevoke } from './commands/share.js'
-import { tlsStatus } from './commands/tls.js'
+import { tlsInit, tlsStatus, tlsTrust, tlsUntrust } from './commands/tls.js'
+import { backupCommand, repairCommand, restoreCommand } from './commands/maintenance.js'
+import { remoteAccessClose, remoteAccessList, remoteAccessOpen, remoteBootstrap, remoteExec, remoteGateway } from './commands/remote.js'
+import { tunnelDisable, tunnelEnable, tunnelLogs, tunnelSetup, tunnelStatus, tunnelTest } from './commands/tunnel.js'
 import { legacy, webAuthApply, webAuthClear, webAuthSet, webAuthStatus, webBuild, webDisable, webDown, webLogs, webOpen, webRestart, webStatus, webUp } from './commands/web.js'
 import { CLI_VERSION } from './version.js'
 
@@ -164,9 +167,64 @@ describe(projectOption(redis.command('open')), 'Open a Redis bridge').option('--
 describe(projectOption(redis.command('close')), 'Close project Redis bridges').action(clientClose)
 describe(projectOption(redis.command('cli')), 'Run redis-cli inside the project network').option('--service <name>', 'service', 'redis').option('--port <number>').argument('[args...]').action((args, options, command) => clientExec('redis-cli', options, args, command))
 
+describe(program.command('backup'), 'Archive everything this installation cannot regenerate')
+  .option('-o, --output <file>', 'where to write the archive')
+  .option('--no-database', 'leave the panel database out')
+  .action(backupCommand)
+describe(program.command('restore [file]'), 'Put a backup back, keeping what it replaced')
+  .option('-f, --force', 'replace configuration under a running gateway')
+  .action(restoreCommand)
+describe(program.command('repair'), 'Recreate what is missing and fix what is provably wrong')
+  .option('--dry-run', 'print the plan without changing anything')
+  .action(repairCommand)
+
+const remote = describe(program.command('remote'), 'Operate a gateway on another host over SSH')
+describe(remote.command('bootstrap <target>'), 'Prepare a host and start the gateway there')
+  .option('--profile <name>', 'profile to configure', 'remote-private')
+  .option('--dir <path>', 'where to install', 'portta')
+  .option('--repo <url>', "repository to clone; defaults to this repo's origin")
+  .option('--branch <name>', 'branch to check out', 'main')
+  .option('--install-docker', 'offer to install Docker when it is missing')
+  .option('--dry-run', 'print what would happen, change nothing')
+  .action(remoteBootstrap)
+for (const name of ['status', 'doctor', 'urls'] as const) {
+  describe(remote.command(`${name} <target>`), `Run \`portta ${name}\` there`).action((target, _options, command) => remoteGateway(name, target, command))
+}
+describe(remote.command('exec <target> [args...]'), 'Run an arbitrary command there')
+  .allowUnknownOption(true).action((target, args, _options, command) => remoteExec(target, args, command))
+const remoteAccess = describe(remote.command('access'), "Reach a remote project's private TCP services")
+describe(remoteAccess.command('open <target>'), 'Open a remote bridge and a tunnel to it')
+  .requiredOption('--project <name>', 'Compose project name')
+  .requiredOption('--service <name>', 'Compose service name')
+  .option('--port <number>', 'the port inside the service')
+  .option('--local-port <number>', 'the port to listen on here')
+  .option('--dir <path>', 'the gateway directory on the remote host', 'portta')
+  .action(remoteAccessOpen)
+describe(remoteAccess.command('list', { isDefault: true }).alias('ls'), 'List open tunnels').action((_options, command) => remoteAccessList(command))
+describe(remoteAccess.command('close [id]'), 'Close one tunnel, or all of them').option('--all').action(remoteAccessClose)
+
+const tunnel = describe(program.command('tunnel'), 'Publish services over HTTPS with no open port')
+describe(tunnel.command('status', { isDefault: true }), "Show the connector's state and the routes it serves").action((_options, command) => tunnelStatus(command))
+describe(tunnel.command('setup'), 'Write the connector configuration from a tunnel token')
+  .requiredOption('--zone <domain>', 'the domain whose wildcard points at the tunnel')
+  .option('--token-file <path>', 'read the tunnel token from a file')
+  .option('--origin <url>', 'where the connector reaches the proxy')
+  .option('--apex', 'serve the zone apex as well as the wildcard')
+  // Registered only so it can be refused with a reason: a token on a command
+  // line is visible in `ps` to every user on the host.
+  .option('--token <value>', 'refused; use --token-file or the prompt')
+  .action(tunnelSetup)
+describe(tunnel.command('enable'), 'Start the connector').action((_options, command) => tunnelEnable(command))
+describe(tunnel.command('disable'), 'Stop the connector, keeping the configuration')
+  .option('--forget', 'delete the configuration and credentials too').action(tunnelDisable)
+describe(tunnel.command('test'), 'Check that the tunnel is carrying traffic').action((_options, command) => tunnelTest(command))
+describe(tunnel.command('logs'), "Show the connector's own output").option('-n, --lines <count>', 'line count', '50').action(tunnelLogs)
+
 const tls = describe(program.command('tls'), 'Drive local certificates with openssl')
 describe(tls.command('status', { isDefault: true }), 'Show certificate and TLS configuration').action((_options, command) => tlsStatus(command))
-for (const name of ['init', 'trust', 'untrust']) describe(tls.command(`${name} [args...]`), `${name} local certificate material`).allowUnknownOption(true).action((args, _options, command) => legacy('tls', [name, ...args], command))
+describe(tls.command('init'), 'Create a local CA and a wildcard certificate for the domain').action((_options, command) => tlsInit(command))
+describe(tls.command('trust'), 'Print the command to trust the CA on this machine').action((_options, command) => tlsTrust(command))
+describe(tls.command('untrust'), 'Print the command to remove it again').action((_options, command) => tlsUntrust(command))
 /**
  * `bin/portta` hands over to this file whenever Node is present, so a command
  * the Bash dispatcher has and Commander does not is unreachable on every host
@@ -178,14 +236,7 @@ for (const name of ['init', 'trust', 'untrust']) describe(tls.command(`${name} [
  * assertion in `tests/unit/cli.test.sh` is what stops the two surfaces
  * drifting apart again.
  */
-const passthroughs = [
-  ['remote', 'Operate another gateway over ssh'],
-  ['toolbox', 'Run pinned operational tools in Docker'],
-  ['tunnel', 'Run the Cloudflare tunnel connector'],
-  ['backup', 'Archive gateway state and the panel database'],
-  ['restore', 'Restore gateway state from an archive'],
-  ['repair', 'Recover a gateway that will not start'],
-] as const
+const passthroughs = [['toolbox', 'Run pinned operational tools in Docker']] as const
 for (const [name, description] of passthroughs) {
   /**
    * `helpOption(false)` matters more than it looks. Each of these commands

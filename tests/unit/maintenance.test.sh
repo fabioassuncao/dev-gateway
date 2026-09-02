@@ -10,20 +10,22 @@ PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
 # portta_file_mode: GNU/BSD-portable, and the one implementation of it.
 . "$PORTTA_ROOT/scripts/lib/common.sh"
 
-# `bin/portta` honours an inherited PORTTA_ROOT, which is what lets the
-# installer point it at PORTTA_HOME. This suite exports one, so every
-# invocation must clear it or the command would operate on the repository —
-# the .env and the state of whoever is running the tests.
+# These commands write over an installation, so each runs against a throwaway
+# root rather than the repository — the .env and the state of whoever is running
+# the tests are not fixtures. PORTTA_ROOT is what the installer uses to point
+# the entry point at PORTTA_HOME, and it is what points it at the fake one.
+GW="$PORTTA_ROOT/bin/portta"
+
 run_in_home() {
   local home="$1"; shift
-  ( cd "$home" && env -u PORTTA_ROOT -u PORTTA_STATE_DIR ./bin/portta "$@" )
+  ( cd "$home" && PORTTA_ROOT="$home" env -u PORTTA_STATE_DIR "$GW" "$@" )
 }
 
 # A believable installation: the files a real PORTTA_HOME holds, and nothing
 # that would need Docker to exist.
 make_home() {
   local home; home=$(mktemp -d)
-  cp -R "$PORTTA_ROOT/bin" "$PORTTA_ROOT/scripts" "$PORTTA_ROOT/docker" "$home/" 2>/dev/null
+  cp -R "$PORTTA_ROOT/docker" "$home/"
   cp "$PORTTA_ROOT/.env.example" "$home/.env"
   printf '0.2.0\n' > "$home/VERSION"
   mkdir -p "$home/config/traefik/dynamic" "$home/config/tls" "$home/state/git" "$home/state/access"
@@ -52,7 +54,7 @@ chmod +x "$NO_NETWORKS/docker"
 
 run_isolated() {
   local home="$1"; shift
-  ( cd "$home" && PATH="$NO_NETWORKS:$PATH" env -u PORTTA_ROOT -u PORTTA_STATE_DIR ./bin/portta "$@" )
+  ( cd "$home" && PATH="$NO_NETWORKS:$PATH" PORTTA_ROOT="$home" env -u PORTTA_STATE_DIR "$GW" "$@" )
 }
 
 # The mirror image: a Docker that owns every network and runs nothing. Needed
@@ -70,7 +72,7 @@ chmod +x "$ALL_NETWORKS/docker"
 
 run_with_networks() {
   local home="$1"; shift
-  ( cd "$home" && PATH="$ALL_NETWORKS:$PATH" env -u PORTTA_ROOT -u PORTTA_STATE_DIR ./bin/portta "$@" )
+  ( cd "$home" && PATH="$ALL_NETWORKS:$PATH" PORTTA_ROOT="$home" env -u PORTTA_STATE_DIR "$GW" "$@" )
 }
 
 describe "backup"
@@ -134,10 +136,10 @@ cat > "$RUNNING/docker" <<'STUB'
 exit 1
 STUB
 chmod +x "$RUNNING/docker"
-assert_contains "$( cd "$HOME_A" && PATH="$RUNNING:$PATH" env -u PORTTA_ROOT ./bin/portta restore "$HOME_A/b.tar.gz" 2>&1 )" "the gateway is running"
+assert_contains "$( cd "$HOME_A" && PATH="$RUNNING:$PATH" PORTTA_ROOT="$HOME_A" "$GW" restore "$HOME_A/b.tar.gz" 2>&1 )" "the gateway is running"
 
 it "and proceeds anyway when told to"
-assert_not_contains "$( cd "$HOME_A" && PATH="$RUNNING:$PATH" env -u PORTTA_ROOT ./bin/portta restore "$HOME_A/b.tar.gz" --force 2>&1 )" "the gateway is running"
+assert_not_contains "$( cd "$HOME_A" && PATH="$RUNNING:$PATH" PORTTA_ROOT="$HOME_A" "$GW" restore "$HOME_A/b.tar.gz" --force 2>&1 )" "the gateway is running"
 rm -rf "$RUNNING"
 
 it "says which version the archive came from"
@@ -153,6 +155,39 @@ assert_contains "$(run_isolated "$HOME_A" restore "$HOME_A/stray.tar.gz" 2>&1)" 
 
 it "asks which backup when given none"
 assert_contains "$(run_isolated "$HOME_A" restore 2>&1)" "which backup"
+
+# The archive format is a contract across versions: one written by the shell
+# implementation this command replaced must still restore. PORTTA_BACKUP_VERSION
+# stays 1 and the layout does not change, so an archive built by hand in the
+# old shape is the honest test of that.
+describe "an archive written by the shell implementation still restores"
+
+LEGACY_HOME=$(make_home)
+LEGACY_STAGING=$(mktemp -d)
+mkdir -p "$LEGACY_STAGING/tree/config/traefik/dynamic"
+printf '{"version":1,"portta":"0.3.0","created":"2026-01-01T00:00:00Z","host":"old-host"}\n' \
+  > "$LEGACY_STAGING/portta-backup.json"
+printf 'MARKER=from-the-shell-version\n' > "$LEGACY_STAGING/tree/.env"
+printf '0.3.0\n' > "$LEGACY_STAGING/tree/VERSION"
+printf 'shell era\n' > "$LEGACY_STAGING/tree/config/traefik/dynamic/legacy.yaml"
+( cd "$LEGACY_STAGING" && tar -czf "$LEGACY_HOME/legacy.tar.gz" . )
+rm -rf "$LEGACY_STAGING"
+
+LEGACY_OUT=$(run_isolated "$LEGACY_HOME" restore "$LEGACY_HOME/legacy.tar.gz" 2>&1)
+
+it "reads the manifest and says which version it came from"
+assert_contains "$LEGACY_OUT" "0.3.0"
+
+it "puts back a file the shell version wrote"
+assert_contains "$(cat "$LEGACY_HOME/config/traefik/dynamic/legacy.yaml" 2>/dev/null)" "shell era"
+
+it "and the .env it carried"
+assert_contains "$(cat "$LEGACY_HOME/.env")" "MARKER=from-the-shell-version"
+
+it "leaving it private"
+assert_eq "600" "$(portta_file_mode "$LEGACY_HOME/.env")"
+
+rm -rf "$LEGACY_HOME"
 
 describe "repair"
 

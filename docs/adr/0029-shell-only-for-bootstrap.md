@@ -60,15 +60,15 @@ dispatcher knows and Commander does not is a defect, not a fallback:
 | `scripts/lib/toolbox.sh` | 73 | **Stays shell** | (b) the `docker run` wrapper the zero-Node path needs |
 | `scripts/lib/auth.sh` | 25 | **Stays shell** | (a) it renders the middleware file `bootstrap.sh` needs before the panel exists |
 | `scripts/lib/apply.sh` | 143 | **Stays shell, as a fallback of a TypeScript contract** | (a) preparing the applier is part of what `up` does, and `up` is an ADR 0015 command. `packages/core/src/apply.ts` is the source of truth; `tests/unit/apply.test.sh` runs both and compares the `docker create` argument lists |
-| `scripts/lib/common.sh` | 466 | **Migrate** → `packages/core`, keeping the output helpers and `portta_load_env` for the fallback |
-| `scripts/lib/docker.sh` | 471 | **Migrate** → `packages/core` (pure) and `packages/cli` (effects) |
-| `scripts/lib/discovery.sh` | 193 | **Migrate** → `packages/core`, keeping the container lookups `doctor` calls |
+| `scripts/lib/common.sh` | 466 | **Migrate** | → `packages/core`, keeping the output helpers and `portta_load_env` for the fallback |
+| `scripts/lib/docker.sh` | 471 | **Migrate** | → `packages/core` (pure) and `packages/cli` (effects) |
+| `scripts/lib/discovery.sh` | 193 | **Migrate** | → `packages/core`, keeping the container lookups `doctor` calls |
 | `scripts/lib/capabilities.sh` | 256 | **Delete** | Sourced by nothing but its own test. Its probes become `packages/cli/src/detect.ts`; nothing in the zero-Node command set reads a capability, so (a) never applied |
-| `scripts/cmd/tunnel.sh` | 387 | **Migrate** → `packages/cli` (`packages/core/src/tunnel.ts` already holds the config, token and state model) |
-| `scripts/cmd/maintenance.sh` | 324 | **Migrate** → `packages/cli` |
-| `scripts/cmd/tls.sh` | 215 | **Migrate** → `packages/cli`, keeping the toolbox container as the `openssl` runner |
-| `scripts/cmd/remote.sh` | 217 | **Migrate** → `packages/cli` (`ssh` through `execa`, host keys still verified) |
-| `scripts/cmd/remote-access.sh` | 208 | **Migrate** → `packages/cli` |
+| `scripts/cmd/tunnel.sh` | 387 | **Migrate** | → `packages/cli`; `packages/core/src/tunnel.ts` already holds the config, token and state model |
+| `scripts/cmd/maintenance.sh` | 324 | **Migrate** | → `packages/cli` |
+| `scripts/cmd/tls.sh` | 215 | **Migrate** | → `packages/cli`, keeping the toolbox container as the `openssl` runner |
+| `scripts/cmd/remote.sh` | 217 | **Migrate** | → `packages/cli`; `ssh` through `execa`, host keys still verified |
+| `scripts/cmd/remote-access.sh` | 208 | **Migrate** | → `packages/cli` |
 
 Measured 2026-09-02. `docs/scripts.md` carries the live inventory, the call
 graph and the rule; this record carries the decision.

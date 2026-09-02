@@ -245,22 +245,17 @@ export async function webAuthApply(command: Command): Promise<void> {
 }
 
 /**
- * A passthrough to the shell implementation of a command the TypeScript CLI
- * has not taken over yet. It must be transparent in both directions: the child
- * inherits the terminal, so its prompts, streaming and Ctrl-C work, and its
- * exit code is adopted verbatim.
+ * A passthrough to a shell implementation, and now only one: `toolbox`, whose
+ * `scripts/lib/toolbox.sh` keeps its *stays shell* verdict in ADR 0029 because
+ * it is the `docker run` wrapper the zero-Node path needs.
  *
- * Adopting the code matters for the recovery commands. Wrapping every failure
- * as a precondition turned `portta restore` with no argument from the shell's
- * exit 1 into exit 3, and printed a second, vaguer error over the first one —
- * so a script could not tell "you named no archive" from "Docker is down", and
- * `backup`, `restore` and `repair` are the commands that run when something is
- * already wrong.
+ * It is transparent in both directions. The child inherits the terminal, so
+ * prompts, streaming and Ctrl-C work; and its exit code is adopted verbatim,
+ * because wrapping every failure as a precondition would hide which failure
+ * happened behind a second, vaguer error.
  */
 export async function legacy(commandName: string, args: string[], command: Command): Promise<void> {
   const context = gatewayContext({ profile: globals(command).profile })
-  const forwarded = [...args]
-  if (commandName === 'remote' && globals(command).json && ['status', 'doctor', 'urls'].includes(forwarded[0] ?? '')) forwarded.push('--json')
-  const result = await runProcess(join(context.root, 'bin/portta'), [commandName, ...forwarded], { cwd: context.root, env: { ...context.env, PORTTA_FORCE_BASH: 'true', PORTTA_ASSUME_YES: globals(command).yes ? 'true' : context.env['PORTTA_ASSUME_YES'] }, stdio: 'inherit', reject: false })
+  const result = await runProcess(join(context.root, 'bin/portta'), [commandName, ...args], { cwd: context.root, env: { ...context.env, PORTTA_FORCE_BASH: 'true', PORTTA_ASSUME_YES: globals(command).yes ? 'true' : context.env['PORTTA_ASSUME_YES'] }, stdio: 'inherit', reject: false })
   if (result.exitCode !== 0) process.exitCode = result.exitCode ?? EXIT.failure
 }

@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process'
 import { execa, type Options } from 'execa'
 
 export interface RunOptions {
@@ -35,3 +36,27 @@ export async function runProcess(file: string, args: readonly string[] = [], opt
 }
 
 export const PROCESS_POLICY = Object.freeze({ shell: false, argumentArraysOnly: true })
+
+/**
+ * Start a process that must outlive this command.
+ *
+ * The only caller is `remote access open`, which leaves an SSH tunnel running
+ * after the CLI exits — the whole point of the command is a local address that
+ * still answers once the terminal is free. Detached and unreferenced, with its
+ * output discarded, because a background process writing to a closed terminal
+ * is how a tunnel dies silently.
+ *
+ * Still an argument array and still no shell: the exception is the lifetime,
+ * not the policy.
+ */
+export function spawnDetached(file: string, args: readonly string[], options: { cwd?: string; env?: NodeJS.ProcessEnv } = {}): number | undefined {
+  const child = spawn(file, [...args], {
+    cwd: options.cwd,
+    env: options.env,
+    shell: false,
+    detached: true,
+    stdio: 'ignore',
+  })
+  child.unref()
+  return child.pid
+}

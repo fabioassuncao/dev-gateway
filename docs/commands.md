@@ -21,6 +21,17 @@ and points to the detailed guides.
 | `portta update` | Pull pinned images and recreate the gateway. |
 | `portta version` | Print the installed version. |
 
+## Maintenance and recovery
+
+| Command | Purpose |
+|---|---|
+| `portta backup` | Archive `.env`, `VERSION`, `config/` and `state/`, plus a dump of the panel database. Written 0600; leaves out anything the installer can fetch again. |
+| `portta restore <file>` | Put a backup back, keeping a safety copy of what it replaced. Refuses a running gateway without `--force`. |
+| `portta repair` | Recreate missing directories, fix the modes on files that hold secrets, restore the shared networks, reconcile containers. `--dry-run` prints the plan. |
+| `portta tunnel setup --zone <domain>` | Write the connector configuration from a tunnel token, read from a file or a hidden prompt. |
+| `portta tunnel enable\|disable` | Start or stop the connector; `--forget` also deletes its configuration. |
+| `portta tunnel status\|test\|logs` | Inspect the connector, confirm it carries traffic, follow its output. |
+
 ## Web panel and persisted state
 
 | Command | Purpose |
@@ -77,6 +88,7 @@ See [Database access](database-access.md), [TCP access](tcp-access.md), and
 | `portta tls status` | Report TLS mode and certificate state. |
 | `portta tls init` | Create a local CA and wildcard certificate. |
 | `portta tls trust` | Print the platform-specific CA trust command. |
+| `portta tls untrust` | Print the command that removes it again. |
 
 ## Projects, worktrees and remote hosts
 
@@ -90,6 +102,8 @@ See [Database access](database-access.md), [TCP access](tcp-access.md), and
 | `portta remote bootstrap <user@host>` | Prepare and start a remote gateway over SSH. |
 | `portta remote status|doctor|urls <user@host>` | Query a remote gateway. |
 | `portta remote exec <user@host> -- <command>` | Run an explicit remote gateway command. |
+| `portta remote access open <user@host>` | Open a bridge there and an SSH tunnel to it, and print a local address. |
+| `portta remote access list\|close` | List open tunnels, or close one by id (or `--all`). |
 | `portta toolbox build` | Build the pinned operational toolbox. |
 | `portta toolbox run -- <command>` | Run a one-shot tool in its container. |
 

@@ -103,22 +103,22 @@ assert_eq "*.portta.app" "$(apex_match https://web--storefront.portta.app)"
 
 fi   # CAN_MATCH
 
-# `bin/portta` honours an inherited PORTTA_ROOT, which is what lets the
-# installer point it at PORTTA_HOME. This suite exports one, so every
-# invocation below must clear it or the command would write into the
-# repository — the .env and the credentials of whoever is running the tests.
-run_in_home() {
-  local home="$1"; shift
-  ( cd "$home" && env -u PORTTA_ROOT -u PORTTA_STATE_DIR ./bin/portta "$@" )
-}
-
+# `tunnel setup` writes a credential, so the suite gives it an isolated root
+# rather than the repository: the .env and the credentials of whoever is
+# running the tests are not test fixtures. PORTTA_ROOT is what the installer
+# uses to point the entry point at PORTTA_HOME, and it is what points it here.
 describe "portta tunnel setup, writing what the connector reads"
 
 SETUP_HOME=$(mktemp -d)
-cp -R "$PORTTA_ROOT/bin" "$PORTTA_ROOT/scripts" "$PORTTA_ROOT/docker" "$SETUP_HOME/" 2>/dev/null
-mkdir -p "$SETUP_HOME/packages/core"
-[ -d "$PORTTA_ROOT/packages/core/dist" ] && cp -R "$PORTTA_ROOT/packages/core/dist" "$SETUP_HOME/packages/core/"
+cp -R "$PORTTA_ROOT/docker" "$SETUP_HOME/"
+cp "$PORTTA_ROOT/VERSION" "$SETUP_HOME/VERSION"
 cp "$PORTTA_ROOT/.env.example" "$SETUP_HOME/.env"
+
+# The repository's entry point, aimed at the throwaway root: PORTTA_ROOT is
+# resolved here so the assignment below cannot be mistaken for the one the
+# command reads.
+GW="$PORTTA_ROOT/bin/portta"
+setup_in_home() { ( cd "$SETUP_HOME" && PORTTA_ROOT="$SETUP_HOME" "$GW" "$@" ); }
 
 # A well-formed token with no account behind it: enough to exercise every path
 # that reads one, and useless to anybody who finds it.
@@ -132,9 +132,9 @@ token = base64.b64encode(json.dumps({
 open(sys.argv[1], "w").write(token)
 PYTOKEN
 
-run_in_home "$SETUP_HOME" tunnel setup --zone portta.app --token-file ./token.txt >/dev/null 2>&1
+setup_in_home tunnel setup --zone portta.app --token-file ./token.txt >/dev/null 2>&1
 
-it "writes into the isolated home, never into the repository"
+it "writes into the isolated root, never into the repository"
 assert_success test ! -e "$PORTTA_ROOT/state/cloudflared/credentials.json"
 
 it "writes the credentials file"
@@ -163,34 +163,18 @@ assert_contains "$(cat "$SETUP_HOME/.env")" "CLOUDFLARE_TUNNEL_ZONE=portta.app"
 assert_contains "$(cat "$SETUP_HOME/.env")" "CLOUDFLARE_TUNNEL_ID=6ff42ae2-765d-4adf-8112-31c55c1551ef"
 
 it "refuses a token given as an argument, where ps would show it"
-OUT=$(run_in_home "$SETUP_HOME" tunnel setup --zone portta.app --token "$(cat "$SETUP_HOME/token.txt")" 2>&1)
+OUT=$(setup_in_home tunnel setup --zone portta.app --token "$(cat "$SETUP_HOME/token.txt")" 2>&1)
 assert_contains "$OUT" "visible in"
 
-# ADR 0015: the core commands must work on a host with nothing but Docker and
-# a shell, so the token has a decoder that needs no Node.
-describe "the same setup without Node"
-
-NONODE_HOME=$(mktemp -d)
-cp -R "$PORTTA_ROOT/bin" "$PORTTA_ROOT/scripts" "$PORTTA_ROOT/docker" "$NONODE_HOME/" 2>/dev/null
-cp "$PORTTA_ROOT/.env.example" "$NONODE_HOME/.env"
-cp "$SETUP_HOME/token.txt" "$NONODE_HOME/token.txt"
-# No packages/core/dist here, so the shell fallback is the only path available.
-run_in_home "$NONODE_HOME" tunnel setup --zone example.test --token-file ./token.txt >/dev/null 2>&1
-
-it "still writes a credentials file"
-assert_success test -f "$NONODE_HOME/state/cloudflared/credentials.json"
-
-it "decodes the token to the same three fields"
-assert_contains "$(cat "$NONODE_HOME/state/cloudflared/credentials.json")" '"TunnelID":"6ff42ae2-765d-4adf-8112-31c55c1551ef"'
-
-it "keeps it 0600 on that path too"
-assert_eq "600" "$(portta_file_mode "$NONODE_HOME/state/cloudflared/credentials.json")"
+it "and the refusal is a usage error, not a failed setup"
+setup_in_home tunnel setup --zone portta.app --token x >/dev/null 2>&1
+assert_eq "2" "$?"
 
 if [ -n "$CLOUDFLARED" ]; then
-  it "writes a config the real cloudflared accepts, on the no-Node path too"
-  assert_contains "$("$CLOUDFLARED" tunnel --config "$NONODE_HOME/state/cloudflared/config.yml" ingress validate 2>&1)" "OK"
+  it "writes a config the real cloudflared accepts"
+  assert_contains "$("$CLOUDFLARED" tunnel --config "$SETUP_HOME/state/cloudflared/config.yml" ingress validate 2>&1)" "OK"
 fi
 
-rm -rf "$SETUP_HOME" "$NONODE_HOME"
+rm -rf "$SETUP_HOME"
 
 t_summary

@@ -17,13 +17,13 @@ unreachable, not a fallback — `tunnel`, `backup`, `restore` and `repair` were
 exactly that for one release. `tests/unit/cli.test.sh` fails when the two
 surfaces disagree.
 
-`tls init|trust|untrust`, `remote`, `toolbox`, `tunnel`, `backup`, `restore`
-and `repair` are still implemented in shell and reached through a passthrough.
-A passthrough is transparent: it inherits the terminal, so prompts, streaming
-and Ctrl-C work; it forwards `--help` to the implementation rather than
-answering with a stub; and it reports the implementation's exit code unchanged.
-Except for `toolbox`, each is temporary — see
-[shell scripts](scripts.md) and [ADR 0029](adr/0029-shell-only-for-bootstrap.md).
+`toolbox` is the one command still implemented in shell and reached through a
+passthrough: `scripts/lib/toolbox.sh` is the `docker run` wrapper the zero-Node
+path needs. A passthrough is transparent — it inherits the terminal, so prompts,
+streaming and Ctrl-C work; it forwards `--help` to the implementation rather
+than answering with a stub; and it reports the implementation's exit code
+unchanged. See [shell scripts](scripts.md) and
+[ADR 0029](adr/0029-shell-only-for-bootstrap.md).
 
 ## Installation
 
@@ -133,7 +133,20 @@ file or stdin.
 | `git scan` | `--project`, `--with-prs`, `--forge-ttl <seconds>` |
 | `git status`, `git clear` | Inspect or remove only `state/git/*.json`. |
 | `share list`, `share revoke <id>`, `share gc` | Shares can only be created in the panel. |
-| `tls init|trust|untrust`, `remote ...`, `toolbox ...` | Passthroughs to the shell implementations: OpenSSL, SSH and one-shot Docker. |
+| `tls status|init` | `init` runs OpenSSL in the toolbox container and enables TLS in `.env`. |
+| `tls trust|untrust` | Print the privileged command for this operating system; never run it. |
+| `remote bootstrap <target>` | `--profile`, `--dir`, `--repo`, `--branch`, `--install-docker`, `--dry-run`. Never copies a secret, never overwrites a remote `.env`. |
+| `remote status|doctor|urls <target>` | Read-only, over SSH. `--json` is forwarded. |
+| `remote exec <target> -- <cmd>` | Runs the command there with the terminal attached. |
+| `remote access open <target>` | `--project`, `--service`, `--port`, `--local-port`, `--dir`. Leaves an SSH tunnel running after the command exits. |
+| `remote access list|close` | `close` takes an id or `--all`; the remote bridge is left for the remote host to close. |
+| `toolbox ...` | Passthrough to the one-shot Docker wrapper. |
+
+Host key verification is never relaxed: `StrictHostKeyChecking` defaults to
+`accept-new`, which records a key the first time and still refuses a *changed*
+one. `PORTTA_SSH_HOST_KEY_POLICY` can tighten it; nothing in the tree sets it
+to `no`, and `tests/unit/audit.test.sh` fails if anything ever does.
+
 
 ### Maintenance and tunnelling
 
@@ -144,8 +157,6 @@ file or stdin.
 | `restore <file>` | `--force`; refuses to overwrite a live installation without it, and always writes a safety copy. |
 | `repair` | `--dry-run`; never deletes data, never touches a volume. |
 
-These four are passthroughs today. `portta <command> --help` prints the
-implementation's own page, which is the authoritative flag list.
 
 ## JSON shapes
 
@@ -173,6 +184,13 @@ Every read command accepts the global `--json`. Stable top-level fields are:
 | `git status` | `projects[]`, each with collected metadata plus `ageSeconds` |
 | `share list` | `shares[]` |
 | `db status` | `state`, `container`, `network` |
+| `tls status` | `enabled`, `mode`, `domain`, `certificate`, `authority`, `acme` |
+| `tunnel status` | `state`, `detail`, `hint`, `zone`, `wildcard`, `tunnel`, `connector`, `credential` |
+| `tunnel setup` | `zone`, `tunnel`, `origin`, `routes[]`, `dns` (`type`, `name`, `target`, `proxied`) |
+| `tunnel test` | `host`, `code`, `ok`, `detail`, `hint` |
+| `backup` | `file`, `size`, `paths[]`, `database` |
+| `repair --dry-run` | `dryRun`, `changes[]` |
+| `remote access list` | `tunnels[]` (`id`, `pid`, `target`, `project`, `service`, `remotePort`, `localPort`, `started`, `address`) |
 
 Fields are additive within `0.x`; incompatible changes are called out in the
 changelog. Secret values never appear in JSON.

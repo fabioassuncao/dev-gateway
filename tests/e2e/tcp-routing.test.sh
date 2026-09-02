@@ -22,7 +22,6 @@ PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
 . "$PORTTA_ROOT/scripts/lib/common.sh"
 . "$PORTTA_ROOT/scripts/lib/docker.sh"
 . "$PORTTA_ROOT/scripts/lib/toolbox.sh"
-. "$PORTTA_ROOT/scripts/lib/discovery.sh"
 portta_load_env; portta_defaults
 
 GW="$PORTTA_ROOT/bin/portta"
@@ -122,9 +121,14 @@ it "neither database publishes a host port"
 assert_eq "" "$(docker ps --format '{{.Names}} {{.Ports}}' \
   | grep -E "^($A|$B)-(postgres|redis)-1 " | grep -E '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:' || true)"
 
+container_ports() {
+  docker inspect "$1" --format '{{ range $p, $v := .Config.ExposedPorts }}{{ $p }} {{ end }}' 2>/dev/null \
+    | tr ' ' '\n' | sed -n 's#^\([0-9]\{1,5\}\)/tcp$#\1#p' | sort -n -u
+}
+
 it "both still listen on the standard port inside their own container"
 assert_eq "5432
-5432" "$(portta_container_ports "$A-postgres-1"; portta_container_ports "$B-postgres-1")"
+5432" "$(container_ports "$A-postgres-1"; container_ports "$B-postgres-1")"
 
 it "neither joined the shared HTTP network"
 assert_eq "" "$(docker inspect "$A-postgres-1" "$B-postgres-1" \
@@ -229,16 +233,26 @@ docker rm -f portta-rule-probe >/dev/null 2>&1
 
 describe "the CLI and the registry agree with what just happened"
 
+# The registry is one table, in packages/core/src/discovery.ts. Reading it here
+# rather than restating it is the point: the hostname two live databases just
+# answered on has to be the hostname the product derives.
+core() {
+  node --input-type=module -e "
+    import * as core from '$PORTTA_ROOT/packages/core/src/index.ts'
+    process.stdout.write(String($1))
+  " 2>/dev/null
+}
+
 it "the hostname the CLI derives is the one that worked"
-assert_eq "$A-postgres.$PORTTA_DOMAIN" "$(portta_tcp_hostname "$A" postgres)"
+assert_eq "$A-postgres.$PORTTA_DOMAIN" "$(core "core.tcpHostname('$A', 'postgres', '$PORTTA_DOMAIN')")"
 
 it "PostgreSQL is registered as routable"
-assert_eq "starttls-sni" "$(portta_routing_for_kind postgres)"
+assert_eq "starttls-sni" "$(core "core.tcpRouting('postgres')")"
 
 it "MySQL is registered as not routable, and nothing pretends otherwise"
-assert_eq "unsupported" "$(portta_routing_for_kind mysql)"
+assert_eq "unsupported" "$(core "core.tcpRouting('mysql')")"
 
 it "a protocol nobody verified is not claimed to work"
-assert_eq "unevaluated" "$(portta_routing_for_kind mongodb)"
+assert_eq "unevaluated" "$(core "core.tcpRouting('mongodb')")"
 
 t_summary

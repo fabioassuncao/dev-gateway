@@ -71,15 +71,15 @@ describe('privateAddresses', () => {
 })
 
 describe('fileMode', () => {
-  it('reports four octal digits, so a private key can be judged', () => {
+  it('reports the octal mode the shell reports, so the two agree', () => {
     const dir = mkdtempSync(join(tmpdir(), 'portta-host-'))
     try {
       const file = join(dir, 'app.pem')
       writeFileSync(file, 'key')
       chmodSync(file, 0o600)
-      expect(fileMode(file)).toBe('0600')
+      expect(fileMode(file)).toBe('600')
       chmodSync(file, 0o644)
-      expect(fileMode(file)).toBe('0644')
+      expect(fileMode(file)).toBe('644')
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

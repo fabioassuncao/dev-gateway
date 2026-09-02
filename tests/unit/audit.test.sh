@@ -20,7 +20,14 @@ cd "$PORTTA_ROOT" || exit 1
 # own text, so keep the patterns here and the enforcement here only.
 SELF="tests/unit/audit.test.sh"
 tracked() { git ls-files "$@" 2>/dev/null | grep -v '^docs/prompts/' | grep -vx "$SELF"; }
-code() { git ls-files 'bin/*' 'scripts/**' 'docker/**' '.github/**' 2>/dev/null | grep -vx "$SELF"; }
+# The operational surface, wherever it lives. It used to be `bin/` and
+# `scripts/` alone, which meant these invariants quietly stopped covering each
+# command as it was ported to TypeScript. Tests are excluded: a suite naming a
+# forbidden pattern as a fixture is not the gateway doing it.
+code() {
+  git ls-files 'bin/*' 'scripts/**' 'docker/**' '.github/**' 'packages/*/src/**' 'apps/*/src/**' 2>/dev/null \
+    | grep -v '\.test\.ts$' | grep -vx "$SELF"
+}
 
 describe "the gateway stays decoupled from consumer projects"
 
@@ -31,8 +38,11 @@ it "no consumer project is named in the code"
 # Names may appear in prose as examples; code must be vendor-neutral.
 assert_eq "" "$(code | xargs grep -lni 'brasil.data.hub\|base-empresarial\|base-eleicoes\|base-escolar\|issue-flow' 2>/dev/null || true)"
 
+# `remote bootstrap` clones *Portta* onto another host, which is the one
+# legitimate clone in the tree; nothing else may clone anything.
 it "nothing clones a consumer project"
-assert_eq "" "$(code | xargs grep -ln 'git clone' 2>/dev/null | grep -v 'scripts/cmd/remote.sh' || true)"
+assert_eq "packages/cli/src/commands/remote.ts" \
+  "$(code | xargs grep -ln 'git clone' 2>/dev/null | sort | tr '\n' ' ' | sed 's/ $//')"
 
 it "no consumer directory is mounted into the gateway"
 # Only these mounts are legitimate here, and all of them are gateway-owned:
@@ -59,7 +69,8 @@ describe "the applier is bounded by construction"
 it "only the applier mounts the docker socket writable, and only it"
 # Everywhere else the socket is `:ro`, into a socket proxy. The compose audit
 # above cannot see this one, because the applier is not a compose service.
-assert_eq "scripts/lib/apply.sh" "$(code | xargs grep -ln 'docker\.sock:/var/run/docker\.sock[^:]*$' 2>/dev/null || true)"
+assert_eq "packages/core/src/apply.ts scripts/lib/apply.sh" \
+  "$(code | xargs grep -ln 'docker\.sock:/var/run/docker\.sock[^:]*$' 2>/dev/null | sort | tr '\n' ' ' | sed 's/ $//')"
 
 it "the applier is not a compose service"
 # A compose applier would be an orphan the moment PORTTA_APPLY went false, and
@@ -142,8 +153,11 @@ for f in $(tracked 'bin/*' 'scripts/**' | xargs grep -ln 'docker rm ' 2>/dev/nul
 done
 assert_eq "" "$offenders"
 
+# `down` must never reach past the gateway's own Compose project.
 it "compose down never takes volumes or orphans with it"
-assert_eq "" "$(grep -n 'portta_compose .* down' bin/portta scripts/cmd/*.sh 2>/dev/null | grep -E '\-v|--volumes|--remove-orphans' || true)"
+assert_eq "" "$(grep -n 'portta_compose .* down' bin/portta 2>/dev/null | grep -E '\-v|--volumes|--remove-orphans' || true)"
+down_flags="(-v|--volumes|--remove-orphans)"
+assert_eq "" "$(grep -rn "'down'" packages/cli/src --include='*.ts' | grep -E "'$down_flags'" || true)"
 
 describe "secrets never reach the process list or the repository"
 
@@ -197,10 +211,16 @@ assert_eq "" "$(sed -n '/^  traefik:/,$p' docker/compose/compose.yaml | grep 'do
 describe "SSH keeps host verification on"
 
 it "StrictHostKeyChecking is never disabled"
-assert_eq "" "$(tracked 'bin/*' 'scripts/**' | xargs grep -n 'StrictHostKeyChecking=no' 2>/dev/null || true)"
+assert_eq "" "$(tracked 'bin/*' 'scripts/**' 'packages/**' 'apps/**' | xargs grep -n 'StrictHostKeyChecking=no' 2>/dev/null || true)"
 
+# `accept-new` records a key the first time and still refuses a *changed* one,
+# which is the attack host key verification exists for. `no` would accept both.
 it "the default policy still refuses a changed host key"
-assert_contains "$(cat scripts/cmd/remote.sh)" "accept-new"
+assert_contains "$(cat packages/cli/src/commands/remote.ts)" "accept-new"
+
+it "and nothing reaches ssh except through that one option list"
+assert_eq "packages/cli/src/commands/remote.ts" \
+  "$(grep -rln "runProcess('ssh'\|spawnDetached('ssh'" packages/cli/src --include='*.ts' | grep -v '\.test\.ts$' | sort | tr '\n' ' ' | sed 's/ $//')"
 
 describe "supply chain"
 
@@ -297,7 +317,15 @@ describe "the TypeScript CLI never constructs a shell command from input"
 it "the process primitive disables shell execution"
 assert_contains "$(cat packages/cli/src/process.ts)" "shell: false"
 
+# One file may reach child_process, and only to give `remote access open` a
+# tunnel that outlives the command. Everything else goes through runProcess,
+# so "no shell string is ever built" is a property of one module rather than a
+# habit spread across twenty command files.
 it "commands call the primitive with argument arrays"
-assert_eq "" "$(grep -rn "from 'node:child_process'" packages/cli/src --include='*.ts' | grep -v '\.test\.ts:' || true)"
+assert_eq "packages/cli/src/process.ts" \
+  "$(grep -rln "from 'node:child_process'" packages/cli/src --include='*.ts' | grep -v '\.test\.ts$' | sort | tr '\n' ' ' | sed 's/ $//')"
+
+it "and the detached spawn disables the shell too"
+assert_contains "$(sed -n '/export function spawnDetached/,/^}/p' packages/cli/src/process.ts)" "shell: false"
 
 t_summary

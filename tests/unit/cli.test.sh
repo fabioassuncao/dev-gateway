@@ -25,6 +25,9 @@ COMMAND_TREE=(
   "public:status enable disable"
   "dns:check status setup"
   "tls:status init trust untrust"
+  "tunnel:status setup enable disable test logs"
+  "remote:bootstrap status doctor urls exec access"
+  "remote access:open list close"
   "access:open list close inspect gc"
   "service:publish list unpublish"
   "db:status shell dump restore open close url psql mysql"
@@ -63,27 +66,12 @@ for group in "${COMMAND_TREE[@]}"; do
   done
 done
 
-# A passthrough forwards `--help` rather than answering it. Commander's own
-# help option would print a stub naming `[args...]` over the page the shell
-# implementation writes, which is the page that lists the subcommands.
-for c in remote tunnel backup restore repair; do
-  it "portta $c --help is the implementation's page, not a stub"
-  assert_eq "$(PORTTA_FORCE_BASH=true "$GW" "$c" --help 2>&1)" "$("$GW" "$c" --help 2>&1)"
-done
-
-# A passthrough that rewrites the child's exit code hides which failure
-# happened. `restore` with no argument is a usage mistake and exits 1; wrapping
-# it as a precondition made it exit 3 and printed a second, vaguer error over
-# the shell's own, so a script could not tell it from "Docker is unreachable".
-for c in "restore" "tunnel test"; do
-  it "portta $c reports the shell implementation's exit code and output"
-  # shellcheck disable=SC2086
-  bash_out=$(PORTTA_FORCE_BASH=true "$GW" $c 2>&1); bash_rc=$?
-  # shellcheck disable=SC2086
-  node_out=$("$GW" $c 2>&1); node_rc=$?
-  if [ "$bash_rc" != "$node_rc" ]; then _t_fail "exit $node_rc, shell exits $bash_rc"
-  else assert_eq "$bash_out" "$node_out"; fi
-done
+# `toolbox` is the last passthrough: ADR 0029 keeps scripts/lib/toolbox.sh as
+# shell, so `portta toolbox` still re-enters bin/portta. A passthrough forwards
+# `--help` rather than answering it, because Commander's own help option would
+# print a stub naming `[args...]` over the implementation's page.
+it "portta toolbox --help is the implementation's page, not a stub"
+assert_eq "$(PORTTA_FORCE_BASH=true "$GW" toolbox --help 2>&1)" "$("$GW" toolbox --help 2>&1)"
 
 describe "the two entry points offer the same commands"
 

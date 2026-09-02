@@ -39,33 +39,35 @@ bin/portta ──(Node 22.12+ and dist/cli.js present)──> packages/cli/dist/
      │                                                    └─> legacy() ──┐
      │                                                                    │
      └──(no Node, or PORTTA_FORCE_BASH=true)──> scripts/lib/*.sh <────────┘
-                                                       └──> scripts/cmd/*.sh
 ```
 
-Two places still cross from TypeScript back into Bash. Each is a migration step
-with an owning issue, never a destination:
+`scripts/cmd/` is gone: every command that lived there is TypeScript.
+
+Two places still cross from TypeScript back into Bash:
 
 | Crossing | Where | Removed by |
 |---|---|---|
 | `bash scripts/doctor.sh --json`, parsed | `packages/cli/src/commands/lifecycle.ts` | #30 |
-| `legacy()` re-invokes `bin/portta` with `PORTTA_FORCE_BASH=true` | `packages/cli/src/commands/web.ts` | #29, except `toolbox` |
+| `legacy()` re-invokes `bin/portta` for `toolbox` | `packages/cli/src/commands/web.ts` | stays: `toolbox.sh` keeps its *stays shell* verdict |
 
 `packages/core/src/apply.ts` also runs `bin/portta up` inside the applier
 container. That is the applier's contract, not a fallback, and it stays.
 
 ## The inventory
 
-Measured 2026-09-02, on `develop`, after #28.
+Measured 2026-09-02, on `develop`, after #29.
 
 ### Stays shell
 
 | File | Lines | Which test it passes | Bound |
 |---|---:|---|---|
 | `install.sh` | 1426 | (a) `curl … \| bash` on a host with nothing | Shrinks to: detect, install requirements, fetch Portta, prepare the minimum, `exec` the CLI (#30) |
-| `bin/portta` | 697 | (a) the ADR 0015 dispatcher | Its Bash fallback set stays exactly the commands ADR 0015 names |
+| `bin/portta` | 684 | (a) the ADR 0015 dispatcher | Its Bash fallback set stays exactly the commands ADR 0015 names |
 | `scripts/doctor.sh` | 1119 | (a) a bare host is diagnosed before anything is installed | Shrinks to the zero-Node checks (#30) |
 | `scripts/bootstrap.sh` | 177 | (a) ADR 0015 | Shrinks to the zero-Node fallback (#30) |
-| `scripts/lib/apply.sh` | 143 | (a) preparing the applier is part of `up` | Pinned to `packages/core/src/apply.ts` by `tests/unit/apply.test.sh` |
+| `scripts/lib/docker.sh` | 471 | (a) `up`, `down`, `status` and `doctor` reach the daemon through it | Shrinks to what those four call (#30) |
+| `scripts/lib/common.sh` | 466 | (a) the same four need `.env`, defaults and the output helpers | Shrinks to the same set (#30) |
+| `scripts/lib/apply.sh` | 147 | (a) preparing the applier is part of `up` | Pinned to `packages/core/src/apply.ts` by `tests/unit/apply.test.sh` |
 | `scripts/lib/toolbox.sh` | 73 | (b) the `docker run` wrapper the zero-Node path needs | — |
 | `scripts/lib/discovery.sh` | 37 | (a) the container lookups `doctor` calls | Was 193; the kind, port, routing and hostname tables moved to core |
 | `scripts/lib/auth.sh` | 25 | (a) renders the middleware file `bootstrap.sh` needs before the panel exists | — |
@@ -74,19 +76,19 @@ Measured 2026-09-02, on `develop`, after #28.
 
 | File | Lines | Destination | Issue |
 |---|---:|---|---|
-| `scripts/lib/common.sh` | 466 | `packages/core` (`env`, `config`); output helpers and `portta_load_env` stay for the fallback | #30 |
-| `scripts/lib/docker.sh` | 471 | `packages/core/src/config.ts` (pure), `packages/cli/src/docker.ts` (effects) | #30 |
-| `scripts/cmd/tls.sh` | 215 | `packages/cli/src/commands/tls.ts` | #29 |
-| `scripts/cmd/remote-access.sh` | 208 | `packages/cli` | #29 |
-| `scripts/cmd/remote.sh` | 217 | `packages/cli` | #29 |
-| `scripts/cmd/maintenance.sh` | 324 | `packages/cli` | #29 |
-| `scripts/cmd/tunnel.sh` | 387 | `packages/cli`, over `packages/core/src/tunnel.ts` | #29 |
+| `scripts/doctor.sh` | 1119 | typed checks in `packages/core`, probes in `packages/cli`; the shell keeps the zero-Node checks | #30 |
+| `install.sh` | 1426 | everything past "Node and the CLI are available" moves behind `portta setup` | #30 |
+| `scripts/lib/common.sh`, `docker.sh` | 937 | the pure halves to `packages/core`, the effects to `packages/cli` | #30 |
 
 ### Deleted
 
 | File | Lines | Why |
 |---|---:|---|
 | `scripts/lib/capabilities.sh` | 256 | Sourced by nothing but its own test. The probes are now `packages/cli/src/detect.ts` and `packages/cli/src/host.ts`; nothing in the zero-Node command set reads a capability |
+| `scripts/cmd/tls.sh` | 215 | → `packages/cli/src/commands/tls.ts`. The toolbox container is still the `openssl` runner; `trust`/`untrust` still print the privileged command instead of running it |
+| `scripts/cmd/tunnel.sh` | 387 | → `packages/cli/src/commands/tunnel.ts`, over `packages/core/src/tunnel.ts` |
+| `scripts/cmd/remote.sh`, `remote-access.sh` | 425 | → `packages/cli/src/commands/remote.ts`. `ssh` through `runProcess`, host key verification untouched |
+| `scripts/cmd/maintenance.sh` | 324 | → `packages/cli/src/commands/maintenance.ts`. `PORTTA_BACKUP_VERSION` stays 1 and the archive layout does not change |
 
 ## Behaviour that lives in two places, and what holds it
 

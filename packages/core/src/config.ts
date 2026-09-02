@@ -16,7 +16,13 @@ export function isTrue(value: string | undefined | null): boolean {
   return TRUTHY.has(String(value ?? '').trim().toLowerCase())
 }
 
-export type GatewayProfile = 'local' | 'remote-private' | 'remote-public'
+/** The three profiles, as one list so nothing has to restate them. */
+export const GATEWAY_PROFILES = ['local', 'remote-private', 'remote-public'] as const
+export type GatewayProfile = (typeof GATEWAY_PROFILES)[number]
+
+export function isGatewayProfile(value: string): value is GatewayProfile {
+  return (GATEWAY_PROFILES as readonly string[]).includes(value)
+}
 
 /**
  * How the panel is reached. Deliberately independent of the gateway profile:
@@ -81,7 +87,7 @@ function optional(env: Record<string, string | undefined>, key: string): string 
 
 export function loadGatewayConfig(env: Record<string, string | undefined> = process.env): GatewayConfig {
   const profile = value(env, 'PORTTA_PROFILE', 'local')
-  if (!['local', 'remote-private', 'remote-public'].includes(profile)) throw new Error(`unknown profile: ${profile}`)
+  if (!isGatewayProfile(profile)) throw new Error(`unknown profile: ${profile}`)
   const webExpose = value(env, 'PORTTA_WEB_EXPOSE', 'local')
   if (!isPanelAccess(webExpose)) throw new Error(`unknown panel access mode: ${webExpose}`)
   const publicDomain = optional(env, 'PUBLIC_DOMAIN')

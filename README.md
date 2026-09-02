@@ -96,7 +96,7 @@ There are three ways in beyond the local one, and each is a deliberate choice ra
 
 ## Requirements
 
-**Required on the host:** Docker Engine 24+ with Compose v2 and a POSIX shell. Node is not required for the core commands (`bootstrap`, `up`, `down`, `restart`, `status`, `logs`, `urls`, `inspect`, `update`, `doctor`, `tls`, `tunnel`, `backup`, `restore`, `repair`, `remote`, `toolbox`). The full CLI needs Node 22.12+. Git is needed only to develop Portta or to collect project metadata.
+**Required on the host:** Docker Engine 24+ with Compose v2 and a POSIX shell. Node is not required for the core commands ([ADR 0015](docs/adr/0015-node-on-the-host.md): `bootstrap`, `up`, `down`, `restart`, `status`, `logs`, `urls`, `inspect`, `update`, `doctor`, `version`, `toolbox`). The full CLI needs Node 22.12+. Git is needed only to develop Portta or to collect project metadata.
 
 **Run by the gateway:** Traefik, filtered Docker socket proxies, `jq`, `socat`, OpenSSL, database clients, access bridges, and the panel's Node runtime.
 
