@@ -9,6 +9,73 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-09-02
+
+### Added
+
+- **The panel serves the project's own documentation, offline.** Every guide and
+  ADR in the repository is rendered at build time into the panel image and
+  served at `/docs/` with search, in-page navigation and working links between
+  pages — no network request, no CDN, no Markdown parser in the panel's
+  production tree. The build is also the link checker this repository never had:
+  a link that meant to reach a documentation page and named one that does not
+  exist fails the build. The API console moved in beside it, and the two
+  switches are independent (`PORTTA_RUNTIME_DOCS`, `PORTTA_RUNTIME_API_DOCS`).
+- **A task-shaped API, and `portta mcp` over it.** Issues, sub-issues and their
+  state are reachable as verbs rather than as rows, over the same projection and
+  authorization boundary the panel uses. `portta mcp` exposes eight of them to
+  an agent over stdio; it refuses a non-loopback panel URL unless you pass
+  `--allow-remote`. See `docs/mcp.md`.
+- **`portta tunnel`, `backup`, `restore` and `repair` exist on every host.**
+  They were documented, shipped and unreachable on any host with Node, because
+  the TypeScript entry point had never heard of them: `portta backup` answered
+  `unknown command` and exited 2. All four are now real commands with real
+  help, and a failing one exits with the code it actually failed with.
+
+### Changed
+
+- **Shell is for bootstrap; TypeScript is the default.** `scripts/cmd` is empty:
+  `tunnel`, `tls`, `remote` and `maintenance` are TypeScript, and `doctor` is a
+  typed diagnostic of forty-odd checks against one container inspection, with
+  the shell keeping a seven-check fallback for a host with no Node. The boundary
+  is written down in `docs/adr/0029-shell-only-for-bootstrap.md`, with a verdict
+  for every script that remains, and a parity test that runs both and pins the
+  fallback to a subset of the same check ids and statuses.
+- **One table says what a service is.** Kind, default port, TCP entrypoint,
+  hostname and connection string moved into `packages/core`, so the CLI, the
+  panel and the diagnostic answer from the same place. Cassandra and Neo4j route
+  as TCP with the rest.
+
+### Fixed
+
+- **The authentication service could not read its own files on a Linux host.**
+  It and its migrator were pinned to the image's default uid, while `.env` (600)
+  and `state/auth` (700) belong to whoever ran the installer — root, on a VPS.
+  A clean install died on the migration step with `EACCES: permission denied,
+  open '/app/state/.env'` and never came up; a Mac hid it, because Docker
+  Desktop maps ownership across the bind mount. Both now take
+  `PORTTA_AUTH_USER`, written by the installer and by `portta web up`, the way
+  the panel already took `PORTTA_WEB_USER`.
+- **The login page was never shown for a protected project hostname.** The auth
+  service answered a browser with a relative `Location`, which Traefik resolved
+  against the auth service's own URL — so the browser was sent to
+  `http://portta-auth:4180/...`, a name only Docker can resolve. The redirect is
+  now absolute, built from `X-Forwarded-Host` and `X-Forwarded-Proto`.
+- **The GitHub reconciliation timer the documentation already promised** now
+  runs; `GITHUB_SYNC_INTERVAL_MINUTES` was a setting nothing read.
+- **A unit suite recreated the developer's own gateway.** `maintenance.test.sh`
+  ran a real `portta repair` against the real PATH, which on any machine with
+  Docker reconciled the developer's containers with Traefik's dynamic directory
+  bind-mounted from a temporary directory the test then deleted. Every protected
+  host 404'd afterwards. The suite routes through the existing stub, and an
+  audit check now fails any unit suite that runs a container-reconciling command
+  against the real PATH.
+- **The apply end-to-end suite passed or failed on the developer's own `.env`.**
+  It wrote a value that was already set on a host at that log level, so the
+  `up` it asserted on was a no-op.
+- **The installer's closing summary contradicted an enabled public install**,
+  telling the reader to run the command they had already run.
+
 ## [0.4.0] — 2026-09-02
 
 ### Added
