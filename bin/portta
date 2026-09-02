@@ -100,6 +100,13 @@ CORE
   update                 Pull the pinned component images and recreate
   version                Print the gateway version
 
+MAINTENANCE
+  backup [-o <file>]     Archive everything this installation cannot regenerate
+  restore <file>         Put a backup back, keeping what it replaced
+  repair [--dry-run]     Recreate what is missing and fix what is provably wrong
+  tunnel setup|enable    Publish over HTTPS with no open port (Cloudflare Tunnel)
+  tunnel status|test     Inspect the connector and confirm it carries traffic
+
 CONFIGURATION
   config list            Named settings and their current values
   config get <setting>   One setting
@@ -628,6 +635,10 @@ main() {
     update) cmd_update "$@" ;;
     toolbox) cmd_toolbox "$@" ;;
     tls) portta_cmd_tls "$@" ;;
+    tunnel) portta_cmd_tunnel "$@" ;;
+    backup) portta_cmd_backup "$@" ;;
+    restore) portta_cmd_restore "$@" ;;
+    repair) portta_cmd_repair "$@" ;;
     remote) portta_cmd_remote "$@" ;;
     network|public|dns|analyze|analyse|init|adapt|namespace|ns|access|services|git|share|web|db|redis|service|project|setup|config)
       err "'$cmd' requires Node 22.12 or newer and the full CLI"
