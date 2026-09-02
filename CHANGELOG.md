@@ -9,6 +9,37 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-09-02
+
+### Added
+
+- **ACME over HTTP-01, for a public host that holds no DNS credential.**
+  Portta asked for a wildcard, and a wildcard can only be issued over DNS-01,
+  so every remote install needed a DNS provider token before it could serve
+  HTTPS at all. `ACME_CHALLENGE=http` proves control over `:80` instead and
+  gets a certificate per hostname — nothing but an A record and a wildcard A
+  record, which is what comparable platforms ask for and why they ask for
+  nothing else. `dns` stays the default: it is the only challenge that issues
+  a wildcard, so a hostname works over HTTPS before anything runs on it, and
+  the only one a gateway Let's Encrypt cannot reach can use at all.
+  [DNS and TLS](docs/dns-and-tls.md) compares the two. The overlay is split so
+  exactly one challenge is ever configured — asking for a wildcard SAN over
+  HTTP-01 makes every issuance fail rather than fall back — and the provider
+  credential now lives only in the DNS-01 overlay.
+- **`portta doctor` names the challenge in use and checks its one
+  prerequisite**: a credential for DNS-01, a reachable `:80` for HTTP-01.
+- **`portta config set acme.email`, `acme.challenge` and `acme.caServer`.**
+  Without them an ACME setup could be started from the CLI and not finished
+  with it, because `TLS_MODE=acme` is refused until `ACME_EMAIL` is set.
+
+### Fixed
+
+- **A proxied wildcard is no longer reported as a broken one.** `portta doctor`
+  compared the resolved address against this host's and called anything else a
+  failure, so a domain behind Cloudflare's orange cloud, a CDN or a load
+  balancer failed a check it could never pass while the traffic arrived here
+  perfectly well. It is a warning now, naming both causes.
+
 ## [0.5.1] — 2026-09-02
 
 ### Fixed
