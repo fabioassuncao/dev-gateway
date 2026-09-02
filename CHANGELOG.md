@@ -9,8 +9,45 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-09-02
+
 ### Added
 
+- **A login page in front of the panel, protected shares and project
+  hostnames.** Traefik's BasicAuth kept the credential check ahead of the
+  protected process, but it handed browsers an unbranded native dialog with no
+  session and no logout, wrote hashes into Traefik's dynamic directory, and
+  could not slow an attacker down. `portta-auth` now runs as a separate process
+  on the HTTP network with no published port, no Docker socket, no database and
+  a read-only mount of its own store, and Traefik calls its `/verify` endpoint
+  before forwarding a protected request. A browser navigation without a
+  credential is redirected to `/__portta/auth/login` on the host it asked for
+  and returned to the path it wanted; REST, webhook, health-check, SSE and
+  WebSocket requests are never redirected, and keep answering `401` until they
+  send the Basic credential they always sent. Sessions are stateless HMAC
+  cookies — `HttpOnly`, `SameSite=Lax`, host-only, `Secure` over HTTPS — and
+  last twelve hours; setting or clearing a credential bumps that host's epoch
+  and signs its existing sessions out. Five failures in ten minutes lock a
+  host and address pair for fifteen minutes, after progressive delays, and the
+  logs carry the scope, the address and the outcome, never a password, cookie
+  or authorization header. New credentials use scrypt while existing apr1,
+  bcrypt and `{SHA}` hashes keep working, so nothing has to be re-set on
+  upgrade, and `portta web auth` and `portta share` keep the shape they had.
+  An unavailable auth service fails closed. Read
+  `docs/adr/0027-forward-authentication-service.md` for the trust boundary.
+- **`portta auth protect <host>`** extends that same front door to a project's
+  own hostname. Portta never edits a consumer project's router, so you opt the
+  router in with one label; until you do, an unresolved protection fails
+  closed. `portta auth status` and `portta auth unprotect` inspect and remove
+  the records without ever exposing a hash. See `docs/authentication.md`.
+- **`portta doctor` checks the authentication service**: the signing secret
+  `portta bootstrap` generates, the store's mode, and the container's health.
+- **A seven-step guide from creating the GitHub App to a filled-in panel.**
+  The Settings screen points at `docs/github.md` for "the App to create and the
+  exact permissions it needs", and landed on four short paragraphs. The
+  permission table now says what each permission pays for and which belong to
+  later phases, the webhook is covered in practice, and every error the
+  integration can show is mapped to a cause.
 - **Applying saved settings from the panel, with a stopwatch while it restarts.**
   Changing `PORTTA_DOMAIN` wrote `.env`, marked the field `pending restart`, and
   then printed a command for someone to run on the host — which on a VPS reached
@@ -66,6 +103,24 @@ While the version is `0.x`, minor releases may contain breaking changes.
   `web up`, `tunnel enable` and editor save did it. Both writers now rewrite in
   place, keeping a recovery copy until the write lands, and the inode is
   asserted in `packages/core/src/env.test.ts` and `tests/unit/common.test.sh`.
+- **The panel ignored the private key path its own Settings page writes.**
+  `GITHUB_APP_PRIVATE_KEY_FILE` was the only key in the GitHub block Compose
+  did not interpolate, so the field that validated the path and flagged a
+  restart decided nothing: the panel always read `/app/state/github/app.pem`.
+  An operator who kept the filename GitHub gives the download got a passing
+  `portta doctor` and an `unreachable` badge naming a file they had never
+  typed, because the two diagnostics were reading different paths. The field
+  now decides which file the panel opens. What is fixed is the *directory*,
+  since `./state/github` is the only mount the key arrives through: a path
+  outside it is refused on save with a message that says why, and `doctor`
+  fails on such a path rather than certifying a file the panel never reads.
+  An operator who set nothing notices no change.
+- **The panel's Git cards went stale after `portta up`.** The automatic
+  metadata scan lived in the shell entry point, which the TypeScript CLI
+  replaced (ADR 0015), so the command most people run collected nothing and the
+  panel kept serving whatever `state/git` last held. `up` and `web up` refresh
+  it themselves now, best effort and never fatal, and the shell no longer does
+  it a second time.
 - **`npm run openapi` and the panel's own snapshot test disagreed on every
   release.** The generator stamps `info.version` from `VERSION`, while the test
   built the document with a hardcoded fixture version, so `openapi:check` was
@@ -82,6 +137,18 @@ While the version is `0.x`, minor releases may contain breaking changes.
   with their applications. The installer migrates existing runtime trees and
   manual builds must use the new paths. CLI commands, image tags and runtime
   behavior are unchanged.
+- **The test suite tells you what to run while you work.** The full local pass
+  took 97 seconds, so it stopped being run, and most of that minute re-proved
+  what a given change could not have touched. Two thirds of it was one file
+  asserting `--help` and `--version` for 91 command paths, which a group's help
+  already proves in a seventeenth of the spawns, plus `doctor` walking the host
+  five times where once is enough: 48.8s to 13.2s. Two panel tests waited on the
+  real clock for a poll loop that exists as a plain `setTimeout` precisely so a
+  test can step it. Against that, `tests/run.sh` never ran `packages/cli` or
+  `apps/auth` at all, and the second is the ForwardAuth boundary: 32 assertions
+  on open redirects, session scoping and cross-origin login that ran nowhere
+  locally. New in `docs/testing.md`: the cost of each layer, and what does and
+  does not deserve a test.
 - **CI runs on Linux and one Node version.** The `cli` job was a four-way matrix
   over two operating systems and two Node versions re-running identical
   assertions, the `audit` job duplicated what `tests/run.sh` already runs, and
