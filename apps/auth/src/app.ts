@@ -41,6 +41,27 @@ function forwardedHost(c: Context): string | null {
   try { return normalizeProtectionHost(raw) } catch { return null }
 }
 
+/**
+ * Where a browser is sent to log in.
+ *
+ * Absolute, and that is not a style choice. Traefik resolves a relative
+ * `Location` from a ForwardAuth response against the *auth service's* own URL,
+ * so `/__portta/auth/login` reached the browser as
+ * `http://portta-auth:4180/__portta/auth/login` — an internal container name
+ * nothing outside the Docker network can resolve, and the login page was never
+ * shown. The generated dynamic file already puts a login router on the
+ * protected host itself, so the right address is that host.
+ *
+ * Built only from headers the trusted proxy set, which `requireForwarded` has
+ * already checked: a request that did not come through Traefik never reaches
+ * here, so the host cannot be attacker-chosen.
+ */
+function loginUrl(c: Context, next: string): string {
+  const host = forwardedHost(c)
+  const path = `/__portta/auth/login?next=${encodeURIComponent(next)}`
+  return host ? `${effectiveProtocol(c)}://${host}${path}` : path
+}
+
 function clientAddress(c: Context): string {
   const chain = c.req.header('x-forwarded-for')?.split(',').map((part) => part.trim()).filter(Boolean)
   return chain?.at(-1) ?? 'unknown'
@@ -149,7 +170,7 @@ export function createAuthApp(dependencies: AuthAppDependencies = {}): Hono {
 
     if (!isNavigation(c)) return c.body(null, 401)
     const next = safeNext(c.req.header('x-forwarded-uri'))
-    return c.redirect(`/__portta/auth/login?next=${encodeURIComponent(next)}`, 302)
+    return c.redirect(loginUrl(c, next), 302)
   })
 
   app.get('/__portta/auth/login', (c) => {

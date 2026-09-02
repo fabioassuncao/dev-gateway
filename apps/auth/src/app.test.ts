@@ -51,11 +51,28 @@ describe('ForwardAuth app', () => {
     expect(response.headers.has('www-authenticate')).toBe(false)
   })
 
-  it('redirects only browser navigation and preserves a local path', async () => {
+  // Absolute, on the protected host. Traefik resolves a relative Location from
+  // a ForwardAuth response against the *auth service's* own URL, so a relative
+  // path reached the browser as `http://portta-auth:4180/...` -- an internal
+  // container name nothing outside the Docker network resolves, and the login
+  // page was never shown. Found by protecting a real host and following the
+  // redirect.
+  it('redirects only browser navigation, to the protected host, preserving the path', async () => {
     const { app } = setup()
     const response = await app.request('/verify', { headers: { ...forwarded, accept: 'text/html', 'sec-fetch-mode': 'navigate', 'x-forwarded-uri': '/orders/42?tab=items' } })
     expect(response.status).toBe(302)
-    expect(response.headers.get('location')).toBe('/__portta/auth/login?next=%2Forders%2F42%3Ftab%3Ditems')
+    expect(response.headers.get('location'))
+      .toBe('https://demo.example.com/__portta/auth/login?next=%2Forders%2F42%3Ftab%3Ditems')
+  })
+
+  // The scheme comes from the proxy too: a redirect to https on a plain-HTTP
+  // gateway is a login page the browser refuses to load.
+  it('follows the scheme the proxy reported', async () => {
+    const { app } = setup()
+    const response = await app.request('/verify', {
+      headers: { ...forwarded, 'x-forwarded-proto': 'http', accept: 'text/html', 'sec-fetch-mode': 'navigate', 'x-forwarded-uri': '/' },
+    })
+    expect(response.headers.get('location')).toBe('http://demo.example.com/__portta/auth/login?next=%2F')
   })
 
   it('accepts the legacy Basic credential without creating a session', async () => {
