@@ -110,38 +110,74 @@ worktrees. It does not silently create a Portta project.
 
 ## Setting it up
 
+Ten minutes, at the end of which **Settings → GitHub** shows a connected App, the
+installations it has, and the repositories they granted.
+
+None of it needs a public address. The panel calls GitHub; GitHub does not call
+the panel, unless you turn webhooks on in step 7, which is optional and which a
+loopback panel should skip.
+
+### Before you start
+
+- Portta running, and the panel open.
+- A GitHub account you can create an App on.
+- A shell on the host. The private key is a **file you put there**, not a value
+  the panel will accept — the panel can write its own `.env`, and must not be
+  able to write the key that authenticates it.
+
 ### 1. Create the App
 
 GitHub → *Settings* → *Developer settings* → *GitHub Apps* → *New GitHub App*.
 
-- **Homepage URL** can be anything; the panel never serves one.
-- **Webhook**: leave it off for now. A loopback panel cannot receive
-  deliveries, and correctness comes from reconciliation rather than from a
-  webhook that may never arrive. Generate a secret if you enable it later.
-- **Where can this App be installed**: *Only on this account* is the right
-  answer for a development host.
+| Field on the form | What to put | Why |
+|---|---|---|
+| **GitHub App name** | anything unique, e.g. `portta-<your account>` | GitHub requires it to be unique across all of GitHub |
+| **Homepage URL** | anything at all, e.g. your repository | The form demands one; the panel never serves it |
+| **Callback URL** | leave it empty | There is no OAuth flow. The panel never receives a redirect |
+| **Setup URL** | leave it empty | The panel *discovers* its installations through `GET /app/installations`. It is never told about one |
+| **Webhook → Active** | **unticked** | A loopback panel cannot receive a delivery. Step 7 turns this on if yours is already published |
+| **Where can this App be installed** | *Only on this account* | The right answer for a development host |
+
+Create the App, and keep the page open: the App id and the private key both come
+from it.
 
 ### 2. Ask for these permissions, and no others
 
-| Permission | Access | Why |
+Under *Repository permissions*. Three of them are what the panel calls today:
+
+| Permission | Access | The call it pays for |
 |---|---|---|
-| Metadata | Read | Mandatory; it is what lists repositories |
-| Issues | Read and write | The board writes back to GitHub |
-| Pull requests | Read | Open pull requests on a project page |
-| Contents | Read | Default branch and repository shape |
-| Commit statuses | Read | Whether checks passed |
-| Checks | Read | The same, for the Checks API |
+| **Metadata** | Read | `GET /installation/repositories`. Mandatory — it is what lists repositories at all |
+| **Issues** | Read and write | `GET`, `POST` and `PATCH /repos/{owner}/{repo}/issues`, and `…/issues/{n}/sub_issues`. The board writes back to GitHub |
+| **Pull requests** | Read | GitHub's issues endpoint returns pull requests too, and a project page shows the open ones |
 
-**Never `Contents: write`.** The gateway does not commit, push, merge or
-rebase, and an App that cannot write code cannot be talked into it.
+Three more belong to the phases after this one. Granting them now costs nothing
+and saves a second trip through this form; leaving them out changes nothing you
+can see today:
 
-### 3. Install it, and give the panel the key
+| Permission | Access | What it is for |
+|---|---|---|
+| **Contents** | Read | Repository shape beyond the default branch, which Metadata already carries |
+| **Commit statuses** | Read | Whether checks passed |
+| **Checks** | Read | The same, through the Checks API |
 
-Install the App on the account, choosing the repositories it may see. That
-choice is the authorisation boundary: the panel refuses any operation on a
-repository the installation did not grant, before it makes a request.
+**Never `Contents: write`.** The panel does not commit, push, merge or rebase,
+and an App that cannot write code cannot be talked into it.
 
-Then download the private key and put it where the panel mounts it read-only:
+### 3. Install it
+
+*Install App* in the App's sidebar, then install it on your account and choose
+between *All repositories* and *Only select repositories*.
+
+That choice is the authorisation boundary. The panel refuses any operation on a
+repository the installation did not grant, before it makes the request — so
+picking a few repositories now is not a decision you have to get right: widening
+it later is *Install App → Configure*, and the next **Sync** picks the change up.
+
+### 4. Put the private key on the host
+
+On the App's settings page, *Private keys* → *Generate a private key*. Your
+browser downloads a `.pem`. In your Portta directory, on the host:
 
 ```bash
 mkdir -p state/github
@@ -149,24 +185,145 @@ mv ~/Downloads/your-app.*.private-key.pem state/github/app.pem
 chmod 600 state/github/app.pem
 ```
 
-The key is a **file**, never a value in `.env`. The panel can write `.env`
-from its Settings page, and it must not be able to write the key that
-authenticates it.
+**The filename matters.** Compose mounts `./state/github` into the panel
+read-only and passes `/app/state/github/app.pem` as a fixed value
+(`docker/compose/features/web.yaml`). A key under any other name is a key the
+panel cannot read, whatever the Settings field says.
 
-### 4. Turn it on
+`chmod 600` is not ceremony. The panel checks the mode as it starts and writes
+`… is readable by more than its owner: chmod 600 it`; `portta doctor` fails on
+it. The key is read on **every** use rather than cached, so rotating it later is
+a `mv` and needs no restart.
+
+### 5. Fill in Settings → GitHub
+
+Open the panel, go to **Settings → GitHub**, and fill the five fields in the
+order they appear:
+
+| Field on the screen | Key | What to put | Refused if |
+|---|---|---|---|
+| **GitHub App** (toggle) | `GITHUB_APP_ENABLED` | on | — |
+| **App id** | `GITHUB_APP_ID` | the number at the top of the App's settings page, e.g. `123456` | it is not digits alone |
+| **Private key file** | `GITHUB_APP_PRIVATE_KEY_FILE` | `/app/state/github/app.pem` | it is not an absolute path |
+| **Webhook secret** | `GITHUB_APP_WEBHOOK_SECRET` | leave it empty for now | — |
+| **API base URL** | `GITHUB_API_URL` | `https://api.github.com`, or `https://ghe.example.com/api/v3` on Enterprise Server | it is not a URL |
+
+Three of those are worth a sentence each.
+
+The **App id** is the App id — not the App name, and not the client id. The
+field takes digits and nothing else.
+
+The **private key file** is the path *inside the container*, which is why it
+begins `/app/` and not with your home directory. The field writes `.env`, which
+is what `portta doctor` inspects on the host; the panel itself always reads
+`/app/state/github/app.pem`, so that is the only value that describes reality.
+
+The **webhook secret** field shows *not set* or *set*, never a value. No secret
+is ever returned by the API, and the `.env` it is written to is mode 600.
+
+Then press **Save**. **Saving writes `.env`. It does not apply it** — which is
+what the bar at the top of the page is telling you.
+
+### 6. Apply it, and see that it worked
 
 ```bash
-# .env
-GITHUB_APP_ENABLED=true
-GITHUB_APP_ID=123456
-GITHUB_APP_PRIVATE_KEY_FILE=/app/state/github/app.pem
-GITHUB_API_URL=https://api.github.com     # or your Enterprise Server API root
-
-portta web restart
-portta doctor            # checks the id, the key, its mode and the API URL
+./bin/portta up local
+portta doctor
 ```
 
-Then open **Settings → GitHub** in the panel and press **Sync**.
+`up local` recreates the container, and recreating is what makes a changed
+`.env` take effect. **`portta web restart` will not do this**: it restarts the
+process with the environment it already had, and the App stays invisible. On a
+host with `PORTTA_APPLY=true`, the panel's own *Apply and restart* button
+performs the same recreate for you.
+
+`doctor` has three checks here, and they are silent when the App is off:
+
+| Check | Passes when |
+|---|---|
+| `github.app` | the App is enabled and `GITHUB_APP_ID` is set |
+| `github.key` | the `.pem` exists, is readable, and is mode `600` or `400` |
+| `github.api` | `GITHUB_API_URL` is `https://` |
+
+Now reload **Settings → GitHub**. The card that said *No GitHub App is
+configured* shows a **connected** badge, `App <id> · <api url>`, and four
+things:
+
+- **Installations** — one badge each. A suspended installation says so, and the
+  sync skips it.
+- **Repositories** — how many those installations granted. Zero is not a
+  failure; it is an installation that granted none. *Install App → Configure*
+  is where that is fixed.
+- **Rate limit** — what is left of the budget, and when it resets.
+- **Last sync** — per scope, with the last error in red when there was one.
+
+Press **Sync**. It is idempotent: two runs leave the same rows, move
+`synced_at`, and prune whatever an installation no longer grants.
+
+### 7. Webhooks, if the panel is already published (optional)
+
+Skip this unless the panel has a URL GitHub can reach. Correctness does not
+depend on a delivery — reconciliation is the baseline, and a webhook only makes
+the panel notice sooner.
+
+Generate a secret and keep it where you can paste it twice:
+
+```bash
+openssl rand -hex 32
+```
+
+On the App's settings page, under *Webhook*:
+
+| Field | Value |
+|---|---|
+| **Active** | ticked |
+| **Payload URL** | `https://<your panel host>/api/integrations/github/webhook` |
+| **Content type** | `application/json` |
+| **Secret** | the string you just generated |
+
+Then *Permissions & events* → *Subscribe to events*, and tick exactly these
+nine, which are the ones the panel acts on:
+
+*Issues* · *Issue comment* · *Label* · *Milestone* · *Sub-issues* ·
+*Pull request* · *Repository* · *Installation* · *Installation repositories*
+
+Anything else is acknowledged and dropped. An unhandled event is not an error.
+
+Finally, paste the same secret into **Settings → GitHub → Webhook secret**, save,
+and run `./bin/portta up local` again.
+
+The signature is verified over the raw body, in constant time, *before* the body
+is parsed as anything meaningful. An invalid one is a `401` that logs the
+delivery id and nothing else. A delivery is a signal to re-read, never data to
+trust, so nothing GitHub sends widens what the installation granted. Read-only
+mode refuses the route outright.
+
+**Where the secret lives.**
+[ADR 0018](adr/0018-github-access-lives-in-the-panel.md) prescribed a file with
+its path in `.env`, the shape the private key has. Today it is a write-only
+`.env` value that the Settings page can set. The credential that *authenticates*
+the App is the one that is a file, and that has not moved.
+
+### When it does not work
+
+| What you see | Why | Fix |
+|---|---|---|
+| *No GitHub App is configured*, after saving | `.env` was written; the container still has the old environment | `./bin/portta up local` |
+| Save refuses the App id | it is validated as digits only | use the numeric id, not the App name and not the client id |
+| Save refuses the key path | it must be absolute | `/app/state/github/app.pem` |
+| doctor: `enabled with no GITHUB_APP_ID` | the toggle is on and the id is empty | copy the id from the App's settings page |
+| doctor: `no private key at …` | the `.pem` is not at `state/github/app.pem` | rename it; the filename is fixed |
+| doctor: `readable by more than its owner` | the key's mode | `chmod 600 state/github/app.pem` |
+| doctor: `GITHUB_API_URL is not https` | an API root without TLS | use an `https://` root |
+| **unreachable**, *GitHub refused the App credentials* | the id and the key belong to different Apps, or the App was deleted | regenerate the key and re-copy the id |
+| **Repositories: 0** after a Sync | the installation granted none | *Install App → Configure* on GitHub |
+| An installation marked *(suspended)* | it is suspended on GitHub | unsuspend it; the sync skips suspended ones |
+| `503` on an issues page | the panel's PostgreSQL is unavailable, not GitHub | [Persistence](persistence.md) |
+| The webhook answers `401` | the secret differs between GitHub and the panel | set the same string on both sides |
+
+The rest of the panel is unaffected by any of these: a GitHub failure never
+stops a Docker-backed page from answering. See [Troubleshooting](troubleshooting.md)
+and [Security](security.md).
 
 ## What is stored, and what is not
 
