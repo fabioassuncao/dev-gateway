@@ -67,6 +67,8 @@ Measured 2026-09-02, on `develop`, after #30's diagnostic port.
 | `scripts/lib/docker.sh` | 471 | (a) `up`, `down`, `status` and `doctor` reach the daemon through it | Shrinks to what those four call (#30) |
 | `scripts/lib/common.sh` | 466 | (a) the same four need `.env`, defaults and the output helpers | Shrinks to the same set (#30) |
 | `scripts/lib/apply.sh` | 147 | (a) preparing the applier is part of `up` | Pinned to `packages/core/src/apply.ts` by `tests/unit/apply.test.sh` |
+| `scripts/lib/runner.sh` | — | (a) preparing the project runner is part of `up` | Pinned to `packages/core/src/runner.ts` by `tests/unit/runner.test.sh` |
+| `scripts/lib/runner-exec.sh` | — | (a) the command the runner container is created with | Closed verb set; no argument from the panel |
 | `scripts/lib/toolbox.sh` | 73 | (b) the `docker run` wrapper the zero-Node path needs | — |
 | `scripts/lib/discovery.sh` | 37 | (a) the container lookups `doctor` calls | Was 193; the kind, port, routing and hostname tables moved to core |
 | `scripts/lib/auth.sh` | 25 | (a) renders the middleware file `bootstrap.sh` needs before the panel exists | — |

@@ -12,6 +12,7 @@ import { CLI_VERSION } from '../version.js'
 import { confirm } from '../confirm.js'
 import { runDoctor } from '../doctor.js'
 import { ensureApplier, removeApplier } from './apply.js'
+import { ensureRunner, removeRunner } from './runner.js'
 import { refreshGitMetadata } from './git.js'
 import { webUp } from './web.js'
 
@@ -206,6 +207,12 @@ export async function upCommand(profile: string | undefined, options: { attach?:
   if (applier.action === 'removed') output.progress('ok       applier removed (PORTTA_APPLY is false)')
   if (applier.action === 'refused') output.progress(`warn     not preparing the applier: ${applier.reason}`)
   if (applier.action === 'failed') output.progress(`warn     ${applier.reason}; settings still apply with: portta up`)
+
+  const runner = await ensureRunner(context)
+  if (runner.action === 'created') output.progress('ok       runner ready; the panel can operate a project without a terminal')
+  if (runner.action === 'removed') output.progress('ok       runner removed (PORTTA_RUNNER is false)')
+  if (runner.action === 'refused') output.progress(`warn     not preparing the runner: ${runner.reason}`)
+  if (runner.action === 'failed') output.progress(`warn     ${runner.reason}; project operations still run from a shell`)
 }
 
 /**
@@ -231,6 +238,7 @@ export async function downCommand(command: Command): Promise<void> {
   // `up` recreates it, and leaving a stopped gateway container behind is the one
   // thing `down` does to nothing else.
   await removeApplier()
+  await removeRunner()
 }
 export async function restartCommand(command: Command): Promise<void> { await compose(command, ['up', '-d', '--force-recreate']) }
 export async function logsCommand(service: string | undefined, options: { follow?: boolean; tail?: string }, command: Command): Promise<void> {

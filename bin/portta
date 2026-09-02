@@ -63,6 +63,8 @@ fi
 . "$PORTTA_BIN_DIR/../scripts/lib/discovery.sh"
 # shellcheck source=../scripts/lib/apply.sh
 . "$PORTTA_BIN_DIR/../scripts/lib/apply.sh"
+# shellcheck source=../scripts/lib/runner.sh
+. "$PORTTA_BIN_DIR/../scripts/lib/runner.sh"
 # shellcheck source=../scripts/lib/auth.sh
 . "$PORTTA_BIN_DIR/../scripts/lib/auth.sh"
 
@@ -249,6 +251,7 @@ cmd_up() {
   # The optional applier, so the panel can recreate these containers itself.
   # Off unless PORTTA_APPLY=true, and never fatal. See scripts/lib/apply.sh.
   portta_apply_ensure
+  portta_runner_ensure
 
   ok "gateway is up"
   hint "portta status shows what is running"
@@ -257,7 +260,7 @@ cmd_up() {
 
 cmd_down() {
   local profile="${PORTTA_PROFILE}"
-  local apply_id
+  local apply_id runner_id
   while [ $# -gt 0 ]; do
     case "$1" in
       --profile) shift; profile="${1:-$profile}" ;;
@@ -280,6 +283,8 @@ cmd_down() {
   # thing `down` does to nothing else.
   apply_id=$(portta_gateway_container apply)
   [ -n "$apply_id" ] && portta_apply_remove "$apply_id" >/dev/null 2>&1
+  runner_id=$(portta_gateway_container runner)
+  [ -n "$runner_id" ] && portta_runner_remove "$runner_id" >/dev/null 2>&1
 
   ok "gateway stopped; consumer projects were not touched"
   if portta_network_exists "$PORTTA_NETWORK"; then
