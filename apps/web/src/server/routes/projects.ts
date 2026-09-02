@@ -7,7 +7,8 @@ import { mergeLogSources, type LogSourceLines } from '../core/projectlogs.ts'
 import { applyOverrides, loadOverrides } from '../core/overrides.ts'
 import { issueForEnvironment, resolveLinks } from '../core/issue-environments.ts'
 import type { Snapshot } from '../core/inventory.ts'
-import { Project, ProjectGit, ProjectLogsResponse, type ProjectGit as ProjectGitView, type ProjectLogSource } from '../../shared/types.ts'
+import { Project, ProjectActionResult, ProjectGit, ProjectLogsResponse, type ProjectGit as ProjectGitView, type ProjectLogSource } from '../../shared/types.ts'
+import { runProjectAction } from '../core/actions.ts'
 import { documentRoute, projectParameter, tailParameter } from '../openapi.ts'
 
 export const ProjectsResponse = z.object({ projects: z.array(Project) }).strict().meta({ ref: 'ProjectsResponse' })
@@ -212,6 +213,23 @@ export function projectRoutes(deps: AppDeps): Hono {
       ordered: merged.ordered,
     })
   })
+
+  for (const action of ['start', 'stop', 'restart'] as const) {
+    app.post(`/projects/:project/actions/${action}`, documentRoute({
+      tag: 'Projects',
+      operationId: `${action}Project`,
+      summary: `${action[0]?.toUpperCase()}${action.slice(1)} every container in a project`,
+      description: 'Iterates the project\'s existing containers in Compose dependency order. Nothing is removed.',
+      response: ProjectActionResult,
+      parameters: [projectParameter],
+      errors: [403, 404, 409, 500, 502],
+    }), async (c) => {
+      const snapshot = await deps.cache.get()
+      const result = await runProjectAction(deps.client, snapshot, c.req.param('project'), action)
+      deps.cache.invalidate()
+      return c.json(result)
+    })
+  }
 
   return app
 }

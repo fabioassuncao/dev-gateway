@@ -20,7 +20,7 @@ GW="$PORTTA_ROOT/bin/portta"
 # from its parent's help — at a fifteenth of the cost.
 COMMAND_TREE=(
   ":version setup bootstrap up down restart status logs doctor urls inspect update project network public dns tls remote analyze init namespace access services service db redis web auth git host share toolbox tunnel backup restore repair mcp"
-  "project:list show services analyze init namespace"
+  "project:list show services analyze init namespace start stop restart"
   "network:status"
   "public:status enable disable"
   "dns:check status setup"

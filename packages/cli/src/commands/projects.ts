@@ -1,6 +1,14 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
-import { branchSuffix, composeNamespace, parseEnv, projectsFor } from 'portta-core'
+import {
+  branchSuffix,
+  COMPOSE_DEPENDS_ON,
+  composeNamespace,
+  orderProjectServices,
+  parseDependsOn,
+  parseEnv,
+  projectsFor,
+} from 'portta-core'
 import type { Command } from 'commander'
 import { z } from 'zod'
 import { confirm } from '../confirm.js'
@@ -234,4 +242,59 @@ export async function namespaceCommand(options: { path?: string; base?: string; 
   const output = new Output(globals(command))
   if (output.json) output.data({ namespace, base: composeNamespace(base), suffix })
   else output.data(namespace)
+}
+
+const CONTAINERS_GONE =
+  "this project's containers are gone; start them with the runner (PORTTA_RUNNER=true) or docker compose up in the working directory"
+
+export async function projectAction(
+  name: string,
+  action: 'start' | 'stop' | 'restart',
+  command: Command,
+): Promise<void> {
+  const members = (await inspectContainers()).filter((container) => container.labels['com.docker.compose.project'] === name)
+  if (members.length === 0) throw new UsageError(`no project '${name}' is running`, CONTAINERS_GONE)
+  const gateway = members.find((container) => container.labels['portta.managed'] === 'true')
+  if (gateway) {
+    throw new RefusedError(
+      `refusing to ${action} ${gateway.name}: it is a Portta component`,
+      'gateway components are restarted with portta restart',
+    )
+  }
+
+  const orderable = members.map((container) => ({
+    service: container.labels['com.docker.compose.service'] ?? container.name,
+    name: container.name,
+    dependsOn: parseDependsOn(container.labels[COMPOSE_DEPENDS_ON]),
+    id: container.id,
+    state: container.state,
+  }))
+  const stopOrder = orderProjectServices(orderable, 'stop')
+  const startOrder = orderProjectServices(orderable, 'start')
+  const steps = action === 'restart'
+    ? [...stopOrder.map((entry) => ({ ...entry, verb: 'stop' as const })), ...startOrder.map((entry) => ({ ...entry, verb: 'start' as const }))]
+    : (action === 'stop' ? stopOrder : startOrder).map((entry) => ({ ...entry, verb: action }))
+
+  const output = new Output(globals(command))
+  const state = new Map(orderable.map((entry) => [entry.id, entry.state]))
+  let failed = 0
+  for (const step of steps) {
+    const current = state.get(step.id) ?? step.state
+    const skip =
+      (step.verb === 'start' && current === 'running') ||
+      (step.verb === 'stop' && current !== 'running' && current !== 'restarting')
+    if (skip) {
+      output.progress(`skip     ${step.service} already ${step.verb === 'start' ? 'running' : 'stopped'}`)
+      continue
+    }
+    const result = await runProcess('docker', [step.verb, step.id], { reject: false })
+    if (result.failed) {
+      failed += 1
+      output.warning(`${step.verb} ${step.service}: ${result.stderr.trim() || result.stdout.trim() || 'failed'}`)
+      continue
+    }
+    state.set(step.id, step.verb === 'start' ? 'running' : 'exited')
+    output.progress(`ok       ${step.verb} ${step.service}`)
+  }
+  if (failed > 0) throw new RefusedError(`${failed} service(s) failed to ${action}`, 'the rest of the project was still acted on')
 }

@@ -3,7 +3,7 @@ import { CliError, EXIT } from './errors.js'
 import { Output } from './output.js'
 import { accessClose, accessGc, accessInspect, accessList, accessOpen, serviceList, servicePublish, serviceUnpublish } from './commands/access.js'
 import { dbDump, dbOpen, dbRestore, dbShell, dbStatus, dbUrl, clientClose, clientExec, redisOpen } from './commands/clients.js'
-import { analyzeCommand, initCommand, namespaceCommand, projectList, projectShow, servicesCommand } from './commands/projects.js'
+import { analyzeCommand, initCommand, namespaceCommand, projectAction, projectList, projectShow, servicesCommand } from './commands/projects.js'
 import { bootstrapCommand, devCommand, doctorCommand, downCommand, inspectCommand, logsCommand, restartCommand, statusCommand, updateCommand, upCommand, urlsCommand, versionCommand } from './commands/lifecycle.js'
 import { dnsCheck, dnsSetup, dnsStatus, networkStatus, publicDisable, publicEnable, publicStatus } from './commands/network.js'
 import { gitClear, gitScan, gitStatus } from './commands/git.js'
@@ -81,6 +81,9 @@ describe(project.command('init <path>'), 'Write one integration overlay after co
   .option('--output <file>', 'overlay filename', 'compose.portta.yaml').option('--force').action(initCommand)
 describe(project.command('namespace'), 'Derive a collision-safe COMPOSE_PROJECT_NAME')
   .option('--path <dir>').option('--base <name>').option('--suffix <text>').option('--no-check').action(namespaceCommand)
+describe(project.command('start <name>'), 'Start every container in a project, dependencies first').action((name, _options, command) => projectAction(name, 'start', command))
+describe(project.command('stop <name>'), 'Stop every container in a project, dependents first').action((name, _options, command) => projectAction(name, 'stop', command))
+describe(project.command('restart <name>'), 'Stop then start a project in dependency order').action((name, _options, command) => projectAction(name, 'restart', command))
 
 describe(program.command('services'), 'Compatibility alias for project services').option('--project <name>').action(servicesCommand)
 describe(program.command('analyze <path>'), 'Compatibility alias for project analyze').action((path, _options, command) => analyzeCommand(path, command))

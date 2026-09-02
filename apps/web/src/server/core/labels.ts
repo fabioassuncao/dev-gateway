@@ -29,6 +29,7 @@ export const LABELS = {
   composeWorkingDir: 'com.docker.compose.project.working_dir',
   composeConfigFiles: 'com.docker.compose.project.config_files',
   composeContainerNumber: 'com.docker.compose.container-number',
+  composeDependsOn: 'com.docker.compose.depends_on',
 
   traefikEnable: 'traefik.enable',
 
@@ -50,7 +51,7 @@ export const LABELS = {
 
 /** Labels worth showing in the UI. Everything else is noise on a detail panel. */
 const INTERESTING_PREFIXES = ['portta.', 'traefik.', 'com.docker.compose.project', 'org.opencontainers.']
-const INTERESTING_EXACT: string[] = [LABELS.composeProject, LABELS.composeService, LABELS.traefikEnable]
+const INTERESTING_EXACT: string[] = [LABELS.composeProject, LABELS.composeService, LABELS.traefikEnable, LABELS.composeDependsOn]
 
 export function relevantLabels(labels: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {}

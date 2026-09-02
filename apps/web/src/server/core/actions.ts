@@ -7,9 +7,17 @@
 //   - a removal takes the container and nothing else. No volume, no network,
 //     no image, no sibling in the same Compose project.
 
+import { orderProjectServices, parseDependsOn } from 'portta-core'
+import { LABELS } from './labels.ts'
 import type { DockerClient } from '../docker/client.ts'
 import type { Snapshot } from './inventory.ts'
-import type { ContainerSummary, RemovalPreview } from '../../shared/types.ts'
+import type {
+  ContainerSummary,
+  ProjectActionEntry,
+  ProjectActionResult,
+  ProjectStartable,
+  RemovalPreview,
+} from '../../shared/types.ts'
 
 export type ContainerAction = 'start' | 'stop' | 'restart'
 
@@ -76,6 +84,100 @@ export async function runContainerAction(
   else await client.restart(container.id)
 
   return container
+}
+
+export const CONTAINERS_GONE_REASON =
+  "this project's containers are gone; start them with the runner (PORTTA_RUNNER=true) or docker compose up in the working directory"
+
+export function projectStartable(services: ContainerSummary[]): ProjectStartable {
+  if (services.length === 0) {
+    return { ok: false, reason: CONTAINERS_GONE_REASON, via: 'runner' }
+  }
+  if (services.every((service) => service.state === 'running')) {
+    return { ok: false, reason: 'every service is already running', via: null }
+  }
+  return { ok: true, reason: null, via: 'iteration' }
+}
+
+function asOrderable(container: ContainerSummary) {
+  return {
+    service: container.service ?? container.name,
+    name: container.name,
+    dependsOn: parseDependsOn(container.labels[LABELS.composeDependsOn]),
+    container,
+  }
+}
+
+async function runOne(
+  client: DockerClient,
+  container: ContainerSummary,
+  action: 'start' | 'stop',
+  state: Map<string, ContainerSummary['state']>,
+): Promise<ProjectActionEntry> {
+  const service = container.service ?? container.name
+  const current = state.get(container.id) ?? container.state
+  const skip =
+    (action === 'start' && current === 'running') ||
+    (action === 'stop' && current !== 'running' && current !== 'restarting')
+  if (skip) {
+    return { service, containerId: container.id, action, ok: true, skipped: true, error: null }
+  }
+  try {
+    if (action === 'start') await client.start(container.id)
+    else await client.stop(container.id)
+    state.set(container.id, action === 'start' ? 'running' : 'exited')
+    return { service, containerId: container.id, action, ok: true, skipped: false, error: null }
+  } catch (error) {
+    return {
+      service,
+      containerId: container.id,
+      action,
+      ok: false,
+      skipped: false,
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
+export async function runProjectAction(
+  client: DockerClient,
+  snapshot: Snapshot,
+  name: string,
+  action: ContainerAction,
+): Promise<ProjectActionResult> {
+  const members = snapshot.containers.filter((container) => container.project === name)
+  if (members.length === 0) {
+    throw new ActionRefused(`no project '${name}' is running`, CONTAINERS_GONE_REASON, 404)
+  }
+
+  const gateway = members.find((container) => container.ownership === 'gateway')
+  if (gateway) assertNotGatewayOwned(gateway, action)
+
+  const stopOrder = orderProjectServices(members.map(asOrderable), 'stop').map((entry) => entry.container)
+  const startOrder = orderProjectServices(members.map(asOrderable), 'start').map((entry) => entry.container)
+
+  const state = new Map(members.map((container) => [container.id, container.state]))
+  const results: ProjectActionEntry[] = []
+  if (action === 'stop' || action === 'restart') {
+    for (const container of stopOrder) results.push(await runOne(client, container, 'stop', state))
+  }
+  if (action === 'start' || action === 'restart') {
+    for (const container of startOrder) results.push(await runOne(client, container, 'start', state))
+  }
+
+  const succeeded = results.filter((entry) => entry.ok && !entry.skipped).length
+  const skipped = results.filter((entry) => entry.skipped).length
+  const failed = results.filter((entry) => !entry.ok).length
+  return {
+    ok: failed === 0,
+    project: name,
+    action,
+    requested: results.length,
+    succeeded,
+    failed,
+    skipped,
+    results,
+  }
 }
 
 export function removalPreview(snapshot: Snapshot, id: string): RemovalPreview {

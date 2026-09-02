@@ -107,6 +107,7 @@ export interface FakeDockerOptions {
   /** Per container: lines to return, or an Error the read should reject with. */
   logsByContainer?: Record<string, LogLine[] | Error>
   failInspect?: string[]
+  fail?: Partial<Record<'start' | 'stop' | 'restart', string[]>>
 }
 
 export interface FakeDocker {
@@ -180,12 +181,15 @@ export function fakeDocker(options: FakeDockerOptions = {}): FakeDocker {
     },
     async start(id: string) {
       record('start', id)
+      if ((options.fail?.start ?? []).includes(id)) throw new Error(`start failed: ${id}`)
     },
     async stop(id: string) {
       record('stop', id)
+      if ((options.fail?.stop ?? []).includes(id)) throw new Error(`stop failed: ${id}`)
     },
     async restart(id: string) {
       record('restart', id)
+      if ((options.fail?.restart ?? []).includes(id)) throw new Error(`restart failed: ${id}`)
     },
     async remove(id: string, force: boolean) {
       record('remove', id, force)

@@ -218,12 +218,51 @@ export const ProjectOperable = named(
 )
 export type ProjectOperable = z.infer<typeof ProjectOperable>
 
+export const ProjectStartable = named(
+  z.object({
+    ok: z.boolean().describe('Whether start can run by iterating the containers that still exist'),
+    reason: z.string().nullable(),
+    via: z.enum(['iteration', 'runner']).nullable(),
+  }).strict(),
+  'ProjectStartable',
+)
+export type ProjectStartable = z.infer<typeof ProjectStartable>
+
+export const ProjectActionEntry = named(
+  z.object({
+    service: z.string(),
+    containerId: z.string(),
+    action: z.enum(['start', 'stop']),
+    ok: z.boolean(),
+    skipped: z.boolean(),
+    error: z.string().nullable(),
+  }).strict(),
+  'ProjectActionEntry',
+)
+export type ProjectActionEntry = z.infer<typeof ProjectActionEntry>
+
+export const ProjectActionResult = named(
+  z.object({
+    ok: z.boolean().describe('True only when every requested step succeeded or was skipped'),
+    project: z.string(),
+    action: z.enum(['start', 'stop', 'restart']),
+    requested: z.number().int(),
+    succeeded: z.number().int(),
+    failed: z.number().int(),
+    skipped: z.number().int(),
+    results: z.array(ProjectActionEntry),
+  }).strict(),
+  'ProjectActionResult',
+)
+export type ProjectActionResult = z.infer<typeof ProjectActionResult>
+
 export const Project = named(
   z.object({
     name: z.string().describe('COMPOSE_PROJECT_NAME; the key used by project endpoints'),
     integrated: z.boolean(),
     workingDir: z.string().nullable(),
     operable: ProjectOperable.describe('Whether the runner can find this project on the host'),
+    startable: ProjectStartable.describe('Whether start can iterate existing containers, or needs the runner'),
     namespace: z.string().nullable(),
     group: z.string().nullable(),
     repo: z.string().nullable(),

@@ -17,6 +17,7 @@ import { schemeFor } from '../config.ts'
 import { LABELS, relevantLabels } from './labels.ts'
 import { resolveServiceTech } from './tech.ts'
 import { composeFilesFromLabel, projectOperable, serviceKind, slug } from 'portta-core'
+import { projectStartable } from './actions.ts'
 import { parseRemote } from './forge.ts'
 import type {
   ContainerState,
@@ -304,6 +305,7 @@ export function groupProjects(containers: ContainerSummary[], now: number): Proj
       integrated,
       workingDir: withDir?.workingDir ?? null,
       operable: projectOperable(withDir?.workingDir ?? null, configFiles),
+      startable: projectStartable(services),
       namespace: services.find((service) => service.namespace)?.namespace ?? null,
       // A project declares these once, on any of its services. The first that
       // does wins, and none of them doing so is the normal case.
