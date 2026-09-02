@@ -284,6 +284,18 @@ portta_compose_files() {
     fi
   fi
 
+  # Auth is a gateway service: the migrator runs on `up` even when the panel
+  # is off. A checkout has the Dockerfile; PORTTA_HOME does not.
+  if portta_is_true "${PORTTA_WEB_BUILD:-false}" || portta_is_true "${PORTTA_WEB_DEV:-false}"; then
+    files="$files docker/compose/features/auth-build.yaml"
+  fi
+  if [ -f "$PORTTA_ROOT/apps/web/Dockerfile" ] && [ -d "$PORTTA_ROOT/apps/auth" ]; then
+    case " $files " in
+      *" docker/compose/features/auth-build.yaml "*) ;;
+      *) files="$files docker/compose/features/auth-build.yaml" ;;
+    esac
+  fi
+
   # Last, and independent of every other axis: the connector is an extra way in,
   # never a replacement for one. A gateway can carry a tunnel while publishing
   # ports, or while publishing none at all.

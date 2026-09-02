@@ -1,7 +1,7 @@
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
-import { parseAliases, projectsFor, readEnvFile, routesFor, setEnvValue, writeEnvFile, type StoredAlias } from 'portta-core'
+import { AUTH_BUILD_FILE, LOCAL_PORTA_IMAGE, parseAliases, projectsFor, readEnvFile, routesFor, setEnvValue, writeEnvFile, type StoredAlias } from 'portta-core'
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
 import { ensureNetwork, inspectContainers, networkExists, requireDocker } from '../docker.js'
@@ -12,6 +12,28 @@ import { CLI_VERSION } from '../version.js'
 import { confirm } from '../confirm.js'
 import { ensureApplier, removeApplier } from './apply.js'
 import { refreshGitMetadata } from './git.js'
+import { webUp } from './web.js'
+
+export function checkoutLocalEnv(): Record<string, string> {
+  return {
+    PORTTA_WEB: 'true',
+    PORTTA_WEB_DEV: 'true',
+    PORTTA_WEB_BUILD: 'true',
+    PORTTA_AUTH_IMAGE: LOCAL_PORTA_IMAGE,
+    PORTTA_WEB_IMAGE: LOCAL_PORTA_IMAGE,
+  }
+}
+
+function persistEnv(root: string, values: Record<string, string>): void {
+  const path = join(root, '.env')
+  let text = readEnvFile(path)
+  for (const [key, value] of Object.entries(values)) text = setEnvValue(text, key, value)
+  writeEnvFile(path, text)
+}
+
+function buildsLocally(command: Command): boolean {
+  return gatewayContext({ profile: globals(command).profile }).composeFiles.includes(AUTH_BUILD_FILE)
+}
 
 function globals(command: Command) {
   return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string }
@@ -21,6 +43,15 @@ async function compose(command: Command, args: string[], stdio: 'inherit' | 'pip
   const options = globals(command)
   const context = gatewayContext({ profile: options.profile })
   return runProcess('docker', ['compose', ...composeArguments(context), ...args], { cwd: context.root, env: context.env, stdio })
+}
+
+export function authMigrationRunArguments(build: boolean, user?: string): string[] {
+  return [
+    'run', '--rm', '--no-deps',
+    ...(build ? ['--build'] : []),
+    ...(user ? ['--user', user] : []),
+    'portta-auth-migrate',
+  ]
 }
 
 function ensureAuthState(root: string): void {
@@ -36,12 +67,15 @@ function ensureAuthState(root: string): void {
 
 async function migrateAuthState(command: Command): Promise<void> {
   const context = gatewayContext({ profile: globals(command).profile })
+  const user = typeof process.getuid === 'function'
+    ? `${process.getuid()}:${process.getgid?.() ?? 0}`
+    : undefined
   await runProcess('docker', [
-    'compose', ...composeArguments(context), 'run', '--rm', '--no-deps',
-    '-v', `${context.root}/.env:/app/state/.env:ro`,
-    '-v', `${context.root}/state/auth:/app/state/auth`,
-    '-v', `${context.root}/config/traefik/dynamic:/app/state/traefik-dynamic`,
-    'portta-auth', 'node', '/app/apps/auth/dist/migrate.js',
+    'compose', ...composeArguments(context),
+    ...authMigrationRunArguments(
+      context.composeFiles.includes(AUTH_BUILD_FILE),
+      user,
+    ),
   ], { cwd: context.root, env: context.env })
 }
 
@@ -144,7 +178,12 @@ export async function upCommand(profile: string | undefined, options: { attach?:
   if (context.config.tcpEnabled) await ensureNetwork(context.config.accessNetwork)
   ensureAuthState(context.root)
   await migrateAuthState(command)
-  await compose(command, ['up', options.attach ? '' : '-d', options.attach ? '' : '--remove-orphans'].filter(Boolean))
+  await compose(command, [
+    'up',
+    options.attach ? '' : '-d',
+    ...(buildsLocally(command) ? ['--build'] : []),
+    options.attach ? '' : '--remove-orphans',
+  ].filter(Boolean))
 
   const output = new Output(globals(command))
   await refreshGitMetadata(context.config.profile, output)
@@ -156,6 +195,23 @@ export async function upCommand(profile: string | undefined, options: { attach?:
   if (applier.action === 'removed') output.progress('ok       applier removed (PORTTA_APPLY is false)')
   if (applier.action === 'refused') output.progress(`warn     not preparing the applier: ${applier.reason}`)
   if (applier.action === 'failed') output.progress(`warn     ${applier.reason}; settings still apply with: portta up`)
+}
+
+/**
+ * Complete checkout development setup: local Dockerfiles only, never the
+ * published GHCR images. Make calls this; an installed PORTTA_HOME keeps `up`.
+ */
+export async function devCommand(profile: string | undefined, command: Command): Promise<void> {
+  if (profile) command.setOptionValueWithSource('profile', profile, 'cli')
+  const existing = gatewayContext({ profile: profile ?? globals(command).profile, required: false })
+  if (!existsSync(join(existing.root, '.env'))) {
+    command.setOptionValueWithSource('yes', true, 'cli')
+    await bootstrapCommand({ skipPull: true }, command)
+  }
+  persistEnv(gatewayContext({ profile: profile ?? globals(command).profile }).root, checkoutLocalEnv())
+  await upCommand(profile, { attach: false }, command)
+  await webUp({ dev: true }, command)
+  await urlsCommand({}, command)
 }
 
 export async function downCommand(command: Command): Promise<void> {

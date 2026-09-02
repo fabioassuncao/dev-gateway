@@ -1,4 +1,14 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { resolveDomain, type DomainMode } from './domain.ts'
+
+export const AUTH_BUILD_FILE = 'docker/compose/features/auth-build.yaml'
+export const LOCAL_PORTA_IMAGE = 'fabioassuncao/portta:local'
+
+/** A checkout has the Dockerfiles; PORTTA_HOME does not. */
+export function isCheckoutSource(root: string): boolean {
+  return existsSync(join(root, 'apps/web/Dockerfile')) && existsSync(join(root, 'apps/auth'))
+}
 
 export const TRUTHY = new Set(['1', 'true', 'yes', 'on', 'enabled'])
 
@@ -172,9 +182,24 @@ export function composeFiles(config: GatewayConfig): string[] {
     if (config.webDev) files.push('docker/compose/features/web-dev.yaml')
     if (config.webExpose === 'vpn') files.push('docker/compose/features/web-vpn.yaml')
   }
+  // Auth is a gateway service, not a panel extra: the migrator runs on `up`
+  // even when the panel is off. The overlay is selected by the local-build
+  // flags here; a checkout appends it in composeFilesForRoot.
+  if (config.webBuild || config.webDev) files.push(AUTH_BUILD_FILE)
   // Last, and independent of every other axis: the connector is an extra way in,
   // never a replacement for one. A gateway can carry a tunnel while still
   // publishing ports, or while publishing none at all.
   if (config.tunnelEnabled) files.push('docker/compose/features/cloudflare-tunnel.yaml')
   return files
+}
+
+const TUNNEL_FILE = 'docker/compose/features/cloudflare-tunnel.yaml'
+
+/** Overlays for this root: the env-selected set, plus auth-build in a checkout. */
+export function composeFilesForRoot(config: GatewayConfig, root: string): string[] {
+  const files = composeFiles(config)
+  if (!isCheckoutSource(root) || files.includes(AUTH_BUILD_FILE)) return files
+  const tunnel = files.indexOf(TUNNEL_FILE)
+  if (tunnel === -1) return [...files, AUTH_BUILD_FILE]
+  return [...files.slice(0, tunnel), AUTH_BUILD_FILE, ...files.slice(tunnel)]
 }

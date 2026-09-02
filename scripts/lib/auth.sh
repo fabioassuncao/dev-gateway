@@ -11,12 +11,15 @@ portta_auth_prepare() { # portta_auth_prepare <profile>
     portta_env_set PORTTA_AUTH_SECRET "$PORTTA_AUTH_SECRET"
   fi
 
-  # A disposable instance gets the two write mounts the long-running service
-  # deliberately does not. Existing BasicAuth files remain untouched until
-  # their owning surface deliberately switches.
-  portta_compose "$profile" run --rm --no-deps \
-    -v "$PORTTA_ROOT/.env:/app/state/.env:ro" \
-    -v "$PORTTA_ROOT/state/auth:/app/state/auth" \
-    -v "$PORTTA_ROOT/config/traefik/dynamic:/app/state/traefik-dynamic" \
-    portta-auth node /app/apps/auth/dist/migrate.js >/dev/null
+  # A separate disposable service gets the two write mounts the long-running
+  # service deliberately does not. Existing BasicAuth files remain untouched
+  # until their owning surface deliberately switches. A checkout builds the
+  # image first; an installed PORTTA_HOME already pulled it.
+  if [ -f "$PORTTA_ROOT/apps/web/Dockerfile" ] && [ -d "$PORTTA_ROOT/apps/auth" ]; then
+    portta_compose "$profile" run --rm --no-deps --build --user "$(id -u):$(id -g)" \
+      portta-auth-migrate >/dev/null
+  else
+    portta_compose "$profile" run --rm --no-deps --user "$(id -u):$(id -g)" \
+      portta-auth-migrate >/dev/null
+  fi
 }

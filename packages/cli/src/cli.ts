@@ -4,7 +4,7 @@ import { Output } from './output.js'
 import { accessClose, accessGc, accessInspect, accessList, accessOpen, serviceList, servicePublish, serviceUnpublish } from './commands/access.js'
 import { dbDump, dbOpen, dbRestore, dbShell, dbStatus, dbUrl, clientClose, clientExec, redisOpen } from './commands/clients.js'
 import { analyzeCommand, initCommand, namespaceCommand, projectList, projectShow, servicesCommand } from './commands/projects.js'
-import { bootstrapCommand, doctorCommand, downCommand, inspectCommand, logsCommand, restartCommand, statusCommand, updateCommand, upCommand, urlsCommand, versionCommand } from './commands/lifecycle.js'
+import { bootstrapCommand, devCommand, doctorCommand, downCommand, inspectCommand, logsCommand, restartCommand, statusCommand, updateCommand, upCommand, urlsCommand, versionCommand } from './commands/lifecycle.js'
 import { dnsCheck, dnsSetup, dnsStatus, networkStatus, publicDisable, publicEnable, publicStatus } from './commands/network.js'
 import { gitClear, gitScan, gitStatus } from './commands/git.js'
 import { configGet, configList, configSet } from './commands/config.js'
@@ -55,6 +55,8 @@ describe(program.command('bootstrap'), 'Prepare this checkout and run diagnostic
 describe(program.command('up [profile]'), 'Start gateway components')
   .option('--attach', 'run in the foreground')
   .action(upCommand)
+describe(program.command('dev [profile]'), 'Start a checkout from local Dockerfiles, never the published images')
+  .action((profile: string | undefined, _options, command) => devCommand(profile, command))
 describe(program.command('down'), 'Stop gateway components; keep projects and data').action((_options, command) => downCommand(command))
 describe(program.command('restart'), 'Recreate gateway components').action((_options, command) => restartCommand(command))
 describe(program.command('status'), 'Show gateway status').action((_options, command) => statusCommand(command))

@@ -63,7 +63,16 @@ cleanup() { down_demo demo-a; down_demo demo-b; "$GW" up local >/dev/null 2>&1; 
 portta_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
 
 trap cleanup EXIT INT TERM
-"$GW" up local >/dev/null 2>&1
+describe "authentication migration"
+it "starts the gateway with a writable disposable migrator"
+assert_success "$GW" up local
+it "writes the owner-only protection store"
+assert_success test -f "$PORTTA_ROOT/state/auth/protections.json"
+assert_eq "600" "$(portta_file_mode "$PORTTA_ROOT/state/auth/protections.json")"
+it "keeps the persistent authentication service read-only"
+auth_container=$(portta_gateway_container auth)
+assert_eq "true false" "$(docker inspect "$auth_container" --format '{{.HostConfig.ReadonlyRootfs}} {{range .Mounts}}{{if eq .Destination "/app/state/auth"}}{{.RW}}{{end}}{{end}}')"
+
 up_demo demo-a
 up_demo demo-b
 sleep 4

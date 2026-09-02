@@ -5,6 +5,11 @@
 
 SHELL := /bin/bash
 GW    := ./bin/portta
+# Make is checkout-only. Portta images are built from the Dockerfiles here,
+# never pulled from the published registry. Third-party images stay pinned.
+LOCAL_IMAGES := PORTTA_AUTH_IMAGE=fabioassuncao/portta:local \
+	PORTTA_WEB_IMAGE=fabioassuncao/portta:local \
+	PORTTA_WEB_BUILD=true
 
 .DEFAULT_GOAL := help
 
@@ -21,17 +26,14 @@ help: ## Show this help
 # One command from a fresh clone to a running gateway with a hot-reloading
 # panel. It is deliberately the only target that chains others: everything
 # else stays a single call to the CLI.
-dev: ## Start the gateway and the panel with hot reloading
-	@test -f .env || $(GW) bootstrap --yes
-	@$(GW) up $(PROFILE)
-	@$(GW) web dev
-	@$(GW) urls
+dev: ## Start the gateway and the panel from local Dockerfiles
+	@$(GW) dev $(PROFILE)
 
-bootstrap: ## Prepare this host to run the gateway
-	@$(GW) bootstrap
+bootstrap: ## Prepare this checkout (no published Portta image pull)
+	@$(GW) bootstrap --skip-pull
 
-up: ## Start the gateway (PROFILE=local by default)
-	@$(GW) up $(PROFILE)
+up: ## Start the gateway from local Dockerfiles (PROFILE=local by default)
+	@$(LOCAL_IMAGES) $(GW) up $(PROFILE)
 
 down: ## Stop the gateway; consumer projects keep running
 	@$(GW) down
@@ -57,11 +59,11 @@ inspect: ## Print the resolved configuration
 update: ## Pull pinned images and recreate
 	@$(GW) update
 
-web: ## Start the administration panel on loopback
-	@$(GW) web up
+web: ## Start the administration panel from the local runtime image
+	@$(LOCAL_IMAGES) $(GW) web up
 
-web-dev: ## Start the panel with hot reloading
-	@$(GW) web dev
+web-dev: ## Start the panel with hot reloading from the local dev image
+	@$(LOCAL_IMAGES) $(GW) web dev
 
 web-down: ## Stop the panel; the gateway keeps running
 	@$(GW) web down

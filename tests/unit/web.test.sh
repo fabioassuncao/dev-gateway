@@ -236,6 +236,17 @@ done
 it "authentication is off by default, because loopback needs none"
 assert_contains "$(cat .env.example)" "PORTTA_WEB_AUTH=none"
 
+it "the disposable auth migrator gets explicit write mounts without weakening the service"
+auth_prepare="$(cat scripts/lib/auth.sh)"
+auth_services="$(sed -n '/^  portta-auth:/,/^  socket-proxy:/p' docker/compose/compose.yaml)"
+assert_contains "$auth_prepare" 'portta-auth-migrate'
+assert_contains "$auth_prepare" '--user "$(id -u):$(id -g)"'
+assert_contains "$auth_services" './state/auth:/app/state/auth:ro'
+assert_contains "$auth_services" './state/auth:/app/state/auth:rw'
+assert_contains "$auth_services" './config/traefik/dynamic:/app/state/traefik-dynamic:rw'
+assert_contains "$auth_services" 'profiles: [migration]'
+assert_contains "$auth_services" 'network_mode: none'
+
 it "the hash is declared a secret, so the API never returns it"
 assert_contains "$(sed -n '/PORTTA_WEB_AUTH_HASH/,/},/p' apps/web/src/server/core/settings.ts)" "secret: true"
 
@@ -339,6 +350,9 @@ assert_eq "" "$(grep -n 'docker-cli\|docker.sock' apps/web/Dockerfile || true)"
 it "the build stage copies the config the shared package builds through"
 assert_contains "$(cat apps/web/Dockerfile)" "packages/core/tsconfig.build.json"
 
+it "and the auth package's matching build config"
+assert_contains "$(cat apps/web/Dockerfile)" "apps/auth/tsconfig.build.json"
+
 it "the dev stage carries the shared package's source, which it never builds"
 assert_contains "$(sed -n '/AS dev/,/AS runtime/p' apps/web/Dockerfile)" "COPY packages/core/src ./packages/core/src"
 
@@ -358,5 +372,8 @@ assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/core/s
 
 it "publishes the UI on its own port, which is where the panel answers"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "PORTTA_WEB_DEV_PORT:-5173"
+
+it "the checkout migrator builds the auth image before running"
+assert_contains "$(sed -n '/export function authMigrationRunArguments/,/^}/p' packages/cli/src/commands/lifecycle.ts)" "'--build'"
 
 t_summary

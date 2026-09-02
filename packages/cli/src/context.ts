@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { composeFiles, loadGatewayConfig, mergeEnvironment, parseEnv, type GatewayConfig } from 'portta-core'
+import { composeFilesForRoot, loadGatewayConfig, mergeEnvironment, parseEnv, type GatewayConfig } from 'portta-core'
 import { PreconditionError } from './errors.js'
 import { CLI_VERSION } from './version.js'
 
@@ -87,7 +87,7 @@ export function gatewayContext(options: { root?: string; profile?: string; requi
   // command that describes it.
   env['PORTTA_DOMAIN'] = config.domain
   env['PORTTA_BIND_ADDRESS'] = config.bindAddress
-  const files = composeFiles(config)
+  const files = composeFilesForRoot(config, root)
   for (const fileName of files) {
     if (!existsSync(join(root, fileName))) throw new PreconditionError(`missing compose file: ${fileName}`)
   }

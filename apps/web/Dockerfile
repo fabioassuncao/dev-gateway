@@ -25,7 +25,7 @@ WORKDIR /app
 COPY apps/web/tsconfig.json apps/web/tsconfig.server.json apps/web/vite.config.ts ./apps/web/
 COPY apps/web/vite.auth.config.ts ./apps/web/
 COPY apps/web/src ./apps/web/src
-COPY apps/auth/tsconfig.json ./apps/auth/
+COPY apps/auth/tsconfig.json apps/auth/tsconfig.build.json ./apps/auth/
 COPY apps/auth/src ./apps/auth/src
 # Both configs: the package builds through tsconfig.build.json, which extends
 # tsconfig.json to drop the tests from the published output.

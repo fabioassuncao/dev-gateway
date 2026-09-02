@@ -1,5 +1,8 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { composeFiles, loadGatewayConfig } from './config.js'
+import { AUTH_BUILD_FILE, composeFiles, composeFilesForRoot, loadGatewayConfig } from './config.js'
 
 describe('gateway configuration', () => {
   it('owns the safe local defaults shared by panel and CLI', () => {
@@ -10,7 +13,7 @@ describe('gateway configuration', () => {
 
   it('selects the web development overlay once', () => {
     const config = loadGatewayConfig({ PORTTA_WEB: 'true', PORTTA_WEB_DEV: 'true' })
-    expect(composeFiles(config)).toEqual(['docker/compose/compose.yaml', 'docker/compose/attach/host.yaml', 'docker/compose/profiles/local.yaml', 'docker/compose/features/web.yaml', 'docker/compose/features/db.yaml', 'docker/compose/features/web-bind.yaml', 'docker/compose/features/web-dev.yaml'])
+    expect(composeFiles(config)).toEqual(['docker/compose/compose.yaml', 'docker/compose/attach/host.yaml', 'docker/compose/profiles/local.yaml', 'docker/compose/features/web.yaml', 'docker/compose/features/db.yaml', 'docker/compose/features/web-bind.yaml', 'docker/compose/features/web-dev.yaml', AUTH_BUILD_FILE])
   })
 
   it('refuses a public profile with no public domain', () => {
@@ -39,6 +42,32 @@ describe('gateway configuration', () => {
 
   it('a normal installation never selects the build overlay', () => {
     expect(composeFiles(loadGatewayConfig({ PORTTA_WEB: 'true' }))).not.toContain('docker/compose/features/web-build.yaml')
+    expect(composeFiles(loadGatewayConfig({ PORTTA_WEB: 'true' }))).not.toContain(AUTH_BUILD_FILE)
     expect(composeFiles(loadGatewayConfig({ PORTTA_WEB: 'true', PORTTA_WEB_BUILD: 'true' }))).toContain('docker/compose/features/web-build.yaml')
+    expect(composeFiles(loadGatewayConfig({ PORTTA_WEB: 'true', PORTTA_WEB_BUILD: 'true' }))).toContain(AUTH_BUILD_FILE)
+  })
+
+  it('a checkout appends the auth build overlay even with the panel off', () => {
+    const root = mkdtempSync(join(tmpdir(), 'portta-checkout-'))
+    mkdirSync(join(root, 'apps/web'), { recursive: true })
+    mkdirSync(join(root, 'apps/auth'), { recursive: true })
+    writeFileSync(join(root, 'apps/web/Dockerfile'), '')
+    try {
+      const files = composeFilesForRoot(loadGatewayConfig({ CLOUDFLARE_TUNNEL_ENABLED: 'true' }), root)
+      expect(files).toContain(AUTH_BUILD_FILE)
+      expect(files.filter((file) => file === AUTH_BUILD_FILE)).toHaveLength(1)
+      expect(files.indexOf(AUTH_BUILD_FILE)).toBeLessThan(files.indexOf('docker/compose/features/cloudflare-tunnel.yaml'))
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('an installation root without source does not append it', () => {
+    const root = mkdtempSync(join(tmpdir(), 'portta-home-'))
+    try {
+      expect(composeFilesForRoot(loadGatewayConfig({ PORTTA_WEB: 'true' }), root)).not.toContain(AUTH_BUILD_FILE)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })

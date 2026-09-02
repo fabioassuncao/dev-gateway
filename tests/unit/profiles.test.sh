@@ -167,11 +167,19 @@ it "public is refused where Traefik has no namespace of its own"
 # shellcheck disable=SC2086
 assert_eq "REFUSED" "$(files_for remote-private PRIVATE_DOMAIN=vpn.test TAILSCALE_ENABLED=true TS_AUTHKEY=dummy PORTTA_WEB=true PORTTA_WEB_EXPOSE=public $PORTTA_RUNTIME_CREDENTIAL)"
 
-it "a normal install never selects the build overlay"
+it "a normal install never selects the panel build overlay"
 assert_not_contains "$(files_for local PORTTA_WEB=true)" "docker/compose/features/web-build.yaml"
 
 it "and a developer can opt back into it"
 assert_contains "$(files_for local PORTTA_WEB=true PORTTA_WEB_BUILD=true)" "docker/compose/features/web-build.yaml"
+
+it "a checkout builds auth from the local Dockerfile"
+assert_contains "$(files_for local)" "docker/compose/features/auth-build.yaml"
+
+it "development mode selects the auth build overlay once"
+selected="$(files_for local PORTTA_WEB=true PORTTA_WEB_DEV=true)"
+assert_contains "$selected" "docker/compose/features/auth-build.yaml"
+assert_eq "1" "$(printf '%s\n' $selected | grep -c 'docker/compose/features/auth-build.yaml')"
 
 describe "both entry points create the networks the overlays declare external"
 
@@ -282,8 +290,8 @@ else
   ts_files_for() {
     ( for kv in "$@"; do export "${kv?}"; done
       node --input-type=module -e '
-        import { loadGatewayConfig, composeFiles } from "'"$PORTTA_ROOT"'/packages/core/dist/config.js"
-        try { process.stdout.write(composeFiles(loadGatewayConfig(process.env)).join(" ") + " ") }
+        import { loadGatewayConfig, composeFilesForRoot } from "'"$PORTTA_ROOT"'/packages/core/dist/config.js"
+        try { process.stdout.write(composeFilesForRoot(loadGatewayConfig(process.env), process.env.PORTTA_ROOT).join(" ") + " ") }
         catch { process.stdout.write("REFUSED") }
       ' 2>/dev/null )
   }
@@ -320,6 +328,7 @@ else
     "PORTTA_PROFILE=local TLS_ENABLED=true TLS_MODE=local" \
     "PORTTA_PROFILE=local PORTTA_WEB=true" \
     "PORTTA_PROFILE=local PORTTA_WEB=true PORTTA_WEB_BUILD=true" \
+    "PORTTA_PROFILE=local PORTTA_WEB=true PORTTA_WEB_DEV=true" \
     "PORTTA_PROFILE=remote-private PRIVATE_DOMAIN=vpn.test TAILSCALE_ENABLED=true" \
     "PORTTA_PROFILE=remote-public PUBLIC_DOMAIN=d.test" \
     "PORTTA_PROFILE=remote-public PUBLIC_DOMAIN=d.test TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test" \

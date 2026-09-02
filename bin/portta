@@ -94,6 +94,7 @@ CORE
   bootstrap              Prepare this host: check the runtime, create the shared
                          network and state directories, then run doctor
   up [profile]           Start the gateway (profile: local | remote-private | remote-public)
+  dev [profile]          Checkout setup: build Portta images locally, start the panel
   down                   Stop the gateway. Consumer projects keep running
   restart                Restart gateway components
   status                 Compact overview of the running gateway
@@ -235,14 +236,21 @@ cmd_up() {
   portta_auth_prepare "$profile" || die "authentication state could not be prepared"
 
   info "starting gateway (profile: $profile, domain: $PORTTA_DOMAIN)"
+  local build=""
+  if [ -f "$PORTTA_ROOT/apps/web/Dockerfile" ] && [ -d "$PORTTA_ROOT/apps/auth" ]; then
+    build="--build"
+  fi
   if [ "$detach" = "1" ]; then
     if [ "$wait" = "1" ]; then
-      portta_compose "$profile" up -d --remove-orphans --wait --wait-timeout 180 || exit 1
+      # shellcheck disable=SC2086  # $build is empty or a single flag
+      portta_compose "$profile" up -d $build --remove-orphans --wait --wait-timeout 180 || exit 1
     else
-      portta_compose "$profile" up -d --remove-orphans
+      # shellcheck disable=SC2086
+      portta_compose "$profile" up -d $build --remove-orphans
     fi
   else
-    portta_compose "$profile" up --remove-orphans
+    # shellcheck disable=SC2086
+    portta_compose "$profile" up $build --remove-orphans
   fi
 
   # The optional applier, so the panel can recreate these containers itself.
@@ -663,7 +671,7 @@ main() {
     restore) portta_cmd_restore "$@" ;;
     repair) portta_cmd_repair "$@" ;;
     remote) portta_cmd_remote "$@" ;;
-    network|public|dns|analyze|analyse|init|adapt|namespace|ns|access|services|git|share|auth|web|db|redis|service|project|setup|config)
+    network|public|dns|analyze|analyse|init|adapt|namespace|ns|access|services|git|share|auth|web|db|redis|service|project|setup|config|dev)
       err "'$cmd' requires Node 22.12 or newer and the full CLI"
       hint "npm install -g portta   (or run it inside a built checkout)"
       exit 3

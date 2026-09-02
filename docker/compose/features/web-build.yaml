@@ -11,13 +11,6 @@
 # ============================================================================
 
 services:
-  portta-auth:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      target: runtime
-    image: ${PORTTA_AUTH_IMAGE:-fabioassuncao/portta:local}
-
   web:
     build:
       context: .

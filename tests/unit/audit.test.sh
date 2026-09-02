@@ -272,9 +272,27 @@ assert_contains "$(cat apps/web/Dockerfile)" "COPY package.json package-lock.jso
 # source tree to build from. See docs/adr/0020-installer-and-portta-home.md.
 assert_contains "$(cat docker/compose/features/web-build.yaml)" "dockerfile: apps/web/Dockerfile"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "dockerfile: apps/web/Dockerfile"
+assert_contains "$(cat docker/compose/features/auth-build.yaml)" "dockerfile: apps/web/Dockerfile"
+assert_contains "$(cat docker/compose/features/auth-build.yaml)" "target: runtime"
+assert_eq "" "$(grep -n 'portta-auth:' docker/compose/features/web-build.yaml || true)"
 
 it "a normal installation never builds the panel"
 assert_eq "" "$(grep -n 'build:' docker/compose/features/web.yaml || true)"
+
+it "Make never pulls a published Portta image"
+assert_eq "" "$(grep -E 'ghcr.io/fabioassuncao' Makefile || true)"
+
+it "make dev calls the checkout setup command"
+assert_contains "$(sed -n '/^dev:/,/^[^[:space:]#][^:]*:/p' Makefile)" '$(GW) dev'
+
+it "the checkout setup command keeps Commander’s (arg, options, command) arity"
+assert_contains "$(cat packages/cli/src/cli.ts)" 'devCommand(profile, command)'
+
+it "the checkout setup never pulls the published image"
+assert_contains "$(sed -n '/export async function devCommand/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)" 'skipPull: true'
+assert_contains "$(sed -n '/export function checkoutLocalEnv/,/^}/p' packages/cli/src/commands/lifecycle.ts)" 'LOCAL_PORTA_IMAGE'
+assert_contains "$(cat packages/core/src/config.ts)" "LOCAL_PORTA_IMAGE = 'fabioassuncao/portta:local'"
+assert_eq "" "$(sed -n '/export function checkoutLocalEnv/,/^}/p' packages/cli/src/commands/lifecycle.ts | grep -E 'ghcr.io/fabioassuncao' || true)"
 
 
 describe "the TypeScript CLI never constructs a shell command from input"
