@@ -18,7 +18,7 @@ context, the decision, and what it costs us.
 | [0011](0011-panel-reads-traefik-writes-one-file.md) | The panel reads Traefik's API, and writes exactly four generated files | Accepted, amended by 0027 |
 | [0012](0012-panel-authentication-is-traefiks.md) | The panel's authentication is Traefik's, and public stays refused | Superseded by 0027 |
 | [0013](0013-what-the-panel-persists.md) | The panel persists decisions, never runtime observations | Accepted |
-| [0014](0014-monorepo-and-the-typescript-cli.md) | The repository is a small npm workspace, with a shared core | Accepted |
+| [0014](0014-monorepo-and-the-typescript-cli.md) | The repository is a small npm workspace, with a shared core | Accepted, its script inventory superseded by 0029 |
 | [0015](0015-node-on-the-host.md) | Node is not required for the core commands | Accepted |
 | [0016](0016-state-that-could-be-shared.md) | State that could be shared, and what must never be | Accepted |
 | [0017](0017-no-docker-sdk.md) | The panel speaks the Docker Engine API directly, without a general SDK | Accepted |
@@ -33,3 +33,4 @@ context, the decision, and what it costs us.
 | [0026](0026-applying-settings-from-the-panel.md) | Applying settings from the panel is one opt-in container, outside the Compose project | Accepted, amends 0011 |
 | [0027](0027-forward-authentication-service.md) | Protected HTTP access is checked by a separate ForwardAuth service | Accepted, supersedes 0012 and amends 0011/0021 |
 | [0028](0028-operational-images-live-under-docker.md) | Operational image contexts live under `docker/images/` | Accepted |
+| [0029](0029-shell-only-for-bootstrap.md) | Shell is for bootstrap; TypeScript is the default | Accepted, supersedes 0014's script inventory |

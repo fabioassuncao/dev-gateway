@@ -5,6 +5,7 @@ copy of them.
 
 - [Safe operating rules](docs/agent-guidelines.md) — what an agent must never do on a shared development host
 - [Monorepo layout](docs/monorepo.md) — where new code goes, and how to add a command
+- [Shell scripts](docs/scripts.md) — what may still be Bash, and why a new one probably may not
 - [Testing](docs/testing.md) — what to run while working, and what to run before merging
 - [Architecture decisions](docs/adr/) — decisions that are expensive to reverse
 - [Documentation index](docs/README.md)

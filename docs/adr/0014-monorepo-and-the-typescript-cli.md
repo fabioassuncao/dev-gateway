@@ -141,6 +141,14 @@ never as a big-bang refactor.
 
 ### Script inventory
 
+> **Superseded by [ADR 0029](0029-shell-only-for-bootstrap.md).** The table
+> below is the inventory as it stood when this record was accepted, and is kept
+> as history. Thirteen of the files it names have since been deleted, five live
+> ones are missing from it, and its three *Keep as shell* verdicts were reasons
+> rather than decisions. ADR 0029 carries the rule and the current verdicts;
+> `docs/scripts.md` carries the live inventory. Do not decide anything from
+> this table.
+
 Every file under `bin/` and `scripts/`, with a verdict. A command is either
 ported or it stays Bash. A TypeScript function that shells out to
 `scripts/cmd/foo.sh` is a migration step, never a destination, and each one is
@@ -175,6 +183,10 @@ removed in the same change that ports it.
 Roughly 4,500 lines migrate, ~700 stay as shell because shell is the right
 interface for `openssl`, `ssh` and `docker run`, and the dispatcher plus libs
 collapse into `packages/core` and a thin entry point.
+
+*(End of the superseded inventory. ADR 0029 rejects the "shell is the right
+interface for an external binary" reasoning above: `execa` runs those binaries
+with argument arrays and no shell.)*
 
 ### Issue Flow, as a reference
 

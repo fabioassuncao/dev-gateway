@@ -32,6 +32,20 @@ on the host; persistent decisions live in the panel's API. See
 [Monorepo layout](monorepo.md) and
 [ADR 0014](adr/0014-monorepo-and-the-typescript-cli.md).
 
+### Two entry points, one command set
+
+`bin/portta` is a dispatcher, not an implementation. It hands over to the
+TypeScript CLI whenever Node 22.12+ and the compiled package are present, and
+falls back to its own Bash implementations of `bootstrap`, `up`, `down`,
+`status` and `doctor` when they are not — the contract in
+[ADR 0015](adr/0015-node-on-the-host.md). Both paths must offer the same
+commands; a name only one of them knows is a defect, and a test asserts it.
+
+Shell survives only where it runs before Node can be assumed present, or where
+it is genuinely the interface to something Node cannot reach. Everything else
+is TypeScript. [ADR 0029](adr/0029-shell-only-for-bootstrap.md) states the rule
+and [shell scripts](scripts.md) carries the live inventory of what is left.
+
 ## Networks
 
 ```mermaid

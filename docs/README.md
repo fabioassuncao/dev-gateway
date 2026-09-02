@@ -15,6 +15,7 @@ is the complete operator and contributor index. Historical build briefs under
 
 - [Architecture](architecture.md) — components, networks, profiles, and lifecycle boundaries.
 - [Monorepo layout](monorepo.md) — where new code goes, and how to add a command.
+- [Shell scripts](scripts.md) — what is still Bash, why, and where each remaining file is going.
 - [Networking](networking.md) — ports, Docker networks, hostname derivation, and reachability.
 - [Persistence](persistence.md) — panel PostgreSQL, migrations, backup, restore, and degraded operation.
 - [Architecture decision records](adr/) — decisions that are expensive to reverse.

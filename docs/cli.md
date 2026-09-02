@@ -6,8 +6,24 @@ newer. The repository entry point, `./bin/portta`, delegates to it when
 Node and the compiled package are present.
 
 Five commands keep a Bash fallback for a bare host: `bootstrap`, `up`, `down`,
-`status` and `doctor`. TLS, remote SSH and toolbox operations remain
-shell-native drivers. Every other command requires the TypeScript CLI.
+`status` and `doctor`. Every other command requires the TypeScript CLI.
+
+### The two entry points offer the same commands
+
+`./bin/portta` hands over to the TypeScript CLI whenever Node 22.12+ and the
+compiled package are present, which is every host the installer touched. A
+command the Bash dispatcher names and the TypeScript CLI does not is therefore
+unreachable, not a fallback — `tunnel`, `backup`, `restore` and `repair` were
+exactly that for one release. `tests/unit/cli.test.sh` fails when the two
+surfaces disagree.
+
+`tls init|trust|untrust`, `remote`, `toolbox`, `tunnel`, `backup`, `restore`
+and `repair` are still implemented in shell and reached through a passthrough.
+A passthrough is transparent: it inherits the terminal, so prompts, streaming
+and Ctrl-C work; it forwards `--help` to the implementation rather than
+answering with a stub; and it reports the implementation's exit code unchanged.
+Except for `toolbox`, each is temporary — see
+[shell scripts](scripts.md) and [ADR 0029](adr/0029-shell-only-for-bootstrap.md).
 
 ## Installation
 
@@ -117,7 +133,19 @@ file or stdin.
 | `git scan` | `--project`, `--with-prs`, `--forge-ttl <seconds>` |
 | `git status`, `git clear` | Inspect or remove only `state/git/*.json`. |
 | `share list`, `share revoke <id>`, `share gc` | Shares can only be created in the panel. |
-| `tls ...`, `remote ...`, `toolbox ...` | Shell-native OpenSSL, SSH and one-shot Docker drivers. |
+| `tls init|trust|untrust`, `remote ...`, `toolbox ...` | Passthroughs to the shell implementations: OpenSSL, SSH and one-shot Docker. |
+
+### Maintenance and tunnelling
+
+| Command | Command-specific flags |
+|---|---|
+| `tunnel status|setup|enable|disable|test|logs` | `setup` takes `--zone` and reads the token from `--token-file` or a prompt, never from an argument. |
+| `backup` | `-o <file>`, `--no-database`; the archive holds credentials and is written 0600. |
+| `restore <file>` | `--force`; refuses to overwrite a live installation without it, and always writes a safety copy. |
+| `repair` | `--dry-run`; never deletes data, never touches a volume. |
+
+These four are passthroughs today. `portta <command> --help` prints the
+implementation's own page, which is the authoritative flag list.
 
 ## JSON shapes
 
