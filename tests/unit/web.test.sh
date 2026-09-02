@@ -84,9 +84,6 @@ it "the password is generated and declared secret"
 assert_contains "$(cat scripts/bootstrap.sh)" "portta_env_set PORTTA_RUNTIME_DB_PASSWORD"
 assert_contains "$(sed -n '/PORTTA_RUNTIME_DB_PASSWORD/,/},/p' apps/web/src/server/core/settings.ts)" "secret: true"
 
-it "doctor refuses a published or shared database"
-assert_contains "$(cat scripts/doctor.sh)" "db.exposure"
-assert_contains "$(cat scripts/doctor.sh)" "db.network.shared"
 
 describe "the panel database has private operational tooling"
 
@@ -198,8 +195,6 @@ assert_contains "$compose" './state/github:/app/state/github:ro'
 it "the panel refuses a path it could not open, naming that directory"
 assert_contains "$(cat apps/web/src/server/core/settings.ts)" "the directory mounted into the panel"
 
-it "and doctor refuses the same paths rather than checking the host for them"
-assert_contains "$(cat scripts/doctor.sh)" "is outside /app/state/github/"
 
 describe "every panel command resolves the file list with the panel enabled"
 
@@ -275,28 +270,6 @@ it "and by web up"
 out=$(PORTTA_WEB_AUTH=none ./bin/portta web up --expose vpn 2>&1 || true)
 assert_contains "$out" "needs a credential"
 
-it "doctor fails a routed panel without one"
-assert_contains "$(cat scripts/doctor.sh)" "with nothing in front of it"
-
-it "doctor checks every ForwardAuth prerequisite"
-doctor_source="$(cat scripts/doctor.sh)"
-for id in auth.secret auth.store auth.service; do
-  assert_contains "$doctor_source" "$id"
-done
-assert_contains "$doctor_source" "PORTTA_AUTH_SECRET is unset"
-assert_contains "$doctor_source" "credentials must be owner-only"
-assert_contains "$doctor_source" "authentication service"
-
-# `portta bootstrap` ends by running doctor, on a host where nothing has been
-# started yet. Both auth checks failed on that, so bootstrap exited 1 and every
-# CI job that boots the gateway died before `up`. A component that does not
-# exist yet is a warning, which is the rule traefik.state already followed; a
-# component in a bad state stays a failure.
-it "doctor separates an unstarted auth component from a broken one"
-assert_contains "$doctor_source" 'check warn auth.store "authentication store" "not created yet"'
-assert_contains "$doctor_source" 'check warn auth.service "authentication service" "container not created"'
-assert_contains "$doctor_source" 'check fail auth.store "authentication store" "missing while the service is running"'
-assert_contains "$doctor_source" 'check warn traefik.state "traefik" "container not created"'
 
 it "the password never reaches a command line, where ps would show it"
 assert_contains "$(cat packages/cli/src/commands/web.ts)" "hashPassword(password)"

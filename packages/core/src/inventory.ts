@@ -8,6 +8,16 @@ export interface ContainerRecord {
   labels: Record<string, string>
   ports: Array<{ ip: string; privatePort: number; publicPort: number | null; type: string }>
   networks: string[]
+  /**
+   * The fields below are only populated by the CLI's own inspector, which
+   * reads them from `docker inspect`. The panel reaches Docker through a
+   * filtered proxy and does not always have them, so every consumer must treat
+   * them as optional rather than as a promise.
+   */
+  health?: string | null
+  /** `container:<id>` when this container shares another's network namespace. */
+  networkMode?: string
+  mounts?: Array<{ source: string; readWrite: boolean }>
 }
 
 export interface RouteRecord {

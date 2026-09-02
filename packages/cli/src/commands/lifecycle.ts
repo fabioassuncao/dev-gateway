@@ -10,6 +10,7 @@ import { Output } from '../output.js'
 import { runProcess } from '../process.js'
 import { CLI_VERSION } from '../version.js'
 import { confirm } from '../confirm.js'
+import { runDoctor } from '../doctor.js'
 import { ensureApplier, removeApplier } from './apply.js'
 import { refreshGitMetadata } from './git.js'
 import { webUp } from './web.js'
@@ -300,56 +301,23 @@ export function doctorReport(checks: Check[]): { line: string; hint?: string }[]
   }))
 }
 
-/**
- * The deep diagnostics live in scripts/doctor.sh, which every checkout and
- * every PORTTA_HOME carries: the host, the runtime, exposure, the panel's
- * front door, the development toolchain and the AI agent CLIs. Running it here
- * rather than reimplementing a thinner version is what makes
- * `npx portta doctor` and `portta doctor` the same answer — ADR 0015 asks the
- * two surfaces to agree, and a second implementation could only drift.
- */
-async function shellDoctor(root: string): Promise<Check[] | null> {
-  const script = join(root, 'scripts/doctor.sh')
-  if (!existsSync(script)) return null
-  const result = await runProcess('bash', [script, '--json'], {
-    cwd: root,
-    env: { ...process.env, PORTTA_ROOT: root },
-    reject: false,
-  })
-  if (!result.stdout.trim()) return null
-  try {
-    const parsed = JSON.parse(result.stdout) as { checks?: { id: string; status: string; title: string; detail: string; fix?: string }[] }
-    return (parsed.checks ?? []).map((check) => ({
-      id: check.id,
-      status: check.status === 'fail' ? 'fail' : check.status === 'warn' ? 'warn' : 'pass',
-      message: `${check.title}: ${check.detail}`,
-      ...(check.fix ? { fix: check.fix } : {}),
-    }))
-  } catch {
-    return null
-  }
-}
-
 export async function doctorCommand(command: Command): Promise<void> {
   const options = globals(command)
   const context = gatewayContext({ profile: options.profile })
-  const checks: Check[] = []
-  const deep = await shellDoctor(context.root)
-  if (deep) checks.push(...deep)
-  const docker = await runProcess('docker', ['version', '--format', '{{.Server.Version}}'], { reject: false })
-  // Everything below duplicates a check the shell doctor already made, so it
-  // runs only when that could not: an installation whose scripts/ is missing,
-  // or a bash that refused to produce JSON.
-  if (!deep) {
-    checks.push(docker.exitCode === 0 ? { id: 'docker', status: 'pass', message: `Docker ${docker.stdout}` } : { id: 'docker', status: 'fail', message: 'Docker is unreachable', fix: 'start Docker or check DOCKER_HOST' })
-    const composeVersion = await runProcess('docker', ['compose', 'version', '--short'], { reject: false })
-    checks.push(composeVersion.exitCode === 0 ? { id: 'compose', status: 'pass', message: `Compose ${composeVersion.stdout}` } : { id: 'compose', status: 'fail', message: 'Compose v2 is unavailable', fix: 'install the Docker Compose plugin' })
-    checks.push({ id: 'env', status: existsSync(join(context.root, '.env')) ? 'pass' : 'fail', message: existsSync(join(context.root, '.env')) ? '.env exists' : '.env is missing', fix: 'copy .env.example to .env' })
-    if (docker.exitCode === 0) checks.push({ id: 'network', status: await networkExists(context.config.network) ? 'pass' : 'fail', message: `shared network ${context.config.network}`, fix: 'run portta bootstrap' })
+  const checks: Check[] = (await runDoctor(context)).map((entry) => ({
+    id: entry.id,
+    status: entry.status,
+    message: `${entry.title}: ${entry.detail}`,
+    ...(entry.fix ? { fix: entry.fix } : {}),
+  }))
+
+  // Not part of the shared check set: the shell fallback judges the files the
+  // shell selects, and a published CLI can be pointed at an installation whose
+  // overlay set differs from the one it would choose.
+  for (const file of context.composeFiles) {
+    checks.push({ id: `compose:${file}`, status: existsSync(join(context.root, file)) ? 'pass' : 'fail', message: `${file} exists` })
   }
-  // Not duplicated: the shell doctor checks the files the shell selects, and a
-  // published CLI can be pointed at an installation whose overlay set differs.
-  for (const file of context.composeFiles) checks.push({ id: `compose:${file}`, status: existsSync(join(context.root, file)) ? 'pass' : 'fail', message: `${file} exists` })
+
   // An alias pins a container name, so a recreated environment leaves a router
   // pointing at nothing. Traefik reports no error for that; this does.
   const aliases = readAliases(context.root)
@@ -360,7 +328,8 @@ export async function doctorCommand(command: Command): Promise<void> {
       ? { id: 'aliases', status: 'pass', message: `${aliases.length} hostname alias(es) routed` }
       : { id: 'aliases', status: 'fail', message: `alias target missing: ${dangling.map((alias) => `${alias.host} -> ${alias.container}`).join(', ')}`, fix: 'remove the alias in the panel, or start the environment again' })
   }
-  const failed = checks.filter((check) => check.status === 'fail')
+
+  const failed = checks.filter((entry) => entry.status === 'fail')
   const output = new Output(options)
   if (output.json) output.data({ ok: failed.length === 0, instance: { name: context.config.projectName }, checks })
   else for (const entry of doctorReport(checks)) {

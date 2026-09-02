@@ -1255,6 +1255,27 @@ if [ -n "$LINK_TARGET" ]; then
   ln -sf "$PORTTA_HOME/bin/portta" "$LINK_TARGET"
 fi
 
+# The entry point above is the shell one, and it implements the commands
+# ADR 0015 names and no others: `portta web`, `portta access`, `portta config`
+# and the rest report that they need the full CLI. That report is only useful
+# if the CLI can actually be installed, so install it here when the host can.
+#
+# Deliberately not fatal. Portta's promise is Docker, Git and a shell; the
+# gateway that just started works without this, and an npm registry that is
+# unreachable, rate-limited or does not yet carry the package must not turn a
+# successful install into a failed one. `bin/portta` finds a globally installed
+# package next to the node binary, so nothing else has to be wired up.
+CLI_STATE="skipped"
+if have node && have npm \
+   && node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=12)?0:1)' >/dev/null 2>&1; then
+  if npm install -g "portta@${NEW_VERSION}" >/dev/null 2>&1 \
+     || npm install -g portta >/dev/null 2>&1; then
+    CLI_STATE="installed"
+  else
+    CLI_STATE="unavailable"
+  fi
+fi
+
 # ---------------------------------------------------------------------------
 # 13. Development environment, reported and never changed
 # ---------------------------------------------------------------------------
@@ -1403,7 +1424,15 @@ else
   say "    $PORTTA_HOME/bin/portta status"
   note "no writable bin directory on PATH; add $PORTTA_HOME/bin to PATH to drop the prefix"
 fi
-say "    npx portta doctor      full diagnostics, needs Node 22.12+"
+case "$CLI_STATE" in
+  installed)
+    say "    portta web up          the panel, and every other full-CLI command" ;;
+  unavailable)
+    note "the full CLI is not installable from this host right now"
+    note "  npm install -g portta   gives you web, access, config and the rest" ;;
+  *)
+    note "Node 22.12+ and npm give you the full command set: npm install -g portta" ;;
+esac
 case "$PORTTA_HOME" in
   /opt/portta|"$HOME/.portta"|/var/lib/portta) ;;
   *)

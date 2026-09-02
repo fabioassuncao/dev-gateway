@@ -14,7 +14,9 @@ const InspectSchema = z.object({
   Id: z.string(),
   Name: z.string(),
   Config: z.object({ Image: z.string(), Labels: z.record(z.string(), z.string()).nullable().optional() }).passthrough(),
-  State: z.object({ Status: z.string() }).passthrough(),
+  State: z.object({ Status: z.string(), Health: z.object({ Status: z.string() }).passthrough().nullable().optional() }).passthrough(),
+  HostConfig: z.object({ NetworkMode: z.string().optional() }).passthrough().optional(),
+  Mounts: z.array(z.object({ Source: z.string().optional(), RW: z.boolean().optional() }).passthrough()).optional(),
   NetworkSettings: z.object({
     Networks: z.record(z.string(), z.unknown()).nullable().optional(),
     Ports: z.record(z.string(), z.array(z.object({ HostIp: z.string().optional(), HostPort: z.string().optional() })).nullable()).nullable().optional(),
@@ -52,6 +54,9 @@ export async function inspectContainers(all = true): Promise<ContainerRecord[]> 
       labels: item.Config.Labels ?? {},
       ports,
       networks: Object.keys(item.NetworkSettings.Networks ?? {}).sort(),
+      health: item.State.Health?.Status ?? null,
+      networkMode: item.HostConfig?.NetworkMode,
+      mounts: (item.Mounts ?? []).map((mount) => ({ source: mount.Source ?? '', readWrite: mount.RW ?? false })),
     }
   })
 }

@@ -43,19 +43,18 @@ bin/portta ──(Node 22.12+ and dist/cli.js present)──> packages/cli/dist/
 
 `scripts/cmd/` is gone: every command that lived there is TypeScript.
 
-Two places still cross from TypeScript back into Bash:
+One place still crosses from TypeScript back into Bash, and it stays:
 
-| Crossing | Where | Removed by |
+| Crossing | Where | Why it stays |
 |---|---|---|
-| `bash scripts/doctor.sh --json`, parsed | `packages/cli/src/commands/lifecycle.ts` | #30 |
-| `legacy()` re-invokes `bin/portta` for `toolbox` | `packages/cli/src/commands/web.ts` | stays: `toolbox.sh` keeps its *stays shell* verdict |
+| `legacy()` re-invokes `bin/portta` for `toolbox` | `packages/cli/src/commands/web.ts` | `toolbox.sh` keeps its *stays shell* verdict: it is the `docker run` wrapper the zero-Node path needs |
 
 `packages/core/src/apply.ts` also runs `bin/portta up` inside the applier
 container. That is the applier's contract, not a fallback, and it stays.
 
 ## The inventory
 
-Measured 2026-09-02, on `develop`, after #29.
+Measured 2026-09-02, on `develop`, after #30's diagnostic port.
 
 ### Stays shell
 
@@ -63,7 +62,7 @@ Measured 2026-09-02, on `develop`, after #29.
 |---|---:|---|---|
 | `install.sh` | 1426 | (a) `curl … \| bash` on a host with nothing | Shrinks to: detect, install requirements, fetch Portta, prepare the minimum, `exec` the CLI (#30) |
 | `bin/portta` | 684 | (a) the ADR 0015 dispatcher | Its Bash fallback set stays exactly the commands ADR 0015 names |
-| `scripts/doctor.sh` | 1119 | (a) a bare host is diagnosed before anything is installed | Shrinks to the zero-Node checks (#30) |
+| `scripts/doctor.sh` | 205 | (a) a bare host is diagnosed before anything is installed | Was 1119. Seven checks, held to the diagnostic's ids by `tests/unit/doctor.test.sh` |
 | `scripts/bootstrap.sh` | 177 | (a) ADR 0015 | Shrinks to the zero-Node fallback (#30) |
 | `scripts/lib/docker.sh` | 471 | (a) `up`, `down`, `status` and `doctor` reach the daemon through it | Shrinks to what those four call (#30) |
 | `scripts/lib/common.sh` | 466 | (a) the same four need `.env`, defaults and the output helpers | Shrinks to the same set (#30) |
@@ -76,8 +75,7 @@ Measured 2026-09-02, on `develop`, after #29.
 
 | File | Lines | Destination | Issue |
 |---|---:|---|---|
-| `scripts/doctor.sh` | 1119 | typed checks in `packages/core`, probes in `packages/cli`; the shell keeps the zero-Node checks | #30 |
-| `install.sh` | 1426 | everything past "Node and the CLI are available" moves behind `portta setup` | #30 |
+| `install.sh` | 1426 | everything past "Node and the CLI are available" moves behind `portta setup` — **blocked**: the installer cannot hand over to a CLI that is not published (#9) | #30 |
 | `scripts/lib/common.sh`, `docker.sh` | 937 | the pure halves to `packages/core`, the effects to `packages/cli` | #30 |
 
 ### Deleted
@@ -89,6 +87,7 @@ Measured 2026-09-02, on `develop`, after #29.
 | `scripts/cmd/tunnel.sh` | 387 | → `packages/cli/src/commands/tunnel.ts`, over `packages/core/src/tunnel.ts` |
 | `scripts/cmd/remote.sh`, `remote-access.sh` | 425 | → `packages/cli/src/commands/remote.ts`. `ssh` through `runProcess`, host key verification untouched |
 | `scripts/cmd/maintenance.sh` | 324 | → `packages/cli/src/commands/maintenance.ts`. `PORTTA_BACKUP_VERSION` stays 1 and the archive layout does not change |
+| 914 lines of `scripts/doctor.sh` | 914 | → `packages/cli/src/doctor.ts` over the verdicts in `packages/core/src/diagnostics.ts`. The shell keeps seven checks; the ids and the JSON shape are unchanged |
 
 ## Behaviour that lives in two places, and what holds it
 

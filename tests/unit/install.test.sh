@@ -345,4 +345,22 @@ context="$(cat "$PORTTA_ROOT/packages/cli/src/context.ts")"
 assert_contains "$context" "'/opt/portta'"
 assert_contains "$context" "'.portta'"
 
+describe "the installer offers the full command set without depending on it"
+
+# `bin/portta` implements the ADR 0015 commands and reports that the rest need
+# the full CLI. That report is only useful if the CLI can be installed, so the
+# installer installs it -- and Portta's promise is Docker, Git and a shell, so
+# an npm registry that is unreachable must not turn a successful install into a
+# failed one.
+it "installs the published CLI when the host can run it"
+assert_contains "$SOURCE" "npm install -g"
+
+it "and never lets that decide whether the install succeeded"
+assert_eq "" "$(sed -n '/^CLI_STATE=/,/^fi$/p' "$PORTTA_ROOT/install.sh" | grep -n 'die ' || true)"
+
+it "reporting what happened either way"
+for state in installed unavailable; do
+  assert_contains "$SOURCE" "$state)"
+done
+
 t_summary

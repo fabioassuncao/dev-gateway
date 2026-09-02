@@ -188,16 +188,16 @@ network="$(cat "$PORTTA_ROOT/packages/cli/src/commands/network.ts")"
 assert_contains "$network" 'public access needs a domain, and this host has only localhost'
 assert_contains "$network" 'portta config set domain.mode auto'
 
-describe "one doctor, two surfaces"
-# The deep diagnostics live in scripts/doctor.sh. The TypeScript CLI runs it
-# rather than reimplementing a thinner version, so `portta doctor` and
-# `npx portta doctor` cannot answer differently.
-it "the TypeScript doctor runs the shell one"
-assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" "scripts/doctor.sh"
+describe "the diagnostic reports the whole host"
+# The checks live in packages/cli/src/doctor.ts over the verdicts in
+# packages/core/src/diagnostics.ts. What matters here is the surface: a reader
+# asks `portta doctor` one question and gets the runtime, the exposure, the
+# panel's front door, the toolchain and the agents in one report.
+# tests/unit/doctor.test.sh owns the relationship with the zero-Node fallback.
 if ! docker info >/dev/null 2>&1; then
   it "shared checks"; skip "docker unavailable"
 else
-  it "and reports the checks only the shell doctor makes"
+  it "reports the host checks a container could not make honestly"
   ids=$(printf '%s' "$DOCTOR_JSON" | python3 -c "import json,sys; print(' '.join(c['id'] for c in json.load(sys.stdin)['checks']))")
   for id in agents.claude tools.git vpn.tailscale; do
     assert_contains "$ids" "$id"
