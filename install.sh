@@ -879,6 +879,10 @@ env_set "$ENV_FILE" PORTTA_WEB_PORT "$PANEL_PORT"
 # The panel writes .env from its Settings page and reads it at startup, so it
 # runs as whoever owns PORTTA_HOME rather than as the image's default uid.
 env_set "$ENV_FILE" PORTTA_WEB_USER "${CURRENT_UID}:${CURRENT_GID}"
+# The authentication service reads .env once and the protection store on every
+# request. Both are owner-only and owned by whoever ran this installer -- root,
+# on a VPS -- so the image's default uid could open neither.
+env_set "$ENV_FILE" PORTTA_AUTH_USER "${CURRENT_UID}:${CURRENT_GID}"
 
 if [ -n "$DOMAIN" ]; then
   env_set "$ENV_FILE" PUBLIC_DOMAIN "$DOMAIN"
@@ -1125,13 +1129,13 @@ fi
 step "Starting Portta"
 
 # Lift legacy BasicAuth credentials into the private store before any router
-# can switch to ForwardAuth. The disposable process has write mounts; the
-# long-running auth service keeps only the store, read-only.
-run_compose run --rm --no-deps \
-  -v "$PORTTA_HOME/.env:/app/state/.env:ro" \
-  -v "$PORTTA_HOME/state/auth:/app/state/auth" \
-  -v "$PORTTA_HOME/config/traefik/dynamic:/app/state/traefik-dynamic" \
-  portta-auth node /app/apps/auth/dist/migrate.js >/dev/null \
+# can switch to ForwardAuth.
+#
+# Through the `portta-auth-migrate` service rather than by rebuilding its three
+# mounts here with -v flags: the service already declares them, and two
+# descriptions of one container is how the persistent service's user and the
+# migrator's drifted apart.
+run_compose run --rm --no-deps portta-auth-migrate >/dev/null \
   || die "existing authentication state could not be migrated"
 
 # The panel database first, and on its own, because the credential in .env has

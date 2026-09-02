@@ -97,6 +97,11 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   if (!initial.env['PORTTA_WEB_USER'] && typeof process.getuid === 'function') {
     values['PORTTA_WEB_USER'] = `${process.getuid()}:${process.getgid?.() ?? 0}`
   }
+  // The authentication service has the same problem for the same reason: it
+  // reads .env once and the owner-only protection store on every request.
+  if (!initial.env['PORTTA_AUTH_USER'] && typeof process.getuid === 'function') {
+    values['PORTTA_AUTH_USER'] = `${process.getuid()}:${process.getgid?.() ?? 0}`
+  }
   setValues(initial.root, values)
   mkdirSync(join(initial.root, 'state/git'), { recursive: true })
   mkdirSync(join(initial.root, 'state/github'), { recursive: true })

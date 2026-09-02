@@ -184,7 +184,11 @@ services:
     image: ${PORTTA_AUTH_IMAGE:-ghcr.io/fabioassuncao/portta:0.4.0}
     restart: unless-stopped
     read_only: true
-    user: node
+    # The store it reads is owner-only and belongs to whoever installed Portta,
+    # which on a VPS is root. Hard-coding `node` (uid 1000) meant the service
+    # could not open its own protection store on any Linux host installed as
+    # anybody else -- the same reason the panel takes PORTTA_WEB_USER.
+    user: ${PORTTA_AUTH_USER:-node}
     command: ["node", "/app/apps/auth/dist/index.js"]
     environment:
       PORTTA_AUTH_PORT: "4180"
@@ -216,7 +220,9 @@ services:
     image: ${PORTTA_AUTH_IMAGE:-ghcr.io/fabioassuncao/portta:0.4.0}
     profiles: [migration]
     read_only: true
-    user: node
+    # Same reason as the service above: it reads a 600 .env and writes a 700
+    # store, both owned by whoever installed Portta.
+    user: ${PORTTA_AUTH_USER:-node}
     command: ["node", "/app/apps/auth/dist/migrate.js"]
     volumes:
       - ./.env:/app/state/.env:ro

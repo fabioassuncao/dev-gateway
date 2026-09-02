@@ -369,4 +369,34 @@ assert_contains "$(cat docker/compose/features/web-dev.yaml)" "PORTTA_WEB_DEV_PO
 it "the checkout migrator builds the auth image before running"
 assert_contains "$(sed -n '/export function authMigrationRunArguments/,/^}/p' packages/cli/src/commands/lifecycle.ts)" "'--build'"
 
+describe "a container that reads an owner-only file runs as its owner"
+
+# The installer runs as root on a VPS, so .env is 600 root-owned and
+# state/auth is 700 root-owned. A container pinned to the image's default uid
+# could open neither: the migrator died with EACCES on /app/state/.env and the
+# install failed on every clean Linux host. Found on a bare Ubuntu 24.04 box,
+# because a Mac maps ownership across the bind mount and hides it.
+compose_all="$(cat docker/compose/compose.yaml docker/compose/features/web.yaml)"
+
+it "the panel takes its user from the environment"
+assert_contains "$compose_all" 'user: ${PORTTA_WEB_USER:-node}'
+
+it "and so does the authentication service, which reads the same files"
+assert_contains "$compose_all" 'user: ${PORTTA_AUTH_USER:-node}'
+
+it "no service that mounts .env or the protection store pins a uid"
+assert_eq "" "$(grep -nE '^\s+user: (node|[0-9]+)' docker/compose/compose.yaml docker/compose/features/web.yaml || true)"
+
+it "the installer records both, so a root install can read what it wrote"
+installer="$(cat install.sh)"
+for key in PORTTA_WEB_USER PORTTA_AUTH_USER; do
+  assert_contains "$installer" "env_set \"\$ENV_FILE\" $key"
+done
+
+it "and so does web up, for a checkout the installer never touched"
+web_source="$(cat packages/cli/src/commands/web.ts)"
+for key in PORTTA_WEB_USER PORTTA_AUTH_USER; do
+  assert_contains "$web_source" "values['$key']"
+done
+
 t_summary
