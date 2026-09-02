@@ -855,15 +855,21 @@ All of these live in `.env`; `portta web up` sets the first ones for you.
 | `PORTTA_WEB_NETWORK` | `portta-web` | The panel's internal control network |
 | `PORTTA_WEB_USER` | `node` | User the container runs as, see below |
 
-On a Linux host, the container's `node` user does not own your `.env`, so the
-Settings page cannot save. Set:
+`.env` is owner-only, so the container has to run as whoever owns it. The
+installer records this, and `bootstrap` and `web up` now record it too when the
+key is absent:
 
 ```bash
 PORTTA_WEB_USER=1000:1000     # $(id -u):$(id -g)
 ```
 
-On macOS the default is fine. Either way the panel reports whether the file is
-writable and says to edit it on the host when it is not.
+The image's own `node` is a last resort, and is right only when the host uid
+happens to be 1000 — on macOS it is usually 501, so the default was wrong there
+as well, not only on Linux. The panel reports whether the file is writable and
+says to edit it on the host when it is not.
+
+Vite, in development mode, deliberately keeps running as `node`: it writes no
+host file and does write inside the image, where only `node` has permission.
 
 ---
 

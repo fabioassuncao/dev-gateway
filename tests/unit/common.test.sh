@@ -68,4 +68,38 @@ describe "portta_json_escape"
 it "escapes double quotes"  ; assert_eq 'say \"hi\"' "$(portta_json_escape 'say "hi"')"
 it "escapes backslashes"    ; assert_eq 'a\\\\b' "$(portta_json_escape 'a\\b')"
 
+describe "portta_env_set: the file keeps its identity"
+
+# .env is bind-mounted into the panel container as a single file, and a file
+# bind follows the inode. Replacing the file here left the panel holding an
+# unlinked one, reporting .env as missing until it was recreated -- and every
+# host-side write did it.
+env_dir=$(mktemp -d)
+env_file="$env_dir/.env"
+printf 'A=one\n# a comment\nB=two\n' > "$env_file"
+inode_before=$(ls -i "$env_file" | awk '{print $1}')
+
+portta_env_set A three "$env_file"
+portta_env_set C four "$env_file"
+
+it "updates the value in place"
+assert_eq "three" "$(grep '^A=' "$env_file" | cut -d= -f2)"
+
+it "appends a key that was absent"
+assert_eq "four" "$(grep '^C=' "$env_file" | cut -d= -f2)"
+
+it "keeps the comments around it"
+assert_contains "$(cat "$env_file")" "# a comment"
+
+it "and never replaces the file"
+assert_eq "$inode_before" "$(ls -i "$env_file" | awk '{print $1}')"
+
+it "leaving no temporary behind"
+assert_eq ".env" "$(ls -A "$env_dir" | tr '\n' ' ' | sed 's/ $//')"
+
+it "and still owner-only"
+assert_eq "-rw-------" "$(ls -l "$env_file" | cut -c1-10)"
+
+rm -rf "$env_dir"
+
 t_summary

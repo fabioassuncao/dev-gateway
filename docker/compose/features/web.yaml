@@ -102,8 +102,9 @@ services:
     depends_on:
       web-socket-proxy:
         condition: service_healthy
-    # `node` by default. On a Linux host, set PORTTA_WEB_USER to
-    # "$(id -u):$(id -g)" so the panel can write .env from Settings.
+    # Whoever owns .env, which the Settings page writes. `bootstrap` and
+    # `web up` record it; the image's own `node` is only a last resort, and is
+    # right just when the host uid happens to be 1000.
     user: ${PORTTA_WEB_USER:-node}
     environment:
       PORTTA_RUNTIME_DOCKER_API: http://web-socket-proxy:2375

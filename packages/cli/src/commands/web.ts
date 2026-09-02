@@ -48,6 +48,14 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   }
   if (options.port) values['PORTTA_WEB_PORT'] = String(Number(options.port))
   if (!initial.env['PORTTA_RUNTIME_DB_PASSWORD']) values['PORTTA_RUNTIME_DB_PASSWORD'] = randomBytes(32).toString('hex')
+  // The Settings page writes .env, and .env is owner-only, so the container has
+  // to run as whoever owns it. The installer records this; starting the panel
+  // from a checkout had nothing that did, so it fell back to the image's `node`
+  // (uid 1000) and could not write a file owned by anyone else. Only set when
+  // the platform reports a uid: on Windows process.getuid is undefined.
+  if (!initial.env['PORTTA_WEB_USER'] && typeof process.getuid === 'function') {
+    values['PORTTA_WEB_USER'] = `${process.getuid()}:${process.getgid?.() ?? 0}`
+  }
   setValues(initial.root, values)
   mkdirSync(join(initial.root, 'state/git'), { recursive: true })
   mkdirSync(join(initial.root, 'state/github'), { recursive: true })

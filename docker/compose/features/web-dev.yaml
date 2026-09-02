@@ -37,7 +37,10 @@ services:
     restart: unless-stopped
     depends_on:
       - web
-    user: ${PORTTA_WEB_USER:-node}
+    # `node`, never PORTTA_WEB_USER. That override exists so the API container
+    # can write the host's .env; Vite writes no host file at all, and does write
+    # inside the image (node_modules/.vite), which only `node` owns.
+    user: node
     command: ["npm", "run", "dev:ui"]
     environment:
       NODE_ENV: development

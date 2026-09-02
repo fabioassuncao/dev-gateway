@@ -38,6 +38,20 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Fixed
 
+- **The panel could not save settings from a checkout, and lost sight of `.env`
+  entirely after any host-side write.** Two defects stacked. `.env` is
+  owner-only, so the container has to run as whoever owns it; `install.sh`
+  records that, and nothing else did, so a panel started from a checkout ran as
+  the image's `node` (uid 1000) and could not write a file owned by anyone else.
+  `bootstrap` and `web up` now record it too. The documentation's claim that the
+  default was fine on macOS was never true — the host uid there is usually 501.
+  Separately, `.env` is bind-mounted into the panel as a single *file*, and a
+  file bind follows the inode: both writers replaced it through an atomic
+  rename, which left the panel holding an unlinked file and reporting `.env` as
+  missing until the container was recreated. Every `portta config set`,
+  `web up`, `tunnel enable` and editor save did it. Both writers now rewrite in
+  place, keeping a recovery copy until the write lands, and the inode is
+  asserted in `packages/core/src/env.test.ts` and `tests/unit/common.test.sh`.
 - **`npm run openapi` and the panel's own snapshot test disagreed on every
   release.** The generator stamps `info.version` from `VERSION`, while the test
   built the document with a hardcoded fixture version, so `openapi:check` was

@@ -99,7 +99,7 @@ See [tcp-routing.md](tcp-routing.md).
 | `PORTTA_WEB_DEV` | `false` | Development mode, Vite with HMR in front |
 | `PORTTA_WEB_DEV_PORT` | `5173` | Vite's host port in development mode |
 | `PORTTA_WEB_NETWORK` | `portta-web` | The panel's own internal control network |
-| `PORTTA_WEB_USER` | `node` | User the container runs as |
+| `PORTTA_WEB_USER` | owner of `.env` | User the panel container runs as, so Settings can save |
 | `PORTTA_APPLY` | `false` | Prepare the applier the panel may start to run `portta up` ([ADR 0026](adr/0026-applying-settings-from-the-panel.md)) |
 | `PORTTA_DB_NETWORK` | `portta-data` | Internal panel-to-PostgreSQL network |
 | `PORTTA_DB_VOLUME` | `portta-db` | Named volume holding panel data |

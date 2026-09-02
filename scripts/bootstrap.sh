@@ -98,6 +98,15 @@ if [ -f "$PORTTA_ROOT/.env" ] && [ -z "${PORTTA_RUNTIME_DB_PASSWORD:-}" ]; then
   ok "generated the panel database credential in .env"
 fi
 
+# The panel writes .env from its Settings page, and .env is owner-only, so the
+# container has to run as whoever owns it. The installer records this; a
+# checkout had nothing that did, and the panel fell back to the image's `node`
+# (uid 1000) and could not write a file owned by anyone else.
+if [ -f "$PORTTA_ROOT/.env" ] && [ -z "${PORTTA_WEB_USER:-}" ]; then
+  portta_env_set PORTTA_WEB_USER "$(id -u):$(id -g)"
+  ok "the panel will run as $(id -u):$(id -g), so it can write .env"
+fi
+
 portta_resolve_profile "$PORTTA_PROFILE" || exit 1
 info "profile: $PORTTA_PROFILE, domain: $PORTTA_DOMAIN"
 

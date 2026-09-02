@@ -324,8 +324,14 @@ portta_version() {
 # portta_env_set <key> <value> [file]: set a value in .env in place.
 #
 # Rewrites the line if the key is present (keeping its position and the
-# comments around it) and appends otherwise. Writes through a temporary file in
-# the same directory so an interrupted run cannot truncate the user's config.
+# comments around it) and appends otherwise.
+#
+# The new contents are built in a temporary file beside the original and then
+# copied *over* it. Never `mv`: .env is bind-mounted into the panel container as
+# a single file, and a file bind follows the inode, so replacing the file here
+# leaves the panel holding an unlinked one and reporting .env as missing until
+# it is recreated. The temporary is kept until the copy lands, so an interrupted
+# run leaves the new contents recoverable beside the file rather than nothing.
 portta_env_set() {
   local key="$1" value="$2" file="${3:-$PORTTA_ROOT/.env}" tmp
 
@@ -351,7 +357,14 @@ portta_env_set() {
   fi
 
   chmod 600 "$tmp"
-  mv "$tmp" "$file"
+  # `cat >` truncates and rewrites the same inode; `mv` would replace it.
+  if cat "$tmp" > "$file"; then
+    rm -f "$tmp"
+  else
+    err "could not write $file; the new contents are in $tmp"
+    return 1
+  fi
+  chmod 600 "$file"
   export "$key=$value"
 }
 
