@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { resolveDomain, type DomainMode } from './domain.ts'
-import { dashboardAdvertisedHost, isHostnameStyle } from './hostname.ts'
+import { dashboardAdvertisedHost, isHostnameStyle, type HostnameStyle } from './hostname.ts'
 
 export const AUTH_BUILD_FILE = 'docker/compose/features/auth-build.yaml'
 export const LOCAL_PORTA_IMAGE = 'fabioassuncao/portta:local'
@@ -159,9 +159,7 @@ export function loadGatewayConfig(env: Record<string, string | undefined> = proc
       dashboardAdvertisedHost(
         value(env, 'PORTTA_PROJECT_NAME', 'portta'),
         domain,
-        isHostnameStyle(value(env, 'PORTTA_HOSTNAME_STYLE', 'project-service'))
-          ? value(env, 'PORTTA_HOSTNAME_STYLE', 'project-service')
-          : 'project-service',
+        hostnameStyleOf(value(env, 'PORTTA_HOSTNAME_STYLE', 'project-service')),
       ),
     ),
     tcpEnabled: isTrue(env['PORTTA_TCP']),
@@ -262,6 +260,10 @@ export function composeFiles(config: GatewayConfig): string[] {
   // publishing ports, or while publishing none at all.
   if (config.tunnelEnabled) files.push('docker/compose/features/cloudflare-tunnel.yaml')
   return files
+}
+
+function hostnameStyleOf(value: string): HostnameStyle {
+  return isHostnameStyle(value) ? value : 'project-service'
 }
 
 const TUNNEL_FILE = 'docker/compose/features/cloudflare-tunnel.yaml'

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { api } from '../lib/api.ts'
 import { bytes, uptime } from '../lib/format.ts'
 import { Badge } from './ui/badge.tsx'
@@ -67,7 +68,7 @@ export function HostResourcesCard({
 }: {
   data: HostResourcesView
   locale: string
-  t: (key: string, options?: Record<string, unknown>) => string
+  t: TFunction<'overview', 'host'>
 }) {
   const { system, cpu, memory, storage, gpu } = data
   const memoryTone = resourceTone(memory.usedPercent)

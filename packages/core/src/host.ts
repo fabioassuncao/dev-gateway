@@ -94,9 +94,13 @@ export function parseMeminfo(text: string): CollectedMemory | null {
 
 /** `/proc/loadavg`. */
 export function parseLoadavg(text: string): CollectedLoad | null {
-  const [one, five, fifteen] = text.trim().split(/\s+/).slice(0, 3).map(Number)
-  if ([one, five, fifteen].some((value) => !Number.isFinite(value))) return null
-  return { one: one as number, five: five as number, fifteen: fifteen as number }
+  const parts = text.trim().split(/\s+/).slice(0, 3)
+  if (parts.length < 3) return null
+  const one = Number(parts[0])
+  const five = Number(parts[1])
+  const fifteen = Number(parts[2])
+  if (![one, five, fifteen].every((value) => Number.isFinite(value))) return null
+  return { one, five, fifteen }
 }
 
 /** `/proc/uptime`: seconds since boot. */

@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Command } from 'commander'
 import { gatewayContext } from '../context.js'

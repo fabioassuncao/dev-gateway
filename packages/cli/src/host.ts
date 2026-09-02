@@ -24,6 +24,7 @@ import {
   parseSysctlBoottime,
   parseUptime,
   type CollectedHost,
+  type CollectedLoad,
   type CollectedStorage,
 } from 'portta-core'
 import { runProcess } from './process.js'
@@ -231,12 +232,16 @@ async function hostUptimeSeconds(): Promise<number | null> {
   return Number.isFinite(seconds) && seconds >= 0 ? seconds : null
 }
 
-function hostLoad(): ReturnType<typeof parseLoadavg> {
-  return parseLoadavg(readText('/proc/loadavg') ?? '') ?? (() => {
-    const [one, five, fifteen] = loadavg()
-    if ([one, five, fifteen].some((value) => !Number.isFinite(value))) return null
-    return { one, five, fifteen }
-  })()
+function hostLoad(): CollectedLoad | null {
+  const fromProc = parseLoadavg(readText('/proc/loadavg') ?? '')
+  if (fromProc) return fromProc
+  const samples = loadavg()
+  const one = samples[0]
+  const five = samples[1]
+  const fifteen = samples[2]
+  if (one === undefined || five === undefined || fifteen === undefined) return null
+  if (![one, five, fifteen].every((value) => Number.isFinite(value))) return null
+  return { one, five, fifteen }
 }
 
 async function cpuBusyShare(): Promise<number | null> {

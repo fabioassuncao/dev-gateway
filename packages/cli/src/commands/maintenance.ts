@@ -250,6 +250,7 @@ export const REPAIR_MODES: Array<{ path: string; mode: number }> = [
   { path: 'state/traefik/acme/acme.json', mode: 0o600 },
   { path: 'state/cloudflared', mode: 0o700 },
   { path: 'state/cloudflared/credentials.json', mode: 0o600 },
+  { path: 'state/runner', mode: 0o700 },
 ]
 
 /**

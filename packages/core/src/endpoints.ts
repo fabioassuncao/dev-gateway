@@ -176,7 +176,7 @@ function endpoint(
 
 function pushTcpEndpoints(
   list: Endpoint[],
-  service: ServiceRef,
+  _service: ServiceRef,
   options: EndpointOptions,
   label: string,
 ): void {

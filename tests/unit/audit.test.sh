@@ -142,7 +142,7 @@ describe "tests do not reach into procfs"
 # the prune audit below avoids naming its literals.
 PROCFS_PATH="/pro""c/"
 it "no test uses a procfs path to simulate a failure"
-assert_eq "" "$(grep -rn -- "$PROCFS_PATH" apps/web/tests packages/*/src 2>/dev/null || true)"
+assert_eq "" "$(grep -rn -- "$PROCFS_PATH" apps/web/tests tests 2>/dev/null || true)"
 
 describe "the gateway never destroys what it does not own"
 

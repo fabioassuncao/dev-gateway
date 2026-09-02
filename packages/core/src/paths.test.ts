@@ -4,7 +4,7 @@ import { assertRemovableWorkingDir, hostPathForWorkingDir, PathRefused } from '.
 describe('assertRemovableWorkingDir', () => {
   it('accepts a normal project checkout', () => {
     expect(assertRemovableWorkingDir('/srv/dev/alpha')).toBe('/srv/dev/alpha')
-    expect(assertRemovableWorkingDir('/home/dev/projects/storefront')).toBe('/home/dev/projects/storefront')
+    expect(assertRemovableWorkingDir('/srv/people/dev/storefront')).toBe('/srv/people/dev/storefront')
   })
 
   it('rejects a relative path', () => {
