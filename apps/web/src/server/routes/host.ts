@@ -1,24 +1,48 @@
 import { Hono } from 'hono'
 import type { AppDeps } from './deps.ts'
-import { HostResources } from '../../shared/types.ts'
-import { hostResources } from '../core/host.ts'
+import { MetricsCurrent, MetricsHistory } from '../../shared/types.ts'
+import { historyWindowSeconds, readCurrentMetrics, readMetricsHistory } from '../core/metrics.ts'
 import { documentRoute } from '../openapi.ts'
 
 export function hostRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
+  app.get('/metrics/current', documentRoute({
+    tag: 'Status',
+    operationId: 'getMetricsCurrent',
+    summary: 'Get the latest host and project metrics snapshot',
+    response: MetricsCurrent,
+    description:
+      'Reads state/metrics/current.json written by the CLI collector. The panel never collects. A missing file is an empty object, never an error.',
+    errors: [500],
+  }), (c) => c.json(readCurrentMetrics(deps.config)))
+
+  app.get('/metrics/history', documentRoute({
+    tag: 'Status',
+    operationId: 'getMetricsHistory',
+    summary: 'Get the short host metrics history',
+    response: MetricsHistory,
+    description: 'Reads state/metrics/history.jsonl. window is 15m, 30m or 60m.',
+    errors: [500],
+    parameters: [{
+      name: 'window',
+      in: 'query',
+      required: false,
+      schema: { type: 'string', enum: ['15m', '30m', '60m'] },
+    }],
+  }), (c) => {
+    const windowSeconds = historyWindowSeconds(c.req.query('window'))
+    return c.json(readMetricsHistory(deps.config, windowSeconds))
+  })
+
   app.get('/host', documentRoute({
     tag: 'Status',
     operationId: 'getHostResources',
     summary: 'Get this host\'s capacity right now',
-    response: HostResources,
-    description:
-      'Merges GET /info (static host facts) with state/host/host.json from `portta host collect`. A missing file is a smaller object, never an error. No history.',
-    errors: [500, 502],
-  }), async (c) => {
-    const snapshot = await deps.cache.get()
-    return c.json(hostResources(snapshot.info, deps.config))
-  })
+    response: MetricsCurrent,
+    description: 'Alias of GET /metrics/current.',
+    errors: [500],
+  }), (c) => c.json(readCurrentMetrics(deps.config)))
 
   return app
 }

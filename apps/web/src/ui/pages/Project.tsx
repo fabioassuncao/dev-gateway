@@ -22,6 +22,7 @@ import { GitDetails } from '../components/git-details.tsx'
 import { ProjectSettingsDialog } from '../components/project-settings.tsx'
 import { ServiceAlias } from '../components/service-alias.tsx'
 import { ProjectLogs } from '../components/project-logs.tsx'
+import { ProjectResources } from '../components/project-resources.tsx'
 import { Mono } from '../components/copy.tsx'
 import { useFormat } from '../lib/use-format.ts'
 import { useDocumentTitle } from '../lib/title.ts'
@@ -161,6 +162,8 @@ function OverviewTab({ project }: { project: Project }) {
           value={project.uptimeSeconds === null ? '—' : uptime(project.uptimeSeconds)}
         />
       </div>
+
+      <ProjectResources project={project} />
 
       {project.issue ? <IssueBlock issue={project.issue} /> : null}
 

@@ -22,12 +22,15 @@
   },
   "host": {
     "title": "This host",
-    "description": "Capacity right now. No history.",
+    "description": "How this machine looks right now.",
     "system": "System",
     "cpu": "CPU",
     "memory": "Memory",
     "gpu": "GPU",
+    "swap": "Swap",
     "storage": {
+      "label": "Storage",
+      "path": "Portta",
       "docker": "Docker",
       "portta": "Portta",
       "both": "Disk"
@@ -36,9 +39,26 @@
     "load": "load {{one}} {{five}} {{fifteen}}",
     "up": "up {{time}}",
     "high": "high",
-    "fresh": "just collected",
+    "updated": "updated {{time}}",
     "stale": "collected {{age}}s ago",
-    "collectHint": "Static facts only. Run {{command}} on the host for load, memory in use and disk."
+    "collectorInactive": "Collector inactive",
+    "unavailable": "Unavailable",
+    "unavailableHint": "The host collector is not writing snapshots. Start the gateway with portta up.",
+    "runtime": {
+      "label": "Runtime",
+      "orbstack": "OrbStack",
+      "docker-desktop": "Docker Desktop",
+      "docker-engine": "Docker Engine",
+      "unknown": "Unknown"
+    }
+  },
+  "consumption": {
+    "title": "Project consumption",
+    "description": "What is using CPU and memory on this host right now.",
+    "cpu": "CPU",
+    "memory": "RAM",
+    "containers": "{{count}} containers",
+    "open": "Open"
   },
   "detectedProblems": {
     "title": "Detected problems",

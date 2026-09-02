@@ -117,6 +117,10 @@ export interface PanelConfig {
   hostDir: string
   /** Past this age, collected host resources are marked stale rather than shown. */
   hostStaleSeconds: number
+  /** Where the CLI metrics collector writes current.json and history. */
+  metricsDir: string
+  /** Past this age, current.json is marked stale. */
+  metricsStaleSeconds: number
   /** Where the panel writes the runner request. Read-write, host-owned. */
   runnerDir: string
   /** Tunnel records `portta remote` wrote. Cleaned on project removal. */
@@ -212,6 +216,8 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     gitStaleSeconds: Number(env('PORTTA_RUNTIME_GIT_STALE_SECONDS', '600')),
     hostDir: env('PORTTA_RUNTIME_HOST_DIR', '/app/state/host'),
     hostStaleSeconds: Number(env('PORTTA_RUNTIME_HOST_STALE_SECONDS', '600')),
+    metricsDir: env('PORTTA_RUNTIME_METRICS_DIR', '/app/state/metrics'),
+    metricsStaleSeconds: Number(env('PORTTA_RUNTIME_METRICS_STALE_SECONDS', '30')),
     runnerDir: env('PORTTA_RUNTIME_RUNNER_DIR', '/app/state/runner'),
     accessDir: env('PORTTA_RUNTIME_ACCESS_DIR', '/app/state/access'),
     traefikApi: env('PORTTA_RUNTIME_TRAEFIK_API', defaultTraefikApi()),

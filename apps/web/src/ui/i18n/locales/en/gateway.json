@@ -68,6 +68,13 @@
       "repository": "Repository",
       "networks": "Networks"
     },
+    "resources": {
+      "title": "Resources",
+      "description": "What this project's containers are using right now.",
+      "empty": "No running containers to measure.",
+      "cpu": "CPU",
+      "memory": "RAM"
+    },
     "endpoints": {
       "title": "Endpoints",
       "description": "Every address this project answers on, grouped by service.",

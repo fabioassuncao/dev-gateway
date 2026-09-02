@@ -6,7 +6,8 @@ import type {
   ContainerSummary,
   Diagnostic,
   DockerHost,
-  HostResources,
+  MetricsCurrent,
+  MetricsHistory,
   GatewayStatus,
   LogsResponse,
   NetworkView,
@@ -245,7 +246,9 @@ export const api = {
       body: JSON.stringify({ confirm: true, force }),
     }),
   host: () => request<DockerHost>('/docker/host'),
-  hostResources: () => request<HostResources>('/host'),
+  hostResources: () => request<MetricsCurrent>('/metrics/current'),
+  metricsCurrent: () => request<MetricsCurrent>('/metrics/current'),
+  metricsHistory: (window = '30m') => request<MetricsHistory>(`/metrics/history?window=${window}`),
 
   network: () => request<NetworkView>('/network'),
 

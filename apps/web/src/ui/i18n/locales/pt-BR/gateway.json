@@ -68,6 +68,13 @@
       "repository": "Repositório",
       "networks": "Redes"
     },
+    "resources": {
+      "title": "Recursos",
+      "description": "O que os containers deste projeto estão usando agora.",
+      "empty": "Nenhum container em execução para medir.",
+      "cpu": "CPU",
+      "memory": "RAM"
+    },
     "endpoints": {
       "title": "Endpoints",
       "description": "Todos os endereços em que este projeto responde, agrupados por serviço.",

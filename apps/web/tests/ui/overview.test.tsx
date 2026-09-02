@@ -4,11 +4,18 @@ import { renderWithQuery } from './render.tsx'
 import type { Overview as OverviewData } from '../../src/shared/types.ts'
 
 const overview = vi.fn()
-const hostResources = vi.fn()
+const metricsCurrent = vi.fn()
+const metricsHistory = vi.fn()
+const projects = vi.fn()
 
 vi.mock('../../src/ui/lib/api.ts', () => ({
   ApiError: class ApiError extends Error {},
-  api: { overview: () => overview(), hostResources: () => hostResources() },
+  api: {
+    overview: () => overview(),
+    metricsCurrent: () => metricsCurrent(),
+    metricsHistory: () => metricsHistory(),
+    projects: () => projects(),
+  },
 }))
 
 const { Overview } = await import('../../src/ui/pages/Overview.tsx')
@@ -83,25 +90,19 @@ const data: OverviewData = {
 
 beforeEach(() => {
   overview.mockReset().mockResolvedValue(data)
-  hostResources.mockReset().mockResolvedValue({
-    system: {
-      hostname: 'test-host',
-      os: 'Test Linux',
-      osVersion: '24.04',
-      kernel: '6.8.0',
-      architecture: 'aarch64',
-      uptimeSeconds: null,
-      source: 'docker',
-    },
-    cpu: { model: null, cores: 8, utilisation: null, load: null, source: 'docker' },
-    memory: { totalBytes: 17_179_869_184, usedBytes: null, availableBytes: null, usedPercent: null, source: 'docker' },
-    storage: [],
-    gpu: [],
+  metricsCurrent.mockReset().mockResolvedValue({
+    version: 1,
+    instance: { id: 'i', name: 'lab', hostname: 'lab' },
     collectedAt: null,
     ageSeconds: null,
-    stale: false,
-    hint: 'portta host collect',
+    stale: true,
+    collectorActive: false,
+    host: null,
+    runtime: null,
+    projects: [],
   })
+  metricsHistory.mockReset().mockResolvedValue({ windowSeconds: 1800, points: [] })
+  projects.mockReset().mockResolvedValue([])
 })
 
 const tile = (name: string) =>

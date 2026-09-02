@@ -202,7 +202,8 @@ services:
       #   .env             the configuration the Settings page edits
       #   VERSION          the version string it reports
       #   state/git        metadata `portta git scan` collected, read-only
-      #   state/host       facts `portta host collect` wrote, read-only
+      #   state/host       legacy host.json, unused by the live collector
+      #   state/metrics    current.json + history from `portta host watch`
       #   state/runner     the `{ verb, project }` request the runner reads
       #   state/access     tunnel records cleaned when a project is removed
       #   state/github     the GitHub App private key, read-only
@@ -215,6 +216,7 @@ services:
       - ./VERSION:/app/state/VERSION:ro
       - ./state/git:/app/state/git:ro
       - ./state/host:/app/state/host:ro
+      - ./state/metrics:/app/state/metrics:ro
       - ./state/runner:/app/state/runner
       - ./state/access:/app/state/access
       # The GitHub App private key, read-only. Empty unless you put one there.

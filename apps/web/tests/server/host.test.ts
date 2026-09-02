@@ -4,75 +4,81 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { makeApp } from './helpers.ts'
 import { GATEWAY } from './fixtures.ts'
-import type { HostResources } from '../../src/shared/types.ts'
+import type { MetricsCurrent, MetricsHistory } from '../../src/shared/types.ts'
+import { emptySnapshot } from 'portta-core'
 
 const dirs: string[] = []
 afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
-function hostDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'portta-host-'))
+function metricsDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'portta-metrics-'))
   dirs.push(dir)
   return dir
 }
 
-describe('GET /api/host', () => {
-  it('still answers with only the Engine facts when nothing was collected', async () => {
-    const dir = hostDir()
-    const { app } = makeApp({ containers: GATEWAY }, { hostDir: dir })
-    const body = (await (await app.request('/api/host')).json()) as HostResources
-    expect(body.system.hostname).toBe('test-host')
-    expect(body.system.os).toBe('Test Linux')
-    expect(body.cpu.cores).toBe(8)
-    expect(body.memory.totalBytes).toBe(17_179_869_184)
-    expect(body.memory.usedBytes).toBeNull()
-    expect(body.gpu).toEqual([])
-    expect(body.hint).toBe('portta host collect')
-    expect(body.collectedAt).toBeNull()
+describe('GET /api/metrics/current', () => {
+  it('answers empty when the collector has not written yet', async () => {
+    const dir = metricsDir()
+    const { app } = makeApp({ containers: GATEWAY }, { metricsDir: dir, metricsStaleSeconds: 30 })
+    const body = (await (await app.request('/api/metrics/current')).json()) as MetricsCurrent
+    expect(body.host).toBeNull()
+    expect(body.collectorActive).toBe(false)
+    expect(body.stale).toBe(true)
+    expect(body.projects).toEqual([])
   })
 
-  it('merges the collected file and flags a stale snapshot', async () => {
-    const dir = hostDir()
-    writeFileSync(join(dir, 'host.json'), JSON.stringify({
-      collectedAt: 1_000,
-      uptimeSeconds: 3600,
-      load: { one: 0.4, five: 0.3, fifteen: 0.2 },
-      cpu: { model: 'Test CPU', utilisation: 0.12 },
-      memory: { totalBytes: 16, availableBytes: 4, usedBytes: 12 },
-      storage: [{
-        path: '/var/lib/docker',
-        role: 'both',
-        totalBytes: 100,
-        usedBytes: 90,
-        availableBytes: 10,
-      }],
-      gpu: [{
-        name: 'RTX 4090',
-        memoryTotalBytes: 24,
-        memoryUsedBytes: 4,
-        utilisation: 0.3,
-      }],
-    }))
-    const { app } = makeApp({ containers: GATEWAY }, { hostDir: dir, hostStaleSeconds: 60 })
-    const body = (await (await app.request('/api/host')).json()) as HostResources
-    expect(body.system.uptimeSeconds).toBe(3600)
-    expect(body.cpu.model).toBe('Test CPU')
-    expect(body.memory.usedPercent).toBeCloseTo(0.75)
-    expect(body.storage[0]?.role).toBe('both')
-    expect(body.gpu[0]?.name).toBe('RTX 4090')
+  it('returns the snapshot and flags it stale after 30s', async () => {
+    const dir = metricsDir()
+    const snapshot = emptySnapshot({ id: 'inst', name: 'lab', hostname: 'lab' }, 1_000)
+    snapshot.host.cpuUtilisation = 0.34
+    snapshot.host.memoryTotalBytes = 36
+    snapshot.host.memoryUsedBytes = 18
+    snapshot.projects = [{
+      id: 'alpha',
+      name: 'Alpha',
+      composeProject: 'alpha',
+      cpuUtilisation: 0.2,
+      memoryUsedBytes: 4,
+      containerCount: 1,
+      networkRxBytes: 0,
+      networkTxBytes: 0,
+      containers: [],
+    }]
+    writeFileSync(join(dir, 'current.json'), JSON.stringify(snapshot))
+    const { app } = makeApp({ containers: GATEWAY }, { metricsDir: dir, metricsStaleSeconds: 30 })
+    const body = (await (await app.request('/api/metrics/current')).json()) as MetricsCurrent
+    expect(body.host?.cpuUtilisation).toBe(0.34)
+    expect(body.projects[0]?.name).toBe('Alpha')
     expect(body.stale).toBe(true)
-    expect(body.hint).toBeNull()
+    expect(body.collectorActive).toBe(false)
   })
 
   it('treats a malformed file as not collected', async () => {
-    const dir = hostDir()
+    const dir = metricsDir()
     mkdirSync(dir, { recursive: true })
-    writeFileSync(join(dir, 'host.json'), '{broken\n')
-    const { app } = makeApp({ containers: GATEWAY }, { hostDir: dir })
-    const body = (await (await app.request('/api/host')).json()) as HostResources
+    writeFileSync(join(dir, 'current.json'), '{broken\n')
+    const { app } = makeApp({ containers: GATEWAY }, { metricsDir: dir })
+    const body = (await (await app.request('/api/host')).json()) as MetricsCurrent
     expect(body.collectedAt).toBeNull()
-    expect(body.hint).toBe('portta host collect')
-    expect(body.system.hostname).toBe('test-host')
+    expect(body.host).toBeNull()
+  })
+})
+
+describe('GET /api/metrics/history', () => {
+  it('returns points inside the requested window', async () => {
+    const dir = metricsDir()
+    const now = Math.floor(Date.now() / 1000)
+    writeFileSync(join(dir, 'history.jsonl'), [
+      JSON.stringify({ timestamp: now - 4000, host: { cpuUtilisation: 0.9 }, projects: [], containers: [] }),
+      JSON.stringify({ timestamp: now - 60, host: { cpuUtilisation: 0.2, memoryUsedBytes: 1, memoryUsedPercent: 0.1, storageUsedPercent: null, load: null, gpuUtilisation: null }, projects: [], containers: [] }),
+      '',
+    ].join('\n'))
+    const { app } = makeApp({ containers: GATEWAY }, { metricsDir: dir })
+    const body = (await (await app.request('/api/metrics/history?window=30m')).json()) as MetricsHistory
+    expect(body.windowSeconds).toBe(1800)
+    expect(body.points).toHaveLength(1)
+    expect(body.points[0]?.host.cpuUtilisation).toBe(0.2)
   })
 })

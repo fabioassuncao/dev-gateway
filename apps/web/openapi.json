@@ -4703,90 +4703,646 @@
         ],
         "additionalProperties": false
       },
-      "HostResources": {
+      "MetricsInstance": {
         "type": "object",
         "properties": {
-          "system": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hostname": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "hostname"
+        ],
+        "additionalProperties": false
+      },
+      "HostCpuInfo": {
+        "type": "object",
+        "properties": {
+          "manufacturer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "brand": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "physicalCores": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "logicalCores": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "speed": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "speedMax": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "manufacturer",
+          "brand",
+          "physicalCores",
+          "logicalCores",
+          "speed",
+          "speedMax"
+        ],
+        "additionalProperties": false
+      },
+      "HostStorageInfo": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "mount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filesystem": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "totalBytes": {
+            "type": "number"
+          },
+          "usedBytes": {
+            "type": "number"
+          },
+          "availableBytes": {
+            "type": "number"
+          },
+          "usedPercent": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "path",
+          "mount",
+          "filesystem",
+          "totalBytes",
+          "usedBytes",
+          "availableBytes",
+          "usedPercent"
+        ],
+        "additionalProperties": false
+      },
+      "HostGpuInfo": {
+        "type": "object",
+        "properties": {
+          "vendor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "vramBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "utilisation": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "temperature": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "vendor",
+          "model",
+          "vramBytes",
+          "utilisation",
+          "temperature"
+        ],
+        "additionalProperties": false
+      },
+      "HostMetrics": {
+        "type": "object",
+        "properties": {
+          "hostname": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "manufacturer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "architecture": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "virtual": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "platform": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "distro": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "release": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kernel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uptimeSeconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "cpu": {
+            "$ref": "#/components/schemas/HostCpuInfo"
+          },
+          "memoryTotalBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memoryUsedBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memoryAvailableBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memoryUsedPercent": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "swapTotalBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "swapUsedBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "cpuUtilisation": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "cpuIdle": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "load": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "one": {
+                    "type": "number"
+                  },
+                  "five": {
+                    "type": "number"
+                  },
+                  "fifteen": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "one",
+                  "five",
+                  "fifteen"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "storage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HostStorageInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gpu": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HostGpuInfo"
+            }
+          }
+        },
+        "required": [
+          "hostname",
+          "manufacturer",
+          "model",
+          "architecture",
+          "virtual",
+          "platform",
+          "distro",
+          "version",
+          "release",
+          "kernel",
+          "uptimeSeconds",
+          "cpu",
+          "memoryTotalBytes",
+          "memoryUsedBytes",
+          "memoryAvailableBytes",
+          "memoryUsedPercent",
+          "swapTotalBytes",
+          "swapUsedBytes",
+          "cpuUtilisation",
+          "cpuIdle",
+          "load",
+          "storage",
+          "gpu"
+        ],
+        "additionalProperties": false
+      },
+      "RuntimeHint": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "orbstack",
+              "docker-desktop",
+              "docker-engine",
+              "unknown"
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "ContainerResourceMetrics": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cpuUtilisation": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memoryUsedBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memoryLimitBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memoryUsedPercent": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "networkRxBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "networkTxBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "blockReadBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "blockWriteBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "pids": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "service",
+          "cpuUtilisation",
+          "memoryUsedBytes",
+          "memoryLimitBytes",
+          "memoryUsedPercent",
+          "networkRxBytes",
+          "networkTxBytes",
+          "blockReadBytes",
+          "blockWriteBytes",
+          "pids"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectResourceMetrics": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "composeProject": {
+            "type": "string"
+          },
+          "cpuUtilisation": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memoryUsedBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "containerCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "networkRxBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "networkTxBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "containers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContainerResourceMetrics"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "composeProject",
+          "cpuUtilisation",
+          "memoryUsedBytes",
+          "containerCount",
+          "networkRxBytes",
+          "networkTxBytes",
+          "containers"
+        ],
+        "additionalProperties": false
+      },
+      "MetricsCurrent": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "const": 1
+          },
+          "instance": {
+            "$ref": "#/components/schemas/MetricsInstance"
+          },
+          "collectedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ageSeconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "collectorActive": {
+            "type": "boolean"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HostMetrics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "runtime": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuntimeHint"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectResourceMetrics"
+            }
+          }
+        },
+        "required": [
+          "version",
+          "instance",
+          "collectedAt",
+          "ageSeconds",
+          "stale",
+          "collectorActive",
+          "host",
+          "runtime",
+          "projects"
+        ],
+        "additionalProperties": false
+      },
+      "MetricsHistoryPoint": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          },
+          "host": {
             "type": "object",
             "properties": {
-              "hostname": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "os": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "osVersion": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "kernel": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "architecture": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "uptimeSeconds": {
+              "cpuUtilisation": {
                 "type": [
                   "number",
                   "null"
                 ]
               },
-              "source": {
-                "type": "string",
-                "enum": [
-                  "docker",
-                  "collector",
-                  "mixed"
-                ]
-              }
-            },
-            "required": [
-              "hostname",
-              "os",
-              "osVersion",
-              "kernel",
-              "architecture",
-              "uptimeSeconds",
-              "source"
-            ],
-            "additionalProperties": false
-          },
-          "cpu": {
-            "type": "object",
-            "properties": {
-              "model": {
+              "memoryUsedBytes": {
                 "type": [
-                  "string",
+                  "number",
                   "null"
                 ]
               },
-              "cores": {
-                "anyOf": [
-                  {
-                    "type": "integer",
-                    "minimum": -9007199254740991,
-                    "maximum": 9007199254740991
-                  },
-                  {
-                    "type": "null"
-                  }
+              "memoryUsedPercent": {
+                "type": [
+                  "number",
+                  "null"
                 ]
               },
-              "utilisation": {
+              "storageUsedPercent": {
                 "type": [
                   "number",
                   "null"
@@ -4819,124 +5375,38 @@
                   }
                 ]
               },
-              "source": {
-                "type": "string",
-                "enum": [
-                  "docker",
-                  "collector",
-                  "mixed"
+              "gpuUtilisation": {
+                "type": [
+                  "number",
+                  "null"
                 ]
               }
             },
             "required": [
-              "model",
-              "cores",
-              "utilisation",
+              "cpuUtilisation",
+              "memoryUsedBytes",
+              "memoryUsedPercent",
+              "storageUsedPercent",
               "load",
-              "source"
+              "gpuUtilisation"
             ],
             "additionalProperties": false
           },
-          "memory": {
-            "type": "object",
-            "properties": {
-              "totalBytes": {
-                "type": [
-                  "number",
-                  "null"
-                ]
-              },
-              "usedBytes": {
-                "type": [
-                  "number",
-                  "null"
-                ]
-              },
-              "availableBytes": {
-                "type": [
-                  "number",
-                  "null"
-                ]
-              },
-              "usedPercent": {
-                "type": [
-                  "number",
-                  "null"
-                ]
-              },
-              "source": {
-                "type": "string",
-                "enum": [
-                  "docker",
-                  "collector",
-                  "mixed"
-                ]
-              }
-            },
-            "required": [
-              "totalBytes",
-              "usedBytes",
-              "availableBytes",
-              "usedPercent",
-              "source"
-            ],
-            "additionalProperties": false
-          },
-          "storage": {
+          "projects": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "path": {
+                "id": {
                   "type": "string"
                 },
-                "role": {
-                  "type": "string",
-                  "enum": [
-                    "docker",
-                    "portta",
-                    "both"
+                "cpuUtilisation": {
+                  "type": [
+                    "number",
+                    "null"
                   ]
                 },
-                "totalBytes": {
-                  "type": "number"
-                },
-                "usedBytes": {
-                  "type": "number"
-                },
-                "availableBytes": {
-                  "type": "number"
-                },
-                "usedPercent": {
-                  "type": "number"
-                }
-              },
-              "required": [
-                "path",
-                "role",
-                "totalBytes",
-                "usedBytes",
-                "availableBytes",
-                "usedPercent"
-              ],
-              "additionalProperties": false
-            }
-          },
-          "gpu": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "memoryTotalBytes": {
-                  "type": "number"
-                },
                 "memoryUsedBytes": {
-                  "type": "number"
-                },
-                "utilisation": {
                   "type": [
                     "number",
                     "null"
@@ -4944,57 +5414,69 @@
                 }
               },
               "required": [
-                "name",
-                "memoryTotalBytes",
-                "memoryUsedBytes",
-                "utilisation"
+                "id",
+                "cpuUtilisation",
+                "memoryUsedBytes"
               ],
               "additionalProperties": false
             }
           },
-          "collectedAt": {
-            "anyOf": [
-              {
-                "type": "number",
-                "description": "Unix timestamp in seconds"
+          "containers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "cpuUtilisation": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "memoryUsedBytes": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
               },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "ageSeconds": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "stale": {
-            "type": "boolean"
-          },
-          "hint": {
-            "type": [
-              "string",
-              "null"
-            ]
+              "required": [
+                "id",
+                "cpuUtilisation",
+                "memoryUsedBytes"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
-          "system",
-          "cpu",
-          "memory",
-          "storage",
-          "gpu",
-          "collectedAt",
-          "ageSeconds",
-          "stale",
-          "hint"
+          "timestamp",
+          "host",
+          "projects",
+          "containers"
+        ],
+        "additionalProperties": false
+      },
+      "MetricsHistory": {
+        "type": "object",
+        "properties": {
+          "windowSeconds": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetricsHistoryPoint"
+            }
+          }
+        },
+        "required": [
+          "windowSeconds",
+          "points"
         ],
         "additionalProperties": false
       },
@@ -11148,21 +11630,21 @@
         ]
       }
     },
-    "/host": {
+    "/metrics/current": {
       "get": {
-        "operationId": "getHostResources",
+        "operationId": "getMetricsCurrent",
         "tags": [
           "Status"
         ],
-        "summary": "Get this host's capacity right now",
-        "description": "Merges GET /info (static host facts) with state/host/host.json from `portta host collect`. A missing file is a smaller object, never an error. No history.",
+        "summary": "Get the latest host and project metrics snapshot",
+        "description": "Reads state/metrics/current.json written by the CLI collector. The panel never collects. A missing file is an empty object, never an error.",
         "responses": {
           "200": {
             "description": "Successful response.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HostResources"
+                  "$ref": "#/components/schemas/MetricsCurrent"
                 }
               }
             }
@@ -11176,9 +11658,96 @@
                 }
               }
             }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
           },
-          "502": {
-            "description": "Docker, Traefik or another local upstream returned an error.",
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/metrics/history": {
+      "get": {
+        "operationId": "getMetricsHistory",
+        "tags": [
+          "Status"
+        ],
+        "summary": "Get the short host metrics history",
+        "description": "Reads state/metrics/history.jsonl. window is 15m, 30m or 60m.",
+        "parameters": [
+          {
+            "name": "window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "15m",
+                "30m",
+                "60m"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsHistory"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/host": {
+      "get": {
+        "operationId": "getHostResources",
+        "tags": [
+          "Status"
+        ],
+        "summary": "Get this host's capacity right now",
+        "description": "Alias of GET /metrics/current.",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsCurrent"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
             "content": {
               "application/json": {
                 "schema": {

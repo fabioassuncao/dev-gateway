@@ -708,61 +708,187 @@ export const GatewayStatus = named(
 )
 export type GatewayStatus = z.infer<typeof GatewayStatus>
 
-const HostFactSource = z.enum(['docker', 'collector', 'mixed'])
 const nullableNumber = z.number().nullable()
 const nullableString = z.string().nullable()
 
-export const HostResources = named(
+const HostLoad = z.object({
+  one: z.number(),
+  five: z.number(),
+  fifteen: z.number(),
+}).strict()
+
+export const HostCpuInfo = named(
   z.object({
-    system: z.object({
-      hostname: nullableString,
-      os: nullableString,
-      osVersion: nullableString,
-      kernel: nullableString,
-      architecture: nullableString,
-      uptimeSeconds: nullableNumber,
-      source: HostFactSource,
-    }).strict(),
-    cpu: z.object({
-      model: nullableString,
-      cores: z.number().int().nullable(),
-      utilisation: nullableNumber,
-      load: z.object({
-        one: z.number(),
-        five: z.number(),
-        fifteen: z.number(),
-      }).strict().nullable(),
-      source: HostFactSource,
-    }).strict(),
-    memory: z.object({
-      totalBytes: nullableNumber,
-      usedBytes: nullableNumber,
-      availableBytes: nullableNumber,
-      usedPercent: nullableNumber,
-      source: HostFactSource,
-    }).strict(),
-    storage: z.array(z.object({
-      path: z.string(),
-      role: z.enum(['docker', 'portta', 'both']),
-      totalBytes: z.number(),
-      usedBytes: z.number(),
-      availableBytes: z.number(),
-      usedPercent: z.number(),
-    }).strict()),
-    gpu: z.array(z.object({
-      name: z.string(),
-      memoryTotalBytes: z.number(),
-      memoryUsedBytes: z.number(),
-      utilisation: nullableNumber,
-    }).strict()),
+    manufacturer: nullableString,
+    brand: nullableString,
+    physicalCores: z.number().int().nullable(),
+    logicalCores: z.number().int().nullable(),
+    speed: nullableNumber,
+    speedMax: nullableNumber,
+  }).strict(),
+  'HostCpuInfo',
+)
+export type HostCpuInfo = z.infer<typeof HostCpuInfo>
+
+export const HostGpuInfo = named(
+  z.object({
+    vendor: nullableString,
+    model: z.string(),
+    vramBytes: nullableNumber,
+    utilisation: nullableNumber,
+    temperature: nullableNumber,
+  }).strict(),
+  'HostGpuInfo',
+)
+export type HostGpuInfo = z.infer<typeof HostGpuInfo>
+
+export const HostStorageInfo = named(
+  z.object({
+    path: z.string(),
+    mount: nullableString,
+    filesystem: nullableString,
+    totalBytes: z.number(),
+    usedBytes: z.number(),
+    availableBytes: z.number(),
+    usedPercent: z.number(),
+  }).strict(),
+  'HostStorageInfo',
+)
+export type HostStorageInfo = z.infer<typeof HostStorageInfo>
+
+export const HostMetrics = named(
+  z.object({
+    hostname: nullableString,
+    manufacturer: nullableString,
+    model: nullableString,
+    architecture: nullableString,
+    virtual: z.boolean().nullable(),
+    platform: nullableString,
+    distro: nullableString,
+    version: nullableString,
+    release: nullableString,
+    kernel: nullableString,
+    uptimeSeconds: nullableNumber,
+    cpu: HostCpuInfo,
+    memoryTotalBytes: nullableNumber,
+    memoryUsedBytes: nullableNumber,
+    memoryAvailableBytes: nullableNumber,
+    memoryUsedPercent: nullableNumber,
+    swapTotalBytes: nullableNumber,
+    swapUsedBytes: nullableNumber,
+    cpuUtilisation: nullableNumber,
+    cpuIdle: nullableNumber,
+    load: HostLoad.nullable(),
+    storage: HostStorageInfo.nullable(),
+    gpu: z.array(HostGpuInfo),
+  }).strict(),
+  'HostMetrics',
+)
+export type HostMetrics = z.infer<typeof HostMetrics>
+
+export const ContainerResourceMetrics = named(
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    service: nullableString,
+    cpuUtilisation: nullableNumber,
+    memoryUsedBytes: nullableNumber,
+    memoryLimitBytes: nullableNumber,
+    memoryUsedPercent: nullableNumber,
+    networkRxBytes: nullableNumber,
+    networkTxBytes: nullableNumber,
+    blockReadBytes: nullableNumber,
+    blockWriteBytes: nullableNumber,
+    pids: z.number().int().nullable(),
+  }).strict(),
+  'ContainerResourceMetrics',
+)
+export type ContainerResourceMetrics = z.infer<typeof ContainerResourceMetrics>
+
+export const ProjectResourceMetrics = named(
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    composeProject: z.string(),
+    cpuUtilisation: nullableNumber,
+    memoryUsedBytes: nullableNumber,
+    containerCount: z.number().int(),
+    networkRxBytes: nullableNumber,
+    networkTxBytes: nullableNumber,
+    containers: z.array(ContainerResourceMetrics),
+  }).strict(),
+  'ProjectResourceMetrics',
+)
+export type ProjectResourceMetrics = z.infer<typeof ProjectResourceMetrics>
+
+export const MetricsInstance = named(
+  z.object({
+    id: z.string(),
+    name: nullableString,
+    hostname: nullableString,
+  }).strict(),
+  'MetricsInstance',
+)
+export type MetricsInstance = z.infer<typeof MetricsInstance>
+
+export const RuntimeHint = named(
+  z.object({
+    name: z.enum(['orbstack', 'docker-desktop', 'docker-engine', 'unknown']),
+  }).strict(),
+  'RuntimeHint',
+)
+export type RuntimeHint = z.infer<typeof RuntimeHint>
+
+export const MetricsCurrent = named(
+  z.object({
+    version: z.literal(1),
+    instance: MetricsInstance,
     collectedAt: unixSeconds.nullable(),
     ageSeconds: z.number().int().nullable(),
     stale: z.boolean(),
-    hint: nullableString,
+    collectorActive: z.boolean(),
+    host: HostMetrics.nullable(),
+    runtime: RuntimeHint.nullable(),
+    projects: z.array(ProjectResourceMetrics),
   }).strict(),
-  'HostResources',
+  'MetricsCurrent',
 )
-export type HostResources = z.infer<typeof HostResources>
+export type MetricsCurrent = z.infer<typeof MetricsCurrent>
+
+export const MetricsHistoryPoint = named(
+  z.object({
+    timestamp: unixSeconds,
+    host: z.object({
+      cpuUtilisation: nullableNumber,
+      memoryUsedBytes: nullableNumber,
+      memoryUsedPercent: nullableNumber,
+      storageUsedPercent: nullableNumber,
+      load: HostLoad.nullable(),
+      gpuUtilisation: nullableNumber,
+    }).strict(),
+    projects: z.array(z.object({
+      id: z.string(),
+      cpuUtilisation: nullableNumber,
+      memoryUsedBytes: nullableNumber,
+    }).strict()),
+    containers: z.array(z.object({
+      id: z.string(),
+      cpuUtilisation: nullableNumber,
+      memoryUsedBytes: nullableNumber,
+    }).strict()),
+  }).strict(),
+  'MetricsHistoryPoint',
+)
+export type MetricsHistoryPoint = z.infer<typeof MetricsHistoryPoint>
+
+export const MetricsHistory = named(
+  z.object({
+    windowSeconds: z.number().int(),
+    points: z.array(MetricsHistoryPoint),
+  }).strict(),
+  'MetricsHistory',
+)
+export type MetricsHistory = z.infer<typeof MetricsHistory>
 
 export const OverviewCounts = named(
   z.object({

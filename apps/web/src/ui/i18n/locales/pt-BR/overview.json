@@ -22,12 +22,15 @@
   },
   "host": {
     "title": "Este host",
-    "description": "Capacidade agora. Sem histórico.",
+    "description": "Como esta máquina está agora.",
     "system": "Sistema",
     "cpu": "CPU",
     "memory": "Memória",
     "gpu": "GPU",
+    "swap": "Swap",
     "storage": {
+      "label": "Armazenamento",
+      "path": "Portta",
       "docker": "Docker",
       "portta": "Portta",
       "both": "Disco"
@@ -36,9 +39,26 @@
     "load": "load {{one}} {{five}} {{fifteen}}",
     "up": "ligado há {{time}}",
     "high": "alto",
-    "fresh": "recém coletado",
+    "updated": "atualizado {{time}}",
     "stale": "coletado há {{age}}s",
-    "collectHint": "Só fatos estáticos. Execute {{command}} no host para carga, memória em uso e disco."
+    "collectorInactive": "Collector inativo",
+    "unavailable": "Não disponível",
+    "unavailableHint": "O collector do host não está gravando snapshots. Suba o gateway com portta up.",
+    "runtime": {
+      "label": "Ambiente",
+      "orbstack": "OrbStack",
+      "docker-desktop": "Docker Desktop",
+      "docker-engine": "Docker Engine",
+      "unknown": "Desconhecido"
+    }
+  },
+  "consumption": {
+    "title": "Consumo por projeto",
+    "description": "O que está usando CPU e memória neste host agora.",
+    "cpu": "CPU",
+    "memory": "RAM",
+    "containers": "{{count}} containers",
+    "open": "Abrir"
   },
   "detectedProblems": {
     "title": "Problemas detectados",
