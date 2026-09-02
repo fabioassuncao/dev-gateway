@@ -23,15 +23,15 @@
 portta_json_string() {
   local value="${1-}"
   [ -n "$value" ] || { printf 'null'; return 0; }
-  printf '%s' "$value" | LC_ALL=C awk '
-    BEGIN { printf "\"" }
-    {
-      gsub(/\\/, "\\\\")
-      gsub(/"/, "\\\"")
-      gsub(/[\001-\037\177]/, "")
-      printf "%s", $0
-    }
-    END { printf "\"" }'
+  # Control characters are dropped rather than smuggled through; the rest is
+  # escaped by portta_json_escape in common.sh, which is the one implementation
+  # of this and uses sed.
+  #
+  # It used to use awk. `gsub(/\\/, "\\\\")` doubles a backslash on BSD awk
+  # and leaves it alone on mawk, so the same value produced valid JSON on macOS
+  # and a broken escape on Linux — where the gateway actually runs.
+  value=$(printf '%s' "$value" | LC_ALL=C tr -d '\001-\037\177')
+  printf '"%s"' "$(portta_json_escape "$value")"
 }
 
 portta_json_bool() {

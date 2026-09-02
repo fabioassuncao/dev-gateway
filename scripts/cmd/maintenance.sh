@@ -115,16 +115,6 @@ portta_backup_database() {
   [ -s "$target" ] || { rm -f "$target"; return 1; }
 }
 
-# portta_mode_of <path>: the octal mode, on both GNU and BSD userlands.
-#
-# Order matters. `stat -f` means "file system status" to GNU stat and exits 0
-# with completely unrelated output, so trying BSD first does not fail over —
-# it returns nonsense. GNU's `-c` simply fails on BSD, which is what a fallback
-# needs.
-portta_mode_of() {
-  stat -c '%a' "$1" 2>/dev/null || stat -f '%OLp' "$1" 2>/dev/null || printf ''
-}
-
 portta_human_size() {
   if portta_have du; then du -h "$1" 2>/dev/null | cut -f1; else printf 'unknown'; fi
 }
@@ -322,7 +312,7 @@ PORTTA_HELP
 portta_repair_mode() {
   local path="$PORTTA_ROOT/$1" want="$2" dry="$3" have
   [ -e "$path" ] || return 1
-  have=$(portta_mode_of "$path")
+  have=$(portta_file_mode "$path")
   [ -n "$have" ] || return 1
   [ "$have" = "$want" ] && return 1
   if [ "$dry" = "true" ]; then

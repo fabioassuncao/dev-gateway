@@ -125,10 +125,21 @@ if ! docker info >/dev/null 2>&1; then
   it "shared checks"; skip "docker unavailable"
 else
   it "and reports the checks only the shell doctor makes"
-  ids=$("$GW" doctor --json 2>/dev/null | python3 -c "import json,sys; print(' '.join(c['id'] for c in json.load(sys.stdin)['checks']))")
-  for id in panel.access agents.claude tools.git vpn.tailscale; do
+  ids=$(PORTTA_WEB=true "$GW" doctor --json 2>/dev/null | python3 -c "import json,sys; print(' '.join(c['id'] for c in json.load(sys.stdin)['checks']))")
+  for id in agents.claude tools.git vpn.tailscale; do
     assert_contains "$ids" "$id"
   done
+
+  # `panel.access` exists only while the panel is enabled, and a .env in this
+  # checkout overrides the environment, so whether it is emitted depends on the
+  # machine. Asserting it unconditionally passed for a developer with the panel
+  # on and failed on CI, which has no .env at all.
+  it "including panel access, whenever the panel is on"
+  if [ "$(PORTTA_WEB=true "$GW" inspect 2>/dev/null | sed -n 's/^ *PORTTA_WEB *//p' | head -1)" = "false" ]; then
+    skip "this checkout's .env disables the panel"
+  else
+    assert_contains "$ids" "panel.access"
+  fi
   it "and a warning is not a failure"
   assert_contains "$("$GW" doctor --json 2>/dev/null)" '"status": "warn"'
 fi

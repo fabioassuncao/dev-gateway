@@ -142,12 +142,10 @@ assert_success test -f "$SETUP_HOME/state/cloudflared/credentials.json"
 
 # A credential readable by every user on the host is not a credential.
 it "keeps the credential to its owner"
-assert_eq "600" "$(stat -f '%OLp' "$SETUP_HOME/state/cloudflared/credentials.json" 2>/dev/null \
-  || stat -c '%a' "$SETUP_HOME/state/cloudflared/credentials.json" 2>/dev/null)"
+assert_eq "600" "$(portta_file_mode "$SETUP_HOME/state/cloudflared/credentials.json")"
 
 it "keeps the directory to its owner too"
-assert_eq "700" "$(stat -f '%OLp' "$SETUP_HOME/state/cloudflared" 2>/dev/null \
-  || stat -c '%a' "$SETUP_HOME/state/cloudflared" 2>/dev/null)"
+assert_eq "700" "$(portta_file_mode "$SETUP_HOME/state/cloudflared")"
 
 it "derives the credentials cloudflared expects from the token"
 assert_contains "$(cat "$SETUP_HOME/state/cloudflared/credentials.json")" '"TunnelID":"6ff42ae2-765d-4adf-8112-31c55c1551ef"'
@@ -186,8 +184,7 @@ it "decodes the token to the same three fields"
 assert_contains "$(cat "$NONODE_HOME/state/cloudflared/credentials.json")" '"TunnelID":"6ff42ae2-765d-4adf-8112-31c55c1551ef"'
 
 it "keeps it 0600 on that path too"
-assert_eq "600" "$(stat -f '%OLp' "$NONODE_HOME/state/cloudflared/credentials.json" 2>/dev/null \
-  || stat -c '%a' "$NONODE_HOME/state/cloudflared/credentials.json" 2>/dev/null)"
+assert_eq "600" "$(portta_file_mode "$NONODE_HOME/state/cloudflared/credentials.json")"
 
 if [ -n "$CLOUDFLARED" ]; then
   it "writes a config the real cloudflared accepts, on the no-Node path too"

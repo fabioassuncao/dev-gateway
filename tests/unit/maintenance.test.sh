@@ -7,6 +7,8 @@ set -uo pipefail
 PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 . "$PORTTA_TEST_DIR/lib/assert.sh"
 PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
+# portta_file_mode: GNU/BSD-portable, and the one implementation of it.
+. "$PORTTA_ROOT/scripts/lib/common.sh"
 
 # `bin/portta` honours an inherited PORTTA_ROOT, which is what lets the
 # installer point it at PORTTA_HOME. This suite exports one, so every
@@ -31,13 +33,6 @@ make_home() {
   printf '%s' "$home"
 }
 
-# GNU first, deliberately: `stat -f` means "file system status" to GNU stat and
-# exits 0 with unrelated output, so a BSD-first fallback does not fail over — it
-# returns nonsense, and every mode assertion below would pass against garbage.
-mode_of() {
-  stat -c '%a' "$1" 2>/dev/null || stat -f '%OLp' "$1" 2>/dev/null
-}
-
 # A Docker that reports nothing: no running gateway, no networks.
 #
 # Both restore and repair ask Docker about the world, and the machine running
@@ -60,6 +55,24 @@ run_isolated() {
   ( cd "$home" && PATH="$NO_NETWORKS:$PATH" env -u PORTTA_ROOT -u PORTTA_STATE_DIR ./bin/portta "$@" )
 }
 
+# The mirror image: a Docker that owns every network and runs nothing. Needed
+# to assert the *absence* of work, which otherwise depends on whether the
+# machine running the tests happens to have the gateway's networks.
+ALL_NETWORKS=$(mktemp -d)
+cat > "$ALL_NETWORKS/docker" <<'STUB'
+#!/usr/bin/env bash
+case "$1 $2" in
+  "network inspect") exit 0 ;;
+esac
+exit 1
+STUB
+chmod +x "$ALL_NETWORKS/docker"
+
+run_with_networks() {
+  local home="$1"; shift
+  ( cd "$home" && PATH="$ALL_NETWORKS:$PATH" env -u PORTTA_ROOT -u PORTTA_STATE_DIR ./bin/portta "$@" )
+}
+
 describe "backup"
 
 HOME_A=$(make_home)
@@ -72,7 +85,7 @@ assert_success test -f "$HOME_A/b.tar.gz"
 # created under a private umask rather than chmod'ed afterwards, so it is never
 # even briefly world-readable.
 it "is private from the moment it exists"
-assert_eq "600" "$(mode_of "$HOME_A/b.tar.gz")"
+assert_eq "600" "$(portta_file_mode "$HOME_A/b.tar.gz")"
 
 it "carries a manifest saying which Portta produced it"
 assert_contains "$(tar -xzOf "$HOME_A/b.tar.gz" ./portta-backup.json 2>/dev/null)" '"portta":"0.2.0"'
@@ -103,7 +116,7 @@ it "puts the generated Traefik files back"
 assert_success test -f "$HOME_A/config/traefik/dynamic/mine.yaml"
 
 it "leaves .env private"
-assert_eq "600" "$(mode_of "$HOME_A/.env")"
+assert_eq "600" "$(portta_file_mode "$HOME_A/.env")"
 
 # A restore that turns out to be the wrong archive is otherwise unrecoverable.
 it "keeps what it replaced"
@@ -160,12 +173,12 @@ assert_contains "$DRY" "would change .env from 644 to 600"
 # A dry run that changed something would be worse than no dry run at all.
 it "changes nothing on a dry run"
 assert_success test ! -d "$HOME_B/state/access"
-assert_eq "644" "$(mode_of "$HOME_B/.env")"
+assert_eq "644" "$(portta_file_mode "$HOME_B/.env")"
 
 describe "repair is idempotent"
 
 HOME_C=$(make_home)
-FIRST=$(run_in_home "$HOME_C" repair --dry-run 2>&1)
+FIRST=$(run_with_networks "$HOME_C" repair --dry-run 2>&1)
 
 it "finds the directories a fresh home is missing"
 assert_contains "$FIRST" "would create"
@@ -177,7 +190,7 @@ mkdir -p "$HOME_C/config/traefik/dynamic" "$HOME_C/config/tls" \
   "$HOME_C/state/git" "$HOME_C/state/github" "$HOME_C/state/cloudflared"
 chmod 700 "$HOME_C/state/traefik/acme" "$HOME_C/state/cloudflared"
 chmod 600 "$HOME_C/.env"
-SECOND=$(run_in_home "$HOME_C" repair --dry-run 2>&1)
+SECOND=$(run_with_networks "$HOME_C" repair --dry-run 2>&1)
 
 it "finds nothing once everything is in place"
 assert_contains "$SECOND" "nothing to repair"
@@ -190,10 +203,10 @@ assert_contains "$SECOND" "nothing to repair"
 it "creates a private directory private, rather than fixing it afterwards"
 HOME_D=$(make_home)
 run_in_home "$HOME_D" repair >/dev/null 2>&1 || true
-assert_eq "700" "$(mode_of "$HOME_D/state/cloudflared")"
+assert_eq "700" "$(portta_file_mode "$HOME_D/state/cloudflared")"
 
 it "and leaves an ordinary directory ordinary"
-assert_eq "755" "$(mode_of "$HOME_D/state/github")"
+assert_eq "755" "$(portta_file_mode "$HOME_D/state/github")"
 
 # The access network carries TCP services. On a host with them off it is absent
 # by design, and demanding it reported a repair that was not one.
@@ -205,7 +218,7 @@ assert_not_contains "$(run_isolated "$HOME_D" repair --dry-run 2>&1)" "portta-ac
 it "does demand it when TCP routing is on"
 sed -i.bak 's/^PORTTA_TCP=false/PORTTA_TCP=true/' "$HOME_D/.env"
 assert_contains "$(run_isolated "$HOME_D" repair --dry-run 2>&1)" "portta-access"
-rm -rf "$HOME_D" "$NO_NETWORKS"
+rm -rf "$HOME_D" "$NO_NETWORKS" "$ALL_NETWORKS"
 
 rm -rf "$HOME_A" "$HOME_B" "$HOME_C"
 

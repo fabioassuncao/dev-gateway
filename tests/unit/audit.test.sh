@@ -50,6 +50,17 @@ assert_eq "" "$(grep -hE '^\s+- [./][^ ]*:' docker/compose/compose.yaml docker/c
   | grep -vE '/var/run/docker\.sock:/var/run/docker\.sock:ro' \
   | grep -vE '/dev/net/tun:/dev/net/tun' || true)"
 
+describe "file modes are read portably"
+
+# `stat -f` means "file system status" to GNU stat: it exits 0 and prints
+# something else entirely, so a BSD-first fallback returns nonsense on Linux
+# rather than failing over. Every permission assertion built that way passed
+# against garbage. portta_file_mode in scripts/lib/common.sh is the one
+# implementation, and it tries GNU first.
+it "nothing reads a mode with BSD stat first"
+assert_eq "" "$(tracked 'bin/*' 'scripts/**' 'tests/**' | xargs grep -ln "stat -f" 2>/dev/null \
+  | grep -v 'scripts/lib/common.sh' | grep -v 'tests/unit/audit.test.sh' || true)"
+
 describe "tests do not reach into procfs"
 
 # `/proc` looks like a conveniently unwritable directory and is not: on Linux a
