@@ -53,6 +53,7 @@ export function gatewayStatus(snapshot: Snapshot, config: PanelConfig): GatewayS
       authenticated: isAuthenticated(config),
       user: config.webAuthUser,
       readOnly: config.readOnly,
+      docs: config.docs,
     },
     dashboard: {
       enabled: config.dashboardEnabled,

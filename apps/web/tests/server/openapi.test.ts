@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { z } from 'zod'
 import { makeApp } from './helpers.ts'
@@ -142,14 +142,15 @@ describe('response contracts against the realistic host fixture', () => {
   })
 })
 
-describe('the offline API browser', () => {
-  it('is available on loopback and loads no third-party assets', async () => {
+describe('the API browser', () => {
+  // It moved into the documentation site, where it shares the panel's themes,
+  // typography and navigation. The old path is kept as a redirect so
+  // docs/web-ui.md, muscle memory and any bookmark keep working.
+  it('redirects to the reference inside the documentation site', async () => {
     const { app } = makeApp({ containers: [] })
     const response = await app.request('/api/docs')
-    const html = await response.text()
-    expect(response.status).toBe(200)
-    expect(html).toContain('/api/openapi.json')
-    expect(html).not.toMatch(/(?:src|href)=["']https?:\/\//)
+    expect(response.status).toBe(302)
+    expect(response.headers.get('location')).toBe('/docs/#/api')
   })
 
   it('is off by default when routed and can be opted in explicitly', async () => {
@@ -157,7 +158,11 @@ describe('the offline API browser', () => {
     expect((await routed.app.request('/api/docs')).status).toBe(404)
 
     const optedIn = makeApp({ containers: [] }, { webExpose: 'vpn', apiDocs: true })
-    expect((await optedIn.app.request('/api/docs')).status).toBe(200)
+    expect((await optedIn.app.request('/api/docs')).status).toBe(302)
     expect((await optedIn.app.request('/api/openapi.json')).status).toBe(200)
+  })
+
+  it('the 58-line inline page it replaced is gone', () => {
+    expect(existsSync(new URL('../../src/server/openapi-docs.ts', import.meta.url))).toBe(false)
   })
 })

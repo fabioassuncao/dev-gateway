@@ -152,8 +152,12 @@
       "help": "A legacy compatibility hash; the private authentication store is authoritative. Generate a new credential with `portta web auth set`."
     },
     "PORTTA_RUNTIME_API_DOCS": {
-      "label": "API browser",
-      "help": "Serve the offline API browser. Empty uses the safe default: on for loopback, off when routed."
+      "label": "API reference",
+      "help": "Serve the API reference and its console at /docs/api. It issues real requests against this panel, so empty uses the safe default: on for loopback, off when routed."
+    },
+    "PORTTA_RUNTIME_DOCS": {
+      "label": "Documentation",
+      "help": "Serve the project's documentation at /docs, from this image. Static text with no host information in it, so a routed panel may serve it."
     },
     "PORTTA_RUNTIME_DB_PASSWORD": {
       "label": "Database password",

@@ -37,6 +37,7 @@ const data: OverviewData = {
       authenticated: false,
       user: '',
       readOnly: false,
+      docs: true,
     },
     dashboard: { enabled: false, bindAddress: '127.0.0.1', port: '8080' },
     traefik: { containerId: 'gw', state: 'running', health: 'healthy' },

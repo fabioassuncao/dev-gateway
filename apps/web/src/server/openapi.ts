@@ -7,7 +7,6 @@ import type { OpenAPIV3_1 } from 'openapi-types'
 import { z } from 'zod'
 import { ApiError, LiveEvent } from '../shared/types.ts'
 import type { PanelConfig } from './config.ts'
-import { apiDocsHtml } from './openapi-docs.ts'
 
 export type ApiTag =
   | 'Status'
@@ -218,20 +217,27 @@ export function registerOpenApiRoutes(api: Hono, config: PanelConfig): void {
     async (c) => c.json(await generateOpenApi(api, config.gatewayVersion)),
   )
 
+  /**
+   * Kept so `docs/web-ui.md`, muscle memory and any bookmark keep working. The
+   * browser itself moved into the documentation site, where it shares the
+   * panel's themes, its typography and its navigation instead of being a
+   * separate 58-line page nobody could style.
+   */
   api.get(
     '/docs',
     documentRoute({
       tag: 'Documentation',
       operationId: 'browseApiDocumentation',
-      summary: 'Browse and try the API locally',
-      description: 'Available by default on loopback and opt-in when the panel is routed. All assets are inline.',
+      summary: 'Redirect to the API reference',
+      description: 'The reference lives at /docs/api, inside the documentation site. Available by default on loopback and opt-in when the panel is routed.',
       response: HtmlDocument,
       mediaType: 'text/html',
+      status: 302,
       errors: [404],
     }),
     (c) => {
       if (!config.apiDocs) throw new HTTPException(404, { message: 'the API browser is disabled' })
-      return c.html(apiDocsHtml)
+      return c.redirect('/docs/#/api', 302)
     },
   )
 }

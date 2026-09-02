@@ -414,17 +414,57 @@ test.describe('the panel end to end', () => {
     }
   })
 
-  test('the offline API browser filters operations and tries a GET', async ({ page }) => {
-    await page.goto('/api/docs')
+  test('the documentation site navigates, searches and links out', async ({ page }) => {
+    await page.goto('/docs/')
 
-    await expect(page.getByRole('heading', { name: 'Portta API' })).toBeVisible()
-    await page.getByLabel('Filter API operations').fill('health')
-    const operation = page.locator('details.route').filter({ hasText: '/health' })
-    await expect(operation).toBeVisible()
+    // The front door is the README, and the sidebar is the index docs/README.md
+    // already maintains.
+    await expect(page.getByRole('heading', { name: 'Portta', level: 1 })).toBeVisible()
+    await page.getByRole('navigation').getByRole('link', { name: 'Architecture', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Architecture', level: 1 })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Components', level: 2 })).toBeVisible()
+
+    // An internal link resolves inside the site rather than reaching GitHub.
+    await page.getByRole('link', { name: 'Monorepo layout' }).first().click()
+    await expect(page.getByRole('heading', { name: 'Monorepo layout', level: 1 })).toBeVisible()
+
+    await page.getByLabel('Search the documentation').fill('tailscale')
+    await expect(page.getByRole('link', { name: /Tailscale.*Running remotely/ }).first()).toBeVisible()
+  })
+
+  test('the API reference renders the live contract and tries a GET', async ({ page }) => {
+    // The old path is kept as a redirect, so a bookmark still works.
+    await page.goto('/api/docs')
+    await expect(page).toHaveURL(/\/docs\/#\/api$/)
+
+    await expect(page.getByRole('heading', { name: 'Portta panel API' })).toBeVisible()
+    await page.getByLabel('Filter operations').fill('health')
+    const operation = page.locator('details').filter({ hasText: '/health' }).first()
     await operation.locator(':scope > summary').click()
     await operation.getByRole('button', { name: 'Try GET' }).click()
     await expect(operation.getByText('200 OK')).toBeVisible()
     await expect(operation.locator('pre').first()).toContainText('panelVersion')
+  })
+
+  test('a write in the console needs an explicit confirmation', async ({ page }) => {
+    await page.goto('/docs/#/api')
+    await page.getByLabel('Filter operations').fill('workspaces')
+    const operation = page.locator('details').filter({ hasText: 'POST' }).first()
+    await operation.locator(':scope > summary').click()
+
+    // Nothing is sent by the first click: a write says what it is about to do.
+    await operation.getByRole('button', { name: 'Try POST' }).click()
+    await expect(operation.getByText(/sends a real POST/)).toBeVisible()
+    await expect(operation.getByRole('button', { name: 'Send it' })).toBeVisible()
+    await operation.getByRole('button', { name: 'Cancel' }).click()
+    await expect(operation.getByRole('button', { name: 'Try POST' })).toBeVisible()
+  })
+
+  test('the panel links to the documentation, in a new tab', async ({ page }) => {
+    await page.goto('/')
+    const link = page.getByRole('link', { name: 'Documentation' })
+    await expect(link).toHaveAttribute('href', '/docs/')
+    await expect(link).toHaveAttribute('target', '_blank')
   })
 
   test('the theme can be switched', async ({ page }) => {

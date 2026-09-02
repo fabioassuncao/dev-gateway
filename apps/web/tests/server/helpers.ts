@@ -236,6 +236,8 @@ export function testConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     panelVersion: '0.1.0',
     tlsEnabled: false,
     readOnly: false,
+    docs: true,
+    docsDir: './dist/docs',
     privateDomain: null,
     publicDomain: null,
     dynamicDir,

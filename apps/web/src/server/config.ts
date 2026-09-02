@@ -27,6 +27,7 @@ export interface PanelConfig {
   envFile: string
   versionFile: string
   uiDir: string
+  docsDir: string
   profile: string
   projectName: string
   network: string
@@ -82,6 +83,12 @@ export interface PanelConfig {
   readOnly: boolean
   /** Serve the self-contained API browser. The OpenAPI document is always served. */
   apiDocs: boolean
+  /**
+   * The guides at `/docs`. Static text with no host information in it, so a
+   * routed panel may serve it -- unlike the API console, which issues real
+   * requests and keeps the conservative default.
+   */
+  docs: boolean
   /** Where the panel can be reached from: `local` or `vpn`. */
   webExpose: string
   /** `none`, or the compatibility value `basic` for the Portta ForwardAuth login. */
@@ -127,6 +134,7 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     envFile: env('PORTTA_RUNTIME_ENV_FILE', '/app/state/.env'),
     versionFile,
     uiDir: env('PORTTA_RUNTIME_UI_DIR', './dist/ui'),
+    docsDir: env('PORTTA_RUNTIME_DOCS_DIR', './dist/docs'),
     profile: gateway.profile,
     projectName: gateway.projectName,
     network: gateway.network,
@@ -174,6 +182,7 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     gatewayVersion: readVersion(versionFile),
     readOnly: isTrue(process.env.PORTTA_RUNTIME_READ_ONLY),
     apiDocs: false,
+    docs: isTrue(env('PORTTA_RUNTIME_DOCS', 'true')),
     webExpose: env('PORTTA_WEB_EXPOSE', 'local'),
     webAuth: env('PORTTA_WEB_AUTH', 'none'),
     webAuthUser: env('PORTTA_WEB_AUTH_USER', ''),

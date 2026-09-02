@@ -1,31 +1,32 @@
 {
-  "appName": "Portta",
-  "sections": "Seções",
-  "overview": "Visão geral",
-  "workspaces": "Workspaces",
-  "projects": "Projetos",
-  "services": "Serviços",
-  "docker": "Docker",
-  "network": "Rede",
   "access": "Acesso",
-  "gateway": "Gateway",
-  "settings": "Configurações",
-  "gatewayUp": "Gateway ativo",
-  "gatewayDown": "Gateway inativo",
+  "appName": "Portta",
+  "collapseSidebar": "Recolher barra lateral",
   "connection": {
     "offline": "Sem conexão com o painel. As atualizações ao vivo estão pausadas.",
     "reconnecting": "Reconectando…"
   },
-  "liveUpdatesHint": "Atualizações ao vivo vêm de eventos do Docker",
-  "toggleTheme": "Alternar tema",
+  "docker": "Docker",
+  "documentTitle": {
+    "suffix": "Portta"
+  },
+  "documentation": "Documentação",
   "expandSidebar": "Expandir barra lateral",
-  "collapseSidebar": "Recolher barra lateral",
+  "gateway": "Gateway",
+  "gatewayDown": "Gateway inativo",
+  "gatewayUp": "Gateway ativo",
   "live": {
     "connecting": "conectando",
     "live": "ao vivo",
     "offline": "offline"
   },
-  "documentTitle": {
-    "suffix": "Portta"
-  }
+  "liveUpdatesHint": "Atualizações ao vivo vêm de eventos do Docker",
+  "network": "Rede",
+  "overview": "Visão geral",
+  "projects": "Projetos",
+  "sections": "Seções",
+  "services": "Serviços",
+  "settings": "Configurações",
+  "toggleTheme": "Alternar tema",
+  "workspaces": "Workspaces"
 }

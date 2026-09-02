@@ -160,17 +160,63 @@ are all part of the document. It declares the host-scoped Portta session and
 the HTTP Basic compatibility path for non-browser clients. Traefik asks the
 separate auth process to enforce either one before a request reaches the panel.
 
-`http://127.0.0.1:8081/api/docs` is a small interactive browser for that
-document. Its HTML, CSS and JavaScript are served from the panel image; it
-loads no CDN, font, telemetry or third-party code. The page is enabled by
-default only while the panel stays on loopback. A routed panel returns 404
-unless `PORTTA_RUNTIME_API_DOCS=true` explicitly opts in. The JSON contract stays
-available because a caller that reached the API can already inspect it.
+`http://127.0.0.1:8081/docs/#/api` renders that document: operations grouped by
+tag, resolved schemas for parameters, request bodies and responses, the
+declared security schemes, and a console. `/api/docs` redirects there, so a
+bookmark keeps working.
+
+The console executes a `GET` on a click. A `POST`, `PUT`, `PATCH` or `DELETE`
+says what it is about to send and waits for a second, explicit confirmation,
+because it is a real request against this panel. Read-only mode and the
+same-origin write guard come back as the API's own error payload rather than as
+a generic failure, so a refusal reads as a refusal.
+
+It is enabled by default only while the panel stays on loopback. A routed panel
+returns 404 unless `PORTTA_RUNTIME_API_DOCS=true` explicitly opts in. The JSON
+contract stays available because a caller that reached the API can already
+inspect it.
 
 `apps/web/openapi.json` is checked in so an API change is visible in review.
 `npm run openapi:check` regenerates it in memory and fails on byte-level drift.
 Adding or changing a route therefore requires updating its attached description
 and running `npm run openapi`.
+
+### The documentation, served from the panel
+
+`http://127.0.0.1:8081/docs` is this documentation — every file under `docs/`
+including the ADRs, plus the README and the changelog — rendered into the panel
+image at build time, with a sidebar, an on-page table of contents, search, and
+both themes. The book icon beside the language and theme controls opens it.
+
+The source of truth does not move: `docs/*.md` stays ordinary Markdown, readable
+on GitHub, with no front matter and no second copy. The navigation is the
+section order of [`docs/README.md`](README.md), which the project already
+maintains by hand.
+
+Offline by construction. Everything comes from the image: no CDN, no font host,
+no telemetry, and no Markdown parser in the panel's production tree — the
+parsing happens at build time and only the rendered HTML ships. A link that
+leaves the documentation set opens the file on GitHub and is marked with an
+arrow. A Mermaid block is shown as labelled source rather than a broken picture:
+rendering one needs a browser at build time, which is a dependency the image
+does not take.
+
+Because the build reads every link, it is also the link checker this repository
+did not have: a link that names a documentation page which does not exist fails
+`npm run build:docs`.
+
+Two switches, independent on purpose:
+
+| Key | Gates | Default |
+|---|---|---|
+| `PORTTA_RUNTIME_DOCS` | the guides at `/docs` | enabled, including when routed |
+| `PORTTA_RUNTIME_API_DOCS` | `/docs/api` and its console | on for loopback, off when routed |
+
+The guides are static text with no host information in them, so a routed panel
+may serve them. The console issues real requests, so it keeps the conservative
+default. Neither weakens authentication: when the panel is protected, the
+ForwardAuth service runs before either path is reached
+([ADR 0027](adr/0027-forward-authentication-service.md)).
 
 ### Regenerating the screenshots
 

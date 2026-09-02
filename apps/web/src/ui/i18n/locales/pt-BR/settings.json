@@ -152,8 +152,12 @@
       "help": "Hash legado de compatibilidade; o store privado de autenticação é a fonte oficial. Gere uma nova credencial com `portta web auth set`."
     },
     "PORTTA_RUNTIME_API_DOCS": {
-      "label": "Navegador de API",
-      "help": "Serve o navegador de API offline. Vazio usa o padrão seguro: ligado em loopback, desligado quando roteado."
+      "label": "Referência da API",
+      "help": "Serve a referência da API e seu console em /docs/api. Ele faz requisições reais contra este painel, então vazio usa o padrão seguro: ligado em loopback, desligado quando roteado."
+    },
+    "PORTTA_RUNTIME_DOCS": {
+      "label": "Documentação",
+      "help": "Serve a documentação do projeto em /docs, a partir desta imagem. É texto estático, sem nenhuma informação sobre o host, então um painel roteado pode servi-la."
     },
     "PORTTA_RUNTIME_DB_PASSWORD": {
       "label": "Senha do banco de dados",

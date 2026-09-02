@@ -29,6 +29,7 @@ import { DockerApiError } from './docker/client.ts'
 import { DockerAccessDenied } from './docker/allowlist.ts'
 import { ZodError } from 'zod'
 import { registerOpenApiRoutes } from './openapi.ts'
+import { registerDocsRoutes } from './routes/docs.ts'
 import { DatabaseUnavailable } from './db/index.ts'
 import { GitHubForbidden, GitHubUnavailable } from './integrations/github/index.ts'
 
@@ -152,6 +153,9 @@ export function createApp(deps: AppDeps): Hono {
   })
 
   app.route('/api', createApi(deps))
+  // Before the caller's SPA static mount and its `*` catch-all, so a deep link
+  // into the documentation reaches the documentation rather than the panel.
+  registerDocsRoutes(app, deps.config)
   return app
 }
 

@@ -6,6 +6,7 @@ import {
   Briefcase,
   Container,
   Globe,
+  BookOpen,
   Languages,
   LayoutDashboard,
   Moon,
@@ -170,6 +171,18 @@ export function App() {
                 ))}
               </MenuContent>
             </Menu>
+            {status.data?.gateway.panel.docs && (
+              <a
+                href="/docs/"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"
+                aria-label={t('documentation')}
+                title={t('documentation')}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+              </a>
+            )}
             <button
               onClick={toggleTheme}
               className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"

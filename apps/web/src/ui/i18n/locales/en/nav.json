@@ -1,31 +1,32 @@
 {
-  "appName": "Portta",
-  "sections": "Sections",
-  "overview": "Overview",
-  "workspaces": "Workspaces",
-  "projects": "Projects",
-  "services": "Services",
-  "docker": "Docker",
-  "network": "Network",
   "access": "Access",
-  "gateway": "Gateway",
-  "settings": "Settings",
-  "gatewayUp": "Gateway up",
-  "gatewayDown": "Gateway down",
+  "appName": "Portta",
+  "collapseSidebar": "Collapse sidebar",
   "connection": {
     "offline": "Can't reach the panel. Live updates are paused.",
     "reconnecting": "Reconnecting…"
   },
-  "liveUpdatesHint": "Live updates come from Docker events",
-  "toggleTheme": "Toggle theme",
+  "docker": "Docker",
+  "documentTitle": {
+    "suffix": "Portta"
+  },
+  "documentation": "Documentation",
   "expandSidebar": "Expand sidebar",
-  "collapseSidebar": "Collapse sidebar",
+  "gateway": "Gateway",
+  "gatewayDown": "Gateway down",
+  "gatewayUp": "Gateway up",
   "live": {
     "connecting": "connecting",
     "live": "live",
     "offline": "offline"
   },
-  "documentTitle": {
-    "suffix": "Portta"
-  }
+  "liveUpdatesHint": "Live updates come from Docker events",
+  "network": "Network",
+  "overview": "Overview",
+  "projects": "Projects",
+  "sections": "Sections",
+  "services": "Services",
+  "settings": "Settings",
+  "toggleTheme": "Toggle theme",
+  "workspaces": "Workspaces"
 }

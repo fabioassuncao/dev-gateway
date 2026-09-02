@@ -107,6 +107,8 @@ See [tcp-routing.md](tcp-routing.md).
 | `PORTTA_RUNTIME_DATABASE_URL` | empty | Development/test bootstrap override; normally Compose supplies it |
 | `PORTTA_AUTH_SECRET` | generated | **Secret.** HMAC key for host-scoped login sessions |
 | `PORTTA_AUTH_IMAGE` | Portta release image | Image running the isolated auth process |
+| `PORTTA_RUNTIME_DOCS` | `true` | Serve this documentation at `/docs`, from the panel image. Static text with no host information in it, so a routed panel may serve it |
+| `PORTTA_RUNTIME_API_DOCS` | empty | Serve the API reference and its console at `/docs/api`. Empty means the safe default: on for loopback, off when routed |
 
 The panel binds loopback by default. Routed `vpn` and `public` modes require a
 credential and use Portta ForwardAuth; `vpn` is refused on the `remote-public`

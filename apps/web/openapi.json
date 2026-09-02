@@ -278,6 +278,9 @@
               },
               "readOnly": {
                 "type": "boolean"
+              },
+              "docs": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -286,7 +289,8 @@
               "auth",
               "authenticated",
               "user",
-              "readOnly"
+              "readOnly",
+              "docs"
             ],
             "additionalProperties": false,
             "description": "Panel exposure and authentication without the secret hash"
@@ -11393,10 +11397,10 @@
         "tags": [
           "Documentation"
         ],
-        "summary": "Browse and try the API locally",
-        "description": "Available by default on loopback and opt-in when the panel is routed. All assets are inline.",
+        "summary": "Redirect to the API reference",
+        "description": "The reference lives at /docs/api, inside the documentation site. Available by default on loopback and opt-in when the panel is routed.",
         "responses": {
-          "200": {
+          "302": {
             "description": "Successful response.",
             "content": {
               "text/html": {

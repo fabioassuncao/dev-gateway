@@ -4,6 +4,9 @@
 
 .git
 .github
+# The screenshots docs/web-ui.md references. The workflows, the issue templates
+# and everything else under .github stay out.
+!.github/images
 .env
 .env.*
 !.env.example
@@ -32,14 +35,17 @@ apps/web/openapi.json
 apps/web/playwright.config.ts
 apps/web/vitest.config.ts
 
-docs
+# `docs`, `README.md` and `CHANGELOG.md` are build *input*: the docs bundle is
+# rendered from them at build time (apps/web/vite.docs.config.ts) and only the
+# rendered HTML reaches the runtime stage. Everything else here is not.
 templates
 tests
 scripts
 bin
 *.md
+!README.md
+!CHANGELOG.md
 AGENTS.md
-CHANGELOG.md
 LICENSE
 Makefile
 VERSION

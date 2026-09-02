@@ -76,7 +76,8 @@ This table is the worked example; the rule above governs new keys.
 | `PORTTA_WEB_AUTH` | Compose and generated Traefik middleware select authentication before routing. |
 | `PORTTA_WEB_AUTH_USER` | Traefik BasicAuth needs the user before the panel is reachable. |
 | `PORTTA_WEB_AUTH_HASH` | This authentication secret is consumed by Traefik and never returned by the API. |
-| `PORTTA_RUNTIME_API_DOCS` | API-browser exposure is decided at panel startup, including the routed default. |
+| `PORTTA_RUNTIME_API_DOCS` | The API reference and its console are mounted at panel startup, including the routed default. |
+| `PORTTA_RUNTIME_DOCS` | The documentation routes are mounted at panel startup, before the SPA's catch-all. |
 | `PORTTA_DB_NETWORK` | Compose must create the private data network before PostgreSQL or the panel starts. |
 | `PORTTA_DB_VOLUME` | Compose selects the durable volume before PostgreSQL starts. |
 | `PORTTA_RUNTIME_DB_PASSWORD` | This bootstrap secret is needed to start PostgreSQL and construct the panel connection. |

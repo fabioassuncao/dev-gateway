@@ -541,6 +541,8 @@ const GatewayPanel = z.object({
   authenticated: z.boolean(),
   user: z.string(),
   readOnly: z.boolean(),
+  /** Whether this panel serves the documentation, so the UI never links to a 404. */
+  docs: z.boolean(),
 }).strict()
 const GatewayDashboard = z.object({ enabled: z.boolean(), bindAddress: z.string(), port: z.string() }).strict()
 const GatewayComponent = z.object({

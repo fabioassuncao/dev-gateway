@@ -23,8 +23,14 @@ RUN npm ci
 FROM deps AS build
 WORKDIR /app
 COPY apps/web/tsconfig.json apps/web/tsconfig.server.json apps/web/vite.config.ts ./apps/web/
-COPY apps/web/vite.auth.config.ts ./apps/web/
+COPY apps/web/vite.auth.config.ts apps/web/vite.docs.config.ts ./apps/web/
 COPY apps/web/src ./apps/web/src
+# The documentation itself, read at build time by apps/web/vite.docs.config.ts
+# and rendered into the bundle. The Markdown never reaches the runtime stage;
+# what ships is the HTML it produced, which is what makes /docs offline.
+COPY docs ./docs
+COPY README.md CHANGELOG.md ./
+COPY .github/images ./.github/images
 COPY apps/auth/tsconfig.json apps/auth/tsconfig.build.json ./apps/auth/
 COPY apps/auth/src ./apps/auth/src
 # Both configs: the package builds through tsconfig.build.json, which extends
