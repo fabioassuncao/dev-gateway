@@ -214,11 +214,16 @@ path the request supplied. See [ADR 0030](adr/0030-the-panel-and-a-project-lifec
   git-ignored. `acme.json` is kept `0600` and `doctor` fails if it is not.
 - Lint fails the build on tracked Tailscale auth keys or PEM private keys.
 - The gateway never reads a consumer project's `.env` to "helpfully" print
-  credentials. Connection strings it shows are templates with the secret
-  omitted.
-- The web panel's API never returns a secret value, in whole or in part. It
-  reports whether one is set, and writing `.env` goes through a temporary file
-  with mode `0600`.
+  credentials. Connection strings it shows are templates unless the operator
+  opens the connection panel, which reads the container's own environment
+  for that one request.
+- The web panel's API never returns a secret value except
+  `GET /api/access/services/:project/:service/connection`, which is the only
+  route that may include a discovered password. The value is not cached, not
+  persisted, not written to the panel's PostgreSQL, and not used as an OpenAPI
+  example. A redaction helper strips it from anything that would be logged.
+  Every other route reports whether a secret is set, and writing `.env` goes
+  through a temporary file with mode `0600`.
 - Panel database clients run in the ephemeral toolbox on the private data
   network. Docker inherits `PGPASSWORD`; the credential is never interpolated
   into a connection URL or command argument. Dumps contain database objects,

@@ -80,8 +80,12 @@
     "standalone": "Avulso"
   },
   "scope": {
+    "internal": "interno",
     "local": "local",
+    "lan": "LAN",
+    "private": "privado",
     "vpn": "VPN",
+    "protected": "protegido",
     "public": "público"
   },
   "health": {

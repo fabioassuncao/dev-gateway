@@ -20,7 +20,7 @@ portta access open --project base-empresarial --service postgres
 |---|---|
 | Host | `127.0.0.1` |
 | Port | the one printed |
-| User / password / database | the project's own, from its `.env` |
+| User / password / database | the project's own, from its `.env` — or from the panel's Connect panel, which reads the container environment on demand |
 
 Add `--local-port 55432` to keep a saved connection working across sessions.
 Otherwise the kernel picks a new free port each time, which is what lets four
@@ -148,3 +148,10 @@ psql "postgresql://demo@base-empresarial-postgres.localhost:5432/demo?sslmode=re
 The `sslmode` is not decoration: the hostname travels inside the TLS handshake,
 and without TLS there is nothing for the gateway to route on. MySQL cannot do
 this at all. See [tcp-routing.md](tcp-routing.md).
+
+The panel's Access page lists every address that applies to this host — LAN,
+tailnet, domain, loopback bridge — each with its scope. **Connect** reads the
+container environment on demand and fills the connection string when the
+image uses conventional variables (`POSTGRES_*`, …). The password is masked
+until you ask for it, and can be copied without being revealed. Opening that
+panel creates no route, bridge or published port.

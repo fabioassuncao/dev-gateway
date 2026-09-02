@@ -47,6 +47,8 @@ export interface DockerContainerInspect {
     Labels: Record<string, string>
     ExposedPorts?: Record<string, unknown>
     Tty: boolean
+    /** Present on inspect. Read only from the on-demand connection route. */
+    Env?: string[]
   }
   NetworkSettings: {
     Ports: Record<string, DockerPortBinding[] | null>

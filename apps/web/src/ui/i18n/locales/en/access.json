@@ -46,6 +46,18 @@
     "addTcpOverlay": "add the TCP overlay to this project",
     "tcpDisabled": "PORTTA_TCP=false"
   },
+  "connection": {
+    "show": "Connect",
+    "hide": "Hide connection",
+    "loading": "Reading the container environment…",
+    "copyAddress": "Copy address",
+    "copyConnectionString": "Copy connection string",
+    "password": "Password",
+    "revealPassword": "Reveal password",
+    "hidePassword": "Hide password",
+    "copyPassword": "Copy password",
+    "templateHint": "credentials come from the project, not from here"
+  },
   "forwarders": {
     "title": "Published on the VPN",
     "description": "Persistent forwarders created with portta service publish --private.",

@@ -5,7 +5,7 @@
 // Gateway-wide defaults are owned by portta-core.
 
 import { readFileSync, existsSync } from 'node:fs'
-import { attachment, BRIDGE_IMAGE, isTrue, loadGatewayConfig } from 'portta-core'
+import { attachment, BRIDGE_IMAGE, isHostnameStyle, isTrue, loadGatewayConfig, type HostnameStyle } from 'portta-core'
 
 export { isTrue }
 
@@ -41,6 +41,8 @@ export interface PanelConfig {
   domain: string
   /** How the base domain was chosen: local, auto or custom. */
   domainMode: string
+  /** Flat hostname style; defaults to the original `project-service` until it is a setting. */
+  hostnameStyle: HostnameStyle
   domainProblem: string | null
   publicIp: string | null
   autoDomainProvider: string
@@ -145,6 +147,9 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     databaseUrl: optional('PORTTA_RUNTIME_DATABASE_URL'),
     domain: gateway.domain,
     domainMode: gateway.domainMode,
+    hostnameStyle: isHostnameStyle(env('PORTTA_HOSTNAME_STYLE', 'project-service'))
+      ? env('PORTTA_HOSTNAME_STYLE', 'project-service') as HostnameStyle
+      : 'project-service',
     domainProblem: gateway.domainProblem,
     publicIp: gateway.publicIp,
     autoDomainProvider: env('PORTTA_AUTO_DOMAIN_PROVIDER', 'sslip.io'),

@@ -2,9 +2,9 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from './deps.ts'
-import { closeBridge, listBridges, listForwarders, listTcpServices, openBridge } from '../core/access.ts'
-import { AccessView, Bridge } from '../../shared/types.ts'
-import { bridgeIdParameter, documentRoute } from '../openapi.ts'
+import { closeBridge, listBridges, listForwarders, listTcpServices, openBridge, serviceConnection } from '../core/access.ts'
+import { AccessView, Bridge, ServiceConnection } from '../../shared/types.ts'
+import { bridgeIdParameter, documentRoute, projectParameter } from '../openapi.ts'
 
 const openBody = z
   .object({
@@ -18,6 +18,14 @@ const openBody = z
 
 export const OpenBridgeResponse = z.object({ ok: z.literal(true), bridge: Bridge.nullable() }).strict().meta({ ref: 'OpenBridgeResponse' })
 export const CloseBridgeResponse = z.object({ ok: z.literal(true), message: z.string() }).strict().meta({ ref: 'CloseBridgeResponse' })
+
+const serviceParameter = {
+  name: 'service',
+  in: 'path' as const,
+  required: true,
+  description: 'Compose service name.',
+  schema: { type: 'string' as const },
+}
 
 export function accessRoutes(deps: AppDeps): Hono {
   const app = new Hono()
@@ -35,6 +43,31 @@ export function accessRoutes(deps: AppDeps): Hono {
       tcpRoutingEnabled: deps.config.tcpEnabled,
     }
     return c.json(view)
+  })
+
+  app.get('/access/services/:project/:service/connection', documentRoute({
+    tag: 'Access',
+    operationId: 'getServiceConnection',
+    summary: 'Get every address a datastore has, and a connection string with credentials when they can be discovered',
+    description:
+      'The only route that returns a discovered password. The value is read from the container environment for this request, is not cached, and must not appear in an example, a log or a database row.',
+    response: ServiceConnection,
+    parameters: [projectParameter, serviceParameter],
+    errors: [404, 500, 502],
+  }), async (c) => {
+    const snapshot = await deps.cache.get()
+    const project = c.req.param('project')
+    const service = c.req.param('service')
+    const container = snapshot.containers.find(
+      (item) => item.project === project && item.service === service,
+    )
+    if (!container) {
+      throw new HTTPException(404, { message: `no service ${project}/${service}` })
+    }
+    const inspect = await deps.client.inspect(container.id)
+    const bridges = listBridges(snapshot)
+    const bridge = bridges.find((item) => item.project === project && item.service === service) ?? null
+    return c.json(serviceConnection(container, inspect.Config.Env, deps.config, bridge))
   })
 
   // Opens the same loopback bridge `portta access open` creates. The

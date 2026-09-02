@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { ContainerState, Health, Ownership, UrlScope } from '../../shared/types.ts'
+import type { ContainerState, EndpointScope, Health, Ownership, UrlScope } from '../../shared/types.ts'
 import { Badge } from './ui/badge.tsx'
 import { cn } from '../lib/utils.ts'
 
@@ -50,13 +50,17 @@ export function OwnershipBadge({ ownership }: { ownership: Ownership }) {
   return <Badge tone={tone}>{t(`ownership.${ownership}`)}</Badge>
 }
 
-const SCOPE_TONE: Record<UrlScope, 'neutral' | 'info' | 'warn'> = {
+const SCOPE_TONE: Record<EndpointScope | UrlScope, 'neutral' | 'info' | 'warn'> = {
+  internal: 'neutral',
   local: 'neutral',
+  lan: 'info',
+  private: 'info',
   vpn: 'info',
+  protected: 'warn',
   public: 'warn',
 }
 
-export function ScopeBadge({ scope }: { scope: UrlScope }) {
+export function ScopeBadge({ scope }: { scope: EndpointScope | UrlScope }) {
   const { t } = useTranslation('common')
   return <Badge tone={SCOPE_TONE[scope]}>{t(`scope.${scope}`)}</Badge>
 }

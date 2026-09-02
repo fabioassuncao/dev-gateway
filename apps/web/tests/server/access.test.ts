@@ -212,6 +212,64 @@ describe('POST /api/access', () => {
   })
 })
 
+describe('GET /api/access/services/:project/:service/connection', () => {
+  const tcp = { ...fast, tcpEnabled: true, tcpPorts: { postgres: 5432, redis: 6379 } }
+  const routed = {
+    id: 'routed-pg',
+    name: 'alpha-postgres-1',
+    image: 'postgres:18.6-alpine',
+    networks: ['alpha_default', 'portta-access'],
+    exposed: [5432],
+    env: ['POSTGRES_USER=shop', 'POSTGRES_PASSWORD=s3cret-value', 'POSTGRES_DB=storefront'],
+    labels: {
+      'com.docker.compose.project': 'alpha',
+      'com.docker.compose.service': 'postgres',
+      'traefik.enable': 'true',
+      'traefik.tcp.routers.alpha-postgres.rule': 'HostSNIRegexp(`^alpha-postgres\\..+$`)',
+      'traefik.tcp.routers.alpha-postgres.tls': 'true',
+    },
+  }
+
+  it('returns a complete string and keeps the password off every other route', async () => {
+    const { app, docker } = makeApp({ containers: [...GATEWAY, routed] }, tcp)
+    const createdBefore = docker.created.length
+    const connection = await (await app.request('/api/access/services/alpha/postgres/connection')).json() as {
+      credentials: { password: string | null; discovered: boolean }
+      endpoints: { url: string; connectionString: string }[]
+    }
+    expect(connection.credentials.discovered).toBe(true)
+    expect(connection.credentials.password).toBe('s3cret-value')
+    expect(connection.endpoints.some((entry) => entry.connectionString.includes('s3cret-value'))).toBe(true)
+    expect(docker.created).toHaveLength(createdBefore)
+
+    const listing = await (await app.request('/api/access')).text()
+    expect(listing).not.toMatch(/s3cret-value/)
+  })
+
+  it('matches the hostname style Traefik routes', async () => {
+    const { app } = makeApp({ containers: [...GATEWAY, routed] }, { ...tcp, hostnameStyle: 'service--project' })
+    const view = (await (await app.request('/api/access')).json()) as AccessView
+    expect(view.services.find((item) => item.service === 'postgres')?.gatewayAddress).toBe(
+      'postgres--alpha.localhost:5432',
+    )
+  })
+
+  it('says so when the credential is not in the environment', async () => {
+    const { app } = makeApp({ containers: [...GATEWAY, { ...routed, env: [] }] }, tcp)
+    const body = await (await app.request('/api/access/services/alpha/postgres/connection')).json() as {
+      credentials: { discovered: boolean; reason: string | null; password: string | null }
+    }
+    expect(body.credentials.discovered).toBe(false)
+    expect(body.credentials.password).toBeNull()
+    expect(body.credentials.reason).toMatch(/POSTGRES_PASSWORD/)
+  })
+
+  it('404s for a service that is not here', async () => {
+    const { app } = makeApp({ containers: [...GATEWAY] }, tcp)
+    expect((await app.request('/api/access/services/alpha/postgres/connection')).status).toBe(404)
+  })
+})
+
 describe('DELETE /api/access/:id', () => {
   it('closes a bridge without touching the service', async () => {
     const { app, docker } = makeApp({ containers: [...GATEWAY, ...PROJECT_A, BRIDGE] }, fast)

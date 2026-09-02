@@ -5,6 +5,7 @@ import { AddressLine } from './copy.tsx'
 import { ContainerActions } from './container-actions.tsx'
 import { ServiceIcon } from './service-icon.tsx'
 import { Badge } from './ui/badge.tsx'
+import { ConnectionPanel } from './connection-panel.tsx'
 import { ScopeBadge, StateBadge } from './status.tsx'
 
 const SCOPE_ORDER: Record<UrlScope, number> = { local: 0, vpn: 1, public: 2 }
@@ -59,12 +60,17 @@ export function ServiceEndpoints({ service }: { service: ContainerSummary }) {
       )
     }
     return (
-      <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
-        <Badge tone="neutral">{service.kind}</Badge>
-        <span>{t('tcpService', { defaultValue: 'TCP service · reachable through the' })}</span>
-        <a className="font-medium text-accent hover:underline" href="#/access">
-          {t('accessPage', { defaultValue: 'Access page' })}
-        </a>
+      <div className="space-y-1">
+        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+          <Badge tone="neutral">{service.kind}</Badge>
+          <span>{t('tcpService', { defaultValue: 'TCP service · reachable through the' })}</span>
+          <a className="font-medium text-accent hover:underline" href="#/access">
+            {t('accessPage', { defaultValue: 'Access page' })}
+          </a>
+        </div>
+        {service.project && service.service ? (
+          <ConnectionPanel project={service.project} service={service.service} />
+        ) : null}
       </div>
     )
   }

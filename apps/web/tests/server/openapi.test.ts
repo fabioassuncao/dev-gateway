@@ -5,6 +5,7 @@ import { makeApp } from './helpers.ts'
 import { FULL_HOST } from './fixtures.ts'
 import {
   AccessView,
+  ServiceConnection,
   ConfigView,
   ContainerSummary,
   DockerHost,
@@ -99,6 +100,12 @@ describe('the OpenAPI contract', () => {
     }
   })
 
+  it('does not put a password example on the connection route', async () => {
+    const { spec } = await contract()
+    const rendered = JSON.stringify(spec.paths['/access/services/{project}/{service}/connection'])
+    expect(rendered).not.toMatch(/"password"\s*:\s*"[^"]+"/)
+  })
+
   it('matches the checked-in snapshot byte for byte', async () => {
     const { spec } = await contract()
     const checkedIn = readFileSync(new URL('../../openapi.json', import.meta.url), 'utf8')
@@ -127,6 +134,7 @@ describe('response contracts against the realistic host fixture', () => {
       ['/api/docker/host', DockerHost],
       ['/api/network', NetworkView],
       ['/api/access', AccessView],
+      ['/api/access/services/alpha/postgres/connection', ServiceConnection],
       ['/api/shares', ShareView],
       ['/api/runner', RunnerStatus],
       ['/api/gateway', GatewayStatus],

@@ -80,8 +80,12 @@
     "standalone": "Standalone"
   },
   "scope": {
+    "internal": "internal",
     "local": "local",
+    "lan": "LAN",
+    "private": "private",
     "vpn": "VPN",
+    "protected": "protected",
     "public": "public"
   },
   "health": {

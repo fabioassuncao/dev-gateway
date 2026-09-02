@@ -3562,6 +3562,133 @@
         ],
         "additionalProperties": false
       },
+      "EndpointScope": {
+        "type": "string",
+        "enum": [
+          "internal",
+          "local",
+          "lan",
+          "private",
+          "protected",
+          "public"
+        ],
+        "description": "Who can reach an endpoint"
+      },
+      "ServiceEndpoint": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/EndpointScope"
+          },
+          "usable": {
+            "type": "boolean"
+          },
+          "shareable": {
+            "type": "boolean"
+          },
+          "problem": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "connectionString": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "url",
+          "scope",
+          "usable",
+          "shareable",
+          "problem",
+          "connectionString"
+        ],
+        "additionalProperties": false
+      },
+      "ServiceConnection": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ServiceKind"
+          },
+          "endpoints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceEndpoint"
+            }
+          },
+          "credentials": {
+            "type": "object",
+            "properties": {
+              "discovered": {
+                "type": "boolean"
+              },
+              "user": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "password": {
+                "description": "Present only on this route; never logged or stored",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "database": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "source": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "discovered",
+              "user",
+              "password",
+              "database",
+              "source",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "project",
+          "service",
+          "kind",
+          "endpoints",
+          "credentials"
+        ],
+        "additionalProperties": false
+      },
       "OpenBridgeResponse": {
         "type": "object",
         "properties": {
@@ -8622,6 +8749,87 @@
             }
           }
         }
+      }
+    },
+    "/access/services/{project}/{service}/connection": {
+      "get": {
+        "operationId": "getServiceConnection",
+        "tags": [
+          "Access"
+        ],
+        "summary": "Get every address a datastore has, and a connection string with credentials when they can be discovered",
+        "description": "The only route that returns a discovered password. The value is read from the container environment for this request, is not cached, and must not appear in an example, a log or a database row.",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "COMPOSE_PROJECT_NAME of a running project.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "service",
+            "in": "path",
+            "required": true,
+            "description": "Compose service name.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceConnection"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ]
       }
     },
     "/access/{id}": {

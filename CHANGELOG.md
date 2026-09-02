@@ -11,6 +11,14 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Added
 
+- **Every address a datastore has, and a connection string that works.**
+  TCP services share the endpoint model HTTP already used, so a routed
+  Postgres shows one address per network that can carry it, in the hostname
+  style Traefik actually routes. Connect reads conventional environment
+  variables on demand — never during a snapshot — and masks the password
+  until asked. A kind whose routing is unsupported still shows only the
+  internal endpoint.
+
 - **The panel may operate a project, without owning it.** ADR 0030 amends
   ADR 0001: Portta still does not own a project's containers, volumes or
   release cycle, but it may start, stop and restart what it can see, and it

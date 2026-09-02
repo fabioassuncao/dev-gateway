@@ -20,6 +20,11 @@ redis-cli -h 127.0.0.1 -p 33078
 
 Or with RedisInsight / TablePlus: host `127.0.0.1`, the printed port.
 
+The panel's Access page offers the same addresses and, when `REDIS_PASSWORD`
+is in the container environment, a complete string. A routed Redis still
+needs `redis-cli --tls --sni`, because redis-cli does not derive SNI from
+`-h`.
+
 ## From the terminal, or from an agent
 
 ```bash

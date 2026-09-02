@@ -35,6 +35,7 @@ export interface FakeContainer {
   // Without these two a fixture cannot say "exited with 2 at 10:05".
   exitCode?: number
   finishedAt?: string
+  env?: string[]
 }
 
 export function container(spec: FakeContainer): {
@@ -90,6 +91,7 @@ export function container(spec: FakeContainer): {
         ]),
       ),
       Tty: false,
+      Env: spec.env ?? [],
     },
     NetworkSettings: { Ports: ports, Networks: networks },
     Mounts: spec.mounts ?? [],

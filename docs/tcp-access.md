@@ -11,7 +11,9 @@ Databases are not. This page explains why, and what the gateway does instead.
 > Postgres is reachable at `<project>-postgres.<domain>:5432` without a bridge
 > at all. It works for PostgreSQL and Redis, not for MySQL, and it requires
 > TLS. See [tcp-routing.md](tcp-routing.md). Everything below still works, and
-> is still the answer for protocols that cannot do it.
+> is still the answer for protocols that cannot do it. The panel lists every
+> address a datastore has on this host, and fills a connection string from
+> the container environment when it can do so honestly.
 
 ## Why hostnames do not work for PostgreSQL
 

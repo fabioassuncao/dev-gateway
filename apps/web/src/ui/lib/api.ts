@@ -1,5 +1,6 @@
 import type {
   AccessView,
+  ServiceConnection,
   ConfigPatchResult,
   ConfigView,
   ContainerSummary,
@@ -224,6 +225,10 @@ export const api = {
   openBridge: (body: { project: string; service: string; port?: number; ttlSeconds?: number }) =>
     request<{ ok: boolean }>('/access', { method: 'POST', body: JSON.stringify(body) }),
   closeBridge: (id: string) => request<{ ok: boolean }>(`/access/${id}`, { method: 'DELETE' }),
+  serviceConnection: (project: string, service: string) =>
+    request<ServiceConnection>(
+      `/access/services/${encodeURIComponent(project)}/${encodeURIComponent(service)}/connection`,
+    ),
 
   shares: () => request<ShareView>('/shares'),
   createShare: (id: string, body: { mode: 'public' | 'protected'; ttlSeconds?: number }) =>

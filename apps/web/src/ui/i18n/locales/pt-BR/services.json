@@ -18,5 +18,8 @@
   "filters": {
     "http": "HTTP",
     "tcp": "TCP"
+  },
+  "connection": {
+    "show": "Conectar"
   }
 }

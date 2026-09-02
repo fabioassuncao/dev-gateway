@@ -11,17 +11,29 @@ import type { PanelConfig } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import { LABELS } from './labels.ts'
 import {
+  capabilitiesFrom,
   connectionString,
+  credentialsFromEnv,
   defaultPortForImage,
+  emptyFacts,
+  endpointsFor,
   gatewayConnectionString,
+  isAutoDomainProvider,
+  parseContainerEnv,
   serviceKind,
   slug,
   tcpRouting,
+  type AutoDomainProvider,
+  type DetectedFacts,
+  type Endpoint,
+  type ExposureProvider,
 } from 'portta-core'
 import type {
   Bridge,
   ContainerSummary,
   Forwarder,
+  ServiceConnection,
+  ServiceEndpoint,
   ServiceKind,
   TcpService,
 } from '../../shared/types.ts'
@@ -97,13 +109,75 @@ export function privateNetworks(container: ContainerSummary, config: PanelConfig
   return container.networks.filter((name) => !ours.has(name))
 }
 
+export function factsFromConfig(config: PanelConfig): DetectedFacts {
+  const tailscale = emptyFacts().tailscale
+  return {
+    ...emptyFacts(),
+    publicIpv4: config.publicIp,
+    customDomain: config.domainMode === 'custom' ? config.domain : null,
+    resolvedDomain: config.domain,
+    tlsEnabled: config.tlsEnabled,
+    bindAddress: config.bindAddress,
+    tailscale: {
+      ...tailscale,
+      installed: config.tailscaleEnabled,
+      connected: config.tailscaleEnabled,
+      magicDns: config.tailscaleEnabled ? config.tailscaleHostname : null,
+    },
+  }
+}
+
+export function exposuresFromConfig(config: PanelConfig): ExposureProvider[] {
+  const exposures: ExposureProvider[] = []
+  if (config.domainMode === 'auto') exposures.push('auto-domain')
+  if (config.domainMode === 'custom') exposures.push('custom-domain')
+  if (config.tailscaleEnabled) exposures.push('tailscale')
+  if (config.publicEnabled) exposures.push('public-ip')
+  if (config.privateDomain) exposures.push('lan')
+  return exposures
+}
+
+export function hostOfAddress(address: string): string {
+  const cut = address.lastIndexOf(':')
+  return cut > 0 ? address.slice(0, cut) : address
+}
+
+export function datastoreEndpoints(
+  container: ContainerSummary,
+  kind: ServiceKind,
+  config: PanelConfig,
+  bridge: Bridge | null = null,
+): Endpoint[] {
+  const facts = factsFromConfig(config)
+  const port = defaultPortForImage(container.image) ?? container.exposedPorts[0] ?? 0
+  return endpointsFor(
+    {
+      project: container.project ?? '',
+      service: container.service ?? '',
+      container: container.name,
+      port,
+      kind,
+    },
+    {
+      facts,
+      capabilities: capabilitiesFrom(facts),
+      exposures: exposuresFromConfig(config),
+      style: config.hostnameStyle,
+      autoDomainProvider: isAutoDomainProvider(config.autoDomainProvider)
+        ? (config.autoDomainProvider as AutoDomainProvider)
+        : 'sslip.io',
+      tcpRouted: config.tcpEnabled && isTcpRouted(container),
+      tcpPort: config.tcpPorts[kind],
+      bridge: bridge?.localPort ? { host: bridge.bindIp, port: bridge.localPort } : undefined,
+    },
+  )
+}
+
 /**
  * The address a client uses when a datastore is routed by hostname, or null.
  *
- * Three things have to line up: the gateway is publishing the entrypoint, the
- * protocol is one that can be told apart by SNI, and the container carries the
- * router labels that opt it in. Being visible to the panel is not being
- * routed.
+ * Derived from the shared endpoint model so the panel and Traefik cannot
+ * disagree about the hostname style.
  */
 export function gatewayAddressFor(
   container: ContainerSummary,
@@ -115,10 +189,64 @@ export function gatewayAddressFor(
   if (!port) return null
   if (!isTcpRouted(container)) return null
 
-  const host = `${slug(container.project ?? '')}-${slug(container.service ?? '')}.${config.domain}`
+  const routed = datastoreEndpoints(container, kind, config).find((entry) => entry.provider === 'local')
+  if (!routed) return null
   return {
-    address: `${host}:${port}`,
-    connectionString: gatewayConnectionString(kind, host, port),
+    address: routed.url,
+    connectionString: gatewayConnectionString(kind, hostOfAddress(routed.url), port),
+  }
+}
+
+function connectionStringFor(
+  kind: ServiceKind,
+  entry: Endpoint,
+  credentials?: { user?: string | null; password?: string | null; database?: string | null },
+): string {
+  const host = hostOfAddress(entry.url)
+  const port = Number(entry.url.slice(host.length + 1))
+  const routed = entry.provider !== 'internal' && entry.provider !== 'bridge'
+  if (routed) return gatewayConnectionString(kind, host, port, credentials)
+  return connectionString(kind, host, port, credentials)
+}
+
+export function decorateEndpoints(
+  kind: ServiceKind,
+  entries: Endpoint[],
+  credentials?: { user?: string | null; password?: string | null; database?: string | null },
+): ServiceEndpoint[] {
+  return entries.map((entry) => ({
+    provider: entry.provider,
+    url: entry.url,
+    scope: entry.scope,
+    usable: entry.usable,
+    shareable: entry.shareable,
+    problem: entry.problem,
+    connectionString: connectionStringFor(kind, entry, credentials),
+  }))
+}
+
+export function serviceConnection(
+  container: ContainerSummary,
+  env: string[] | null | undefined,
+  config: PanelConfig,
+  bridge: Bridge | null,
+): ServiceConnection {
+  const kind = serviceKind(container.image)
+  const discovered = credentialsFromEnv(kind, parseContainerEnv(env))
+  const credentials = discovered.credentials
+  return {
+    project: container.project ?? '',
+    service: container.service ?? '',
+    kind,
+    endpoints: decorateEndpoints(kind, datastoreEndpoints(container, kind, config, bridge), credentials ?? undefined),
+    credentials: {
+      discovered: credentials !== null,
+      user: credentials?.user ?? null,
+      password: credentials?.password ?? null,
+      database: credentials?.database ?? null,
+      source: credentials?.source ?? null,
+      reason: discovered.reason,
+    },
   }
 }
 

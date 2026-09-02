@@ -10,6 +10,7 @@ import { Button } from '../components/ui/button.tsx'
 import { Table, Td, Th, Tr } from '../components/ui/table.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
 import { CopyButton } from '../components/copy.tsx'
+import { ConnectionPanel } from '../components/connection-panel.tsx'
 import { StateBadge } from '../components/status.tsx'
 import { useFormat } from '../lib/use-format.ts'
 import { ServiceIcon } from '../components/service-icon.tsx'
@@ -219,6 +220,7 @@ export function Access() {
                   </Td>
                   <Td>
                     <GatewayAddress service={service} enabled={query.data.tcpRoutingEnabled} />
+                    <ConnectionPanel project={service.project} service={service.service} />
                   </Td>
                   <Td className="text-right">
                     {service.bridge ? (

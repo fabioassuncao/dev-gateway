@@ -37,6 +37,13 @@ export const UrlScope = named(
 )
 export type UrlScope = z.infer<typeof UrlScope>
 
+export const EndpointScope = named(
+  z.enum(['internal', 'local', 'lan', 'private', 'protected', 'public'])
+    .describe('Who can reach an endpoint'),
+  'EndpointScope',
+)
+export type EndpointScope = z.infer<typeof EndpointScope>
+
 export const TcpRouting = named(
   z.enum(['starttls-sni', 'tls-sni', 'unsupported', 'unevaluated'])
     .describe('Whether a TCP protocol can be told apart by hostname on a shared port'),
@@ -841,6 +848,39 @@ export const TcpService = named(
   }).strict(),
   'TcpService',
 )
+
+export const ServiceEndpoint = named(
+  z.object({
+    provider: z.string(),
+    url: z.string(),
+    scope: EndpointScope,
+    usable: z.boolean(),
+    shareable: z.boolean(),
+    problem: z.string().nullable(),
+    connectionString: z.string(),
+  }).strict(),
+  'ServiceEndpoint',
+)
+export type ServiceEndpoint = z.infer<typeof ServiceEndpoint>
+
+export const ServiceConnection = named(
+  z.object({
+    project: z.string(),
+    service: z.string(),
+    kind: ServiceKind,
+    endpoints: z.array(ServiceEndpoint),
+    credentials: z.object({
+      discovered: z.boolean(),
+      user: z.string().nullable(),
+      password: z.string().nullable().describe('Present only on this route; never logged or stored'),
+      database: z.string().nullable(),
+      source: z.string().nullable(),
+      reason: z.string().nullable(),
+    }).strict(),
+  }).strict(),
+  'ServiceConnection',
+)
+export type ServiceConnection = z.infer<typeof ServiceConnection>
 export type TcpService = z.infer<typeof TcpService>
 
 export const AccessView = named(

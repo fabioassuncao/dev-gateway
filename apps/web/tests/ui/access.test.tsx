@@ -14,6 +14,13 @@ vi.mock('../../src/ui/lib/api.ts', () => ({
     access: () => access(),
     openBridge: (...args: unknown[]) => openBridge(...args),
     closeBridge: (...args: unknown[]) => closeBridge(...args),
+    serviceConnection: () => Promise.resolve({
+      project: 'alpha',
+      service: 'postgres',
+      kind: 'postgres',
+      endpoints: [],
+      credentials: { discovered: false, user: null, password: null, database: null, source: null, reason: 'not requested' },
+    }),
   },
 }))
 
