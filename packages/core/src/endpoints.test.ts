@@ -32,7 +32,7 @@ describe('the internal endpoint', () => {
     expect(list[0]).toMatchObject({ provider: 'internal', url: 'storefront-web-1:3000', scope: 'internal', usable: true })
   })
 
-  it('is the only endpoint a datastore gets, whatever is turned on', () => {
+  it('is the only endpoint an unroutable datastore gets, whatever is turned on', () => {
     const list = endpoints(DB, vpsOnTailnet(), ['auto-domain', 'tailscale', 'public-ip'])
     expect(list).toHaveLength(1)
     expect(list[0]?.provider).toBe('internal')
@@ -166,5 +166,88 @@ describe('several endpoints at once', () => {
   it('falls back to the internal endpoint when nothing else works', () => {
     const list = endpoints(WEB, vpsOnTailnet(), ['auto-domain'])
     expect(primaryEndpoint(list)?.scope).toBe('internal')
+  })
+})
+
+describe('a hostname-routable datastore', () => {
+  const POSTGRES: ServiceRef = {
+    project: 'storefront',
+    service: 'postgres',
+    container: 'storefront-postgres-1',
+    port: 5432,
+    kind: 'postgres',
+  }
+
+  function tcp(facts: DetectedFacts, exposures: Parameters<typeof endpointsFor>[1]['exposures'], extra: Partial<Parameters<typeof endpointsFor>[1]> = {}) {
+    return endpointsFor(POSTGRES, {
+      facts,
+      capabilities: capabilitiesFrom(facts),
+      exposures,
+      tcpRouted: true,
+      tcpPort: 5432,
+      ...extra,
+    })
+  }
+
+  it('emits one host:port per provider that can carry it', () => {
+    const facts = vpsOnTailnet({
+      bindAddress: '0.0.0.0',
+      privateIpv4: ['192.168.1.10'],
+      customDomain: 'dev.example.com',
+    })
+    const list = tcp(facts, ['lan', 'tailscale', 'custom-domain'])
+    expect(list.map((entry) => entry.provider)).toEqual([
+      'internal',
+      'local',
+      'lan',
+      'tailscale',
+      'custom-domain',
+    ])
+    expect(list.find((entry) => entry.provider === 'custom-domain')?.url).toBe(
+      'storefront-postgres.dev.example.com:5432',
+    )
+    expect(list.find((entry) => entry.provider === 'lan')?.url).toBe(
+      'storefront-postgres.192-168-1-10.sslip.io:5432',
+    )
+  })
+
+  it('uses the configured hostname style, so Traefik and the panel agree', () => {
+    const facts = { ...emptyFacts(), resolvedDomain: 'dev.example.com', bindAddress: '0.0.0.0', customDomain: 'dev.example.com' }
+    const list = tcp(facts, ['custom-domain'], { style: 'service--project' })
+    expect(list.find((entry) => entry.provider === 'custom-domain')?.url).toBe(
+      'postgres--storefront.dev.example.com:5432',
+    )
+  })
+
+  it('emits nothing routed when the container has not opted in', () => {
+    const list = endpointsFor(POSTGRES, {
+      facts: vpsOnTailnet({ bindAddress: '0.0.0.0' }),
+      capabilities: capabilitiesFrom(vpsOnTailnet()),
+      exposures: ['auto-domain', 'tailscale'],
+      tcpRouted: false,
+      tcpPort: 5432,
+    })
+    expect(list.map((entry) => entry.provider)).toEqual(['internal'])
+  })
+
+  it('keeps a live loopback bridge as a local endpoint beside the routed ones', () => {
+    const list = tcp(vpsOnTailnet({ bindAddress: '0.0.0.0' }), [], {
+      bridge: { host: '127.0.0.1', port: 55431 },
+    })
+    const bridge = list.find((entry) => entry.provider === 'bridge')
+    expect(bridge).toMatchObject({ url: '127.0.0.1:55431', scope: 'local', usable: true, shareable: false })
+  })
+
+  it('still gives MySQL exactly one internal endpoint', () => {
+    const mysql: ServiceRef = { ...POSTGRES, service: 'mysql', container: 'storefront-mysql-1', port: 3306, kind: 'mysql' }
+    const list = endpointsFor(mysql, {
+      facts: vpsOnTailnet({ bindAddress: '0.0.0.0' }),
+      capabilities: capabilitiesFrom(vpsOnTailnet()),
+      exposures: ['auto-domain', 'tailscale', 'custom-domain'],
+      tcpRouted: true,
+      tcpPort: 3306,
+    })
+    expect(list).toHaveLength(1)
+    expect(list[0]?.provider).toBe('internal')
   })
 })

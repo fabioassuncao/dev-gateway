@@ -28,7 +28,7 @@ context, the decision, and what it costs us.
 | [0021](0021-panel-access-modes.md) | Panel access is its own decision, and a public panel gets its own entrypoint | Accepted, amended by 0027 |
 | [0022](0022-project-domain-modes.md) | The base domain is a mode, and a host with no domain gets one from its address | Accepted |
 | [0023](0023-flat-hostname-labels.md) | A service's whole name lives in one DNS label | Accepted, amends 0005 |
-| [0024](0024-capabilities-providers-endpoints.md) | A service has endpoints, not an access mode | Accepted |
+| [0024](0024-capabilities-providers-endpoints.md) | A service has endpoints, not an access mode | Accepted, amended 2026-09-02 |
 | [0025](0025-cloudflare-tunnel.md) | One tunnel, one wildcard rule, and Traefik keeps routing | Accepted |
 | [0026](0026-applying-settings-from-the-panel.md) | Applying settings from the panel is one opt-in container, outside the Compose project | Accepted, amends 0011 |
 | [0027](0027-forward-authentication-service.md) | Protected HTTP access is checked by a separate ForwardAuth service | Accepted, supersedes 0012 and amends 0011/0021 |

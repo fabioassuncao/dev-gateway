@@ -1,4 +1,5 @@
 import { type Capability, type CapabilityId, type DetectedFacts, capabilityById, isLoopback, isUsable } from './capabilities.ts'
+import { type ServiceKind, isHostnameRoutable } from './discovery.ts'
 import { type AutoDomainProvider, autoDomainFor, ipFromAutoDomain } from './domain.ts'
 import { type HostnameStyle, hostLabel } from './hostname.ts'
 
@@ -29,6 +30,7 @@ export const EXPOSURE_PROVIDERS = [
   'auto-domain',
   'custom-domain',
   'cloudflare-tunnel',
+  'bridge',
 ] as const
 export type ExposureProvider = (typeof EXPOSURE_PROVIDERS)[number]
 
@@ -72,6 +74,7 @@ export const PROVIDERS: ProviderSpec[] = [
   { id: 'auto-domain', scope: 'public', requires: 'auto-domain', optional: true },
   { id: 'custom-domain', scope: 'public', requires: 'custom-domain', optional: true },
   { id: 'cloudflare-tunnel', scope: 'public', requires: 'cloudflare-tunnel', optional: true },
+  { id: 'bridge', scope: 'local', requires: null, optional: true },
 ]
 
 export const PROVIDERS_BY_ID = new Map(PROVIDERS.map((spec) => [spec.id, spec]))
@@ -84,8 +87,8 @@ export interface ServiceRef {
   context?: string | null
   /** The port the container listens on. */
   port: number
-  /** HTTP services get hostnames; a datastore never does. */
-  kind: 'http' | 'tcp'
+  /** HTTP services get hostnames; a datastore gets them only when the protocol is routable. */
+  kind: ServiceKind
 }
 
 export interface Endpoint {
@@ -114,7 +117,25 @@ export interface EndpointOptions {
   scheme?: 'http' | 'https'
   /** Which wildcard DNS service derives a name from a bare address. */
   autoDomainProvider?: AutoDomainProvider
+  /**
+   * The published TCP entrypoint port. Required for a routable datastore to
+   * emit hostname endpoints; ignored for HTTP.
+   */
+  tcpPort?: number
+  /** Whether the container opted into a TCP router. A capability is not a route. */
+  tcpRouted?: boolean
+  /** A live loopback bridge, when one is open. Scope is always `local`. */
+  bridge?: { host: string; port: number }
 }
+
+/** Providers that can carry a hostname-routed datastore. A bare IP cannot. */
+export const TCP_HOSTNAME_PROVIDERS: readonly ExposureProvider[] = [
+  'local',
+  'lan',
+  'tailscale',
+  'auto-domain',
+  'custom-domain',
+]
 
 /**
  * Whether a base domain resolves to somewhere this Traefik is listening.
@@ -153,6 +174,56 @@ function endpoint(
   }
 }
 
+function pushTcpEndpoints(
+  list: Endpoint[],
+  service: ServiceRef,
+  options: EndpointOptions,
+  label: string,
+): void {
+  const { facts, capabilities, exposures } = options
+  const port = options.tcpPort
+  if (!port) return
+  const provider = options.autoDomainProvider ?? 'sslip.io'
+  const enabled = new Set(exposures)
+  const has = (id: CapabilityId) => isUsable(capabilityById(capabilities, id))
+  const tcp = (chosen: ExposureProvider, host: string, scope: EndpointScope, usable: boolean, problem: string | null) => {
+    list.push(endpoint(chosen, `${host}:${port}`, scope, usable, problem))
+  }
+
+  const localReaches = domainReachesBind(facts.resolvedDomain, facts)
+  tcp('local', `${label}.${facts.resolvedDomain}`, 'local', localReaches,
+    localReaches ? null : `${facts.resolvedDomain} does not resolve to an address Traefik listens on (${facts.bindAddress})`)
+
+  if (enabled.has('lan') && has('lan')) {
+    const address = facts.privateIpv4[0] ?? ''
+    const base = autoDomainFor(address, provider) ?? address
+    const usable = domainReachesBind(base, facts)
+    tcp('lan', `${label}.${base}`, 'lan', usable,
+      usable ? null : `Traefik listens on ${facts.bindAddress} only, so nothing answers on ${address}`)
+  }
+
+  if (enabled.has('tailscale') && has('tailscale')) {
+    const address = facts.tailscale.ipv4 ?? ''
+    const base = autoDomainFor(address, provider) ?? address
+    const usable = domainReachesBind(base, facts)
+    tcp('tailscale', `${label}.${base}`, 'private', usable,
+      usable ? null : `Traefik listens on ${facts.bindAddress} only. Set the bind address to ${address} to serve the tailnet.`)
+  }
+
+  if (enabled.has('auto-domain') && has('auto-domain')) {
+    const base = autoDomainFor(facts.publicIpv4 ?? '', provider) ?? ''
+    const usable = domainReachesBind(base, facts)
+    tcp('auto-domain', `${label}.${base}`, 'public', usable,
+      usable ? null : `${label}.${base} resolves here, but Traefik listens on ${facts.bindAddress} only`)
+  }
+
+  if (enabled.has('custom-domain') && has('custom-domain')) {
+    const usable = facts.bindAddress === '0.0.0.0' || facts.bindAddress === '::'
+    tcp('custom-domain', `${label}.${facts.customDomain}`, 'public', usable,
+      usable ? null : `${label}.${facts.customDomain} resolves here, but Traefik listens on ${facts.bindAddress} only`)
+  }
+}
+
 /**
  * Every endpoint a service has, given the host's capabilities and the
  * operator's choices.
@@ -170,12 +241,23 @@ export function endpointsFor(service: ServiceRef, options: EndpointOptions): End
   )
   const list: Endpoint[] = []
 
-  // Always true, and the only address a datastore should ever be given.
+  // Always true, and the only address a datastore should ever be given
+  // unless the protocol can be told apart by hostname.
   list.push(endpoint('internal', `${service.container}:${service.port}`, 'internal', true))
 
-  // A datastore is reached over the access network or an SSH bridge, never on
-  // an HTTP hostname. Refusing here is why `portta share` refuses too.
-  if (service.kind !== 'http') return list
+  if (options.bridge) {
+    list.push(endpoint('bridge', `${options.bridge.host}:${options.bridge.port}`, 'local', true))
+  }
+
+  // A kind whose routing is unsupported or unevaluated still gets exactly
+  // the internal endpoint (and a bridge, when one is open). Giving MySQL
+  // an HTTP hostname would be offering something that cannot work.
+  if (service.kind !== 'http') {
+    if (isHostnameRoutable(service.kind) && options.tcpRouted === true && options.tcpPort) {
+      pushTcpEndpoints(list, service, options, label)
+    }
+    return list.sort((a, b) => SCOPE_ORDER[a.scope] - SCOPE_ORDER[b.scope])
+  }
 
   const provider = options.autoDomainProvider ?? 'sslip.io'
   const loopbackOnly = isLoopback(facts.bindAddress)

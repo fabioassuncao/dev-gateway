@@ -136,32 +136,71 @@ export function tcpHostname(project: string, service: string, domain: string): s
  * string; redis-cli needs an explicit flag, because it does not derive SNI
  * from `-h`.
  */
-export function gatewayConnectionString(kind: ServiceKind, host: string, port: number): string {
+export function gatewayConnectionString(
+  kind: ServiceKind,
+  host: string,
+  port: number,
+  credentials?: ConnectionCredentials,
+): string {
   switch (kind) {
     case 'postgres':
-      return `postgresql://<user>@${host}:${port}/<database>?sslmode=require`
-    case 'redis':
-      return `redis-cli -h 127.0.0.1 -p ${port} --tls --sni ${host}`
+      return `${connectionString(kind, host, port, credentials)}?sslmode=require`
+    case 'redis': {
+      const password = credentials?.password
+      return password
+        ? `redis-cli -h 127.0.0.1 -p ${port} --tls --sni ${host} -a ${password}`
+        : `redis-cli -h 127.0.0.1 -p ${port} --tls --sni ${host}`
+    }
     default:
       return `${host}:${port}`
   }
 }
 
-/** A connection string template. Credentials come from the project, never from here. */
-export function connectionString(kind: ServiceKind, host: string, port: number): string {
+export interface ConnectionCredentials {
+  user?: string | null
+  password?: string | null
+  database?: string | null
+}
+
+function authPrefix(credentials?: ConnectionCredentials): string {
+  if (!credentials) return ''
+  const user = credentials.user ?? ''
+  const password = credentials.password
+  if (user && password) return `${encodeURIComponent(user)}:${encodeURIComponent(password)}@`
+  if (user) return `${encodeURIComponent(user)}@`
+  if (password) return `:${encodeURIComponent(password)}@`
+  return ''
+}
+
+function databasePath(credentials: ConnectionCredentials | undefined, fallback: string): string {
+  if (!credentials) return fallback
+  return credentials.database ? encodeURIComponent(credentials.database) : fallback
+}
+
+/**
+ * A connection string. Without credentials it stays a template — existing
+ * callers are unaffected. With them it is complete enough to paste.
+ */
+export function connectionString(
+  kind: ServiceKind,
+  host: string,
+  port: number,
+  credentials?: ConnectionCredentials,
+): string {
+  const auth = authPrefix(credentials)
   switch (kind) {
     case 'postgres':
-      return `postgresql://<user>@${host}:${port}/<database>`
+      return `postgresql://${auth || '<user>@'}${host}:${port}/${databasePath(credentials, '<database>')}`
     case 'mysql':
-      return `mysql://<user>@${host}:${port}/<database>`
+      return `mysql://${auth || '<user>@'}${host}:${port}/${databasePath(credentials, '<database>')}`
     case 'redis':
-      return `redis://${host}:${port}`
+      return auth ? `redis://${auth}${host}:${port}` : `redis://${host}:${port}`
     case 'mongodb':
-      return `mongodb://<user>@${host}:${port}/<database>`
+      return `mongodb://${auth || '<user>@'}${host}:${port}/${databasePath(credentials, '<database>')}`
     case 'clickhouse':
-      return `clickhouse://<user>@${host}:${port}/<database>`
+      return `clickhouse://${auth || '<user>@'}${host}:${port}/${databasePath(credentials, '<database>')}`
     case 'amqp':
-      return `amqp://<user>@${host}:${port}/`
+      return `amqp://${auth || '<user>@'}${host}:${port}/`
     default:
       return `${host}:${port}`
   }

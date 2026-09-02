@@ -132,6 +132,15 @@ describe('connection strings', () => {
     expect(connectionString('tcp', '127.0.0.1', 9999)).toBe('127.0.0.1:9999')
   })
 
+  it('fills in discovered credentials without changing the template callers', () => {
+    expect(connectionString('postgres', 'db.localhost', 5432, {
+      user: 'shop', password: 'p@ss', database: 'store',
+    })).toBe('postgresql://shop:p%40ss@db.localhost:5432/store')
+    expect(connectionString('redis', 'cache.localhost', 6379, { password: 'r' })).toBe(
+      'redis://:r@cache.localhost:6379',
+    )
+  })
+
   // redis-cli does not derive SNI from -h, so the flag is the whole point.
   it('tells a gateway client which instance it wants', () => {
     expect(gatewayConnectionString('postgres', 'a-db.example.com', 5432)).toContain('sslmode=require')

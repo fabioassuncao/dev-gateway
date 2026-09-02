@@ -116,6 +116,16 @@ network or an SSH bridge; giving them an HTTP hostname would be offering
 something that cannot work. This matches the refusal `portta share` already
 makes.
 
+**Amended 2026-09-02.** A datastore whose protocol can be told apart by
+hostname (`isHostnameRoutable` / `tcpEntrypoint`) gets one endpoint per
+provider that can carry it — `local`, `lan`, `tailscale`, `auto-domain`,
+`custom-domain` — as `host:port`, never as an HTTP URL. A kind whose
+`TcpRouting` is `unsupported` or `unevaluated` still gets exactly the
+internal endpoint. A live loopback bridge is a `bridge` endpoint with
+scope `local`. The rule this section was protecting stays: a datastore is
+never given an HTTP hostname, and discovering an address never creates a
+route.
+
 ## Consequences
 
 **`portta share` becomes a special case of this, not a parallel system.** A
