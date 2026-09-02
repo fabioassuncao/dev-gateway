@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "portta": "./dist/cli.js"
+    "portta": "dist/cli.js"
   },
   "files": [
     "dist"
