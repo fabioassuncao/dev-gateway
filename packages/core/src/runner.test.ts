@@ -34,6 +34,12 @@ describe('parseRunnerRequest', () => {
     expect(() => parseRunnerRequest({ verb: 'up', project: 'alpha', flags: ['no-cache'] })).toThrow('no-cache')
     expect(() => parseRunnerRequest({ verb: 'build', project: 'alpha', flags: ['privileged'] })).toThrow('unknown runner flag')
   })
+
+  it('accepts directory only on down-volumes', () => {
+    expect(parseRunnerRequest({ verb: 'down-volumes', project: 'alpha', flags: ['directory'] }).flags).toEqual(['directory'])
+    expect(() => parseRunnerRequest({ verb: 'down', project: 'alpha', flags: ['directory'] })).toThrow('directory')
+    expect(() => parseRunnerRequest({ verb: 'build', project: 'alpha', flags: ['directory'] })).toThrow('directory')
+  })
 })
 
 describe('projectOperable', () => {

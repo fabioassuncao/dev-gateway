@@ -56,12 +56,20 @@ The panel's Docker permission stays `POST /containers/{id}/start` and read.
 `docker/compose/features/web.yaml` and the in-process allowlist are not
 widened. Adding a verb to the set is an ADR-level change, not a patch.
 
-The request the runner reads is `{ verb, project }` in
-`state/runner/request.json`. The working directory and Compose files come from
-Docker's own labels (`com.docker.compose.project.working_dir`,
-`.config_files`), never from a path the panel supplied. The runner translates
-those host paths through `/host` so it can read the files; `--project-directory`
-stays the host path, because Compose hands bind mounts to the daemon.
+The request the runner reads is `{ verb, project, flags? }` in
+`state/runner/request.json`. Flags are a closed set too: `no-cache` is valid
+only with `build`; `directory` is valid only with `down-volumes`. Adding a
+flag is the same class of change as adding a verb. The working directory and
+Compose files come from Docker's own labels
+(`com.docker.compose.project.working_dir`, `.config_files`), never from a
+path the panel supplied. The runner translates those host paths through
+`/host` so it can read the files; `--project-directory` stays the host path,
+because Compose hands bind mounts to the daemon.
+
+Directory removal is the runner's job, not the panel's. The path is the
+label, validated as an existing directory that is not `/`, not a top-level
+directory, and does not walk up. A dirty working tree is refused unless the
+operator overrides after seeing the counts.
 
 ### Where a project lives
 

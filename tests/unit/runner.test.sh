@@ -78,7 +78,12 @@ describe "the exec script accepts only the closed verb set"
 
 it "names every verb and no others"
 assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" 'up|stop|restart|build|down|down-volumes'
-assert_eq "" "$(grep -nE 'eval |\$\(' "$PORTTA_ROOT/scripts/lib/runner-exec.sh" | grep -vE 'sed -n|head -n|grep -q|printf|docker ' || true)"
+assert_eq "" "$(grep -nE 'eval |\$\(' "$PORTTA_ROOT/scripts/lib/runner-exec.sh" | grep -vE 'sed -n|head -n|grep -q|printf|docker |realpath ' || true)"
+
+it "removes the working directory only after the same path bound as the core"
+assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" 'remove_working_dir'
+assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" 'refusing working directory that walks up'
+assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" 'directory=$(grep -q '"'"'"directory"'"'"''
 
 describe "the shell and the TypeScript CLI create the same container"
 

@@ -17,6 +17,7 @@ die() { printf 'error: %s\n' "$1" >&2; exit 1; }
 verb=$(sed -n 's/.*"verb"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$REQUEST" | head -n1)
 project=$(sed -n 's/.*"project"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$REQUEST" | head -n1)
 nocache=$(grep -q '"no-cache"' "$REQUEST" && printf '1' || printf '0')
+directory=$(grep -q '"directory"' "$REQUEST" && printf '1' || printf '0')
 
 case "$verb" in
   up|stop|restart|build|down|down-volumes) ;;
@@ -64,6 +65,30 @@ compose() {
   docker compose --project-name "$project" --project-directory "$working_dir" "${files[@]}" "$@"
 }
 
+# The working directory is Docker's label. Removal is the same bound as
+# packages/core/src/paths.ts: absolute, no walk-up, not `/`, not a top-level
+# directory. `realpath` is the last check so a symlink cannot leave /host.
+remove_working_dir() {
+  local dir="$1"
+  [[ "$dir" == /* ]] || die "working directory is not absolute"
+  [[ "$dir" != *..* ]] || die "refusing working directory that walks up"
+  [[ "$dir" != "/" ]] || die "refusing to remove /"
+  case "${dir#/}" in
+    */*) ;;
+    *) die "refusing to remove a top-level directory" ;;
+  esac
+  local target="${HOST_ROOT}${dir}"
+  [ -d "$target" ] || die "working directory ${dir} does not exist on this host"
+  local real
+  real=$(realpath "$target")
+  case "$real" in
+    /host/*) ;;
+    *) die "resolved path is outside /host" ;;
+  esac
+  [ "$real" != "/host" ] && [ "$real" != "/" ] || die "refusing to remove the host root"
+  rm -rf -- "$real"
+}
+
 case "$verb" in
   up) compose up -d --remove-orphans ;;
   stop) compose stop ;;
@@ -77,5 +102,10 @@ case "$verb" in
     compose up -d --remove-orphans
     ;;
   down) compose down ;;
-  down-volumes) compose down --volumes ;;
+  down-volumes)
+    compose down --volumes
+    if [ "$directory" = "1" ]; then
+      remove_working_dir "$working_dir"
+    fi
+    ;;
 esac
