@@ -127,8 +127,11 @@ assert_contains "$SOURCE" 'vpn — routed by Traefik; kept as configured'
 it "and an access mode it cannot understand stops the run"
 assert_contains "$SOURCE" 'unknown panel access mode in $ENV_FILE'
 
+# This assertion used to pin the exact one-liner, which is how it survived a new
+# mode being added without being listed: the test passed because nothing had
+# changed, which was the defect. It asserts the membership now.
 it "every mode that leaves this host requires a credential"
-assert_contains "$SOURCE" 'needs_auth() { [ "$PANEL_ACCESS" = "public" ] || [ "$PANEL_ACCESS" = "vpn" ]; }'
+assert_contains "$SOURCE" "public|vpn|domain) return 0 ;;"
 
 it "an existing panel access mode is kept when no flag overrides it"
 assert_contains "$SOURCE" 'PANEL_ACCESS=$(env_get "$ENV_FILE" PORTTA_WEB_EXPOSE)'
@@ -408,5 +411,16 @@ assert_eq "" "$(printf '%s' "$SOURCE" | grep -E '^probe\(\) \{' || true)"
 # would check a door that does not exist.
 it "reaches a routed panel by name, through the gateway entrypoint"
 assert_contains "$SOURCE" '--resolve "${ADVERTISED}:443:127.0.0.1"'
+
+describe "every mode that publishes the panel gets a credential"
+
+# `domain` was missing from needs_auth when the mode was added, so a fresh
+# install with it generated no password at all -- and the CLI refuses `domain`
+# without one, leaving a host that installed cleanly and could not start its
+# own panel. The credential step has to cover every mode that puts the panel
+# beyond this host.
+it "the modes that do not publish it are still skipped"
+assert_contains "$SOURCE" "needs_auth() {"
+assert_eq "" "$(printf '%s' "$SOURCE" | grep -E 'needs_auth\(\) \{ \[' || true)"
 
 t_summary

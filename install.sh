@@ -734,7 +734,16 @@ EXISTING_AUTH_HASH=$(env_get "$ENV_FILE" PORTTA_WEB_AUTH_HASH)
 
 # The two modes that put the panel beyond this host without a network boundary
 # already in the way. `local` and `tailscale` have one.
-needs_auth() { [ "$PANEL_ACCESS" = "public" ] || [ "$PANEL_ACCESS" = "vpn" ]; }
+# Every mode that puts the panel beyond this host. `domain` was missing here
+# when the mode was added, so a fresh install with it created no credential at
+# all -- and `domain` is refused without one, leaving a host that installed
+# cleanly and could not start its own panel.
+needs_auth() {
+  case "$PANEL_ACCESS" in
+    public|vpn|domain) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 if needs_auth; then
   step "Panel authentication"

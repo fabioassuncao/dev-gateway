@@ -9,6 +9,34 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+## [0.7.2] — 2026-09-02
+
+### Fixed
+
+- **A fresh install with `--panel-access domain` created no credential at all.**
+  `needs_auth` in the installer listed `public` and `vpn` and was never updated
+  when `domain` was added, so the whole authentication step was skipped — and
+  the CLI refuses `domain` without a credential, leaving a host that installed
+  cleanly and could not start its own panel. An update was unaffected: the
+  existing credential survived through the fallback branch, which is why this
+  went unnoticed.
+
+  The test that should have caught it pinned the exact one-liner
+  (`assert_contains ... 'needs_auth() { [ "$PANEL_ACCESS" = "public" ] || ...'`),
+  so it passed because nothing had changed — which was the defect. It asserts
+  the membership now.
+
+### Internal
+
+- **Two end-to-end tests raced the applier they were driving.** One finished the
+  fake applier the instant it clicked Apply, before the panel had started it —
+  `__finish-apply` then answered `404` for a container that did not exist yet,
+  the test ignored the response, and the applier never exited. It waited the
+  full twenty seconds and failed with nothing to say. It waits for the phase
+  the panel only renders once the poll has seen the applier running, and both
+  call sites assert the response rather than discarding it, so the next race of
+  this shape fails at the line that causes it.
+
 ## [0.7.1] — 2026-09-02
 
 ### Added

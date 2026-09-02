@@ -3,7 +3,7 @@
   "info": {
     "title": "Portta panel API",
     "description": "The API used by the panel UI and by local agents. Writes can be refused by read-only mode or the same-origin guard. Authentication, when enabled, is enforced by Traefik before a request reaches this application.",
-    "version": "0.7.1",
+    "version": "0.7.2",
     "summary": "Runtime inventory and bounded control for Portta.",
     "license": {
       "name": "MIT"

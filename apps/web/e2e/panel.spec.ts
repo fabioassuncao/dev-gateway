@@ -386,11 +386,33 @@ test.describe('the panel end to end', () => {
 
       // The applier finishes, and the effect lands: .env agrees with the
       // environment the panel is running with again.
-      await request.post(`http://127.0.0.1:${DOCKER_PORT}/__finish-apply?code=0`)
+      // The response matters: `__finish-apply` 404s when the applier does not
+      // exist yet, and ignoring that turns a race into a twenty-second wait
+      // with no explanation.
+      expect((await request.post(`http://127.0.0.1:${DOCKER_PORT}/__finish-apply?code=0`)).ok()).toBe(true)
       await request.patch('/api/config', { data: { values: { PORTTA_DOMAIN: 'localhost' } } })
       await page.unroute('**/api/health')
 
-      await expect(page.getByText(/The saved settings are running/)).toBeVisible({ timeout: 20_000 })
+      // The panel gives itself 240s to come back (BUDGET_MS in use-apply.ts), so
+      // asserting 20s was stricter than the contract and went flaky in the full
+      // suite -- reproducible in neither isolation, CPU load, nor suite order.
+      // Rather than raise the number and move on, report what the panel
+      // actually thought: `pendingRestart` still true means some *other*
+      // setting disagrees with the process environment, which would be a
+      // leaked write from an earlier test rather than a slow one.
+      try {
+        await expect(page.getByText(/The saved settings are running/)).toBeVisible({ timeout: 60_000 })
+      } catch (cause) {
+        const status = await (await request.get('/api/status')).json() as {
+          settings?: { pendingRestart?: boolean; pending?: string[] }
+          apply?: { state?: string }
+        }
+        throw new Error(
+          `the panel never reported the saved settings as running. pendingRestart=${status.settings?.pendingRestart} ` +
+          `pending=${JSON.stringify(status.settings?.pending)} apply=${status.apply?.state}`,
+          { cause },
+        )
+      }
     } finally {
       await request.patch('/api/config', { data: { values: { PORTTA_DOMAIN: 'localhost' } } })
       await request.post(`http://127.0.0.1:${DOCKER_PORT}/__reset`)
@@ -404,7 +426,15 @@ test.describe('the panel end to end', () => {
 
       await page.getByRole('button', { name: 'Apply and restart' }).click()
       await page.getByRole('button', { name: 'Apply and restart' }).click()
-      await request.post(`http://127.0.0.1:${DOCKER_PORT}/__finish-apply?code=2`)
+
+      // Finishing the applier before the panel has started it is a race the
+      // fake docker loses silently: `__finish-apply` 404s on a container that
+      // does not exist yet, the test ignores the response, and the applier
+      // never exits. This phase is only rendered once the poll has *seen* it
+      // running, which is exactly the point after which finishing it means
+      // something.
+      await expect(page.getByText('Recreating the gateway containers…')).toBeVisible()
+      expect((await request.post(`http://127.0.0.1:${DOCKER_PORT}/__finish-apply?code=2`)).ok()).toBe(true)
 
       await expect(page.getByText(/exited with code 2/)).toBeVisible({ timeout: 20_000 })
       await expect(page.getByText('./bin/portta up local')).toBeVisible()
