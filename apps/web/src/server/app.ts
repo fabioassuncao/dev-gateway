@@ -17,6 +17,7 @@ import { configRoutes } from './routes/config.ts'
 import { eventRoutes } from './routes/events.ts'
 import { integrationRoutes } from './routes/integrations.ts'
 import { issueRoutes } from './routes/issues.ts'
+import { taskRoutes } from './routes/tasks.ts'
 import { shareRoutes } from './routes/shares.ts'
 import { ActionRefused } from './core/actions.ts'
 import { AccessError } from './core/access.ts'
@@ -26,6 +27,7 @@ import { DynamicWriteRefused } from './core/dynamic.ts'
 import { ValidationError } from './core/settings.ts'
 import { DockerApiError } from './docker/client.ts'
 import { DockerAccessDenied } from './docker/allowlist.ts'
+import { ZodError } from 'zod'
 import { registerOpenApiRoutes } from './openapi.ts'
 import { DatabaseUnavailable } from './db/index.ts'
 import { GitHubForbidden, GitHubUnavailable } from './integrations/github/index.ts'
@@ -89,6 +91,7 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', eventRoutes(deps))
   api.route('/', integrationRoutes(deps))
   api.route('/', issueRoutes(deps))
+  api.route('/', taskRoutes(deps))
   registerOpenApiRoutes(api, deps.config)
 
   api.all('*', (c) => c.json({ error: `no such endpoint: ${c.req.path}` }, 404))
@@ -114,6 +117,15 @@ export function createApp(deps: AppDeps): Hono {
     }
     if (error instanceof ValidationError) {
       return c.json({ error: error.message, hint: 'the value was not saved' }, 400)
+    }
+    // A body that does not match its schema is the caller's mistake, not a
+    // server failure. It reached the 500 branch before, which told an agent to
+    // retry something that will never succeed.
+    if (error instanceof ZodError) {
+      return c.json({
+        error: error.issues.map((issue) => `${issue.path.join('.') || 'body'}: ${issue.message}`).join('; '),
+        hint: 'the request body did not match the documented schema',
+      }, 400)
     }
     if (error instanceof DatabaseUnavailable) {
       return c.json(

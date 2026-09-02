@@ -13,6 +13,7 @@ import { authProtect, authStatus, authUnprotect } from './commands/auth.js'
 import { shareGc, shareList, shareRevoke } from './commands/share.js'
 import { tlsInit, tlsStatus, tlsTrust, tlsUntrust } from './commands/tls.js'
 import { backupCommand, repairCommand, restoreCommand } from './commands/maintenance.js'
+import { mcpCommand } from './commands/mcp.js'
 import { remoteAccessClose, remoteAccessList, remoteAccessOpen, remoteBootstrap, remoteExec, remoteGateway } from './commands/remote.js'
 import { tunnelDisable, tunnelEnable, tunnelLogs, tunnelSetup, tunnelStatus, tunnelTest } from './commands/tunnel.js'
 import { legacy, webAuthApply, webAuthClear, webAuthSet, webAuthStatus, webBuild, webDisable, webDown, webLogs, webOpen, webRestart, webStatus, webUp } from './commands/web.js'
@@ -177,6 +178,12 @@ describe(program.command('restore [file]'), 'Put a backup back, keeping what it 
 describe(program.command('repair'), 'Recreate what is missing and fix what is provably wrong')
   .option('--dry-run', 'print the plan without changing anything')
   .action(repairCommand)
+
+describe(program.command('mcp'), 'Serve the task verbs to an agent over stdio (MCP)')
+  .option('--url <url>', 'the panel API base URL; defaults to the local panel')
+  .option('--allow-remote', 'permit a non-loopback panel URL, which is where a credential would be sent')
+  .option('--actor <name>', 'recorded on every write as X-Portta-Actor', 'agent')
+  .action(mcpCommand)
 
 const remote = describe(program.command('remote'), 'Operate a gateway on another host over SSH')
 describe(remote.command('bootstrap <target>'), 'Prepare a host and start the gateway there')

@@ -408,6 +408,19 @@ write-through endpoint that posts straight to GitHub and returns what GitHub
 returned creates no cache to keep in step. ADR 0018's 2026-09-02 amendment
 allows it; it is not built yet.
 
+### The same issues, for an agent
+
+`GET /api/workspaces/:slug/tasks`, `.../tasks/next`, `GET /api/tasks/:ref` and
+its `subtasks`, and the write verbs `start`, `status`, `finish` and `comments`
+are the same projection and the same adapter, asked the way an agent asks. A
+task is addressed as `owner/repo#number` — the coordinate already in the branch
+name — or by its projected id.
+
+`portta mcp` serves exactly those eight verbs to an agent over stdio, and the
+agent holds **no GitHub credential**: the private key stays a file the panel
+mounts, and installation tokens live for an hour in the panel's memory. See
+[MCP](mcp.md).
+
 ### Status and priority: fields where they exist, labels where they do not
 
 Not every account has GitHub's native issue types and project fields, so status

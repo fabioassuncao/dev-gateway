@@ -323,11 +323,11 @@ export function makeApp(
 }
 
 /** Same-origin by default: the API refuses cross-origin writes. */
-export async function post(app: Hono, path: string, body: unknown = {}): Promise<Response> {
+export async function post(app: Hono, path: string, body: unknown = {}, headers: Record<string, string> = {}): Promise<Response> {
   return app.request(path, {
     method: 'POST',
     body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },
+    headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost', ...headers },
   })
 }
 

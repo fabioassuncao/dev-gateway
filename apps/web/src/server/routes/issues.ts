@@ -9,18 +9,13 @@ import {
   isPriority,
   isWorkflowStatus,
   labelsAfter,
-  type Priority,
-  type WorkflowStatus,
 } from '../integrations/github/metadata.ts'
 import { normaliseIssue, type RawIssue } from '../integrations/github/issues.ts'
-import { environmentsFor, resolveLinks, type ResolvedLink } from '../core/issue-environments.ts'
+import { environmentsFor } from '../core/issue-environments.ts'
 import { readProjectGit } from '../core/git.ts'
-import type { Snapshot } from '../core/inventory.ts'
+import { issueView as view, resolvedLinks as linksFor } from '../core/issue-view.ts'
 import { Issue } from '../../shared/types.ts'
 import { documentRoute } from '../openapi.ts'
-
-/** Past this age the projection is marked stale; it is still shown. */
-const STALE_AFTER_SECONDS = 900
 
 const IssuesResponse = z.object({ issues: z.array(Issue) }).strict().meta({ ref: 'IssuesResponse' })
 
@@ -53,68 +48,6 @@ const issueIdParameter = {
   required: true,
   description: 'The projected issue id, not the GitHub number.',
   schema: { type: 'string' as const },
-}
-
-function seconds(date: Date): number {
-  return Math.floor(date.getTime() / 1000)
-}
-
-function view(
-  issue: StoredIssue,
-  relationships: { parentId: string; childId: string }[],
-  now: number,
-  environments: z.infer<typeof Issue>['environments'] = [],
-): z.infer<typeof Issue> {
-  const syncedAt = seconds(issue.syncedAt)
-  return {
-    id: issue.id,
-    repository: issue.repository,
-    number: issue.number,
-    title: issue.title,
-    body: issue.body,
-    state: issue.state === 'closed' ? 'closed' : 'open',
-    stateReason: issue.stateReason,
-    issueType: issue.issueType,
-    status: issue.workflowStatus === null ? null : (issue.workflowStatus as WorkflowStatus),
-    priority: issue.priority === null ? null : (issue.priority as Priority),
-    metadataSource: (issue.metadataSource as 'fields' | 'labels' | 'none') ?? 'none',
-    labels: issue.labels,
-    assignees: issue.assignees,
-    milestone: issue.milestone,
-    htmlUrl: issue.htmlUrl,
-    parentId: relationships.find((link) => link.childId === issue.id)?.parentId ?? null,
-    childIds: relationships.filter((link) => link.parentId === issue.id).map((link) => link.childId),
-    githubUpdatedAt: seconds(issue.githubUpdatedAt),
-    syncedAt,
-    stale: now - syncedAt > STALE_AFTER_SECONDS,
-    environments,
-  }
-}
-
-/**
- * Where each running environment belongs, resolved once per request.
- *
- * Branches come from the host Git scan the panel already reads, so nothing here
- * runs a command or makes a network call.
- */
-async function linksFor(
-  deps: AppDeps,
-  db: Database,
-  snapshot: Snapshot,
-  issues: StoredIssue[],
-): Promise<Map<string, ResolvedLink>> {
-  const branches = new Map<string, string | null>(
-    snapshot.projects.map((project) => [
-      project.name,
-      readProjectGit(deps.config, project.name).git?.branch ?? null,
-    ]),
-  )
-  const manual = (await db.github.listIssueEnvironments()).map((row) => ({
-    issueId: row.issueId,
-    composeProject: row.composeProject,
-    branch: row.branch,
-  }))
-  return resolveLinks(snapshot, issues, manual, branches)
 }
 
 /** Repositories one workspace owns, as projection ids. */
@@ -185,7 +118,7 @@ export function issueRoutes(deps: AppDeps): Hono {
       db.github.listRelationships(),
       deps.cache.get(),
     ])
-    const links = await linksFor(deps, db, snapshot, issues)
+    const links = await linksFor(deps.config, db, snapshot, issues)
     const now = Math.floor(Date.now() / 1000)
     return issues
       .filter((issue) => matches(issue, query))
@@ -226,7 +159,7 @@ export function issueRoutes(deps: AppDeps): Hono {
     const relationships = await db.github.listRelationships()
     const snapshot = await deps.cache.get()
     const issues = await db.github.listIssues({})
-    const links = await linksFor(deps, db, snapshot, issues)
+    const links = await linksFor(deps.config, db, snapshot, issues)
     return c.json(
       view(issue, relationships, Math.floor(Date.now() / 1000), environmentsFor(issue.id, snapshot, links)),
     )
@@ -272,7 +205,7 @@ export function issueRoutes(deps: AppDeps): Hono {
 
     const relationships = await db.github.listRelationships()
     const issues = await db.github.listIssues({})
-    const links = await linksFor(deps, db, snapshot, issues)
+    const links = await linksFor(deps.config, db, snapshot, issues)
     return c.json(
       view(issue, relationships, Math.floor(Date.now() / 1000), environmentsFor(issue.id, snapshot, links)),
     )
@@ -344,7 +277,7 @@ export function issueRoutes(deps: AppDeps): Hono {
     const fresh = await db.github.findIssue(issue.id)
     const relationships = await db.github.listRelationships()
     const snapshot = await deps.cache.get()
-    const links = await linksFor(deps, db, snapshot, await db.github.listIssues({}))
+    const links = await linksFor(deps.config, db, snapshot, await db.github.listIssues({}))
     deps.hub.publish({
       kind: 'config',
       action: 'issue',

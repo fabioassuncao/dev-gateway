@@ -14,6 +14,7 @@ export type ApiTag =
   | 'Projects'
   | 'Workspaces'
   | 'Issues'
+  | 'Tasks'
   | 'Services'
   | 'Docker'
   | 'Network'
@@ -168,6 +169,7 @@ export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
       { name: 'Projects', description: 'Compose projects adopted by the gateway.' },
       { name: 'Workspaces', description: 'Groupings a person created: repositories and the environments they own.' },
       { name: 'Issues', description: 'The GitHub issue projection, and writes that go back to GitHub.' },
+      { name: 'Tasks', description: 'The same issues, asked the way an agent asks: what is next, take it, comment, finish. No GitHub credential is needed to call these.' },
       { name: 'Services', description: 'Containers belonging to adopted projects.' },
       { name: 'Docker', description: 'Bounded host inventory and lifecycle operations.' },
       { name: 'Network', description: 'Routes, networks, DNS, TLS and VPN state.' },

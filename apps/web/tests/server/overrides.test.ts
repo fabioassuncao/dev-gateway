@@ -96,10 +96,14 @@ describe('project overrides', () => {
     expect(await response.json()).toEqual({})
   })
 
-  it('refuses a key outside the closed catalogue', async () => {
+  // The catalogue is closed, and a key outside it is the caller's mistake. It
+  // used to answer 500 -- an unmapped ZodError -- which told an agent to retry
+  // something that will never succeed.
+  it('refuses a key outside the closed catalogue, as a client error', async () => {
     const instance = app()
     const response = await put(instance, '/api/projects/alpha/settings', { arbitrarySql: 'DROP' })
-    expect(response.status).toBe(500)
+    expect(response.status).toBe(400)
+    expect((await response.json()).hint).toContain('documented schema')
   })
 
   it('404s a project that is not running before touching the database', async () => {

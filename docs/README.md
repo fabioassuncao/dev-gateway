@@ -53,6 +53,7 @@ is the complete operator and contributor index. Historical build briefs under
 
 - [Web UI](web-ui.md) — installation, pages, API, actions, authentication, and screenshots.
 - [GitHub](github.md) — creating and installing the App step by step, then issues and sub-issues, workspaces, and the backlog and board that write back.
+- [MCP](mcp.md) — the task verbs an agent drives through `portta mcp`, and what it deliberately cannot reach.
 - [Sharing](sharing.md) — temporary public or protected hostnames with mandatory expiry.
 
 ## Working day to day

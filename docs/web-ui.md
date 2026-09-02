@@ -1005,6 +1005,10 @@ in the panel yet, which #25 found to be the opposite of what the code does.
 [ADR 0018](adr/0018-github-access-lives-in-the-panel.md) records the decisions
 and, in its 2026-09-02 amendment, what is deliberately still absent.
 
+The same issues are also reachable as **tasks** — `next`, `start`, `status`,
+`finish`, `comment` — which is what `portta mcp` serves to an agent over stdio.
+See [mcp.md](mcp.md).
+
 What remains out of scope there: comments are never projected (reading one is a
 link to GitHub), and GitHub Projects v2 fields are not read — a repository whose
 board lives in a Project is invisible to Portta, and Portta's `status:*` labels

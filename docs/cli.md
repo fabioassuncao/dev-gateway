@@ -141,6 +141,7 @@ file or stdin.
 | `remote access open <target>` | `--project`, `--service`, `--port`, `--local-port`, `--dir`. Leaves an SSH tunnel running after the command exits. |
 | `remote access list|close` | `close` takes an id or `--all`; the remote bridge is left for the remote host to close. |
 | `toolbox ...` | Passthrough to the one-shot Docker wrapper. |
+| `mcp` | `--url`, `--allow-remote`, `--actor`. Serves the task verbs to an agent over stdio; refuses a non-loopback panel URL without the flag, because that is where a credential would be sent. See [MCP](mcp.md). |
 
 Host key verification is never relaxed: `StrictHostKeyChecking` defaults to
 `accept-new`, which records a key the first time and still refuses a *changed*
