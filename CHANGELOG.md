@@ -9,6 +9,16 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+### Added
+
+- **The panel may operate a project, without owning it.** ADR 0030 amends
+  ADR 0001: Portta still does not own a project's containers, volumes or
+  release cycle, but it may start, stop and restart what it can see, and it
+  may ask Compose to rebuild or take a project down through one opt-in runner
+  (`PORTTA_RUNNER=true`) whose command is fixed at creation. The runner is
+  absent from the Settings catalogue. A project without a Compose working
+  directory label is reported as not operable, with a reason.
+
 ## [0.7.2] — 2026-09-02
 
 ### Fixed

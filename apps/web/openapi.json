@@ -803,6 +803,42 @@
         ],
         "additionalProperties": false
       },
+      "ProjectOperable": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "Whether Compose can be driven for this project from the labels Docker recorded"
+          },
+          "reason": {
+            "description": "Why it is not operable, when it is not",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workingDir": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "configFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "reason",
+          "workingDir",
+          "configFiles"
+        ],
+        "additionalProperties": false,
+        "description": "Whether the runner can find this project on the host"
+      },
       "Ownership": {
         "type": "string",
         "enum": [
@@ -1283,6 +1319,9 @@
               "null"
             ]
           },
+          "operable": {
+            "$ref": "#/components/schemas/ProjectOperable"
+          },
           "namespace": {
             "type": [
               "string",
@@ -1400,6 +1439,7 @@
           "name",
           "integrated",
           "workingDir",
+          "operable",
           "namespace",
           "group",
           "repo",
@@ -1893,6 +1933,109 @@
           "lines",
           "truncated",
           "ordered"
+        ],
+        "additionalProperties": false
+      },
+      "RunnerState": {
+        "type": "string",
+        "enum": [
+          "unavailable",
+          "idle",
+          "running",
+          "ok",
+          "failed"
+        ]
+      },
+      "RunnerUnavailableReason": {
+        "type": "string",
+        "enum": [
+          "disabled",
+          "refused",
+          "not-prepared"
+        ]
+      },
+      "RunnerStatus": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/RunnerState"
+          },
+          "available": {
+            "type": "boolean",
+            "description": "A runner container exists on this host"
+          },
+          "reason": {
+            "description": "Why the panel cannot operate a project, in one line",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "unavailableReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunnerUnavailableReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exitCode": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "logTail": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "prepareCommand": {
+            "type": "string",
+            "description": "Host command that prepares the runner"
+          }
+        },
+        "required": [
+          "state",
+          "available",
+          "reason",
+          "unavailableReason",
+          "startedAt",
+          "finishedAt",
+          "exitCode",
+          "logTail",
+          "prepareCommand"
         ],
         "additionalProperties": false
       },
@@ -5269,6 +5412,73 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/runner": {
+      "get": {
+        "operationId": "getRunnerStatus",
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Get the project-runner state",
+        "description": "Reads the prepared runner container back. A host that has not opted in gets a reason, never an error.",
+        "parameters": [
+          {
+            "name": "logs",
+            "in": "query",
+            "required": false,
+            "description": "Include the tail of the runner's output. A failed run always includes it.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1"
+              ],
+              "default": "0"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunnerStatus"
                 }
               }
             }

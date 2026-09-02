@@ -71,6 +71,37 @@ describe('projects', () => {
     const snapshot = await buildSnapshot(client, config)
     expect(snapshot.projects.map((p) => p.name)).not.toContain('portta')
   })
+
+  it('is operable when Compose recorded a working directory', async () => {
+    const { client } = fakeDocker({ containers: FULL_HOST })
+    const snapshot = await buildSnapshot(client, config)
+    const alpha = snapshot.projects.find((p) => p.name === 'alpha')
+    expect(alpha?.operable.ok).toBe(true)
+    expect(alpha?.operable.workingDir).toBe('/srv/dev/alpha')
+  })
+
+  it('is not operable when the working-directory label is missing', async () => {
+    const { client } = fakeDocker({
+      containers: [
+        ...GATEWAY,
+        {
+          id: 'lost-web',
+          name: 'lost-web-1',
+          image: 'nginx:1.31.4-alpine',
+          labels: {
+            'com.docker.compose.project': 'lost',
+            'com.docker.compose.service': 'web',
+            'traefik.enable': 'true',
+          },
+          networks: ['portta'],
+        },
+      ],
+    })
+    const snapshot = await buildSnapshot(client, config)
+    const lost = snapshot.projects.find((p) => p.name === 'lost')
+    expect(lost?.operable.ok).toBe(false)
+    expect(lost?.operable.reason).toContain('working directory')
+  })
 })
 
 describe('URLs', () => {

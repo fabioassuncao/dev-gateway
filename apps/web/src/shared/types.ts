@@ -200,11 +200,23 @@ export const ContainerSummary = named(
 )
 export type ContainerSummary = z.infer<typeof ContainerSummary>
 
+export const ProjectOperable = named(
+  z.object({
+    ok: z.boolean().describe('Whether Compose can be driven for this project from the labels Docker recorded'),
+    reason: z.string().nullable().describe('Why it is not operable, when it is not'),
+    workingDir: z.string().nullable(),
+    configFiles: z.array(z.string()),
+  }).strict(),
+  'ProjectOperable',
+)
+export type ProjectOperable = z.infer<typeof ProjectOperable>
+
 export const Project = named(
   z.object({
     name: z.string().describe('COMPOSE_PROJECT_NAME; the key used by project endpoints'),
     integrated: z.boolean(),
     workingDir: z.string().nullable(),
+    operable: ProjectOperable.describe('Whether the runner can find this project on the host'),
     namespace: z.string().nullable(),
     group: z.string().nullable(),
     repo: z.string().nullable(),
@@ -1054,6 +1066,34 @@ export const ApplyStatus = named(
   'ApplyStatus',
 )
 export type ApplyStatus = z.infer<typeof ApplyStatus>
+
+export const RunnerState = named(
+  z.enum(['unavailable', 'idle', 'running', 'ok', 'failed']),
+  'RunnerState',
+)
+export type RunnerState = z.infer<typeof RunnerState>
+
+export const RunnerUnavailableReason = named(
+  z.enum(['disabled', 'refused', 'not-prepared']),
+  'RunnerUnavailableReason',
+)
+export type RunnerUnavailableReason = z.infer<typeof RunnerUnavailableReason>
+
+export const RunnerStatus = named(
+  z.object({
+    state: RunnerState,
+    available: z.boolean().describe('A runner container exists on this host'),
+    reason: z.string().nullable().describe('Why the panel cannot operate a project, in one line'),
+    unavailableReason: RunnerUnavailableReason.nullable(),
+    startedAt: unixSeconds.nullable(),
+    finishedAt: unixSeconds.nullable(),
+    exitCode: z.number().int().nullable(),
+    logTail: z.array(z.string()),
+    prepareCommand: z.string().describe('Host command that prepares the runner'),
+  }).strict(),
+  'RunnerStatus',
+)
+export type RunnerStatus = z.infer<typeof RunnerStatus>
 
 export const ApplyResult = named(
   z.object({

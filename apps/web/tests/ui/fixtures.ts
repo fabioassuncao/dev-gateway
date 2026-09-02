@@ -1,4 +1,16 @@
-import type { ContainerSummary, DockerHost } from '../../src/shared/types.ts'
+import type { ContainerSummary, DockerHost, ProjectOperable } from '../../src/shared/types.ts'
+
+export function makeOperable(workingDir: string | null = '/srv/dev/alpha'): ProjectOperable {
+  if (!workingDir) {
+    return {
+      ok: false,
+      reason: 'this project has no Compose working directory label, so the runner cannot find it',
+      workingDir: null,
+      configFiles: [],
+    }
+  }
+  return { ok: true, reason: null, workingDir, configFiles: [] }
+}
 import { resolveServiceTech } from '../../src/server/core/tech.ts'
 
 export function makeContainer(overrides: Partial<ContainerSummary> = {}): ContainerSummary {

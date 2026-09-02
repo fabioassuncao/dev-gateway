@@ -17,6 +17,7 @@ import {
   RemovalPreview,
   ServiceTraefik,
   ShareView,
+  RunnerStatus,
   TraefikVerdict,
 } from '../../src/shared/types.ts'
 import { OpenApiDocument } from '../../src/server/openapi.ts'
@@ -127,6 +128,7 @@ describe('response contracts against the realistic host fixture', () => {
       ['/api/network', NetworkView],
       ['/api/access', AccessView],
       ['/api/shares', ShareView],
+      ['/api/runner', RunnerStatus],
       ['/api/gateway', GatewayStatus],
       ['/api/gateway/traefik', TraefikVerdict],
       ['/api/config', ConfigView],

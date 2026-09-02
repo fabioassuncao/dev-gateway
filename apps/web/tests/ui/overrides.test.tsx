@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
-import { makeContainer } from './fixtures.ts'
+import { makeContainer, makeOperable } from './fixtures.ts'
 import type { ContainerSummary, Project } from '../../src/shared/types.ts'
 
 class ApiError extends Error {
@@ -68,6 +68,7 @@ function project(overrides: Partial<Project> = {}): Project {
     name: 'alpha',
     integrated: true,
     workingDir: '/srv/dev/alpha',
+    operable: makeOperable('/srv/dev/alpha'),
     namespace: null,
     group: null,
     repo: null,

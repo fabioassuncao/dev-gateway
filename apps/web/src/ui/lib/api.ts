@@ -25,6 +25,7 @@ import type {
   ShareView,
   ApplyResult,
   ApplyStatus,
+  RunnerStatus,
   TraefikVerdict,
 } from '../../shared/types.ts'
 
@@ -75,6 +76,7 @@ export const api = {
 
   applyStatus: () => request<ApplyStatus>('/gateway/apply'),
   apply: () => request<ApplyResult>('/gateway/apply', { method: 'POST', body: '{}' }),
+  runnerStatus: () => request<RunnerStatus>('/runner'),
 
   // The two probes the apply dialog polls with while the panel is being
   // recreated. They take an explicit signal and are deliberately separate from

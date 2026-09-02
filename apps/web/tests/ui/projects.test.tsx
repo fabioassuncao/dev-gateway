@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
-import { makeContainer } from './fixtures.ts'
+import { makeContainer, makeOperable } from './fixtures.ts'
 import type { Project } from '../../src/shared/types.ts'
 
 const projects = vi.fn()
@@ -59,6 +59,7 @@ const alpha: Project = {
   name: 'alpha',
   integrated: true,
   workingDir: '/srv/dev/alpha',
+  operable: makeOperable('/srv/dev/alpha'),
   namespace: null,
   group: null,
   repo: null,

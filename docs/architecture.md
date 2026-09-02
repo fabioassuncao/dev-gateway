@@ -133,6 +133,12 @@ This matters enough to be a design constraint rather than a nice property:
 
 `tests/e2e/lifecycle.test.sh` asserts all of it.
 
+The panel may still **operate** a project on request, without owning it
+([ADR 0030](adr/0030-the-panel-and-a-project-lifecycle.md)): start, stop and
+restart by iterating the containers it can already see, and rebuild or take a
+project down through one opt-in runner (`PORTTA_RUNNER=true`) whose command is
+fixed at creation. `portta down` still stops only the gateway.
+
 ## Ownership
 
 Everything the gateway creates carries:

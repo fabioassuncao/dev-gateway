@@ -185,6 +185,26 @@ grow. See [ADR 0026](adr/0026-applying-settings-from-the-panel.md).
 Leave it `false` on any host whose panel is reachable by someone you would not
 hand a shell.
 
+### Operating a project, and what it costs
+
+`PORTTA_RUNNER=true` is the second setting that widens the panel past the
+socket-proxy fence, and it is off by default. With it, `portta up` prepares a
+stopped container holding the Docker socket and a view of the host filesystem
+at `/host`, whose command is fixed at creation (`scripts/lib/runner-exec.sh`).
+The panel's part is to write `{ verb, project }` and start that container.
+
+Said plainly: **anyone who can write through the panel can then run a closed
+set of Compose verbs against a project on this host**. The verbs are `up`,
+`stop`, `restart`, `build`, `down` and `down-volumes`. Adding one is an
+ADR-level change.
+
+What bounds it: it is off unless the operator edits `.env` on the host, and
+`PORTTA_RUNNER` is deliberately absent from the panel's field catalogue. It is
+refused in read-only mode, refused when the panel is exposed publicly, and
+refused on the `remote-public` profile. The runner takes no command line from
+the panel. The working directory comes from Docker's own labels, not from a
+path the request supplied. See [ADR 0030](adr/0030-the-panel-and-a-project-lifecycle.md).
+
 ## Secrets
 
 - `.env` is git-ignored; `bootstrap` creates it `0600`; `doctor` warns if it
