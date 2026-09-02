@@ -2,15 +2,18 @@ import { mkdtempSync, readFileSync, readdirSync, writeFileSync, statSync, exists
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { readProtectionStore } from 'portta-core'
 import {
   DynamicWriteRefused,
   GENERATED_FILES,
   PANEL_AUTH_MIDDLEWARE,
   reconcilePanelAuth,
+  reconcilePanelProtection,
   removeGenerated,
   renderPanelAuth,
   writeGenerated,
 } from '../../src/server/core/dynamic.ts'
+import { testConfig } from './helpers.ts'
 
 function scratch(): string {
   return mkdtempSync(join(tmpdir(), 'portta-dynamic-'))
@@ -61,11 +64,11 @@ describe('the write allowlist', () => {
 })
 
 describe('renderPanelAuth', () => {
-  it('declares the middleware the router names', () => {
+  it('replaces the legacy file with a credential-free compatibility stub', () => {
     const yaml = renderPanelAuth({ user: 'dev', hash: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1' })
-    expect(yaml).toContain(`    ${PANEL_AUTH_MIDDLEWARE}:`)
-    expect(yaml).toContain('- "dev:$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1"')
-    expect(yaml).toContain('removeHeader: true')
+    expect(yaml).not.toContain(PANEL_AUTH_MIDDLEWARE)
+    expect(yaml).not.toContain('$apr1$')
+    expect(yaml).toContain('portta-auth.yaml')
   })
 
   it('declares nothing when authentication is off, so the router fails closed', () => {
@@ -88,18 +91,19 @@ describe('renderPanelAuth', () => {
     }
   })
 
-  it('refuses a value that would break out of the YAML string', () => {
-    expect(() => renderPanelAuth({ user: 'dev"', hash: 'x' })).toThrow(DynamicWriteRefused)
-    expect(() => renderPanelAuth({ user: 'dev', hash: 'a\nrule: bad' })).toThrow(DynamicWriteRefused)
+  it('never interpolates even hostile legacy values', () => {
+    const yaml = renderPanelAuth({ user: 'dev"', hash: 'a\nrule: bad' })
+    expect(yaml).not.toContain('dev"')
+    expect(yaml).not.toContain('rule: bad')
   })
 })
 
 describe('reconcilePanelAuth', () => {
-  it('renders the file when a credential is configured', () => {
+  it('removes credentials from the legacy file when one is configured', () => {
     const dir = scratch()
     const result = reconcilePanelAuth(dir, { mode: 'basic', user: 'dev', hash: '$apr1$a$b' })
     expect(result.written).toBe(true)
-    expect(readFileSync(join(dir, GENERATED_FILES.panel), 'utf8')).toContain('dev:$apr1$a$b')
+    expect(readFileSync(join(dir, GENERATED_FILES.panel), 'utf8')).not.toContain('$apr1$')
   })
 
   it('does not rewrite a file that is already in step', () => {
@@ -135,5 +139,26 @@ describe('reconcilePanelAuth', () => {
       hash: '$apr1$a$b',
     })
     expect(result.written).toBe(false)
+  })
+})
+
+describe('reconcilePanelProtection', () => {
+  it('writes the private record before a credential-free ForwardAuth file', () => {
+    const dir = scratch()
+    const config = testConfig({
+      dynamicDir: dir,
+      authStore: join(dir, 'auth/protections.json'),
+      webExpose: 'vpn',
+      domain: 'dev.example.com',
+      tlsEnabled: true,
+    })
+    const auth = { mode: 'basic', user: 'dev', hash: '$apr1$a$b' }
+    expect(reconcilePanelProtection(config, auth).written).toBe(true)
+    expect(readProtectionStore(config.authStore).protections[0]).toMatchObject({ scope: 'panel', epoch: 1 })
+    const yaml = readFileSync(join(dir, GENERATED_FILES.auth), 'utf8')
+    expect(yaml).toContain('portta-forward-auth:')
+    expect(yaml).not.toContain('$apr1$')
+    expect(reconcilePanelProtection(config, auth)).toMatchObject({ written: false, reason: 'already in step' })
+    expect(readProtectionStore(config.authStore).protections[0]?.epoch).toBe(1)
   })
 })

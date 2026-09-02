@@ -1,11 +1,11 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { AUTO_DOMAIN_PROVIDERS, DOMAIN_MODES, PANEL_ACCESS_MODES, autoDomainFor, exampleHostnames, isAutoDomainProvider, isDomainMode, isPanelAccess, readEnvFile, renderPanelAuth, setEnvValue, writeEnvFile } from 'portta-core'
+import { AUTO_DOMAIN_PROVIDERS, DOMAIN_MODES, PANEL_ACCESS_MODES, autoDomainFor, exampleHostnames, isAutoDomainProvider, isDomainMode, isPanelAccess, readEnvFile, setEnvValue, writeEnvFile } from 'portta-core'
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
 import { PreconditionError, RefusedError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
+import { syncPanelProtection } from './web.js'
 
 function globals(command: Command) {
   return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string }
@@ -226,15 +226,6 @@ async function setPanelAccess(root: string, value: string, output: Output): Prom
       break
   }
 
-  // The middleware file is what Traefik actually reads, and a mode change is
-  // exactly when it tends to be missing. Render it from .env either way.
-  const dynamic = join(root, 'config/traefik/dynamic')
-  mkdirSync(dynamic, { recursive: true })
-  writeFileSync(
-    join(dynamic, 'portta-panel.yaml'),
-    renderPanelAuth(credentialled ? { user: context.env['PORTTA_WEB_AUTH_USER']!, hash: context.env['PORTTA_WEB_AUTH_HASH']! } : null),
-    { mode: 0o600 },
-  )
   return values
 }
 
@@ -259,6 +250,7 @@ export async function configSet(name: string, value: string, options: { apply?: 
   }
 
   write(context.root, values)
+  if (name === 'panel.access') syncPanelProtection(context.root, values)
   output.progress(`${name} = ${value}`)
 
   if (options.apply === false) {

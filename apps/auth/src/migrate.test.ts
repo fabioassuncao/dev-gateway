@@ -10,6 +10,7 @@ function fixture() {
   const options = {
     envPath: join(root, '.env'), sharesPath: join(root, 'dynamic/portta-shares.yaml'),
     storePath: join(root, 'auth/protections.json'), authDynamicPath: join(root, 'dynamic/portta-auth.yaml'),
+    panelDynamicPath: join(root, 'dynamic/portta-panel.yaml'),
   }
   mkdirSync(join(root, 'dynamic'))
   writeFileSync(options.envPath, [
@@ -17,8 +18,9 @@ function fixture() {
     'PORTTA_WEB_AUTH_HASH=$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
     'PORTTA_WEB_EXPOSE=vpn', 'PORTTA_WEB_HOST=portta-web', 'PORTTA_DOMAIN=dev.example.com', 'TLS_ENABLED=true',
   ].join('\n'))
-  const shares = [{ id: 'a7f3', host: 'store-a7f3.share.dev.example.com', entryPoint: 'websecure', mode: 'protected', user: 'reviewer', hash: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1', project: 'store', service: 'web' }]
+  const shares = [{ id: 'a7f3', host: 'store-a7f3.share.dev.example.com', entryPoint: 'websecure', mode: 'protected', user: 'reviewer', hash: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1', project: 'store', service: 'web', container: 'store-web-1', port: 3000 }]
   writeFileSync(options.sharesPath, `${SHARES_MARKER}${JSON.stringify(shares)}\n`)
+  writeFileSync(options.panelDynamicPath, 'http:\n  middlewares:\n    old:\n      basicAuth: {}\n')
   return options
 }
 
@@ -31,6 +33,9 @@ describe('legacy auth migration', () => {
     const yaml = readFileSync(options.authDynamicPath, 'utf8')
     expect(yaml).toContain('portta-forward-auth:')
     expect(yaml).not.toContain('$apr1$')
+    expect(readFileSync(options.sharesPath, 'utf8')).toContain('portta-forward-auth')
+    expect(readFileSync(options.sharesPath, 'utf8')).not.toContain('$apr1$')
+    expect(readFileSync(options.panelDynamicPath, 'utf8')).not.toContain('basicAuth')
     expect(statSync(options.storePath).mode & 0o777).toBe(0o600)
     expect(statSync(options.authDynamicPath).mode & 0o777).toBe(0o600)
   })

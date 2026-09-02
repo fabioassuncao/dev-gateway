@@ -1091,6 +1091,20 @@ if ! run_compose pull --quiet; then
 fi
 good "images pulled"
 
+# The early apr1 render keeps an interrupted upgrade compatible with the old
+# proxy contract. Once the new image is present, every newly supplied password
+# is upgraded before migration, over stdin so it never appears in `ps`.
+if [ -n "$PANEL_PASSWORD" ]; then
+  PANEL_HASH=$(printf '%s\n' "$PANEL_PASSWORD" | run_compose run --rm -T --no-deps \
+    portta-auth node /app/apps/auth/dist/hash.js 2>/dev/null) \
+    || die "could not hash the panel password with scrypt"
+  case "$PANEL_HASH" in
+    '$portta$scrypt$'*) ;;
+    *) die "the authentication image returned an invalid password hash" ;;
+  esac
+  env_set "$ENV_FILE" PORTTA_WEB_AUTH_HASH "$PANEL_HASH"
+fi
+
 if [ "$PULL_ONLY" = "true" ]; then
   step "Done"
   say "--pull-only: images are up to date and nothing else was changed"

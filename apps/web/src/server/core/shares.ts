@@ -11,7 +11,18 @@
 // place to keep in step. See docs/adr/0011-panel-reads-traefik-writes-one-file.md.
 
 import { randomBytes } from 'node:crypto'
-import { apr1, generatePassword, renderShares, shareRouterName, SHARES_MARKER as MARKER } from 'portta-core'
+import {
+  generatePassword,
+  hashPassword,
+  readProtectionStore,
+  removeProtection,
+  renderAuthDynamic,
+  renderShares,
+  setProtection,
+  shareRouterName,
+  SHARES_MARKER as MARKER,
+  writeProtectionStore,
+} from 'portta-core'
 import type { PanelConfig } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import { GENERATED_FILES, readGenerated, writeGenerated } from './dynamic.ts'
@@ -84,6 +95,13 @@ export function loadShares(config: PanelConfig): StoredShare[] {
 
 export function saveShares(config: PanelConfig, shares: StoredShare[]): void {
   writeGenerated(config.dynamicDir, GENERATED_FILES.shares, renderShares(shares))
+}
+
+function shareScope(id: string): string { return `share:${id}` }
+
+function saveProtectionState(config: PanelConfig, store: ReturnType<typeof readProtectionStore>): void {
+  writeProtectionStore(config.authStore, store)
+  writeGenerated(config.dynamicDir, GENERATED_FILES.auth, renderAuthDynamic(store))
 }
 
 // ---------------------------------------------------------------------------
@@ -214,13 +232,13 @@ function ttlOrThrow(requested: number | undefined): number {
   return Math.floor(ttl)
 }
 
-export function createShare(
+export async function createShare(
   config: PanelConfig,
   snapshot: Snapshot,
   container: ContainerSummary,
   options: { mode: ShareMode; ttlSeconds?: number; user?: string },
   now = Math.floor(Date.now() / 1000),
-): CreatedShare {
+): Promise<CreatedShare> {
   const port = assertShareable(container, options.mode, config)
   const ttl = ttlOrThrow(options.ttlSeconds)
 
@@ -248,24 +266,33 @@ export function createShare(
     host: shareHost(config, project, service, id),
     mode: options.mode,
     user,
-    hash: password ? apr1(password) : null,
+    hash: null,
     entryPoint: config.tlsEnabled ? 'websecure' : 'web',
     createdAt: now,
     expiresAt: now + ttl,
   }
 
+  if (password && user) {
+    const store = setProtection(readProtectionStore(config.authStore), {
+      scope: shareScope(id), host: stored.host, entryPoints: [stored.entryPoint], user,
+      hash: await hashPassword(password), label: service, project, service,
+    })
+    // Credential first, router second: an interrupted create cannot expose the
+    // destination without the middleware being able to authenticate it.
+    saveProtectionState(config, store)
+  }
   saveShares(config, [...shares, stored])
   const view = listShares(config, snapshot, now).find((share) => share.id === id)
   if (!view) throw new ShareRefused('the share could not be written')
   return { share: view, password }
 }
 
-export function regenerateShare(
+export async function regenerateShare(
   config: PanelConfig,
   snapshot: Snapshot,
   id: string,
   now = Math.floor(Date.now() / 1000),
-): CreatedShare {
+): Promise<CreatedShare> {
   const shares = loadShares(config)
   const share = shares.find((entry) => entry.id === id)
   if (!share) throw new ShareRefused(`no share '${id}'`, 'it may have expired and been collected')
@@ -274,8 +301,12 @@ export function regenerateShare(
   }
 
   const password = generatePassword()
-  share.hash = apr1(password)
-  saveShares(config, shares)
+  const user = share.user ?? 'reviewer'
+  const store = setProtection(readProtectionStore(config.authStore), {
+    scope: shareScope(id), host: share.host, entryPoints: [share.entryPoint], user,
+    hash: await hashPassword(password), label: share.service, project: share.project, service: share.service,
+  })
+  saveProtectionState(config, store)
 
   const view = listShares(config, snapshot, now).find((entry) => entry.id === id)
   if (!view) throw new ShareRefused('the share could not be written')
@@ -291,6 +322,9 @@ export function revokeShare(config: PanelConfig, id: string): void {
     config,
     shares.filter((share) => share.id !== id),
   )
+  // Router first, credential second: an interruption leaves no route that can
+  // accidentally become less protected.
+  saveProtectionState(config, removeProtection(readProtectionStore(config.authStore), shareScope(id)))
 }
 
 /** Drops what has expired. Mirrors `portta share gc`, and `access gc`. */
@@ -299,5 +333,11 @@ export function collectExpired(config: PanelConfig, now = Math.floor(Date.now() 
   const kept = shares.filter((share) => share.expiresAt > now)
   if (kept.length === shares.length) return 0
   saveShares(config, kept)
+  const expired = new Set(shares.filter((share) => share.expiresAt <= now).map((share) => shareScope(share.id)))
+  const store = readProtectionStore(config.authStore)
+  saveProtectionState(config, {
+    ...store,
+    protections: store.protections.filter((protection) => !expired.has(protection.scope)),
+  })
   return shares.length - kept.length
 }

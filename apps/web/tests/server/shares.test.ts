@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { readProtectionStore } from 'portta-core'
 import { buildSnapshot } from '../../src/server/core/inventory.ts'
 import {
   ShareRefused,
@@ -44,32 +45,35 @@ async function world(overrides: Partial<PanelConfig> = {}) {
 describe('a share is an additional hostname, and nothing about the project changes', () => {
   it('writes a router, a service and an auth middleware, pointing at the container name', async () => {
     const { config, snapshot, container } = await world(PUBLIC)
-    const created = createShare(config, snapshot, container('a-web'), { mode: 'protected' })
+    const created = await createShare(config, snapshot, container('a-web'), { mode: 'protected' })
 
     const yaml = readFileSync(join(dir, 'portta-shares.yaml'), 'utf8')
     expect(yaml).toContain(`portta-share-${created.share.id}:`)
     // The container NAME, never the Compose alias: two projects can both
     // alias `web` on the shared network.
     expect(yaml).toContain('url: "http://alpha-web-1:80"')
-    expect(yaml).toContain('basicAuth:')
+    expect(yaml).toContain('middlewares: [portta-forward-auth]')
+    expect(yaml).not.toContain('basicAuth:')
     expect(created.share.host).toMatch(/^alpha-web-[0-9a-f]{4}\.share\.dev\.example\.com$/)
   })
 
   it('shows the password exactly once, and stores only its hash', async () => {
     const { config, snapshot, container } = await world(PUBLIC)
-    const created = createShare(config, snapshot, container('a-web'), { mode: 'protected' })
+    const created = await createShare(config, snapshot, container('a-web'), { mode: 'protected' })
 
     expect(created.password).toMatch(/^[23456789A-HJ-NP-Z-]+$/)
     const yaml = readFileSync(join(dir, 'portta-shares.yaml'), 'utf8')
     expect(yaml).not.toContain(created.password!)
-    expect(yaml).toContain('$apr1$')
+    expect(yaml).not.toMatch(/\$(?:apr1|portta)\$/)
+    const protection = readProtectionStore(config.authStore).protections[0]
+    expect(protection?.hash).toMatch(/^\$portta\$scrypt\$/)
     // And never again, from anywhere.
     expect(JSON.stringify(listShares(config, snapshot))).not.toContain(created.password!)
   })
 
   it('gives a public share a router and no middleware at all', async () => {
     const { config, snapshot, container } = await world(PUBLIC)
-    createShare(config, snapshot, container('a-web'), { mode: 'public' })
+    await createShare(config, snapshot, container('a-web'), { mode: 'public' })
     const yaml = readFileSync(join(dir, 'portta-shares.yaml'), 'utf8')
     expect(yaml).toContain('entryPoints: [websecure]')
     expect(yaml).not.toContain('basicAuth')
@@ -77,7 +81,7 @@ describe('a share is an additional hostname, and nothing about the project chang
 
   it('revoking deletes a block and leaves the project untouched', async () => {
     const { config, snapshot, container } = await world(PUBLIC)
-    const created = createShare(config, snapshot, container('a-web'), { mode: 'protected' })
+    const created = await createShare(config, snapshot, container('a-web'), { mode: 'protected' })
     revokeShare(config, created.share.id)
 
     expect(loadShares(config)).toEqual([])
@@ -121,58 +125,58 @@ describe('a share is an additional hostname, and nothing about the project chang
 describe('the refusals, which are refusals and not warnings', () => {
   it('refuses a datastore outright', async () => {
     const { config, snapshot, container } = await world(PUBLIC)
-    expect(() => createShare(config, snapshot, container('a-postgres'), { mode: 'protected' })).toThrow(
+    await expect(createShare(config, snapshot, container('a-postgres'), { mode: 'protected' })).rejects.toThrow(
       ShareRefused,
     )
   })
 
   it('refuses a service that never joined the shared network', async () => {
     const { config, snapshot, container } = await world(PUBLIC)
-    expect(() => createShare(config, snapshot, container('ext-pg'), { mode: 'public' })).toThrow(
+    await expect(createShare(config, snapshot, container('ext-pg'), { mode: 'public' })).rejects.toThrow(
       /not on the portta network|not an HTTP service/,
     )
   })
 
   it('refuses public without PUBLIC_ENABLED', async () => {
     const { config, snapshot, container } = await world({ ...PUBLIC, publicEnabled: false })
-    expect(() => createShare(config, snapshot, container('a-web'), { mode: 'public' })).toThrow(
+    await expect(createShare(config, snapshot, container('a-web'), { mode: 'public' })).rejects.toThrow(
       /PUBLIC_ENABLED/,
     )
   })
 
   it('refuses public without PUBLIC_DOMAIN', async () => {
     const { config, snapshot, container } = await world({ ...PUBLIC, publicDomain: null })
-    expect(() => createShare(config, snapshot, container('a-web'), { mode: 'public' })).toThrow(
+    await expect(createShare(config, snapshot, container('a-web'), { mode: 'public' })).rejects.toThrow(
       /PUBLIC_DOMAIN/,
     )
   })
 
   it('refuses a password over plaintext HTTP on a remote profile', async () => {
     const { config, snapshot, container } = await world({ ...PUBLIC, tlsEnabled: false })
-    expect(() => createShare(config, snapshot, container('a-web'), { mode: 'protected' })).toThrow(
+    await expect(createShare(config, snapshot, container('a-web'), { mode: 'protected' })).rejects.toThrow(
       /not protection/,
     )
   })
 
   it('allows a protected share without TLS locally, where nothing leaves the machine', async () => {
     const { config, snapshot, container } = await world({ profile: 'local', tlsEnabled: false })
-    expect(() => createShare(config, snapshot, container('a-web'), { mode: 'protected' })).not.toThrow()
+    await expect(createShare(config, snapshot, container('a-web'), { mode: 'protected' })).resolves.toBeDefined()
   })
 
   it('refuses an expiry outside the allowed window, and one is always required', async () => {
     const { config, snapshot, container } = await world(PUBLIC)
-    expect(() =>
+    await expect(
       createShare(config, snapshot, container('a-web'), { mode: 'public', ttlSeconds: 5 }),
-    ).toThrow(/expiry/)
-    expect(() =>
+    ).rejects.toThrow(/expiry/)
+    await expect(
       createShare(config, snapshot, container('a-web'), { mode: 'public', ttlSeconds: 999_999_999 }),
-    ).toThrow(/expiry/)
+    ).rejects.toThrow(/expiry/)
   })
 
   it('refuses a second share for the same container', async () => {
     const { config, snapshot, container } = await world(PUBLIC)
-    createShare(config, snapshot, container('a-web'), { mode: 'public' })
-    expect(() => createShare(config, snapshot, container('a-web'), { mode: 'public' })).toThrow(
+    await createShare(config, snapshot, container('a-web'), { mode: 'public' })
+    await expect(createShare(config, snapshot, container('a-web'), { mode: 'public' })).rejects.toThrow(
       /already shared/,
     )
   })
@@ -182,7 +186,7 @@ describe('a share that outlives its reason', () => {
   it('expires on its own, and gc removes it', async () => {
     const { config, snapshot, container } = await world(PUBLIC)
     const now = Math.floor(Date.now() / 1000)
-    createShare(config, snapshot, container('a-web'), { mode: 'public', ttlSeconds: 3600 }, now)
+    await createShare(config, snapshot, container('a-web'), { mode: 'public', ttlSeconds: 3600 }, now)
 
     expect(listShares(config, snapshot, now)[0]?.state).toBe('active')
     expect(listShares(config, snapshot, now + 7200)[0]?.state).toBe('expired')
@@ -192,7 +196,7 @@ describe('a share that outlives its reason', () => {
 
   it('is flagged when the container it names is gone', async () => {
     const { config, snapshot, container } = await world(PUBLIC)
-    createShare(config, snapshot, container('a-web'), { mode: 'public' })
+    await createShare(config, snapshot, container('a-web'), { mode: 'public' })
 
     const { client } = fakeDocker({ containers: GATEWAY })
     const without = await buildSnapshot(client, config)
@@ -201,7 +205,7 @@ describe('a share that outlives its reason', () => {
 
   it('is on the Overview, so it is seen without being looked for', async () => {
     const { config, snapshot, container } = await world(PUBLIC)
-    createShare(config, snapshot, container('a-web'), { mode: 'public', ttlSeconds: 60 })
+    await createShare(config, snapshot, container('a-web'), { mode: 'public', ttlSeconds: 60 })
 
     const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, { dynamicDir: dir, ...PUBLIC })
     const overview = (await (await app.request('/api/status')).json()) as {
@@ -262,7 +266,7 @@ describe('the port Traefik dials', () => {
     }
     expect(backendPort(container)).toBe(3000)
 
-    createShare(config, snapshot, container, { mode: 'public' })
+    await createShare(config, snapshot, container, { mode: 'public' })
     expect(readFileSync(join(dir, 'portta-shares.yaml'), 'utf8')).toContain(
       'url: "http://alpha-web-1:3000"',
     )

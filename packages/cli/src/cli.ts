@@ -9,6 +9,7 @@ import { dnsCheck, dnsSetup, dnsStatus, networkStatus, publicDisable, publicEnab
 import { gitClear, gitScan, gitStatus } from './commands/git.js'
 import { configGet, configList, configSet } from './commands/config.js'
 import { setupCommand } from './commands/setup.js'
+import { authProtect, authStatus, authUnprotect } from './commands/auth.js'
 import { shareGc, shareList, shareRevoke } from './commands/share.js'
 import { tlsStatus } from './commands/tls.js'
 import { legacy, webAuthApply, webAuthClear, webAuthSet, webAuthStatus, webBuild, webDisable, webDown, webLogs, webOpen, webRestart, webStatus, webUp } from './commands/web.js'
@@ -137,6 +138,14 @@ const share = describe(program.command('share'), 'Manage panel-created temporary
 describe(share.command('list'), 'List shares').action((_options, command) => shareList(command))
 describe(share.command('revoke <id>'), 'Revoke one share without touching its project').action((id, _options, command) => shareRevoke(id, command))
 describe(share.command('gc'), 'Remove expired shares').action((_options, command) => shareGc(command))
+
+const auth = describe(program.command('auth'), 'Manage ForwardAuth protection for project hostnames')
+describe(auth.command('status [host]', { isDefault: true }), 'List protected hosts without credentials').action((host, _options, command) => authStatus(host, command))
+describe(auth.command('protect <host>'), 'Create or rotate a hostname credential')
+  .option('--user <name>').option('--password-stdin').option('--entrypoint <name>')
+  .option('--label <text>').option('--project <name>').option('--service <name>')
+  .action(authProtect)
+describe(auth.command('unprotect <host>'), 'Remove a hostname credential without changing project labels').action((host, _options, command) => authUnprotect(host, command))
 
 const db = describe(program.command('db'), 'Panel database operations and project database clients')
 describe(db.command('status'), 'Show panel PostgreSQL state').action((_options, command) => dbStatus(command))

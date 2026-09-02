@@ -1,4 +1,4 @@
-import { quoteDynamicValue } from './dynamic.ts'
+import { FORWARD_AUTH_MIDDLEWARE, quoteDynamicValue } from './dynamic.ts'
 
 export type SharedRouteMode = 'public' | 'protected'
 
@@ -31,7 +31,10 @@ export function shareRouterName(id: string): string {
 
 /** The canonical Traefik file renderer used by both the panel and the CLI. */
 export function renderShares<T extends StoredSharedRoute>(shares: T[]): string {
-  const lines = [...HEADER, `${SHARES_MARKER}${JSON.stringify(shares)}`, '']
+  // The marker remains the durable share catalogue, but credentials belong
+  // only in the private protection store. Strip legacy hashes on every write.
+  const catalogue = shares.map(({ hash: _hash, ...share }) => share)
+  const lines = [...HEADER, `${SHARES_MARKER}${JSON.stringify(catalogue)}`, '']
   if (shares.length === 0) {
     lines.push('# Nothing is shared. "Private" is the absence of a share, not a deny rule.')
     return `${lines.join('\n')}\n`
@@ -43,7 +46,7 @@ export function renderShares<T extends StoredSharedRoute>(shares: T[]): string {
     lines.push(`    ${router}:`)
     lines.push(`      rule: ${quoteDynamicValue(`Host(\`${share.host}\`)`)}`)
     lines.push(`      entryPoints: [${share.entryPoint}]`)
-    if (share.mode === 'protected') lines.push(`      middlewares: [${router}-auth]`)
+    if (share.mode === 'protected') lines.push(`      middlewares: [${FORWARD_AUTH_MIDDLEWARE}]`)
     lines.push(`      service: ${router}`)
   }
 
@@ -52,16 +55,6 @@ export function renderShares<T extends StoredSharedRoute>(shares: T[]): string {
     const router = shareRouterName(share.id)
     lines.push(`    ${router}:`, '      loadBalancer:', '        servers:')
     lines.push(`          - url: ${quoteDynamicValue(`http://${share.container}:${share.port}`)}`)
-  }
-
-  const protectedShares = shares.filter((share) => share.mode === 'protected')
-  if (protectedShares.length > 0) {
-    lines.push('  middlewares:')
-    for (const share of protectedShares) {
-      if (!share.user || !share.hash) throw new Error(`protected share ${share.id} has no credentials`)
-      lines.push(`    ${shareRouterName(share.id)}-auth:`, '      basicAuth:', '        users:')
-      lines.push(`          - ${quoteDynamicValue(`${share.user}:${share.hash}`)}`, '        removeHeader: true')
-    }
   }
 
   lines.push('')

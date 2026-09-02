@@ -38,7 +38,41 @@ export interface ProtectionStore {
   protections: ProtectionRecord[]
 }
 
+export interface PanelProtectionInput {
+  mode: string
+  expose: string
+  user: string
+  hash: string
+  webHost: string
+  domain: string
+  advertisedHost?: string | null
+  port: string
+  tlsEnabled: boolean
+  projectName: string
+}
+
 export class InvalidProtectionStore extends Error {}
+
+function authority(host: string, port: string): string {
+  if (host.includes(':') || port === '80' || port === '443') return host
+  return `${host}:${port}`
+}
+
+/** Derive the panel's exact routed host from the same settings as Compose. */
+export function panelProtectionRecord(input: PanelProtectionInput): Omit<ProtectionRecord, 'epoch'> | null {
+  if (input.mode !== 'basic' || !input.user || !input.hash || !['vpn', 'public'].includes(input.expose)) return null
+  if (input.expose === 'public' && !input.advertisedHost) {
+    throw new InvalidProtectionStore('a public panel needs an advertised host')
+  }
+  const host = input.expose === 'public'
+    ? authority(input.advertisedHost!, input.port)
+    : `${input.webHost}.${input.domain}`
+  return {
+    scope: 'panel', host, entryPoints: [input.expose === 'public' ? 'panel' : input.tlsEnabled ? 'websecure' : 'web'],
+    user: input.user, hash: input.hash, label: 'Portta panel', project: input.projectName,
+    service: 'web', tech: { id: 'docker', label: 'Portta' },
+  }
+}
 
 export function emptyProtectionStore(): ProtectionStore {
   return { version: PROTECTION_STORE_VERSION, protections: [] }

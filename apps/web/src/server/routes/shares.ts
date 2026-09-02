@@ -70,7 +70,7 @@ export function shareRoutes(deps: AppDeps): Hono {
 
     const snapshot = await deps.cache.get(true)
     const container = findContainer(snapshot, c.req.param('id'))
-    const created = createShare(deps.config, snapshot, container, parsed.data)
+    const created = await createShare(deps.config, snapshot, container, parsed.data)
 
     return c.json(
       {
@@ -88,7 +88,7 @@ export function shareRoutes(deps: AppDeps): Hono {
     response: CreatedShareResponse, parameters: [shareIdParameter], errors: [400, 403, 404, 500],
   }), async (c) => {
     const snapshot = await deps.cache.get()
-    const created = regenerateShare(deps.config, snapshot, c.req.param('id'))
+    const created = await regenerateShare(deps.config, snapshot, c.req.param('id'))
     return c.json({
       ok: true,
       share: created.share,

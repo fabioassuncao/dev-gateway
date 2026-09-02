@@ -2,6 +2,7 @@
 // every test states exactly the situation it is about.
 
 import type { Hono } from 'hono'
+import { join } from 'node:path'
 import { createApp } from '../../src/server/app.ts'
 import { loadConfig, type PanelConfig } from '../../src/server/config.ts'
 import { createSnapshotCache } from '../../src/server/core/inventory.ts'
@@ -221,6 +222,7 @@ export function fakeDocker(options: FakeDockerOptions = {}): FakeDocker {
 }
 
 export function testConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
+  const dynamicDir = overrides.dynamicDir ?? '/tmp/portta-test-dynamic'
   return loadConfig({
     dockerApi: 'http://socket-proxy:2375',
     envFile: '/dev/null',
@@ -236,6 +238,8 @@ export function testConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     readOnly: false,
     privateDomain: null,
     publicDomain: null,
+    dynamicDir,
+    authStore: overrides.authStore ?? join(dynamicDir, 'protections.json'),
     ...overrides,
   })
 }

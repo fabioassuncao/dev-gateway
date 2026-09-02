@@ -1,5 +1,5 @@
 # ============================================================================
-# Portta: the panel on a public address, behind Traefik BasicAuth
+# Portta: the panel on a public address, behind Portta ForwardAuth
 # ============================================================================
 # Applied when PORTTA_WEB_EXPOSE=public. This is the mode the installer offers
 # first, because it is the shortest path to a usable development VPS.
@@ -13,8 +13,8 @@
 #      opts into Traefik is not reachable on this port. Panel access and
 #      application exposure stay separate decisions.
 #
-#   2. The router carries `portta-web-auth@file`, the BasicAuth middleware
-#      rendered into config/traefik/dynamic/portta-panel.yaml. If that file is
+#   2. The router carries `portta-forward-auth@file`, rendered into
+#      config/traefik/dynamic/portta-auth.yaml. If that file is
 #      missing the middleware cannot resolve and Traefik fails the router
 #      closed: the panel answers 404, never unauthenticated. The CLI and the
 #      installer both refuse this mode without a credential.
@@ -23,7 +23,7 @@
 # applied), so the only way in is through the middleware.
 #
 # HTTP, not HTTPS, when the address is a bare IP: there is no certificate a
-# public CA will issue for one. The credential is protected by BasicAuth but
+# public CA will issue for one. The credential is checked by ForwardAuth but
 # the connection is not encrypted, and the installer says so in as many words.
 # Set PUBLIC_DOMAIN with TLS_ENABLED=true for a real certificate.
 # ============================================================================
@@ -44,5 +44,5 @@ services:
       # entrypoint is what scopes it: nothing else answers on :8090.
       traefik.http.routers.portta-panel.rule: PathPrefix(`/`)
       traefik.http.routers.portta-panel.entrypoints: panel
-      traefik.http.routers.portta-panel.middlewares: portta-web-auth@file
+      traefik.http.routers.portta-panel.middlewares: portta-forward-auth@file
       traefik.http.services.portta-panel.loadbalancer.server.port: "8081"

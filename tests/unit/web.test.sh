@@ -207,8 +207,8 @@ assert_contains "$(cat docker/compose/features/panel-public.yaml)" "TRAEFIK_ENTR
 it "and attaches the panel router to that entrypoint only"
 assert_contains "$(cat docker/compose/features/panel-public.yaml)" "traefik.http.routers.portta-panel.entrypoints: panel"
 
-it "behind the same BasicAuth middleware the vpn mode uses"
-assert_contains "$(cat docker/compose/features/panel-public.yaml)" "portta-web-auth@file"
+it "behind the same ForwardAuth middleware the vpn mode uses"
+assert_contains "$(cat docker/compose/features/panel-public.yaml)" "portta-forward-auth@file"
 
 it "the panel container publishes no host port of its own there"
 assert_eq "" "$(sed -n '/^  web:/,$p' docker/compose/features/panel-public.yaml | grep -E '^\s+ports:' || true)"
@@ -226,7 +226,7 @@ assert_eq "" "$(grep -E 'entrypoints: (web|websecure)' docker/compose/features/p
 describe "the panel is routed only behind a credential"
 
 it "the vpn overlay names a middleware"
-assert_contains "$(cat docker/compose/features/web-vpn.yaml)" "portta-web-auth@file"
+assert_contains "$(cat docker/compose/features/web-vpn.yaml)" "portta-forward-auth@file"
 
 for key in PORTTA_WEB_AUTH PORTTA_WEB_AUTH_USER PORTTA_WEB_AUTH_HASH; do
   it "$key is in the example configuration"
@@ -250,8 +250,8 @@ it "doctor fails a routed panel without one"
 assert_contains "$(cat scripts/doctor.sh)" "with nothing in front of it"
 
 it "the password never reaches a command line, where ps would show it"
-assert_contains "$(cat packages/cli/src/commands/web.ts)" "['passwd', '-apr1', '-stdin']"
-assert_eq "" "$(grep -nE "\['passwd',[^]]*password" packages/cli/src/commands/web.ts || true)"
+assert_contains "$(cat packages/cli/src/commands/web.ts)" "hashPassword(password)"
+assert_eq "" "$(grep -nE "runProcess\([^]]*password" packages/cli/src/commands/web.ts || true)"
 
 describe "the panel writes four filenames into Traefik's dynamic directory"
 
@@ -268,7 +268,7 @@ for owned in "middlewares.yaml" "tcp.yaml" "local-tls.yaml" "auth.yaml" "acme.js
   assert_eq "" "$(grep -n "GENERATED_FILES.*$owned" "$dynamic" || true)"
 done
 
-it "the generated files are git-ignored: they carry a password hash"
+it "the generated files are git-ignored because they are runtime state"
 assert_contains "$(cat .gitignore)" "config/traefik/dynamic/portta-panel.yaml"
 
 it "the panel mounts the dynamic directory and nothing wider"

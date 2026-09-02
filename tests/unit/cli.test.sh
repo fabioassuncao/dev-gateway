@@ -20,6 +20,7 @@ COMMAND_PATHS=(
   redis "redis open" "redis close" "redis cli"
   web "web up" "web dev" "web down" "web disable" "web restart" "web status" "web open" "web logs" "web build"
   "web auth" "web auth status" "web auth set" "web auth clear" "web auth apply"
+  auth "auth status" "auth protect" "auth unprotect"
   git "git scan" "git status" "git clear" share "share list" "share revoke" "share gc"
 )
 
@@ -51,7 +52,7 @@ it "remote bootstrap without a target"; assert_failure "$GW" remote bootstrap
 
 describe "the top-level help lists the commands people need"
 help=$("$GW" --help 2>&1)
-for c in bootstrap up down status doctor urls analyze init access services public dns tls remote web git share; do
+for c in bootstrap up down status doctor urls analyze init access services public dns tls remote web git share auth; do
   it "help mentions $c"; assert_contains "$help" "$c"
 done
 

@@ -7,6 +7,8 @@ import {
   parseEnv,
   readProtectionStore,
   renderAuthDynamic,
+  renderPanelAuth,
+  renderShares,
   setProtection,
   SHARES_MARKER,
   writeProtectionStore,
@@ -19,17 +21,20 @@ export interface MigrationOptions {
   sharesPath: string
   storePath: string
   authDynamicPath: string
+  panelDynamicPath?: string
 }
 
 interface LegacyShare {
   id: string
   host: string
   entryPoint: string
-  mode: string
+  mode: 'public' | 'protected'
   user?: string | null
   hash?: string | null
   project?: string
   service?: string
+  container: string
+  port: number
 }
 
 function truthy(value: string | undefined): boolean {
@@ -103,7 +108,11 @@ export function migrateLegacyState(options: MigrationOptions): { migrated: numbe
     store = result.store
     if (result.changed) migrated += 1
   }
-  for (const share of legacyShares(options.sharesPath)) {
+  const shares = legacyShares(options.sharesPath)
+  for (const share of shares) {
+    if (!share.id || !share.host || !share.entryPoint || !share.container || !Number.isInteger(share.port)) {
+      throw new Error(`${share.mode === 'protected' ? 'protected share' : 'share'} ${share.id || '<unknown>'} cannot be migrated`)
+    }
     if (share.mode !== 'protected') continue
     if (!share.id || !share.host || !share.entryPoint || !share.user || !share.hash || !isSupportedHash(share.hash)) {
       throw new Error(`protected share ${share.id || '<unknown>'} cannot be migrated`)
@@ -121,6 +130,10 @@ export function migrateLegacyState(options: MigrationOptions): { migrated: numbe
   // files remain untouched until their owning surface deliberately switches.
   writeProtectionStore(options.storePath, store)
   writePrivateAtomic(options.authDynamicPath, renderAuthDynamic(store))
+  if (existsSync(options.sharesPath)) writePrivateAtomic(options.sharesPath, renderShares(shares))
+  if (options.panelDynamicPath && existsSync(options.panelDynamicPath)) {
+    writePrivateAtomic(options.panelDynamicPath, renderPanelAuth(null))
+  }
   return { migrated, protections: store.protections.length }
 }
 
@@ -131,6 +144,7 @@ function main(): void {
     sharesPath: process.env['PORTTA_MIGRATION_SHARES'] ?? join(root, 'traefik-dynamic/portta-shares.yaml'),
     storePath: process.env['PORTTA_AUTH_STORE'] ?? join(root, 'auth/protections.json'),
     authDynamicPath: process.env['PORTTA_MIGRATION_AUTH_DYNAMIC'] ?? join(root, 'traefik-dynamic/portta-auth.yaml'),
+    panelDynamicPath: process.env['PORTTA_MIGRATION_PANEL_DYNAMIC'] ?? join(root, 'traefik-dynamic/portta-panel.yaml'),
   })
   process.stdout.write(`${JSON.stringify(result)}\n`)
 }

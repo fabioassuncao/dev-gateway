@@ -6,6 +6,7 @@ import {
   emptyProtectionStore,
   InvalidProtectionStore,
   normalizeProtectionHost,
+  panelProtectionRecord,
   parseProtectionStore,
   protectionForHost,
   readProtectionStore,
@@ -55,5 +56,13 @@ describe('protection store', () => {
     expect(() => parseProtectionStore('{')).toThrow('not valid JSON')
     expect(() => parseProtectionStore('{"version":2,"protections":[]}')).toThrow('unsupported')
     expect(() => parseProtectionStore(JSON.stringify({ version: 1, protections: [{ ...record, epoch: 1 }, { ...record, scope: 'other', epoch: 1 }] }))).toThrow('duplicate protection host')
+  })
+
+  it('derives the exact panel authority and entrypoint', () => {
+    const base = { mode: 'basic', user: 'dev', hash: '$apr1$a$b', webHost: 'portta-web', domain: 'dev.example.com', port: '8081', tlsEnabled: true, projectName: 'portta' }
+    expect(panelProtectionRecord({ ...base, expose: 'vpn' })).toMatchObject({ host: 'portta-web.dev.example.com', entryPoints: ['websecure'] })
+    expect(panelProtectionRecord({ ...base, expose: 'public', advertisedHost: '203.0.113.4' })).toMatchObject({ host: '203.0.113.4:8081', entryPoints: ['panel'] })
+    expect(panelProtectionRecord({ ...base, expose: 'local' })).toBeNull()
+    expect(() => panelProtectionRecord({ ...base, expose: 'public' })).toThrow('advertised host')
   })
 })

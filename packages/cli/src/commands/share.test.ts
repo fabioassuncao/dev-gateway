@@ -7,7 +7,8 @@ describe('share rendering', () => {
   it('routes an additional hostname without touching the project router', () => {
     const rendered = renderShares(shares)
     expect(rendered).toContain('url: "http://storefront-web-1:3000"')
-    expect(rendered).toContain('$apr1$')
+    expect(rendered).toContain('middlewares: [portta-forward-auth]')
+    expect(rendered).not.toContain('$apr1$')
     expect(rendered).not.toContain('traefik.http.routers')
   })
   it('renders an empty document without an invalid http key', () => {

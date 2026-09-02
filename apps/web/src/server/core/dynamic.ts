@@ -1,4 +1,4 @@
-// The only three files the panel is allowed to write into Traefik's dynamic
+// The only four files the panel is allowed to write into Traefik's dynamic
 // configuration directory.
 //
 // The directory is mounted read-write, which makes the panel able to configure
@@ -23,10 +23,17 @@ import {
 import { join } from 'node:path'
 import {
   PANEL_AUTH_MIDDLEWARE,
+  panelProtectionRecord,
   quoteDynamicValue,
+  readProtectionStore,
+  removeProtection,
+  renderAuthDynamic,
   renderPanelAuth as renderSharedPanelAuth,
   UnsafeDynamicValueError,
+  setProtection,
+  writeProtectionStore,
 } from 'portta-core'
+import type { PanelConfig } from '../config.ts'
 
 /** The whole write surface. Nothing is added here without an ADR. */
 export const GENERATED_FILES = {
@@ -103,8 +110,7 @@ export function readGenerated(dir: string, name: string): string | null {
 
 /**
  * Writes through a temporary file in the same directory, so Traefik's watcher
- * never sees a half-written router. Mode 600: these files carry password
- * hashes, and Traefik reads them as root.
+ * never sees a half-written router. Mode 600 keeps runtime routing state private.
  */
 export function writeGenerated(dir: string, name: string, contents: string): void {
   const path = dynamicPath(dir, name)
@@ -154,6 +160,46 @@ export function reconcilePanelAuth(
   try {
     writeGenerated(dir, GENERATED_FILES.panel, wanted)
     return { written: true, reason: 'rendered from the current settings' }
+  } catch (cause) {
+    return { written: false, reason: String(cause) }
+  }
+}
+
+/** Keep panel credentials private and render their proxy contract fail-closed. */
+export function reconcilePanelProtection(
+  config: PanelConfig,
+  auth: { mode: string; user: string; hash: string; expose?: string; advertisedHost?: string | null },
+): { written: boolean; reason: string } {
+  try {
+    const current = readProtectionStore(config.authStore)
+    const record = panelProtectionRecord({
+      mode: auth.mode,
+      expose: auth.expose ?? config.webExpose,
+      user: auth.user,
+      hash: auth.hash,
+      webHost: process.env['PORTTA_WEB_HOST'] ?? 'portta-web',
+      domain: config.domain,
+      advertisedHost: auth.advertisedHost ?? config.panelAdvertisedHost,
+      port: config.webExternalPort,
+      tlsEnabled: config.tlsEnabled,
+      projectName: config.projectName,
+    })
+    const existing = current.protections.find((protection) => protection.scope === 'panel')
+    const same = record && existing
+      ? JSON.stringify({ ...existing, epoch: undefined }) === JSON.stringify({ ...record, epoch: undefined })
+      : record === null && existing === undefined
+    const next = same ? current : record ? setProtection(current, record) : removeProtection(current, 'panel')
+    const unchanged = JSON.stringify(current) === JSON.stringify(next)
+    if (!unchanged) writeProtectionStore(config.authStore, next)
+    const wantedAuth = renderAuthDynamic(next)
+    const wantedPanel = renderPanelAuth(null)
+    const filesChanged = readGenerated(config.dynamicDir, GENERATED_FILES.auth) !== wantedAuth || readGenerated(config.dynamicDir, GENERATED_FILES.panel) !== wantedPanel
+    if (filesChanged) {
+      writeGenerated(config.dynamicDir, GENERATED_FILES.auth, wantedAuth)
+      writeGenerated(config.dynamicDir, GENERATED_FILES.panel, wantedPanel)
+    }
+    const written = !unchanged || filesChanged
+    return { written, reason: written ? 'credential store and ForwardAuth rendered' : 'already in step' }
   } catch (cause) {
     return { written: false, reason: String(cause) }
   }

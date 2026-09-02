@@ -293,7 +293,7 @@ describe('the password hash field takes a hash, never a password', () => {
   })
 })
 
-describe('saving a credential rewrites the middleware Traefik reads', () => {
+describe('saving a credential rewrites the ForwardAuth contract Traefik reads', () => {
   it('renders the generated file next to .env', () => {
     const dir = mkdtempSync(join(tmpdir(), 'portta-settings-'))
     const config = testConfig({ envFile: join(dir, '.env'), dynamicDir: dir })
@@ -306,9 +306,10 @@ describe('saving a credential rewrites the middleware Traefik reads', () => {
     })
 
     expect(result.dynamic?.written).toBe(true)
-    const rendered = readFileSync(join(dir, 'portta-panel.yaml'), 'utf8')
+    const rendered = readFileSync(join(dir, 'portta-auth.yaml'), 'utf8')
     expect(rendered).toContain('portta-web-auth:')
-    expect(rendered).toContain('dev:$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1')
+    expect(rendered).toContain('forwardAuth:')
+    expect(rendered).not.toContain('$apr1$')
     rmSync(dir, { recursive: true, force: true })
   })
 

@@ -96,3 +96,27 @@ renders the shared ForwardAuth service, middleware and unprotected login routes.
   a narrower lookup key, never permission to cross the host boundary.
 
 ---
+
+## 2026-09-02T02:07:00-03:00 - US-005: Migrate panel, shares and project protection
+
+### What was implemented
+Switched panel and protected-share routers to the shared ForwardAuth middleware.
+Passwords now become scrypt records in private state, while every generated
+Traefik file is credential-free. Share rotation bumps its epoch; revoke and GC
+remove records after their routers. Added `portta auth protect|unprotect|status`
+for project-owned routers without editing consumer Compose files.
+
+### Files changed
+- panel/share renderers and server routes — private-store lifecycle.
+- `packages/cli/src/commands/{web,share,auth}.ts` — compatible panel/share commands and project protection.
+- panel Compose overlay — bounded read-write auth-state mount.
+- installer hashing path — new credentials become scrypt over stdin.
+- project auth example — one working `portta-forward-auth@file` label.
+
+### Learnings for future iterations
+- Creation writes the credential before the router; revocation removes the
+  router before the credential. Either interrupted direction stays fail-closed.
+- The legacy `PORTTA_WEB_AUTH=basic` value remains a compatibility switch even
+  though the active proxy mechanism is ForwardAuth.
+
+---

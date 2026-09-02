@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { renderPanelAuth, webUrl } from './web.js'
 
 describe('panel authentication rendering', () => {
-  it('stores a hash behind the named middleware', () => {
+  it('keeps the legacy panel file free of credentials', () => {
     const rendered = renderPanelAuth('dev', '$apr1$abcdefgh$hash')
-    expect(rendered).toContain('portta-web-auth:')
-    expect(rendered).toContain('dev:$apr1$abcdefgh$hash')
-    expect(rendered).not.toContain('password:')
+    expect(rendered).not.toContain('portta-web-auth:')
+    expect(rendered).not.toContain('$apr1$')
+    expect(rendered).toContain('portta-auth.yaml')
   })
   it('fails closed by declaring no middleware when unset', () => expect(renderPanelAuth()).not.toMatch(/^http:/m))
 })

@@ -11,7 +11,7 @@ import { createSnapshotCache } from './core/inventory.ts'
 import { LiveHub } from './core/events.ts'
 import { createVerdictCache } from './core/traefik.ts'
 import { createApp } from './app.ts'
-import { GENERATED_FILES, reconcilePanelAuth } from './core/dynamic.ts'
+import { GENERATED_FILES, reconcilePanelProtection } from './core/dynamic.ts'
 import { Database } from './db/index.ts'
 import { GitHubIntegration } from './integrations/github/index.ts'
 
@@ -22,13 +22,13 @@ const config = loadConfig()
 // with a credential in .env is never behind a stale one. A directory the panel
 // cannot write is a diagnostic, not a reason to refuse to start: on Linux it
 // may well belong to another user, and the CLI writes the same file.
-const rendered = reconcilePanelAuth(config.dynamicDir, {
+const rendered = reconcilePanelProtection(config, {
   mode: config.webAuth,
   user: config.webAuthUser,
   hash: config.webAuthHash,
 })
 if (rendered.written) {
-  process.stdout.write(`wrote ${GENERATED_FILES.panel}: ${rendered.reason}\n`)
+  process.stdout.write(`wrote ${GENERATED_FILES.auth}: ${rendered.reason}\n`)
 } else if (config.webAuth === 'basic' && !isAuthenticated(config)) {
   process.stdout.write('PORTTA_WEB_AUTH=basic without a credential: run portta web auth set\n')
 }

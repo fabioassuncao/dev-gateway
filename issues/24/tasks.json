@@ -68,8 +68,8 @@
         "Existing command shapes remain compatible",
         "portta auth protect, unprotect and status manage project hostname records"
       ],
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Panel and share flows now use the private store and ForwardAuth; project owners can manage host records with portta auth while retaining ownership of router labels."
     },
     {
       "id": "US-006",

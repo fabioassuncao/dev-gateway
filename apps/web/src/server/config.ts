@@ -92,6 +92,10 @@ export interface PanelConfig {
    * reports whether it is set, the same way it treats TS_AUTHKEY.
    */
   webAuthHash: string
+  /** Private credential catalogue shared with the auth process read-only. */
+  authStore: string
+  panelAdvertisedHost: string | null
+  webExternalPort: string
   /** Traefik's dynamic configuration directory, mounted read-write. */
   dynamicDir: string
   /** Where `portta git scan` writes, mounted read-only. */
@@ -174,6 +178,9 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     webAuth: env('PORTTA_WEB_AUTH', 'none'),
     webAuthUser: env('PORTTA_WEB_AUTH_USER', ''),
     webAuthHash: env('PORTTA_WEB_AUTH_HASH', ''),
+    authStore: env('PORTTA_RUNTIME_AUTH_STORE', '/app/state/auth/protections.json'),
+    panelAdvertisedHost: optional('PORTTA_PANEL_ADVERTISED_HOST'),
+    webExternalPort: env('PORTTA_WEB_PORT', '8081'),
     dynamicDir: env('PORTTA_RUNTIME_DYNAMIC_DIR', '/app/state/traefik-dynamic'),
     gitDir: env('PORTTA_RUNTIME_GIT_DIR', '/app/state/git'),
     gitStaleSeconds: Number(env('PORTTA_RUNTIME_GIT_STALE_SECONDS', '600')),
