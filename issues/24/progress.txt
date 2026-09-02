@@ -26,3 +26,25 @@ ADR 0027. Updated every ADR whose status or write boundary changed.
 - ADR 0026 landed after issue #24 was written; the next safe number is 0027.
 
 ---
+
+## 2026-09-02T01:40:00-03:00 - US-002: Add the protection store and credential compatibility
+
+### What was implemented
+Moved password primitives into Core, added bounded scrypt hashing and legacy
+apr1/bcrypt/SHA verification, and introduced a validated versioned protection
+store with private atomic writes, normalized hosts and epoch rotation.
+
+### Files changed
+- `packages/core/src/password.ts` — shared hashing and verification.
+- `packages/core/src/protections.ts` — protection-store contract and persistence.
+- `packages/core/src/*.test.ts` — compatibility and store invariants.
+- `apps/web/src/server/core/{settings,shares}.ts` — shared Core imports.
+- workspace manifests and lockfile — pure-JS bcrypt verifier.
+
+### Learnings for future iterations
+- Existing Settings accepted `{SHA}` in addition to apr1 and bcrypt, so all
+  three formats are part of the upgrade compatibility contract.
+- Protection hosts are authorities; retaining an explicit port is necessary
+  for the panel's dedicated public entrypoint.
+
+---

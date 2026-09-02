@@ -6,7 +6,7 @@
 // values never leave the host.
 
 import type { ConfigField } from '../../shared/types.ts'
-import { isSupportedHash } from './apr1.ts'
+import { isSupportedHash } from 'portta-core'
 
 export interface FieldSpec {
   key: string

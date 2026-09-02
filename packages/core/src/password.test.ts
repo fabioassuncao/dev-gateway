@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
-import { apr1, generatePassword, isSupportedHash, randomSalt } from '../../src/server/core/apr1.ts'
+import { apr1, generatePassword, hashPassword, isSupportedHash, randomSalt, verifyPassword } from './password.ts'
 
 /**
  * The implementation is ours, so the test is against the tool everyone else
@@ -89,5 +89,26 @@ describe('isSupportedHash', () => {
     expect(isSupportedHash('hunter2')).toBe(false)
     expect(isSupportedHash('')).toBe(false)
     expect(isSupportedHash('$apr1$short')).toBe(false)
+  })
+})
+
+describe('password verification', () => {
+  it('writes and verifies the bounded Portta scrypt format', async () => {
+    const hash = await hashPassword('correct horse battery staple')
+    expect(hash).toMatch(/^\$portta\$scrypt\$65536\$8\$1\$/)
+    expect(isSupportedHash(hash)).toBe(true)
+    await expect(verifyPassword('correct horse battery staple', hash)).resolves.toBe(true)
+    await expect(verifyPassword('wrong', hash)).resolves.toBe(false)
+  })
+
+  it('keeps every format accepted before ForwardAuth', async () => {
+    await expect(verifyPassword('hunter2', '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1')).resolves.toBe(true)
+    await expect(verifyPassword('password', '$2b$05$QnEtvaOkCaotfJTC/OVCjuL94EHdMEoi.mJJfODg6kOrMStdhk/jK')).resolves.toBe(true)
+    await expect(verifyPassword('password', '{SHA}W6ph5Mm5Pz8GgiULbPgzG37mj9g=')).resolves.toBe(true)
+  })
+
+  it('refuses malformed and unsupported values without throwing', async () => {
+    await expect(verifyPassword('secret', '$portta$scrypt$999999999$8$1$bad$bad')).resolves.toBe(false)
+    await expect(verifyPassword('secret', 'secret')).resolves.toBe(false)
   })
 })

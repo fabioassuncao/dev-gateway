@@ -11,10 +11,9 @@
 // place to keep in step. See docs/adr/0011-panel-reads-traefik-writes-one-file.md.
 
 import { randomBytes } from 'node:crypto'
-import { renderShares, shareRouterName, SHARES_MARKER as MARKER } from 'portta-core'
+import { apr1, generatePassword, renderShares, shareRouterName, SHARES_MARKER as MARKER } from 'portta-core'
 import type { PanelConfig } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
-import { apr1, generatePassword } from './apr1.ts'
 import { GENERATED_FILES, readGenerated, writeGenerated } from './dynamic.ts'
 import { slug } from '../../shared/slug.ts'
 import type { ContainerSummary, Share, ShareMode, ShareState } from '../../shared/types.ts'

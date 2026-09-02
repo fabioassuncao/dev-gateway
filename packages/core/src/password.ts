@@ -10,13 +10,28 @@
 // insists on their own password pastes a hash they made themselves. See
 // docs/adr/0011-panel-reads-traefik-writes-one-file.md.
 
-import { createHash, randomInt } from 'node:crypto'
+import { createHash, randomBytes, randomInt, scrypt as nodeScrypt, timingSafeEqual } from 'node:crypto'
+import { compare as bcryptCompare } from 'bcryptjs'
 
 const MAGIC = '$apr1$'
 const ITOA64 = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 /** No 0, 1, I or O: this password is read aloud and typed by hand. */
 const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
 const SALT_CHARS = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+const SCRYPT_PREFIX = '$portta$scrypt$'
+const SCRYPT_N = 65_536
+const SCRYPT_R = 8
+const SCRYPT_P = 1
+const SCRYPT_KEY_LENGTH = 32
+const SCRYPT_MAX_MEMORY = 96 * 1024 * 1024
+function scryptPassword(password: string, salt: Buffer, length: number, options: { N: number; r: number; p: number; maxmem: number }): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    nodeScrypt(password, salt, length, options, (error, derived) => {
+      if (error) reject(error)
+      else resolve(derived)
+    })
+  })
+}
 
 function md5(...parts: Buffer[]): Buffer {
   const hash = createHash('md5')
@@ -58,7 +73,7 @@ export function generatePassword(groups = 4, size = 5): string {
 
 /**
  * `$apr1$<salt>$<22 chars>`, byte for byte what `openssl passwd -apr1` writes.
- * `tests/server/apr1.test.ts` checks that against the real openssl when the
+ * `password.test.ts` checks that against the real openssl when the
  * machine running the suite has one.
  */
 export function apr1(password: string, salt = randomSalt()): string {
@@ -104,8 +119,57 @@ export function apr1(password: string, salt = randomSalt()): string {
 /** Whether a stored value looks like something Traefik will accept. */
 export function isSupportedHash(value: string): boolean {
   return (
+    /^\$portta\$scrypt\$65536\$8\$1\$[A-Za-z0-9_-]{22}\$[A-Za-z0-9_-]{43}$/.test(value) ||
     /^\$apr1\$[./0-9A-Za-z]{1,8}\$[./0-9A-Za-z]{22}$/.test(value) ||
     /^\$2[aby]?\$\d{2}\$[./0-9A-Za-z]{53}$/.test(value) ||
     /^\{SHA\}[A-Za-z0-9+/]{27}=$/.test(value)
   )
+}
+
+function equal(left: Buffer, right: Buffer): boolean {
+  return left.length === right.length && timingSafeEqual(left, right)
+}
+
+/** Hash a newly supplied password with the one format Portta owns. */
+export async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16)
+  const derived = await scryptPassword(password, salt, SCRYPT_KEY_LENGTH, {
+    N: SCRYPT_N,
+    r: SCRYPT_R,
+    p: SCRYPT_P,
+    maxmem: SCRYPT_MAX_MEMORY,
+  })
+  return `${SCRYPT_PREFIX}${SCRYPT_N}$${SCRYPT_R}$${SCRYPT_P}$${salt.toString('base64url')}$${derived.toString('base64url')}`
+}
+
+async function verifyScrypt(password: string, encoded: string): Promise<boolean> {
+  const parts = encoded.split('$')
+  if (parts.length !== 8 || parts[1] !== 'portta' || parts[2] !== 'scrypt') return false
+  const n = Number(parts[3])
+  const r = Number(parts[4])
+  const p = Number(parts[5])
+  if (n !== SCRYPT_N || r !== SCRYPT_R || p !== SCRYPT_P) return false
+  const salt = Buffer.from(parts[6] ?? '', 'base64url')
+  const wanted = Buffer.from(parts[7] ?? '', 'base64url')
+  if (salt.length !== 16 || wanted.length !== SCRYPT_KEY_LENGTH) return false
+  const actual = await scryptPassword(password, salt, wanted.length, { N: n, r, p, maxmem: SCRYPT_MAX_MEMORY })
+  return equal(actual, wanted)
+}
+
+/** Verify Portta's scrypt hashes and every format accepted before ADR 0027. */
+export async function verifyPassword(password: string, encoded: string): Promise<boolean> {
+  try {
+    if (encoded.startsWith(SCRYPT_PREFIX)) return verifyScrypt(password, encoded)
+    if (encoded.startsWith('$apr1$')) {
+      return equal(Buffer.from(apr1(password, encoded)), Buffer.from(encoded))
+    }
+    if (/^\$2[aby]?\$/.test(encoded)) return bcryptCompare(password, encoded)
+    if (encoded.startsWith('{SHA}')) {
+      const actual = `{SHA}${createHash('sha1').update(password, 'utf8').digest('base64')}`
+      return equal(Buffer.from(actual), Buffer.from(encoded))
+    }
+    return false
+  } catch {
+    return false
+  }
 }

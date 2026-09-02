@@ -29,8 +29,8 @@
         "Existing apr1, bcrypt and SHA credentials verify",
         "The protection store writes atomically with mode 0600 and bumps epochs"
       ],
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Core now owns apr1, scrypt, bcrypt/SHA compatibility and the atomic versioned store."
     },
     {
       "id": "US-003",
