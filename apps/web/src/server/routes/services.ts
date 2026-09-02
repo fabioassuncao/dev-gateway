@@ -27,9 +27,9 @@ export function serviceRoutes(deps: AppDeps): Hono {
     )
     const services = snapshot.containers.filter(
       (container) =>
-        container.project !== null &&
-        integrated.has(container.project) &&
-        (project === undefined || container.project === project),
+        container.environment !== null &&
+        integrated.has(container.environment) &&
+        (project === undefined || container.environment === project),
     )
     return c.json({ services })
   })

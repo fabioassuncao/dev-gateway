@@ -6,7 +6,7 @@
 // mapping with no explanation — which is also how the label and the database
 // stop disagreeing: they are one list with a provenance.
 
-import type { Project } from '../../shared/types.ts'
+import type { Environment } from '../../shared/types.ts'
 
 export type AdoptionSource = 'manual' | 'label' | 'repo-match'
 
@@ -46,7 +46,7 @@ export function repositoryCoordinate(repoUrl: string | null): string | null {
  * worse than none, so an ambiguous match adopts nothing and lets the user say.
  */
 export function resolveAdoption(
-  project: Pick<Project, 'name' | 'group' | 'repo' | 'repoUrl'>,
+  project: Pick<Environment, 'name' | 'group' | 'repo' | 'repoUrl'>,
   workspaces: WorkspaceCoordinates[],
   manual: Map<string, string>,
 ): Adoption | null {
@@ -67,7 +67,7 @@ export function resolveAdoption(
 }
 
 export function resolveAdoptions(
-  projects: ReadonlyArray<Pick<Project, 'name' | 'group' | 'repo' | 'repoUrl'>>,
+  projects: ReadonlyArray<Pick<Environment, 'name' | 'group' | 'repo' | 'repoUrl'>>,
   workspaces: WorkspaceCoordinates[],
   manual: Map<string, string>,
 ): Map<string, Adoption> {

@@ -89,7 +89,7 @@ describe "the panel database has private operational tooling"
 
 db_clients="packages/cli/src/commands/clients.ts"
 
-for command in status shell dump restore; do
+for command in status migrate shell dump restore; do
   it "db $command is documented"
   assert_contains "$(./bin/portta db --help 2>&1)" "  $command"
 done
@@ -102,6 +102,13 @@ assert_contains "$(cat "$db_clients")" "'-e', 'PGPASSWORD'"
 
 it "the password never appears in client arguments"
 assert_eq "" "$(grep -n -- '--password\|postgres://.*PORTTA_RUNTIME_DB_PASSWORD' "$db_clients" || true)"
+
+it "db migrate asks the running panel, never PostgreSQL"
+assert_contains "$(cat packages/cli/src/cli.ts)" "db.command('migrate')"
+assert_contains "$(cat "$db_clients")" "requestPanelMigrate"
+
+it "make db-migrate is a single CLI call"
+assert_contains "$(grep -A1 '^db-migrate:' Makefile)" '$(GW) db migrate'
 
 it "dumps use PostgreSQL's restorable custom format"
 assert_contains "$(cat "$db_clients")" "--format=custom"
@@ -366,6 +373,9 @@ assert_contains "$(cat docker/compose/features/web-dev.yaml)" 'command: ["npm", 
 
 it "mounts the shared package so editing it reloads the panel"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/core/src:/app/packages/core/src"
+
+it "mounts panel SQL so a new migration is visible without rebuilding"
+assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./apps/web/migrations:/app/apps/web/migrations"
 
 it "publishes the UI on its own port, which is where the panel answers"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "PORTTA_WEB_DEV_PORT:-5173"

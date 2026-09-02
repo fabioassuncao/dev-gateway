@@ -3,14 +3,12 @@ import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from './deps.ts'
 import { requireDatabase, type Database } from '../db/index.ts'
-import { resolveAdoptions, type WorkspaceCoordinates } from '../core/adoption.ts'
 import { OverrideRefused } from '../core/overrides.ts'
 import type { Snapshot } from '../core/inventory.ts'
+import { loadProjectCatalog, toProject, toProjectSummary } from '../core/catalog.ts'
 import {
-  Workspace,
-  WorkspaceSummary,
-  type WorkspaceEnvironment,
-  type WorkspaceRepository,
+  Project,
+  ProjectSummary,
 } from '../../shared/types.ts'
 import { documentRoute } from '../openapi.ts'
 
@@ -22,8 +20,14 @@ const slugParameter = {
   schema: { type: 'string' as const },
 }
 
+const ProjectsResponse = z
+  .object({ projects: z.array(ProjectSummary) })
+  .strict()
+  .meta({ ref: 'ProjectsResponse' })
+
+/** @deprecated Use ProjectsResponse */
 const WorkspacesResponse = z
-  .object({ workspaces: z.array(WorkspaceSummary) })
+  .object({ workspaces: z.array(ProjectSummary) })
   .strict()
   .meta({ ref: 'WorkspacesResponse' })
 
@@ -77,90 +81,64 @@ const Removal = z
  * half comes from the snapshot the panel already has, so a workspace with
  * nothing up is a full answer rather than an empty one.
  */
-async function assemble(db: Database, snapshot: Snapshot) {
-  const [workspaces, repositories, manualLinks] = await Promise.all([
-    db.workspaces.list(),
-    db.workspaces.listRepositories(),
-    db.workspaces.listEnvironments(),
-  ])
+async function assemble(db: Database, snapshot: Snapshot, projectsHome: string | null) {
+  return loadProjectCatalog(db, snapshot, projectsHome)
+}
 
-  const byWorkspace = new Map<string, WorkspaceRepository[]>()
-  for (const row of repositories) {
-    const list = byWorkspace.get(row.workspaceId) ?? []
-    list.push({
-      repositoryId: row.repositoryId,
-      fullName: row.fullName,
-      htmlUrl: row.htmlUrl,
-      defaultBranch: row.defaultBranch,
-      private: row.private,
-      archived: row.archived,
-      role: row.role,
-      position: row.position,
-    })
-    byWorkspace.set(row.workspaceId, list)
-  }
-
-  const coordinates: WorkspaceCoordinates[] = workspaces.map((workspace) => ({
-    id: workspace.id,
-    slug: workspace.slug,
-    repositories: (byWorkspace.get(workspace.id) ?? []).map((repository) => repository.fullName.toLowerCase()),
-  }))
-
-  const manual = new Map(manualLinks.map((row) => [row.composeProject, row.workspaceId]))
-  const adoptions = resolveAdoptions(snapshot.projects, coordinates, manual)
-
-  const environments = new Map<string, WorkspaceEnvironment[]>()
-  for (const project of snapshot.projects) {
-    const adoption = adoptions.get(project.name)
-    if (!adoption) continue
-    const list = environments.get(adoption.workspaceId) ?? []
-    list.push({
-      project: project.name,
-      source: adoption.source,
-      running: project.runningCount > 0,
-      serviceCount: project.serviceCount,
-      runningCount: project.runningCount,
-      unhealthyCount: project.unhealthyCount,
-      urls: project.urls,
-    })
-    environments.set(adoption.workspaceId, list)
-  }
-
-  return { workspaces, byWorkspace, environments }
+function summariesFrom(catalog: Awaited<ReturnType<typeof loadProjectCatalog>>) {
+  return catalog.records.map((record) =>
+    toProjectSummary(
+      record,
+      (catalog.githubByProject.get(record.id) ?? []).length,
+      catalog.environments.get(record.id) ?? [],
+    ),
+  )
 }
 
 export function workspaceRoutes(deps: AppDeps): Hono {
   const app = new Hono()
+  const home = () => deps.config.projectsHome
 
-  app.get('/workspaces', documentRoute({
-    tag: 'Workspaces', operationId: 'listWorkspaces', summary: 'List workspaces',
-    response: WorkspacesResponse,
-    description: 'A workspace is a grouping a person created. It stays visible with nothing running.',
+  app.get('/projects', documentRoute({
+    tag: 'Projects', operationId: 'listProjects', summary: 'List Projects',
+    response: ProjectsResponse,
+    description: 'A Project is the product the operator recognises. It stays visible with nothing running. See ADR 0031.',
     errors: [500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const snapshot = await deps.cache.get()
-    const { workspaces, byWorkspace, environments } = await assemble(db, snapshot)
+    const catalog = await assemble(db, await deps.cache.get(), home())
+    return c.json({ projects: summariesFrom(catalog) })
+  })
 
-    return c.json({
-      workspaces: workspaces.map((workspace) => {
-        const adopted = environments.get(workspace.id) ?? []
-        return {
-          slug: workspace.slug,
-          name: workspace.name,
-          description: workspace.description,
-          archived: workspace.archived,
-          repositoryCount: (byWorkspace.get(workspace.id) ?? []).length,
-          environmentCount: adopted.length,
-          runningEnvironmentCount: adopted.filter((environment) => environment.running).length,
-        }
-      }),
-    })
+  app.get('/workspaces', documentRoute({
+    tag: 'Workspaces', operationId: 'listWorkspaces', summary: 'List workspaces (deprecated alias of listProjects)',
+    response: WorkspacesResponse,
+    description: 'Deprecated. Use GET /projects. Same payload under the `workspaces` key for one cycle.',
+    errors: [500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const catalog = await assemble(db, await deps.cache.get(), home())
+    return c.json({ workspaces: summariesFrom(catalog) })
+  })
+
+  app.post('/projects', documentRoute({
+    tag: 'Projects', operationId: 'createProject', summary: 'Create a Project',
+    request: CreateBody, response: Project, status: 201,
+    description: 'Persists the product. Nothing on this host is started or stopped.',
+    errors: [400, 403, 409, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const body = CreateBody.parse(await c.req.json())
+    if (await db.workspaces.find(body.slug)) {
+      throw new HTTPException(409, { message: `a project named '${body.slug}' already exists` })
+    }
+    const created = await db.workspaces.create({ ...body, description: body.description ?? null })
+    return c.json(toProject(created, [], [], home()), 201)
   })
 
   app.post('/workspaces', documentRoute({
     tag: 'Workspaces', operationId: 'createWorkspace', summary: 'Create a workspace',
-    request: CreateBody, response: Workspace, status: 201,
+    request: CreateBody, response: Project, status: 201,
     errors: [400, 403, 409, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -169,44 +147,142 @@ export function workspaceRoutes(deps: AppDeps): Hono {
       throw new HTTPException(409, { message: `a workspace named '${body.slug}' already exists` })
     }
     const created = await db.workspaces.create({ ...body, description: body.description ?? null })
-    return c.json(
-      {
-        slug: created.slug,
-        name: created.name,
-        description: created.description,
-        archived: created.archived,
-        repositories: [],
-        environments: [],
-      },
-      201,
-    )
+    return c.json(toProject(created, [], [], home()), 201)
   })
 
   app.get('/workspaces/:slug', documentRoute({
     tag: 'Workspaces', operationId: 'getWorkspace', summary: 'Get one workspace',
-    response: Workspace, parameters: [slugParameter], errors: [404, 500, 503],
+    response: Project, parameters: [slugParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
     const slug = c.req.param('slug')
     const record = await db.workspaces.find(slug)
     if (!record) throw new HTTPException(404, { message: `no workspace '${slug}'` })
 
-    const snapshot = await deps.cache.get()
-    const { byWorkspace, environments } = await assemble(db, snapshot)
+    const catalog = await assemble(db, await deps.cache.get(), home())
+    return c.json(toProject(
+      record,
+      catalog.githubByProject.get(record.id) ?? [],
+      catalog.environments.get(record.id) ?? [],
+      home(),
+    ))
+  })
 
+  app.get('/projects/:slug', documentRoute({
+    tag: 'Projects', operationId: 'getProject', summary: 'Get one Project',
+    response: Project, parameters: [slugParameter], errors: [404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const slug = c.req.param('slug')
+    const record = await db.workspaces.find(slug)
+    if (!record) throw new HTTPException(404, { message: `no project '${slug}'` })
+    const catalog = await assemble(db, await deps.cache.get(), home())
+    return c.json(toProject(
+      record,
+      catalog.githubByProject.get(record.id) ?? [],
+      catalog.environments.get(record.id) ?? [],
+      home(),
+    ))
+  })
+
+  app.patch('/projects/:slug', documentRoute({
+    tag: 'Projects', operationId: 'patchProject', summary: 'Rename, describe or archive a Project',
+    request: PatchBody, response: ProjectSummary,
+    parameters: [slugParameter], errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const slug = c.req.param('slug')
+    const patch = PatchBody.parse(await c.req.json())
+    const updated = await db.workspaces.update(slug, patch)
+    if (!updated) throw new HTTPException(404, { message: `no project '${slug}'` })
+    return c.json(toProjectSummary(updated, 0, []))
+  })
+
+  app.delete('/projects/:slug', documentRoute({
+    tag: 'Projects', operationId: 'deleteProject', summary: 'Remove a Project grouping',
+    description: 'Deletes the grouping only. No container, volume, environment or repository is touched.',
+    response: Removal, parameters: [slugParameter], errors: [403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const slug = c.req.param('slug')
+    if (!(await db.workspaces.remove(slug))) {
+      throw new HTTPException(404, { message: `no project '${slug}'` })
+    }
     return c.json({
-      slug: record.slug,
-      name: record.name,
-      description: record.description,
-      archived: record.archived,
-      repositories: byWorkspace.get(record.id) ?? [],
-      environments: environments.get(record.id) ?? [],
+      ok: true,
+      removed: slug,
+      note: 'the grouping only: no container, volume, environment or repository was touched',
     })
+  })
+
+  app.put('/projects/:slug/repositories', documentRoute({
+    tag: 'Projects', operationId: 'setProjectRepositories',
+    summary: 'Set the GitHub repositories a Project owns',
+    description: 'A repository the GitHub App installation did not grant is refused; the projection is the authorisation boundary.',
+    request: RepositoriesBody, response: Project,
+    parameters: [slugParameter], errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const slug = c.req.param('slug')
+    const record = await db.workspaces.find(slug)
+    if (!record) throw new HTTPException(404, { message: `no project '${slug}'` })
+
+    const body = RepositoriesBody.parse(await c.req.json())
+    const links: { repositoryId: string; role: string | null }[] = []
+    for (const wanted of body.repositories) {
+      const known = await db.github.findRepository(wanted.fullName)
+      if (!known) {
+        throw new OverrideRefused(
+          `${wanted.fullName} is not a repository this gateway was granted`,
+          'install the GitHub App on it, then run a sync; see docs/github.md',
+        )
+      }
+      links.push({ repositoryId: known.id, role: wanted.role ?? null })
+    }
+    await db.workspaces.setRepositories(record.id, links)
+
+    const catalog = await assemble(db, await deps.cache.get(), home())
+    return c.json(toProject(
+      record,
+      catalog.githubByProject.get(record.id) ?? [],
+      catalog.environments.get(record.id) ?? [],
+      home(),
+    ))
+  })
+
+  app.put('/projects/:slug/environments', documentRoute({
+    tag: 'Projects', operationId: 'setProjectEnvironments',
+    summary: 'Set the environments a Project adopts by hand',
+    description: 'A manual mapping always wins over portta.project and over a repository match.',
+    request: EnvironmentsBody, response: Project,
+    parameters: [slugParameter], errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const slug = c.req.param('slug')
+    const record = await db.workspaces.find(slug)
+    if (!record) throw new HTTPException(404, { message: `no project '${slug}'` })
+
+    const body = EnvironmentsBody.parse(await c.req.json())
+    const snapshot = await deps.cache.get()
+    for (const name of body.environments) {
+      if (!snapshot.environments.some((environment) => environment.name === name)) {
+        throw new OverrideRefused(`no environment '${name}' is running`)
+      }
+    }
+    await db.workspaces.setEnvironments(record.id, body.environments)
+
+    const catalog = await assemble(db, await deps.cache.get(true), home())
+    return c.json(toProject(
+      record,
+      catalog.githubByProject.get(record.id) ?? [],
+      catalog.environments.get(record.id) ?? [],
+      home(),
+    ))
   })
 
   app.patch('/workspaces/:slug', documentRoute({
     tag: 'Workspaces', operationId: 'patchWorkspace', summary: 'Rename, describe or archive a workspace',
-    request: PatchBody, response: WorkspaceSummary,
+    request: PatchBody, response: ProjectSummary,
     parameters: [slugParameter], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -215,15 +291,7 @@ export function workspaceRoutes(deps: AppDeps): Hono {
     const updated = await db.workspaces.update(slug, patch)
     if (!updated) throw new HTTPException(404, { message: `no workspace '${slug}'` })
 
-    return c.json({
-      slug: updated.slug,
-      name: updated.name,
-      description: updated.description,
-      archived: updated.archived,
-      repositoryCount: 0,
-      environmentCount: 0,
-      runningEnvironmentCount: 0,
-    })
+    return c.json(toProjectSummary(updated, 0, []))
   })
 
   /**
@@ -254,7 +322,7 @@ export function workspaceRoutes(deps: AppDeps): Hono {
     tag: 'Workspaces', operationId: 'setWorkspaceRepositories',
     summary: 'Set the repositories a workspace owns',
     description: 'A repository the GitHub App installation did not grant is refused; the projection is the authorisation boundary.',
-    request: RepositoriesBody, response: Workspace,
+    request: RepositoriesBody, response: Project,
     parameters: [slugParameter], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -276,23 +344,20 @@ export function workspaceRoutes(deps: AppDeps): Hono {
     }
     await db.workspaces.setRepositories(record.id, links)
 
-    const snapshot = await deps.cache.get()
-    const { byWorkspace, environments } = await assemble(db, snapshot)
-    return c.json({
-      slug: record.slug,
-      name: record.name,
-      description: record.description,
-      archived: record.archived,
-      repositories: byWorkspace.get(record.id) ?? [],
-      environments: environments.get(record.id) ?? [],
-    })
+    const catalog = await assemble(db, await deps.cache.get(), home())
+    return c.json(toProject(
+      record,
+      catalog.githubByProject.get(record.id) ?? [],
+      catalog.environments.get(record.id) ?? [],
+      home(),
+    ))
   })
 
   app.put('/workspaces/:slug/environments', documentRoute({
     tag: 'Workspaces', operationId: 'setWorkspaceEnvironments',
     summary: 'Set the environments a workspace adopts by hand',
     description: 'A manual mapping always wins over portta.project and over a repository match.',
-    request: EnvironmentsBody, response: Workspace,
+    request: EnvironmentsBody, response: Project,
     parameters: [slugParameter], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -303,21 +368,19 @@ export function workspaceRoutes(deps: AppDeps): Hono {
     const body = EnvironmentsBody.parse(await c.req.json())
     const snapshot = await deps.cache.get()
     for (const name of body.environments) {
-      if (!snapshot.projects.some((project) => project.name === name)) {
-        throw new OverrideRefused(`no project '${name}' is running`)
+      if (!snapshot.environments.some((environment) => environment.name === name)) {
+        throw new OverrideRefused(`no environment '${name}' is running`)
       }
     }
     await db.workspaces.setEnvironments(record.id, body.environments)
 
-    const { byWorkspace, environments } = await assemble(db, await deps.cache.get(true))
-    return c.json({
-      slug: record.slug,
-      name: record.name,
-      description: record.description,
-      archived: record.archived,
-      repositories: byWorkspace.get(record.id) ?? [],
-      environments: environments.get(record.id) ?? [],
-    })
+    const catalog = await assemble(db, await deps.cache.get(true), home())
+    return c.json(toProject(
+      record,
+      catalog.githubByProject.get(record.id) ?? [],
+      catalog.environments.get(record.id) ?? [],
+      home(),
+    ))
   })
 
   return app

@@ -12,7 +12,7 @@ import { environmentsFor, resolveLinks } from '../../src/server/core/issue-envir
 import { buildSnapshot } from '../../src/server/core/inventory.ts'
 import { fakeDocker, testConfig } from './helpers.ts'
 import type { Database } from '../../src/server/db/index.ts'
-import type { Issue, Project } from '../../src/shared/types.ts'
+import type { Environment, Issue } from '../../src/shared/types.ts'
 
 describe('the link schema', () => {
   const migration = readFileSync(new URL('../../migrations/0005_issue_environments.sql', import.meta.url), 'utf8')
@@ -197,8 +197,8 @@ describe('resolving links', () => {
       project: 'alpha',
       source: 'label',
       running: true,
-      panelUrl: '#/projects/alpha',
-      logsUrl: '#/projects/alpha/logs',
+      panelUrl: '#/environments/alpha',
+      logsUrl: '#/environments/alpha/logs',
     })
     expect(environments[0]!.urls.length).toBeGreaterThan(0)
   })
@@ -249,7 +249,7 @@ describe('the issue endpoint', () => {
     expect(issue.environments[0]).toMatchObject({
       project: 'alpha',
       source: 'label',
-      logsUrl: '#/projects/alpha/logs',
+      logsUrl: '#/environments/alpha/logs',
     })
   })
 
@@ -297,7 +297,7 @@ describe('the issue endpoint', () => {
 describe('the project endpoint', () => {
   it('gains the issue this environment belongs to', async () => {
     const instance = app({ 'portta.issue': '#182' })
-    const project = (await (await instance.app.request('/api/projects/alpha')).json()) as Project
+    const project = (await (await instance.app.request('/api/environments/alpha')).json()) as Environment
 
     expect(project.issue).toMatchObject({
       repository: 'acme/alpha',
@@ -310,13 +310,13 @@ describe('the project endpoint', () => {
 
   it('is unchanged when nothing links, so no client breaks', async () => {
     const instance = app()
-    const project = (await (await instance.app.request('/api/projects/alpha')).json()) as Project
+    const project = (await (await instance.app.request('/api/environments/alpha')).json()) as Environment
     expect(project.issue).toBeUndefined()
   })
 
   it('is unchanged with no database at all', async () => {
     const { app: bare } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] })
-    const project = (await (await bare.request('/api/projects/alpha')).json()) as Project
+    const project = (await (await bare.request('/api/environments/alpha')).json()) as Environment
     expect(project.issue).toBeUndefined()
     expect(project.name).toBe('alpha')
   })

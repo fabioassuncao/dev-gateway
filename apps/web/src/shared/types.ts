@@ -142,7 +142,7 @@ export const EnvironmentIssue = named(
 )
 export type EnvironmentIssue = z.infer<typeof EnvironmentIssue>
 
-export const ProjectOverrides = named(
+export const EnvironmentOverrides = named(
   z.object({
     displayName: z.string().optional(),
     description: z.string().optional(),
@@ -153,9 +153,9 @@ export const ProjectOverrides = named(
     hiddenServices: z.array(z.string()).optional(),
     serviceOrder: z.array(z.string()).optional(),
   }).strict(),
-  'ProjectOverrides',
+  'EnvironmentOverrides',
 )
-export type ProjectOverrides = z.infer<typeof ProjectOverrides>
+export type EnvironmentOverrides = z.infer<typeof EnvironmentOverrides>
 
 export const ServiceOverrides = named(
   z.object({
@@ -180,7 +180,7 @@ export const ContainerSummary = named(
     uptimeSeconds: z.number().nullable(),
     ownership: Ownership,
     gatewayComponent: z.string().nullable(),
-    project: z.string().nullable().describe('Compose project name'),
+    environment: z.string().nullable().describe('Environment key (COMPOSE_PROJECT_NAME on this Node)'),
     service: z.string().nullable().describe('Compose service name'),
     workingDir: z.string().nullable(),
     namespace: z.string().nullable(),
@@ -207,28 +207,28 @@ export const ContainerSummary = named(
 )
 export type ContainerSummary = z.infer<typeof ContainerSummary>
 
-export const ProjectOperable = named(
+export const EnvironmentOperable = named(
   z.object({
     ok: z.boolean().describe('Whether Compose can be driven for this project from the labels Docker recorded'),
     reason: z.string().nullable().describe('Why it is not operable, when it is not'),
     workingDir: z.string().nullable(),
     configFiles: z.array(z.string()),
   }).strict(),
-  'ProjectOperable',
+  'EnvironmentOperable',
 )
-export type ProjectOperable = z.infer<typeof ProjectOperable>
+export type EnvironmentOperable = z.infer<typeof EnvironmentOperable>
 
-export const ProjectStartable = named(
+export const EnvironmentStartable = named(
   z.object({
     ok: z.boolean().describe('Whether start can run by iterating the containers that still exist'),
     reason: z.string().nullable(),
     via: z.enum(['iteration', 'runner']).nullable(),
   }).strict(),
-  'ProjectStartable',
+  'EnvironmentStartable',
 )
-export type ProjectStartable = z.infer<typeof ProjectStartable>
+export type EnvironmentStartable = z.infer<typeof EnvironmentStartable>
 
-export const ProjectActionEntry = named(
+export const EnvironmentActionEntry = named(
   z.object({
     service: z.string(),
     containerId: z.string(),
@@ -237,11 +237,11 @@ export const ProjectActionEntry = named(
     skipped: z.boolean(),
     error: z.string().nullable(),
   }).strict(),
-  'ProjectActionEntry',
+  'EnvironmentActionEntry',
 )
-export type ProjectActionEntry = z.infer<typeof ProjectActionEntry>
+export type EnvironmentActionEntry = z.infer<typeof EnvironmentActionEntry>
 
-export const ProjectActionResult = named(
+export const EnvironmentActionResult = named(
   z.object({
     ok: z.boolean().describe('True only when every requested step succeeded or was skipped'),
     project: z.string(),
@@ -250,29 +250,29 @@ export const ProjectActionResult = named(
     succeeded: z.number().int(),
     failed: z.number().int(),
     skipped: z.number().int(),
-    results: z.array(ProjectActionEntry),
+    results: z.array(EnvironmentActionEntry),
   }).strict(),
-  'ProjectActionResult',
+  'EnvironmentActionResult',
 )
-export type ProjectActionResult = z.infer<typeof ProjectActionResult>
+export type EnvironmentActionResult = z.infer<typeof EnvironmentActionResult>
 
-export const ProjectPorttaRecords = named(
+export const EnvironmentPorttaRecords = named(
   z.object({
     overrides: z.number().int(),
     aliases: z.number().int(),
-    workspaceLinks: z.number().int(),
+    projectLinks: z.number().int(),
     issueLinks: z.number().int(),
     accessBridges: z.array(z.string()),
     accessForwarders: z.array(z.string()),
     accessFiles: z.array(z.string()),
   }).strict(),
-  'ProjectPorttaRecords',
+  'EnvironmentPorttaRecords',
 )
-export type ProjectPorttaRecords = z.infer<typeof ProjectPorttaRecords>
+export type EnvironmentPorttaRecords = z.infer<typeof EnvironmentPorttaRecords>
 
-export const ProjectRemovalPreview = named(
+export const EnvironmentRemovalPreview = named(
   z.object({
-    project: z.string(),
+    environment: z.string(),
     containers: z.array(z.object({
       id: z.string(),
       name: z.string(),
@@ -293,23 +293,24 @@ export const ProjectRemovalPreview = named(
       unstaged: z.number().int(),
       untracked: z.number().int(),
     }).strict(),
-    records: ProjectPorttaRecords,
+    records: EnvironmentPorttaRecords,
     runnerAvailable: z.boolean(),
     directoryRemovalAvailable: z.boolean(),
   }).strict(),
-  'ProjectRemovalPreview',
+  'EnvironmentRemovalPreview',
 )
-export type ProjectRemovalPreview = z.infer<typeof ProjectRemovalPreview>
+export type EnvironmentRemovalPreview = z.infer<typeof EnvironmentRemovalPreview>
 
-export const Project = named(
+/** An executable instance of a Project on this Node. Today: one Compose project. */
+export const Environment = named(
   z.object({
-    name: z.string().describe('COMPOSE_PROJECT_NAME; the key used by project endpoints'),
+    name: z.string().describe('COMPOSE_PROJECT_NAME; the Environment key on this Node'),
     integrated: z.boolean(),
     workingDir: z.string().nullable(),
-    operable: ProjectOperable.describe('Whether the runner can find this project on the host'),
-    startable: ProjectStartable.describe('Whether start can iterate existing containers, or needs the runner'),
+    operable: EnvironmentOperable.describe('Whether the runner can find this environment on the host'),
+    startable: EnvironmentStartable.describe('Whether start can iterate existing containers, or needs the runner'),
     namespace: z.string().nullable(),
-    group: z.string().nullable(),
+    group: z.string().nullable().describe('Optional portta.project label; a hint, not a Project'),
     repo: z.string().nullable(),
     repoUrl: z.string().nullable(),
     gitRoot: z.string().nullable(),
@@ -324,25 +325,28 @@ export const Project = named(
     scopes: z.array(UrlScope),
     startedAt: unixSeconds.nullable(),
     uptimeSeconds: z.number().nullable(),
-    overrides: ProjectOverrides.optional().describe('Absent when nothing was overridden'),
+    overrides: EnvironmentOverrides.optional().describe('Absent when nothing was overridden'),
     issue: EnvironmentIssue.nullable().optional().describe('The issue this environment is running for, when the panel can tell'),
+    location: z.enum(['managed', 'external', 'escaped', 'missing', 'inaccessible']).optional(),
   }).strict(),
-  'Project',
+  'Environment',
 )
-export type Project = z.infer<typeof Project>
+export type Environment = z.infer<typeof Environment>
 
-/**
- * A workspace is what a person decided; a `Project` is what this host is
- * running. Keeping both words is the point: `GET /api/projects` still answers
- * exactly what it answered before.
- */
 export const AdoptionSource = named(
-  z.enum(['manual', 'label', 'repo-match']).describe('Why this environment belongs to this workspace'),
+  z.enum(['manual', 'label', 'repo-match', 'path']).describe('Why this environment belongs to this Project'),
   'AdoptionSource',
 )
 export type AdoptionSource = z.infer<typeof AdoptionSource>
 
-export const WorkspaceRepository = named(
+export const AttributionState = named(
+  z.enum(['resolved', 'conflict', 'ambiguous', 'unattributed']).describe('How sure the panel is of an association'),
+  'AttributionState',
+)
+export type AttributionState = z.infer<typeof AttributionState>
+
+/** Optional GitHub metadata on a Repository. Does not define the Repository. */
+export const ProjectGitHubRepository = named(
   z.object({
     repositoryId: z.string(),
     fullName: z.string(),
@@ -353,50 +357,127 @@ export const WorkspaceRepository = named(
     role: z.string().nullable().describe('api | web | mobile | services | infra | docs | other'),
     position: z.number().int(),
   }).strict(),
-  'WorkspaceRepository',
+  'ProjectGitHubRepository',
 )
-export type WorkspaceRepository = z.infer<typeof WorkspaceRepository>
+export type ProjectGitHubRepository = z.infer<typeof ProjectGitHubRepository>
 
-export const WorkspaceEnvironment = named(
+/** A local Git repository that belongs to a Project. A remote is optional. */
+export const Repository = named(
   z.object({
-    project: z.string().describe('COMPOSE_PROJECT_NAME, the key the project endpoints use'),
+    id: z.string(),
+    localPath: z.string(),
+    gitRoot: z.string(),
+    relativePath: z.string().nullable(),
+    branch: z.string().nullable(),
+    remote: z.string().nullable(),
+    github: ProjectGitHubRepository.nullable().optional(),
+  }).strict(),
+  'Repository',
+)
+export type Repository = z.infer<typeof Repository>
+
+export const ProjectEnvironment = named(
+  z.object({
+    environment: z.string().describe('COMPOSE_PROJECT_NAME, the Environment key'),
     source: AdoptionSource,
+    attribution: AttributionState.optional(),
     running: z.boolean(),
     serviceCount: z.number().int(),
     runningCount: z.number().int(),
     unhealthyCount: z.number().int(),
     urls: z.array(RouteUrl),
   }).strict(),
-  'WorkspaceEnvironment',
+  'ProjectEnvironment',
 )
-export type WorkspaceEnvironment = z.infer<typeof WorkspaceEnvironment>
+export type ProjectEnvironment = z.infer<typeof ProjectEnvironment>
 
-export const WorkspaceSummary = named(
+export const ProjectLocation = named(
+  z.enum(['managed', 'external', 'unmanaged', 'candidate']).describe('Where this Project sits relative to Projects Home'),
+  'ProjectLocation',
+)
+export type ProjectLocation = z.infer<typeof ProjectLocation>
+
+export const ProjectSummary = named(
   z.object({
+    id: z.string(),
     slug: z.string(),
     name: z.string(),
     description: z.string().nullable(),
     archived: z.boolean(),
+    relativePath: z.string().nullable(),
+    location: ProjectLocation,
     repositoryCount: z.number().int(),
     environmentCount: z.number().int(),
     runningEnvironmentCount: z.number().int(),
   }).strict(),
-  'WorkspaceSummary',
+  'ProjectSummary',
 )
-export type WorkspaceSummary = z.infer<typeof WorkspaceSummary>
+export type ProjectSummary = z.infer<typeof ProjectSummary>
 
-export const Workspace = named(
+/** The product the operator recognises. Identity is `id`, not the path. */
+export const Project = named(
   z.object({
+    id: z.string(),
     slug: z.string(),
     name: z.string(),
     description: z.string().nullable(),
     archived: z.boolean(),
-    repositories: z.array(WorkspaceRepository),
-    environments: z.array(WorkspaceEnvironment),
+    relativePath: z.string().nullable(),
+    resolvedPath: z.string().nullable(),
+    location: ProjectLocation,
+    repositories: z.array(Repository),
+    githubRepositories: z.array(ProjectGitHubRepository),
+    environments: z.array(ProjectEnvironment),
   }).strict(),
-  'Workspace',
+  'Project',
 )
-export type Workspace = z.infer<typeof Workspace>
+export type Project = z.infer<typeof Project>
+
+/** @deprecated Use EnvironmentOverrides. Removed with the schema cleanup. */
+export const ProjectOverrides = EnvironmentOverrides
+/** @deprecated Use EnvironmentOverrides */
+export type ProjectOverrides = EnvironmentOverrides
+/** @deprecated Use EnvironmentOperable */
+export const ProjectOperable = EnvironmentOperable
+/** @deprecated Use EnvironmentOperable */
+export type ProjectOperable = EnvironmentOperable
+/** @deprecated Use EnvironmentStartable */
+export const ProjectStartable = EnvironmentStartable
+/** @deprecated Use EnvironmentStartable */
+export type ProjectStartable = EnvironmentStartable
+/** @deprecated Use EnvironmentActionEntry */
+export const ProjectActionEntry = EnvironmentActionEntry
+/** @deprecated Use EnvironmentActionEntry */
+export type ProjectActionEntry = EnvironmentActionEntry
+/** @deprecated Use EnvironmentActionResult */
+export const ProjectActionResult = EnvironmentActionResult
+/** @deprecated Use EnvironmentActionResult */
+export type ProjectActionResult = EnvironmentActionResult
+/** @deprecated Use EnvironmentPorttaRecords */
+export const ProjectPorttaRecords = EnvironmentPorttaRecords
+/** @deprecated Use EnvironmentPorttaRecords */
+export type ProjectPorttaRecords = EnvironmentPorttaRecords
+/** @deprecated Use EnvironmentRemovalPreview */
+export const ProjectRemovalPreview = EnvironmentRemovalPreview
+/** @deprecated Use EnvironmentRemovalPreview */
+export type ProjectRemovalPreview = EnvironmentRemovalPreview
+
+/** @deprecated Use Project. `/api/workspaces` is a deprecated alias of `/api/projects`. */
+export const Workspace = Project
+/** @deprecated Use Project */
+export type Workspace = Project
+/** @deprecated Use ProjectSummary */
+export const WorkspaceSummary = ProjectSummary
+/** @deprecated Use ProjectSummary */
+export type WorkspaceSummary = ProjectSummary
+/** @deprecated Use ProjectGitHubRepository */
+export const WorkspaceRepository = ProjectGitHubRepository
+/** @deprecated Use ProjectGitHubRepository */
+export type WorkspaceRepository = ProjectGitHubRepository
+/** @deprecated Use ProjectEnvironment */
+export const WorkspaceEnvironment = ProjectEnvironment
+/** @deprecated Use ProjectEnvironment */
+export type WorkspaceEnvironment = ProjectEnvironment
 
 export const WorkflowStatus = named(
   z.enum(['backlog', 'ready', 'in_progress', 'review', 'blocked', 'done']),
@@ -1555,6 +1636,15 @@ export const LiveEvent = named(
   'LiveEvent',
 )
 export type LiveEvent = z.infer<typeof LiveEvent>
+
+export const DatabaseMigrateResult = named(
+  z.object({
+    applied: z.array(z.string()).describe('Filenames this call applied'),
+    migrations: z.array(z.string()).describe('Every filename recorded in schema_migrations'),
+  }).strict(),
+  'DatabaseMigrateResult',
+)
+export type DatabaseMigrateResult = z.infer<typeof DatabaseMigrateResult>
 
 export const ApiError = named(
   z.object({

@@ -38,7 +38,7 @@ export function Services() {
     if (search.trim() !== '') {
       const needle = search.toLowerCase()
       list = list.filter((service) =>
-        [service.project, service.service, service.image, ...service.urls.map((url) => url.host)]
+        [service.environment, service.service, service.image, ...service.urls.map((url) => url.host)]
           .join(' ')
           .toLowerCase()
           .includes(needle),
@@ -102,7 +102,7 @@ export function Services() {
             <tbody>
               {services.map((service) => (
                 <Tr key={service.id}>
-                  <Td className="text-xs text-muted">{service.project}</Td>
+                  <Td className="text-xs text-muted">{service.environment}</Td>
                   <Td>
                     <button
                       className="flex items-center gap-1.5 text-left font-medium text-ink hover:text-accent"

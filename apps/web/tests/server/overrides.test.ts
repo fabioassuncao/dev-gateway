@@ -6,7 +6,7 @@ import { fakeDatabase, makeApp } from './helpers.ts'
 import { GATEWAY, PROJECT_A } from './fixtures.ts'
 import { parseAliases, renderAliases } from 'portta-core'
 import { GENERATED_FILES } from '../../src/server/core/dynamic.ts'
-import type { Project } from '../../src/shared/types.ts'
+import type { Environment } from '../../src/shared/types.ts'
 
 function scratch(): string {
   return mkdtempSync(join(tmpdir(), 'portta-overrides-'))
@@ -71,7 +71,7 @@ describe('the generated aliases file', () => {
 describe('project overrides', () => {
   it('stores presentation without writing anything about routing', async () => {
     const instance = app()
-    const response = await put(instance, '/api/projects/alpha/settings', {
+    const response = await put(instance, '/api/environments/alpha/settings', {
       displayName: 'Awesome Thing',
       pinned: true,
     })
@@ -82,17 +82,17 @@ describe('project overrides', () => {
 
   it('shows the override beside the derived name rather than instead of it', async () => {
     const instance = app()
-    await put(instance, '/api/projects/alpha/settings', { displayName: 'Awesome Thing' })
+    await put(instance, '/api/environments/alpha/settings', { displayName: 'Awesome Thing' })
 
-    const project = (await (await instance.app.request('/api/projects/alpha')).json()) as Project
+    const project = (await (await instance.app.request('/api/environments/alpha')).json()) as Environment
     expect(project.name).toBe('alpha')
     expect(project.overrides?.displayName).toBe('Awesome Thing')
   })
 
   it('clears a value when it is sent as null', async () => {
     const instance = app()
-    await put(instance, '/api/projects/alpha/settings', { description: 'temporary' })
-    const response = await put(instance, '/api/projects/alpha/settings', { description: null })
+    await put(instance, '/api/environments/alpha/settings', { description: 'temporary' })
+    const response = await put(instance, '/api/environments/alpha/settings', { description: null })
     expect(await response.json()).toEqual({})
   })
 
@@ -101,28 +101,28 @@ describe('project overrides', () => {
   // something that will never succeed.
   it('refuses a key outside the closed catalogue, as a client error', async () => {
     const instance = app()
-    const response = await put(instance, '/api/projects/alpha/settings', { arbitrarySql: 'DROP' })
+    const response = await put(instance, '/api/environments/alpha/settings', { arbitrarySql: 'DROP' })
     expect(response.status).toBe(400)
     expect((await response.json()).hint).toContain('documented schema')
   })
 
   it('404s a project that is not running before touching the database', async () => {
     const instance = app()
-    const response = await put(instance, '/api/projects/ghost/settings', { pinned: true })
+    const response = await put(instance, '/api/environments/ghost/settings', { pinned: true })
     expect(response.status).toBe(404)
     expect(instance.db.projectValues.size).toBe(0)
   })
 
   it('answers 503 with a hint when persistence is down', async () => {
     const instance = app(scratch(), { available: false })
-    const response = await instance.app.request('/api/projects/alpha/settings')
+    const response = await instance.app.request('/api/environments/alpha/settings')
     expect(response.status).toBe(503)
     expect((await response.json()).hint).toContain('Docker-backed pages remain available')
   })
 
   it('leaves every project rendering exactly as before with no database', async () => {
     const withDatabase = makeApp({ containers: [...GATEWAY, ...PROJECT_A] })
-    const body = await (await withDatabase.app.request('/api/projects')).json()
+    const body = await (await withDatabase.app.request('/api/environments')).json()
     expect(JSON.stringify(body)).not.toContain('overrides')
   })
 })
@@ -130,7 +130,7 @@ describe('project overrides', () => {
 describe('a hostname alias', () => {
   it('is served by Traefik through one generated file', async () => {
     const instance = app()
-    const response = await put(instance, '/api/projects/alpha/services/web/alias', { alias: 'shop' })
+    const response = await put(instance, '/api/environments/alpha/services/web/alias', { alias: 'shop' })
     expect(response.status).toBe(200)
 
     const body = await response.json()
@@ -145,14 +145,14 @@ describe('a hostname alias', () => {
 
   it('targets the container name, never the Compose service alias', async () => {
     const instance = app()
-    await put(instance, '/api/projects/alpha/services/api/alias', { alias: 'shop-api' })
+    await put(instance, '/api/environments/alpha/services/api/alias', { alias: 'shop-api' })
     const written = readFileSync(join(instance.dynamicDir, GENERATED_FILES.aliases), 'utf8')
     expect(written).toContain('http://alpha-api-1:3000')
   })
 
   it('refuses a hostname a running container already claims', async () => {
     const instance = app()
-    const response = await put(instance, '/api/projects/alpha/services/web/alias', {
+    const response = await put(instance, '/api/environments/alpha/services/web/alias', {
       alias: 'alpha-web.localhost',
     })
     expect(response.status).toBe(400)
@@ -162,15 +162,15 @@ describe('a hostname alias', () => {
 
   it('refuses a hostname another alias already took', async () => {
     const instance = app()
-    await put(instance, '/api/projects/alpha/services/web/alias', { alias: 'shop' })
-    const response = await put(instance, '/api/projects/alpha/services/api/alias', { alias: 'shop' })
+    await put(instance, '/api/environments/alpha/services/web/alias', { alias: 'shop' })
+    const response = await put(instance, '/api/environments/alpha/services/api/alias', { alias: 'shop' })
     expect(response.status).toBe(400)
     expect((await response.json()).error).toContain('already an alias')
   })
 
   it('refuses a hostname outside the domains this gateway serves', async () => {
     const instance = app()
-    const response = await put(instance, '/api/projects/alpha/services/web/alias', {
+    const response = await put(instance, '/api/environments/alpha/services/web/alias', {
       alias: 'shop.example.com',
     })
     expect(response.status).toBe(400)
@@ -179,21 +179,21 @@ describe('a hostname alias', () => {
 
   it('refuses a datastore, which is not reached with an HTTP router', async () => {
     const instance = app()
-    const response = await put(instance, '/api/projects/alpha/services/postgres/alias', { alias: 'db' })
+    const response = await put(instance, '/api/environments/alpha/services/postgres/alias', { alias: 'db' })
     expect(response.status).toBe(400)
     expect((await response.json()).error).toContain('postgres service')
   })
 
   it('refuses a service the gateway does not route', async () => {
     const instance = app()
-    const response = await put(instance, '/api/projects/alpha/services/redis/alias', { alias: 'cache' })
+    const response = await put(instance, '/api/environments/alpha/services/redis/alias', { alias: 'cache' })
     expect(response.status).toBe(400)
     expect(existsSync(join(instance.dynamicDir, GENERATED_FILES.aliases))).toBe(false)
   })
 
   it('refuses a value YAML quoting would not accept', async () => {
     const instance = app()
-    const response = await put(instance, '/api/projects/alpha/services/web/alias', { alias: 'sh"op' })
+    const response = await put(instance, '/api/environments/alpha/services/web/alias', { alias: 'sh"op' })
     expect(response.status).toBe(400)
   })
 
@@ -209,16 +209,16 @@ describe('a hostname alias', () => {
     // Linux CI run while passing locally. tests/unit/audit.test.sh now refuses
     // such a path outright.
     const instance = app(join(unwritableParent(), 'cannot-be-a-directory'))
-    const response = await put(instance, '/api/projects/alpha/services/web/alias', { alias: 'shop' })
+    const response = await put(instance, '/api/environments/alpha/services/web/alias', { alias: 'shop' })
     expect(response.status).toBeGreaterThanOrEqual(400)
     expect(instance.db.serviceValues.get('web:alias')).toBeUndefined()
   })
 
   it('removes its router from the generated file when cleared', async () => {
     const instance = app()
-    await put(instance, '/api/projects/alpha/services/web/alias', { alias: 'shop' })
+    await put(instance, '/api/environments/alpha/services/web/alias', { alias: 'shop' })
 
-    const response = await instance.app.request('/api/projects/alpha/services/web/alias', {
+    const response = await instance.app.request('/api/environments/alpha/services/web/alias', {
       method: 'DELETE',
       body: '{}',
       headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },
@@ -233,9 +233,9 @@ describe('a hostname alias', () => {
 
   it('shows the alias on the service without touching its derived URLs', async () => {
     const instance = app()
-    await put(instance, '/api/projects/alpha/services/web/alias', { alias: 'shop' })
+    await put(instance, '/api/environments/alpha/services/web/alias', { alias: 'shop' })
 
-    const project = (await (await instance.app.request('/api/projects/alpha')).json()) as Project
+    const project = (await (await instance.app.request('/api/environments/alpha')).json()) as Environment
     const web = project.services.find((service) => service.service === 'web')!
     expect(web.overrides?.alias).toBe('shop.localhost')
     expect(web.urls.map((url) => url.host)).toContain('alpha-web.localhost')
@@ -243,7 +243,7 @@ describe('a hostname alias', () => {
 
   it('reports an alias whose container is gone', async () => {
     const instance = app()
-    await put(instance, '/api/projects/alpha/services/web/alias', { alias: 'shop' })
+    await put(instance, '/api/environments/alpha/services/web/alias', { alias: 'shop' })
 
     // The environment came back under a different namespace: the router now
     // points at a container name nothing answers to.

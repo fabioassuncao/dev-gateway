@@ -33,7 +33,7 @@ export function WorkspacePage({ slug }: { slug: string }) {
     mutationFn: () => api.deleteWorkspace(slug),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['workspaces'] })
-      navigate('/workspaces')
+      navigate('/projects')
     },
   })
 
@@ -49,8 +49,8 @@ export function WorkspacePage({ slug }: { slug: string }) {
           <Empty
             title={t('notFound', { slug })}
             hint={
-              <a className="text-accent hover:underline" href="#/workspaces">
-                {t('backToAll', { defaultValue: 'Back to all workspaces' })}
+              <a className="text-accent hover:underline" href="#/projects">
+                {t('backToAll', { defaultValue: 'Back to all projects' })}
               </a>
             }
           />
@@ -71,8 +71,8 @@ export function WorkspacePage({ slug }: { slug: string }) {
         }
         actions={
           <>
-            <Button size="sm" onClick={() => navigate('/workspaces')}>
-              {t('allWorkspaces', { defaultValue: 'All workspaces' })}
+            <Button size="sm" onClick={() => navigate('/projects')}>
+              {t('allWorkspaces', { defaultValue: 'All projects' })}
             </Button>
             <Button
               size="sm"
@@ -100,11 +100,11 @@ export function WorkspacePage({ slug }: { slug: string }) {
             title={t('repositoriesCard.title')}
             description={t('repositoriesCard.description')}
           />
-          {workspace.repositories.length === 0 ? (
+          {workspace.githubRepositories.length === 0 ? (
             <Empty title={t('repositoriesCard.empty')} hint={t('repositoriesCard.emptyHint')} />
           ) : (
             <div>
-              {workspace.repositories.map((repository) => (
+              {workspace.githubRepositories.map((repository) => (
                 <div
                   key={repository.repositoryId}
                   className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2 text-sm last:border-b-0"
@@ -139,7 +139,7 @@ export function WorkspacePage({ slug }: { slug: string }) {
           ) : (
             <div>
               {workspace.environments.map((environment) => (
-                <EnvironmentRow key={environment.project} environment={environment} />
+                <EnvironmentRow key={environment.environment} environment={environment} />
               ))}
             </div>
           )}
@@ -170,9 +170,9 @@ function EnvironmentRow({ environment }: { environment: WorkspaceEnvironment }) 
     <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2 text-sm last:border-b-0">
       <a
         className="font-medium underline-offset-2 hover:text-accent hover:underline"
-        href={`#/projects/${encodeURIComponent(environment.project)}`}
+        href={`#/environments/${encodeURIComponent(environment.environment)}`}
       >
-        {environment.project}
+        {environment.environment}
       </a>
       <Badge tone={environment.runningCount === environment.serviceCount ? 'ok' : 'warn'}>
         {t('running', {
@@ -201,7 +201,7 @@ function RepositoriesDialog({
   const { t: tc } = useTranslation('common')
   const queryClient = useQueryClient()
   const [selected, setSelected] = useState<string[]>(
-    workspace.repositories.map((repository) => repository.fullName),
+    workspace.githubRepositories.map((repository) => repository.fullName),
   )
   const available = useQuery({
     queryKey: ['github-repositories'],

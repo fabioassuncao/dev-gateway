@@ -7,11 +7,11 @@ import { Button } from './ui/button.tsx'
 import { Card, CardBody, CardHeader } from './ui/card.tsx'
 import { ProjectActions } from './project-actions.tsx'
 import { percentLabel } from './host-resources-lib.ts'
-import type { Project, ProjectResourceMetrics } from '../../shared/types.ts'
+import type { Environment, ProjectResourceMetrics } from '../../shared/types.ts'
 
 export function ProjectConsumption({ projects }: { projects: ProjectResourceMetrics[] }) {
   const { t, i18n } = useTranslation('overview', { keyPrefix: 'consumption' })
-  const list = useQuery({ queryKey: ['projects'], queryFn: api.projects })
+  const list = useQuery({ queryKey: ['environments'], queryFn: () => api.environments() })
   const known = new Map((list.data ?? []).map((project) => [project.name, project]))
   const rows = [...projects]
     .filter((project) => project.id !== '_standalone' || project.containerCount > 0)
@@ -31,7 +31,7 @@ export function ProjectConsumption({ projects }: { projects: ProjectResourceMetr
                 <button
                   type="button"
                   className="text-left text-sm font-medium text-ink hover:underline"
-                  onClick={() => navigate(`/projects/${encodeURIComponent(row.composeProject)}`)}
+                  onClick={() => navigate(`/environments/${encodeURIComponent(row.composeProject)}`)}
                 >
                   {project?.overrides?.displayName ?? row.name}
                 </button>
@@ -44,7 +44,7 @@ export function ProjectConsumption({ projects }: { projects: ProjectResourceMetr
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                <Button size="sm" onClick={() => navigate(`/projects/${encodeURIComponent(row.composeProject)}`)}>
+                <Button size="sm" onClick={() => navigate(`/environments/${encodeURIComponent(row.composeProject)}`)}>
                   {t('open')}
                 </Button>
                 {project ? <CompactStop project={project} /> : null}
@@ -57,7 +57,7 @@ export function ProjectConsumption({ projects }: { projects: ProjectResourceMetr
   )
 }
 
-function CompactStop({ project }: { project: Project }) {
+function CompactStop({ project }: { project: Environment }) {
   if (project.runningCount === 0) return null
   return <ProjectActions project={project} />
 }

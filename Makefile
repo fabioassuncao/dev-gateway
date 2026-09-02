@@ -14,7 +14,7 @@ LOCAL_IMAGES := PORTTA_AUTH_IMAGE=fabioassuncao/portta:local \
 .DEFAULT_GOAL := help
 
 .PHONY: help dev bootstrap up down restart status doctor urls logs inspect update \
-        web web-dev web-down test test-all test-e2e lint \
+        web web-dev web-down db-migrate test test-all test-e2e lint \
         demo-up demo-up-all demo-down demo-down-all
 
 help: ## Show this help
@@ -25,8 +25,9 @@ help: ## Show this help
 
 # One command from a fresh clone to a running gateway with a hot-reloading
 # panel. It is deliberately the only target that chains others: everything
-# else stays a single call to the CLI.
-dev: ## Start the gateway and the panel from local Dockerfiles
+# else stays a single call to the CLI. Pending panel SQL is applied after
+# the panel is up; `db-migrate` does the same without a restart.
+dev: ## Start the gateway and the panel; apply pending migrations
 	@$(GW) dev $(PROFILE)
 
 bootstrap: ## Prepare this checkout (no published Portta image pull)
@@ -67,6 +68,9 @@ web-dev: ## Start the panel with hot reloading from the local dev image
 
 web-down: ## Stop the panel; the gateway keeps running
 	@$(GW) web down
+
+db-migrate: ## Apply pending panel SQL without restarting the panel
+	@$(GW) db migrate
 
 lint: ## Shell lint and compose validation
 	@./tests/run.sh --lint

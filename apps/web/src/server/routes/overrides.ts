@@ -77,7 +77,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
 
   async function projectRecord(name: string) {
     const snapshot = await deps.cache.get()
-    if (!snapshot.projects.some((item) => item.name === name)) {
+    if (!snapshot.environments.some((item) => item.name === name)) {
       throw new HTTPException(404, { message: `no project '${name}' is running` })
     }
     const db = requireDatabase(deps.db)
@@ -87,7 +87,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
     return { db, record, snapshot }
   }
 
-  app.get('/projects/:project/settings', documentRoute({
+  app.get('/environments/:project/settings', documentRoute({
     tag: 'Projects', operationId: 'getProjectSettings', summary: 'Read a project\'s overrides',
     response: ProjectOverrides, parameters: [projectParameter], errors: [404, 500, 503],
   }), async (c) => {
@@ -100,7 +100,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
     return c.json(stored)
   })
 
-  app.put('/projects/:project/settings', documentRoute({
+  app.put('/environments/:project/settings', documentRoute({
     tag: 'Projects', operationId: 'setProjectSettings', summary: 'Set or clear a project\'s overrides',
     description: 'Presentation only: nothing here changes routing, and nothing is written inside the project.',
     request: ProjectSettingsBody, response: ProjectOverrides,
@@ -123,7 +123,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
     return c.json(stored)
   })
 
-  app.delete('/projects/:project/settings', documentRoute({
+  app.delete('/environments/:project/settings', documentRoute({
     tag: 'Projects', operationId: 'clearProjectSettings', summary: 'Remove every override on a project',
     response: z.object({ ok: z.boolean(), cleared: z.array(z.string()) }).strict().meta({ ref: 'ClearedSettings' }),
     parameters: [projectParameter], errors: [403, 404, 500, 503],
@@ -139,7 +139,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
     return c.json({ ok: true, cleared })
   })
 
-  app.get('/projects/:project/services/:service/overrides', documentRoute({
+  app.get('/environments/:project/services/:service/overrides', documentRoute({
     tag: 'Projects', operationId: 'getServiceOverrides', summary: 'Read one service\'s overrides',
     response: ServiceOverrides, parameters: [projectParameter, serviceParameter], errors: [404, 500, 503],
   }), async (c) => {
@@ -153,7 +153,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
     return c.json(stored)
   })
 
-  app.put('/projects/:project/services/:service/note', documentRoute({
+  app.put('/environments/:project/services/:service/note', documentRoute({
     tag: 'Projects', operationId: 'setServiceNote', summary: 'Set or clear a note on a service',
     request: z.object({ note: z.string().max(2000).nullable() }).strict().meta({ ref: 'ServiceNoteBody' }),
     response: ServiceOverrides, parameters: [projectParameter, serviceParameter],
@@ -175,7 +175,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
    * whole from the stored state, and a failed write rolls the row back, so the
    * database and Traefik cannot end up disagreeing about what answers.
    */
-  app.put('/projects/:project/services/:service/alias', documentRoute({
+  app.put('/environments/:project/services/:service/alias', documentRoute({
     tag: 'Projects', operationId: 'setServiceAlias', summary: 'Route an additional hostname to a service',
     description:
       'Additive: the project\'s own hostname keeps working beside the alias. Refused before any write when the hostname collides, sits outside a served domain, or has no unambiguous HTTP port.',
@@ -205,7 +205,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
       throw cause
     }
 
-    const target = snapshot.projects
+    const target = snapshot.environments
       .find((item) => item.name === projectName)!
       .services.find((item) => (item.service ?? item.name) === service)!
 
@@ -221,7 +221,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
     })
   })
 
-  app.delete('/projects/:project/services/:service/alias', documentRoute({
+  app.delete('/environments/:project/services/:service/alias', documentRoute({
     tag: 'Projects', operationId: 'clearServiceAlias', summary: 'Remove a hostname alias',
     response: z.object({ ok: z.boolean(), removed: z.string().nullable() }).strict().meta({ ref: 'AliasRemoval' }),
     parameters: [projectParameter, serviceParameter], errors: [403, 404, 500, 503],

@@ -11,6 +11,27 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Added
 
+- **`portta db migrate` and `make db-migrate`.** Apply pending panel SQL
+  without restarting the panel. `portta dev`, `portta web up` and
+  `portta web dev` do the same after the panel is healthy; a failure is a
+  warning, because PostgreSQL is a soft dependency. The development overlay
+  bind-mounts `apps/web/migrations` so a new file is visible without
+  rebuilding the image. The CLI calls `POST /api/database/migrate` and
+  never opens PostgreSQL.
+
+- **Projects Home, and the words Project and Environment.** A Node has one
+  filesystem root (`PORTTA_PROJECTS_HOME`) where managed Projects live. A
+  Project is the product; an Environment is one execution of it on this
+  host (today, a Compose project). `GET /api/projects` lists Projects;
+  `GET /api/environments` lists what `/api/projects` used to list.
+  `/api/workspaces` is a deprecated alias. The panel lists products at
+  `#/projects` and Compose stacks at `#/environments/<name>`; an old
+  `#/projects/<compose-name>` bookmark still opens the environment when
+  that slug is not a registered product. `portta environment` is an
+  alias of `portta project`. The installer asks where projects should
+  live. Changing the Home changes the reference; files are not moved.
+  See [ADR 0031](docs/adr/0031-projects-home-and-project.md).
+
 - **Rebuild a project, and remove one from this host.** Rebuild asks the
   runner for `compose up --build` and shows the log; rebuild without cache
   is offered with its cost stated and is never the default. Removal is two

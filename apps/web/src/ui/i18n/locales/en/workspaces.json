@@ -1,11 +1,11 @@
 {
-  "title": "Workspaces",
+  "title": "Projects",
   "description": "What you are working on: repositories, and the environments that belong to them.",
-  "newWorkspace": "New workspace",
-  "needsDatabase": "Workspaces need the panel's database",
+  "newWorkspace": "New project",
+  "needsDatabase": "Projects need the panel's database",
   "needsDatabaseHint": "They are decisions rather than observations, so they are persisted. Start PostgreSQL and this page comes back; every Docker-backed page works without it.",
-  "empty": "No workspace yet",
-  "emptyHint": "A workspace groups the repositories of one product and the environments running for it. Create one, then attach repositories the GitHub App was granted.",
+  "empty": "No project yet",
+  "emptyHint": "A Project groups the repositories of one product and the environments running for it. Create one, then attach repositories the GitHub App was granted.",
   "archived": "archived",
   "repository": "{{count}} repository",
   "repositories": "{{count}} repositories",
@@ -19,7 +19,7 @@
     "slugHint": "Also what a project's portta.project label must say to be adopted automatically.",
     "descriptionLabel": "Description"
   },
-  "notFound": "No workspace '{{slug}}'",
+  "notFound": "No project '{{slug}}'",
   "repositoriesCard": {
     "title": "Repositories",
     "description": "From the GitHub App installation. A repository may belong to more than one workspace.",

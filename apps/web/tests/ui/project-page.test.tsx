@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
 import { makeContainer, makeOperable, makeStartable } from './fixtures.ts'
-import type { Project, ProjectGit } from '../../src/shared/types.ts'
+import type { Environment, ProjectGit } from '../../src/shared/types.ts'
 
 class ApiError extends Error {
   status: number
@@ -23,7 +23,7 @@ const projectLogs = vi.fn()
 vi.mock('../../src/ui/lib/api.ts', () => ({
   ApiError,
   api: {
-    project: (name: string) => project(name),
+    environment: (name: string) => project(name),
     projectGit: (name: string) => projectGit(name),
     projectLogs: (name: string, options: unknown) => projectLogs(name, options),
     containerAction: vi.fn().mockResolvedValue({ ok: true }),
@@ -45,7 +45,7 @@ const WEB_URL = {
   scheme: 'http' as const,
 }
 
-const alpha: Project = {
+const alpha: Environment = {
   name: 'alpha',
   integrated: true,
   workingDir: '/srv/dev/alpha',
@@ -67,7 +67,7 @@ const alpha: Project = {
   urls: [WEB_URL],
   services: [
     makeContainer({
-      id: 'a-web', name: 'alpha-web-1', project: 'alpha', service: 'web',
+      id: 'a-web', name: 'alpha-web-1', environment: 'alpha', service: 'web',
       ownership: 'integrated', traefikEnabled: true, kind: 'http',
       exposedPorts: [3000], uptimeSeconds: 7200, urls: [WEB_URL],
       mounts: [{ type: 'bind', name: null, source: '/srv/dev/alpha', destination: '/app', rw: true }],
@@ -75,7 +75,7 @@ const alpha: Project = {
     }),
     makeContainer({
       id: 'a-postgres', name: 'alpha-postgres-1', image: 'postgres:18.6-alpine',
-      project: 'alpha', service: 'postgres', ownership: 'integrated', kind: 'postgres',
+      environment: 'alpha', service: 'postgres', ownership: 'integrated', kind: 'postgres',
       exposedPorts: [5432],
     }),
   ],
@@ -264,10 +264,10 @@ describe('Project page', () => {
     renderWithQuery(<ProjectPage project="alpha" tab="overview" service={null} />)
     const tabs = await screen.findAllByRole('tab')
     expect(tabs.map((tab) => tab.getAttribute('href'))).toEqual([
-      '#/projects/alpha/overview',
-      '#/projects/alpha/services',
-      '#/projects/alpha/git',
-      '#/projects/alpha/logs',
+      '#/environments/alpha/overview',
+      '#/environments/alpha/services',
+      '#/environments/alpha/git',
+      '#/environments/alpha/logs',
     ])
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
     expect(tabs[2]).toHaveAttribute('aria-selected', 'false')
@@ -278,6 +278,6 @@ describe('Project page', () => {
     const list = await screen.findByRole('tablist')
     within(list).getAllByRole('tab')[0]!.focus()
     await userEvent.keyboard('{ArrowRight}')
-    await waitFor(() => expect(window.location.hash).toBe('#/projects/alpha/services'))
+    await waitFor(() => expect(window.location.hash).toBe('#/environments/alpha/services'))
   })
 })

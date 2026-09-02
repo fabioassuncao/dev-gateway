@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { renderPanelAuth, webUrl } from './web.js'
+import { panelLoopbackApiUrl, renderPanelAuth, webUrl } from './web.js'
 
 describe('panel authentication rendering', () => {
   it('keeps the legacy panel file free of credentials', () => {
@@ -29,6 +29,18 @@ function context(config: Partial<Context['config']>, env: Record<string, string>
     },
   } as unknown as Context
 }
+
+describe('where migrations reach the panel', () => {
+  it('dials the published API port, never Vite', () => {
+    expect(panelLoopbackApiUrl(context({ webDev: true }))).toBe('http://127.0.0.1:8081')
+  })
+
+  it('does not treat 0.0.0.0 as a dial address', () => {
+    expect(panelLoopbackApiUrl(context({}, { PORTTA_WEB_BIND_ADDRESS: '0.0.0.0' }))).toBe(
+      'http://127.0.0.1:8081',
+    )
+  })
+})
 
 describe('where the panel answers', () => {
   it('is the server port in production', () => {

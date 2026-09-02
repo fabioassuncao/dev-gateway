@@ -24,7 +24,7 @@ const external = makeContainer({
   name: 'legacy-postgres',
   image: 'postgres:18.6-alpine',
   ownership: 'external',
-  project: 'legacy',
+  environment: 'legacy',
 })
 
 beforeEach(() => {

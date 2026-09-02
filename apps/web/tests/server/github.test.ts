@@ -357,7 +357,7 @@ describe('the integration endpoints', () => {
     const { db } = projectionDatabase()
     const { app } = makeApp({ containers: FULL_HOST }, {}, db, integration)
 
-    for (const path of ['/api/status', '/api/projects', '/api/services', '/api/docker/containers']) {
+    for (const path of ['/api/status', '/api/environments', '/api/services', '/api/docker/containers']) {
       expect((await app.request(path)).status, path).toBe(200)
     }
     const github = await (await app.request('/api/integrations/github')).json()

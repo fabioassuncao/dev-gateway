@@ -22,11 +22,11 @@ import { parseRemote } from './forge.ts'
 import type {
   ContainerState,
   ContainerSummary,
+  Environment,
   Health,
   NetworkSummary,
   Ownership,
   PortUsage,
-  Project,
   PublishedPort,
   RouteUrl,
   UrlScope,
@@ -36,7 +36,9 @@ export interface Snapshot {
   at: number
   reachable: boolean
   containers: ContainerSummary[]
-  projects: Project[]
+  environments: Environment[]
+  /** @deprecated Use environments. Removed after the alias cycle. */
+  projects: Environment[]
   networks: NetworkSummary[]
   ports: PortUsage[]
   info: DockerInfo | null
@@ -233,7 +235,7 @@ export function summarise(
     uptimeSeconds: state === 'running' && startedAt ? Math.max(0, now - startedAt) : null,
     ownership: classify(labels, onGatewayNetwork, project),
     gatewayComponent: labels[LABELS.component] ?? null,
-    project,
+    environment: project,
     service,
     workingDir,
     namespace: dirName && project && dirName !== project ? dirName : null,
@@ -271,17 +273,17 @@ export function summarise(
  * gateway. Its other services (a database, a cache) belong to it too, even
  * though they never touch the shared network.
  */
-export function groupProjects(containers: ContainerSummary[], now: number): Project[] {
-  const byProject = new Map<string, ContainerSummary[]>()
+export function groupEnvironments(containers: ContainerSummary[], now: number): Environment[] {
+  const byEnvironment = new Map<string, ContainerSummary[]>()
   for (const container of containers) {
-    if (container.ownership === 'gateway' || container.project === null) continue
-    const list = byProject.get(container.project)
+    if (container.ownership === 'gateway' || container.environment === null) continue
+    const list = byEnvironment.get(container.environment)
     if (list) list.push(container)
-    else byProject.set(container.project, [container])
+    else byEnvironment.set(container.environment, [container])
   }
 
-  const projects: Project[] = []
-  for (const [name, services] of byProject) {
+  const environments: Environment[] = []
+  for (const [name, services] of byEnvironment) {
     const integrated = services.some((service) => service.ownership === 'integrated')
     if (integrated) {
       for (const service of services) {
@@ -300,7 +302,7 @@ export function groupProjects(containers: ContainerSummary[], now: number): Proj
     )
     const declared = services.find((service) => service.group)
     const withRepo = services.find((service) => service.repo)
-    projects.push({
+    environments.push({
       name,
       integrated,
       workingDir: withDir?.workingDir ?? null,
@@ -326,9 +328,12 @@ export function groupProjects(containers: ContainerSummary[], now: number): Proj
       uptimeSeconds: startedAt ? Math.max(0, now - startedAt) : null,
     })
   }
-  projects.sort((a, b) => a.name.localeCompare(b.name))
-  return projects
+  environments.sort((a, b) => a.name.localeCompare(b.name))
+  return environments
 }
+
+/** @deprecated Use groupEnvironments */
+export const groupProjects = groupEnvironments
 
 function networkRole(name: string, config: PanelConfig): NetworkSummary['role'] {
   if (name === config.network) return 'shared'
@@ -446,13 +451,14 @@ export async function buildSnapshot(client: DockerClient, config: PanelConfig): 
     .map((item) => summarise(item, inspects.get(item.Id) ?? null, config, now))
     .sort((a, b) => a.name.localeCompare(b.name))
 
-  const projects = groupProjects(containers, now)
+  const environments = groupEnvironments(containers, now)
 
   return {
     at: now,
     reachable,
     containers,
-    projects,
+    environments,
+    projects: environments,
     networks: summariseNetworks(networks, config, containers),
     ports: collectPorts(containers),
     info,

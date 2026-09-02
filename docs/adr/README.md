@@ -35,3 +35,4 @@ context, the decision, and what it costs us.
 | [0028](0028-operational-images-live-under-docker.md) | Operational image contexts live under `docker/images/` | Accepted |
 | [0029](0029-shell-only-for-bootstrap.md) | Shell is for bootstrap; TypeScript is the default | Accepted, supersedes 0014's script inventory |
 | [0030](0030-the-panel-and-a-project-lifecycle.md) | The panel may operate a project, without owning it | Accepted, amends 0001 |
+| [0031](0031-projects-home-and-project.md) | Projects Home, Project, and Environment | Accepted, amends 0006/0013/0016/0018/0020/0030 |

@@ -243,7 +243,7 @@ export async function createShare(
   const ttl = ttlOrThrow(options.ttlSeconds)
 
   const shares = loadShares(config).filter((share) => share.expiresAt > now)
-  const project = container.project ?? 'unknown'
+  const project = container.environment ?? 'unknown'
   const service = container.service ?? container.name
 
   if (shares.some((share) => share.container === container.name)) {

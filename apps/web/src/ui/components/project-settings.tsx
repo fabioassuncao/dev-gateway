@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../lib/api.ts'
-import type { Project } from '../../shared/types.ts'
+import type { Environment } from '../../shared/types.ts'
 import { Dialog } from './ui/dialog.tsx'
 import { Button } from './ui/button.tsx'
 import { Input, Select } from './ui/field.tsx'
@@ -14,7 +14,7 @@ export function ProjectSettingsDialog({
   open,
   onOpenChange,
 }: {
-  project: Project
+  project: Environment
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {

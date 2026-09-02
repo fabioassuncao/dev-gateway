@@ -61,11 +61,16 @@ function issue(overrides: Partial<Issue> = {}): Issue {
 }
 
 const detail: Workspace = {
+  id: 'ws-1',
   slug: 'produto',
   name: 'Meu Produto',
   description: null,
   archived: false,
-  repositories: [
+  relativePath: null,
+  resolvedPath: null,
+  location: 'unmanaged',
+  repositories: [],
+  githubRepositories: [
     {
       repositoryId: 'r1', fullName: 'acme/produto-api', htmlUrl: 'https://github.com/acme/produto-api',
       defaultBranch: 'main', private: true, archived: false, role: 'api', position: 0,
@@ -241,7 +246,7 @@ describe('creating an issue', () => {
   })
 
   it('cannot be started for a workspace with no repository', async () => {
-    workspace.mockResolvedValue({ ...detail, repositories: [] })
+    workspace.mockResolvedValue({ ...detail, githubRepositories: [] })
     renderWithQuery(<BoardPage slug="produto" view="board" filters={{}} />)
     await screen.findByRole('article', { name: /#123/ })
     expect(screen.getByRole('button', { name: /New issue/ })).toBeDisabled()

@@ -114,7 +114,8 @@ pages remain available and diagnostics report the degraded state. See
 ./bin/portta web restart
 ./bin/portta web down        # stop it; the gateway keeps running
 ./bin/portta web disable     # stop it and take it out of `portta up`
-./bin/portta db status       # database health, migration and size
+./bin/portta db status       # database health
+./bin/portta db migrate      # apply pending SQL without a restart
 ```
 
 `web up` writes `PORTTA_WEB=true` to `.env`, so from then on
@@ -128,14 +129,18 @@ CLI requires Node 22.12+ on the host; the core zero-Node fallbacks remain
 ### Development, with hot reloading
 
 ```bash
-make dev                     # gateway up, panel with hot reloading, routed URLs
+make dev                     # gateway up, panel with hot reloading, pending SQL
+make db-migrate              # apply pending SQL without a restart
 ./bin/portta web dev         # the panel alone, on a gateway already running
 ```
 
 Two containers from the same image: the API with `node --watch`, and Vite in
-front of it with HMR on `http://127.0.0.1:5173`. Only `apps/web/src` is
-bind-mounted, so the image's `node_modules` stay in place. Edits under
-`apps/web/src` reload on their own.
+front of it with HMR on `http://127.0.0.1:5173`. `apps/web/src`,
+`apps/web/migrations` and `packages/core/src` are bind-mounted, so the
+image's `node_modules` stay in place. Edits under `apps/web/src` reload on
+their own. A new SQL file is visible to the next `portta db migrate` (or
+the next `make dev`) without rebuilding the image. `node --watch` does not
+reload `.sql`; apply it explicitly.
 
 `./bin/portta web up` goes back to the built image.
 
@@ -348,32 +353,37 @@ The tiles are the questions people actually ask on a busy host, and the
 problems card is the panel saying what it noticed rather than waiting to be
 asked: see the [Overview screenshot above](#the-web-panel).
 
-### Workspaces
+### Projects
 
-The page for what you are working on, as opposed to what this host happens to
-be running. A workspace has a name, a slug, a description, the repositories it
+The page for the product you recognise, as opposed to what this host happens to
+be running. A Project has a name, a slug, a description, the repositories it
 owns, and the environments that belong to it — and it stays visible with
 nothing up, because it is a decision rather than an observation.
 
+`#/workspaces` redirects here. The Compose stacks that used to live at
+`#/projects` are now Environments, listed on the same page and opened at
+`#/environments/<name>`.
+
 Each environment row says **why** it was adopted: linked by hand, declared by
-its `portta.project` label, or matched through a repository the workspace
-owns. Deleting a workspace removes the grouping and nothing else; the response
+its `portta.project` label, or matched through a repository the Project
+owns. Deleting a Project removes the grouping and nothing else; the response
 says as much.
 
 Repositories come from the GitHub App projection, so only what the installation
 granted can be attached — and the dialog says that rather than offering a list
-that would be refused. With no App configured, a workspace still groups
+that would be refused. With no App configured, a Project still groups
 environments; it simply has no repositories.
 
-A workspace page also lists the **issues** of the repositories it owns, read
+A Project page also lists the **issues** of the repositories it owns, read
 from the panel's projection: filter by state, status or text, sub-issues nested
 under their parent, the repository badged on every row, and each number linking
 to GitHub. A status that came from the label convention rather than a native
 field is marked, because it changes what a write will do. Every row says how old
 its answer is, and the list keeps answering while GitHub is unreachable.
 
-Workspaces need the panel's database. With PostgreSQL stopped the page explains
-that instead of failing, and every Docker-backed page keeps working.
+Projects need the panel's database. With PostgreSQL stopped the catalog
+explains that instead of failing, and every Docker-backed page — including
+the Environments list — keeps working.
 
 See [github.md](github.md#workspaces-repositories-and-the-environments-that-belong-to-them).
 
@@ -458,15 +468,16 @@ only when the runner is present.
 
 #### One project, one page
 
-Clicking a project name opens `#/projects/<name>`, a page of its own rather
-than the list filtered down to one card. It is organised in tabs, and each tab
-is a URL:
+Clicking an environment name opens `#/environments/<name>`, a page of its own
+rather than the list filtered down to one card. It is organised in tabs, and
+each tab is a URL. An old `#/projects/<compose-name>` bookmark still opens
+this page when that slug is not a registered Project.
 
 ```text
-#/projects/storefront            Overview
-#/projects/storefront/services   Services
-#/projects/storefront/git        Git
-#/projects/storefront/logs       Logs
+#/environments/storefront            Overview
+#/environments/storefront/services   Services
+#/environments/storefront/git        Git
+#/environments/storefront/logs       Logs
 ```
 
 When the panel can tell which issue an environment is running for, Overview
@@ -573,7 +584,7 @@ postgres | 10:00:03  ready to accept connections
 ```
 
 A selector narrows the view to one service, and the choice is in the URL
-(`#/projects/alpha/logs?service=api`), so a link opens on exactly what you were
+(`#/environments/alpha/logs?service=api`), so a link opens on exactly what you were
 reading. Tail size, the text filter, follow, timestamps and copy are the same
 controls the container dialog has, because it is the same component; copying an
 aggregated view prefixes each line with its service.

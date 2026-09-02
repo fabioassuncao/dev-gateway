@@ -39,13 +39,13 @@ function requestFile(runnerDir: string): { verb: string; project: string; flags:
   }
 }
 
-describe('GET /api/projects/:project/removal-preview', () => {
+describe('GET /api/environments/:project/removal-preview', () => {
   it('lists containers, networks, named volumes and the working directory', async () => {
     const { app } = makeApp({ containers: withVolume }, isolated())
-    const response = await app.request('/api/projects/alpha/removal-preview')
+    const response = await app.request('/api/environments/alpha/removal-preview')
     expect(response.status).toBe(200)
     const body = (await response.json()) as ProjectRemovalPreview
-    expect(body.project).toBe('alpha')
+    expect(body.environment).toBe('alpha')
     expect(body.containers.map((container) => container.service)).toEqual(expect.arrayContaining(['web', 'api', 'postgres']))
     expect(body.volumes).toEqual([{ name: 'alpha_pgdata', sizeBytes: null }])
     expect(body.workingDir).toBe('/srv/dev/alpha')
@@ -69,15 +69,15 @@ describe('GET /api/projects/:project/removal-preview', () => {
         },
       ],
     })
-    const response = await app.request('/api/projects/alpha/removal-preview')
+    const response = await app.request('/api/environments/alpha/removal-preview')
     expect(response.status).toBe(403)
   })
 })
 
-describe('POST /api/projects/:project/operations/rebuild', () => {
+describe('POST /api/environments/:project/operations/rebuild', () => {
   it('writes a build request and starts the runner', async () => {
     const { app, docker, config } = makeApp({ containers: [...PROJECT_A, RUNNER] }, isolated())
-    const response = await post(app, '/api/projects/alpha/operations/rebuild', { noCache: false })
+    const response = await post(app, '/api/environments/alpha/operations/rebuild', { noCache: false })
     expect(response.status).toBe(200)
     const body = (await response.json()) as ProjectRebuildResult
     expect(body.via).toBe('runner')
@@ -88,15 +88,15 @@ describe('POST /api/projects/:project/operations/rebuild', () => {
 
   it('passes no-cache only when asked', async () => {
     const { app, config } = makeApp({ containers: [...PROJECT_A, RUNNER] }, isolated())
-    await post(app, '/api/projects/alpha/operations/rebuild', { noCache: true })
+    await post(app, '/api/environments/alpha/operations/rebuild', { noCache: true })
     expect(requestFile(config.runnerDir)).toEqual({ verb: 'build', project: 'alpha', flags: ['no-cache'] })
   })
 })
 
-describe('POST /api/projects/:project/operations/remove', () => {
+describe('POST /api/environments/:project/operations/remove', () => {
   it('refuses a confirmation that does not match', async () => {
     const { app, docker, config } = makeApp({ containers: PROJECT_A }, isolated())
-    const response = await post(app, '/api/projects/alpha/operations/remove', {
+    const response = await post(app, '/api/environments/alpha/operations/remove', {
       confirmation: 'ALPHA',
       volumes: false,
       directory: false,
@@ -109,7 +109,7 @@ describe('POST /api/projects/:project/operations/remove', () => {
 
   it('keep-data without the runner removes containers and does not mention volumes', async () => {
     const { app, docker } = makeApp({ containers: withVolume }, isolated())
-    const response = await post(app, '/api/projects/alpha/operations/remove', {
+    const response = await post(app, '/api/environments/alpha/operations/remove', {
       confirmation: 'alpha',
       volumes: false,
       directory: false,
@@ -127,7 +127,7 @@ describe('POST /api/projects/:project/operations/remove', () => {
 
   it('keep-data with the runner writes down, not down-volumes', async () => {
     const { app, docker, config } = makeApp({ containers: [...withVolume, RUNNER] }, isolated())
-    const response = await post(app, '/api/projects/alpha/operations/remove', {
+    const response = await post(app, '/api/environments/alpha/operations/remove', {
       confirmation: 'alpha',
       volumes: false,
       directory: false,
@@ -140,7 +140,7 @@ describe('POST /api/projects/:project/operations/remove', () => {
 
   it('and-local-data with the runner writes down-volumes', async () => {
     const { app, config } = makeApp({ containers: [...withVolume, RUNNER] }, isolated())
-    await post(app, '/api/projects/alpha/operations/remove', {
+    await post(app, '/api/environments/alpha/operations/remove', {
       confirmation: 'alpha',
       volumes: true,
       directory: false,
@@ -159,7 +159,7 @@ describe('POST /api/projects/:project/operations/remove', () => {
       },
     }))
     const { app, config } = makeApp({ containers: [...PROJECT_A, RUNNER] }, { gitDir, ...isolated() })
-    const refused = await post(app, '/api/projects/alpha/operations/remove', {
+    const refused = await post(app, '/api/environments/alpha/operations/remove', {
       confirmation: 'alpha',
       volumes: true,
       directory: true,
@@ -168,7 +168,7 @@ describe('POST /api/projects/:project/operations/remove', () => {
     expect(await refused.json()).toMatchObject({ error: expect.stringContaining('dirty') })
     expect(existsSync(join(config.runnerDir, 'request.json'))).toBe(false)
 
-    const allowed = await post(app, '/api/projects/alpha/operations/remove', {
+    const allowed = await post(app, '/api/environments/alpha/operations/remove', {
       confirmation: 'alpha',
       volumes: true,
       directory: true,
@@ -187,7 +187,7 @@ describe('POST /api/projects/:project/operations/remove', () => {
       },
     }))
     const { app } = makeApp({ containers: [...walked, RUNNER] }, isolated())
-    const response = await post(app, '/api/projects/alpha/operations/remove', {
+    const response = await post(app, '/api/environments/alpha/operations/remove', {
       confirmation: 'alpha',
       volumes: true,
       directory: true,
@@ -198,7 +198,7 @@ describe('POST /api/projects/:project/operations/remove', () => {
 
   it('without the runner, directory removal is a printed command', async () => {
     const { app } = makeApp({ containers: PROJECT_A }, isolated())
-    const body = (await (await post(app, '/api/projects/alpha/operations/remove', {
+    const body = (await (await post(app, '/api/environments/alpha/operations/remove', {
       confirmation: 'alpha',
       volumes: true,
       directory: true,
@@ -211,8 +211,8 @@ describe('POST /api/projects/:project/operations/remove', () => {
   it('refuses every verb in read-only mode', async () => {
     const { app } = makeApp({ containers: [...PROJECT_A, RUNNER] }, { readOnly: true, ...isolated() })
     for (const path of [
-      '/api/projects/alpha/operations/rebuild',
-      '/api/projects/alpha/operations/remove',
+      '/api/environments/alpha/operations/rebuild',
+      '/api/environments/alpha/operations/remove',
     ]) {
       const response = await post(app, path, { confirmation: 'alpha', volumes: false, directory: false })
       expect(response.status).toBe(403)

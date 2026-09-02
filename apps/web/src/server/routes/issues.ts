@@ -125,9 +125,25 @@ export function issueRoutes(deps: AppDeps): Hono {
       .map((issue) => view(issue, relationships, now, environmentsFor(issue.id, snapshot, links)))
   }
 
+  app.get('/projects/:slug/issues', documentRoute({
+    tag: 'Issues', operationId: 'listProjectIssues',
+    summary: "List issues across a Project's repositories", response: IssuesResponse,
+    description: 'Served from the projection, so it answers while GitHub is unreachable; every row carries syncedAt and a staleness flag.',
+    parameters: [
+      { name: 'slug', in: 'path', required: true, description: 'The Project slug.', schema: { type: 'string' } },
+      ...filterParameters,
+    ],
+    errors: [404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const repositoryIds = await workspaceRepositoryIds(db, c.req.param('slug'))
+    const query = new URL(c.req.url).searchParams
+    return c.json({ issues: repositoryIds.length === 0 ? [] : await listing(db, repositoryIds, query) })
+  })
+
   app.get('/workspaces/:slug/issues', documentRoute({
     tag: 'Issues', operationId: 'listWorkspaceIssues',
-    summary: "List issues across a workspace's repositories", response: IssuesResponse,
+    summary: "List issues across a Project's repositories (deprecated alias)", response: IssuesResponse,
     description: 'Served from the projection, so it answers while GitHub is unreachable; every row carries syncedAt and a staleness flag.',
     parameters: [
       { name: 'slug', in: 'path', required: true, description: 'The workspace slug.', schema: { type: 'string' } },

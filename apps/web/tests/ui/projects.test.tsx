@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
 import { makeContainer, makeOperable, makeStartable } from './fixtures.ts'
-import type { Project } from '../../src/shared/types.ts'
+import type { Environment } from '../../src/shared/types.ts'
 
 const projects = vi.fn()
 const containerAction = vi.fn()
@@ -12,7 +12,8 @@ const projectAction = vi.fn()
 vi.mock('../../src/ui/lib/api.ts', () => ({
   ApiError: class ApiError extends Error {},
   api: {
-    projects: () => projects(),
+    projects: () => Promise.resolve([]),
+    environments: () => projects(),
     containerAction: (...args: unknown[]) => containerAction(...args),
     projectAction: (...args: unknown[]) => projectAction(...args),
     logs: vi.fn().mockResolvedValue({ lines: [] }),
@@ -57,7 +58,7 @@ const API_URLS = [
   },
 ]
 
-const alpha: Project = {
+const alpha: Environment = {
   name: 'alpha',
   integrated: true,
   workingDir: '/srv/dev/alpha',
@@ -78,14 +79,14 @@ const alpha: Project = {
   scopes: ['local'],
   urls: [WEB_URL, ...API_URLS],
   services: [
-    makeContainer({ id: 'a-web', name: 'alpha-web-1', project: 'alpha', service: 'web', ownership: 'integrated', traefikEnabled: true, kind: 'http', exposedPorts: [3000], uptimeSeconds: 7200, urls: [WEB_URL] }),
-    makeContainer({ id: 'a-postgres', name: 'alpha-postgres-1', image: 'postgres:18.6-alpine', project: 'alpha', service: 'postgres', ownership: 'integrated', kind: 'postgres', exposedPorts: [5432] }),
-    makeContainer({ id: 'a-redis', name: 'alpha-redis-1', image: 'redis:8.10.1-alpine', project: 'alpha', service: 'redis', ownership: 'integrated', kind: 'redis', exposedPorts: [6379] }),
-    makeContainer({ id: 'a-api', name: 'alpha-api-1', project: 'alpha', service: 'api', ownership: 'integrated', traefikEnabled: true, kind: 'http', urls: API_URLS }),
+    makeContainer({ id: 'a-web', name: 'alpha-web-1', environment: 'alpha', service: 'web', ownership: 'integrated', traefikEnabled: true, kind: 'http', exposedPorts: [3000], uptimeSeconds: 7200, urls: [WEB_URL] }),
+    makeContainer({ id: 'a-postgres', name: 'alpha-postgres-1', image: 'postgres:18.6-alpine', environment: 'alpha', service: 'postgres', ownership: 'integrated', kind: 'postgres', exposedPorts: [5432] }),
+    makeContainer({ id: 'a-redis', name: 'alpha-redis-1', image: 'redis:8.10.1-alpine', environment: 'alpha', service: 'redis', ownership: 'integrated', kind: 'redis', exposedPorts: [6379] }),
+    makeContainer({ id: 'a-api', name: 'alpha-api-1', environment: 'alpha', service: 'api', ownership: 'integrated', traefikEnabled: true, kind: 'http', urls: API_URLS }),
   ],
 }
 
-const beta: Project = {
+const beta: Environment = {
   ...alpha,
   name: 'beta',
   namespace: 'beta-issue59',
@@ -93,7 +94,7 @@ const beta: Project = {
   runningCount: 1,
   unhealthyCount: 1,
   urls: [],
-  services: [makeContainer({ id: 'b-web', name: 'beta-web-1', project: 'beta', service: 'web', ownership: 'integrated', health: 'unhealthy', traefikEnabled: true, kind: 'http' })],
+  services: [makeContainer({ id: 'b-web', name: 'beta-web-1', environment: 'beta', service: 'web', ownership: 'integrated', health: 'unhealthy', traefikEnabled: true, kind: 'http' })],
 }
 
 beforeEach(() => {
@@ -130,7 +131,7 @@ describe('the Projects page', () => {
             id: 'a-web',
             name: 'alpha-web-1',
             image: 'traefik/whoami:v1.12.0',
-            project: 'alpha',
+            environment: 'alpha',
             service: 'web',
             ownership: 'integrated',
             traefikEnabled: true,
@@ -205,7 +206,7 @@ describe('the Projects page', () => {
           makeContainer({
             id: 'a-web',
             name: 'alpha-web-1',
-            project: 'alpha',
+            environment: 'alpha',
             service: 'web',
             ownership: 'integrated',
             state: 'exited',
@@ -264,7 +265,7 @@ describe('the Projects page', () => {
             id: 'a-worker',
             name: 'alpha-worker-1',
             image: 'python:3.13-alpine',
-            project: 'alpha',
+            environment: 'alpha',
             service: 'worker',
             ownership: 'integrated',
             kind: 'tcp',
@@ -282,7 +283,7 @@ describe('the Projects page', () => {
 
   it('links the project heading to its contextual route', async () => {
     renderWithQuery(<Projects />)
-    expect(await screen.findByRole('link', { name: 'alpha' })).toHaveAttribute('href', '#/projects/alpha')
+    expect(await screen.findByRole('link', { name: 'alpha' })).toHaveAttribute('href', '#/environments/alpha')
   })
 
   it('restarts a project as one action, not a loop over services', async () => {
@@ -306,7 +307,7 @@ describe('the Projects page', () => {
   it('explains how to adopt a project when there is none', async () => {
     projects.mockResolvedValue([])
     renderWithQuery(<Projects />)
-    expect(await screen.findByText('No integrated project is running')).toBeInTheDocument()
-    expect(screen.getByText(/docs\/adopting-projects.md/)).toBeInTheDocument()
+    expect(await screen.findByText('No environment is running')).toBeInTheDocument()
+    expect(screen.getByText(/Adopt it onto a Project/)).toBeInTheDocument()
   })
 })

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { del, makeApp, post } from './helpers.ts'
 import { BRIDGE, FULL_HOST, GATEWAY, PROJECT_A } from './fixtures.ts'
-import type { ContainerSummary, DockerHost, Overview, Project } from '../../src/shared/types.ts'
+import type { ContainerSummary, DockerHost, Environment, Overview } from '../../src/shared/types.ts'
 
 describe('GET /api/status', () => {
   it('answers the questions the dashboard asks', async () => {
@@ -58,24 +58,24 @@ describe('GET /api/health', () => {
   })
 })
 
-describe('GET /api/projects', () => {
+describe('GET /api/environments', () => {
   it('lists integrated projects only', async () => {
     const { app } = makeApp({ containers: FULL_HOST })
-    const { projects } = (await (await app.request('/api/projects')).json()) as { projects: Project[] }
-    expect(projects.map((project) => project.name)).toEqual(['alpha', 'beta'])
+    const { environments } = (await (await app.request('/api/environments')).json()) as { environments: Environment[] }
+    expect(environments.map((environment) => environment.name)).toEqual(['alpha', 'beta'])
   })
 
   it('includes external ones on request, still flagged', async () => {
     const { app } = makeApp({ containers: FULL_HOST })
-    const { projects } = (await (await app.request('/api/projects?all=true')).json()) as {
-      projects: Project[]
+    const { environments } = (await (await app.request('/api/environments?all=true')).json()) as {
+      environments: Environment[]
     }
-    expect(projects.find((project) => project.name === 'legacy')?.integrated).toBe(false)
+    expect(environments.find((environment) => environment.name === 'legacy')?.integrated).toBe(false)
   })
 
   it('404s for a project that is not running', async () => {
     const { app } = makeApp({ containers: FULL_HOST })
-    expect((await app.request('/api/projects/nope')).status).toBe(404)
+    expect((await app.request('/api/environments/nope')).status).toBe(404)
   })
 })
 

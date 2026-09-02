@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Command } from 'commander'
 import { accessClose, accessOpen } from './access.js'
+import { requestPanelMigrate } from './web.js'
 import { gatewayContext } from '../context.js'
 import { inspectContainers } from '../docker.js'
 import { PreconditionError, UsageError } from '../errors.js'
@@ -77,6 +78,14 @@ export async function dbUrl(options: { project: string; service?: string }, comm
 }
 
 function panelDb(containers: Awaited<ReturnType<typeof inspectContainers>>) { return containers.find((container) => container.labels['portta.component'] === 'db') }
+export async function dbMigrate(command: Command): Promise<void> {
+  const result = await requestPanelMigrate(gatewayContext({ profile: globals(command).profile }))
+  const output = new Output(globals(command))
+  if (output.json) output.data(result)
+  else if (result.applied.length === 0) output.line(`no pending migrations (${result.migrations.length} applied)`)
+  else output.line(`applied ${result.applied.join(', ')}`)
+}
+
 export async function dbStatus(command: Command): Promise<void> {
   const database = panelDb(await inspectContainers())
   const result = { state: database?.state ?? 'absent', container: database?.name ?? null, network: gatewayContext({ profile: globals(command).profile }).config.databaseNetwork }

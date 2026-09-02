@@ -18,8 +18,8 @@ import type { PanelConfig } from '../config.ts'
 import type { DockerClient } from '../docker/client.ts'
 import type { Database } from '../db/index.ts'
 import type {
-  ProjectPorttaRecords,
-  ProjectRemovalPreview,
+  EnvironmentPorttaRecords,
+  EnvironmentRemovalPreview,
   ProjectRemoveResult,
   ProjectRebuildResult,
   RunnerStatus,
@@ -46,7 +46,7 @@ function shellSingle(value: string): string {
 }
 
 function membersOf(snapshot: Snapshot, name: string) {
-  return snapshot.containers.filter((container) => container.project === name)
+  return snapshot.containers.filter((container) => container.environment === name)
 }
 
 function assertRemovableProject(snapshot: Snapshot, config: PanelConfig, name: string, verb: string) {
@@ -127,7 +127,7 @@ export async function projectRemovalPreview(
   config: PanelConfig,
   db: Database | null,
   name: string,
-): Promise<ProjectRemovalPreview> {
+): Promise<EnvironmentRemovalPreview> {
   const project = projectOrThrow(snapshot, name)
   const members = assertRemovableProject(snapshot, config, name, 'preview')
   const volumes = new Map<string, null>()
@@ -150,7 +150,7 @@ export async function projectRemovalPreview(
 
   const records = await collectRecords(snapshot, config, db, name)
   return {
-    project: name,
+    environment: name,
     containers: members.map((container) => ({
       id: container.id,
       name: container.name,
@@ -179,13 +179,13 @@ async function collectRecords(
   config: PanelConfig,
   db: Database | null,
   name: string,
-): Promise<ProjectPorttaRecords> {
+): Promise<EnvironmentPorttaRecords> {
   const counts = await dbRecords(db, name)
   const aliases = loadAliases(config).filter((alias) => alias.project === name)
   return {
     overrides: counts.overrides,
     aliases: aliases.length,
-    workspaceLinks: counts.workspaceLinks,
+    projectLinks: counts.workspaceLinks,
     issueLinks: counts.issueLinks,
     accessBridges: listBridges(snapshot).filter((bridge) => bridge.project === name).map((bridge) => bridge.id),
     accessForwarders: listForwarders(snapshot).filter((forwarder) => forwarder.project === name).map((forwarder) => forwarder.alias),
@@ -387,7 +387,7 @@ async function cleanupPorttaRecords(
   config: PanelConfig,
   db: Database | null,
   name: string,
-): Promise<ProjectPorttaRecords> {
+): Promise<EnvironmentPorttaRecords> {
   const before = await collectRecords(snapshot, config, db, name)
 
   for (const id of before.accessBridges) {

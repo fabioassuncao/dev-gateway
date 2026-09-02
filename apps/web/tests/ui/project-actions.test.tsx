@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import { renderWithQuery } from './render.tsx'
 import { makeContainer, makeOperable, makeStartable } from './fixtures.ts'
-import type { Project } from '../../src/shared/types.ts'
+import type { Environment } from '../../src/shared/types.ts'
 
 const projectAction = vi.fn()
 
@@ -13,9 +13,9 @@ vi.mock('../../src/ui/lib/api.ts', () => ({
 
 const { ProjectActions } = await import('../../src/ui/components/project-actions.tsx')
 
-function project(overrides: Partial<Project> = {}): Project {
+function project(overrides: Partial<Environment> = {}): Environment {
   const services = overrides.services ?? [
-    makeContainer({ id: 'a-web', name: 'alpha-web-1', service: 'web', project: 'alpha', state: 'exited' }),
+    makeContainer({ id: 'a-web', name: 'alpha-web-1', service: 'web', environment: 'alpha', state: 'exited' }),
   ]
   return {
     name: 'alpha',
@@ -67,7 +67,7 @@ describe('project actions', () => {
     renderWithQuery(
       <ProjectActions
         project={project({
-          services: [makeContainer({ state: 'running', service: 'web', project: 'alpha' })],
+          services: [makeContainer({ state: 'running', service: 'web', environment: 'alpha' })],
           runningCount: 1,
           serviceCount: 1,
           startable: makeStartable(false),

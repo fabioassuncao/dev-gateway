@@ -21,7 +21,7 @@ import {
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
 import { ensureNetwork, inspectContainers } from '../docker.js'
-import { EXIT, RefusedError, UsageError } from '../errors.js'
+import { CliError, EXIT, PreconditionError, RefusedError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
 import { refreshGitMetadata } from './git.js'
@@ -158,9 +158,70 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   const output = new Output(globals(command))
   await refreshGitMetadata(context.config.profile, output)
   await ensureMetricsCollector(context.config.profile, output)
+  const running = gatewayContext({ profile: globals(command).profile, overrides: values })
+  try {
+    const result = await requestPanelMigrate(running)
+    if (result.applied.length > 0) output.progress(`applied ${result.applied.join(', ')}`)
+    else output.detail(`panel schema is current (${result.migrations.length} migrations)`)
+  } catch (error) {
+    output.warning(`pending panel migrations were not applied: ${error instanceof Error ? error.message : String(error)}`)
+    output.hint(error instanceof CliError && error.hint ? error.hint : 'portta db migrate')
+  }
   // The context was resolved before .env was rewritten, so `web dev` would
   // otherwise report the URL the previous mode used.
-  output.data(webUrl(gatewayContext({ profile: globals(command).profile, overrides: values })))
+  output.data(webUrl(running))
+}
+
+/**
+ * Loopback address of the API process itself.
+ *
+ * `webUrl` is what a person types: Vite in development, Traefik when the
+ * panel is routed. Migrations have to reach the Node process, so they dial
+ * the published API port and never the UI, the proxy or a credential.
+ */
+export function panelLoopbackApiUrl(context: ReturnType<typeof gatewayContext>): string {
+  const bind = context.env['PORTTA_WEB_BIND_ADDRESS'] ?? '127.0.0.1'
+  const host = bind === '0.0.0.0' || bind === '::' || bind === '[::]' ? '127.0.0.1' : bind
+  return `http://${host}:${context.config.webPort}`
+}
+
+export interface PanelMigrateResult {
+  applied: string[]
+  migrations: string[]
+}
+
+export async function requestPanelMigrate(
+  context: ReturnType<typeof gatewayContext>,
+): Promise<PanelMigrateResult> {
+  const url = `${panelLoopbackApiUrl(context)}/api/database/migrate`
+  let response: Response | undefined
+  for (let attempt = 0; attempt < 6; attempt++) {
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+        signal: AbortSignal.timeout(60_000),
+      })
+      break
+    } catch {
+      if (attempt === 5) throw new PreconditionError('the panel is not reachable', 'run portta web up')
+      await new Promise((resolve) => setTimeout(resolve, 400))
+    }
+  }
+  const body = await response!.json().catch(() => ({})) as {
+    error?: string
+    hint?: string
+    applied?: string[]
+    migrations?: string[]
+  }
+  if (!response!.ok) {
+    throw new PreconditionError(
+      body.error ?? `the panel refused to migrate (HTTP ${response!.status})`,
+      body.hint ?? 'run portta db status',
+    )
+  }
+  return { applied: body.applied ?? [], migrations: body.migrations ?? [] }
 }
 
 /**

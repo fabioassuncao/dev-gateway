@@ -68,8 +68,8 @@ export function ServiceEndpoints({ service }: { service: ContainerSummary }) {
             {t('accessPage', { defaultValue: 'Access page' })}
           </a>
         </div>
-        {service.project && service.service ? (
-          <ConnectionPanel project={service.project} service={service.service} />
+        {service.environment && service.service ? (
+          <ConnectionPanel project={service.environment} service={service.service} />
         ) : null}
       </div>
     )

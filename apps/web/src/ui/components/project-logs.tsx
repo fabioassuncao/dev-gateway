@@ -1,12 +1,12 @@
 import { useTranslation } from 'react-i18next'
-import type { Project, ProjectLogSource } from '../../shared/types.ts'
+import type { Environment, ProjectLogSource } from '../../shared/types.ts'
 import { api } from '../lib/api.ts'
 import { Card } from './ui/card.tsx'
 import { Empty } from './shell-bits.tsx'
 import { LogViewer } from './logs.tsx'
 import { navigate } from '../lib/router.ts'
 
-export function ProjectLogs({ project, service }: { project: Project; service: string | null }) {
+export function ProjectLogs({ project, service }: { project: Environment; service: string | null }) {
   const { t } = useTranslation('gateway', { keyPrefix: 'project' })
 
   const base = `/projects/${encodeURIComponent(project.name)}/logs`

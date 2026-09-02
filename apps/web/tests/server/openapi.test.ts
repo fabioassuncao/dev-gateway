@@ -13,7 +13,7 @@ import {
   LogsResponse,
   NetworkView,
   Overview,
-  Project,
+  Environment,
   ProjectGit,
   RemovalPreview,
   ServiceTraefik,
@@ -23,7 +23,7 @@ import {
 } from '../../src/shared/types.ts'
 import { OpenApiDocument } from '../../src/server/openapi.ts'
 import { HealthResponse } from '../../src/server/routes/status.ts'
-import { ProjectsResponse } from '../../src/server/routes/projects.ts'
+import { EnvironmentsResponse } from '../../src/server/routes/projects.ts'
 import { ServicesResponse } from '../../src/server/routes/services.ts'
 import { ContainersResponse, StatsResponse } from '../../src/server/routes/docker.ts'
 
@@ -79,7 +79,7 @@ describe('the OpenAPI contract', () => {
     const names = (path: string, method: string) =>
       (spec.paths[path]?.[method]?.parameters ?? []).map((parameter) => parameter.name)
 
-    expect(names('/projects', 'get')).toContain('all')
+    expect(names('/environments', 'get')).toContain('all')
     expect(names('/docker/containers', 'get')).toEqual(expect.arrayContaining(['ownership', 'state', 'q']))
     expect(names('/gateway/logs', 'get')).toEqual(expect.arrayContaining(['component', 'tail']))
     expect(spec.paths['/config']?.patch?.requestBody).toBeDefined()
@@ -121,9 +121,9 @@ describe('response contracts against the realistic host fixture', () => {
     const cases: [string, z.ZodType][] = [
       ['/api/health', HealthResponse],
       ['/api/status', Overview],
-      ['/api/projects', ProjectsResponse],
-      ['/api/projects/alpha', Project],
-      ['/api/projects/alpha/git', ProjectGit],
+      ['/api/environments', EnvironmentsResponse],
+      ['/api/environments/alpha', Environment],
+      ['/api/environments/alpha/git', ProjectGit],
       ['/api/services', ServicesResponse],
       [`/api/services/${serviceId}`, ContainerSummary],
       [`/api/services/${serviceId}/logs`, LogsResponse],

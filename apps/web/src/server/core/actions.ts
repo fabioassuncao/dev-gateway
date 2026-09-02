@@ -13,9 +13,9 @@ import type { DockerClient } from '../docker/client.ts'
 import type { Snapshot } from './inventory.ts'
 import type {
   ContainerSummary,
-  ProjectActionEntry,
-  ProjectActionResult,
-  ProjectStartable,
+  EnvironmentActionEntry,
+  EnvironmentActionResult,
+  EnvironmentStartable,
   RemovalPreview,
 } from '../../shared/types.ts'
 
@@ -89,7 +89,7 @@ export async function runContainerAction(
 export const CONTAINERS_GONE_REASON =
   "this project's containers are gone; start them with the runner (PORTTA_RUNNER=true) or docker compose up in the working directory"
 
-export function projectStartable(services: ContainerSummary[]): ProjectStartable {
+export function projectStartable(services: ContainerSummary[]): EnvironmentStartable {
   if (services.length === 0) {
     return { ok: false, reason: CONTAINERS_GONE_REASON, via: 'runner' }
   }
@@ -113,7 +113,7 @@ async function runOne(
   container: ContainerSummary,
   action: 'start' | 'stop',
   state: Map<string, ContainerSummary['state']>,
-): Promise<ProjectActionEntry> {
+): Promise<EnvironmentActionEntry> {
   const service = container.service ?? container.name
   const current = state.get(container.id) ?? container.state
   const skip =
@@ -144,8 +144,8 @@ export async function runProjectAction(
   snapshot: Snapshot,
   name: string,
   action: ContainerAction,
-): Promise<ProjectActionResult> {
-  const members = snapshot.containers.filter((container) => container.project === name)
+): Promise<EnvironmentActionResult> {
+  const members = snapshot.containers.filter((container) => container.environment === name)
   if (members.length === 0) {
     throw new ActionRefused(`no project '${name}' is running`, CONTAINERS_GONE_REASON, 404)
   }
@@ -157,7 +157,7 @@ export async function runProjectAction(
   const startOrder = orderProjectServices(members.map(asOrderable), 'start').map((entry) => entry.container)
 
   const state = new Map(members.map((container) => [container.id, container.state]))
-  const results: ProjectActionEntry[] = []
+  const results: EnvironmentActionEntry[] = []
   if (action === 'stop' || action === 'restart') {
     for (const container of stopOrder) results.push(await runOne(client, container, 'stop', state))
   }
@@ -205,9 +205,9 @@ export function removalPreview(snapshot: Snapshot, id: string): RemovalPreview {
   if (binds.length > 0) {
     warnings.push(`${binds.length} bind mount(s) point at the host and are never touched`)
   }
-  if (container.project) {
+  if (container.environment) {
     warnings.push(
-      `belongs to the Compose project "${container.project}"; running docker compose up there recreates it`,
+      `belongs to the Compose project "${container.environment}"; running docker compose up there recreates it`,
     )
   }
   if (container.networks.length > 0) {
@@ -220,7 +220,7 @@ export function removalPreview(snapshot: Snapshot, id: string): RemovalPreview {
     image: container.image,
     ownership: container.ownership,
     state: container.state,
-    project: container.project,
+    project: container.environment,
     mounts: container.mounts,
     namedVolumes,
     networks: container.networks,

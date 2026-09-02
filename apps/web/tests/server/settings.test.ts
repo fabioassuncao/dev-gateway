@@ -65,6 +65,10 @@ describe('validation', () => {
     expect(() => validateValue('PORTTA_BIND_ADDRESS', '100.64.0.1')).not.toThrow()
     expect(() => validateValue('PUBLIC_DOMAIN', '')).not.toThrow()
     expect(() => validateValue('PORTTA_PROFILE', 'remote-private')).not.toThrow()
+    expect(() => validateValue('PORTTA_PROJECTS_HOME', '/srv/projects')).not.toThrow()
+    expect(() => validateValue('PORTTA_PROJECTS_HOME', '')).not.toThrow()
+    expect(() => validateValue('PORTTA_PROJECTS_HOME', '/')).toThrow(ValidationError)
+    expect(() => validateValue('PORTTA_PROJECTS_HOME', '/srv/projects/../..')).toThrow(ValidationError)
   })
 
   // The panel reads this path; `portta doctor` translates it back to the host.

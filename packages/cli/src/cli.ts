@@ -2,7 +2,7 @@ import { Command, CommanderError } from 'commander'
 import { CliError, EXIT } from './errors.js'
 import { Output } from './output.js'
 import { accessClose, accessGc, accessInspect, accessList, accessOpen, serviceList, servicePublish, serviceUnpublish } from './commands/access.js'
-import { dbDump, dbOpen, dbRestore, dbShell, dbStatus, dbUrl, clientClose, clientExec, redisOpen } from './commands/clients.js'
+import { dbDump, dbMigrate, dbOpen, dbRestore, dbShell, dbStatus, dbUrl, clientClose, clientExec, redisOpen } from './commands/clients.js'
 import { analyzeCommand, initCommand, namespaceCommand, projectAction, projectList, projectShow, servicesCommand } from './commands/projects.js'
 import { bootstrapCommand, devCommand, doctorCommand, downCommand, inspectCommand, logsCommand, restartCommand, statusCommand, updateCommand, upCommand, urlsCommand, versionCommand } from './commands/lifecycle.js'
 import { dnsCheck, dnsSetup, dnsStatus, networkStatus, publicDisable, publicEnable, publicStatus } from './commands/network.js'
@@ -71,10 +71,10 @@ describe(program.command('logs [service]'), 'Follow gateway component logs').opt
 describe(program.command('inspect'), 'Print resolved configuration without secrets').action((_options, command) => inspectCommand(command))
 describe(program.command('update'), 'Pull pinned images and recreate after confirmation').action((_options, command) => updateCommand(command))
 
-const project = describe(program.command('project'), 'Inspect and adopt Compose projects')
-describe(project.command('list'), 'List running Compose projects').action((options, command) => projectList(options, command))
-describe(project.command('show <name>'), 'Show one project, its services and URLs').action((name, _options, command) => projectShow(name, command))
-describe(project.command('services'), 'List services across running projects').option('--project <name>').action(servicesCommand)
+const project = describe(program.command('project'), 'Inspect and adopt Compose environments').alias('environment')
+describe(project.command('list'), 'List running Compose environments').action((options, command) => projectList(options, command))
+describe(project.command('show <name>'), 'Show one environment, its services and URLs').action((name, _options, command) => projectShow(name, command))
+describe(project.command('services'), 'List services across running environments').option('--project <name>').action(servicesCommand)
 describe(project.command('analyze <path>'), 'Read-only adoption report').action((path, _options, command) => analyzeCommand(path, command))
 describe(project.command('init <path>'), 'Write one integration overlay after confirmation')
   .option('--dry-run').option('--service <name:port>', 'service to expose; repeatable', (value, previous: string[]) => previous.concat(value), [])
@@ -163,6 +163,7 @@ describe(auth.command('unprotect <host>'), 'Remove a hostname credential without
 
 const db = describe(program.command('db'), 'Panel database operations and project database clients')
 describe(db.command('status'), 'Show panel PostgreSQL state').action((_options, command) => dbStatus(command))
+describe(db.command('migrate'), 'Apply pending panel SQL migrations').action((_options, command) => dbMigrate(command))
 describe(db.command('shell'), 'Open an interactive panel psql').action((_options, command) => dbShell(command))
 describe(db.command('dump'), 'Write a custom-format panel backup to stdout').action((_options, command) => dbDump(command))
 describe(db.command('restore [file]'), 'Restore panel persistence after confirmation').action((file, _options, command) => dbRestore(file, command))

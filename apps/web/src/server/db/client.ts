@@ -36,6 +36,8 @@ export interface WorkspaceRecord {
   name: string
   description: string | null
   archived: boolean
+  /** First-level directory under Projects Home. Null when unmanaged / not yet placed. */
+  relativePath: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -561,12 +563,13 @@ export class DatabaseClient {
   // A workspace is the user's decision, so nothing on the snapshot path ever
   // writes here: `recordSeen()` touches `projects` and stops.
 
-  async createWorkspace(input: { slug: string; name: string; description: string | null }): Promise<WorkspaceRecord> {
+  async createWorkspace(input: { slug: string; name: string; description: string | null; relativePath?: string | null }): Promise<WorkspaceRecord> {
     const rows = await this.sql<WorkspaceRecord[]>`
-      INSERT INTO workspaces (slug, name, description)
-      VALUES (${input.slug}, ${input.name}, ${input.description})
+      INSERT INTO workspaces (slug, name, description, relative_path)
+      VALUES (${input.slug}, ${input.name}, ${input.description}, ${input.relativePath ?? null})
       RETURNING
         id::text AS id, slug, name, description, archived,
+        relative_path AS "relativePath",
         created_at AS "createdAt", updated_at AS "updatedAt"
     `
     const record = rows[0]
@@ -581,9 +584,10 @@ export class DatabaseClient {
    */
   async updateWorkspace(
     slug: string,
-    patch: { name?: string; description?: string | null; archived?: boolean },
+    patch: { name?: string; description?: string | null; archived?: boolean; relativePath?: string | null },
   ): Promise<WorkspaceRecord | null> {
     const clearDescription = Object.hasOwn(patch, 'description') && patch.description === null
+    const clearPath = Object.hasOwn(patch, 'relativePath') && patch.relativePath === null
     const rows = await this.sql<WorkspaceRecord[]>`
       UPDATE workspaces SET
         name = COALESCE(${patch.name ?? null}, name),
@@ -592,9 +596,14 @@ export class DatabaseClient {
           ELSE COALESCE(${patch.description ?? null}, description)
         END,
         archived = COALESCE(${patch.archived ?? null}, archived),
+        relative_path = CASE
+          WHEN ${clearPath} THEN NULL
+          ELSE COALESCE(${patch.relativePath ?? null}, relative_path)
+        END,
         updated_at = now()
       WHERE slug = ${slug}
       RETURNING id::text AS id, slug, name, description, archived,
+        relative_path AS "relativePath",
         created_at AS "createdAt", updated_at AS "updatedAt"
     `
     return rows[0] ?? null
@@ -603,6 +612,7 @@ export class DatabaseClient {
   async listWorkspaces(): Promise<WorkspaceRecord[]> {
     return this.sql<WorkspaceRecord[]>`
       SELECT id::text AS id, slug, name, description, archived,
+             relative_path AS "relativePath",
              created_at AS "createdAt", updated_at AS "updatedAt"
       FROM workspaces ORDER BY archived, name
     `
@@ -611,6 +621,7 @@ export class DatabaseClient {
   async findWorkspace(slug: string): Promise<WorkspaceRecord | null> {
     const rows = await this.sql<WorkspaceRecord[]>`
       SELECT id::text AS id, slug, name, description, archived,
+             relative_path AS "relativePath",
              created_at AS "createdAt", updated_at AS "updatedAt"
       FROM workspaces WHERE slug = ${slug}
     `

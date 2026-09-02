@@ -101,13 +101,13 @@ export function BoardPage({
         description={backlog ? t('backlogDescription') : t('boardDescription')}
         actions={
           <>
-            <Button size="sm" onClick={() => navigate(`/workspaces/${encodeURIComponent(slug)}`)}>
+            <Button size="sm" onClick={() => navigate(`/projects/${encodeURIComponent(slug)}`)}>
               {t('workspace')}
             </Button>
             <Button
               size="sm"
               variant="primary"
-              disabled={readOnly || (workspace.data?.repositories.length ?? 0) === 0}
+              disabled={readOnly || (workspace.data?.githubRepositories.length ?? 0) === 0}
               onClick={() => setCreating(true)}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -142,7 +142,7 @@ export function BoardPage({
             aria-label={t('repository')}
           >
             <option value="">{t('anyRepository')}</option>
-            {(workspace.data?.repositories ?? []).map((repository) => (
+            {(workspace.data?.githubRepositories ?? []).map((repository) => (
               <option key={repository.repositoryId} value={repository.fullName}>
                 {repository.fullName}
               </option>
@@ -219,7 +219,7 @@ export function BoardPage({
       {creating ? (
         <IssueDialog
           mode="create"
-          repositories={(workspace.data?.repositories ?? []).map((repository) => repository.fullName)}
+          repositories={(workspace.data?.githubRepositories ?? []).map((repository) => repository.fullName)}
           open
           onOpenChange={setCreating}
         />

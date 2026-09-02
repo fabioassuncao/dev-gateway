@@ -29,7 +29,7 @@ export function networkRoutes(deps: AppDeps): Hono {
       routes: snapshot.containers
         .filter((container) => container.ownership !== 'gateway' && container.urls.length > 0)
         .map((container) => ({
-          project: container.project,
+          project: container.environment,
           service: container.service,
           containerId: container.id,
           containerName: container.name,

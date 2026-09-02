@@ -5,7 +5,7 @@ import { SlidersHorizontal } from 'lucide-react'
 import { ProjectActions } from '../components/project-actions.tsx'
 import { ProjectOperations } from '../components/project-operations.tsx'
 import { api, ApiError } from '../lib/api.ts'
-import type { ContainerSummary, Project } from '../../shared/types.ts'
+import type { ContainerSummary, Environment } from '../../shared/types.ts'
 import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
 import { Badge } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
@@ -46,8 +46,8 @@ export function ProjectPage({ project: name, tab: requested, service }: {
   useDocumentTitle(tab === 'overview' ? null : t(`tabs.${tab}`), name)
 
   const query = useQuery({
-    queryKey: ['project', name],
-    queryFn: () => api.project(name),
+    queryKey: ['environment', name],
+    queryFn: () => api.environment(name),
     retry: false,
   })
 
@@ -77,7 +77,7 @@ export function ProjectPage({ project: name, tab: requested, service }: {
   const tabs: TabDefinition[] = TABS.map((id) => ({
     id,
     label: t(`tabs.${id}`),
-    href: `/projects/${encodeURIComponent(name)}/${id}`,
+    href: `/environments/${encodeURIComponent(name)}/${id}`,
   }))
 
   return (
@@ -94,7 +94,7 @@ export function ProjectPage({ project: name, tab: requested, service }: {
   )
 }
 
-function ProjectHeader({ project }: { project: Project }) {
+function ProjectHeader({ project }: { project: Environment }) {
   const { t: tp } = useTranslation('projects')
   const { t: tn } = useTranslation('nav')
   const { uptime } = useFormat()
@@ -137,7 +137,7 @@ function ProjectHeader({ project }: { project: Project }) {
   )
 }
 
-function OverviewTab({ project }: { project: Project }) {
+function OverviewTab({ project }: { project: Environment }) {
   const { t } = useTranslation('gateway', { keyPrefix: 'project' })
   const { t: tc } = useTranslation('common')
   const { uptime } = useFormat()
@@ -251,7 +251,7 @@ function OverviewTab({ project }: { project: Project }) {
           actions={
             <a
               className="text-xs text-accent hover:underline"
-              href={`#/projects/${encodeURIComponent(project.name)}/git`}
+              href={`#/environments/${encodeURIComponent(project.name)}/git`}
             >
               {t('openGitTab', { defaultValue: 'Open Git tab' })}
             </a>
@@ -313,7 +313,7 @@ function GitSummary({ project }: { project: string }) {
   )
 }
 
-function ServicesTab({ project }: { project: Project }) {
+function ServicesTab({ project }: { project: Environment }) {
   const { t } = useTranslation('gateway', { keyPrefix: 'project' })
   const [details, setDetails] = useState<ContainerSummary | null>(null)
 
@@ -353,7 +353,7 @@ function ServiceDetailCard({
   service,
   onShowDetails,
 }: {
-  project: Project
+  project: Environment
   service: ContainerSummary
   onShowDetails: () => void
 }) {
@@ -456,7 +456,7 @@ function ServiceDetailCard({
   )
 }
 
-function IssueBlock({ issue }: { issue: NonNullable<Project['issue']> }) {
+function IssueBlock({ issue }: { issue: NonNullable<Environment['issue']> }) {
   const { statusLabel, priorityLabel } = useIssueStatuses()
   const { t: ti } = useTranslation('issues')
 

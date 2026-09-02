@@ -43,7 +43,7 @@ export function DockerPage() {
     if (search.trim() !== '') {
       const needle = search.toLowerCase()
       list = list.filter((container) =>
-        [container.name, container.image, container.project ?? '', container.service ?? '']
+        [container.name, container.image, container.environment ?? '', container.service ?? '']
           .join(' ')
           .toLowerCase()
           .includes(needle),
@@ -292,12 +292,12 @@ function ContainerGroup({
                 <StateBadge state={container.state} health={container.health} />
               </Td>
               <Td className="text-xs text-muted">
-                {container.project ? (
+                {container.environment ? (
                   <a
                     className="underline-offset-2 hover:text-accent hover:underline"
-                    href={`#/projects/${encodeURIComponent(container.project)}`}
+                    href={`#/environments/${encodeURIComponent(container.environment)}`}
                   >
-                    {container.project}
+                    {container.environment}
                   </a>
                 ) : (
                   '-'

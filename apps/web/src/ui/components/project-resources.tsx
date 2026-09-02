@@ -4,9 +4,9 @@ import { api } from '../lib/api.ts'
 import { bytes } from '../lib/format.ts'
 import { Card, CardBody, CardHeader } from './ui/card.tsx'
 import { percentLabel } from './host-resources-lib.ts'
-import type { Project } from '../../shared/types.ts'
+import type { Environment } from '../../shared/types.ts'
 
-export function ProjectResources({ project }: { project: Project }) {
+export function ProjectResources({ project }: { project: Environment }) {
   const { t, i18n } = useTranslation('gateway', { keyPrefix: 'project.resources' })
   const query = useQuery({
     queryKey: ['metrics-current'],

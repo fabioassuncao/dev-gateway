@@ -6,7 +6,7 @@ import { SettingsRepository } from '../../src/server/db/settings.ts'
 import { Database, requireDatabase, unavailableDatabaseStatus } from '../../src/server/db/index.ts'
 import { diagnose } from '../../src/server/core/diagnostics.ts'
 import { buildSnapshot } from '../../src/server/core/inventory.ts'
-import { fakeDocker, makeApp, testConfig } from './helpers.ts'
+import { fakeDocker, makeApp, post, testConfig } from './helpers.ts'
 import { FULL_HOST } from './fixtures.ts'
 
 describe('the persistence schema', () => {
@@ -76,7 +76,7 @@ describe('degraded operation', () => {
     const paths = [
       '/api/health',
       '/api/status',
-      '/api/projects',
+      '/api/environments',
       '/api/services',
       '/api/docker/containers',
       '/api/docker/host',
@@ -139,5 +139,54 @@ describe('degraded operation', () => {
 
     expect(client.migrate).toHaveBeenCalledOnce()
     expect(client.ping).toHaveBeenCalledOnce()
+  })
+
+  it('applies a file that appeared after the process had already started', async () => {
+    const migrate = vi.fn()
+      .mockResolvedValueOnce([{ version: '0001_initial.sql', appliedAt: new Date() }])
+      .mockResolvedValueOnce([
+        { version: '0001_initial.sql', appliedAt: new Date() },
+        { version: '0006_project_relative_path.sql', appliedAt: new Date() },
+      ])
+    const database = databaseWith({
+      migrate,
+      ping: vi.fn().mockResolvedValue(undefined),
+    })
+
+    await database.initialize()
+    await expect(database.applyMigrations()).resolves.toEqual({
+      migrations: ['0001_initial.sql', '0006_project_relative_path.sql'],
+      applied: ['0006_project_relative_path.sql'],
+    })
+    expect(migrate).toHaveBeenCalledTimes(2)
+  })
+
+  it('applies pending schema through the API without a restart', async () => {
+    const database = databaseWith({
+      migrate: vi.fn().mockResolvedValue([{ version: '0001_initial.sql', appliedAt: new Date() }]),
+      ping: vi.fn().mockResolvedValue(undefined),
+    })
+    await database.initialize()
+    const { app } = makeApp({}, {}, database)
+
+    const response = await post(app, '/api/database/migrate')
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ applied: [], migrations: ['0001_initial.sql'] })
+  })
+
+  it('applies schema even when the panel is read-only', async () => {
+    const database = databaseWith({
+      migrate: vi.fn().mockResolvedValue([{ version: '0001_initial.sql', appliedAt: new Date() }]),
+      ping: vi.fn().mockResolvedValue(undefined),
+    })
+    await database.initialize()
+    const { app } = makeApp({}, { readOnly: true }, database)
+
+    expect((await post(app, '/api/database/migrate')).status).toBe(200)
+  })
+
+  it('returns 503 when persistence is not configured', async () => {
+    const { app } = makeApp()
+    expect((await post(app, '/api/database/migrate')).status).toBe(503)
   })
 })

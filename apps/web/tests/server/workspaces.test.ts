@@ -224,7 +224,7 @@ describe('repositories', () => {
       repositories: [{ fullName: 'acme/alpha', role: 'other' }],
     })
     expect(response.status).toBe(200)
-    expect(((await response.json()) as Workspace).repositories).toHaveLength(1)
+    expect(((await response.json()) as Workspace).githubRepositories).toHaveLength(1)
   })
 
   it('accepts several, which is the multi-repository product', async () => {
@@ -233,7 +233,7 @@ describe('repositories', () => {
     const response = await put(instance, '/api/workspaces/produto/repositories', {
       repositories: [{ fullName: 'acme/alpha', role: 'web' }, { fullName: 'acme/api', role: 'api' }],
     })
-    expect(((await response.json()) as Workspace).repositories.map((entry) => entry.fullName)).toEqual([
+    expect(((await response.json()) as Workspace).githubRepositories.map((entry) => entry.fullName)).toEqual([
       'acme/alpha',
       'acme/api',
     ])
@@ -272,7 +272,7 @@ describe('adopting environments', () => {
     })
     const body = (await response.json()) as Workspace
     expect(body.environments).toEqual([
-      expect.objectContaining({ project: 'alpha', source: 'manual', running: true }),
+      expect.objectContaining({ environment: 'alpha', source: 'manual', running: true }),
     ])
   })
 
@@ -301,8 +301,8 @@ describe('deleting a workspace', () => {
     expect(instance.docker.calls.filter((call) => ['stop', 'remove'].includes(call.method))).toEqual([])
 
     // And the environment is still exactly where it was.
-    const projects = await (await instance.app.request('/api/projects')).json()
-    expect(projects.projects.map((project: { name: string }) => project.name)).toContain('alpha')
+    const runtimes = await (await instance.app.request('/api/environments')).json()
+    expect(runtimes.environments.map((environment: { name: string }) => environment.name)).toContain('alpha')
   })
 
   it('404s a workspace that does not exist', async () => {
@@ -317,7 +317,7 @@ describe('the existing project endpoints', () => {
     await post(instance.app, '/api/workspaces', { slug: 'produto', name: 'Produto' })
     await put(instance, '/api/workspaces/produto/environments', { environments: ['alpha'] })
 
-    const projects = await (await instance.app.request('/api/projects')).json()
-    expect(JSON.stringify(projects)).not.toContain('workspace')
+    const runtimes = await (await instance.app.request('/api/environments')).json()
+    expect(JSON.stringify(runtimes)).not.toContain('workspace')
   })
 })

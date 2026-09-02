@@ -65,7 +65,7 @@ describe('mergeLogSources', () => {
   })
 })
 
-describe('GET /api/projects/:project/logs', () => {
+describe('GET /api/environments/:project/logs', () => {
   it('merges every service of the project and labels each line', async () => {
     const { app } = makeApp({
       containers: [...GATEWAY, ...PROJECT_A],
@@ -77,7 +77,7 @@ describe('GET /api/projects/:project/logs', () => {
       },
     })
 
-    const response = await app.request('/api/projects/alpha/logs')
+    const response = await app.request('/api/environments/alpha/logs')
     expect(response.status).toBe(200)
     const body = (await response.json()) as ProjectLogsResponse
 
@@ -102,7 +102,7 @@ describe('GET /api/projects/:project/logs', () => {
       },
     })
 
-    const body = (await (await app.request('/api/projects/alpha/logs?service=api')).json()) as ProjectLogsResponse
+    const body = (await (await app.request('/api/environments/alpha/logs?service=api')).json()) as ProjectLogsResponse
     expect(body.sources).toHaveLength(1)
     expect(body.lines.map((entry) => entry.text)).toEqual(['api started'])
   })
@@ -116,7 +116,7 @@ describe('GET /api/projects/:project/logs', () => {
       },
     })
 
-    const response = await app.request('/api/projects/alpha/logs')
+    const response = await app.request('/api/environments/alpha/logs')
     expect(response.status).toBe(200)
     const body = (await response.json()) as ProjectLogsResponse
 
@@ -136,7 +136,7 @@ describe('GET /api/projects/:project/logs', () => {
       logsByContainer: { 'a-api': [line('2026-01-01T00:00:02Z', 'shutting down')] },
     })
 
-    const body = (await (await app.request('/api/projects/alpha/logs')).json()) as ProjectLogsResponse
+    const body = (await (await app.request('/api/environments/alpha/logs')).json()) as ProjectLogsResponse
     const api = body.sources.find((source) => source.service === 'api')!
     expect(api.state).toBe('exited')
     expect(body.lines.some((entry) => entry.text === 'shutting down')).toBe(true)
@@ -144,14 +144,14 @@ describe('GET /api/projects/:project/logs', () => {
 
   it('404s an unknown project rather than answering empty', async () => {
     const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] })
-    const response = await app.request('/api/projects/ghost/logs')
+    const response = await app.request('/api/environments/ghost/logs')
     expect(response.status).toBe(404)
     expect((await response.json()).error).toContain("no project 'ghost'")
   })
 
   it('clamps the requested tail per service', async () => {
     const { app, docker } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] })
-    await app.request('/api/projects/alpha/logs?tail=99999')
+    await app.request('/api/environments/alpha/logs?tail=99999')
 
     const reads = docker.calls.filter((call) => call.method === 'logs')
     expect(reads).toHaveLength(4)
@@ -160,7 +160,7 @@ describe('GET /api/projects/:project/logs', () => {
 
   it('reads every service concurrently with a smaller default when aggregating', async () => {
     const { app, docker } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] })
-    await app.request('/api/projects/alpha/logs')
+    await app.request('/api/environments/alpha/logs')
 
     const reads = docker.calls.filter((call) => call.method === 'logs')
     // Services come from the snapshot, which orders them alphabetically.
@@ -170,7 +170,7 @@ describe('GET /api/projects/:project/logs', () => {
 
   it('keeps the single-service default at 200 lines', async () => {
     const { app, docker } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] })
-    await app.request('/api/projects/alpha/logs?service=api')
+    await app.request('/api/environments/alpha/logs?service=api')
 
     const reads = docker.calls.filter((call) => call.method === 'logs')
     expect(reads).toHaveLength(1)

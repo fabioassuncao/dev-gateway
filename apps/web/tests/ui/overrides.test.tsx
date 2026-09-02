@@ -3,7 +3,7 @@ import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
 import { makeContainer, makeOperable, makeStartable } from './fixtures.ts'
-import type { ContainerSummary, Project } from '../../src/shared/types.ts'
+import type { ContainerSummary, Environment } from '../../src/shared/types.ts'
 
 class ApiError extends Error {
   status: number
@@ -26,7 +26,8 @@ const projects = vi.fn()
 vi.mock('../../src/ui/lib/api.ts', () => ({
   ApiError,
   api: {
-    projects: () => projects(),
+    projects: () => Promise.resolve([]),
+    environments: () => projects(),
     projectSettings: (name: string) => projectSettings(name),
     setProjectSettings: (name: string, body: unknown) => setProjectSettings(name, body),
     clearProjectSettings: (name: string) => clearProjectSettings(name),
@@ -55,16 +56,16 @@ const WEB_URL = {
 }
 
 const web: ContainerSummary = makeContainer({
-  id: 'a-web', name: 'alpha-web-1', project: 'alpha', service: 'web',
+  id: 'a-web', name: 'alpha-web-1', environment: 'alpha', service: 'web',
   ownership: 'integrated', traefikEnabled: true, kind: 'http', exposedPorts: [80], urls: [WEB_URL],
 })
 
 const worker: ContainerSummary = makeContainer({
-  id: 'a-worker', name: 'alpha-worker-1', project: 'alpha', service: 'worker',
+  id: 'a-worker', name: 'alpha-worker-1', environment: 'alpha', service: 'worker',
   ownership: 'integrated', kind: 'tcp',
 })
 
-function project(overrides: Partial<Project> = {}): Project {
+function project(overrides: Partial<Environment> = {}): Environment {
   return {
     name: 'alpha',
     integrated: true,
@@ -196,8 +197,9 @@ describe('the project list under overrides', () => {
     ])
     renderWithQuery(<Projects />)
     await screen.findByText('pinned')
-    const headings = screen.getAllByRole('heading', { level: 2 })
-    expect(headings[0]!.textContent).toContain('alpha')
+    const names = screen.getAllByRole('link', { name: /^(alpha|zulu)$/ })
+    expect(names[0]).toHaveTextContent('alpha')
+    expect(names[1]).toHaveTextContent('zulu')
   })
 
   it('renders exactly as before when nothing is overridden', async () => {

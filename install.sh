@@ -219,6 +219,7 @@ env_set() { # env_set <file> <key> <value>
 # ---------------------------------------------------------------------------
 
 INSTALL_DIR=""
+PROJECTS_HOME=""
 PANEL_ACCESS=""
 PANEL_PORT=""
 PANEL_USER=""
@@ -242,6 +243,8 @@ The same command installs and updates. Flags are passed after `-s --`:
 OPTIONS
   --install-dir <path>    Where Portta keeps its data and configuration
                           (default: /opt/portta as root, ~/.portta otherwise)
+  --projects-home <path>  Where this Node manages Projects
+                          (default: ~/projects, or /srv/projects as root)
   --panel-access <mode>   public | tailscale | local | domain
                           (default: public). `domain` routes the panel at one
                           hostname of --domain over HTTPS, behind the same
@@ -273,6 +276,7 @@ and print it once.
 
 ENVIRONMENT
   PORTTA_HOME              same as --install-dir
+  PORTTA_PROJECTS_HOME     same as --projects-home
   PORTTA_PANEL_PASSWORD    the panel password, read once and never echoed
   PORTTA_REF               same as --version
   PORTTA_REGISTRY          same as --registry
@@ -283,6 +287,8 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --install-dir) shift; INSTALL_DIR="${1:-}" ;;
     --install-dir=*) INSTALL_DIR="${1#*=}" ;;
+    --projects-home) shift; PROJECTS_HOME="${1:-}" ;;
+    --projects-home=*) PROJECTS_HOME="${1#*=}" ;;
     --panel-access) shift; PANEL_ACCESS="${1:-}" ;;
     --panel-access=*) PANEL_ACCESS="${1#*=}" ;;
     --panel-port) shift; PANEL_PORT="${1:-}" ;;
@@ -525,6 +531,10 @@ default_home() {
   if [ "$IS_ROOT" = "true" ]; then printf '/opt/portta'; else printf '%s/.portta' "$HOME"; fi
 }
 
+default_projects_home() {
+  if [ "$IS_ROOT" = "true" ]; then printf '/srv/projects'; else printf '%s/projects' "$HOME"; fi
+}
+
 step "Portta home"
 # A directory the caller named is honoured exactly. One we defaulted to is a
 # guess, and --uninstall is allowed to look elsewhere before giving up.
@@ -547,6 +557,32 @@ case "$INSTALL_DIR" in
   *) INSTALL_DIR="$(pwd)/$INSTALL_DIR" ;;
 esac
 PORTTA_HOME="$INSTALL_DIR"
+
+# Projects Home is a second directory: the code the operator is developing,
+# not the gateway. Changing it later changes the reference; this installer
+# never moves files. See docs/adr/0031-projects-home-and-project.md.
+# Uninstall does not ask: it does not touch that directory.
+if [ "$ACTION" != "uninstall" ]; then
+  if [ -z "$PROJECTS_HOME" ]; then PROJECTS_HOME="${PORTTA_PROJECTS_HOME:-}"; fi
+  if [ -z "$PROJECTS_HOME" ]; then
+    say "Where should Portta manage your projects?"
+    say ""
+    note "Recommended: $(default_projects_home)"
+    PROJECTS_HOME=$(ask "directory" "$(default_projects_home)")
+  fi
+  # shellcheck disable=SC2088
+  case "$PROJECTS_HOME" in
+    "~") PROJECTS_HOME="$HOME" ;;
+    "~/"*) PROJECTS_HOME="$HOME/${PROJECTS_HOME#\~/}" ;;
+  esac
+  case "$PROJECTS_HOME" in
+    /*) ;;
+    *) PROJECTS_HOME="$(pwd)/$PROJECTS_HOME" ;;
+  esac
+  case "$PROJECTS_HOME" in
+    /) die "Projects Home cannot be the filesystem root" ;;
+  esac
+fi
 
 # Where an installation could be, in the order the CLI looks. Used by
 # --uninstall, and to notice a second installation competing for the port.
@@ -900,6 +936,12 @@ env_set "$ENV_FILE" PORTTA_WEB_IMAGE "$PANEL_IMAGE"
 env_set "$ENV_FILE" PORTTA_AUTH_IMAGE "$PANEL_IMAGE"
 env_set "$ENV_FILE" PORTTA_WEB_BUILD "false"
 env_set "$ENV_FILE" PORTTA_WEB_DEV "false"
+if [ -z "$(env_get "$ENV_FILE" PORTTA_PROJECTS_HOME)" ]; then
+  env_set "$ENV_FILE" PORTTA_PROJECTS_HOME "$PROJECTS_HOME"
+  good "Projects Home: $PROJECTS_HOME"
+else
+  good "keeping the configured Projects Home: $(env_get "$ENV_FILE" PORTTA_PROJECTS_HOME)"
+fi
 env_set "$ENV_FILE" PORTTA_WEB_EXPOSE "$PANEL_ACCESS"
 env_set "$ENV_FILE" PORTTA_WEB_BIND_ADDRESS "$PANEL_BIND"
 env_set "$ENV_FILE" PORTTA_WEB_PORT "$PANEL_PORT"

@@ -23,6 +23,10 @@ services:
       NODE_ENV: development
     volumes:
       - ./apps/web/src:/app/apps/web/src
+      # SQL files the running process reads on the next migrate. Without this
+      # a new file stays in the image until the next rebuild, so `portta db
+      # migrate` and a panel restart would both see a stale set.
+      - ./apps/web/migrations:/app/apps/web/migrations
       # The shared package, so editing it reloads the panel like its own source.
       - ./packages/core/src:/app/packages/core/src
       - ./.env:/app/state/.env

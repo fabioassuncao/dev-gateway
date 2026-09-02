@@ -21,7 +21,7 @@ test.describe('the panel end to end', () => {
   test('every section owns its title and project context can refine it', async ({ page }) => {
     await page.goto('/#/overview')
 
-    const sections = ['Overview', 'Workspaces', 'Projects', 'Services', 'Docker', 'Network', 'Access', 'Gateway']
+    const sections = ['Overview', 'Projects', 'Services', 'Docker', 'Network', 'Access', 'Gateway']
     for (const section of sections) {
       await page.getByRole('button', { name: section, exact: true }).click()
       await expect(page).toHaveTitle(`${section} · Portta`)
@@ -35,13 +35,14 @@ test.describe('the panel end to end', () => {
     await expect(page).toHaveTitle('alpha · Portta')
   })
 
-  test('workspaces explain themselves when the database is not running', async ({ page }) => {
+  test('projects explain themselves when the database is not running', async ({ page }) => {
     await page.goto('/#/workspaces')
-    await expect(page.getByRole('heading', { name: 'Workspaces' })).toBeVisible()
+    await expect(page).toHaveURL(/#\/projects$/)
+    await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible()
     // No PostgreSQL in the demo host: a decision needs persistence, and the
-    // page says so instead of failing.
-    await expect(page.getByText("Workspaces need the panel's database")).toBeVisible()
-    await expect(page.getByRole('button', { name: 'New workspace' })).toBeDisabled()
+    // page says so instead of failing. Environments still list without it.
+    await expect(page.getByText("Projects need the panel's database")).toBeVisible()
+    await expect(page.getByRole('button', { name: 'New project' })).toBeDisabled()
   })
 
   test('the board explains itself before the projection exists', async ({ page }) => {

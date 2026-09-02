@@ -12,18 +12,18 @@ import type {
   LogsResponse,
   NetworkView,
   Overview,
+  Environment,
+  EnvironmentActionResult,
+  EnvironmentOverrides,
+  EnvironmentRemovalPreview,
   Project,
-  ProjectActionResult,
   ProjectGit,
+  ProjectSummary,
   GitHubIntegrationView,
   GitHubRepositoryView,
   Issue,
-  Workspace,
-  WorkspaceSummary,
   ProjectLogsResponse,
-  ProjectOverrides,
   ProjectRebuildResult,
-  ProjectRemovalPreview,
   ProjectRemoveResult,
   ServiceOverrides,
   RemovalPreview,
@@ -96,14 +96,14 @@ export const api = {
     request<ApplyStatus>(`/gateway/apply${logs ? '?logs=1' : ''}`, { signal }),
 
   projectAction: (name: string, action: 'start' | 'stop' | 'restart') =>
-    request<ProjectActionResult>(`/projects/${encodeURIComponent(name)}/actions/${action}`, {
+    request<EnvironmentActionResult>(`/environments/${encodeURIComponent(name)}/actions/${action}`, {
       method: 'POST',
       body: '{}',
     }),
   projectRemovalPreview: (name: string) =>
-    request<ProjectRemovalPreview>(`/projects/${encodeURIComponent(name)}/removal-preview`),
+    request<EnvironmentRemovalPreview>(`/environments/${encodeURIComponent(name)}/removal-preview`),
   rebuildProject: (name: string, body: { noCache?: boolean } = {}) =>
-    request<ProjectRebuildResult>(`/projects/${encodeURIComponent(name)}/operations/rebuild`, {
+    request<ProjectRebuildResult>(`/environments/${encodeURIComponent(name)}/operations/rebuild`, {
       method: 'POST',
       body: JSON.stringify(body),
     }),
@@ -111,49 +111,84 @@ export const api = {
     name: string,
     body: { confirmation: string; volumes: boolean; directory: boolean; overrideDirty?: boolean },
   ) =>
-    request<ProjectRemoveResult>(`/projects/${encodeURIComponent(name)}/operations/remove`, {
+    request<ProjectRemoveResult>(`/environments/${encodeURIComponent(name)}/operations/remove`, {
       method: 'POST',
       body: JSON.stringify(body),
     }),
   runnerProbe: (signal: AbortSignal, logs = false) =>
     request<RunnerStatus>(`/runner${logs ? '?logs=1' : ''}`, { signal }),
-  projects: () => request<{ projects: Project[] }>('/projects').then((data) => data.projects),
-  project: (name: string) => request<Project>(`/projects/${encodeURIComponent(name)}`),
-  projectGit: (name: string) => request<ProjectGit>(`/projects/${encodeURIComponent(name)}/git`),
+  projects: () => request<{ projects: ProjectSummary[] }>('/projects').then((data) => data.projects),
+  project: (slug: string) => request<Project>(`/projects/${encodeURIComponent(slug)}`),
+  createProject: (body: { slug: string; name: string; description: string | null }) =>
+    request<Project>('/projects', { method: 'POST', body: JSON.stringify(body) }),
+  patchProject: (slug: string, body: Record<string, unknown>) =>
+    request<ProjectSummary>(`/projects/${encodeURIComponent(slug)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteProject: (slug: string) =>
+    request<{ ok: boolean; removed: string; note: string }>(`/projects/${encodeURIComponent(slug)}`, {
+      method: 'DELETE',
+      body: '{}',
+    }),
+  setProjectRepositories: (slug: string, repositories: { fullName: string; role?: string | null }[]) =>
+    request<Project>(`/projects/${encodeURIComponent(slug)}/repositories`, {
+      method: 'PUT',
+      body: JSON.stringify({ repositories }),
+    }),
+  setProjectEnvironments: (slug: string, environments: string[]) =>
+    request<Project>(`/projects/${encodeURIComponent(slug)}/environments`, {
+      method: 'PUT',
+      body: JSON.stringify({ environments }),
+    }),
+  projectIssues: (slug: string, filters: Record<string, string> = {}) => {
+    const query = new URLSearchParams(filters)
+    const suffix = query.toString()
+    return request<{ issues: Issue[] }>(
+      `/projects/${encodeURIComponent(slug)}/issues${suffix ? `?${suffix}` : ''}`,
+    ).then((data) => data.issues)
+  },
+
+  environments: (all = true) =>
+    request<{ environments: Environment[] }>(`/environments${all ? '?all=true' : ''}`).then(
+      (data) => data.environments,
+    ),
+  environment: (name: string) => request<Environment>(`/environments/${encodeURIComponent(name)}`),
+  projectGit: (name: string) => request<ProjectGit>(`/environments/${encodeURIComponent(name)}/git`),
   projectLogs: (name: string, options: { tail?: number; service?: string | null } = {}) => {
     const query = new URLSearchParams()
     if (options.tail !== undefined) query.set('tail', String(options.tail))
     if (options.service) query.set('service', options.service)
     const suffix = query.toString()
     return request<ProjectLogsResponse>(
-      `/projects/${encodeURIComponent(name)}/logs${suffix ? `?${suffix}` : ''}`,
+      `/environments/${encodeURIComponent(name)}/logs${suffix ? `?${suffix}` : ''}`,
     )
   },
   projectSettings: (name: string) =>
-    request<ProjectOverrides>(`/projects/${encodeURIComponent(name)}/settings`),
+    request<EnvironmentOverrides>(`/environments/${encodeURIComponent(name)}/settings`),
   setProjectSettings: (name: string, body: Record<string, unknown>) =>
-    request<ProjectOverrides>(`/projects/${encodeURIComponent(name)}/settings`, {
+    request<EnvironmentOverrides>(`/environments/${encodeURIComponent(name)}/settings`, {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
   clearProjectSettings: (name: string) =>
-    request<{ ok: boolean; cleared: string[] }>(`/projects/${encodeURIComponent(name)}/settings`, {
+    request<{ ok: boolean; cleared: string[] }>(`/environments/${encodeURIComponent(name)}/settings`, {
       method: 'DELETE',
       body: '{}',
     }),
   serviceAlias: (name: string, service: string, alias: string) =>
     request<{ host: string; derivedHosts: string[]; port: number }>(
-      `/projects/${encodeURIComponent(name)}/services/${encodeURIComponent(service)}/alias`,
+      `/environments/${encodeURIComponent(name)}/services/${encodeURIComponent(service)}/alias`,
       { method: 'PUT', body: JSON.stringify({ alias }) },
     ),
   clearServiceAlias: (name: string, service: string) =>
     request<{ ok: boolean; removed: string | null }>(
-      `/projects/${encodeURIComponent(name)}/services/${encodeURIComponent(service)}/alias`,
+      `/environments/${encodeURIComponent(name)}/services/${encodeURIComponent(service)}/alias`,
       { method: 'DELETE', body: '{}' },
     ),
   serviceOverrides: (name: string, service: string) =>
     request<ServiceOverrides>(
-      `/projects/${encodeURIComponent(name)}/services/${encodeURIComponent(service)}/overrides`,
+      `/environments/${encodeURIComponent(name)}/services/${encodeURIComponent(service)}/overrides`,
     ),
 
   github: () => request<GitHubIntegrationView>('/integrations/github'),
@@ -171,7 +206,7 @@ export const api = {
     const query = new URLSearchParams(filters)
     const suffix = query.toString()
     return request<{ issues: Issue[] }>(
-      `/workspaces/${encodeURIComponent(slug)}/issues${suffix ? `?${suffix}` : ''}`,
+      `/projects/${encodeURIComponent(slug)}/issues${suffix ? `?${suffix}` : ''}`,
     ).then((data) => data.issues)
   },
   issue: (id: string) => request<Issue>(`/issues/${encodeURIComponent(id)}`),
@@ -189,27 +224,27 @@ export const api = {
     request<Issue>(`/issues/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
 
   workspaces: () =>
-    request<{ workspaces: WorkspaceSummary[] }>('/workspaces').then((data) => data.workspaces),
-  workspace: (slug: string) => request<Workspace>(`/workspaces/${encodeURIComponent(slug)}`),
+    request<{ projects: ProjectSummary[] }>('/projects').then((data) => data.projects),
+  workspace: (slug: string) => request<Project>(`/projects/${encodeURIComponent(slug)}`),
   createWorkspace: (body: { slug: string; name: string; description: string | null }) =>
-    request<Workspace>('/workspaces', { method: 'POST', body: JSON.stringify(body) }),
+    request<Project>('/projects', { method: 'POST', body: JSON.stringify(body) }),
   patchWorkspace: (slug: string, body: Record<string, unknown>) =>
-    request<WorkspaceSummary>(`/workspaces/${encodeURIComponent(slug)}`, {
+    request<ProjectSummary>(`/projects/${encodeURIComponent(slug)}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
   deleteWorkspace: (slug: string) =>
-    request<{ ok: boolean; removed: string; note: string }>(`/workspaces/${encodeURIComponent(slug)}`, {
+    request<{ ok: boolean; removed: string; note: string }>(`/projects/${encodeURIComponent(slug)}`, {
       method: 'DELETE',
       body: '{}',
     }),
   setWorkspaceRepositories: (slug: string, repositories: { fullName: string; role?: string | null }[]) =>
-    request<Workspace>(`/workspaces/${encodeURIComponent(slug)}/repositories`, {
+    request<Project>(`/projects/${encodeURIComponent(slug)}/repositories`, {
       method: 'PUT',
       body: JSON.stringify({ repositories }),
     }),
   setWorkspaceEnvironments: (slug: string, environments: string[]) =>
-    request<Workspace>(`/workspaces/${encodeURIComponent(slug)}/environments`, {
+    request<Project>(`/projects/${encodeURIComponent(slug)}/environments`, {
       method: 'PUT',
       body: JSON.stringify({ environments }),
     }),

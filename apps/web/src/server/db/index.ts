@@ -67,6 +67,25 @@ export class Database {
     }
   }
 
+  /**
+   * Apply every pending SQL file, even if this process already migrated at
+   * start. A file that appeared after boot (the development bind-mount) is
+   * otherwise invisible until the next restart.
+   */
+  async applyMigrations(): Promise<{ migrations: string[]; applied: string[] }> {
+    const before = new Set(this.state.migrations)
+    try {
+      const rows = await this.client.migrate()
+      await this.client.ping()
+      const migrations = rows.map((row) => row.version)
+      this.markAvailable(migrations)
+      return { migrations, applied: migrations.filter((version) => !before.has(version)) }
+    } catch (error) {
+      this.markUnavailable(error)
+      throw new DatabaseUnavailable(error instanceof Error ? error.message : String(error))
+    }
+  }
+
   async recordSeen(
     projects: ReadonlyArray<{
       name: string

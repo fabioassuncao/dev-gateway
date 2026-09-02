@@ -38,21 +38,29 @@ const { Workspaces } = await import('../../src/ui/pages/Workspaces.tsx')
 const { WorkspacePage } = await import('../../src/ui/pages/Workspace.tsx')
 
 const summary: WorkspaceSummary = {
+  id: 'ws-1',
   slug: 'meu-produto',
   name: 'Meu Produto',
   description: 'The thing we sell',
   archived: false,
+  relativePath: null,
+  location: 'unmanaged',
   repositoryCount: 2,
   environmentCount: 2,
   runningEnvironmentCount: 1,
 }
 
 const detail: Workspace = {
+  id: 'ws-1',
   slug: 'meu-produto',
   name: 'Meu Produto',
   description: 'The thing we sell',
   archived: false,
-  repositories: [
+  relativePath: null,
+  resolvedPath: null,
+  location: 'unmanaged',
+  repositories: [],
+  githubRepositories: [
     {
       repositoryId: 'r1', fullName: 'acme/alpha', htmlUrl: 'https://github.com/acme/alpha',
       defaultBranch: 'main', private: true, archived: false, role: 'web', position: 0,
@@ -60,7 +68,7 @@ const detail: Workspace = {
   ],
   environments: [
     {
-      project: 'alpha', source: 'label', running: true,
+      environment: 'alpha', source: 'label', running: true,
       serviceCount: 2, runningCount: 2, unhealthyCount: 0, urls: [],
     },
   ],
@@ -93,21 +101,21 @@ describe('the workspace list', () => {
   it('explains what a workspace is when there is none', async () => {
     workspaces.mockResolvedValue([])
     renderWithQuery(<Workspaces />)
-    expect(await screen.findByText('No workspace yet')).toBeInTheDocument()
+    expect(await screen.findByText('No project yet')).toBeInTheDocument()
   })
 
   it('says the database is needed rather than showing a stack', async () => {
     workspaces.mockRejectedValue(new ApiError(503, 'panel persistence is unavailable'))
     renderWithQuery(<Workspaces />)
-    expect(await screen.findByText("Workspaces need the panel's database")).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /New workspace/ })).toBeDisabled()
+    expect(await screen.findByText("Projects need the panel's database")).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /New project/ })).toBeDisabled()
   })
 
   it('derives a slug from the name when none is typed', async () => {
     renderWithQuery(<Workspaces />)
     await screen.findByRole('link', { name: 'Meu Produto' })
 
-    await userEvent.click(screen.getByRole('button', { name: /New workspace/ }))
+    await userEvent.click(screen.getByRole('button', { name: /New project/ }))
     await userEvent.type(screen.getByLabelText('Name'), 'Meu Produto')
     await userEvent.click(screen.getByRole('button', { name: 'Create' }))
 
@@ -120,7 +128,7 @@ describe('one workspace', () => {
   it('says why each environment was adopted', async () => {
     renderWithQuery(<WorkspacePage slug="meu-produto" />)
     expect(await screen.findByText('declared by its portta.project label')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'alpha' })).toHaveAttribute('href', '#/projects/alpha')
+    expect(screen.getByRole('link', { name: 'alpha' })).toHaveAttribute('href', '#/environments/alpha')
   })
 
   it('links each repository to GitHub', async () => {
@@ -139,8 +147,8 @@ describe('one workspace', () => {
   it('reports a workspace that does not exist with a way back', async () => {
     workspace.mockRejectedValue(new ApiError(404, "no workspace 'ghost'"))
     renderWithQuery(<WorkspacePage slug="ghost" />)
-    expect(await screen.findByText("No workspace 'ghost'")).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back to all workspaces' })).toBeInTheDocument()
+    expect(await screen.findByText("No project 'ghost'")).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to all projects' })).toBeInTheDocument()
   })
 
   it('offers only repositories the installation granted', async () => {

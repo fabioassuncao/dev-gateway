@@ -152,7 +152,7 @@ export function datastoreEndpoints(
   const port = defaultPortForImage(container.image) ?? container.exposedPorts[0] ?? 0
   return endpointsFor(
     {
-      project: container.project ?? '',
+      project: container.environment ?? '',
       service: container.service ?? '',
       container: container.name,
       port,
@@ -235,7 +235,7 @@ export function serviceConnection(
   const discovered = credentialsFromEnv(kind, parseContainerEnv(env))
   const credentials = discovered.credentials
   return {
-    project: container.project ?? '',
+    project: container.environment ?? '',
     service: container.service ?? '',
     kind,
     endpoints: decorateEndpoints(kind, datastoreEndpoints(container, kind, config, bridge), credentials ?? undefined),
@@ -263,7 +263,7 @@ export function listTcpServices(snapshot: Snapshot, config: PanelConfig): TcpSer
     .filter(
       (container) =>
         container.ownership !== 'gateway' &&
-        container.project !== null &&
+        container.environment !== null &&
         container.service !== null &&
         // Reached over HTTP, so a bridge is not how you get to it. Opting into
         // TCP routing also sets traefik.enable, which is why this asks whether
@@ -273,15 +273,15 @@ export function listTcpServices(snapshot: Snapshot, config: PanelConfig): TcpSer
     .map((container) => {
       const kind = serviceKind(container.image)
       const bridge = bridges.find(
-        (item) => item.project === container.project && item.service === container.service,
+        (item) => item.project === container.environment && item.service === container.service,
       )
       const forwarder = forwarders.find(
-        (item) => item.project === container.project && item.service === container.service,
+        (item) => item.project === container.environment && item.service === container.service,
       )
       const gateway = gatewayAddressFor(container, kind, config)
       return {
         containerId: container.id,
-        project: container.project ?? '',
+        project: container.environment ?? '',
         service: container.service ?? '',
         image: container.image,
         kind,
@@ -331,7 +331,7 @@ export function resolveBridgePlan(
 ): { container: ContainerSummary; port: number; network: string; kind: ServiceKind } {
   const container = snapshot.containers.find(
     (item) =>
-      item.project === request.project &&
+      item.environment === request.project &&
       item.service === request.service &&
       item.state === 'running',
   )

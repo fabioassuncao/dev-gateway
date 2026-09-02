@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
 import { makeContainer, makeOperable, makeStartable } from './fixtures.ts'
-import type { Project, ProjectRemovalPreview } from '../../src/shared/types.ts'
+import type { Environment, EnvironmentRemovalPreview } from '../../src/shared/types.ts'
 
 const rebuildProject = vi.fn()
 const removeProject = vi.fn()
@@ -21,9 +21,9 @@ vi.mock('../../src/ui/lib/api.ts', () => ({
 
 const { ProjectOperations } = await import('../../src/ui/components/project-operations.tsx')
 
-function project(overrides: Partial<Project> = {}): Project {
+function project(overrides: Partial<Environment> = {}): Environment {
   const services = overrides.services ?? [
-    makeContainer({ id: 'a-web', name: 'alpha-web-1', service: 'web', project: 'alpha', state: 'running' }),
+    makeContainer({ id: 'a-web', name: 'alpha-web-1', service: 'web', environment: 'alpha', state: 'running' }),
   ]
   return {
     name: 'alpha',
@@ -50,15 +50,15 @@ function project(overrides: Partial<Project> = {}): Project {
   }
 }
 
-const preview: ProjectRemovalPreview = {
-  project: 'alpha',
+const preview: EnvironmentRemovalPreview = {
+  environment: 'alpha',
   containers: [{ id: 'a-web', name: 'alpha-web-1', service: 'web', state: 'running', image: 'nginx' }],
   networks: ['alpha_default'],
   volumes: [{ name: 'alpha_pgdata', sizeBytes: null }],
   workingDir: '/srv/dev/alpha',
   git: { collected: false, dirty: false, staged: 0, unstaged: 0, untracked: 0 },
   records: {
-    overrides: 0, aliases: 0, workspaceLinks: 0, issueLinks: 0,
+    overrides: 0, aliases: 0, projectLinks: 0, issueLinks: 0,
     accessBridges: [], accessForwarders: [], accessFiles: [],
   },
   runnerAvailable: false,

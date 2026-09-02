@@ -49,7 +49,7 @@ export function dockerRoutes(deps: AppDeps): Hono {
         const haystack = [
           container.name,
           container.image,
-          container.project ?? '',
+          container.environment ?? '',
           container.service ?? '',
           ...container.urls.map((url) => url.host),
         ]

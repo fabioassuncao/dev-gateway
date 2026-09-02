@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { makeApp, post, type FakeContainer } from './helpers.ts'
 import { PROJECT_A } from './fixtures.ts'
-import type { ProjectActionResult, Project } from '../../src/shared/types.ts'
+import type { ProjectActionResult, Environment } from '../../src/shared/types.ts'
 
 const ordered: FakeContainer[] = [
   {
@@ -43,7 +43,7 @@ const ordered: FakeContainer[] = [
 describe('project actions', () => {
   it('stops dependents before dependencies', async () => {
     const { app, docker } = makeApp({ containers: ordered })
-    const body = (await (await post(app, '/api/projects/alpha/actions/stop')).json()) as ProjectActionResult
+    const body = (await (await post(app, '/api/environments/alpha/actions/stop')).json()) as ProjectActionResult
     expect(body.ok).toBe(true)
     expect(body.failed).toBe(0)
     expect(docker.calls.filter((call) => call.method === 'stop').map((call) => call.args[0])).toEqual([
@@ -56,7 +56,7 @@ describe('project actions', () => {
   it('starts dependencies before dependents', async () => {
     const stopped = ordered.map((entry) => ({ ...entry, state: 'exited' }))
     const { app, docker } = makeApp({ containers: stopped })
-    await post(app, '/api/projects/alpha/actions/start')
+    await post(app, '/api/environments/alpha/actions/start')
     expect(docker.calls.filter((call) => call.method === 'start').map((call) => call.args[0])).toEqual([
       'a-db',
       'a-api',
@@ -66,7 +66,7 @@ describe('project actions', () => {
 
   it('restarts as an ordered stop then start, not N independent restarts', async () => {
     const { app, docker } = makeApp({ containers: ordered })
-    await post(app, '/api/projects/alpha/actions/restart')
+    await post(app, '/api/environments/alpha/actions/restart')
     const methods = docker.calls.map((call) => call.method)
     expect(methods.filter((method) => method === 'restart')).toEqual([])
     expect(methods.filter((method) => method === 'stop')).toHaveLength(3)
@@ -76,7 +76,7 @@ describe('project actions', () => {
 
   it('continues after one failure and names it', async () => {
     const { app } = makeApp({ containers: ordered, fail: { stop: ['a-api'] } })
-    const body = (await (await post(app, '/api/projects/alpha/actions/stop')).json()) as ProjectActionResult
+    const body = (await (await post(app, '/api/environments/alpha/actions/stop')).json()) as ProjectActionResult
     expect(body.ok).toBe(false)
     expect(body.failed).toBe(1)
     expect(body.succeeded).toBe(2)
@@ -100,7 +100,7 @@ describe('project actions', () => {
         },
       ],
     })
-    const response = await post(app, '/api/projects/alpha/actions/stop')
+    const response = await post(app, '/api/environments/alpha/actions/stop')
     expect(response.status).toBe(403)
     expect(await response.json()).toMatchObject({ error: expect.stringContaining('Portta component') })
     expect(docker.calls.some((call) => call.method === 'stop')).toBe(false)
@@ -108,7 +108,7 @@ describe('project actions', () => {
 
   it('404s a vanished project and names the runner', async () => {
     const { app } = makeApp({ containers: [] })
-    const response = await post(app, '/api/projects/ghost/actions/start')
+    const response = await post(app, '/api/environments/ghost/actions/start')
     expect(response.status).toBe(404)
     expect(await response.json()).toMatchObject({ hint: expect.stringContaining('PORTTA_RUNNER') })
   })
@@ -116,7 +116,7 @@ describe('project actions', () => {
   it('refuses every verb in read-only mode', async () => {
     const { app } = makeApp({ containers: ordered }, { readOnly: true })
     for (const action of ['start', 'stop', 'restart']) {
-      const response = await post(app, `/api/projects/alpha/actions/${action}`)
+      const response = await post(app, `/api/environments/alpha/actions/${action}`)
       expect(response.status).toBe(403)
       expect(await response.json()).toMatchObject({ error: expect.stringContaining('read-only') })
     }
@@ -124,7 +124,7 @@ describe('project actions', () => {
 
   it('marks a fully running project as not startable via iteration', async () => {
     const { app } = makeApp({ containers: ordered })
-    const project = (await (await app.request('/api/projects/alpha')).json()) as Project
+    const project = (await (await app.request('/api/environments/alpha')).json()) as Environment
     expect(project.startable).toEqual({
       ok: false,
       reason: 'every service is already running',

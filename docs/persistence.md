@@ -57,18 +57,30 @@ environment rather than placed in command arguments.
 
 ```bash
 portta db status
+portta db migrate
 portta db shell
 portta db dump > portta.dump
 portta db restore portta.dump
 # or: portta --yes db restore < portta.dump
 ```
 
-`db status` prints container health, the latest recorded migration and database
-size. `db dump` writes a PostgreSQL custom-format archive and nothing else to
+`db status` prints container health. `db migrate` asks the running panel to
+apply every pending SQL file and is the command to run after adding a
+migration while the panel is already up. `portta web up`, `portta web dev`
+and `portta dev` do the same after the panel is healthy; a failure there is
+a warning, because PostgreSQL is a soft dependency. The CLI never opens
+PostgreSQL: it calls `POST /api/database/migrate`.
+
+In a checkout, `docker/compose/features/web-dev.yaml` bind-mounts
+`apps/web/migrations` into the API container so a new file is visible
+without rebuilding the image. Production reads the files copied into the
+image.
+
+`db dump` writes a PostgreSQL custom-format archive and nothing else to
 stdout. `db restore` uses `--clean --if-exists`, asks for confirmation and
 restores ownership-neutral objects. Back up `.env` with the dump: the database
 credential belongs to that file, not to the archive.
 
 The similarly named `portta db psql --project ...` remains the client for
-a consumer project's own PostgreSQL. `db shell`, `status`, `dump` and `restore`
-refer specifically to the panel database.
+a consumer project's own PostgreSQL. `db shell`, `status`, `migrate`, `dump`
+and `restore` refer specifically to the panel database.

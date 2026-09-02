@@ -85,7 +85,7 @@ executable plus an argument array with shell expansion disabled.
 
 | Command | Command-specific flags |
 |---|---|
-| `project list` | Global flags only |
+| `project list` (`environment` is an alias) | Global flags only |
 | `project show <name>` | Global flags only |
 | `project start\|stop\|restart <name>` | Dependency order; nothing is removed. |
 | `project services` | `--project <name>` |
@@ -111,8 +111,9 @@ one minor release.
 `db open|close|url|psql|mysql` and `redis open|close|cli` are typed
 conveniences over the same bridges or one-shot toolbox clients. Client
 commands require `--project`, accept `--service` and `--port`, and pass trailing
-arguments directly to the selected client. `db status|shell|dump|restore`
-operate on the panel's private PostgreSQL; restore needs `--yes` and accepts a
+arguments directly to the selected client. `db status|migrate|shell|dump|restore`
+operate on the panel's private PostgreSQL. `migrate` asks the running panel
+to apply pending SQL and needs no flags. Restore needs `--yes` and accepts a
 file or stdin.
 
 ### Panel, network and integrations
@@ -189,6 +190,7 @@ Every read command accepts the global `--json`. Stable top-level fields are:
 | `git status` | `projects[]`, each with collected metadata plus `ageSeconds` |
 | `share list` | `shares[]` |
 | `db status` | `state`, `container`, `network` |
+| `db migrate` | `applied[]`, `migrations[]` |
 | `tls status` | `enabled`, `mode`, `domain`, `certificate`, `authority`, `acme` |
 | `tunnel status` | `state`, `detail`, `hint`, `zone`, `wildcard`, `tunnel`, `connector`, `credential` |
 | `tunnel setup` | `zone`, `tunnel`, `origin`, `routes[]`, `dns` (`type`, `name`, `target`, `proxied`) |

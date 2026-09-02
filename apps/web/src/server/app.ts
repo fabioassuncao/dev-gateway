@@ -16,6 +16,7 @@ import { accessRoutes } from './routes/access.ts'
 import { gatewayRoutes } from './routes/gateway.ts'
 import { hostRoutes } from './routes/host.ts'
 import { configRoutes } from './routes/config.ts'
+import { databaseRoutes } from './routes/database.ts'
 import { eventRoutes } from './routes/events.ts'
 import { integrationRoutes } from './routes/integrations.ts'
 import { issueRoutes } from './routes/issues.ts'
@@ -62,7 +63,10 @@ export function createApi(deps: AppDeps): Hono {
     c.header('x-content-type-options', 'nosniff')
 
     if (!SAFE_METHODS.has(c.req.method)) {
-      if (deps.config.readOnly) {
+      // Applying pending SQL is what boot already does. Read-only forbids
+      // operator writes, not bringing the schema current.
+      const isSchemaMigrate = c.req.path.endsWith('/database/migrate')
+      if (deps.config.readOnly && !isSchemaMigrate) {
         throw new HTTPException(403, { message: 'the panel is running in read-only mode' })
       }
       // GitHub sends no Origin header, so the one route that receives its
@@ -93,6 +97,7 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', gatewayRoutes(deps))
   api.route('/', hostRoutes(deps))
   api.route('/', configRoutes(deps))
+  api.route('/', databaseRoutes(deps))
   api.route('/', eventRoutes(deps))
   api.route('/', integrationRoutes(deps))
   api.route('/', issueRoutes(deps))

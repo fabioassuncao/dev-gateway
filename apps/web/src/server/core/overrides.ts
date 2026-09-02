@@ -19,7 +19,7 @@ import { PROJECT_KEYS, SERVICE_KEYS } from '../db/keys.ts'
 import type { Database } from '../db/index.ts'
 import type {
   ContainerSummary,
-  Project,
+  Environment,
   ProjectOverrides,
   ServiceOverrides,
 } from '../../shared/types.ts'
@@ -90,7 +90,7 @@ export async function loadOverrides(db: Database | null): Promise<OverrideMap> {
  * With no overrides the objects come back untouched, which is what keeps a
  * panel with no database byte-identical to today's.
  */
-export function applyOverrides<T extends Project>(projects: T[], overrides: OverrideMap): T[] {
+export function applyOverrides<T extends Environment>(projects: T[], overrides: OverrideMap): T[] {
   if (overrides.projects.size === 0 && overrides.services.size === 0) return projects
 
   return projects.map((project) => {

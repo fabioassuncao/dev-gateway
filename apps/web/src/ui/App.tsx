@@ -1,9 +1,9 @@
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
   Activity,
   Boxes,
-  Briefcase,
   Container,
   Globe,
   BookOpen,
@@ -18,11 +18,11 @@ import {
   Sun,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
-import { useRoute, segments, queryParam } from './lib/router.ts'
+import { useRoute, segments, queryParam, navigate } from './lib/router.ts'
 import { useTheme } from './lib/theme.ts'
 import { useLive } from './lib/live.ts'
 import { useSidebarCollapsed } from './lib/sidebar.ts'
-import { api } from './lib/api.ts'
+import { api, ApiError } from './lib/api.ts'
 import { cn } from './lib/utils.ts'
 import { useLocale, type Locale } from './i18n/use-locale.ts'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from './components/ui/menu.tsx'
@@ -32,8 +32,8 @@ import { ApplyBar } from './components/apply-bar.tsx'
 import { Overview } from './pages/Overview.tsx'
 import { Projects } from './pages/Projects.tsx'
 import { ProjectPage } from './pages/Project.tsx'
-import { Workspaces } from './pages/Workspaces.tsx'
 import { WorkspacePage } from './pages/Workspace.tsx'
+import { ErrorBox, Loading } from './components/shell-bits.tsx'
 import { BoardPage } from './pages/Board.tsx'
 import { Services } from './pages/Services.tsx'
 import { DockerPage } from './pages/Docker.tsx'
@@ -44,7 +44,6 @@ import { Settings } from './pages/Settings.tsx'
 
 type NavLabelKey =
   | 'overview'
-  | 'workspaces'
   | 'projects'
   | 'services'
   | 'docker'
@@ -61,7 +60,6 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { path: '/overview', labelKey: 'overview', icon: LayoutDashboard },
-  { path: '/workspaces', labelKey: 'workspaces', icon: Briefcase },
   { path: '/projects', labelKey: 'projects', icon: Boxes },
   { path: '/services', labelKey: 'services', icon: Container },
   { path: '/docker', labelKey: 'docker', icon: Activity },
@@ -82,7 +80,7 @@ export function App() {
   const status = useQuery({ queryKey: ['status'], queryFn: api.overview })
 
   const first = segments(path)[0] ?? 'overview'
-  const root = `/${first === 'board' ? 'workspaces' : first}`
+  const root = `/${first === 'board' || first === 'environments' || first === 'workspaces' ? 'projects' : first}`
   const gateway = status.data?.gateway
 
   const gatewayTitle = gateway?.up ? t('gatewayUp') : t('gatewayDown')
@@ -238,10 +236,14 @@ function Page({ path, readOnly = false }: { path: string; readOnly?: boolean }) 
   switch (parts[0]) {
     case 'projects':
       return parts[1]
+        ? <ProjectOrEnvironmentPage slug={decode(parts[1])} tab={parts[2] ?? null} service={queryParam(path, 'service')} />
+        : <Projects />
+    case 'environments':
+      return parts[1]
         ? <ProjectPage project={decode(parts[1])} tab={parts[2] ?? null} service={queryParam(path, 'service')} />
         : <Projects />
     case 'workspaces':
-      return parts[1] ? <WorkspacePage slug={decode(parts[1])} /> : <Workspaces />
+      return <LegacyWorkspaceRedirect slug={parts[1] ? decode(parts[1]) : null} />
     case 'board':
       return parts[1] ? (
         <BoardPage
@@ -251,7 +253,7 @@ function Page({ path, readOnly = false }: { path: string; readOnly?: boolean }) 
           readOnly={readOnly}
         />
       ) : (
-        <Workspaces />
+        <Projects />
       )
     case 'services':
       return <Services />
@@ -268,4 +270,38 @@ function Page({ path, readOnly = false }: { path: string; readOnly?: boolean }) 
     default:
       return <Overview />
   }
+}
+
+function LegacyWorkspaceRedirect({ slug }: { slug: string | null }) {
+  useEffect(() => {
+    navigate(slug ? `/projects/${encodeURIComponent(slug)}` : '/projects')
+  }, [slug])
+  return <Loading />
+}
+
+function ProjectOrEnvironmentPage({
+  slug,
+  tab,
+  service,
+}: {
+  slug: string
+  tab: string | null
+  service: string | null
+}) {
+  const project = useQuery({
+    queryKey: ['project', slug],
+    queryFn: () => api.project(slug),
+    retry: false,
+  })
+
+  if (project.isPending) return <Loading />
+  if (project.data) return <WorkspacePage slug={slug} />
+
+  const fallback =
+    project.error instanceof ApiError &&
+    (project.error.status === 404 || project.error.status === 503)
+  if (fallback) {
+    return <ProjectPage project={slug} tab={tab} service={service} />
+  }
+  return <ErrorBox error={project.error} />
 }

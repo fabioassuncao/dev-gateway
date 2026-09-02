@@ -140,24 +140,24 @@ describe('the file name comes from the project, and cannot leave the directory',
   })
 })
 
-describe('GET /api/projects/:project/git', () => {
+describe('GET /api/environments/:project/git', () => {
   it('answers for a running project', async () => {
     const { dir } = collected(FULL)
     const { app } = makeApp({ containers: FULL_HOST }, { gitDir: dir })
-    const response = await app.request('/api/projects/alpha/git')
+    const response = await app.request('/api/environments/alpha/git')
     expect(response.status).toBe(200)
     expect(((await response.json()) as ProjectGit).git?.branch).toBe('feature/59-invoices')
   })
 
   it('answers 200 with nothing collected, not 404, for a project nobody scanned', async () => {
     const { app } = makeApp({ containers: FULL_HOST }, { gitDir: mkdtempSync(join(tmpdir(), 'portta-git-')) })
-    const response = await app.request('/api/projects/beta/git')
+    const response = await app.request('/api/environments/beta/git')
     expect(response.status).toBe(200)
     expect(((await response.json()) as ProjectGit).collected).toBe(false)
   })
 
   it('404s for a project that is not running', async () => {
     const { app } = makeApp({ containers: FULL_HOST }, { gitDir: collected(FULL).dir })
-    expect((await app.request('/api/projects/nope/git')).status).toBe(404)
+    expect((await app.request('/api/environments/nope/git')).status).toBe(404)
   })
 })

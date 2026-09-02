@@ -8,7 +8,7 @@ import type { Snapshot } from './inventory.ts'
 import { inferIssueLink, LINK_REASON, type IssueLinkSource } from './issue-link.ts'
 import { repositoryCoordinate } from './adoption.ts'
 import type { StoredIssue } from '../db/github.ts'
-import type { EnvironmentIssue, IssueEnvironment, Project } from '../../shared/types.ts'
+import type { Environment, EnvironmentIssue, IssueEnvironment } from '../../shared/types.ts'
 
 export interface StoredIssueLink {
   issueId: string
@@ -24,7 +24,7 @@ export interface ResolvedLink {
 }
 
 export function panelUrlFor(project: string): string {
-  return `#/projects/${encodeURIComponent(project)}`
+  return `#/environments/${encodeURIComponent(project)}`
 }
 
 export function logsUrlFor(project: string): string {
@@ -118,7 +118,7 @@ export function environmentsFor(
 }
 
 export function issueForEnvironment(
-  project: Project,
+  project: Environment,
   issues: ReadonlyArray<StoredIssue>,
   links: ReadonlyMap<string, ResolvedLink>,
 ): EnvironmentIssue | null {

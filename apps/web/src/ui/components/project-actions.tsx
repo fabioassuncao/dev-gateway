@@ -2,18 +2,18 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Play, RotateCw, Square } from 'lucide-react'
-import type { Project, ProjectActionResult } from '../../shared/types.ts'
+import type { Environment, EnvironmentActionResult } from '../../shared/types.ts'
 import { api } from '../lib/api.ts'
 import { Button } from './ui/button.tsx'
 import { Dialog } from './ui/dialog.tsx'
 import { ErrorBox } from './shell-bits.tsx'
 
-export function ProjectActions({ project }: { project: Project }) {
+export function ProjectActions({ project }: { project: Environment }) {
   const { t } = useTranslation('projects', { keyPrefix: 'actions' })
   const queryClient = useQueryClient()
   const [error, setError] = useState<unknown>(null)
   const [confirmStop, setConfirmStop] = useState(false)
-  const [summary, setSummary] = useState<ProjectActionResult | null>(null)
+  const [summary, setSummary] = useState<EnvironmentActionResult | null>(null)
 
   const act = useMutation({
     mutationFn: (action: 'start' | 'stop' | 'restart') => api.projectAction(project.name, action),

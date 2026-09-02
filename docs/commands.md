@@ -43,7 +43,8 @@ and points to the detailed guides.
 | `portta web down` | Stop the panel while leaving the gateway running. |
 | `portta web disable` | Disable and stop the panel. |
 | `portta web auth set|status|clear|apply` | Manage the panel's Portta login credential. |
-| `portta db status` | Inspect the panel PostgreSQL and migrations. |
+| `portta db status` | Inspect the panel PostgreSQL. |
+| `portta db migrate` | Apply pending panel SQL without restarting the panel. |
 | `portta db shell` | Open a shell with private database connectivity. |
 | `portta db dump` | Stream a restorable custom-format backup. |
 | `portta db restore` | Restore a dump after explicit confirmation. |

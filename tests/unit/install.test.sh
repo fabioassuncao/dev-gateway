@@ -56,6 +56,12 @@ assert_success python3 "$PORTTA_TEST_DIR/lib/assignment-order.py" "$INSTALLER"
 
 describe "arguments are validated before anything is detected"
 
+it "documents Projects Home as a separate directory"
+assert_contains "$(bash "$INSTALLER" --help 2>&1)" "--projects-home"
+assert_contains "$SOURCE" 'Where should Portta manage your projects?'
+assert_contains "$SOURCE" 'PORTTA_PROJECTS_HOME'
+assert_contains "$SOURCE" 'never moves files'
+
 it "an unknown flag fails"
 assert_failure bash "$INSTALLER" --nonsense
 

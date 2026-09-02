@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Hammer, Trash2 } from 'lucide-react'
 import type {
-  Project,
-  ProjectRemovalPreview,
+  Environment,
+  EnvironmentRemovalPreview,
   ProjectRemoveResult,
   RunnerStatus,
 } from '../../shared/types.ts'
@@ -16,7 +16,7 @@ import { CopyButton } from './copy.tsx'
 
 type RemoveMode = 'keep-data' | 'and-local-data'
 
-export function ProjectOperations({ project }: { project: Project }) {
+export function ProjectOperations({ project }: { project: Environment }) {
   const { t } = useTranslation('projects', { keyPrefix: 'operations' })
   const [rebuildOpen, setRebuildOpen] = useState(false)
   const [removeMode, setRemoveMode] = useState<RemoveMode | null>(null)
@@ -60,7 +60,7 @@ export function ProjectOperations({ project }: { project: Project }) {
   )
 }
 
-function RebuildDialog({ project, onClose }: { project: Project; onClose: () => void }) {
+function RebuildDialog({ project, onClose }: { project: Environment; onClose: () => void }) {
   const { t } = useTranslation('projects', { keyPrefix: 'operations' })
   const { t: tc } = useTranslation('common')
   const queryClient = useQueryClient()
@@ -134,7 +134,7 @@ function RemoveDialog({
   mode,
   onClose,
 }: {
-  project: Project
+  project: Environment
   mode: RemoveMode
   onClose: () => void
 }) {
@@ -258,7 +258,7 @@ function RemoveDialog({
   )
 }
 
-function PreviewBody({ preview }: { preview: ProjectRemovalPreview }) {
+function PreviewBody({ preview }: { preview: EnvironmentRemovalPreview }) {
   const { t } = useTranslation('projects', { keyPrefix: 'operations' })
   return (
     <div className="mt-3 space-y-2 text-sm">

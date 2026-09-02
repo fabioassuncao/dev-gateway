@@ -29,6 +29,8 @@ export interface PanelConfig {
   uiDir: string
   docsDir: string
   profile: string
+  /** Host path of Projects Home. The panel never opens it; the collector does. */
+  projectsHome: string | null
   projectName: string
   network: string
   controlNetwork: string
@@ -152,6 +154,7 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     uiDir: env('PORTTA_RUNTIME_UI_DIR', './dist/ui'),
     docsDir: env('PORTTA_RUNTIME_DOCS_DIR', './dist/docs'),
     profile: gateway.profile,
+    projectsHome: optional('PORTTA_PROJECTS_HOME'),
     projectName: gateway.projectName,
     network: gateway.network,
     controlNetwork: gateway.controlNetwork,

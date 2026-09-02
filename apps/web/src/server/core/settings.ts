@@ -6,7 +6,7 @@
 // values never leave the host.
 
 import type { ConfigField } from '../../shared/types.ts'
-import { isSupportedHash } from 'portta-core'
+import { isSupportedHash, normalizeProjectsHome, ProjectsHomeError } from 'portta-core'
 
 export interface FieldSpec {
   key: string
@@ -98,7 +98,33 @@ function url(value: string): string | null {
   }
 }
 
+/**
+ * Lexical only. The panel never opens Projects Home; the host collector does.
+ * An empty value keeps the installer / CLI default.
+ */
+function projectsHome(value: string): string | null {
+  if (value === '') return null
+  try {
+    normalizeProjectsHome(value)
+    return null
+  } catch (error) {
+    return error instanceof ProjectsHomeError ? error.message : 'must be an absolute directory'
+  }
+}
+
 export const FIELDS: FieldSpec[] = [
+  {
+    key: 'PORTTA_PROJECTS_HOME',
+    group: 'Projects',
+    label: 'Projects Home',
+    help:
+      'The one directory this installation manages Projects in. Changing it changes the reference; ' +
+      'files are not moved. Existing environments outside this path stay visible as unmanaged. ' +
+      'See docs/adr/0031-projects-home-and-project.md.',
+    kind: 'string',
+    restartRequired: false,
+    validate: projectsHome,
+  },
   {
     key: 'PORTTA_PROFILE',
     group: 'Gateway',

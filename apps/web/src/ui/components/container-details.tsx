@@ -52,9 +52,9 @@ export function ContainerDetails({
         <KeyValue label={tc('container.containerId')}>
           <Mono value={shortId(container.id)} />
         </KeyValue>
-        {container.project ? (
+        {container.environment ? (
           <KeyValue label={tc('container.composeProject')}>
-            {container.project}
+            {container.environment}
             {container.service ? <span className="text-muted"> · {container.service}</span> : null}
           </KeyValue>
         ) : null}

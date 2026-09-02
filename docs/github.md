@@ -75,16 +75,17 @@ number, including none.
 
 ### What the API keeps separate
 
-`GET /api/projects` still means exactly what it meant before — Compose projects
-observed on this host — and is unchanged. Workspaces live under `/api/workspaces`
-and are the only place the new entity appears.
+`GET /api/projects` lists the product (the grouping). `GET /api/environments`
+lists Compose stacks observed on this host — what `/api/projects` used to
+return. `/api/workspaces` is a deprecated alias of `/api/projects`.
 
-`DELETE /api/workspaces/:slug` removes **the grouping and nothing else**: no
-container is stopped, no volume is removed, no environment is changed, and no
-repository is unlinked from GitHub. The response says so, because it is the
-endpoint most likely to be misread.
+`DELETE /api/projects/:slug` (and the deprecated `DELETE /api/workspaces/:slug`)
+removes **the grouping and nothing else**: no container is stopped, no volume
+is removed, no environment is changed, and no repository is unlinked from
+GitHub. The response says so, because it is the endpoint most likely to be
+misread.
 
-Every workspace endpoint needs the panel's database and answers `503` with a
+Every Project endpoint needs the panel's database and answers `503` with a
 hint when it is unavailable; writes are refused in read-only mode.
 
 ## Project, environment, repository
