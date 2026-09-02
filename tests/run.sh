@@ -124,43 +124,41 @@ if [ "$RUN_UNIT" = "1" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Web panel
+# Node workspaces
 # ---------------------------------------------------------------------------
-# The panel has its own suite (Vitest for the API and the components,
-# Playwright for the end-to-end run). It needs Node, which the gateway itself
-# never does, so it is skipped rather than assumed.
-if [ "$RUN_UNIT" = "1" ] && [ -d apps/web ]; then
-  # The shared package the shell gateway and the CLI both encode a copy of.
-  # Its suite ran only in CI, so a change to composeFiles could pass here and
-  # fail there.
-  bold "== shared core =="
+# Every workspace with a suite, in cost order. They need Node, which the
+# gateway itself never does, so they are skipped rather than assumed.
+#
+# During ordinary development you do not run this file: you run the one suite
+# that covers what you changed (see AGENTS.md). This is the pre-merge pass.
+if [ "$RUN_UNIT" = "1" ]; then
   if ! command -v node >/dev/null 2>&1; then
-    echo "  skip node not installed"
-  elif [ ! -d node_modules ] && [ ! -d packages/core/node_modules ]; then
-    echo "  skip node_modules missing (run: npm ci)"
-  else
-    if ( cd packages/core && npm run --silent test ); then
-      echo "  ok  core unit suite"
-    else
-      echo "  FAIL core unit suite"; FAILED=1
-    fi
-  fi
-
-  bold "== web panel =="
-  if ! command -v node >/dev/null 2>&1; then
+    bold "== node workspaces =="
     echo "  skip node not installed (the panel is built and run in a container)"
-  elif [ ! -d node_modules ] && [ ! -d apps/web/node_modules ]; then
+  elif [ ! -d node_modules ]; then
+    bold "== node workspaces =="
     echo "  skip node_modules missing (run: npm ci)"
   else
+    # packages/core is first because the other three import it: a failure there
+    # explains failures everywhere else.
+    for workspace in packages/core packages/cli apps/auth apps/web; do
+      [ -d "$workspace" ] || continue
+      bold "== $workspace =="
+      if ( cd "$workspace" && npm run --silent test ); then
+        echo "  ok  $workspace suite"
+      else
+        echo "  FAIL $workspace suite"; FAILED=1
+      fi
+    done
+
+    # Only the panel's types are checked here. `npm run typecheck` at the root
+    # covers every workspace and is what CI runs; this is the one that catches
+    # the mistakes made most often, at a cost worth paying on every run.
+    bold "== web panel types =="
     if ( cd apps/web && npm run --silent typecheck ); then
       echo "  ok  types check"
     else
       echo "  FAIL typecheck"; FAILED=1
-    fi
-    if ( cd apps/web && npm run --silent test ); then
-      echo "  ok  unit and API suites"
-    else
-      echo "  FAIL panel test suite"; FAILED=1
     fi
   fi
 fi

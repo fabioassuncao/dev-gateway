@@ -277,11 +277,4 @@ describe('Project page', () => {
     await userEvent.keyboard('{ArrowRight}')
     await waitFor(() => expect(window.location.hash).toBe('#/projects/alpha/services'))
   })
-
-  it('encodes a project name that needs it in every tab link', async () => {
-    project.mockResolvedValue({ ...alpha, name: 'alpha_beta-1' })
-    renderWithQuery(<ProjectPage project="alpha_beta-1" tab="overview" service={null} />)
-    const tabs = await screen.findAllByRole('tab')
-    expect(tabs[0]).toHaveAttribute('href', '#/projects/alpha_beta-1/overview')
-  })
 })

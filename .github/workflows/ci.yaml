@@ -27,9 +27,12 @@ env:
 jobs:
   # Everything that needs no Docker daemon of its own, once. This is the whole
   # of `tests/run.sh` (shell lint, compose parsing, the unit suites including
-  # the audit invariants, the core suite and the panel's unit and API suites),
-  # plus the two things it does not cover: the CLI's own suite and the package
-  # npm will actually receive.
+  # the audit invariants, and every Node workspace's suite), plus the one thing
+  # it does not cover: the package npm will actually receive.
+  #
+  # The CLI suite is also run on its own, before the rest. `tests/run.sh` skips
+  # the workspace suites when node_modules is absent, and a silent skip on a
+  # runner is worse than running the fastest of them twice.
   check:
     name: Lint, types and unit suites
     if: github.event_name != 'release'

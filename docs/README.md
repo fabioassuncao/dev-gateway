@@ -58,6 +58,7 @@ is the complete operator and contributor index. Historical build briefs under
 
 - [Monorepos and worktrees](monorepos.md) — independent namespaces and parallel environments.
 - [Agent guidelines](agent-guidelines.md) — safe operating rules for autonomous coding agents.
+- [Testing](testing.md) — what to run while working, what to run before merging, and what deserves a test.
 - [Overlay templates](../templates/) — reference integrations for common project shapes.
 
 ## Project reference

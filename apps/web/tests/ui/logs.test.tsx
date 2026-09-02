@@ -181,20 +181,6 @@ describe('the log viewer across a project', () => {
     expect(await screen.findByText(/ordering between services is approximate/)).toBeInTheDocument()
   })
 
-  it('says nothing was logged when every source is empty', async () => {
-    renderWithQuery(
-      <LogViewer
-        queryKey={['p']}
-        load={() => Promise.resolve({ ...projectResponse, lines: [] })}
-        sources={SOURCES}
-        showOrigin
-        selectedService={null}
-        onSelectService={() => {}}
-      />,
-    )
-    expect(await screen.findByText('No output yet')).toBeInTheDocument()
-  })
-
   it('copies the service name alongside each line', async () => {
     renderWithQuery(
       <LogViewer

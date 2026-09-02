@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# The CLI is the stable operational contract, so its surface is asserted:
-# every command answers --help, unknown input fails clearly, and --json output
-# actually parses.
+# The CLI is the stable operational contract, so its surface is asserted: every
+# command is registered under its parent, unknown input fails clearly, --json
+# output actually parses, and the exit codes are the documented ones.
+#
+# Each `portta` here is a process spawn, so the suite reads one document per
+# question rather than one per assertion: a command that answers several is run
+# once and its output reused.
 set -uo pipefail
 
 PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -9,33 +13,58 @@ PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
 GW="$PORTTA_ROOT/bin/portta"
 
-COMMAND_PATHS=(
-  setup bootstrap up down restart status logs doctor urls inspect update version toolbox
-  project "project list" "project show" "project services" "project analyze" "project init" "project namespace"
-  network "network status" public "public status" "public enable" "public disable"
-  dns "dns check" "dns status" "dns setup" tls "tls status" "tls init" "tls trust" "tls untrust"
-  remote analyze init namespace access "access open" "access list" "access close" "access inspect" "access gc"
-  services service "service publish" "service list" "service unpublish"
-  db "db status" "db shell" "db dump" "db restore" "db open" "db close" "db url" "db psql" "db mysql"
-  redis "redis open" "redis close" "redis cli"
-  web "web up" "web dev" "web down" "web disable" "web restart" "web status" "web open" "web logs" "web build"
-  "web auth" "web auth status" "web auth set" "web auth clear" "web auth apply"
-  auth "auth status" "auth protect" "auth unprotect"
-  git "git scan" "git status" "git clear" share "share list" "share revoke" "share gc"
+# The command tree, read one group at a time. Asserting every leaf with its own
+# `portta <leaf> --help` meant ~180 process spawns and 40 seconds; a group's
+# help already lists every subcommand registered under it, so one invocation
+# per group proves the same thing — a leaf that was never wired up is missing
+# from its parent's help — at a fifteenth of the cost.
+COMMAND_TREE=(
+  ":version setup bootstrap up down restart status logs doctor urls inspect update project network public dns tls remote analyze init namespace access services service db redis web auth git share toolbox"
+  "project:list show services analyze init namespace"
+  "network:status"
+  "public:status enable disable"
+  "dns:check status setup"
+  "tls:status init trust untrust"
+  "access:open list close inspect gc"
+  "service:publish list unpublish"
+  "db:status shell dump restore open close url psql mysql"
+  "redis:open close cli"
+  "web:up dev down disable restart status open logs build auth"
+  "web auth:status set clear apply"
+  "auth:status protect unprotect"
+  "git:scan status clear"
+  "share:list revoke gc"
 )
 
-describe "every command and subcommand answers --help and --version"
-for c in "${COMMAND_PATHS[@]}"; do
-  it "$c --help"
-  read -r -a words <<< "$c"
-  out=$("$GW" "${words[@]}" --help 2>&1 | head -1)
-  case "$out" in
+describe "every command in the tree is registered under its parent"
+for group in "${COMMAND_TREE[@]}"; do
+  parent="${group%%:*}"
+  # bash 3.2 (the shell macOS ships) has no empty-array expansion under `set -u`,
+  # so the top-level group is invoked without any word at all.
+  if [ -z "$parent" ]; then
+    help=$("$GW" --help 2>&1)
+  else
+    read -r -a words <<< "$parent"
+    help=$("$GW" "${words[@]}" --help 2>&1)
+  fi
+
+  it "portta ${parent:-(top level)} --help is a help page"
+  case "$help" in
     portta*|Usage:*) _t_pass ;;
-    *) _t_fail "got: $out" ;;
+    *) _t_fail "got: $(printf '%s' "$help" | head -1)" ;;
   esac
-  it "$c --version"
-  assert_contains "$("$GW" "${words[@]}" --version 2>&1)" "portta"
+
+  for leaf in ${group#*:}; do
+    it "portta ${parent:+$parent }$leaf is registered"
+    # Anchored at the two-space indent Commander lists subcommands with, so a
+    # leaf named only inside another command's description does not pass.
+    if printf '%s\n' "$help" | grep -qE "^  $leaf( |\||$)"; then _t_pass
+    else _t_fail "not listed under 'portta ${parent:-portta} --help'"; fi
+  done
 done
+
+it "remote is a passthrough that still answers --help"
+assert_contains "$("$GW" remote --help 2>&1)" "Usage: portta remote"
 
 describe "unknown input fails clearly instead of doing something"
 it "an unknown command exits non-zero"; assert_failure "$GW" definitely-not-a-command
@@ -50,17 +79,17 @@ it "init without a path"; assert_failure "$GW" init
 it "access open without a project"; assert_failure "$GW" access open
 it "remote bootstrap without a target"; assert_failure "$GW" remote bootstrap
 
-describe "the top-level help lists the commands people need"
-help=$("$GW" --help 2>&1)
-for c in bootstrap up down status doctor urls analyze init access services public dns tls remote web git share auth; do
-  it "help mentions $c"; assert_contains "$help" "$c"
-done
-
 describe "--json output parses"
+# `doctor` is by far the most expensive command here (it walks the host), so it
+# is run once and the document reused by every assertion that needs one.
+DOCTOR_JSON=""
 if ! docker info >/dev/null 2>&1; then
   it "json output"; skip "docker unavailable"
 else
-  for c in "status --json" "urls --json" "doctor --json" "services --json" "access list --json" "web status --json" "git status --json" "share list --json"; do
+  DOCTOR_JSON=$(PORTTA_WEB=true "$GW" doctor --json 2>/dev/null)
+  it "portta doctor --json"
+  assert_success sh -c "printf '%s' \"\$1\" | python3 -m json.tool >/dev/null" _ "$DOCTOR_JSON"
+  for c in "status --json" "urls --json" "services --json" "access list --json" "web status --json" "git status --json" "share list --json"; do
     it "portta $c"
     # shellcheck disable=SC2086
     assert_success sh -c "\"$GW\" $c 2>/dev/null | python3 -m json.tool >/dev/null"
@@ -68,12 +97,13 @@ else
 fi
 
 describe "version reporting"
+VERSION_OUT=$("$GW" version 2>&1)
 it "version prints a semver-shaped string"
-assert_success sh -c "\"$GW\" version | grep -qE 'portta [0-9]+\.[0-9]+\.[0-9]+'"
-it "--version works too"
-assert_contains "$("$GW" --version 2>&1)" "portta"
+assert_success sh -c "printf '%s' \"\$1\" | grep -qE 'portta [0-9]+\.[0-9]+\.[0-9]+'" _ "$VERSION_OUT"
 it "VERSION and the CLI agree"
-assert_contains "$("$GW" version)" "$(tr -d '[:space:]' < "$PORTTA_ROOT/VERSION")"
+assert_contains "$VERSION_OUT" "$(tr -d '[:space:]' < "$PORTTA_ROOT/VERSION")"
+it "--version is the same surface"
+assert_contains "$("$GW" --version 2>&1)" "portta"
 
 describe "the host needs no Node for the commands the shell implements"
 # ADR 0015. The installer ships this entry point and nothing else on a host
@@ -110,11 +140,14 @@ describe "a closed pipe is not an error"
 
 # `portta status | head -3` is ordinary, and it used to end in an unhandled
 # EPIPE and a Node stack trace printed over the output the reader asked for.
-for c in status doctor urls inspect; do
-  it "portta $c | head -2 exits cleanly"
-  assert_success sh -c "'$GW' $c 2>/dev/null | head -2 >/dev/null"
-  it "and prints no stack trace"
-  assert_not_contains "$("$GW" "$c" 2>/dev/null | head -2)" "EPIPE"
+# `doctor` walks the host and is the slowest command in the CLI, so the cheap
+# three carry this check; the pipe handling is one `tolerateClosedOutput()` for
+# all of them, not something each command implements.
+for c in status urls inspect; do
+  it "portta $c | head -2 exits cleanly and prints no stack trace"
+  head=$("$GW" "$c" 2>/dev/null | head -2); rc=$?
+  if [ "$rc" -ne 0 ]; then _t_fail "exit $rc"
+  else assert_not_contains "$head" "EPIPE"; fi
 done
 
 describe "public access accepts a derived base domain"
@@ -139,7 +172,7 @@ if ! docker info >/dev/null 2>&1; then
   it "shared checks"; skip "docker unavailable"
 else
   it "and reports the checks only the shell doctor makes"
-  ids=$(PORTTA_WEB=true "$GW" doctor --json 2>/dev/null | python3 -c "import json,sys; print(' '.join(c['id'] for c in json.load(sys.stdin)['checks']))")
+  ids=$(printf '%s' "$DOCTOR_JSON" | python3 -c "import json,sys; print(' '.join(c['id'] for c in json.load(sys.stdin)['checks']))")
   for id in agents.claude tools.git vpn.tailscale; do
     assert_contains "$ids" "$id"
   done
@@ -155,16 +188,16 @@ else
     assert_contains "$ids" "panel.access"
   fi
   it "and a warning is not a failure"
-  assert_contains "$("$GW" doctor --json 2>/dev/null)" '"status": "warn"'
+  assert_contains "$DOCTOR_JSON" '"status": "warn"'
 fi
 
 describe "the CLI says which installation it is talking to"
 # A CLI installed from npm outlives the installation it addresses in both
 # directions, so `version` reports both and whether they agree.
 it "it names the gateway it resolved"
-assert_contains "$("$GW" version 2>&1)" "gateway"
+assert_contains "$VERSION_OUT" "gateway"
 it "and the root it found"
-assert_contains "$("$GW" version 2>&1)" "$PORTTA_ROOT"
+assert_contains "$VERSION_OUT" "$PORTTA_ROOT"
 it "the JSON form carries a compatibility verdict"
 assert_success sh -c "'$GW' version --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert set([\"cli\",\"gateway\",\"panel\",\"compatible\",\"apiSeries\"]) <= set(d)'"
 it "and this checkout is self-consistent"

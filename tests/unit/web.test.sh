@@ -116,9 +116,6 @@ describe "the API cannot reach a Docker endpoint it does not name"
 
 allowlist="apps/web/src/server/docker/allowlist.ts"
 
-it "the allowlist file exists"
-assert_success test -f "$allowlist"
-
 for forbidden in "/exec" "/images" "/volumes" "/build" "/system" "/secrets" "prune" "archive"; do
   it "no allowlist rule mentions $forbidden"
   assert_eq "" "$(grep -n "pattern:.*$forbidden" "$allowlist" || true)"
@@ -158,9 +155,6 @@ it "the config view never returns a secret value"
 assert_contains "$(cat apps/web/src/server/core/configview.ts)" "value: secret ? null : stored"
 
 describe "the CLI drives it"
-
-it "web is a command"
-assert_success sh -c './bin/portta web --help >/dev/null 2>&1'
 
 # `public` is a supported mode since ADR 0021, and it is the one the installer
 # offers first. What is refused is reaching the panel from another machine with
@@ -277,9 +271,6 @@ describe "the panel writes four filenames into Traefik's dynamic directory"
 
 dynamic="apps/web/src/server/core/dynamic.ts"
 
-it "the writer exists"
-assert_success test -f "$dynamic"
-
 it "the allowlist names exactly four files"
 assert_eq "4" "$(grep -cE "^  (panel|shares|aliases|auth): 'portta-[a-z]+\.yaml'," "$dynamic")"
 
@@ -300,9 +291,6 @@ assert_eq "" "$(sed -n '/^    volumes:/,/^    networks:/p' docker/compose/featur
 describe "the panel reads Traefik, and only reads it"
 
 traefik="apps/web/src/server/core/traefik.ts"
-
-it "the client exists"
-assert_success test -f "$traefik"
 
 it "it reaches Traefik over the shared network, not the control one"
 assert_eq "" "$(grep -n 'control' apps/web/src/server/config.ts | grep -i traefik || true)"

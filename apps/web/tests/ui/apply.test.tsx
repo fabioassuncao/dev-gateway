@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
 import type { ApplyStatus } from '../../src/shared/types.ts'
@@ -59,6 +59,33 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
 })
+
+/**
+ * Advance the fake clock, letting the poll's awaits and React's renders run.
+ * `userEvent` and `findBy*` both wait on timers of their own, which are faked
+ * here and would never fire, so the polling tests below use `fireEvent` and
+ * step the clock explicitly instead.
+ */
+async function tick(ms: number): Promise<void> {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms)
+  })
+}
+
+async function click(name: string): Promise<void> {
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name }))
+  })
+}
+
+/** Open the dialog and confirm, on a fake clock. */
+async function startApplying(): Promise<void> {
+  vi.useFakeTimers()
+  renderWithQuery(<ApplyBar readOnly={false} />)
+  await tick(10)
+  await click('Apply and restart')
+  await click('Apply and restart')
+}
 
 describe('the pending bar', () => {
   it('says nothing when the running gateway agrees with what is saved', async () => {
@@ -158,21 +185,29 @@ describe('applying', () => {
     // This is the whole point of the dialog: while the gateway is being
     // recreated the panel is unreachable, and a fetch rejection there means
     // "working", not "broken".
+    //
+    // The poll is a plain `setTimeout` loop precisely so a test can drive it:
+    // on the real clock this waits two poll rounds plus the five-second grace,
+    // which was eight of the ten seconds the whole panel suite took.
     healthProbe
       .mockRejectedValueOnce(new TypeError('Failed to fetch'))
       .mockRejectedValueOnce(new TypeError('Failed to fetch'))
       .mockResolvedValue({ ok: true, panelVersion: '0.1.0', gatewayVersion: '0.3.0' })
 
-    const user = userEvent.setup()
-    renderWithQuery(<ApplyBar readOnly={false} />)
-    await user.click(await screen.findByRole('button', { name: 'Apply and restart' }))
-    await user.click(screen.getByRole('button', { name: 'Apply and restart' }))
+    await startApplying()
 
-    await waitFor(() => expect(screen.getByText('Panel went offline')).toBeInTheDocument(), { timeout: 8_000 })
-    await waitFor(() => expect(screen.getByText(/The saved settings are running/)).toBeInTheDocument(), {
-      timeout: 15_000,
-    })
-  }, 20_000)
+    // Two rounds of the poll: both find the panel gone. The dialog has to say
+    // it is waiting for the panel, not that something went wrong — asserting
+    // the phase rather than the step label, because the step list is rendered
+    // in full throughout and only its icons change.
+    await tick(4_000)
+    expect(screen.getByText(/The panel is restarting/)).toBeInTheDocument()
+
+    // The third answers, and by now the grace period has passed, so a settled
+    // status is believed rather than read as "Compose has not started yet".
+    await tick(4_000)
+    expect(screen.getByText(/The saved settings are running/)).toBeInTheDocument()
+  })
 
   it('shows the exit code and the output when the applier failed', async () => {
     applyProbe.mockResolvedValue({
@@ -184,15 +219,16 @@ describe('applying', () => {
       logTail: ['error: could not create the shared network'],
     })
 
-    const user = userEvent.setup()
-    renderWithQuery(<ApplyBar readOnly={false} />)
-    await user.click(await screen.findByRole('button', { name: 'Apply and restart' }))
-    await user.click(screen.getByRole('button', { name: 'Apply and restart' }))
+    await startApplying()
 
-    await waitFor(() => expect(screen.getByText(/exited with code 2/)).toBeInTheDocument(), { timeout: 8_000 })
-    await user.click(screen.getByText('Show output'))
+    await tick(4_000)
+    expect(screen.getByText(/exited with code 2/)).toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Show output'))
+    })
     expect(screen.getByText(/could not create the shared network/)).toBeInTheDocument()
-  }, 15_000)
+  })
 })
 
 describe('an apply that was already running', () => {
