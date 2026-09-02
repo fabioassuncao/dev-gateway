@@ -42,8 +42,8 @@
         "Basic credentials and host-scoped sessions work",
         "Logout, redirect validation, epoch revocation and lockout are covered"
       ],
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "The standalone Hono service, session boundary, limiter and production auth UI are implemented and browser-verified."
     },
     {
       "id": "US-004",

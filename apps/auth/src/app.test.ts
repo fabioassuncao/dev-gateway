@@ -1,0 +1,130 @@
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { apr1, emptyProtectionStore, setProtection, writeProtectionStore } from 'portta-core'
+import { createAuthApp, safeNext } from './app.ts'
+import type { AuthConfig } from './config.ts'
+import { LoginLimiter } from './rate-limit.ts'
+
+const secret = 'ab'.repeat(32)
+const html = '<!doctype html><html><body><!--PORTTA_AUTH_CONTEXT--><div id="root"></div></body></html>'
+
+function setup(options: { now?: () => number; limiter?: LoginLimiter; logs?: Record<string, unknown>[] } = {}) {
+  const directory = mkdtempSync(join(tmpdir(), 'portta-auth-'))
+  const storePath = join(directory, 'protections.json')
+  writeProtectionStore(storePath, setProtection(emptyProtectionStore(), {
+    scope: 'share:a7f3', host: 'demo.example.com', entryPoints: ['websecure'], user: 'reviewer',
+    hash: apr1('correct', 'abcdefgh'), label: 'Storefront', project: 'demo', service: 'web',
+    tech: { id: 'node', label: 'Node.js' },
+  }))
+  const config: AuthConfig = { host: '127.0.0.1', port: 4180, storePath, secret, uiDir: directory, sessionSeconds: 43_200 }
+  const logs = options.logs ?? []
+  const app = createAuthApp({ config, now: options.now, limiter: options.limiter, log: (value) => logs.push(value), loadHtml: () => html })
+  return { app, logs }
+}
+
+const forwarded = {
+  'x-forwarded-host': 'demo.example.com',
+  'x-forwarded-proto': 'https',
+  'x-forwarded-for': '203.0.113.4',
+}
+
+describe('ForwardAuth app', () => {
+  beforeEach(() => { /* each test receives an isolated store and limiter */ })
+
+  it('keeps non-browser clients on a plain 401 without a challenge', async () => {
+    const { app } = setup()
+    const response = await app.request('/verify', { headers: { ...forwarded, accept: 'application/json' } })
+    expect(response.status).toBe(401)
+    expect(response.headers.has('www-authenticate')).toBe(false)
+  })
+
+  it('redirects only browser navigation and preserves a local path', async () => {
+    const { app } = setup()
+    const response = await app.request('/verify', { headers: { ...forwarded, accept: 'text/html', 'sec-fetch-mode': 'navigate', 'x-forwarded-uri': '/orders/42?tab=items' } })
+    expect(response.status).toBe(302)
+    expect(response.headers.get('location')).toBe('/__portta/auth/login?next=%2Forders%2F42%3Ftab%3Ditems')
+  })
+
+  it('accepts the legacy Basic credential without creating a session', async () => {
+    const { app } = setup()
+    const authorization = `Basic ${Buffer.from('reviewer:correct').toString('base64')}`
+    const response = await app.request('/verify', { headers: { ...forwarded, authorization } })
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-forwarded-user')).toBe('reviewer')
+    expect(response.headers.has('set-cookie')).toBe(false)
+  })
+
+  it('renders destination context without embedding a credential', async () => {
+    const { app } = setup()
+    const response = await app.request('/__portta/auth/login?next=%2Forders', { headers: { ...forwarded, 'accept-language': 'pt-BR' } })
+    const body = await response.text()
+    expect(response.status).toBe(200)
+    expect(body).toContain('Storefront')
+    expect(body).toContain('"locale":"pt-BR"')
+    expect(body).not.toContain('$apr1$')
+  })
+
+  it('issues a secure host-only session and accepts it on the same scope', async () => {
+    let now = 1_700_000_000_000
+    const { app, logs } = setup({ now: () => now })
+    const response = await app.request('/__portta/auth/login', {
+      method: 'POST',
+      headers: { ...forwarded, origin: 'https://demo.example.com', 'content-type': 'application/x-www-form-urlencoded' },
+      body: 'user=reviewer&password=correct&next=%2Forders%3Fpage%3D2',
+    })
+    expect(response.status).toBe(303)
+    expect(response.headers.get('location')).toBe('/orders?page=2')
+    const setCookie = response.headers.get('set-cookie') ?? ''
+    expect(setCookie).toContain('__portta_session=')
+    expect(setCookie).toContain('HttpOnly')
+    expect(setCookie).toContain('Secure')
+    expect(setCookie).toContain('SameSite=Lax')
+    expect(setCookie).not.toContain('Domain=')
+    const cookie = setCookie.split(';')[0] ?? ''
+    const verified = await app.request('/verify', { headers: { ...forwarded, cookie } })
+    expect(verified.status).toBe(200)
+    expect(logs).toEqual([{ event: 'login', scope: 'share:a7f3', address: '203.0.113.4', outcome: 'accepted' }])
+    now += 43_201_000
+    expect((await app.request('/verify', { headers: { ...forwarded, cookie } })).status).toBe(401)
+  })
+
+  it('does not accept a host session on another hostname', async () => {
+    const { app } = setup()
+    const response = await app.request('/verify', { headers: { ...forwarded, 'x-forwarded-host': 'other.example.com', accept: 'text/html' } })
+    expect(response.status).toBe(401)
+  })
+
+  it('uses one generic failure and logs no submitted values', async () => {
+    const logs: Record<string, unknown>[] = []
+    const limiter = new LoginLimiter({ wait: async () => undefined })
+    const { app } = setup({ limiter, logs })
+    const response = await app.request('/__portta/auth/login', {
+      method: 'POST',
+      headers: { ...forwarded, origin: 'https://demo.example.com', 'x-forwarded-for': 'spoofed, 203.0.113.4', 'content-type': 'application/x-www-form-urlencoded' },
+      body: 'user=somebody&password=top-secret&next=%2F',
+    })
+    expect(response.status).toBe(401)
+    expect(await response.text()).toContain('"error":true')
+    expect(JSON.stringify(logs)).not.toContain('somebody')
+    expect(JSON.stringify(logs)).not.toContain('top-secret')
+    expect(logs[0]?.['address']).toBe('203.0.113.4')
+  })
+
+  it('rejects cross-origin login and clears logout cookies', async () => {
+    const { app } = setup()
+    const refused = await app.request('/__portta/auth/login', { method: 'POST', headers: { ...forwarded, origin: 'https://evil.example', 'content-type': 'application/x-www-form-urlencoded' }, body: 'user=x&password=x' })
+    expect(refused.status).toBe(403)
+    const logout = await app.request('/__portta/auth/logout', { method: 'POST', headers: { ...forwarded, origin: 'https://demo.example.com' } })
+    expect(logout.status).toBe(303)
+    expect(logout.headers.get('set-cookie')).toContain('Max-Age=0')
+  })
+})
+
+describe('safe redirects', () => {
+  it.each(['https://evil.example', '//evil.example', '/%2F/evil', '/%5cevil', '/ok\r\nLocation: evil'])('rejects %s', (value) => {
+    expect(safeNext(value)).toBe('/')
+  })
+  it('keeps an exact local path and query', () => expect(safeNext('/orders/42?tab=items')).toBe('/orders/42?tab=items'))
+})

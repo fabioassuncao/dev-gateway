@@ -12,6 +12,7 @@ import type gateway from './locales/en/gateway.json'
 import type settings from './locales/en/settings.json'
 import type diagnostics from './locales/en/diagnostics.json'
 import type errors from './locales/en/errors.json'
+import type auth from './locales/en/auth.json'
 
 declare module 'i18next' {
   interface CustomTypeOptions {
@@ -31,6 +32,7 @@ declare module 'i18next' {
       settings: typeof settings
       diagnostics: typeof diagnostics
       errors: typeof errors
+      auth: typeof auth
     }
   }
 }

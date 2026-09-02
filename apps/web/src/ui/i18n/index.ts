@@ -16,6 +16,7 @@ import enGateway from './locales/en/gateway.json' with { type: 'json' }
 import enSettings from './locales/en/settings.json' with { type: 'json' }
 import enDiagnostics from './locales/en/diagnostics.json' with { type: 'json' }
 import enErrors from './locales/en/errors.json' with { type: 'json' }
+import enAuth from './locales/en/auth.json' with { type: 'json' }
 
 import ptCommon from './locales/pt-BR/common.json' with { type: 'json' }
 import ptNav from './locales/pt-BR/nav.json' with { type: 'json' }
@@ -31,6 +32,7 @@ import ptGateway from './locales/pt-BR/gateway.json' with { type: 'json' }
 import ptSettings from './locales/pt-BR/settings.json' with { type: 'json' }
 import ptDiagnostics from './locales/pt-BR/diagnostics.json' with { type: 'json' }
 import ptErrors from './locales/pt-BR/errors.json' with { type: 'json' }
+import ptAuth from './locales/pt-BR/auth.json' with { type: 'json' }
 
 import { applyLocale } from './use-locale.ts'
 
@@ -75,6 +77,7 @@ void i18n.use(initReactI18next).init({
       settings: enSettings,
       diagnostics: enDiagnostics,
       errors: enErrors,
+      auth: enAuth,
     },
     'pt-BR': {
       common: ptCommon,
@@ -91,6 +94,7 @@ void i18n.use(initReactI18next).init({
       settings: ptSettings,
       diagnostics: ptDiagnostics,
       errors: ptErrors,
+      auth: ptAuth,
     },
   },
 })

@@ -48,3 +48,28 @@ store with private atomic writes, normalized hosts and epoch rotation.
   for the panel's dedicated public entrypoint.
 
 ---
+
+## 2026-09-02T01:48:00-03:00 - US-003: Serve login, sessions and abuse protection
+
+### What was implemented
+Added the standalone Hono ForwardAuth process, signed host/scope/epoch sessions,
+safe redirects, browser/client classification, logout, Origin checks, structured
+redacted logs and the selected five-in-ten-minute lockout policy. Built a
+responsive bilingual login entry that reuses Portta UI primitives and tokens.
+
+### Files changed
+- `apps/auth/src/` — auth server, session and limiter with focused tests.
+- `apps/web/src/auth/` — production Vite login entry and visual system.
+- `apps/web/src/ui/i18n/locales/*/auth.json` — English and Portuguese copy.
+- workspace manifests and lockfile — standalone auth workspace.
+
+### Learnings for future iterations
+- The auth Vite build needs its own base path so every asset remains on the
+  protected hostname under `/__portta/auth/`.
+- Traefik is the only trusted hop; the limiter uses the last forwarded address,
+  not a client-controlled prefix.
+- Playwright verified desktop/mobile layout, accessible controls and a real
+  successful submit; direct auth-server `/` correctly remains a 404 because the
+  protected application owns the post-login destination.
+
+---

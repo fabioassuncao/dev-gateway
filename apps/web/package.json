@@ -11,8 +11,9 @@
   "scripts": {
     "dev": "node --conditions=development --watch src/server/index.ts",
     "dev:ui": "vite",
-    "build": "npm run build:ui && npm run build:server",
+    "build": "npm run build:ui && npm run build:auth-ui && npm run build:server",
     "build:ui": "vite build",
+    "build:auth-ui": "vite build --config vite.auth.config.ts",
     "build:server": "tsc -p tsconfig.server.json",
     "start": "node dist/server/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",

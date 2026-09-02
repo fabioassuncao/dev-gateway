@@ -41,7 +41,7 @@ tailscaled.state
 # Workspace install and build artifacts (the image builds them; they are never committed)
 node_modules/
 apps/web/node_modules/
-apps/web/dist/
+apps/*/dist/
 apps/web/test-results/
 apps/web/playwright-report/
 apps/web/.vite/
