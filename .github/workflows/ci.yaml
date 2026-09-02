@@ -197,6 +197,17 @@ jobs:
       - name: Install
         run: npm ci
 
+      # The vitest suites resolve portta-core through its TypeScript sources,
+      # so they pass without this. The Playwright web server does not: it runs
+      # the *built* panel, which imports the package's `dist` and exits with
+      # ERR_MODULE_NOT_FOUND before a single test starts.
+      #
+      # Two other jobs already carried this line. This one was missing it and
+      # nobody could tell, because the step that needs it was never reached
+      # while the suite hung.
+      - name: Build the shared core the panel's server imports
+        run: npm run build --workspace=portta-core
+
       - name: Types
         run: npm run typecheck --workspace=portta-web
 
