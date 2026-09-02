@@ -27,12 +27,15 @@ While the version is `0.x`, minor releases may contain breaking changes.
   vanished leave Start disabled, with a reason that names the runner.
   `portta project start|stop|restart` does the same from the host.
 
-- **The Overview shows whether this machine has room.** OS, cores and total
-  memory come from the Engine call the panel already made. Load, memory in
-  use, disk and an NVIDIA GPU come from `portta host collect`, which writes
-  `state/host/host.json` the same way Git collection writes `state/git`.
-  A host that has not collected still gets the static facts and a hint.
-  There is no history.
+- **The Overview shows this machine's real capacity.** The CLI collector
+  talks to `systeminformation` for the machine and to `docker` for
+  runtime and container stats, writes
+  `state/metrics/current.json` and a 60-minute JSONL history, and never
+  runs inside the panel. On macOS the host is the Mac; OrbStack or Docker
+  Desktop is a runtime hint, not the machine. Projects are aggregated from
+  Compose and `portta.project` labels. A snapshot older than 30 seconds is
+  marked stale. `portta up` and `portta web up` start the watcher; `down`
+  stops it. See [Host metrics](docs/host-metrics.md).
 
 - **The Traefik dashboard is reachable from the panel, behind ForwardAuth.**
   `PORTTA_DASHBOARD_EXPOSE=domain` routes `api@internal` on a derived

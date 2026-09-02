@@ -335,12 +335,14 @@ are healthy, which URLs exist, whether Tailscale and public access are on, how
 many containers are on the host, and how many of them the gateway knows
 nothing about. Plus anything the panel detected as a problem.
 
-Below the counters, a compact block shows this machine's capacity: OS, CPU,
-memory, the filesystem that holds Docker and the one that holds Portta, and
-an NVIDIA GPU when one is present. Static facts come from the Engine. Load,
-memory in use and disk come from `portta host collect`, which writes
-`state/host/host.json` the same way `git scan` writes `state/git`. With no
-collection the block still renders, with a hint. There is no history.
+Below the counters, a compact block shows this machine: model, OS, CPU,
+memory, the filesystem that holds Portta, and a GPU when one is present.
+Sparklines cover the last 30 minutes. A second card lists each project's
+share of CPU and memory. The numbers come from `portta host collect` on the
+host, which writes `state/metrics` the same way `git scan` writes
+`state/git`. The panel never collects. A snapshot older than 30 seconds is
+marked stale; with no collection the block is absent. See
+[Host metrics](host-metrics.md).
 
 The tiles are the questions people actually ask on a busy host, and the
 problems card is the panel saying what it noticed rather than waiting to be
@@ -476,7 +478,8 @@ branch, the namespace, or by hand. See
 **Overview** answers "what is this and where does it live": services running,
 unhealthy count, routed URLs and uptime as tiles; the host directory, worktree,
 logical project, Git root, repository and networks as rows; every endpoint
-grouped by service; and a one-line Git summary linking to the Git tab.
+grouped by service; CPU and memory per container from the host collector; and
+a one-line Git summary linking to the Git tab.
 
 **Services** gives each service the room the list cannot: endpoints, container
 and published ports, networks, mounts, restart count, exit code, what Traefik

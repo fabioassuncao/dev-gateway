@@ -78,7 +78,9 @@ root and `~/.portta` otherwise, and the installer asks before using either.
     ├── traefik/acme/           certificates
     ├── tailscale/              node identity
     ├── git/                    what `git scan` collected
-    ├── host/                   what `host collect` wrote
+    ├── host/                   leftover of the first host.json collector
+    ├── metrics/                what `host collect` / `host watch` wrote
+    ├── logs/                   collector and other host-side logs
     └── github/                 the GitHub App key, if any
 ```
 

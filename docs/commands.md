@@ -100,7 +100,9 @@ See [Database access](database-access.md), [TCP access](tcp-access.md), and
 | `portta project start\|stop\|restart <name>` | Act on every container in a project, in dependency order. |
 | `portta git scan` | Collect branch, HEAD and dirty state on the host. |
 | `portta git status` | Report collected Git metadata and its age. |
-| `portta host collect` | Collect CPU, memory, disk and GPU for the Overview. |
+| `portta host collect` | Write one host and project metrics snapshot. |
+| `portta host watch` | Keep collecting (started by `up`); `--loop` runs in the foreground. |
+| `portta host status` | Whether the collector is running, and how old the last snapshot is. |
 | `portta remote bootstrap <user@host>` | Prepare and start a remote gateway over SSH. |
 | `portta remote status|doctor|urls <user@host>` | Query a remote gateway. |
 | `portta remote exec <user@host> -- <command>` | Run an explicit remote gateway command. |

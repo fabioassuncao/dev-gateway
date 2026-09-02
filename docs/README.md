@@ -14,6 +14,7 @@ is the complete operator and contributor index. Historical build briefs under
 ## How it works
 
 - [Architecture](architecture.md) — components, networks, profiles, and lifecycle boundaries.
+- [Host metrics](host-metrics.md) — the CLI collects on the host; the panel only reads the files.
 - [Monorepo layout](monorepo.md) — where new code goes, and how to add a command.
 - [Shell scripts](scripts.md) — what is still Bash, why, and where each remaining file is going.
 - [Networking](networking.md) — ports, Docker networks, hostname derivation, and reachability.

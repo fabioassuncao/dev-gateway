@@ -182,10 +182,14 @@ Key, which authenticates everything in the account and cannot be scoped.
 rather than values, and lint fails on tracked auth keys or private keys. Gateway
 state, including ACME material, lives under `state/`, which is also ignored.
 
-## Host resources
+## Host metrics
 
-`portta host collect` writes `state/host/host.json` on the host. The panel
-reads that file — it cannot see `/proc` honestly from inside its container —
-and merges it with the Engine's `GET /info`. There is no setting for this:
-collection is a command, the same way `git scan` is. `portta up` and
-`portta web up` already run it.
+`portta host collect` writes `state/metrics/current.json` on the host. The
+panel only reads that file — it cannot see the real machine from inside its
+container, and it never calls `systeminformation`. `portta up` and
+`portta web up` start a detached watcher that refreshes the snapshot every
+five seconds. See [Host metrics](host-metrics.md).
+
+There is no operator setting for collection. The panel's
+`PORTTA_RUNTIME_METRICS_DIR` is the mount path inside the container
+(default `/app/state/metrics`).

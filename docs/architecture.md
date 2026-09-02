@@ -27,10 +27,11 @@ panel enabled. Bridges and toolbox containers are created on demand and removed
 when done.
 
 The code that implements those components is split across workspaces. Local
-facts (Docker, Git, `.env`, host diagnostics) live in a shared core and run
-on the host; persistent decisions live in the panel's API. See
-[Monorepo layout](monorepo.md) and
-[ADR 0014](adr/0014-monorepo-and-the-typescript-cli.md).
+facts (Docker, Git, `.env`, host diagnostics and metrics) live in a shared
+core and run on the host; persistent decisions live in the panel's API. See
+[Monorepo layout](monorepo.md),
+[ADR 0014](adr/0014-monorepo-and-the-typescript-cli.md) and
+[Host metrics](host-metrics.md).
 
 ### Two entry points, one command set
 

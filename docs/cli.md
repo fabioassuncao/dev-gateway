@@ -133,7 +133,9 @@ file or stdin.
 | `dns setup` | `--target <ip>`, `--dry-run`; Cloudflare needs a scoped token. |
 | `git scan` | `--project`, `--with-prs`, `--forge-ttl <seconds>` |
 | `git status`, `git clear` | Inspect or remove only `state/git/*.json`. |
-| `host collect` | Write CPU, memory, disk and GPU into `state/host/host.json`. |
+| `host collect` | Write one host and project metrics snapshot into `state/metrics/current.json`. |
+| `host watch` | Start the detached collector, or run it in the foreground with `--loop`. |
+| `host status` | Whether the collector is running, and how old the last snapshot is. |
 | `share list`, `share revoke <id>`, `share gc` | Shares can only be created in the panel. |
 | `tls status|init` | `init` runs OpenSSL in the toolbox container and enables TLS in `.env`. |
 | `tls trust|untrust` | Print the privileged command for this operating system; never run it. |
