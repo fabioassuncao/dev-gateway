@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { RotateCw, SlidersHorizontal } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
+import { ProjectActions } from '../components/project-actions.tsx'
 import { api, ApiError } from '../lib/api.ts'
 import type { ContainerSummary, Project } from '../../shared/types.ts'
 import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
@@ -95,18 +96,7 @@ function ProjectHeader({ project }: { project: Project }) {
   const { t: tp } = useTranslation('projects')
   const { t: tn } = useTranslation('nav')
   const { uptime } = useFormat()
-  const queryClient = useQueryClient()
   const [settingsOpen, setSettingsOpen] = useState(false)
-
-  const restart = useMutation({
-    mutationFn: async () => {
-      for (const service of project.services) {
-        if (service.state !== 'running') continue
-        await api.containerAction(service.id, 'restart')
-      }
-    },
-    onSuccess: () => void queryClient.invalidateQueries(),
-  })
 
   const shown = project.overrides?.displayName ?? project.name
 
@@ -133,10 +123,7 @@ function ProjectHeader({ project }: { project: Project }) {
               <SlidersHorizontal className="h-3.5 w-3.5" />
               {tn('settings')}
             </Button>
-            <Button size="sm" disabled={restart.isPending} onClick={() => restart.mutate()}>
-              <RotateCw className={restart.isPending ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
-              {tp('restartServices')}
-            </Button>
+            <ProjectActions project={project} />
           </>
         }
       />

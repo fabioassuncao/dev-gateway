@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { RotateCw } from 'lucide-react'
 import { api } from '../lib/api.ts'
 import type { ContainerSummary, Project } from '../../shared/types.ts'
 import { Card, CardHeader } from '../components/ui/card.tsx'
 import { Badge } from '../components/ui/badge.tsx'
-import { Button } from '../components/ui/button.tsx'
+import { ProjectActions } from '../components/project-actions.tsx'
 import { Input } from '../components/ui/field.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
 import { ContainerDetails } from '../components/container-details.tsx'
@@ -77,18 +76,7 @@ export function Projects() {
 function ProjectCard({ project }: { project: Project }) {
   const { t } = useTranslation('projects')
   const { uptime: formatUptime } = useFormat()
-  const queryClient = useQueryClient()
   const [details, setDetails] = useState<ContainerSummary | null>(null)
-
-  const restart = useMutation({
-    mutationFn: async () => {
-      for (const service of project.services) {
-        if (service.state !== 'running') continue
-        await api.containerAction(service.id, 'restart')
-      }
-    },
-    onSuccess: () => void queryClient.invalidateQueries(),
-  })
 
   // Collapsed, never removed: a hidden service is still one keystroke away.
   const hidden = new Set(project.overrides?.hiddenServices ?? [])
@@ -139,12 +127,7 @@ function ProjectCard({ project }: { project: Project }) {
             .filter(Boolean)
             .join(' · ') || undefined
         }
-        actions={
-          <Button size="sm" disabled={restart.isPending} onClick={() => restart.mutate()}>
-            <RotateCw className={restart.isPending ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
-            {t('restartServices')}
-          </Button>
-        }
+        actions={<ProjectActions project={project} />}
       />
 
       <GitCard project={project.name} />

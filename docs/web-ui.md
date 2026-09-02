@@ -437,6 +437,11 @@ service hides stale endpoints, and an HTTP service with routing enabled but no
 discovered URL is called out as a routing problem. The rows wrap rather than
 turning the project card into a horizontally scrolling table.
 
+The project page and each card have Start, Stop and Restart for the whole
+project. Stop asks for confirmation and lists the services; nothing is
+removed. Start iterates containers that still exist. If they are gone, Start
+is disabled and the reason names the runner.
+
 ![The Projects page: checkout with an unhealthy worker, storefront with four healthy services, and a second worktree of storefront running beside it, each with its own URLs](../.github/images/panel-projects.png)
 
 #### One project, one page

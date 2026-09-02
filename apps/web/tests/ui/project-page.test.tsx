@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
-import { makeContainer, makeOperable } from './fixtures.ts'
+import { makeContainer, makeOperable, makeStartable } from './fixtures.ts'
 import type { Project, ProjectGit } from '../../src/shared/types.ts'
 
 class ApiError extends Error {
@@ -27,6 +27,7 @@ vi.mock('../../src/ui/lib/api.ts', () => ({
     projectGit: (name: string) => projectGit(name),
     projectLogs: (name: string, options: unknown) => projectLogs(name, options),
     containerAction: vi.fn().mockResolvedValue({ ok: true }),
+    projectAction: vi.fn().mockResolvedValue({ ok: true, project: 'alpha', action: 'restart', requested: 0, succeeded: 0, failed: 0, skipped: 0, results: [] }),
     logs: vi.fn().mockResolvedValue({ lines: [], truncated: false }),
     removalPreview: vi.fn().mockResolvedValue({ allowed: true, warnings: [], namedVolumes: [] }),
     stats: vi.fn().mockResolvedValue({ cpuPercent: null }),
@@ -49,6 +50,7 @@ const alpha: Project = {
   integrated: true,
   workingDir: '/srv/dev/alpha',
   operable: makeOperable('/srv/dev/alpha'),
+  startable: makeStartable(),
   namespace: null,
   group: null,
   repo: null,

@@ -2,17 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
-import { makeContainer, makeOperable } from './fixtures.ts'
+import { makeContainer, makeOperable, makeStartable } from './fixtures.ts'
 import type { Project } from '../../src/shared/types.ts'
 
 const projects = vi.fn()
 const containerAction = vi.fn()
+const projectAction = vi.fn()
 
 vi.mock('../../src/ui/lib/api.ts', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     projects: () => projects(),
     containerAction: (...args: unknown[]) => containerAction(...args),
+    projectAction: (...args: unknown[]) => projectAction(...args),
     logs: vi.fn().mockResolvedValue({ lines: [] }),
     removalPreview: vi.fn().mockResolvedValue({ allowed: true, warnings: [], namedVolumes: [] }),
     stats: vi.fn().mockResolvedValue({ cpuPercent: null }),
@@ -60,6 +62,7 @@ const alpha: Project = {
   integrated: true,
   workingDir: '/srv/dev/alpha',
   operable: makeOperable('/srv/dev/alpha'),
+  startable: makeStartable(),
   namespace: null,
   group: null,
   repo: null,
@@ -96,6 +99,7 @@ const beta: Project = {
 beforeEach(() => {
   projects.mockReset().mockResolvedValue([alpha, beta])
   containerAction.mockReset().mockResolvedValue({ ok: true })
+  projectAction.mockReset()
 })
 
 describe('the Projects page', () => {
@@ -281,19 +285,14 @@ describe('the Projects page', () => {
     expect(await screen.findByRole('link', { name: 'alpha' })).toHaveAttribute('href', '#/projects/alpha')
   })
 
-  it('restarts every running service of one project only', async () => {
+  it('restarts a project as one action, not a loop over services', async () => {
+    projectAction.mockResolvedValue({ ok: true, project: 'alpha', action: 'restart', requested: 4, succeeded: 4, failed: 0, skipped: 0, results: [] })
     renderWithQuery(<Projects />)
     await screen.findByText('alpha')
 
-    await userEvent.click(screen.getAllByRole('button', { name: /Restart services/ })[0] as HTMLElement)
-    await waitFor(() => expect(containerAction).toHaveBeenCalledTimes(4))
-    expect(containerAction.mock.calls.map((call) => call[0])).toEqual([
-      'a-web',
-      'a-postgres',
-      'a-redis',
-      'a-api',
-    ])
-    expect(containerAction.mock.calls.every((call) => call[1] === 'restart')).toBe(true)
+    await userEvent.click(screen.getAllByRole('button', { name: 'Restart' })[0] as HTMLElement)
+    await waitFor(() => expect(projectAction).toHaveBeenCalledWith('alpha', 'restart'))
+    expect(containerAction).not.toHaveBeenCalled()
   })
 
   it('filters by search across services and images', async () => {

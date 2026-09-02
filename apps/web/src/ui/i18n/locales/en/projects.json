@@ -1,5 +1,6 @@
 {
   "title": "Projects",
+  "allProjects": "All projects",
   "description": "Compose projects with at least one service on the gateway.",
   "searchPlaceholder": "Search project, service, image",
   "searchAria": "Search projects",
@@ -13,7 +14,18 @@
   "partOf": "part of {{group}}",
   "derivedName": "derived name: {{name}}",
   "up": "up {{time}}",
-  "restartServices": "Restart services",
+  "restartServices": "Restart",
+  "actions": {
+    "start": "Start",
+    "stop": "Stop",
+    "restart": "Restart",
+    "startDisabled": "Every service is already running, or the containers are gone.",
+    "stopDisabled": "Nothing is running.",
+    "stopConfirmTitle": "Stop this project?",
+    "stopConfirm": "{{name}} has {{count}} service(s). Nothing is removed; Start brings them back.",
+    "cancel": "Cancel",
+    "partial": "{{failed}} failed, {{succeeded}} succeeded."
+  },
   "collapsedService": "{{count}} collapsed service",
   "collapsedServices": "{{count}} collapsed services"
 }

@@ -12,6 +12,7 @@ import type {
   NetworkView,
   Overview,
   Project,
+  ProjectActionResult,
   ProjectGit,
   GitHubIntegrationView,
   GitHubRepositoryView,
@@ -90,6 +91,11 @@ export const api = {
   applyProbe: (signal: AbortSignal, logs = false) =>
     request<ApplyStatus>(`/gateway/apply${logs ? '?logs=1' : ''}`, { signal }),
 
+  projectAction: (name: string, action: 'start' | 'stop' | 'restart') =>
+    request<ProjectActionResult>(`/projects/${encodeURIComponent(name)}/actions/${action}`, {
+      method: 'POST',
+      body: '{}',
+    }),
   projects: () => request<{ projects: Project[] }>('/projects').then((data) => data.projects),
   project: (name: string) => request<Project>(`/projects/${encodeURIComponent(name)}`),
   projectGit: (name: string) => request<ProjectGit>(`/projects/${encodeURIComponent(name)}/git`),

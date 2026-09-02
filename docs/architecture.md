@@ -164,6 +164,8 @@ Profiles are Compose overlays that add only the keys they change, over a shared
 
 ## What the gateway deliberately cannot do
 
-It cannot start, stop or reconfigure your applications; it cannot repair a
-misconfigured project. It can only observe and report, which is why `doctor`
-and `analyze` are as thorough as they are.
+It does not own a project's containers, volumes or release cycle. On request
+it may start, stop or restart what it can see, in Compose dependency order,
+and it may ask Compose to rebuild or take a project down through the opt-in
+runner ([ADR 0030](adr/0030-the-panel-and-a-project-lifecycle.md)). It cannot
+repair a misconfigured project. `doctor` and `analyze` still only observe.

@@ -1,4 +1,10 @@
-import type { ContainerSummary, DockerHost, ProjectOperable } from '../../src/shared/types.ts'
+import type { ContainerSummary, DockerHost, ProjectOperable, ProjectStartable } from '../../src/shared/types.ts'
+
+export function makeStartable(ok = false): ProjectStartable {
+  return ok
+    ? { ok: true, reason: null, via: 'iteration' }
+    : { ok: false, reason: 'every service is already running', via: null }
+}
 
 export function makeOperable(workingDir: string | null = '/srv/dev/alpha'): ProjectOperable {
   if (!workingDir) {

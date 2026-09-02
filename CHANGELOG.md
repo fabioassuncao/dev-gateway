@@ -11,6 +11,13 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Added
 
+- **Start, stop and restart a whole project from the panel.** The action
+  iterates the project's existing containers in Compose dependency order,
+  refuses the lot if any container is a Portta component, and reports each
+  service. Restart is an ordered stop then start. Containers that have
+  vanished leave Start disabled, with a reason that names the runner.
+  `portta project start|stop|restart` does the same from the host.
+
 - **The Overview shows whether this machine has room.** OS, cores and total
   memory come from the Engine call the panel already made. Load, memory in
   use, disk and an NVIDIA GPU come from `portta host collect`, which writes

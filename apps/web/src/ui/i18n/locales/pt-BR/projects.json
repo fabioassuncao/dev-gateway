@@ -1,5 +1,6 @@
 {
   "title": "Projetos",
+  "allProjects": "Todos os projetos",
   "description": "Projetos Compose com pelo menos um serviço no gateway.",
   "searchPlaceholder": "Buscar projeto, serviço, imagem",
   "searchAria": "Buscar projetos",
@@ -13,7 +14,18 @@
   "partOf": "parte de {{group}}",
   "derivedName": "nome derivado: {{name}}",
   "up": "ativo há {{time}}",
-  "restartServices": "Reiniciar serviços",
+  "restartServices": "Reiniciar",
+  "actions": {
+    "start": "Iniciar",
+    "stop": "Parar",
+    "restart": "Reiniciar",
+    "startDisabled": "Todo serviço já está em execução, ou os containers sumiram.",
+    "stopDisabled": "Nada está em execução.",
+    "stopConfirmTitle": "Parar este projeto?",
+    "stopConfirm": "{{name}} tem {{count}} serviço(s). Nada é removido; Iniciar os traz de volta.",
+    "cancel": "Cancelar",
+    "partial": "{{failed}} falhou(aram), {{succeeded}} ok."
+  },
   "collapsedService": "{{count}} serviço recolhido",
   "collapsedServices": "{{count}} serviços recolhidos"
 }

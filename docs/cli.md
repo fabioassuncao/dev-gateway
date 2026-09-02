@@ -87,6 +87,7 @@ executable plus an argument array with shell expansion disabled.
 |---|---|
 | `project list` | Global flags only |
 | `project show <name>` | Global flags only |
+| `project start\|stop\|restart <name>` | Dependency order; nothing is removed. |
 | `project services` | `--project <name>` |
 | `project analyze <path>` | Read-only. |
 | `project init <path>` | `--dry-run`, repeatable `--service <name:port>`, `--output`, `--force`; writing needs confirmation. |
