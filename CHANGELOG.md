@@ -62,6 +62,12 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Changed
 
+- **Operational Docker image contexts now live under `docker/images/`.** The
+  root-level `apply/` and `toolbox/` directories moved to
+  `docker/images/{apply,toolbox}/`; application Dockerfiles remain colocated
+  with their applications. The installer migrates existing runtime trees and
+  manual builds must use the new paths. CLI commands, image tags and runtime
+  behavior are unchanged.
 - **CI runs on Linux and one Node version.** The `cli` job was a four-way matrix
   over two operating systems and two Node versions re-running identical
   assertions, the `audit` job duplicated what `tests/run.sh` already runs, and

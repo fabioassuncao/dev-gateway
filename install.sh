@@ -783,12 +783,20 @@ NEW_VERSION=$(tr -d '[:space:]' < "$WORK_DIR/src/VERSION")
 
 # Replaced on every run: these are the product, and a stale copy is exactly the
 # problem an update is meant to fix.
-for path in VERSION .env.example bin scripts docker/compose toolbox apply; do
+for path in VERSION .env.example bin scripts docker/compose docker/images; do
   [ -e "$WORK_DIR/src/$path" ] || continue
   target="$PORTTA_HOME/$path"
   mkdir -p "$(dirname "$target")"
   rm -rf "$target"
   cp -R "$WORK_DIR/src/$path" "$target"
+done
+
+# Before 0.4 the two image build contexts lived at the runtime root. They are
+# product files, replaced wholesale on every update, so remove the obsolete
+# copies once docker/images has landed. No compatibility aliases are kept.
+for obsolete in apply toolbox; do
+  [ -e "$PORTTA_HOME/$obsolete" ] || continue
+  rm -rf "${PORTTA_HOME:?}/$obsolete"
 done
 chmod +x "$PORTTA_HOME/bin/portta" "$PORTTA_HOME"/scripts/*.sh 2>/dev/null || true
 good "runtime files for $NEW_VERSION"

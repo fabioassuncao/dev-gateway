@@ -97,9 +97,9 @@ panel has just changed, and half the keys the Settings page can write
 access network when TCP was just enabled, and refuses five combinations that
 would leave the gateway unable to start.
 
-In bash, because `install.sh` copies `bin`, `scripts`, `docker/compose`,
-`toolbox` and `apply` into `PORTTA_HOME` and never `packages`: on an installed
-host there is no TypeScript CLI. The image has no Node, so the shim in
+In bash, because `install.sh` copies `bin`, `scripts`, `docker/compose` and
+`docker/images` into `PORTTA_HOME` and never `packages`: on an installed host
+there is no TypeScript CLI. The image has no Node, so the shim in
 `bin/portta` takes the shell path on its own; `PORTTA_FORCE_BASH=true` states
 the intent rather than relying on that.
 

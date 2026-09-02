@@ -53,6 +53,7 @@ One directory. It defaults to `/opt/portta` for root and `~/.portta` otherwise.
 ├── bin/portta               the CLI
 ├── scripts/                 what it sources
 ├── docker/compose/          the compose overlays
+├── docker/images/           applier and toolbox build contexts
 ├── config/
 │   ├── traefik/dynamic/     routing and generated ForwardAuth middleware
 │   └── tls/                 local certificate material

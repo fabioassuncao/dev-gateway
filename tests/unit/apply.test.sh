@@ -13,6 +13,15 @@ PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
 . "$PORTTA_ROOT/scripts/lib/docker.sh"
 . "$PORTTA_ROOT/scripts/lib/apply.sh"
 
+describe "the applier image source"
+
+it "lives with the other Docker-owned image contexts"
+assert_eq "$PORTTA_ROOT/docker/images/apply" "$PORTTA_APPLY_CONTEXT"
+assert_success test -f "$PORTTA_APPLY_CONTEXT/Dockerfile"
+
+it "is also used by the TypeScript CLI"
+assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/apply.ts")" "join(context.root, 'docker', 'images', 'apply')"
+
 # The create arguments, without running docker: replace the binary with a
 # recorder for the length of one call.
 shell_create_arguments() {

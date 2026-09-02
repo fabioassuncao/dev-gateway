@@ -16,7 +16,7 @@ async function ensureToolbox(command: Command): Promise<void> {
   const present = await runProcess('docker', ['image', 'inspect', TOOLBOX], { reject: false })
   if (present.exitCode === 0) return
   const context = gatewayContext({ profile: globals(command).profile })
-  await runProcess('docker', ['build', '-q', '-t', TOOLBOX, join(context.root, 'toolbox')], { stdio: 'inherit' })
+  await runProcess('docker', ['build', '-q', '-t', TOOLBOX, join(context.root, 'docker', 'images', 'toolbox')], { stdio: 'inherit' })
 }
 
 async function containerEnvironment(id: string): Promise<Record<string, string>> {

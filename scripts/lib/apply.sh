@@ -21,6 +21,7 @@
 
 PORTTA_APPLY_IMAGE="fabioassuncao/portta-apply:0.1.0"
 PORTTA_APPLY_CONTAINER="portta-apply"
+PORTTA_APPLY_CONTEXT="$PORTTA_ROOT/docker/images/apply"
 
 portta_apply_image_exists() {
   docker image inspect "$PORTTA_APPLY_IMAGE" >/dev/null 2>&1
@@ -30,9 +31,9 @@ portta_apply_image_exists() {
 portta_apply_image_ensure() {
   portta_apply_image_exists && return 0
   info "building the applier image (first use only)"
-  docker build -q -t "$PORTTA_APPLY_IMAGE" "$PORTTA_ROOT/apply" >/dev/null || {
+  docker build -q -t "$PORTTA_APPLY_IMAGE" "$PORTTA_APPLY_CONTEXT" >/dev/null || {
     err "could not build the applier image"
-    hint "docker build -t $PORTTA_APPLY_IMAGE apply/"
+    hint "docker build -t $PORTTA_APPLY_IMAGE docker/images/apply/"
     return 1
   }
   return 0

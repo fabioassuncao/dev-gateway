@@ -22,6 +22,7 @@ portta/
 ├── scripts/                 Bash commands; shrinks as they migrate
 ├── docker/
 │   ├── compose/              gateway Compose base and overlays
+│   ├── images/               operational image contexts (apply, toolbox)
 │   └── examples/             self-contained demonstration stacks
 ├── config/, docs/, tests/, templates/
 └── package.json             workspaces: ["apps/*", "packages/*"]

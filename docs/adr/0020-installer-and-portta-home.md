@@ -98,8 +98,9 @@ finds nothing.
 ### What the installer downloads
 
 The GitHub tarball for the requested ref, from which it takes `VERSION`,
-`.env.example`, `bin/`, `scripts/`, `docker/compose/` and `toolbox/`, and
-nothing else. No `apps/`, no `packages/`, no `node_modules/`, no `.git`.
+`.env.example`, `bin/`, `scripts/`, `docker/compose/` and `docker/images/`, and
+nothing else. No `apps/`, no `packages/`, no `node_modules/`, no `.git`, and no
+demonstration stacks from `docker/examples/`.
 
 The shell CLI comes along because it is operational tooling, not application
 source: it is what makes `portta status`, `portta doctor`, `portta up` and

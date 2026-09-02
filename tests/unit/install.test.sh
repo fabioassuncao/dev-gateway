@@ -101,8 +101,13 @@ assert_contains "$SOURCE" 'if [ -z "$(env_get "$ENV_FILE" PORTTA_RUNTIME_DB_PASS
 it "state, TLS material and the dynamic directory are never in the replaced set"
 replaced=$(printf '%s' "$SOURCE" | sed -n 's/^for path in \(.*\); do$/\1/p' | head -n1)
 assert_contains "$replaced" "docker/compose"
+assert_contains "$replaced" "docker/images"
 assert_not_contains "$replaced" "state"
 assert_not_contains "$replaced" "config"
+
+it "obsolete root image contexts are removed after the new layout lands"
+assert_contains "$SOURCE" "for obsolete in apply toolbox"
+assert_contains "$SOURCE" 'rm -rf "${PORTTA_HOME:?}/$obsolete"'
 
 it "an existing dynamic configuration file is kept"
 assert_contains "$SOURCE" 'if [ ! -e "$target" ]; then cp "$file" "$target"'
@@ -314,6 +319,9 @@ assert_contains "$SOURCE" 'for path in VERSION'
 
 it "and so is docker/compose"
 assert_contains "$SOURCE" 'docker/compose'
+
+it "and so are the operational image contexts"
+assert_contains "$SOURCE" 'docker/images'
 
 it "the CLI still finds its libraries through that symlink"
 # The installer links PORTTA_HOME/bin/portta into a bin directory on PATH, so

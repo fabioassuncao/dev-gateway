@@ -20,7 +20,7 @@ cd "$PORTTA_ROOT" || exit 1
 # own text, so keep the patterns here and the enforcement here only.
 SELF="tests/unit/audit.test.sh"
 tracked() { git ls-files "$@" 2>/dev/null | grep -v '^docs/prompts/' | grep -vx "$SELF"; }
-code() { git ls-files 'bin/*' 'scripts/**' 'docker/**' 'toolbox/*' 'apply/*' '.github/**' 2>/dev/null | grep -vx "$SELF"; }
+code() { git ls-files 'bin/*' 'scripts/**' 'docker/**' '.github/**' 2>/dev/null | grep -vx "$SELF"; }
 
 describe "the gateway stays decoupled from consumer projects"
 
@@ -232,7 +232,7 @@ it "every image pins an explicit version"
 # override exists so a developer can point at a local build, and the default
 # is what a normal installation pulls. Unwrap the interpolation and judge the
 # default the same way as a literal.
-assert_eq "" "$(grep -rhE '^\s*(image|FROM):?\s' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml toolbox/Dockerfile apps/web/Dockerfile 2>/dev/null \
+assert_eq "" "$(grep -rhE '^\s*(image|FROM):?\s' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml docker/images/*/Dockerfile apps/web/Dockerfile 2>/dev/null \
   | sed -E 's/[[:space:]]+[Aa][Ss][[:space:]]+[A-Za-z0-9_.-]+[[:space:]]*$//' \
   | sed -E 's/\$\{[A-Za-z0-9_]+:-([^}]*)\}/\1/g' \
   | grep -vE '^[[:space:]]*FROM[[:space:]]+(deps|base|build|dev|runtime)[[:space:]]*$' \
@@ -244,7 +244,7 @@ it "the panel image the installer pulls matches VERSION"
 assert_contains "$(cat docker/compose/features/web.yaml)" "portta:$(tr -d '[:space:]' < VERSION)}"
 
 it "no floating latest tag"
-assert_eq "" "$(grep -rn ':latest' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml toolbox/Dockerfile apply/Dockerfile apps/web/Dockerfile 2>/dev/null || true)"
+assert_eq "" "$(grep -rn ':latest' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml docker/images/*/Dockerfile apps/web/Dockerfile 2>/dev/null || true)"
 
 it "the versions table in ADR 0004 lists every pinned image"
 adr="docs/adr/0004-pinned-versions.md"

@@ -67,7 +67,7 @@ export async function ensureApplier(context: GatewayContext): Promise<ApplierOut
     if (!(await removeApplier())) return { action: 'failed', reason: 'the running applier could not be replaced' }
   }
 
-  const context_dir = join(context.root, 'apply')
+  const context_dir = join(context.root, 'docker', 'images', 'apply')
   if (!existsSync(join(context_dir, 'Dockerfile'))) {
     return { action: 'failed', reason: `no applier image source at ${context_dir}` }
   }

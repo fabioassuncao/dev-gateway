@@ -508,7 +508,7 @@ cmd_toolbox() {
     build)
       portta_require_docker || exit 1
       info "building $PORTTA_TOOLBOX_IMAGE"
-      docker build -t "$PORTTA_TOOLBOX_IMAGE" "$PORTTA_ROOT/toolbox" || die "build failed"
+      docker build -t "$PORTTA_TOOLBOX_IMAGE" "$PORTTA_TOOLBOX_CONTEXT" || die "build failed"
       ok "toolbox ready"
       ;;
     run)

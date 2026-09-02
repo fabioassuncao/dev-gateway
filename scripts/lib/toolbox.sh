@@ -3,9 +3,10 @@
 #
 # The gateway promises a host needs only Docker, Git and a shell. Anything else
 # it needs (curl, jq, dig, openssl, socat, psql, redis-cli, ssh) lives in one
-# small image built from toolbox/Dockerfile.
+# small image built from docker/images/toolbox/Dockerfile.
 
 PORTTA_TOOLBOX_IMAGE="fabioassuncao/portta-toolbox:0.1.0"
+PORTTA_TOOLBOX_CONTEXT="$PORTTA_ROOT/docker/images/toolbox"
 
 portta_toolbox_exists() {
   docker image inspect "$PORTTA_TOOLBOX_IMAGE" >/dev/null 2>&1
@@ -15,9 +16,9 @@ portta_toolbox_exists() {
 portta_toolbox_ensure() {
   portta_toolbox_exists && return 0
   [ "${1:-}" = "--quiet" ] || info "building the toolbox image (first use only)"
-  docker build -q -t "$PORTTA_TOOLBOX_IMAGE" "$PORTTA_ROOT/toolbox" >/dev/null || {
+  docker build -q -t "$PORTTA_TOOLBOX_IMAGE" "$PORTTA_TOOLBOX_CONTEXT" >/dev/null || {
     err "could not build the toolbox image"
-    hint "docker build -t $PORTTA_TOOLBOX_IMAGE toolbox/"
+    hint "docker build -t $PORTTA_TOOLBOX_IMAGE docker/images/toolbox/"
     return 1
   }
   return 0

@@ -32,3 +32,4 @@ context, the decision, and what it costs us.
 | [0025](0025-cloudflare-tunnel.md) | One tunnel, one wildcard rule, and Traefik keeps routing | Accepted |
 | [0026](0026-applying-settings-from-the-panel.md) | Applying settings from the panel is one opt-in container, outside the Compose project | Accepted, amends 0011 |
 | [0027](0027-forward-authentication-service.md) | Protected HTTP access is checked by a separate ForwardAuth service | Accepted, supersedes 0012 and amends 0011/0021 |
+| [0028](0028-operational-images-live-under-docker.md) | Operational image contexts live under `docker/images/` | Accepted |
