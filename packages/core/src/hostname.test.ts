@@ -4,6 +4,7 @@ import {
   defaultRuleTemplate,
   fitLabel,
   hostLabel,
+  dashboardAdvertisedHost,
   hostnameFor,
   parseHostLabel,
   shortHash,
@@ -103,6 +104,15 @@ describe('the Traefik rule', () => {
   it('reverses the order and the separator for the other style', () => {
     expect(defaultRuleTemplate('example.com', 'service--project')).toContain(
       '{{ normalize (index .Labels "com.docker.compose.service") }}--{{ normalize (index .Labels "com.docker.compose.project") }}',
+    )
+  })
+})
+
+describe('the dashboard advertised host', () => {
+  it('follows the same label as every other service, never a hardcoded name', () => {
+    expect(dashboardAdvertisedHost('portta', 'dev.example.com')).toBe('portta-traefik.dev.example.com')
+    expect(dashboardAdvertisedHost('portta', 'dev.example.com', 'service--project')).toBe(
+      'traefik--portta.dev.example.com',
     )
   })
 })

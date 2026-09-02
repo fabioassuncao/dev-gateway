@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { resolveDomain, type DomainMode } from './domain.ts'
+import { dashboardAdvertisedHost, isHostnameStyle } from './hostname.ts'
 
 export const AUTH_BUILD_FILE = 'docker/compose/features/auth-build.yaml'
 export const LOCAL_PORTA_IMAGE = 'fabioassuncao/portta:local'
@@ -62,6 +63,9 @@ export interface GatewayConfig {
   publicDomain: string | null
   privateDomain: string | null
   dashboardEnabled: boolean
+  /** `local` publishes :8080 on loopback; `domain` routes api@internal behind ForwardAuth. */
+  dashboardExpose: 'local' | 'domain'
+  dashboardAdvertisedHost: string
   tcpEnabled: boolean
   webEnabled: boolean
   webDev: boolean
@@ -148,6 +152,18 @@ export function loadGatewayConfig(env: Record<string, string | undefined> = proc
     publicDomain,
     privateDomain,
     dashboardEnabled: isTrue(env['PORTTA_DASHBOARD']),
+    dashboardExpose: (value(env, 'PORTTA_DASHBOARD_EXPOSE', 'local') === 'domain' ? 'domain' : 'local'),
+    dashboardAdvertisedHost: value(
+      env,
+      'PORTTA_DASHBOARD_ADVERTISED_HOST',
+      dashboardAdvertisedHost(
+        value(env, 'PORTTA_PROJECT_NAME', 'portta'),
+        domain,
+        isHostnameStyle(value(env, 'PORTTA_HOSTNAME_STYLE', 'project-service'))
+          ? value(env, 'PORTTA_HOSTNAME_STYLE', 'project-service')
+          : 'project-service',
+      ),
+    ),
     tcpEnabled: isTrue(env['PORTTA_TCP']),
     webEnabled: isTrue(env['PORTTA_WEB']),
     webDev: isTrue(env['PORTTA_WEB_DEV']),
@@ -210,7 +226,12 @@ export function composeFiles(config: GatewayConfig): string[] {
     } else files.push('docker/compose/profiles/remote.yaml')
   }
   if (config.profile === 'remote-public') files.push('docker/compose/profiles/public.yaml')
-  if (config.dashboardEnabled) files.push(attached === 'tailscale' ? 'docker/compose/features/dashboard-tailscale.yaml' : 'docker/compose/features/dashboard.yaml')
+  if (config.dashboardEnabled) {
+    // The routed path and the loopback path are independent: domain never
+    // composes with dashboard.yaml, so TRAEFIK_API_INSECURE stays off it.
+    if (config.dashboardExpose === 'domain') files.push('docker/compose/features/dashboard-domain.yaml')
+    else files.push(attached === 'tailscale' ? 'docker/compose/features/dashboard-tailscale.yaml' : 'docker/compose/features/dashboard.yaml')
+  }
   if (config.tcpEnabled) files.push(attached === 'tailscale' ? 'docker/compose/features/tcp-tailscale.yaml' : 'docker/compose/features/tcp.yaml')
   if (config.webEnabled) {
     files.push('docker/compose/features/web.yaml', 'docker/compose/features/db.yaml')

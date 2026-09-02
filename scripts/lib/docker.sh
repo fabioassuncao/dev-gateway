@@ -253,9 +253,11 @@ portta_compose_files() {
   esac
 
   if portta_is_true "${PORTTA_DASHBOARD:-false}"; then
-    # The dashboard port has to be published by whichever container owns the
-    # network namespace.
-    if [ "$attachment" = "tailscale" ]; then
+    # The routed path and the loopback path are independent: domain never
+    # composes with dashboard.yaml, so TRAEFIK_API_INSECURE stays off it.
+    if [ "${PORTTA_DASHBOARD_EXPOSE:-local}" = "domain" ]; then
+      files="$files docker/compose/features/dashboard-domain.yaml"
+    elif [ "$attachment" = "tailscale" ]; then
       files="$files docker/compose/features/dashboard-tailscale.yaml"
     else
       files="$files docker/compose/features/dashboard.yaml"

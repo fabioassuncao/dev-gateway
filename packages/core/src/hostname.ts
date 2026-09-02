@@ -134,6 +134,15 @@ export function hostnameFor(parts: HostLabelParts, domain: string, style: Hostna
   return hostname
 }
 
+/** The hostname the Traefik dashboard is advertised on. Never hardcoded. */
+export function dashboardAdvertisedHost(
+  project: string,
+  domain: string,
+  style: HostnameStyle = 'project-service',
+): string {
+  return hostnameFor({ project, service: 'traefik' }, domain, style)
+}
+
 /**
  * The Traefik `defaultRule` template that produces this style.
  *

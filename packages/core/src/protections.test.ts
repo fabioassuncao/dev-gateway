@@ -6,6 +6,7 @@ import {
   emptyProtectionStore,
   InvalidProtectionStore,
   normalizeProtectionHost,
+  dashboardProtectionRecord,
   panelProtectionRecord,
   parseProtectionStore,
   protectionForHost,
@@ -82,5 +83,25 @@ describe('protection store', () => {
     expect(panelProtectionRecord({ ...base, expose: 'domain', advertisedHost: 'dev.example.com', tlsEnabled: false }))
       .toMatchObject({ entryPoints: ['web'] })
     expect(() => panelProtectionRecord({ ...base, expose: 'domain' })).toThrow('advertised host')
+  })
+
+  it('covers the dashboard host with the same credential, as its own scope', () => {
+    expect(dashboardProtectionRecord({
+      expose: 'domain',
+      advertisedHost: 'portta-traefik.dev.example.com',
+      mode: 'basic',
+      user: 'dev',
+      hash: '$apr1$a$b',
+      tlsEnabled: true,
+      projectName: 'portta',
+    })).toMatchObject({
+      scope: 'dashboard',
+      host: 'portta-traefik.dev.example.com',
+      entryPoints: ['websecure'],
+    })
+    expect(dashboardProtectionRecord({
+      expose: 'local', advertisedHost: 'portta-traefik.dev.example.com',
+      mode: 'basic', user: 'dev', hash: 'x', tlsEnabled: true, projectName: 'portta',
+    })).toBeNull()
   })
 })

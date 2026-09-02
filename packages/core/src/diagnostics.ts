@@ -1,3 +1,5 @@
+import { isTrue } from './config.ts'
+
 // The verdicts `portta doctor` reaches, separated from the probes that gather
 // their inputs.
 //
@@ -145,6 +147,23 @@ export function exposureVerdict(profile: string, binds: string, panelIsPublic: b
  * It exposes the routing internals of every project on the host, so anything
  * but loopback is a failure rather than a warning.
  */
+/**
+ * Why a host must not route the dashboard on the domain, or null when it may.
+ * Mirrors the panel's own `domain` refusals: a credential and a real domain.
+ */
+export function dashboardExposeRefusal(env: Record<string, string | undefined>): string | null {
+  if ((env['PORTTA_DASHBOARD_EXPOSE'] ?? 'local') !== 'domain') return null
+  if (!isTrue(env['PORTTA_DASHBOARD'])) return null
+  const domain = env['PORTTA_DOMAIN'] ?? ''
+  if (domain === '' || domain === 'localhost') {
+    return 'a dashboard on the domain needs a domain of its own'
+  }
+  if ((env['PORTTA_WEB_AUTH'] ?? 'none') !== 'basic' || !env['PORTTA_WEB_AUTH_USER'] || !env['PORTTA_WEB_AUTH_HASH']) {
+    return 'a dashboard on the domain needs a panel credential: run portta web auth set'
+  }
+  return null
+}
+
 export function dashboardVerdict(enabled: boolean, bindAddress: string, port: string): DoctorCheck {
   if (!enabled) return check('dashboard', 'pass', 'traefik dashboard', 'disabled')
   return isLoopbackAddress(bindAddress)

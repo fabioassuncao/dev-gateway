@@ -1,7 +1,7 @@
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
-import { AUTH_BUILD_FILE, LOCAL_PORTA_IMAGE, parseAliases, projectsFor, readEnvFile, routesFor, setEnvValue, writeEnvFile, type StoredAlias } from 'portta-core'
+import { AUTH_BUILD_FILE, LOCAL_PORTA_IMAGE, dashboardExposeRefusal, parseAliases, projectsFor, readEnvFile, routesFor, setEnvValue, writeEnvFile, type StoredAlias } from 'portta-core'
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
 import { ensureNetwork, inspectContainers, networkExists, requireDocker } from '../docker.js'
@@ -181,6 +181,8 @@ export async function upCommand(profile: string | undefined, options: { attach?:
     throw new RefusedError('the panel must not be routed on the tailnet hostname while Traefik binds every interface',
       "portta web up --expose domain   routes it on the gateway's own domain, behind the same login page")
   }
+  const dashboardRefusal = dashboardExposeRefusal(context.env)
+  if (dashboardRefusal) throw new RefusedError(dashboardRefusal)
   await requireDocker()
   // Both networks are `external: true` in the overlays, so Compose refuses to
   // start until they exist. The shell entry point creates both; this created

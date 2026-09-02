@@ -1,0 +1,27 @@
+# ============================================================================
+# Portta: Traefik dashboard on the domain, behind Portta ForwardAuth
+# ============================================================================
+# Applied when PORTTA_DASHBOARD=true and PORTTA_DASHBOARD_EXPOSE=domain. The
+# dashboard answers on one hostname of the gateway's own domain, on the
+# entrypoint every application uses, pointing at Traefik's built-in
+# `api@internal` service. TRAEFIK_API_INSECURE is not set, and no host port
+# is published: this overlay is never composed with dashboard.yaml.
+#
+# The middleware is `portta-web-auth@file` -- the panel scope -- rendered
+# into config/traefik/dynamic/portta-auth.yaml. If that file is missing the
+# middleware cannot resolve and Traefik fails the router closed: the
+# dashboard answers 404, never unauthenticated. The CLI refuses this mode
+# without a credential. See ADR 0012 and ADR 0027.
+# ============================================================================
+
+services:
+  traefik:
+    environment:
+      TRAEFIK_API: "true"
+      TRAEFIK_API_DASHBOARD: "true"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.portta-dashboard.rule: >-
+        Host(`${PORTTA_DASHBOARD_ADVERTISED_HOST}`)
+      traefik.http.routers.portta-dashboard.service: "api@internal"
+      traefik.http.routers.portta-dashboard.middlewares: "portta-web-auth@file"

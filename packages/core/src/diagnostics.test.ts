@@ -3,6 +3,7 @@ import {
   applicationBinds,
   authStoreVerdict,
   componentVerdict,
+  dashboardExposeRefusal,
   dashboardVerdict,
   duplicates,
   envPermissionVerdict,
@@ -136,6 +137,25 @@ describe('the Traefik dashboard', () => {
     expect(dashboardVerdict(true, '::1', '8080').status).toBe('pass')
     expect(dashboardVerdict(true, '0.0.0.0', '8080').status).toBe('fail')
     expect(dashboardVerdict(true, '100.87.243.7', '8080').status).toBe('fail')
+  })
+
+  it('still fails a non-loopback bind when the domain exposure is on', () => {
+    expect(dashboardVerdict(true, '0.0.0.0', '8080').status).toBe('fail')
+  })
+
+  it('refuses a dashboard on the domain without a credential or a real domain', () => {
+    expect(dashboardExposeRefusal({ PORTTA_DASHBOARD: 'true', PORTTA_DASHBOARD_EXPOSE: 'domain' })).toMatch(/domain/)
+    expect(dashboardExposeRefusal({
+      PORTTA_DASHBOARD: 'true', PORTTA_DASHBOARD_EXPOSE: 'domain', PORTTA_DOMAIN: 'dev.example.com',
+    })).toMatch(/credential/)
+    expect(dashboardExposeRefusal({
+      PORTTA_DASHBOARD: 'true',
+      PORTTA_DASHBOARD_EXPOSE: 'domain',
+      PORTTA_DOMAIN: 'dev.example.com',
+      PORTTA_WEB_AUTH: 'basic',
+      PORTTA_WEB_AUTH_USER: 'op',
+      PORTTA_WEB_AUTH_HASH: 'hash',
+    })).toBeNull()
   })
 })
 

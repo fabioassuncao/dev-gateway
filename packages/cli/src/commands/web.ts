@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import {
   hashPassword,
   PANEL_ACCESS_MODES,
+  dashboardProtectionRecord,
   panelProtectionRecord,
   isPanelAccess,
   isTrue,
@@ -50,7 +51,17 @@ export function syncPanelProtection(root: string, overrides: Record<string, stri
   const same = record && existing
     ? JSON.stringify({ ...existing, epoch: undefined }) === JSON.stringify({ ...record, epoch: undefined })
     : record === null && existing === undefined
-  const next = same ? current : record ? setProtection(current, record) : removeProtection(current, 'panel')
+  let next = same ? current : record ? setProtection(current, record) : removeProtection(current, 'panel')
+  const dashboard = dashboardProtectionRecord({
+    expose: context.env['PORTTA_DASHBOARD_EXPOSE'] ?? 'local',
+    advertisedHost: context.config.dashboardAdvertisedHost,
+    mode: context.env['PORTTA_WEB_AUTH'] ?? 'none',
+    user: context.env['PORTTA_WEB_AUTH_USER'] ?? '',
+    hash: context.env['PORTTA_WEB_AUTH_HASH'] ?? '',
+    tlsEnabled: context.config.tlsEnabled,
+    projectName: context.config.projectName,
+  })
+  next = dashboard ? setProtection(next, dashboard) : removeProtection(next, 'dashboard')
   writeProtectionStore(storePath, next)
   const dynamic = join(root, 'config/traefik/dynamic')
   mkdirSync(dynamic, { recursive: true })

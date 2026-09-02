@@ -36,6 +36,23 @@ describe('gateway configuration', () => {
     }
   })
 
+  it('routes the dashboard on the domain without the insecure loopback overlay', () => {
+    const files = composeFiles(loadGatewayConfig({
+      PORTTA_DASHBOARD: 'true',
+      PORTTA_DASHBOARD_EXPOSE: 'domain',
+      PORTTA_DOMAIN: 'dev.example.com',
+    }))
+    expect(files).toContain('docker/compose/features/dashboard-domain.yaml')
+    expect(files).not.toContain('docker/compose/features/dashboard.yaml')
+    expect(files).not.toContain('docker/compose/features/dashboard-tailscale.yaml')
+  })
+
+  it('keeps the loopback dashboard when expose is local', () => {
+    const files = composeFiles(loadGatewayConfig({ PORTTA_DASHBOARD: 'true' }))
+    expect(files).toContain('docker/compose/features/dashboard.yaml')
+    expect(files).not.toContain('docker/compose/features/dashboard-domain.yaml')
+  })
+
   it('rejects an unknown access mode instead of guessing', () => {
     expect(() => loadGatewayConfig({ PORTTA_WEB_EXPOSE: 'everywhere' })).toThrow('panel access mode')
   })

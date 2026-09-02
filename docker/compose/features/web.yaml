@@ -141,6 +141,8 @@ services:
       PORTTA_DASHBOARD: ${PORTTA_DASHBOARD:-false}
       PORTTA_DASHBOARD_BIND_ADDRESS: ${PORTTA_DASHBOARD_BIND_ADDRESS:-127.0.0.1}
       PORTTA_DASHBOARD_PORT: ${PORTTA_DASHBOARD_PORT:-8080}
+      PORTTA_DASHBOARD_EXPOSE: ${PORTTA_DASHBOARD_EXPOSE:-local}
+      PORTTA_DASHBOARD_ADVERTISED_HOST: ${PORTTA_DASHBOARD_ADVERTISED_HOST:-}
       # Traefik's own API, read-only, and only when the dashboard is enabled.
       # The panel resolves the host from the attachment (`traefik` normally,
       # `tailscale` when Traefik shares that namespace) and reaches it over the

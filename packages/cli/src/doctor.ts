@@ -19,6 +19,7 @@ import {
   authStoreVerdict,
   check,
   componentVerdict,
+  dashboardExposeRefusal,
   dashboardVerdict,
   duplicates,
   envPermissionVerdict,
@@ -329,6 +330,13 @@ export async function runDoctor(context: GatewayContext): Promise<DoctorCheck[]>
 
   // --- dashboard -----------------------------------------------------------
   add(dashboardVerdict(config.dashboardEnabled, env['PORTTA_DASHBOARD_BIND_ADDRESS'] || '127.0.0.1', env['PORTTA_DASHBOARD_PORT'] || '8080'))
+  const dashboardRefusal = dashboardExposeRefusal(env)
+  if (dashboardRefusal) {
+    add(check('dashboard.expose', 'fail', 'traefik dashboard routing', dashboardRefusal,
+      'set PORTTA_DASHBOARD_EXPOSE=local, or run portta web auth set and give the host a domain'))
+  } else if (config.dashboardEnabled && config.dashboardExpose === 'domain') {
+    add(check('dashboard.expose', 'pass', 'traefik dashboard routing', `routed on ${config.dashboardAdvertisedHost}, behind portta-web-auth`))
+  }
 
   // --- the panel's front door ----------------------------------------------
   const webBind = env['PORTTA_WEB_BIND_ADDRESS'] || '127.0.0.1'

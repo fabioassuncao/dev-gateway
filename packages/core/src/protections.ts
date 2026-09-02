@@ -84,6 +84,32 @@ export function panelProtectionRecord(input: PanelProtectionInput): Omit<Protect
   }
 }
 
+/** A second host the panel credential covers, so the login router accepts it. */
+export function dashboardProtectionRecord(input: {
+  expose: string
+  advertisedHost: string | null
+  mode: string
+  user: string
+  hash: string
+  tlsEnabled: boolean
+  projectName: string
+}): Omit<ProtectionRecord, 'epoch'> | null {
+  if (input.expose !== 'domain' || input.mode !== 'basic' || !input.user || !input.hash || !input.advertisedHost) {
+    return null
+  }
+  return {
+    scope: 'dashboard',
+    host: input.advertisedHost,
+    entryPoints: [input.tlsEnabled ? 'websecure' : 'web'],
+    user: input.user,
+    hash: input.hash,
+    label: 'Traefik dashboard',
+    project: input.projectName,
+    service: 'traefik',
+    tech: { id: 'traefik', label: 'Traefik' },
+  }
+}
+
 export function emptyProtectionStore(): ProtectionStore {
   return { version: PROTECTION_STORE_VERSION, protections: [] }
 }
