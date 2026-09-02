@@ -222,8 +222,9 @@ assert_contains "$FIRST" "would create"
 # reporting the same work has not repaired anything.
 mkdir -p "$HOME_C/config/traefik/dynamic" "$HOME_C/config/tls" \
   "$HOME_C/state/traefik/acme" "$HOME_C/state/tailscale" "$HOME_C/state/access" \
-  "$HOME_C/state/git" "$HOME_C/state/github" "$HOME_C/state/cloudflared"
-chmod 700 "$HOME_C/state/traefik/acme" "$HOME_C/state/cloudflared"
+  "$HOME_C/state/git" "$HOME_C/state/github" "$HOME_C/state/cloudflared" \
+  "$HOME_C/state/host" "$HOME_C/state/runner"
+chmod 700 "$HOME_C/state/traefik/acme" "$HOME_C/state/cloudflared" "$HOME_C/state/runner"
 chmod 600 "$HOME_C/.env"
 SECOND=$(run_with_networks "$HOME_C" repair --dry-run 2>&1)
 
