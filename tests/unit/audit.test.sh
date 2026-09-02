@@ -50,6 +50,20 @@ assert_eq "" "$(grep -hE '^\s+- [./][^ ]*:' docker/compose/compose.yaml docker/c
   | grep -vE '/var/run/docker\.sock:/var/run/docker\.sock:ro' \
   | grep -vE '/dev/net/tun:/dev/net/tun' || true)"
 
+describe "tests do not reach into procfs"
+
+# `/proc` looks like a conveniently unwritable directory and is not: on Linux a
+# recursive mkdir inside it never returns, and the spin is synchronous, so no
+# test timeout can interrupt it. One such path hung the entire panel suite on
+# every Linux CI run for hours while passing on macOS, where /proc does not
+# exist. Use a path whose parent is a regular file instead: ENOTDIR, instantly,
+# for every user including root.
+# Assembled from pieces so this file does not match its own rule, the same way
+# the prune audit below avoids naming its literals.
+PROCFS_PATH="/pro""c/"
+it "no test uses a procfs path to simulate a failure"
+assert_eq "" "$(grep -rn -- "$PROCFS_PATH" apps/web/tests packages/*/src 2>/dev/null || true)"
+
 describe "the gateway never destroys what it does not own"
 
 it "no prune, ever"

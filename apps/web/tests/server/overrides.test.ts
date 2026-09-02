@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, existsSync, chmodSync } from 'node:fs'
+import { mkdtempSync, readFileSync, existsSync, chmodSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -10,6 +10,19 @@ import type { Project } from '../../src/shared/types.ts'
 
 function scratch(): string {
   return mkdtempSync(join(tmpdir(), 'portta-overrides-'))
+}
+
+/**
+ * A regular file, used as the parent of a path that must never be creatable.
+ *
+ * Deliberately not a read-only directory: `chmod` does not stop root, and CI
+ * containers commonly run as root, so a permission-based version of this test
+ * would silently pass without exercising the failure at all.
+ */
+function unwritableParent(): string {
+  const file = join(scratch(), 'not-a-directory')
+  writeFileSync(file, '')
+  return file
 }
 
 const cleanup: string[] = []
@@ -180,7 +193,17 @@ describe('a hostname alias', () => {
   })
 
   it('rolls the row back when the file cannot be written', async () => {
-    const instance = app('/proc/portta-cannot-write')
+    // A directory that cannot exist, for reasons no privilege overrides: its
+    // parent is a regular file, so creating it fails ENOTDIR for root as well.
+    //
+    // This used to point inside procfs, which looks equivalent and is not.
+    // macOS has no such filesystem, so the write failed immediately and the
+    // test passed. On Linux `mkdirSync(..., { recursive: true })` there never
+    // returns — a synchronous spin no test timeout can interrupt, because
+    // timeouts are async. That one line hung the whole panel suite on every
+    // Linux CI run while passing locally. tests/unit/audit.test.sh now refuses
+    // such a path outright.
+    const instance = app(join(unwritableParent(), 'cannot-be-a-directory'))
     const response = await put(instance, '/api/projects/alpha/services/web/alias', { alias: 'shop' })
     expect(response.status).toBeGreaterThanOrEqual(400)
     expect(instance.db.serviceValues.get('web:alias')).toBeUndefined()

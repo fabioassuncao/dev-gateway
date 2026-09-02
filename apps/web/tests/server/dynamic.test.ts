@@ -123,7 +123,13 @@ describe('reconcilePanelAuth', () => {
   })
 
   it('reports rather than throws when the directory cannot be written', () => {
-    const result = reconcilePanelAuth('/proc/nowhere-portta', {
+    // The parent is a regular file, so this can never be created — ENOTDIR for
+    // every user, root included. A procfs path looks equivalent and is not: on
+    // Linux a recursive mkdir there never returns. Same fix as
+    // overrides.test.ts.
+    const unwritable = join(scratch(), 'not-a-directory')
+    writeFileSync(unwritable, '')
+    const result = reconcilePanelAuth(join(unwritable, 'nowhere'), {
       mode: 'basic',
       user: 'dev',
       hash: '$apr1$a$b',
