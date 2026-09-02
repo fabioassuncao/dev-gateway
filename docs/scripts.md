@@ -127,6 +127,10 @@ is missing from the Commander tree, in either of the block's two halves — the
 arms that run a shell implementation, and the arms that report that the full
 CLI is required.
 
+`host collect` is in that second half, with `git`: it has to run on the host
+(the panel's container would report its own numbers) and it needs Node, so
+there is no shell implementation. The name still exists in both entry points.
+
 A passthrough is also transparent, and tested as such: it forwards `--help` to
 the implementation rather than answering with Commander's stub, and it adopts
 the child's exit code instead of rewriting every failure as a precondition.

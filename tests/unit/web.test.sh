@@ -191,6 +191,7 @@ assert_contains "$compose" 'GITHUB_APP_PRIVATE_KEY_FILE: ${GITHUB_APP_PRIVATE_KE
 # free because the whole directory is mounted, not one file in it.
 it "the key still comes from one read-only directory, not one filename"
 assert_contains "$compose" './state/github:/app/state/github:ro'
+assert_contains "$compose" './state/host:/app/state/host:ro'
 
 it "the panel refuses a path it could not open, naming that directory"
 assert_contains "$(cat apps/web/src/server/core/settings.ts)" "the directory mounted into the panel"

@@ -4277,6 +4277,301 @@
         ],
         "additionalProperties": false
       },
+      "HostResources": {
+        "type": "object",
+        "properties": {
+          "system": {
+            "type": "object",
+            "properties": {
+              "hostname": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "os": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "osVersion": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "kernel": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "architecture": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "uptimeSeconds": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "docker",
+                  "collector",
+                  "mixed"
+                ]
+              }
+            },
+            "required": [
+              "hostname",
+              "os",
+              "osVersion",
+              "kernel",
+              "architecture",
+              "uptimeSeconds",
+              "source"
+            ],
+            "additionalProperties": false
+          },
+          "cpu": {
+            "type": "object",
+            "properties": {
+              "model": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "cores": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "utilisation": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "load": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "one": {
+                        "type": "number"
+                      },
+                      "five": {
+                        "type": "number"
+                      },
+                      "fifteen": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "one",
+                      "five",
+                      "fifteen"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "docker",
+                  "collector",
+                  "mixed"
+                ]
+              }
+            },
+            "required": [
+              "model",
+              "cores",
+              "utilisation",
+              "load",
+              "source"
+            ],
+            "additionalProperties": false
+          },
+          "memory": {
+            "type": "object",
+            "properties": {
+              "totalBytes": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "usedBytes": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "availableBytes": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "usedPercent": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "docker",
+                  "collector",
+                  "mixed"
+                ]
+              }
+            },
+            "required": [
+              "totalBytes",
+              "usedBytes",
+              "availableBytes",
+              "usedPercent",
+              "source"
+            ],
+            "additionalProperties": false
+          },
+          "storage": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "docker",
+                    "portta",
+                    "both"
+                  ]
+                },
+                "totalBytes": {
+                  "type": "number"
+                },
+                "usedBytes": {
+                  "type": "number"
+                },
+                "availableBytes": {
+                  "type": "number"
+                },
+                "usedPercent": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "path",
+                "role",
+                "totalBytes",
+                "usedBytes",
+                "availableBytes",
+                "usedPercent"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "gpu": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "memoryTotalBytes": {
+                  "type": "number"
+                },
+                "memoryUsedBytes": {
+                  "type": "number"
+                },
+                "utilisation": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "memoryTotalBytes",
+                "memoryUsedBytes",
+                "utilisation"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "collectedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ageSeconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "system",
+          "cpu",
+          "memory",
+          "storage",
+          "gpu",
+          "collectedAt",
+          "ageSeconds",
+          "stale",
+          "hint"
+        ],
+        "additionalProperties": false
+      },
       "ConfigField": {
         "type": "object",
         "properties": {
@@ -9783,6 +10078,57 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/host": {
+      "get": {
+        "operationId": "getHostResources",
+        "tags": [
+          "Status"
+        ],
+        "summary": "Get this host's capacity right now",
+        "description": "Merges GET /info (static host facts) with state/host/host.json from `portta host collect`. A missing file is a smaller object, never an error. No history.",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostResources"
                 }
               }
             }

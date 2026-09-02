@@ -20,6 +20,26 @@
     "problemsHintWarn": "warnings only, nothing blocking",
     "problemsHintOk": "nothing blocking"
   },
+  "host": {
+    "title": "This host",
+    "description": "Capacity right now. No history.",
+    "system": "System",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "gpu": "GPU",
+    "storage": {
+      "docker": "Docker",
+      "portta": "Portta",
+      "both": "Disk"
+    },
+    "cores": "{{count}} cores",
+    "load": "load {{one}} {{five}} {{fifteen}}",
+    "up": "up {{time}}",
+    "high": "high",
+    "fresh": "just collected",
+    "stale": "collected {{age}}s ago",
+    "collectHint": "Static facts only. Run {{command}} on the host for load, memory in use and disk."
+  },
   "detectedProblems": {
     "title": "Detected problems",
     "description": "Everything the panel can check from inside the container.",

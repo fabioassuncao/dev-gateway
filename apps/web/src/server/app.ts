@@ -14,6 +14,7 @@ import { networkRoutes } from './routes/network.ts'
 import { tunnelRoutes } from './routes/tunnel.ts'
 import { accessRoutes } from './routes/access.ts'
 import { gatewayRoutes } from './routes/gateway.ts'
+import { hostRoutes } from './routes/host.ts'
 import { configRoutes } from './routes/config.ts'
 import { eventRoutes } from './routes/events.ts'
 import { integrationRoutes } from './routes/integrations.ts'
@@ -90,6 +91,7 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', accessRoutes(deps))
   api.route('/', shareRoutes(deps))
   api.route('/', gatewayRoutes(deps))
+  api.route('/', hostRoutes(deps))
   api.route('/', configRoutes(deps))
   api.route('/', eventRoutes(deps))
   api.route('/', integrationRoutes(deps))

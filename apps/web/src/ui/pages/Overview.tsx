@@ -11,6 +11,7 @@ import { AddressLine } from '../components/copy.tsx'
 import { ScopeBadge } from '../components/status.tsx'
 import { DiagnosticText } from '../components/diagnostic-text.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
+import { HostResources } from '../components/host-resources.tsx'
 
 export function Overview() {
   const { t } = useTranslation('overview')
@@ -79,6 +80,8 @@ export function Overview() {
           }
         />
       </div>
+
+      <HostResources />
 
       <div className="mt-4 grid items-start gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">

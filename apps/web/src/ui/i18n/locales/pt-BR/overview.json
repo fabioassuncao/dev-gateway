@@ -20,6 +20,26 @@
     "problemsHintWarn": "apenas avisos, nada bloqueando",
     "problemsHintOk": "nada bloqueando"
   },
+  "host": {
+    "title": "Este host",
+    "description": "Capacidade agora. Sem histórico.",
+    "system": "Sistema",
+    "cpu": "CPU",
+    "memory": "Memória",
+    "gpu": "GPU",
+    "storage": {
+      "docker": "Docker",
+      "portta": "Portta",
+      "both": "Disco"
+    },
+    "cores": "{{count}} núcleos",
+    "load": "load {{one}} {{five}} {{fifteen}}",
+    "up": "ligado há {{time}}",
+    "high": "alto",
+    "fresh": "recém coletado",
+    "stale": "coletado há {{age}}s",
+    "collectHint": "Só fatos estáticos. Execute {{command}} no host para carga, memória em uso e disco."
+  },
   "detectedProblems": {
     "title": "Problemas detectados",
     "description": "Tudo que o painel consegue verificar de dentro do contêiner.",

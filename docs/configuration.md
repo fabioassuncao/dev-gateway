@@ -181,3 +181,11 @@ Key, which authenticates everything in the account and cannot be scoped.
 `.env` is git-ignored, `bootstrap` writes it `0600`, `inspect` prints `<set>`
 rather than values, and lint fails on tracked auth keys or private keys. Gateway
 state, including ACME material, lives under `state/`, which is also ignored.
+
+## Host resources
+
+`portta host collect` writes `state/host/host.json` on the host. The panel
+reads that file — it cannot see `/proc` honestly from inside its container —
+and merges it with the Engine's `GET /info`. There is no setting for this:
+collection is a command, the same way `git scan` is. `portta up` and
+`portta web up` already run it.

@@ -99,6 +99,7 @@ See [Database access](database-access.md), [TCP access](tcp-access.md), and
 | `portta namespace` | Derive a collision-free Compose project name for a worktree. |
 | `portta git scan` | Collect branch, HEAD and dirty state on the host. |
 | `portta git status` | Report collected Git metadata and its age. |
+| `portta host collect` | Collect CPU, memory, disk and GPU for the Overview. |
 | `portta remote bootstrap <user@host>` | Prepare and start a remote gateway over SSH. |
 | `portta remote status|doctor|urls <user@host>` | Query a remote gateway. |
 | `portta remote exec <user@host> -- <command>` | Run an explicit remote gateway command. |

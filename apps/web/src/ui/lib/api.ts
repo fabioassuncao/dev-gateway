@@ -6,6 +6,7 @@ import type {
   ContainerSummary,
   Diagnostic,
   DockerHost,
+  HostResources,
   GatewayStatus,
   LogsResponse,
   NetworkView,
@@ -218,6 +219,7 @@ export const api = {
       body: JSON.stringify({ confirm: true, force }),
     }),
   host: () => request<DockerHost>('/docker/host'),
+  hostResources: () => request<HostResources>('/host'),
 
   network: () => request<NetworkView>('/network'),
 

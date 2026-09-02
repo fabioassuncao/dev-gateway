@@ -79,6 +79,11 @@ export interface DockerInfo {
   OperatingSystem: string
   Architecture: string
   ServerVersion: string
+  OSType?: string
+  OSVersion?: string
+  KernelVersion?: string
+  DockerRootDir?: string
+  Driver?: string
 }
 
 export interface DockerVersion {

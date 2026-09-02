@@ -132,6 +132,7 @@ file or stdin.
 | `dns setup` | `--target <ip>`, `--dry-run`; Cloudflare needs a scoped token. |
 | `git scan` | `--project`, `--with-prs`, `--forge-ttl <seconds>` |
 | `git status`, `git clear` | Inspect or remove only `state/git/*.json`. |
+| `host collect` | Write CPU, memory, disk and GPU into `state/host/host.json`. |
 | `share list`, `share revoke <id>`, `share gc` | Shares can only be created in the panel. |
 | `tls status|init` | `init` runs OpenSSL in the toolbox container and enables TLS in `.env`. |
 | `tls trust|untrust` | Print the privileged command for this operating system; never run it. |

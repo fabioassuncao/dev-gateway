@@ -4,10 +4,11 @@ import { renderWithQuery } from './render.tsx'
 import type { Overview as OverviewData } from '../../src/shared/types.ts'
 
 const overview = vi.fn()
+const hostResources = vi.fn()
 
 vi.mock('../../src/ui/lib/api.ts', () => ({
   ApiError: class ApiError extends Error {},
-  api: { overview: () => overview() },
+  api: { overview: () => overview(), hostResources: () => hostResources() },
 }))
 
 const { Overview } = await import('../../src/ui/pages/Overview.tsx')
@@ -80,7 +81,28 @@ const data: OverviewData = {
   ],
 }
 
-beforeEach(() => overview.mockReset().mockResolvedValue(data))
+beforeEach(() => {
+  overview.mockReset().mockResolvedValue(data)
+  hostResources.mockReset().mockResolvedValue({
+    system: {
+      hostname: 'test-host',
+      os: 'Test Linux',
+      osVersion: '24.04',
+      kernel: '6.8.0',
+      architecture: 'aarch64',
+      uptimeSeconds: null,
+      source: 'docker',
+    },
+    cpu: { model: null, cores: 8, utilisation: null, load: null, source: 'docker' },
+    memory: { totalBytes: 17_179_869_184, usedBytes: null, availableBytes: null, usedPercent: null, source: 'docker' },
+    storage: [],
+    gpu: [],
+    collectedAt: null,
+    ageSeconds: null,
+    stale: false,
+    hint: 'portta host collect',
+  })
+})
 
 const tile = (name: string) =>
   screen.getByRole('group', { name }).querySelector('[data-slot="value"]')?.textContent

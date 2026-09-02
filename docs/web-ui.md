@@ -335,6 +335,13 @@ are healthy, which URLs exist, whether Tailscale and public access are on, how
 many containers are on the host, and how many of them the gateway knows
 nothing about. Plus anything the panel detected as a problem.
 
+Below the counters, a compact block shows this machine's capacity: OS, CPU,
+memory, the filesystem that holds Docker and the one that holds Portta, and
+an NVIDIA GPU when one is present. Static facts come from the Engine. Load,
+memory in use and disk come from `portta host collect`, which writes
+`state/host/host.json` the same way `git scan` writes `state/git`. With no
+collection the block still renders, with a hint. There is no history.
+
 The tiles are the questions people actually ask on a busy host, and the
 problems card is the panel saying what it noticed rather than waiting to be
 asked: see the [Overview screenshot above](#the-web-panel).

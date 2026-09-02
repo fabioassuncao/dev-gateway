@@ -48,9 +48,10 @@ Every fact the gateway holds on 2026-09-01, including what issues #1, #4 and
 | **User** | theme, default page, table density | PostgreSQL (`settings`) | **Yes**, and low stakes either way |
 | **Shareable, with translation** | hostname alias | PostgreSQL `service_settings.alias` plus a generated Traefik file | **Partly** — see aliases |
 
-Git snapshots under `state/git/` are runtime observations collected on the
-host ([ADR 0010](0010-git-collected-on-the-host.md)). They are not shareable
-as a source of truth; `repo_url` extracted from them is a portable
+Git snapshots under `state/git/` and host snapshots under `state/host/` are
+runtime observations collected on the host
+([ADR 0010](0010-git-collected-on-the-host.md)). They are not shareable as a
+source of truth; `repo_url` extracted from a Git file is a portable
 *coordinate*, which is a different column doing a different job.
 
 Share records (temporary extra hostnames with expiry) are instance-scoped:

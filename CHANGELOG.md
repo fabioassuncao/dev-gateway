@@ -11,6 +11,13 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Added
 
+- **The Overview shows whether this machine has room.** OS, cores and total
+  memory come from the Engine call the panel already made. Load, memory in
+  use, disk and an NVIDIA GPU come from `portta host collect`, which writes
+  `state/host/host.json` the same way Git collection writes `state/git`.
+  A host that has not collected still gets the static facts and a hint.
+  There is no history.
+
 - **The Traefik dashboard is reachable from the panel, behind ForwardAuth.**
   `PORTTA_DASHBOARD_EXPOSE=domain` routes `api@internal` on a derived
   hostname, with the same login as the panel and without `TRAEFIK_API_INSECURE`.

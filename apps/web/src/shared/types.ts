@@ -624,6 +624,62 @@ export const GatewayStatus = named(
 )
 export type GatewayStatus = z.infer<typeof GatewayStatus>
 
+const HostFactSource = z.enum(['docker', 'collector', 'mixed'])
+const nullableNumber = z.number().nullable()
+const nullableString = z.string().nullable()
+
+export const HostResources = named(
+  z.object({
+    system: z.object({
+      hostname: nullableString,
+      os: nullableString,
+      osVersion: nullableString,
+      kernel: nullableString,
+      architecture: nullableString,
+      uptimeSeconds: nullableNumber,
+      source: HostFactSource,
+    }).strict(),
+    cpu: z.object({
+      model: nullableString,
+      cores: z.number().int().nullable(),
+      utilisation: nullableNumber,
+      load: z.object({
+        one: z.number(),
+        five: z.number(),
+        fifteen: z.number(),
+      }).strict().nullable(),
+      source: HostFactSource,
+    }).strict(),
+    memory: z.object({
+      totalBytes: nullableNumber,
+      usedBytes: nullableNumber,
+      availableBytes: nullableNumber,
+      usedPercent: nullableNumber,
+      source: HostFactSource,
+    }).strict(),
+    storage: z.array(z.object({
+      path: z.string(),
+      role: z.enum(['docker', 'portta', 'both']),
+      totalBytes: z.number(),
+      usedBytes: z.number(),
+      availableBytes: z.number(),
+      usedPercent: z.number(),
+    }).strict()),
+    gpu: z.array(z.object({
+      name: z.string(),
+      memoryTotalBytes: z.number(),
+      memoryUsedBytes: z.number(),
+      utilisation: nullableNumber,
+    }).strict()),
+    collectedAt: unixSeconds.nullable(),
+    ageSeconds: z.number().int().nullable(),
+    stale: z.boolean(),
+    hint: nullableString,
+  }).strict(),
+  'HostResources',
+)
+export type HostResources = z.infer<typeof HostResources>
+
 export const OverviewCounts = named(
   z.object({
     projects: z.number().int(),
