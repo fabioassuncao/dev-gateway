@@ -489,8 +489,12 @@ cmd_update() {
   info "validating the compose configuration before touching anything"
   portta_compose "$profile" config --quiet || die "compose configuration is invalid; nothing was changed"
 
+  # --ignore-buildable because a checkout adds auth-build.yaml, which gives the
+  # auth services a `build:` and a local tag. Without it Compose tries to pull an
+  # image that only exists after `docker compose build`, and the registry it was
+  # never pushed to answers "access denied".
   info "pulling pinned component images"
-  portta_compose "$profile" pull
+  portta_compose "$profile" pull --ignore-buildable
 
   portta_confirm "Recreate gateway containers now? Consumer projects are unaffected." || {
     info "aborted; images were pulled but nothing was recreated"

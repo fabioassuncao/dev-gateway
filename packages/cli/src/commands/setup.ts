@@ -80,7 +80,7 @@ export async function setupCommand(options: SetupOptions, command: Command): Pro
   const network = await ensureNetwork(context.config.network)
   record('network', network, `shared network ${context.config.network}`)
   if (options.skipPull) record('images', 'skipped', 'image pull disabled')
-  else { await runProcess('docker', ['compose', ...composeArguments(context), 'pull'], { cwd: target, env: context.env }); record('images', 'ok', 'pinned images pulled') }
+  else { await runProcess('docker', ['compose', ...composeArguments(context), 'pull', '--ignore-buildable'], { cwd: target, env: context.env }); record('images', 'ok', 'pinned images pulled') }
   await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d'], { cwd: target, env: context.env })
   record('gateway', 'ok', `gateway up on ${profile}`)
   const running = await runProcess('docker', ['compose', ...composeArguments(context), 'ps', '--status', 'running', '--quiet'], { cwd: target, env: context.env })

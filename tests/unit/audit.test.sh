@@ -238,10 +238,27 @@ assert_eq "" "$(grep -rhE '^\s*(image|FROM):?\s' docker/compose/compose.yaml doc
   | grep -vE '^[[:space:]]*FROM[[:space:]]+(deps|base|build|dev|runtime)[[:space:]]*$' \
   | grep -vE ':[A-Za-z0-9][A-Za-z0-9._-]*[[:space:]]*$' || true)"
 
-it "the panel image the installer pulls matches VERSION"
+it "every Portta image the installer pulls matches VERSION"
 # A tag that drifts from VERSION means an installation pinned by the compose
-# file would pull an image that was never published for it.
-assert_contains "$(cat docker/compose/features/web.yaml)" "portta:$(tr -d '[:space:]' < VERSION)}"
+# file would pull an image that was never published for it. The panel was the
+# only file asserted here, so `portta-auth` sat a whole release behind and only
+# a `docker pull` on a fresh host would have said so.
+assert_eq "" "$(grep -rhoE 'ghcr\.io/fabioassuncao/portta:[0-9][^}]*' docker/compose/compose.yaml docker/compose/*/*.yaml \
+  | sort -u | grep -vxF "ghcr.io/fabioassuncao/portta:$(tr -d '[:space:]' < VERSION)" || true)"
+
+it "and every Portta image is pinned, so none of them can float"
+assert_eq "" "$(grep -rhE 'image:.*fabioassuncao/portta' docker/compose/compose.yaml docker/compose/*/*.yaml \
+  | grep -vE 'ghcr\.io/fabioassuncao/portta:[0-9]|fabioassuncao/portta:(local|dev)' || true)"
+
+it "pulling never reaches for an image that only a local build produces"
+# A checkout adds auth-build.yaml unconditionally, which gives the auth
+# services a `build:` and a local tag. Every `pull` has to skip those or it
+# asks a registry for an image nobody ever pushed, and both CI jobs that boot
+# the gateway died there. ADR 0015: the shell and the CLI must agree.
+assert_contains "$(cat bin/portta)" "pull --ignore-buildable"
+for source in packages/cli/src/commands/lifecycle.ts packages/cli/src/commands/setup.ts; do
+  assert_eq "" "$(grep -n "'pull'\]" "$source" || true)"
+done
 
 it "no floating latest tag"
 assert_eq "" "$(grep -rn ':latest' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml docker/images/*/Dockerfile apps/web/Dockerfile 2>/dev/null || true)"

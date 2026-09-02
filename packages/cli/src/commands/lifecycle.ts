@@ -160,7 +160,11 @@ export async function bootstrapCommand(options: { skipPull?: boolean }, command:
   ensureAuthState(context.root)
   const network = await ensureNetwork(context.config.network)
   output.progress(`${network.padEnd(8)} shared network ${context.config.network}`)
-  if (!options.skipPull) await compose(command, ['pull'])
+  // `--ignore-buildable` because a checkout adds `auth-build.yaml`, which gives
+  // the auth services a `build:` and a local tag. Without it Compose tries to
+  // pull an image that only ever exists after `docker compose build`, and a
+  // registry it was never pushed to answers "access denied".
+  if (!options.skipPull) await compose(command, ['pull', '--ignore-buildable'])
   await doctorCommand(command)
 }
 
@@ -232,7 +236,7 @@ export async function logsCommand(service: string | undefined, options: { follow
 
 export async function updateCommand(command: Command): Promise<void> {
   await compose(command, ['config', '--quiet'])
-  await compose(command, ['pull'])
+  await compose(command, ['pull', '--ignore-buildable'])
   await confirm('recreate gateway components with the pulled images?', globals(command).yes === true)
   await compose(command, ['up', '-d', '--force-recreate'])
 }
