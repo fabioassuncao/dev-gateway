@@ -24,6 +24,7 @@ is the complete operator and contributor index. Historical build briefs under
 - [Command reference](commands.md) — the CLI surface grouped by purpose.
 - [TypeScript CLI contract](cli.md) — npm installation, flags, JSON shapes and exit codes.
 - [Security](security.md) — threat model, defaults, isolation, secrets, and residual risks.
+- [Authentication](authentication.md) — login sessions, project protection, credentials, and recovery.
 - [Troubleshooting](troubleshooting.md) — diagnose routes, DNS, TLS, ports, and containers.
 - [Compatibility](compatibility.md) — verified platforms and measured overhead.
 

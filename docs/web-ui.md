@@ -156,9 +156,9 @@ The panel publishes an OpenAPI 3.1 contract at
 `http://127.0.0.1:8081/api/openapi.json`. It is generated from the same route
 registrations and Zod schemas the server and UI use: parameters, request
 bodies, response shapes, status codes, read-only refusals and the SSE payload
-are all part of the document. Authentication is declared as HTTP Basic, while
-[ADR 0012](adr/0012-panel-authentication-is-traefiks.md) remains the important
-boundary: Traefik enforces it before a request reaches the application.
+are all part of the document. It declares the host-scoped Portta session and
+the HTTP Basic compatibility path for non-browser clients. Traefik asks the
+separate auth process to enforce either one before a request reaches the panel.
 
 `http://127.0.0.1:8081/api/docs` is a small interactive browser for that
 document. Its HTML, CSS and JavaScript are served from the panel image; it
@@ -213,11 +213,10 @@ the tailnet and nowhere else:
 # https://portta-web.vpn.example.com
 ```
 
-This adds a Traefik router for `PORTTA_WEB_HOST.<domain>` and a BasicAuth
-middleware in front of it. It is refused on the `remote-public` profile, where
-Traefik binds every interface and a router would therefore be public, and it is
-refused without a credential: a routed panel can stop and remove every
-container on the host.
+This adds a Traefik router for `PORTTA_WEB_HOST.<domain>` and the Portta
+ForwardAuth middleware in front of it. It is refused on the `remote-public`
+profile, where that private router would be public, and it is refused without
+a credential: a routed panel can stop and remove every container on the host.
 
 A routed panel also defaults to read-only. `--writable` opts out, deliberately.
 
@@ -231,10 +230,10 @@ A routed panel also defaults to read-only. `--writable` opts out, deliberately.
 ```
 
 The password is generated (twenty characters over a thirty-two symbol alphabet,
-so about a hundred bits), shown exactly once, and stored only as an apr1 hash
-in `.env` and in `config/traefik/dynamic/portta-panel.yaml`. Nothing puts
-it on a command line, where `ps` would show it to every user on the host. Use
-`--password-stdin` to supply your own, and `--user` to change the name.
+so about a hundred bits), shown exactly once, and stored as scrypt in the
+owner-only `state/auth/protections.json`. Nothing puts it on a command line,
+where `ps` would show it to every user on the host. Use `--password-stdin` to
+supply your own, and `--user` to change the name.
 
 Traefik hot-reloads the dynamic directory, so a running panel needs no restart.
 
@@ -244,21 +243,24 @@ Traefik hot-reloads the dynamic directory, so a running panel needs no restart.
 ./bin/portta web auth clear    # refused while the panel is routed
 ```
 
-None of this lives in the panel: there is no login form, no session, no cookie
-and no user store, so no bug in a route handler can let a request past. The
-request either reaches the container or it does not. The trade is that BasicAuth
-is one credential for the whole panel, with no users and no roles. See
-[ADR 0012](adr/0012-panel-authentication-is-traefiks.md).
+None of this check lives in the panel. The separate `portta-auth` process serves
+the login, validates the credential and issues a host-only session before the
+request reaches any panel route handler. Logging out clears that session;
+rotating the credential invalidates all sessions for this host. See
+[Authentication](authentication.md) and
+[ADR 0027](adr/0027-forward-authentication-service.md).
 
-### Never on the internet
+### Public exposure
 
 ```bash
 ./bin/portta web up --expose public
-# error: the panel is never published on the internet
+# https://portta-web.dev.example.com
 ```
 
-BasicAuth over the internet, in front of container lifecycle control on a shared
-development host, is not a boundary worth trusting. The VPN stays the answer.
+Public exposure uses the same Portta login, lockout and host-scoped sessions.
+It remains an explicit choice because this panel controls container lifecycle;
+prefer a VPN when the audience does not need a public path, and use TLS whenever
+the route crosses an untrusted network.
 
 If you are on a plain VPS without a VPN, an SSH tunnel is the answer:
 
@@ -878,24 +880,23 @@ host file and does write inside the image, where only `node` has permission.
 The panel is the one component that can start, stop and remove containers, so
 what it cannot do matters more than what it can.
 
-**Network.** Loopback by default, never routed through the public entrypoints,
-and `--expose public` is refused outright. Routing it over the VPN is a
-separate, explicit overlay, refused on the public profile and refused without a
-credential.
+**Network.** Loopback by default. VPN routing and the dedicated public panel
+entrypoint are separate, explicit overlays and are refused without a
+credential. Public panel exposure does not publish the application's
+`web`/`websecure` entrypoints.
 
-**Authentication.** Traefik's, not the panel's: a BasicAuth middleware the
-panel renders into `config/traefik/dynamic/portta-panel.yaml`, referenced
-by the router in `docker/compose/features/web-vpn.yaml`. The password is generated, shown once
-and stored only as a hash; `PORTTA_WEB_AUTH_HASH` is a secret in the
-settings catalogue, so the API reports it as set and never returns it. A
-middleware Traefik cannot resolve makes the router fail closed. `doctor` and the
-panel's own diagnostics fail, not warn, on a routed panel without one. See
-[ADR 0012](adr/0012-panel-authentication-is-traefiks.md).
+**Authentication.** Traefik calls the separate `portta-auth` process before
+forwarding a protected request. The password is generated, shown once and
+stored only as scrypt in `state/auth/protections.json`; the auth process mounts
+that file read-only and has no Docker socket or database. A middleware Traefik
+cannot resolve makes the router fail closed. `doctor` and the panel's own
+diagnostics fail, not warn, when the secret, store or auth service is missing or
+unsafe. See [Authentication](authentication.md).
 
 **Traefik configuration.** The panel mounts `config/traefik/dynamic/`
-read-write and may write exactly three filenames in it,
-`portta-panel.yaml`, `portta-shares.yaml` and
-`portta-aliases.yaml`. Any other path is refused in its own process,
+read-write and may write exactly four filenames in it,
+`portta-panel.yaml`, `portta-shares.yaml`, `portta-aliases.yaml` and
+`portta-auth.yaml`. Any other path is refused in its own process,
 before the write. Everything else in that directory
 is yours. See [ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md).
 

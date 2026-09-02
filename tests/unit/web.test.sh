@@ -249,6 +249,15 @@ assert_contains "$out" "needs a credential"
 it "doctor fails a routed panel without one"
 assert_contains "$(cat scripts/doctor.sh)" "with nothing in front of it"
 
+it "doctor checks every ForwardAuth prerequisite"
+doctor_source="$(cat scripts/doctor.sh)"
+for id in auth.secret auth.store auth.service; do
+  assert_contains "$doctor_source" "$id"
+done
+assert_contains "$doctor_source" "PORTTA_AUTH_SECRET is unset"
+assert_contains "$doctor_source" "credentials must be owner-only"
+assert_contains "$doctor_source" "authentication service"
+
 it "the password never reaches a command line, where ps would show it"
 assert_contains "$(cat packages/cli/src/commands/web.ts)" "hashPassword(password)"
 assert_eq "" "$(grep -nE "runProcess\([^]]*password" packages/cli/src/commands/web.ts || true)"

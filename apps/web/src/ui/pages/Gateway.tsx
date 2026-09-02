@@ -147,7 +147,7 @@ export function Gateway() {
                   <Badge>{t('versions.loopbackOnly')}</Badge>
                 ) : gateway.panel.authenticated ? (
                   <span className="flex flex-wrap items-center gap-1.5">
-                    <Badge tone="ok">{t('versions.routedBasicAuth')}</Badge>
+                    <Badge tone="ok">{t('versions.routedForwardAuth')}</Badge>
                     <span className="font-mono text-xs">{gateway.panel.user}</span>
                   </span>
                 ) : (

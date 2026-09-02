@@ -128,9 +128,9 @@ portta_resolve_profile() {
       ;;
   esac
 
-  # BasicAuth in front of container lifecycle control is not a boundary worth
-  # trusting on the internet, so the panel is never routed where Traefik
-  # answers it. See docs/adr/0012-panel-authentication-is-traefiks.md.
+  # The private VPN router must not silently become public just because the
+  # selected gateway profile binds Traefik on every interface. Public panel
+  # access has its own explicit entrypoint and ForwardAuth overlay.
   if portta_is_true "${PORTTA_WEB:-false}" \
      && [ "${PORTTA_WEB_EXPOSE:-local}" = "vpn" ] \
      && [ "$profile" = "remote-public" ]; then

@@ -90,7 +90,7 @@ export function documentRoute(doc: RouteDocumentation): MiddlewareHandler {
     description: doc.description,
     parameters: doc.parameters,
     responses,
-    security: [{}, { basicAuth: [] }],
+    security: [{}, { cookieAuth: [] }, { basicAuth: [] }],
   }
   if (doc.request) {
     spec.requestBody = {
@@ -181,11 +181,18 @@ export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
     ],
     components: {
       securitySchemes: {
+        cookieAuth: {
+          type: 'apiKey',
+          in: 'cookie',
+          name: '__portta_session',
+          description:
+            'Host-scoped session issued by the Portta login page. Traefik validates it through ForwardAuth before forwarding the request.',
+        },
         basicAuth: {
           type: 'http',
           scheme: 'basic',
           description:
-            'Optional at the application level. When PORTTA_WEB_AUTH=basic, Traefik enforces this credential before forwarding the request.',
+            'Compatibility path for API clients, health checks and webhooks. Traefik validates it through Portta ForwardAuth before forwarding the request.',
         },
       },
     },

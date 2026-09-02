@@ -15,7 +15,7 @@ export type GatewayProfile = 'local' | 'remote-private' | 'remote-public'
  *
  *   local      loopback only; reach it over an SSH tunnel
  *   tailscale  bound to the node's tailnet address, nothing on the public NIC
- *   public     Traefik's own `panel` entrypoint on every interface, BasicAuth
+ *   public     Traefik's own `panel` entrypoint on every interface, ForwardAuth
  *   vpn        routed by Traefik at PORTTA_WEB_HOST.<domain> (remote-private)
  */
 export const PANEL_ACCESS_MODES = ['local', 'tailscale', 'public', 'vpn'] as const

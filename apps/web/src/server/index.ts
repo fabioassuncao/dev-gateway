@@ -17,9 +17,9 @@ import { GitHubIntegration } from './integrations/github/index.ts'
 
 const config = loadConfig()
 
-// The panel's own BasicAuth middleware lives in a file Traefik watches. It is
-// rendered here as well as by `portta web auth set`, so a panel started
-// with a credential in .env is never behind a stale one. A directory the panel
+// The panel's ForwardAuth record and middleware live in state/files Traefik
+// watches. They are reconciled here as well as by `portta web auth set`, so a
+// panel started with a credential in .env is never behind stale protection. A directory the panel
 // cannot write is a diagnostic, not a reason to refuse to start: on Linux it
 // may well belong to another user, and the CLI writes the same file.
 const rendered = reconcilePanelProtection(config, {

@@ -5,6 +5,18 @@ import type { FakeContainer } from './helpers.ts'
 
 export const GATEWAY: FakeContainer[] = [
   {
+    id: 'gw-auth',
+    name: 'portta-auth-1',
+    image: 'ghcr.io/fabioassuncao/portta:0.3.0',
+    health: 'healthy',
+    networks: ['portta'],
+    labels: {
+      'portta.managed': 'true',
+      'portta.component': 'auth',
+      'traefik.enable': 'false',
+    },
+  },
+  {
     id: 'gw-traefik',
     name: 'portta-traefik-1',
     image: 'traefik:v3.7.12',

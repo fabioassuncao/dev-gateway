@@ -144,7 +144,7 @@ describe "panel access selects exactly one front door"
 
 # See docs/adr/0021-panel-access-modes.md. The invariant worth testing is that
 # `web-bind.yaml` (a host port on the panel container) and `panel-public.yaml`
-# (a Traefik entrypoint with BasicAuth) are never both applied, because they
+# (a Traefik entrypoint with ForwardAuth) are never both applied, because they
 # would claim the same host port and one of them would bypass the credential.
 for mode in local tailscale vpn; do
   it "$mode publishes the panel container, not a Traefik entrypoint"

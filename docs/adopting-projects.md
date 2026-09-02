@@ -42,6 +42,24 @@ A compatible project:
 
 Nothing else. No Dockerfile changes, no directory moves, no shared base image.
 
+## Optional Portta login
+
+The project owns its router labels, so Portta never adds authentication behind
+your back. To protect a hostname, create its credential and opt the router into
+the generated middleware:
+
+```bash
+portta auth protect demo-web.example.com --project demo --service web
+```
+
+```yaml
+labels:
+  - "traefik.http.routers.demo-web.middlewares=portta-forward-auth@file"
+```
+
+`/__portta/auth` is reserved on protected hosts for the login and logout routes.
+See [Authentication](authentication.md) for rotation, removal and API clients.
+
 ## The overlay
 
 Keep integration in its own file so `compose.yaml` still describes the

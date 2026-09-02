@@ -141,7 +141,7 @@
     },
     "PORTTA_WEB_AUTH": {
       "label": "Panel authentication",
-      "help": "basic puts a Traefik BasicAuth middleware in front of the panel. Required once it is routed."
+      "help": "basic keeps the compatible setting name and enables the Portta login through ForwardAuth. Required once the panel is routed."
     },
     "PORTTA_WEB_AUTH_USER": {
       "label": "Panel username",
@@ -149,7 +149,7 @@
     },
     "PORTTA_WEB_AUTH_HASH": {
       "label": "Panel password hash",
-      "help": "A hash, never a password. Generate one with `portta web auth set`."
+      "help": "A legacy compatibility hash; the private authentication store is authoritative. Generate a new credential with `portta web auth set`."
     },
     "PORTTA_RUNTIME_API_DOCS": {
       "label": "API browser",

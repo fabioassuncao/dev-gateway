@@ -124,19 +124,18 @@ bytes and never reads a project's credentials.
 Off by default. It is the one component that can start, stop and remove
 containers, so it is fenced on three sides.
 
-- **Network.** Loopback by default, never attached to the `web`/`websecure`
-  entrypoints, and `portta web up --expose public` is refused. Routing it
-  over a VPN is a separate overlay, itself refused on the `remote-public`
-  profile where Traefik answers the internet.
-- **Authentication, once it is routed.** `--expose vpn` requires
-  `PORTTA_WEB_AUTH=basic` and a credential, and is refused without one.
-  The middleware is Traefik's, rendered by the panel into
-  `config/traefik/dynamic/portta-panel.yaml`: no login form, no session,
-  no user store, and no route handler a bug could let past. The password is
-  generated, shown once, and stored only as a hash. A routed panel also
+- **Network.** Loopback by default. VPN routing and the dedicated public panel
+  entrypoint are separate, explicit overlays; the public overlay does not
+  publish the application's `web`/`websecure` entrypoints.
+- **Authentication, once it is routed.** `--expose vpn` and `--expose public`
+  require `PORTTA_WEB_AUTH=basic` and a credential, and are refused without one.
+  Traefik delegates to the separate, unexposed `portta-auth` process before the
+  panel receives a request. Browser logins create host-only signed sessions;
+  Basic credentials remain available to non-browser clients. The password is
+  generated, shown once, and stored only as a private hash. A routed panel also
   defaults to read-only, and `doctor` fails if either is missing. See
-  [ADR 0012](adr/0012-panel-authentication-is-traefiks.md).
-- **Traefik configuration.** The panel may write two filenames in
+  [authentication.md](authentication.md).
+- **Traefik configuration.** The panel may write four filenames in
   `config/traefik/dynamic/` and refuses every other path in its own process.
   See [ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md).
 - **Temporary shares.** A share is one additional hostname for one service,
@@ -232,12 +231,10 @@ are normalised before being interpolated anywhere.
 - **Firewall.** Docker's published ports bypass UFW, so the bind address is
   the boundary the gateway actually relies on. See
   [firewall.md](firewall.md).
-- **Authentication for consumer projects.** There is no built-in identity
-  layer. Anything a project routes is reachable by anyone who can reach the
-  gateway. Use the VPN profile for anything that matters, or point
-  `forwardAuth` at your own provider
-  (`config/traefik/dynamic/auth.example.yaml.disabled`). The panel's own
-  BasicAuth is its front door, not a feature projects can adopt.
+- **Project authorization and multi-user identity.** A project can opt one
+  router into Portta's single-credential ForwardAuth with
+  `portta-forward-auth@file`; Portta does not add roles, accounts or edit that
+  project's labels. Use the VPN or a full IdP when that is the boundary needed.
 - **Multi-tenancy.** Every project on a host shares one Traefik and one shared
   network. This is a single-developer or single-team tool.
 - **Container escape.** The gateway reduces Docker API exposure; it does not

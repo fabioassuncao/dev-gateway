@@ -6,10 +6,11 @@
 // disk). What is here is everything derivable from Docker and the resolved
 // configuration, which is exactly what the panel already has.
 
-import type { StoredAlias } from 'portta-core'
+import { parseEnv, readEnvFile, readProtectionStore, type StoredAlias } from 'portta-core'
+import { existsSync, statSync } from 'node:fs'
 import type { PanelConfig } from '../config.ts'
 import { isAuthenticated, isRouted } from '../config.ts'
-import { GENERATED_FILES, isDirWritable, readGenerated, renderPanelAuth } from './dynamic.ts'
+import { GENERATED_FILES, isDirWritable, readGenerated } from './dynamic.ts'
 import type { Snapshot } from './inventory.ts'
 import { componentOf } from './gateway.ts'
 import { routersFor } from './traefik.ts'
@@ -292,6 +293,7 @@ export function diagnose(
     )
   }
 
+  results.push(...authChecks(snapshot, config))
   results.push(...panelChecks(config))
   if (verdict) results.push(...traefikChecks(snapshot, verdict))
   results.push(...shareChecks(shares))
@@ -475,7 +477,7 @@ function panelChecks(config: PanelConfig): Diagnostic[] {
     )
   } else {
     results.push(
-      check('panel-auth', 'pass', 'Panel authentication', `Traefik BasicAuth as ${config.webAuthUser}`),
+      check('panel-auth', 'pass', 'Panel authentication', `Portta ForwardAuth as ${config.webAuthUser}`),
     )
   }
 
@@ -493,22 +495,54 @@ function panelChecks(config: PanelConfig): Diagnostic[] {
 
   // A middleware Traefik cannot resolve makes the router fail closed, so this
   // is about a locked-out user rather than an open panel.
-  const wanted = renderPanelAuth(
-    isAuthenticated(config) ? { user: config.webAuthUser, hash: config.webAuthHash } : null,
-  )
-  if (readGenerated(config.dynamicDir, GENERATED_FILES.panel) !== wanted) {
+  const rendered = readGenerated(config.dynamicDir, GENERATED_FILES.auth)
+  if (!rendered?.includes('portta-forward-auth:')) {
     results.push(
       check(
         'panel-auth-file',
         'warn',
         'Panel middleware is out of step',
-        `${GENERATED_FILES.panel} does not match the current settings` +
+        `${GENERATED_FILES.auth} does not define portta-forward-auth` +
           (isDirWritable(config.dynamicDir) ? '' : ', and the directory is not writable by the panel'),
         'portta web auth apply',
       ),
     )
   }
 
+  return results
+}
+
+function authChecks(snapshot: Snapshot, config: PanelConfig): Diagnostic[] {
+  const results: Diagnostic[] = []
+  const saved = parseEnv(readEnvFile(config.envFile))
+  results.push(saved.get('PORTTA_AUTH_SECRET')
+    ? check('auth-secret', 'pass', 'Authentication signing secret', 'set')
+    : check('auth-secret', 'fail', 'Authentication signing secret', 'PORTTA_AUTH_SECRET is unset', 'portta bootstrap'))
+
+  if (!existsSync(config.authStore)) {
+    results.push(check('auth-store', 'fail', 'Authentication store', 'missing', 'portta up'))
+  } else {
+    try {
+      const mode = statSync(config.authStore).mode & 0o777
+      readProtectionStore(config.authStore)
+      results.push(mode === 0o600
+        ? check('auth-store', 'pass', 'Authentication store', 'valid and owner-only')
+        : check('auth-store', 'fail', 'Authentication store', `mode ${mode.toString(8)}; credentials must be owner-only`, 'chmod 600 state/auth/protections.json'))
+    } catch (error) {
+      results.push(check('auth-store', 'fail', 'Authentication store', `invalid: ${String(error)}`, 'portta up'))
+    }
+  }
+
+  const auth = componentOf(snapshot, 'auth')
+  if (!auth || auth.state !== 'running') {
+    results.push(check('auth-service', 'fail', 'Authentication service', auth ? `container is ${auth.state}` : 'missing', 'portta up'))
+  } else if (auth.health === 'unhealthy') {
+    results.push(check('auth-service', 'fail', 'Authentication service', 'container is unhealthy', 'portta logs portta-auth'))
+  } else if (auth.health === 'starting') {
+    results.push(check('auth-service', 'warn', 'Authentication service', 'health check is still starting'))
+  } else {
+    results.push(check('auth-service', 'pass', 'Authentication service', `running (${auth.health})`))
+  }
   return results
 }
 

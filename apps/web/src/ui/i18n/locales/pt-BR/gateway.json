@@ -26,7 +26,7 @@
     "traefikDashboard": "Dashboard do Traefik",
     "thisPanel": "Este painel",
     "loopbackOnly": "apenas loopback",
-    "routedBasicAuth": "roteado, com BasicAuth",
+    "routedForwardAuth": "roteado, com login Portta",
     "routedNoCredential": "roteado sem credencial",
     "readOnly": "somente leitura"
   },

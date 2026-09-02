@@ -120,3 +120,25 @@ for project-owned routers without editing consumer Compose files.
   though the active proxy mechanism is ForwardAuth.
 
 ---
+
+## 2026-09-02T02:18:00-03:00 - US-006: Update diagnostics and documentation
+
+### What was implemented
+Added host and panel checks for the signing secret, private protection store and
+auth service health. Reworked the operator guides, settings copy and OpenAPI
+contract around ForwardAuth sessions, Basic-client compatibility, project host
+protection and the reserved login path.
+
+### Files changed
+- `scripts/doctor.sh` and panel diagnostics — actionable auth boundary checks.
+- `docs/authentication.md` and related guides — end-to-end operator contract.
+- panel i18n and OpenAPI — current user-facing terminology and auth schemes.
+- installer and lifecycle comments — upgrade and public exposure guidance.
+
+### Learnings for future iterations
+- The compatibility value remains named `basic`, but it selects ForwardAuth;
+  user-facing surfaces should describe the behavior rather than that legacy key.
+- Diagnostics need a valid empty private store even on an otherwise clean host,
+  because authentication is now part of the default gateway topology.
+
+---

@@ -117,7 +117,7 @@ describe(web.command('status'), 'Show panel state and URL').action((_options, co
 describe(web.command('open'), 'Print and open the panel URL').action((_options, command) => webOpen(command))
 describe(web.command('logs [service]'), 'Follow panel logs').action((service, _options, command) => webLogs(service, command))
 describe(web.command('build'), 'Build the panel image').action((_options, command) => webBuild(command))
-const webAuth = describe(web.command('auth'), 'Manage Traefik BasicAuth')
+const webAuth = describe(web.command('auth'), 'Manage the panel login credential')
 describe(webAuth.command('status', { isDefault: true }), 'Show panel authentication').action((_options, command) => webAuthStatus(command))
 describe(webAuth.command('set'), 'Generate or read a password and store only its hash').option('--user <name>').option('--password-stdin').action(webAuthSet)
 describe(webAuth.command('clear'), 'Remove the credential while the panel is local').action((_options, command) => webAuthClear(command))

@@ -198,7 +198,7 @@
     "pass": {
       "exposure": "Panel exposure",
       "exposureDetail": "reachable on loopback only, where a password adds nothing",
-      "authDetail": "Traefik BasicAuth as {{user}}"
+      "authDetail": "Portta ForwardAuth as {{user}}"
     },
     "fail": {
       "detail": "the panel is routed (expose: {{expose}}) with no credential in front of it",

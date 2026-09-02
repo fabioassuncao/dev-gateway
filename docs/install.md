@@ -54,10 +54,11 @@ One directory. It defaults to `/opt/portta` for root and `~/.portta` otherwise.
 ├── scripts/                 what it sources
 ├── docker/compose/          the compose overlays
 ├── config/
-│   ├── traefik/dynamic/     routing, and the generated BasicAuth middleware
+│   ├── traefik/dynamic/     routing and generated ForwardAuth middleware
 │   └── tls/                 local certificate material
 └── state/
     ├── traefik/acme/        certificates
+    ├── auth/                private credential store, 0600
     ├── tailscale/           node identity
     ├── git/                 collected repository metadata
     └── github/              the GitHub App key, if you use one
@@ -130,8 +131,8 @@ access and application exposure are separate settings, and they stay separate.
 
 ### Public — the default
 
-The panel answers on every interface, on port 8081, behind a BasicAuth
-middleware enforced by Traefik before the request reaches the panel container.
+The panel answers on every interface, on port 8081, behind Portta ForwardAuth,
+enforced by Traefik before the request reaches the panel container.
 The panel publishes no host port of its own in this mode, so there is no way in
 that skips the credential. The installer verifies this by asking for
 `/api/health` with no credentials and requiring a 401 before it reports success.
@@ -141,9 +142,9 @@ http://203.0.113.10:8081
 ```
 
 It is plain HTTP. No public certificate authority issues certificates for bare
-IP addresses, so your credentials are protected by authentication but the
-connection is not encrypted. Set a domain and `TLS_ENABLED=true` for a real
-certificate.
+IP addresses, so authentication does not make the connection encrypted. Set a
+domain and `TLS_ENABLED=true` for a real certificate before using this across
+an untrusted network.
 
 ### Tailscale
 

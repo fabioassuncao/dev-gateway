@@ -16,12 +16,13 @@ network.
 |---|---|---|
 | Traefik | `traefik:v3.7.12` | The only process holding 80/443. Routes by hostname. |
 | Docker socket proxy | `tecnativa/docker-socket-proxy:v0.5.0` | Read-only, filtered Docker API for discovery. |
+| Portta auth | `fabioassuncao/portta:local` | ForwardAuth checks, branded login and host-scoped sessions; no published port. |
 | `bin/portta` | — | The operational contract: bootstrap, up/down, doctor, urls, access. |
 | Web panel | `fabioassuncao/portta:local` | Optional. Read-mostly administration UI on loopback. |
 | Panel socket proxy | `tecnativa/docker-socket-proxy:v0.5.0` | Optional. The panel's own filtered Docker API. |
 | Panel PostgreSQL | `postgres:18.6-alpine` | Optional. Durable decisions and identity, never runtime observations. |
 
-That is the whole permanent footprint: two small containers, or five with the
+That is the whole permanent footprint: three small containers, or six with the
 panel enabled. Bridges and toolbox containers are created on demand and removed
 when done.
 

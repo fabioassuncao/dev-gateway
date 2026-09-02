@@ -106,7 +106,10 @@ file or stdin.
 | `web down|disable|restart|status|open|build` | Global flags only. |
 | `web logs [service]` | `web`, `web-ui`, `web-socket-proxy` or `db`. |
 | `web auth status|clear|apply` | Global flags only. |
-| `web auth set` | `--user`, `--password-stdin`; generated passwords are shown once and only the apr1 hash is stored. |
+| `web auth set` | `--user`, `--password-stdin`; generated passwords are shown once and only a scrypt hash is stored in the private auth store. |
+| `auth protect <host>` | `--user`, `--password-stdin`, `--project`, `--service`; creates or rotates a protected-host record. |
+| `auth status [host]` | Read-only; never returns credential hashes. |
+| `auth unprotect <host>` | Removes the record; the consumer project's middleware label is unchanged. |
 | `network status` | `--public-ip` explicitly permits one external lookup. |
 | `public status|enable|disable` | Enable needs confirmation; TCP services are never published. |
 | `dns check|status` | Read-only. |

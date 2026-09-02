@@ -76,31 +76,22 @@ Public mode raises `aliasHeadersStrategy` to `delete`, so a client cannot
 forge a header Traefik manages by exploiting a backend that normalises
 underscores.
 
-There is **no authentication layer**. Anything routed is reachable by anyone.
-For a development environment that usually matters, so add a middleware to the
-routers that need it: basic auth, or an OAuth forward-auth service. The
-gateway ships reusable middlewares in `config/traefik/dynamic/` and is
-deliberately not coupled to any identity provider.
-
-A working starting point ships disabled:
+Anything routed is public unless its router opts into authentication. Portta
+ships a working ForwardAuth middleware and one credential per protected host:
 
 ```bash
-cp config/traefik/dynamic/auth.example.yaml.disabled \
-   config/traefik/dynamic/auth.yaml
-
-# generate a password hash without installing anything on the host
-portta toolbox run -- openssl passwd -apr1 'your-password'
+portta auth protect demo-web.example.com --project demo --service web
 ```
 
 Then opt a router in:
 
 ```yaml
 labels:
-  - "traefik.http.routers.web.middlewares=portta-basic-auth@file"
+  - "traefik.http.routers.web.middlewares=portta-forward-auth@file"
 ```
 
-The same file carries a `forwardAuth` middleware to point at your own identity
-provider. Traefik hot-reloads the directory, so neither needs a restart.
+Portta never edits the project label. See [authentication.md](authentication.md)
+for sessions, Basic-client compatibility and revocation.
 
 ## Deciding
 

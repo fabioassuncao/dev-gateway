@@ -44,8 +44,9 @@ connection. Nothing needs to reach you.
 a hostname, before the request ever gets to you. It is not a way in; it is a lock
 on a door that already exists.
 
-Portta treats them exactly that way: the tunnel is transport, Access is a
-protection level, and your application's own login is still your application's.
+Portta treats them exactly that way: the tunnel is transport, Access is an
+optional edge policy, and Portta ForwardAuth remains an independent origin-side
+login. Neither mechanism depends on the other.
 
 ## What you need
 

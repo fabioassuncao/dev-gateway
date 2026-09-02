@@ -1,11 +1,29 @@
 import { describe, expect, it } from 'vitest'
+import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { emptyProtectionStore, writeProtectionStore } from 'portta-core'
 import { buildSnapshot } from '../../src/server/core/inventory.ts'
 import { diagnose, problemsOnly } from '../../src/server/core/diagnostics.ts'
 import { fakeDocker, testConfig, type FakeContainer } from './helpers.ts'
 import { EXTERNAL, FULL_HOST, GATEWAY, PROJECT_A } from './fixtures.ts'
 
-async function check(containers: FakeContainer[], overrides = {}) {
-  const config = testConfig(overrides)
+interface AuthFixtureOptions {
+  secret?: boolean
+  store?: boolean
+  storeMode?: number
+}
+
+async function check(containers: FakeContainer[], overrides = {}, auth: AuthFixtureOptions = {}) {
+  const directory = mkdtempSync(join(tmpdir(), 'portta-diagnostics-'))
+  const envFile = join(directory, '.env')
+  const authStore = join(directory, 'auth/protections.json')
+  writeFileSync(envFile, auth.secret === false ? '' : `PORTTA_AUTH_SECRET=${'ab'.repeat(32)}\n`, { mode: 0o600 })
+  if (auth.store !== false) {
+    writeProtectionStore(authStore, emptyProtectionStore())
+    chmodSync(authStore, auth.storeMode ?? 0o600)
+  }
+  const config = testConfig({ envFile, authStore, ...overrides })
   const { client } = fakeDocker({ containers })
   const snapshot = await buildSnapshot(client, config)
   return diagnose(snapshot, config)
@@ -21,6 +39,27 @@ describe('diagnostics', () => {
     expect(find(checks, 'socket-proxy')?.status).toBe('pass')
     expect(find(checks, 'network')?.status).toBe('pass')
     expect(find(checks, 'routes-off-network')?.status).toBe('pass')
+    expect(find(checks, 'auth-secret')?.status).toBe('pass')
+    expect(find(checks, 'auth-store')?.status).toBe('pass')
+    expect(find(checks, 'auth-service')?.status).toBe('pass')
+  })
+
+  it('fails closed when authentication prerequisites are unsafe', async () => {
+    const unhealthy = GATEWAY.map((container) =>
+      container.labels?.['portta.component'] === 'auth'
+        ? { ...container, health: 'unhealthy' as const }
+        : container,
+    )
+    const checks = await check(unhealthy, {}, { secret: false, storeMode: 0o644 })
+    expect(find(checks, 'auth-secret')?.status).toBe('fail')
+    expect(find(checks, 'auth-store')?.status).toBe('fail')
+    expect(find(checks, 'auth-service')?.status).toBe('fail')
+  })
+
+  it('reports a missing authentication store', async () => {
+    const checks = await check(GATEWAY, {}, { store: false })
+    expect(find(checks, 'auth-store')?.status).toBe('fail')
+    expect(find(checks, 'auth-store')?.fix).toBe('portta up')
   })
 
   it('catches the most common adoption mistake: routed but off the network', async () => {

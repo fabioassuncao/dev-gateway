@@ -141,7 +141,7 @@
     },
     "PORTTA_WEB_AUTH": {
       "label": "Autenticação do painel",
-      "help": "basic coloca um middleware Traefik BasicAuth na frente do painel. Obrigatório quando roteado."
+      "help": "basic mantém o nome compatível da configuração e ativa o login Portta via ForwardAuth. Obrigatório quando o painel é roteado."
     },
     "PORTTA_WEB_AUTH_USER": {
       "label": "Usuário do painel",
@@ -149,7 +149,7 @@
     },
     "PORTTA_WEB_AUTH_HASH": {
       "label": "Hash da senha do painel",
-      "help": "Um hash, nunca uma senha. Gere com `portta web auth set`."
+      "help": "Hash legado de compatibilidade; o store privado de autenticação é a fonte oficial. Gere uma nova credencial com `portta web auth set`."
     },
     "PORTTA_RUNTIME_API_DOCS": {
       "label": "Navegador de API",

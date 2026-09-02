@@ -26,7 +26,7 @@
     "traefikDashboard": "Traefik dashboard",
     "thisPanel": "This panel",
     "loopbackOnly": "loopback only",
-    "routedBasicAuth": "routed, behind BasicAuth",
+    "routedForwardAuth": "routed, behind Portta login",
     "routedNoCredential": "routed with no credential",
     "readOnly": "read-only"
   },

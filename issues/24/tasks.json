@@ -80,8 +80,8 @@
         "Missing secret, unhealthy auth and unsafe store modes are diagnosed",
         "Authentication, security, sharing, panel and project adoption docs are current"
       ],
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Host and panel diagnostics now fail on a missing signing secret, invalid or non-private protection store, and missing or unhealthy auth service; operator, panel, sharing, public-access and adoption documentation is current."
     },
     {
       "id": "US-007",

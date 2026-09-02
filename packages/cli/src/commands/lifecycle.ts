@@ -53,7 +53,7 @@ function series(version: string): string {
 
 /**
  * The panel's own version, read from the API it serves. Unauthenticated on
- * loopback and over the tailnet; behind BasicAuth in `public` mode, where a
+ * loopback and over the tailnet; behind Portta ForwardAuth in `public` mode, where a
  * 401 is a perfectly good answer to "is it there" and no answer at all to
  * "which version" — so that case reports the image tag instead, which is what
  * the installation pinned.

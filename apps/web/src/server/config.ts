@@ -84,7 +84,7 @@ export interface PanelConfig {
   apiDocs: boolean
   /** Where the panel can be reached from: `local` or `vpn`. */
   webExpose: string
-  /** `none`, or `basic` for a Traefik BasicAuth middleware on its own router. */
+  /** `none`, or the compatibility value `basic` for the Portta ForwardAuth login. */
   webAuth: string
   webAuthUser: string
   /**
@@ -233,7 +233,7 @@ export function isRouted(config: PanelConfig): boolean {
   return config.webExpose !== 'local'
 }
 
-/** True when a routed panel is sitting behind Traefik BasicAuth. */
+/** True when a routed panel has a credential for Portta ForwardAuth. */
 export function isAuthenticated(config: PanelConfig): boolean {
   return config.webAuth === 'basic' && config.webAuthUser !== '' && config.webAuthHash !== ''
 }

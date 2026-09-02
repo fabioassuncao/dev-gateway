@@ -31,6 +31,7 @@ and points to the detailed guides.
 | `portta web logs` | Follow panel logs. |
 | `portta web down` | Stop the panel while leaving the gateway running. |
 | `portta web disable` | Disable and stop the panel. |
+| `portta web auth set|status|clear|apply` | Manage the panel's Portta login credential. |
 | `portta db status` | Inspect the panel PostgreSQL and migrations. |
 | `portta db shell` | Open a shell with private database connectivity. |
 | `portta db dump` | Stream a restorable custom-format backup. |
@@ -67,6 +68,9 @@ See [Database access](database-access.md), [TCP access](tcp-access.md), and
 | `portta share list` | List temporary panel-created hostnames. |
 | `portta share revoke` | Revoke one temporary share. |
 | `portta share gc` | Remove expired shares. |
+| `portta auth protect <host>` | Create or rotate a protected-host credential. |
+| `portta auth status [host]` | Inspect protected hosts without exposing hashes. |
+| `portta auth unprotect <host>` | Remove a host record; the project label remains yours to remove. |
 | `portta dns status` | Show DNS configuration and provider records. |
 | `portta dns check` | Verify the wildcard points at this host. |
 | `portta dns setup` | Plan or apply the wildcard record. |

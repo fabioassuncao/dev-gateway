@@ -439,7 +439,7 @@ if portta_is_true "$PORTTA_WEB"; then
     # The tailnet is the boundary here, and it is a better one than a password.
     # A credential on top is welcome, and not required.
     check pass web.auth "panel authentication" \
-      "$([ "$PORTTA_WEB_AUTH" = "basic" ] && printf 'traefik basicauth as %s, ' "$PORTTA_WEB_AUTH_USER")reachable only on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT" ""
+      "$([ "$PORTTA_WEB_AUTH" = "basic" ] && printf 'Portta login as %s, ' "$PORTTA_WEB_AUTH_USER")reachable only on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT" ""
   elif [ "$PORTTA_WEB_AUTH" != "basic" ] \
        || [ -z "$PORTTA_WEB_AUTH_USER" ] || [ -z "$PORTTA_WEB_AUTH_HASH" ]; then
     check fail web.auth "panel authentication" \
@@ -447,16 +447,16 @@ if portta_is_true "$PORTTA_WEB"; then
       "portta web auth set"
   else
     check pass web.auth "panel authentication" \
-      "traefik basicauth as $PORTTA_WEB_AUTH_USER" ""
+      "Portta ForwardAuth as $PORTTA_WEB_AUTH_USER" ""
 
     # A middleware Traefik cannot resolve makes the router fail closed, so a
     # missing file locks the user out rather than opening the panel.
-    web_auth_file="$PORTTA_ROOT/config/traefik/dynamic/portta-panel.yaml"
-    if [ -f "$web_auth_file" ] && grep -q "portta-web-auth:" "$web_auth_file" 2>/dev/null; then
+    web_auth_file="$PORTTA_ROOT/config/traefik/dynamic/portta-auth.yaml"
+    if [ -f "$web_auth_file" ] && grep -q "portta-forward-auth:" "$web_auth_file" 2>/dev/null; then
       check pass web.auth.file "panel middleware" "rendered in config/traefik/dynamic" ""
     else
       check fail web.auth.file "panel middleware" \
-        "the router names portta-web-auth@file and no such middleware is rendered" \
+        "the router names portta-forward-auth@file and no such middleware is rendered" \
         "portta web auth apply"
     fi
   fi
@@ -465,6 +465,45 @@ if portta_is_true "$PORTTA_WEB"; then
     check warn web.readonly "panel write access" \
       "routed and writable: whoever gets past the credential can stop containers" \
       "portta web up --read-only"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# Authentication boundary
+# ---------------------------------------------------------------------------
+
+if [ -z "${PORTTA_AUTH_SECRET:-}" ]; then
+  check fail auth.secret "authentication signing secret" "PORTTA_AUTH_SECRET is unset" \
+    "portta bootstrap   (generates it without printing it)"
+else
+  check pass auth.secret "authentication signing secret" "set" ""
+fi
+
+auth_store="$PORTTA_ROOT/state/auth/protections.json"
+if [ ! -f "$auth_store" ]; then
+  check fail auth.store "authentication store" "missing" "portta up   (creates and migrates it)"
+else
+  auth_mode=$(portta_file_mode "$auth_store")
+  if [ "$auth_mode" = "600" ]; then
+    check pass auth.store "authentication store" "present at mode 600" ""
+  else
+    check fail auth.store "authentication store" "mode ${auth_mode:-unknown}; credentials must be owner-only" \
+      "chmod 600 state/auth/protections.json"
+  fi
+fi
+
+auth_id=$(portta_gateway_container auth)
+if [ -z "$auth_id" ]; then
+  check fail auth.service "authentication service" "container is missing" "portta up"
+else
+  auth_state=$(portta_container_state "$auth_id")
+  auth_health=$(portta_container_health "$auth_id")
+  if [ "$auth_state" != "running" ] || [ "$auth_health" = "unhealthy" ]; then
+    check fail auth.service "authentication service" "$auth_state ($auth_health)" "portta logs portta-auth"
+  elif [ "$auth_health" = "starting" ]; then
+    check warn auth.service "authentication service" "health check is still starting" "portta logs portta-auth"
+  else
+    check pass auth.service "authentication service" "$auth_state ($auth_health)" ""
   fi
 fi
 

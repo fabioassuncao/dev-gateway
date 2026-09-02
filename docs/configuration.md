@@ -105,16 +105,18 @@ See [tcp-routing.md](tcp-routing.md).
 | `PORTTA_DB_VOLUME` | `portta-db` | Named volume holding panel data |
 | `PORTTA_RUNTIME_DB_PASSWORD` | generated | **Secret.** Panel PostgreSQL credential |
 | `PORTTA_RUNTIME_DATABASE_URL` | empty | Development/test bootstrap override; normally Compose supplies it |
+| `PORTTA_AUTH_SECRET` | generated | **Secret.** HMAC key for host-scoped login sessions |
+| `PORTTA_AUTH_IMAGE` | Portta release image | Image running the isolated auth process |
 
-The panel has no authentication, so it binds loopback and is never routed
-through the public entrypoints. `PORTTA_WEB_EXPOSE=vpn` is refused on the
-`remote-public` profile. On a Linux host set `PORTTA_WEB_USER` to
+The panel binds loopback by default. Routed `vpn` and `public` modes require a
+credential and use Portta ForwardAuth; `vpn` is refused on the `remote-public`
+profile. On a Linux host set `PORTTA_WEB_USER` to
 `$(id -u):$(id -g)` if you want the Settings page to be able to write `.env`.
 
 `portta web up` sets these for you and generates the database credential
 without printing it. PostgreSQL publishes no host port and remains a soft
 dependency: the Docker-backed panel still starts if it is unavailable. See
-[web-ui.md](web-ui.md) and [persistence.md](persistence.md).
+[web-ui.md](web-ui.md), [authentication.md](authentication.md) and [persistence.md](persistence.md).
 
 ## TLS
 

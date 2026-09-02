@@ -198,7 +198,7 @@
     "pass": {
       "exposure": "Exposição do painel",
       "exposureDetail": "acessível apenas em loopback, onde senha não agrega nada",
-      "authDetail": "Traefik BasicAuth como {{user}}"
+      "authDetail": "Portta ForwardAuth como {{user}}"
     },
     "fail": {
       "detail": "o painel está roteado (expose: {{expose}}) sem credencial na frente",

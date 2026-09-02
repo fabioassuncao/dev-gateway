@@ -33,7 +33,7 @@ is; the CLI manages what already exists.
 
 A protected share generates its password (twenty characters over a thirty-two
 symbol alphabet, so about a hundred bits), **shows it exactly once**, and stores
-only its apr1 hash. No API response ever contains it again, and regenerating
+only its scrypt hash in `state/auth/protections.json`. No API response ever contains it again, and regenerating
 replaces the hash and shows a new one, which is also what you do when you lose
 it.
 
@@ -61,19 +61,18 @@ http:
     portta-share-a7f3:
       rule: "Host(`storefront-web-a7f3.share.dev.example.com`)"
       entryPoints: [websecure]
-      middlewares: [portta-share-a7f3-auth]
+      middlewares: [portta-forward-auth]
       service: portta-share-a7f3
   services:
     portta-share-a7f3:
       loadBalancer:
         servers:
           - url: "http://storefront-web-1:3000"
-  middlewares:
-    portta-share-a7f3-auth:
-      basicAuth:
-        users: ["reviewer:$apr1$..."]
-        removeHeader: true
 ```
+
+The credential is not in this YAML. `portta-auth.yaml` defines the shared
+middleware and the reserved login router; the auth service reads the private
+store read-only.
 
 Two details that matter:
 
@@ -88,7 +87,7 @@ way. The panel cannot rewrite a container's labels, and would not if it could:
 that is the project's configuration, not the gateway's
 ([ADR 0001](adr/0001-decoupled-infrastructure.md)).
 
-The panel may write exactly three filenames in that directory and refuses every
+The panel may write exactly four filenames in that directory and refuses every
 other path in its own process, so `middlewares.yaml`, `tcp.yaml` and anything
 you put there yourself are never touched
 ([ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md)).
@@ -113,10 +112,9 @@ Refusals rather than warnings, following the precedent
 
 ## What this is not
 
-Not authentication for your project. One credential, no users, no roles, no
-audit trail: it is a door you open for an afternoon. For anything real, point
-`forwardAuth` at your own identity provider
-(`config/traefik/dynamic/auth.example.yaml.disabled`).
+Not multi-user identity for your project. One credential, no users and no roles:
+it is a door you open for an afternoon. See [authentication.md](authentication.md)
+for protecting a project-owned router with the same login.
 
 Not a tunnel either. A share is only reachable where the gateway already is: on
 the VPN for the private profile, on the internet only when public access is
