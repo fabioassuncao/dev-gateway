@@ -11,6 +11,15 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Added
 
+- **Rebuild a project, and remove one from this host.** Rebuild asks the
+  runner for `compose up --build` and shows the log; rebuild without cache
+  is offered with its cost stated and is never the default. Removal is two
+  named actions — keep data, or include local data — each requiring the
+  Compose project name typed back, checked on the server. The dialog states
+  that GitHub is not touched. Without the runner the panel removes the
+  containers it can and prints the exact remaining command. Directory
+  removal is opt-in, runner-only, and refused on a dirty tree.
+
 - **Start, stop and restart a whole project from the panel.** The action
   iterates the project's existing containers in Compose dependency order,
   refuses the lot if any container is a Portta component, and reports each

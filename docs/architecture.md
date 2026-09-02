@@ -167,5 +167,8 @@ Profiles are Compose overlays that add only the keys they change, over a shared
 It does not own a project's containers, volumes or release cycle. On request
 it may start, stop or restart what it can see, in Compose dependency order,
 and it may ask Compose to rebuild or take a project down through the opt-in
-runner ([ADR 0030](adr/0030-the-panel-and-a-project-lifecycle.md)). It cannot
-repair a misconfigured project. `doctor` and `analyze` still only observe.
+runner ([ADR 0030](adr/0030-the-panel-and-a-project-lifecycle.md)). Rebuild
+preserves volumes. Removal is two named modes — keep data, or include local
+data — and the Compose project name is typed back, on the server. Nothing
+on GitHub is touched. It cannot repair a misconfigured project. `doctor`
+and `analyze` still only observe.

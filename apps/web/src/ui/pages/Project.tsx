@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { SlidersHorizontal } from 'lucide-react'
 import { ProjectActions } from '../components/project-actions.tsx'
+import { ProjectOperations } from '../components/project-operations.tsx'
 import { api, ApiError } from '../lib/api.ts'
 import type { ContainerSummary, Project } from '../../shared/types.ts'
 import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
@@ -124,6 +125,7 @@ function ProjectHeader({ project }: { project: Project }) {
               {tn('settings')}
             </Button>
             <ProjectActions project={project} />
+            <ProjectOperations project={project} />
           </>
         }
       />

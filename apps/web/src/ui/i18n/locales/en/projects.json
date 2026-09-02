@@ -26,6 +26,31 @@
     "cancel": "Cancel",
     "partial": "{{failed}} failed, {{succeeded}} succeeded."
   },
+  "operations": {
+    "rebuild": "Rebuild",
+    "rebuildDisabled": "This project has no Compose working directory, so the runner cannot rebuild it.",
+    "rebuildTitle": "Rebuild this project?",
+    "rebuildDescription": "{{name}} will be rebuilt with docker compose up --build. Named volumes stay.",
+    "noCache": "Rebuild without cache",
+    "noCacheCost": "Ignores the build cache; this will take considerably longer.",
+    "rebuildStarting": "Starting the runner…",
+    "rebuildRunning": "Rebuilding…",
+    "rebuildOk": "Rebuild finished.",
+    "rebuildFailed": "Rebuild failed. The log is below.",
+    "removeKeep": "Remove, keep data",
+    "removeData": "Remove and local data",
+    "removeKeepTitle": "Remove this project, keep data?",
+    "removeDataTitle": "Remove this project and local data?",
+    "removeFromHost": "Remove {{name}} from this host.",
+    "githubUntouched": "The GitHub repository, its issues, its branches and its pull requests are not touched.",
+    "previewContainers": "{{count}} container(s) will be removed.",
+    "previewVolumes": "Named volumes: {{names}}. Size is unknown: the panel cannot inspect volumes.",
+    "alsoDirectory": "Also remove the working directory on this host.",
+    "directoryNeedsRunner": "Directory removal needs the runner. Without it the panel prints the exact rm -rf for you.",
+    "dirtyOverride": "The working tree is dirty ({{staged}} staged, {{unstaged}} unstaged, {{untracked}} untracked). Override and remove the directory anyway.",
+    "typeName": "Type {{name}} to confirm.",
+    "copyCommand": "Copy command"
+  },
   "collapsedService": "{{count}} collapsed service",
   "collapsedServices": "{{count}} collapsed services"
 }

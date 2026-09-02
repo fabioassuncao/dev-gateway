@@ -7,8 +7,19 @@ import { mergeLogSources, type LogSourceLines } from '../core/projectlogs.ts'
 import { applyOverrides, loadOverrides } from '../core/overrides.ts'
 import { issueForEnvironment, resolveLinks } from '../core/issue-environments.ts'
 import type { Snapshot } from '../core/inventory.ts'
-import { Project, ProjectActionResult, ProjectGit, ProjectLogsResponse, type ProjectGit as ProjectGitView, type ProjectLogSource } from '../../shared/types.ts'
+import {
+  Project,
+  ProjectActionResult,
+  ProjectGit,
+  ProjectLogsResponse,
+  ProjectRebuildResult,
+  ProjectRemovalPreview,
+  ProjectRemoveResult,
+  type ProjectGit as ProjectGitView,
+  type ProjectLogSource,
+} from '../../shared/types.ts'
 import { runProjectAction } from '../core/actions.ts'
+import { projectRemovalPreview, rebuildProject, removeProject } from '../core/operations.ts'
 import { documentRoute, projectParameter, tailParameter } from '../openapi.ts'
 
 export const ProjectsResponse = z.object({ projects: z.array(Project) }).strict().meta({ ref: 'ProjectsResponse' })
@@ -212,6 +223,64 @@ export function projectRoutes(deps: AppDeps): Hono {
       truncated: merged.truncated || sources.some((source) => source.truncated),
       ordered: merged.ordered,
     })
+  })
+
+  app.get('/projects/:project/removal-preview', documentRoute({
+    tag: 'Projects', operationId: 'previewProjectRemoval',
+    summary: 'Preview what removing this project from this host would touch',
+    description: 'Advisory. Nothing is removed. Volume sizes are null: the panel has no volume inspect.',
+    response: ProjectRemovalPreview,
+    parameters: [projectParameter],
+    errors: [403, 404, 500, 502],
+  }), async (c) => {
+    const snapshot = await deps.cache.get()
+    return c.json(await projectRemovalPreview(snapshot, deps.config, deps.db, c.req.param('project')))
+  })
+
+  app.post('/projects/:project/operations/rebuild', documentRoute({
+    tag: 'Projects', operationId: 'rebuildProject',
+    summary: 'Rebuild this project through the runner',
+    description: 'Writes a closed runner request and starts the prepared container. Volumes are preserved.',
+    response: ProjectRebuildResult,
+    parameters: [projectParameter],
+    request: z.object({ noCache: z.boolean().optional() }).strict(),
+    errors: [400, 403, 404, 409, 500, 502],
+  }), async (c) => {
+    const snapshot = await deps.cache.get()
+    const body = await c.req.json().catch(() => ({})) as { noCache?: boolean }
+    const result = await rebuildProject(deps.client, snapshot, deps.config, c.req.param('project'), {
+      noCache: body.noCache === true,
+    })
+    deps.cache.invalidate()
+    return c.json(result)
+  })
+
+  app.post('/projects/:project/operations/remove', documentRoute({
+    tag: 'Projects', operationId: 'removeProject',
+    summary: 'Remove this project from this host',
+    description: 'Confirmation is the exact Compose project name, checked on the server. GitHub is never touched.',
+    response: ProjectRemoveResult,
+    parameters: [projectParameter],
+    request: z.object({
+      confirmation: z.string(),
+      volumes: z.boolean(),
+      directory: z.boolean(),
+      overrideDirty: z.boolean().optional(),
+    }).strict(),
+    errors: [400, 403, 404, 409, 500, 502],
+  }), async (c) => {
+    const snapshot = await deps.cache.get()
+    const body = await c.req.json() as {
+      confirmation: string
+      volumes: boolean
+      directory: boolean
+      overrideDirty?: boolean
+    }
+    const result = await removeProject(
+      deps.client, snapshot, deps.config, deps.db, c.req.param('project'), body,
+    )
+    deps.cache.invalidate()
+    return c.json(result)
   })
 
   for (const action of ['start', 'stop', 'restart'] as const) {

@@ -2046,99 +2046,188 @@
         ],
         "additionalProperties": false
       },
-      "ProjectActionEntry": {
+      "ProjectPorttaRecords": {
         "type": "object",
         "properties": {
-          "service": {
-            "type": "string"
-          },
-          "containerId": {
-            "type": "string"
-          },
-          "action": {
-            "type": "string",
-            "enum": [
-              "start",
-              "stop"
-            ]
-          },
-          "ok": {
-            "type": "boolean"
-          },
-          "skipped": {
-            "type": "boolean"
-          },
-          "error": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "service",
-          "containerId",
-          "action",
-          "ok",
-          "skipped",
-          "error"
-        ],
-        "additionalProperties": false
-      },
-      "ProjectActionResult": {
-        "type": "object",
-        "properties": {
-          "ok": {
-            "type": "boolean",
-            "description": "True only when every requested step succeeded or was skipped"
-          },
-          "project": {
-            "type": "string"
-          },
-          "action": {
-            "type": "string",
-            "enum": [
-              "start",
-              "stop",
-              "restart"
-            ]
-          },
-          "requested": {
+          "overrides": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
-          "succeeded": {
+          "aliases": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
-          "failed": {
+          "workspaceLinks": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
-          "skipped": {
+          "issueLinks": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
-          "results": {
+          "accessBridges": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ProjectActionEntry"
+              "type": "string"
+            }
+          },
+          "accessForwarders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "accessFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         },
         "required": [
-          "ok",
+          "overrides",
+          "aliases",
+          "workspaceLinks",
+          "issueLinks",
+          "accessBridges",
+          "accessForwarders",
+          "accessFiles"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectRemovalPreview": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "containers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "service": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "state": {
+                  "$ref": "#/components/schemas/ContainerState"
+                },
+                "image": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "service",
+                "state",
+                "image"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "networks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "volumes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "sizeBytes": {
+                  "description": "Null: the panel has no volume inspect",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "sizeBytes"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "workingDir": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "git": {
+            "type": "object",
+            "properties": {
+              "collected": {
+                "type": "boolean"
+              },
+              "dirty": {
+                "type": "boolean"
+              },
+              "staged": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "unstaged": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "untracked": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "collected",
+              "dirty",
+              "staged",
+              "unstaged",
+              "untracked"
+            ],
+            "additionalProperties": false
+          },
+          "records": {
+            "$ref": "#/components/schemas/ProjectPorttaRecords"
+          },
+          "runnerAvailable": {
+            "type": "boolean"
+          },
+          "directoryRemovalAvailable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
           "project",
-          "action",
-          "requested",
-          "succeeded",
-          "failed",
-          "skipped",
-          "results"
+          "containers",
+          "networks",
+          "volumes",
+          "workingDir",
+          "git",
+          "records",
+          "runnerAvailable",
+          "directoryRemovalAvailable"
         ],
         "additionalProperties": false
       },
@@ -2242,6 +2331,207 @@
           "exitCode",
           "logTail",
           "prepareCommand"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectRebuildResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "project": {
+            "type": "string"
+          },
+          "noCache": {
+            "type": "boolean"
+          },
+          "via": {
+            "type": "string",
+            "const": "runner"
+          },
+          "runner": {
+            "$ref": "#/components/schemas/RunnerStatus"
+          }
+        },
+        "required": [
+          "ok",
+          "project",
+          "noCache",
+          "via",
+          "runner"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectRemoveResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "project": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "keep-data",
+              "and-local-data"
+            ]
+          },
+          "volumes": {
+            "type": "boolean"
+          },
+          "directory": {
+            "type": "boolean"
+          },
+          "via": {
+            "type": "string",
+            "enum": [
+              "runner",
+              "iteration"
+            ]
+          },
+          "removedContainers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cleaned": {
+            "$ref": "#/components/schemas/ProjectPorttaRecords"
+          },
+          "remainingCommands": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "runner": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunnerStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "ok",
+          "project",
+          "mode",
+          "volumes",
+          "directory",
+          "via",
+          "removedContainers",
+          "cleaned",
+          "remainingCommands",
+          "runner",
+          "note"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectActionEntry": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "containerId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "stop"
+            ]
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "skipped": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "service",
+          "containerId",
+          "action",
+          "ok",
+          "skipped",
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectActionResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "True only when every requested step succeeded or was skipped"
+          },
+          "project": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "stop",
+              "restart"
+            ]
+          },
+          "requested": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "succeeded": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectActionEntry"
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "project",
+          "action",
+          "requested",
+          "succeeded",
+          "failed",
+          "skipped",
+          "results"
         ],
         "additionalProperties": false
       },
@@ -6062,6 +6352,338 @@
             "basicAuth": []
           }
         ]
+      }
+    },
+    "/projects/{project}/removal-preview": {
+      "get": {
+        "operationId": "previewProjectRemoval",
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Preview what removing this project from this host would touch",
+        "description": "Advisory. Nothing is removed. Volume sizes are null: the panel has no volume inspect.",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "COMPOSE_PROJECT_NAME of a running project.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectRemovalPreview"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/projects/{project}/operations/rebuild": {
+      "post": {
+        "operationId": "rebuildProject",
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Rebuild this project through the runner",
+        "description": "Writes a closed runner request and starts the prepared container. Volumes are preserved.",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "COMPOSE_PROJECT_NAME of a running project.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectRebuildResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The requested operation conflicts with the current runtime state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "noCache": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project}/operations/remove": {
+      "post": {
+        "operationId": "removeProject",
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Remove this project from this host",
+        "description": "Confirmation is the exact Compose project name, checked on the server. GitHub is never touched.",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "COMPOSE_PROJECT_NAME of a running project.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectRemoveResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The requested operation conflicts with the current runtime state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "confirmation": {
+                    "type": "string"
+                  },
+                  "volumes": {
+                    "type": "boolean"
+                  },
+                  "directory": {
+                    "type": "boolean"
+                  },
+                  "overrideDirty": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "confirmation",
+                  "volumes",
+                  "directory"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
       }
     },
     "/projects/{project}/actions/start": {

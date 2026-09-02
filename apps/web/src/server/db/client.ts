@@ -698,4 +698,37 @@ export class DatabaseClient {
       ORDER BY last_seen_at DESC, compose_project
     `
   }
+
+  /**
+   * What Portta itself stored about a Compose project. Used by removal
+   * preview and by forgetProject. Nothing here talks to GitHub.
+   */
+  async projectRecordCounts(composeProject: string): Promise<ProjectRecordCounts> {
+    const project = await this.findProject(composeProject)
+    if (!project) return { overrides: 0, workspaceLinks: 0, issueLinks: 0 }
+    const [settings, services, workspaces, issues] = await Promise.all([
+      this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM project_settings WHERE project_id = ${project.id}`,
+      this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM service_settings WHERE project_id = ${project.id}`,
+      this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM workspace_environments WHERE project_id = ${project.id}`,
+      this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM issue_environments WHERE project_id = ${project.id}`,
+    ])
+    return {
+      overrides: (settings[0]?.n ?? 0) + (services[0]?.n ?? 0),
+      workspaceLinks: workspaces[0]?.n ?? 0,
+      issueLinks: issues[0]?.n ?? 0,
+    }
+  }
+
+  /** Drops the project row. Settings, workspace links and issue links cascade. */
+  async forgetProject(composeProject: string): Promise<ProjectRecordCounts> {
+    const counts = await this.projectRecordCounts(composeProject)
+    await this.sql`DELETE FROM projects WHERE compose_project = ${composeProject}`
+    return counts
+  }
+}
+
+export interface ProjectRecordCounts {
+  overrides: number
+  workspaceLinks: number
+  issueLinks: number
 }

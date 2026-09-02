@@ -133,4 +133,4 @@ export function requireDatabase(database: Database | null): Database {
   return database
 }
 
-export type { ProjectRecord, SeenProject } from './client.ts'
+export type { ProjectRecord, ProjectRecordCounts, SeenProject } from './client.ts'

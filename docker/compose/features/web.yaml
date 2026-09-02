@@ -162,6 +162,8 @@ services:
       PORTTA_WEB_AUTH_HASH: ${PORTTA_WEB_AUTH_HASH:-}
       PORTTA_RUNTIME_DYNAMIC_DIR: /app/state/traefik-dynamic
       PORTTA_RUNTIME_AUTH_STORE: /app/state/auth/protections.json
+      PORTTA_RUNTIME_RUNNER_DIR: /app/state/runner
+      PORTTA_RUNTIME_ACCESS_DIR: /app/state/access
       PORTTA_PANEL_ADVERTISED_HOST: ${PORTTA_PANEL_ADVERTISED_HOST:-}
       TLS_ENABLED: ${TLS_ENABLED:-false}
       TLS_MODE: ${TLS_MODE:-local}
@@ -194,13 +196,15 @@ services:
       GITHUB_API_URL: ${GITHUB_API_URL:-https://api.github.com}
       GITHUB_SYNC_INTERVAL_MINUTES: ${GITHUB_SYNC_INTERVAL_MINUTES:-15}
     volumes:
-      # Eight paths from the host, and nothing else. No project directory is ever
+      # Ten paths from the host, and nothing else. No project directory is ever
       # mounted here: see docs/adr/0001-decoupled-infrastructure.md.
       #
       #   .env             the configuration the Settings page edits
       #   VERSION          the version string it reports
       #   state/git        metadata `portta git scan` collected, read-only
       #   state/host       facts `portta host collect` wrote, read-only
+      #   state/runner     the `{ verb, project }` request the runner reads
+      #   state/access     tunnel records cleaned when a project is removed
       #   state/github     the GitHub App private key, read-only
       #   state/auth       credentials the panel manages, never served directly
       #   traefik/dynamic  read-write, and the ONE place the panel configures
@@ -211,6 +215,8 @@ services:
       - ./VERSION:/app/state/VERSION:ro
       - ./state/git:/app/state/git:ro
       - ./state/host:/app/state/host:ro
+      - ./state/runner:/app/state/runner
+      - ./state/access:/app/state/access
       # The GitHub App private key, read-only. Empty unless you put one there.
       - ./state/github:/app/state/github:ro
       - ./state/auth:/app/state/auth

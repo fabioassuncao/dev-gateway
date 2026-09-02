@@ -248,6 +248,8 @@ export function testConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     publicDomain: null,
     dynamicDir,
     authStore: overrides.authStore ?? join(dynamicDir, 'protections.json'),
+    runnerDir: overrides.runnerDir ?? join(dynamicDir, 'runner'),
+    accessDir: overrides.accessDir ?? join(dynamicDir, 'access'),
     ...overrides,
   })
 }
@@ -281,6 +283,8 @@ export function fakeDatabase(options: { available?: boolean } = {}): Database & 
       find: async (composeProject: string) => ({ ...record, composeProject }),
       upsertSeen: async () => record,
       list: async () => [record],
+      recordCounts: async () => ({ overrides: 0, workspaceLinks: 0, issueLinks: 0 }),
+      forget: async () => ({ overrides: 0, workspaceLinks: 0, issueLinks: 0 }),
     },
     // Empty by default: an override test is not a GitHub test, and every join
     // must degrade to nothing rather than throw.

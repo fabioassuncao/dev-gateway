@@ -26,6 +26,31 @@
     "cancel": "Cancelar",
     "partial": "{{failed}} falhou(aram), {{succeeded}} ok."
   },
+  "operations": {
+    "rebuild": "Reconstruir",
+    "rebuildDisabled": "Este projeto não tem diretório Compose, então o runner não consegue reconstruí-lo.",
+    "rebuildTitle": "Reconstruir este projeto?",
+    "rebuildDescription": "{{name}} será reconstruído com docker compose up --build. Volumes nomeados permanecem.",
+    "noCache": "Reconstruir sem cache",
+    "noCacheCost": "Ignora o cache de build; isso vai demorar bem mais.",
+    "rebuildStarting": "Iniciando o runner…",
+    "rebuildRunning": "Reconstruindo…",
+    "rebuildOk": "Reconstrução concluída.",
+    "rebuildFailed": "A reconstrução falhou. O log está abaixo.",
+    "removeKeep": "Remover, manter dados",
+    "removeData": "Remover e dados locais",
+    "removeKeepTitle": "Remover este projeto, manter os dados?",
+    "removeDataTitle": "Remover este projeto e os dados locais?",
+    "removeFromHost": "Remover {{name}} deste host.",
+    "githubUntouched": "O repositório no GitHub, as issues, os branches e os pull requests não são tocados.",
+    "previewContainers": "{{count}} container(s) serão removidos.",
+    "previewVolumes": "Volumes nomeados: {{names}}. O tamanho é desconhecido: o painel não inspeciona volumes.",
+    "alsoDirectory": "Remover também o diretório de trabalho neste host.",
+    "directoryNeedsRunner": "Remover o diretório exige o runner. Sem ele o painel imprime o rm -rf exato.",
+    "dirtyOverride": "A árvore de trabalho está suja ({{staged}} staged, {{unstaged}} unstaged, {{untracked}} untracked). Sobrepor e remover o diretório mesmo assim.",
+    "typeName": "Digite {{name}} para confirmar.",
+    "copyCommand": "Copiar comando"
+  },
   "collapsedService": "{{count}} serviço recolhido",
   "collapsedServices": "{{count}} serviços recolhidos"
 }

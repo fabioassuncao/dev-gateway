@@ -211,7 +211,11 @@ What bounds it: it is off unless the operator edits `.env` on the host, and
 refused in read-only mode, refused when the panel is exposed publicly, and
 refused on the `remote-public` profile. The runner takes no command line from
 the panel. The working directory comes from Docker's own labels, not from a
-path the request supplied. See [ADR 0030](adr/0030-the-panel-and-a-project-lifecycle.md).
+path the request supplied. Rebuild is `build` (volumes preserved). Removal
+is `down` or `down-volumes`; directory removal is a flag on `down-volumes`
+only, refused on a dirty tree unless overridden, and bounded to the
+resolved working directory. The project name is typed back and checked on
+the server. See [ADR 0030](adr/0030-the-panel-and-a-project-lifecycle.md).
 
 ## Secrets
 

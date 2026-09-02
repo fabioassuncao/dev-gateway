@@ -36,6 +36,13 @@ environments sharing a database corrupt each other silently.
 environment on the host. Your route failing is almost never the gateway's
 fault; `portta doctor` will say what it is.
 
+**Never treat "Remove from this host" as deleting a repository.** The panel
+can rebuild a project and can remove it from this machine — containers,
+optionally volumes, optionally the working directory — after the Compose
+project name is typed back. That path never reaches GitHub. An `rm -rf`
+the panel prints is for that project's working directory on this host, and
+only that. Do not run it against another checkout.
+
 ## Always do these
 
 **Use a unique namespace.**

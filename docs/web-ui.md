@@ -442,6 +442,16 @@ project. Stop asks for confirmation and lists the services; nothing is
 removed. Start iterates containers that still exist. If they are gone, Start
 is disabled and the reason names the runner.
 
+The project page also has Rebuild and two named removals: **Remove, keep
+data** and **Remove and local data**. Rebuild asks the runner for
+`compose up --build` and shows the log; rebuild without cache is a
+secondary option with its cost stated. Both removals require the Compose
+project name typed back, checked on the server. The dialog says in its own
+sentence that GitHub is not touched. Without the runner the panel removes
+the containers it can and prints the exact `compose down` / `rm -rf` that
+finish the rest. Directory removal is opt-in on the data-removing mode, and
+only when the runner is present.
+
 ![The Projects page: checkout with an unhealthy worker, storefront with four healthy services, and a second worktree of storefront running beside it, each with its own URLs](../.github/images/panel-projects.png)
 
 #### One project, one page

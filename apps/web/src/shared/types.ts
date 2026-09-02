@@ -256,6 +256,51 @@ export const ProjectActionResult = named(
 )
 export type ProjectActionResult = z.infer<typeof ProjectActionResult>
 
+export const ProjectPorttaRecords = named(
+  z.object({
+    overrides: z.number().int(),
+    aliases: z.number().int(),
+    workspaceLinks: z.number().int(),
+    issueLinks: z.number().int(),
+    accessBridges: z.array(z.string()),
+    accessForwarders: z.array(z.string()),
+    accessFiles: z.array(z.string()),
+  }).strict(),
+  'ProjectPorttaRecords',
+)
+export type ProjectPorttaRecords = z.infer<typeof ProjectPorttaRecords>
+
+export const ProjectRemovalPreview = named(
+  z.object({
+    project: z.string(),
+    containers: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      service: z.string().nullable(),
+      state: ContainerState,
+      image: z.string(),
+    }).strict()),
+    networks: z.array(z.string()),
+    volumes: z.array(z.object({
+      name: z.string(),
+      sizeBytes: z.number().nullable().describe('Null: the panel has no volume inspect'),
+    }).strict()),
+    workingDir: z.string().nullable(),
+    git: z.object({
+      collected: z.boolean(),
+      dirty: z.boolean(),
+      staged: z.number().int(),
+      unstaged: z.number().int(),
+      untracked: z.number().int(),
+    }).strict(),
+    records: ProjectPorttaRecords,
+    runnerAvailable: z.boolean(),
+    directoryRemovalAvailable: z.boolean(),
+  }).strict(),
+  'ProjectRemovalPreview',
+)
+export type ProjectRemovalPreview = z.infer<typeof ProjectRemovalPreview>
+
 export const Project = named(
   z.object({
     name: z.string().describe('COMPOSE_PROJECT_NAME; the key used by project endpoints'),
@@ -1244,6 +1289,36 @@ export const RunnerStatus = named(
   'RunnerStatus',
 )
 export type RunnerStatus = z.infer<typeof RunnerStatus>
+
+export const ProjectRebuildResult = named(
+  z.object({
+    ok: z.boolean(),
+    project: z.string(),
+    noCache: z.boolean(),
+    via: z.literal('runner'),
+    runner: RunnerStatus,
+  }).strict(),
+  'ProjectRebuildResult',
+)
+export type ProjectRebuildResult = z.infer<typeof ProjectRebuildResult>
+
+export const ProjectRemoveResult = named(
+  z.object({
+    ok: z.boolean(),
+    project: z.string(),
+    mode: z.enum(['keep-data', 'and-local-data']),
+    volumes: z.boolean(),
+    directory: z.boolean(),
+    via: z.enum(['runner', 'iteration']),
+    removedContainers: z.array(z.string()),
+    cleaned: ProjectPorttaRecords,
+    remainingCommands: z.array(z.string()),
+    runner: RunnerStatus.nullable(),
+    note: z.string().nullable(),
+  }).strict(),
+  'ProjectRemoveResult',
+)
+export type ProjectRemoveResult = z.infer<typeof ProjectRemoveResult>
 
 export const ApplyResult = named(
   z.object({

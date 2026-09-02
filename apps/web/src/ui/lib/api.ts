@@ -21,6 +21,9 @@ import type {
   WorkspaceSummary,
   ProjectLogsResponse,
   ProjectOverrides,
+  ProjectRebuildResult,
+  ProjectRemovalPreview,
+  ProjectRemoveResult,
   ServiceOverrides,
   RemovalPreview,
   Share,
@@ -96,6 +99,23 @@ export const api = {
       method: 'POST',
       body: '{}',
     }),
+  projectRemovalPreview: (name: string) =>
+    request<ProjectRemovalPreview>(`/projects/${encodeURIComponent(name)}/removal-preview`),
+  rebuildProject: (name: string, body: { noCache?: boolean } = {}) =>
+    request<ProjectRebuildResult>(`/projects/${encodeURIComponent(name)}/operations/rebuild`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  removeProject: (
+    name: string,
+    body: { confirmation: string; volumes: boolean; directory: boolean; overrideDirty?: boolean },
+  ) =>
+    request<ProjectRemoveResult>(`/projects/${encodeURIComponent(name)}/operations/remove`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  runnerProbe: (signal: AbortSignal, logs = false) =>
+    request<RunnerStatus>(`/runner${logs ? '?logs=1' : ''}`, { signal }),
   projects: () => request<{ projects: Project[] }>('/projects').then((data) => data.projects),
   project: (name: string) => request<Project>(`/projects/${encodeURIComponent(name)}`),
   projectGit: (name: string) => request<ProjectGit>(`/projects/${encodeURIComponent(name)}/git`),

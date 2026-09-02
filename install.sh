@@ -839,14 +839,14 @@ for file in "$WORK_DIR/src/config/traefik/dynamic/"*; do
 done
 good "Traefik dynamic configuration ($added file(s) added, existing ones kept)"
 
-for directory in state/traefik/acme state/tailscale state/access state/auth state/git state/github state/cloudflared; do
+for directory in state/traefik/acme state/tailscale state/access state/auth state/git state/github state/cloudflared state/host state/runner; do
   mkdir -p "$PORTTA_HOME/$directory"
 done
 # Both hold a credential, and both are bind-mounted. A directory the installer
 # does not create is created by Docker instead, owned by root at 0755 — which
 # is the wrong mode for a private key and the wrong owner for the panel that
 # has to write one.
-chmod 700 "$PORTTA_HOME/state/traefik/acme" "$PORTTA_HOME/state/cloudflared" 2>/dev/null || true
+chmod 700 "$PORTTA_HOME/state/traefik/acme" "$PORTTA_HOME/state/cloudflared" "$PORTTA_HOME/state/runner" 2>/dev/null || true
 chmod 700 "$PORTTA_HOME/state/auth" 2>/dev/null || true
 [ -f "$PORTTA_HOME/state/traefik/acme/acme.json" ] && chmod 600 "$PORTTA_HOME/state/traefik/acme/acme.json" 2>/dev/null || true
 good "state directories"

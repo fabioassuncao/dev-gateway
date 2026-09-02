@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { DatabaseClient, ProjectRecord, SeenProject } from './client.ts'
+import type { DatabaseClient, ProjectRecord, ProjectRecordCounts, SeenProject } from './client.ts'
 
 const SeenProjectSchema = z.object({
   composeProject: z.string().min(1).max(255),
@@ -26,5 +26,13 @@ export class ProjectsRepository {
 
   find(composeProject: string): Promise<ProjectRecord | null> {
     return this.client.findProject(composeProject)
+  }
+
+  recordCounts(composeProject: string): Promise<ProjectRecordCounts> {
+    return this.client.projectRecordCounts(composeProject)
+  }
+
+  forget(composeProject: string): Promise<ProjectRecordCounts> {
+    return this.client.forgetProject(composeProject)
   }
 }
