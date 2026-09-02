@@ -1,6 +1,7 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
-import { parseAliases, projectsFor, routesFor, type StoredAlias } from 'portta-core'
+import { parseAliases, projectsFor, readEnvFile, routesFor, setEnvValue, writeEnvFile, type StoredAlias } from 'portta-core'
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
 import { ensureNetwork, inspectContainers, networkExists, requireDocker } from '../docker.js'
@@ -20,6 +21,28 @@ async function compose(command: Command, args: string[], stdio: 'inherit' | 'pip
   const options = globals(command)
   const context = gatewayContext({ profile: options.profile })
   return runProcess('docker', ['compose', ...composeArguments(context), ...args], { cwd: context.root, env: context.env, stdio })
+}
+
+function ensureAuthState(root: string): void {
+  const authDirectory = join(root, 'state/auth')
+  mkdirSync(authDirectory, { recursive: true, mode: 0o700 })
+  chmodSync(authDirectory, 0o700)
+  const path = join(root, '.env')
+  const current = readEnvFile(path)
+  if (!/^PORTTA_AUTH_SECRET=.+$/m.test(current)) {
+    writeEnvFile(path, setEnvValue(current, 'PORTTA_AUTH_SECRET', randomBytes(32).toString('hex')))
+  }
+}
+
+async function migrateAuthState(command: Command): Promise<void> {
+  const context = gatewayContext({ profile: globals(command).profile })
+  await runProcess('docker', [
+    'compose', ...composeArguments(context), 'run', '--rm', '--no-deps',
+    '-v', `${context.root}/.env:/app/state/.env:ro`,
+    '-v', `${context.root}/state/auth:/app/state/auth`,
+    '-v', `${context.root}/config/traefik/dynamic:/app/state/traefik-dynamic`,
+    'portta-auth', 'node', '/app/apps/auth/dist/migrate.js',
+  ], { cwd: context.root, env: context.env })
 }
 
 /** major.minor, which is the granularity the API contract moves at. */
@@ -99,7 +122,8 @@ export async function bootstrapCommand(options: { skipPull?: boolean }, command:
     copyFileSync(join(context.root, '.env.example'), join(context.root, '.env'))
     output.progress('created  .env from .env.example')
   }
-  for (const directory of ['state', 'state/git', 'state/github', 'config/tls', 'config/traefik/dynamic']) mkdirSync(join(context.root, directory), { recursive: true })
+  for (const directory of ['state', 'state/auth', 'state/git', 'state/github', 'config/tls', 'config/traefik/dynamic']) mkdirSync(join(context.root, directory), { recursive: true })
+  ensureAuthState(context.root)
   const network = await ensureNetwork(context.config.network)
   output.progress(`${network.padEnd(8)} shared network ${context.config.network}`)
   if (!options.skipPull) await compose(command, ['pull'])
@@ -118,6 +142,8 @@ export async function upCommand(profile: string | undefined, options: { attach?:
   // succeeded there.
   await ensureNetwork(context.config.network)
   if (context.config.tcpEnabled) await ensureNetwork(context.config.accessNetwork)
+  ensureAuthState(context.root)
+  await migrateAuthState(command)
   await compose(command, ['up', options.attach ? '' : '-d', options.attach ? '' : '--remove-orphans'].filter(Boolean))
 
   const output = new Output(globals(command))
@@ -159,7 +185,7 @@ export async function inspectCommand(command: Command): Promise<void> {
   const options = globals(command)
   const context = gatewayContext({ profile: options.profile })
   const output = new Output(options)
-  const secrets = new Set(['TS_AUTHKEY', 'CLOUDFLARE_API_TOKEN', 'PORTTA_RUNTIME_DB_PASSWORD', 'PORTTA_WEB_AUTH_HASH'])
+  const secrets = new Set(['TS_AUTHKEY', 'CLOUDFLARE_API_TOKEN', 'PORTTA_RUNTIME_DB_PASSWORD', 'PORTTA_WEB_AUTH_HASH', 'PORTTA_AUTH_SECRET'])
   const configuration = Object.fromEntries(Object.entries(context.env).filter(([key]) => key.startsWith('PORTTA_') || ['TLS_ENABLED', 'TLS_MODE', 'PUBLIC_DOMAIN', 'PRIVATE_DOMAIN', 'TAILSCALE_ENABLED'].includes(key)).map(([key, value]) => [key, secrets.has(key) ? (value ? '<set>' : '<unset>') : value]))
   if (output.json) output.data({ profile: context.config.profile, configuration, composeFiles: context.composeFiles })
   else {

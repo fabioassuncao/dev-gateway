@@ -96,6 +96,15 @@ describe('ForwardAuth app', () => {
     expect(response.status).toBe(401)
   })
 
+  it('does not let an explicit middleware scope bypass the host boundary', async () => {
+    const { app } = setup()
+    const authorization = `Basic ${Buffer.from('reviewer:correct').toString('base64')}`
+    const response = await app.request('/verify?scope=share%3Aa7f3', {
+      headers: { ...forwarded, 'x-forwarded-host': 'other.example.com', authorization },
+    })
+    expect(response.status).toBe(401)
+  })
+
   it('uses one generic failure and logs no submitted values', async () => {
     const logs: Record<string, unknown>[] = []
     const limiter = new LoginLimiter({ wait: async () => undefined })

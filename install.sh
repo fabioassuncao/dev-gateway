@@ -805,7 +805,7 @@ for file in "$WORK_DIR/src/config/traefik/dynamic/"*; do
 done
 good "Traefik dynamic configuration ($added file(s) added, existing ones kept)"
 
-for directory in state/traefik/acme state/tailscale state/access state/git state/github state/cloudflared; do
+for directory in state/traefik/acme state/tailscale state/access state/auth state/git state/github state/cloudflared; do
   mkdir -p "$PORTTA_HOME/$directory"
 done
 # Both hold a credential, and both are bind-mounted. A directory the installer
@@ -813,6 +813,7 @@ done
 # is the wrong mode for a private key and the wrong owner for the panel that
 # has to write one.
 chmod 700 "$PORTTA_HOME/state/traefik/acme" "$PORTTA_HOME/state/cloudflared" 2>/dev/null || true
+chmod 700 "$PORTTA_HOME/state/auth" 2>/dev/null || true
 [ -f "$PORTTA_HOME/state/traefik/acme/acme.json" ] && chmod 600 "$PORTTA_HOME/state/traefik/acme/acme.json" 2>/dev/null || true
 good "state directories"
 
@@ -842,6 +843,10 @@ if [ -z "$(env_get "$ENV_FILE" PORTTA_RUNTIME_DB_PASSWORD)" ]; then
   env_set "$ENV_FILE" PORTTA_RUNTIME_DB_PASSWORD "$(random_hex 32)"
   good "generated the panel database credential"
 fi
+if [ -z "$(env_get "$ENV_FILE" PORTTA_AUTH_SECRET)" ]; then
+  env_set "$ENV_FILE" PORTTA_AUTH_SECRET "$(random_hex 32)"
+  good "generated the authentication signing secret"
+fi
 
 PANEL_IMAGE="${PORTTA_REGISTRY}/portta:${NEW_VERSION}"
 
@@ -858,6 +863,7 @@ else
 fi
 env_set "$ENV_FILE" PORTTA_WEB "true"
 env_set "$ENV_FILE" PORTTA_WEB_IMAGE "$PANEL_IMAGE"
+env_set "$ENV_FILE" PORTTA_AUTH_IMAGE "$PANEL_IMAGE"
 env_set "$ENV_FILE" PORTTA_WEB_BUILD "false"
 env_set "$ENV_FILE" PORTTA_WEB_DEV "false"
 env_set "$ENV_FILE" PORTTA_WEB_EXPOSE "$PANEL_ACCESS"
@@ -1096,6 +1102,16 @@ fi
 # ---------------------------------------------------------------------------
 
 step "Starting Portta"
+
+# Lift legacy BasicAuth credentials into the private store before any router
+# can switch to ForwardAuth. The disposable process has write mounts; the
+# long-running auth service keeps only the store, read-only.
+run_compose run --rm --no-deps \
+  -v "$PORTTA_HOME/.env:/app/state/.env:ro" \
+  -v "$PORTTA_HOME/state/auth:/app/state/auth" \
+  -v "$PORTTA_HOME/config/traefik/dynamic:/app/state/traefik-dynamic" \
+  portta-auth node /app/apps/auth/dist/migrate.js >/dev/null \
+  || die "existing authentication state could not be migrated"
 
 # The panel database first, and on its own, because the credential in .env has
 # to be reconciled with it before anything tries to use it.

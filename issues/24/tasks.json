@@ -55,8 +55,8 @@
         "Legacy panel and share credentials migrate idempotently",
         "Auth routes cannot protect themselves"
       ],
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Compose now runs the isolated auth service, lifecycle paths migrate legacy credentials idempotently, and Core owns the self-bypass-safe ForwardAuth file."
     },
     {
       "id": "US-005",

@@ -253,15 +253,15 @@ it "the password never reaches a command line, where ps would show it"
 assert_contains "$(cat packages/cli/src/commands/web.ts)" "['passwd', '-apr1', '-stdin']"
 assert_eq "" "$(grep -nE "\['passwd',[^]]*password" packages/cli/src/commands/web.ts || true)"
 
-describe "the panel writes three filenames into Traefik's dynamic directory"
+describe "the panel writes four filenames into Traefik's dynamic directory"
 
 dynamic="apps/web/src/server/core/dynamic.ts"
 
 it "the writer exists"
 assert_success test -f "$dynamic"
 
-it "the allowlist names exactly three files"
-assert_eq "3" "$(grep -cE "^  (panel|shares|aliases): 'portta-[a-z]+\.yaml'," "$dynamic")"
+it "the allowlist names exactly four files"
+assert_eq "4" "$(grep -cE "^  (panel|shares|aliases|auth): 'portta-[a-z]+\.yaml'," "$dynamic")"
 
 for owned in "middlewares.yaml" "tcp.yaml" "local-tls.yaml" "auth.yaml" "acme.json"; do
   it "$owned stays the user's"

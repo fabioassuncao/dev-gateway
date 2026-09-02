@@ -17,6 +17,7 @@ config/traefik/dynamic/auth.yaml
 config/traefik/dynamic/portta-panel.yaml
 config/traefik/dynamic/portta-shares.yaml
 config/traefik/dynamic/portta-aliases.yaml
+config/traefik/dynamic/portta-auth.yaml
 config/tls/*
 !config/tls/.gitkeep
 !config/tls/README.md

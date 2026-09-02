@@ -1,0 +1,61 @@
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { describe, expect, it } from 'vitest'
+import { SHARES_MARKER, readProtectionStore } from 'portta-core'
+import { migrateLegacyState } from './migrate.ts'
+
+function fixture() {
+  const root = mkdtempSync(join(tmpdir(), 'portta-auth-migrate-'))
+  const options = {
+    envPath: join(root, '.env'), sharesPath: join(root, 'dynamic/portta-shares.yaml'),
+    storePath: join(root, 'auth/protections.json'), authDynamicPath: join(root, 'dynamic/portta-auth.yaml'),
+  }
+  mkdirSync(join(root, 'dynamic'))
+  writeFileSync(options.envPath, [
+    'PORTTA_WEB_AUTH=basic', 'PORTTA_WEB_AUTH_USER=dev',
+    'PORTTA_WEB_AUTH_HASH=$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
+    'PORTTA_WEB_EXPOSE=vpn', 'PORTTA_WEB_HOST=portta-web', 'PORTTA_DOMAIN=dev.example.com', 'TLS_ENABLED=true',
+  ].join('\n'))
+  const shares = [{ id: 'a7f3', host: 'store-a7f3.share.dev.example.com', entryPoint: 'websecure', mode: 'protected', user: 'reviewer', hash: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1', project: 'store', service: 'web' }]
+  writeFileSync(options.sharesPath, `${SHARES_MARKER}${JSON.stringify(shares)}\n`)
+  return options
+}
+
+describe('legacy auth migration', () => {
+  it('lifts panel and share credentials before rendering ForwardAuth', () => {
+    const options = fixture()
+    expect(migrateLegacyState(options)).toEqual({ migrated: 2, protections: 2 })
+    const store = readProtectionStore(options.storePath)
+    expect(store.protections.map((item) => item.scope)).toEqual(['panel', 'share:a7f3'])
+    const yaml = readFileSync(options.authDynamicPath, 'utf8')
+    expect(yaml).toContain('portta-forward-auth:')
+    expect(yaml).not.toContain('$apr1$')
+    expect(statSync(options.storePath).mode & 0o777).toBe(0o600)
+    expect(statSync(options.authDynamicPath).mode & 0o777).toBe(0o600)
+  })
+
+  it('is idempotent and does not bump an existing epoch', () => {
+    const options = fixture()
+    migrateLegacyState(options)
+    expect(migrateLegacyState(options).migrated).toBe(0)
+    expect(readProtectionStore(options.storePath).protections.every((item) => item.epoch === 1)).toBe(true)
+  })
+
+  it('reports an unmigratable protected share without replacing existing state', () => {
+    const options = fixture()
+    migrateLegacyState(options)
+    const before = readFileSync(options.storePath, 'utf8')
+    writeFileSync(options.sharesPath, `${SHARES_MARKER}${JSON.stringify([{ id: 'bad', mode: 'protected', host: 'bad.example', entryPoint: 'web' }])}\n`)
+    expect(() => migrateLegacyState(options)).toThrow('protected share bad cannot be migrated')
+    expect(readFileSync(options.storePath, 'utf8')).toBe(before)
+  })
+
+  it('tightens pre-existing output modes', () => {
+    const options = fixture()
+    writeFileSync(options.authDynamicPath, 'old', { mode: 0o644 })
+    chmodSync(options.authDynamicPath, 0o644)
+    migrateLegacyState(options)
+    expect(statSync(options.authDynamicPath).mode & 0o777).toBe(0o600)
+  })
+})

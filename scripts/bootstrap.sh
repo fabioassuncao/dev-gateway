@@ -97,6 +97,10 @@ if [ -f "$PORTTA_ROOT/.env" ] && [ -z "${PORTTA_RUNTIME_DB_PASSWORD:-}" ]; then
   portta_env_set PORTTA_RUNTIME_DB_PASSWORD "$(portta_random_hex 32)"
   ok "generated the panel database credential in .env"
 fi
+if [ -f "$PORTTA_ROOT/.env" ] && [ -z "${PORTTA_AUTH_SECRET:-}" ]; then
+  portta_env_set PORTTA_AUTH_SECRET "$(portta_random_hex 32)"
+  ok "generated the authentication signing secret in .env"
+fi
 
 # The panel writes .env from its Settings page, and .env is owner-only, so the
 # container has to run as whoever owns it. The installer records this; a
@@ -113,9 +117,10 @@ info "profile: $PORTTA_PROFILE, domain: $PORTTA_DOMAIN"
 step "4/8  State directories"
 # Bind mounts under ./state keep gateway state inspectable and backupable, and
 # make it obvious that no consumer volume is ever involved.
-for d in traefik/acme tailscale access; do
+for d in traefik/acme tailscale access auth; do
   mkdir -p "$PORTTA_STATE_DIR/$d"
 done
+chmod 700 "$PORTTA_STATE_DIR/auth"
 # ACME material must never be world readable.
 chmod 700 "$PORTTA_STATE_DIR/traefik/acme" 2>/dev/null || true
 if [ -f "$PORTTA_STATE_DIR/traefik/acme/acme.json" ]; then

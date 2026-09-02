@@ -11,6 +11,7 @@
 FROM node:24.20.0-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
+COPY apps/auth/package.json ./apps/auth/
 COPY apps/web/package.json ./apps/web/
 COPY packages/core/package.json ./packages/core/
 COPY packages/cli/package.json ./packages/cli/
@@ -22,12 +23,15 @@ RUN npm ci
 FROM deps AS build
 WORKDIR /app
 COPY apps/web/tsconfig.json apps/web/tsconfig.server.json apps/web/vite.config.ts ./apps/web/
+COPY apps/web/vite.auth.config.ts ./apps/web/
 COPY apps/web/src ./apps/web/src
+COPY apps/auth/tsconfig.json ./apps/auth/
+COPY apps/auth/src ./apps/auth/src
 # Both configs: the package builds through tsconfig.build.json, which extends
 # tsconfig.json to drop the tests from the published output.
 COPY packages/core/tsconfig.json packages/core/tsconfig.build.json ./packages/core/
 COPY packages/core/src ./packages/core/src
-RUN npm run build --workspace=portta-core && npm run build --workspace=portta-web
+RUN npm run build --workspace=portta-core && npm run build --workspace=portta-auth && npm run build --workspace=portta-web
 
 # --- development -------------------------------------------------------------
 # Used by docker/compose/features/web-dev.yaml, which bind-mounts the source over
@@ -36,6 +40,7 @@ FROM deps AS dev
 WORKDIR /app
 ENV NODE_ENV=development
 COPY apps/web ./apps/web
+COPY apps/auth ./apps/auth
 # The workspace symlink npm ci created points at packages/core, so the shared
 # package's source has to be here too: this stage never builds it, and the
 # `development` export condition resolves it as TypeScript.
@@ -60,10 +65,12 @@ LABEL org.opencontainers.image.title="Portta" \
       org.opencontainers.image.source="https://github.com/fabioassuncao/portta" \
       org.opencontainers.image.licenses="MIT"
 COPY package.json package-lock.json ./
+COPY apps/auth/package.json ./apps/auth/
 COPY apps/web/package.json ./apps/web/
 COPY packages/core/package.json ./packages/core/
 COPY packages/cli/package.json ./packages/cli/
-RUN npm ci --workspace=portta-web --omit=dev && npm cache clean --force
+RUN npm ci --workspace=portta-web --workspace=portta-auth --omit=dev && npm cache clean --force
+COPY --from=build /app/apps/auth/dist ./apps/auth/dist
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY --from=build /app/packages/core/dist ./packages/core/dist
 COPY apps/web/migrations ./apps/web/migrations

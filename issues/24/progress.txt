@@ -73,3 +73,26 @@ responsive bilingual login entry that reuses Portta UI primitives and tokens.
   protected application owns the post-login destination.
 
 ---
+
+## 2026-09-02T01:54:00-03:00 - US-004: Wire the auth service and safe migration
+
+### What was implemented
+Added the unexposed, read-only auth process to the base topology and the shared
+image build. Added a disposable, narrowly mounted migrator to every lifecycle
+entry point; it lifts legacy panel/share hashes into private state before it
+renders the shared ForwardAuth service, middleware and unprotected login routes.
+
+### Files changed
+- `docker/compose/compose.yaml` and image overlays — isolated auth runtime.
+- `packages/core/src/dynamic.ts` — canonical auth dynamic-file renderer.
+- `apps/auth/src/migrate.ts` — idempotent legacy migration.
+- lifecycle shell, CLI and installer paths — secret/state preparation.
+- generated-file allowlists and tests — fourth Portta-owned dynamic filename.
+
+### Learnings for future iterations
+- The auth listener can retain its internal all-interface default without
+  leaking `0.0.0.0` into rendered private-profile configuration.
+- A scoped middleware still has to compare its configured hostname; scope is
+  a narrower lookup key, never permission to cross the host boundary.
+
+---

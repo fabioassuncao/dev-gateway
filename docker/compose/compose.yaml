@@ -176,3 +176,35 @@ services:
       traefik.enable: "false"
       portta.managed: "true"
       portta.component: traefik
+
+  # --------------------------------------------------------------------------
+  # ForwardAuth: browser login and host-scoped sessions
+  # --------------------------------------------------------------------------
+  portta-auth:
+    image: ${PORTTA_AUTH_IMAGE:-ghcr.io/fabioassuncao/portta:0.3.0}
+    restart: unless-stopped
+    read_only: true
+    user: node
+    command: ["node", "/app/apps/auth/dist/index.js"]
+    environment:
+      PORTTA_AUTH_PORT: "4180"
+      PORTTA_AUTH_STORE: /app/state/auth/protections.json
+      PORTTA_AUTH_SECRET: ${PORTTA_AUTH_SECRET:-}
+      PORTTA_AUTH_UI_DIR: /app/apps/web/dist/auth
+      PORTTA_AUTH_SESSION_SECONDS: "43200"
+    volumes:
+      - ./state/auth:/app/state/auth:ro
+    networks:
+      - gateway
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4180/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    labels:
+      traefik.enable: "false"
+      portta.managed: "true"
+      portta.component: auth

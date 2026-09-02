@@ -127,7 +127,7 @@ export function createAuthApp(dependencies: AuthAppDependencies = {}): Hono {
   app.get('/verify', async (c) => {
     const protection = findProtection(c)
     const host = forwardedHost(c)
-    if (!protection || !host || (c.req.query('scope') === undefined && protection.host !== host)) return c.body(null, 401)
+    if (!protection || !host || protection.host !== host) return c.body(null, 401)
 
     const basic = basicCredentials(c.req.header('authorization'))
     if (basic && basic.user === protection.user && await verifyPassword(basic.password, protection.hash)) {

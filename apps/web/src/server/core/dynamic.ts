@@ -33,6 +33,7 @@ export const GENERATED_FILES = {
   panel: 'portta-panel.yaml',
   shares: 'portta-shares.yaml',
   aliases: 'portta-aliases.yaml',
+  auth: 'portta-auth.yaml',
 } as const
 
 export type GeneratedFile = (typeof GENERATED_FILES)[keyof typeof GENERATED_FILES]

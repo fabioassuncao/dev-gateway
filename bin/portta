@@ -63,6 +63,8 @@ fi
 . "$PORTTA_BIN_DIR/../scripts/lib/discovery.sh"
 # shellcheck source=../scripts/lib/apply.sh
 . "$PORTTA_BIN_DIR/../scripts/lib/apply.sh"
+# shellcheck source=../scripts/lib/auth.sh
+. "$PORTTA_BIN_DIR/../scripts/lib/auth.sh"
 
 # Subcommand groups live in their own files to keep this dispatcher readable.
 for _portta_cmd_file in "$PORTTA_BIN_DIR"/../scripts/cmd/*.sh; do
@@ -229,6 +231,7 @@ cmd_up() {
   fi
 
   mkdir -p "$PORTTA_STATE_DIR/traefik/acme"
+  portta_auth_prepare "$profile" || die "authentication state could not be prepared"
 
   info "starting gateway (profile: $profile, domain: $PORTTA_DOMAIN)"
   if [ "$detach" = "1" ]; then

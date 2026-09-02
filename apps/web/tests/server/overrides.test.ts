@@ -46,11 +46,12 @@ async function put(instance: ReturnType<typeof app>, path: string, body: unknown
 }
 
 describe('the generated aliases file', () => {
-  it('is the third file the panel may write, and nothing more', () => {
+  it('is one of the four files the panel may write, and nothing more', () => {
     expect(Object.values(GENERATED_FILES)).toEqual([
       'portta-panel.yaml',
       'portta-shares.yaml',
       'portta-aliases.yaml',
+      'portta-auth.yaml',
     ])
   })
 
