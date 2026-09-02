@@ -9,6 +9,41 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+## [0.7.1] — 2026-09-02
+
+### Added
+
+- **The GitHub webhook can reach a routed panel.** Every panel path sits behind
+  ForwardAuth, which expects a session cookie or a Basic credential — GitHub
+  sends neither, so a delivery was refused before the panel ever saw it: a
+  `401` with an empty body and nothing in the panel's log. One overlay exempts
+  exactly one path, applied when `GITHUB_APP_ENABLED=true` and the panel is
+  routed with `PORTTA_WEB_EXPOSE=domain`.
+
+  It is not a hole in the panel's authentication. That path authenticates
+  differently, and for a machine-to-machine callback more strongly than a
+  cookie would: GitHub signs the raw body with HMAC-SHA256 under a shared
+  secret, and nothing is parsed before the constant-time check passes. It is
+  **not** a general "these URLs are public" list, and Portta does not offer one
+  — every other panel path authenticates by session and by nothing else. The
+  router names one exact path with `Path(...)`, never a prefix.
+- **`portta doctor` warns when the App is on and the panel is in a mode GitHub
+  cannot deliver to**, because the symptom otherwise is deliveries GitHub
+  retries and this host refuses, invisibly.
+
+### Fixed
+
+- **The installer called a working gateway a failure.** It probes the panel for
+  a `401` without credentials, once, immediately after the containers are
+  recreated — and for a second or two Traefik has the container but not yet the
+  router, so the probe gets a `404` that is indistinguishable from a real one.
+  Updating a healthy host reported "some health checks did not pass" while the
+  panel answered `401` moments later. The probe waits for the answer it expects
+  now, and still gives up.
+- **The probe reaches a routed panel by name.** In `domain` mode nothing is
+  published on the host, so a probe at a host port checked a door that does not
+  exist.
+
 ## [0.7.0] — 2026-09-02
 
 ### Added

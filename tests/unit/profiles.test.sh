@@ -272,6 +272,40 @@ assert_not_contains "$selected" "docker/compose/features/panel-domain.yaml"
 it "the routed panel carries the panel-scoped middleware"
 assert_contains "$(cat "$PORTTA_ROOT/docker/compose/features/panel-domain.yaml")" "portta-web-auth@file"
 
+describe "the webhook is the one path that authenticates itself"
+
+# GitHub sends no cookie and no Basic credential, so every panel path behind
+# ForwardAuth refuses a delivery before the panel sees it. The exemption is one
+# exact path, and it is safe only because that path verifies an HMAC signature
+# over the raw body before parsing anything.
+CREDENTIALLED_DOMAIN="PORTTA_WEB=true PORTTA_WEB_EXPOSE=domain $PORTTA_RUNTIME_CREDENTIAL"
+
+it "is off until the App is"
+selected=$(files_for remote-public PUBLIC_DOMAIN=d.test $CREDENTIALLED_DOMAIN)
+assert_not_contains "$selected" "docker/compose/features/panel-webhook.yaml"
+
+it "and rides with a routed panel once it is on"
+selected=$(files_for remote-public PUBLIC_DOMAIN=d.test $CREDENTIALLED_DOMAIN GITHUB_APP_ENABLED=true)
+assert_contains "$selected" "docker/compose/features/panel-webhook.yaml"
+
+# `public` serves the panel over plain HTTP on an entrypoint that terminates no
+# TLS, usually on a bare IP. GitHub will not deliver there, so opening the path
+# would be an unauthenticated route to nothing.
+it "never rides with the panel entrypoint, which GitHub cannot reach"
+selected=$(files_for remote-public PUBLIC_DOMAIN=d.test PORTTA_WEB=true PORTTA_WEB_EXPOSE=public $PORTTA_RUNTIME_CREDENTIAL GITHUB_APP_ENABLED=true)
+assert_not_contains "$selected" "docker/compose/features/panel-webhook.yaml"
+
+# An exact path, never a prefix: a prefix would carry every path under it.
+it "names one exact path and no middleware"
+overlay=$(cat "$PORTTA_ROOT/docker/compose/features/panel-webhook.yaml")
+assert_contains "$overlay" 'Path(`/api/integrations/github/webhook`)'
+assert_eq "" "$(printf '%s' "$overlay" | grep -E 'PathPrefix|middlewares' || true)"
+
+# Traefik picks the highest priority, and the panel's own router matches the
+# same host: the exact path has to win or the delivery meets ForwardAuth.
+it "outranks the panel router that would otherwise catch it"
+assert_contains "$overlay" "portta-panel-webhook.priority"
+
 describe "the base domain comes from the mode"
 
 # See docs/adr/0022-project-domain-modes.md. `localhost` is right for a machine

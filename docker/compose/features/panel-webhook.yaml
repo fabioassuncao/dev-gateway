@@ -1,0 +1,46 @@
+# ============================================================================
+# Portta: the one panel path that authenticates itself
+# ============================================================================
+# Applied when GITHUB_APP_ENABLED=true and the panel is routed on a domain.
+#
+# The problem
+# -----------
+# A GitHub App delivers webhooks to a URL of yours. Every panel path sits
+# behind ForwardAuth, which expects a session cookie or a Basic credential --
+# GitHub sends neither, so a delivery is refused before the panel ever sees it.
+# The panel cannot be told about a push, an issue, or a new installation.
+#
+# Why an exemption is safe here, and only here
+# --------------------------------------------
+# This is not a hole in the panel's authentication. It is one path that carries
+# a *different* and, for a machine-to-machine callback, stronger one: GitHub
+# signs the raw body with HMAC-SHA256 under a secret only it and this host
+# know, and `verifySignature` compares in constant time, refusing a missing
+# secret, a missing header and a wrong digest alike. Nothing is parsed before
+# that check passes.
+#
+# So the request is authenticated, just not by a cookie. A session cookie would
+# be the wrong instrument: GitHub has no session, and any scheme that let it in
+# by origin or by address would trust something forgeable.
+#
+# What this deliberately is not
+# -----------------------------
+# It is not a general "these URLs are public" list. Every other panel path
+# authenticates by session and by nothing else, so exempting one would be an
+# unauthenticated door into an API that can start, stop and remove containers.
+# This router names one exact path with `Path(...)`, not a prefix -- there is
+# no `/api/integrations/github/webhook/../projects` to walk out of.
+#
+# The priority is above the panel's own router so the exact path wins over
+# `Host(...)`; both name the same service, so the panel process is unchanged.
+# ============================================================================
+
+services:
+  web:
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.portta-panel-webhook.rule: >-
+        Host(`${PORTTA_PANEL_ADVERTISED_HOST:-portta-web}`) && Path(`/api/integrations/github/webhook`)
+      traefik.http.routers.portta-panel-webhook.priority: "20000"
+      traefik.http.routers.portta-panel-webhook.service: portta-panel
+      traefik.http.services.portta-panel.loadbalancer.server.port: "8081"

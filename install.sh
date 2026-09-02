@@ -1270,11 +1270,42 @@ done
 # The panel's front door, checked from the outside rather than from inside the
 # container: in `public` mode an unauthenticated request must be refused, and
 # proving that is more useful than proving the process is up.
-probe() { curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$1" 2>/dev/null || printf '000'; }
+# Traefik learns about a recreated container from the socket proxy, and for a
+# second or two after `up` it has the container but not yet the router -- so an
+# unmatched request gets 404, which is indistinguishable from a real one in a
+# single shot. Waiting for the answer we expect turns a flaky install report
+# into an honest one; the loop still gives up, and the last code is what is
+# reported. Found updating a working host: the panel returned 401 moments after
+# the installer had already called it a failure.
+probe_until() { # probe_until <expected> <curl args...>
+  _expected="$1"; shift
+  _code=""
+  _attempt=0
+  while [ "$_attempt" -lt 20 ]; do
+    _code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$@" 2>/dev/null || printf '000')
+    [ "$_code" = "$_expected" ] && break
+    _attempt=$((_attempt + 1))
+    sleep 1
+  done
+  printf '%s' "$_code"
+}
 
 case "$PANEL_ACCESS" in
+  domain)
+    # No host port in this mode: the router is the only way in, so the probe has
+    # to arrive the way a browser does -- by name, on the gateway's entrypoint.
+    # --resolve keeps it on this host instead of going out and back through DNS,
+    # and -k because the certificate may still be minutes from issuance.
+    code=$(probe_until 401 --resolve "${ADVERTISED}:443:127.0.0.1" -k "https://${ADVERTISED}/api/health")
+    if [ "$code" = "401" ]; then
+      good "the panel refuses unauthenticated requests on https://${ADVERTISED} (HTTP 401)"
+    else
+      bad "expected HTTP 401 from https://${ADVERTISED} without credentials, got $code"
+      HEALTH_OK=false
+    fi
+    ;;
   public)
-    code=$(probe "http://127.0.0.1:${PANEL_PORT}/api/health")
+    code=$(probe_until 401 "http://127.0.0.1:${PANEL_PORT}/api/health")
     if [ "$code" = "401" ]; then
       good "the panel refuses unauthenticated requests (HTTP 401)"
     else
@@ -1283,7 +1314,7 @@ case "$PANEL_ACCESS" in
     fi
     ;;
   *)
-    code=$(probe "http://${PANEL_BIND}:${PANEL_PORT}/api/health")
+    code=$(probe_until 200 "http://${PANEL_BIND}:${PANEL_PORT}/api/health")
     if [ "$code" = "200" ]; then
       good "the panel answers on ${PANEL_BIND}:${PANEL_PORT}"
     else

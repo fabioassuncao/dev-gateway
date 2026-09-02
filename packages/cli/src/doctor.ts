@@ -463,6 +463,15 @@ export async function runDoctor(context: GatewayContext): Promise<DoctorCheck[]>
         ? check('web.expose', 'pass', 'web panel routing', `routed on ${advertised} over HTTPS, behind portta-web-auth`)
         : check('web.expose', 'fail', 'web panel routing', 'routed on the domain with TLS off, so the credential crosses in clear text',
             'portta config set tls.enabled true'))
+      if (config.githubAppEnabled) {
+        add(check('web.webhook', 'pass', 'GitHub webhook', `https://${advertised}/api/integrations/github/webhook, verified by signature`))
+      }
+    }
+    // The App on without a route to it is a delivery GitHub retries and this
+    // host refuses forever, which is invisible from here and puzzling there.
+    if (config.githubAppEnabled && env['PORTTA_WEB_EXPOSE'] !== 'domain') {
+      add(check('web.webhook', 'warn', 'GitHub webhook', `the App is on, but every panel path needs a session and GitHub sends none (panel access: ${env['PORTTA_WEB_EXPOSE'] || 'local'})`,
+        'portta config set panel.access domain   routes the panel, and exempts the signed webhook path'))
     }
 
     add(!web

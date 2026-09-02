@@ -295,6 +295,12 @@ portta_compose_files() {
     fi
     if [ "${PORTTA_WEB_EXPOSE:-local}" = "domain" ]; then
       files="$files docker/compose/features/panel-domain.yaml"
+      # The one path GitHub can reach without a session, because it carries a
+      # signature instead. Only with the App on, and only where the panel is
+      # routed on a name a certificate covers.
+      if portta_is_true "${GITHUB_APP_ENABLED:-false}"; then
+        files="$files docker/compose/features/panel-webhook.yaml"
+      fi
     fi
   fi
 

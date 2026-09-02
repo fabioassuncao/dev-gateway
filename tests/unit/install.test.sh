@@ -393,4 +393,20 @@ assert_contains "$SOURCE" '--tls needs a real domain'
 it "the contact address is a flag, never a prompt"
 assert_contains "$SOURCE" '--tls) shift; TLS_EMAIL='
 
+describe "the panel probe waits for Traefik to catch up"
+
+# Traefik learns about a recreated container from the socket proxy, and for a
+# second or two it has the container but not the router -- so the probe gets a
+# 404 that is indistinguishable from a real one. A single shot made a working
+# update report failure; found doing exactly that.
+it "retries until the expected code, rather than asking once"
+assert_contains "$SOURCE" "probe_until() {"
+assert_contains "$SOURCE" 'while [ "$_attempt" -lt 20 ]'
+assert_eq "" "$(printf '%s' "$SOURCE" | grep -E '^probe\(\) \{' || true)"
+
+# In `domain` mode nothing is published on the host, so a probe at a host port
+# would check a door that does not exist.
+it "reaches a routed panel by name, through the gateway entrypoint"
+assert_contains "$SOURCE" '--resolve "${ADVERTISED}:443:127.0.0.1"'
+
 t_summary

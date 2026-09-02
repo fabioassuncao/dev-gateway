@@ -73,6 +73,8 @@ export interface GatewayConfig {
   publicIp: string | null
   webPort: number
   webReadOnly: boolean
+  /** Only the webhook overlay reads this: the panel decides everything else about the App. */
+  githubAppEnabled: boolean
   /** Whether the Cloudflare Tunnel connector runs beside the gateway. */
   tunnelEnabled: boolean
   /** The zone whose wildcard the tunnel carries, when one is configured. */
@@ -156,6 +158,7 @@ export function loadGatewayConfig(env: Record<string, string | undefined> = proc
     publicIp: optional(env, 'PORTTA_PUBLIC_IP'),
     webPort: Number(value(env, 'PORTTA_WEB_PORT', '8081')),
     webReadOnly: isTrue(env['PORTTA_WEB_READ_ONLY']),
+    githubAppEnabled: isTrue(env['GITHUB_APP_ENABLED']),
     tunnelEnabled: isTrue(env['CLOUDFLARE_TUNNEL_ENABLED']),
     tunnelZone: optional(env, 'CLOUDFLARE_TUNNEL_ZONE'),
   }
@@ -220,7 +223,14 @@ export function composeFiles(config: GatewayConfig): string[] {
     if (config.webBuild) files.push('docker/compose/features/web-build.yaml')
     if (config.webDev) files.push('docker/compose/features/web-dev.yaml')
     if (config.webExpose === 'vpn') files.push('docker/compose/features/web-vpn.yaml')
-    if (config.webExpose === 'domain') files.push('docker/compose/features/panel-domain.yaml')
+    if (config.webExpose === 'domain') {
+      files.push('docker/compose/features/panel-domain.yaml')
+      // The one path GitHub can reach without a session, because it carries a
+      // signature instead. Only with the App on, and only where the panel is
+      // routed on a name a certificate covers -- GitHub will not deliver to
+      // plain HTTP on a bare IP, which is what `public` mode offers.
+      if (config.githubAppEnabled) files.push('docker/compose/features/panel-webhook.yaml')
+    }
   }
   // Auth is a gateway service, not a panel extra: the migrator runs on `up`
   // even when the panel is off. The overlay is selected by the local-build

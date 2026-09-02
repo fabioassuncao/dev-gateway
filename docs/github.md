@@ -102,7 +102,8 @@ worktrees. It does not silently create a Portta project.
 - No App configured: the panel behaves as it does today.
 - App configured: outbound calls to `api.github.com` on the network the
   panel already has. No new Docker network.
-- Webhooks off by default. A loopback panel cannot receive them.
+- Webhooks off by default. A loopback panel cannot receive them, and a
+  routed one refuses them until the signed path is exempted (step 7).
   Correctness comes from reconciliation. Webhooks are an optimisation
   for a panel the operator has already published.
 - The panel stays refused on the public profile.
@@ -276,6 +277,36 @@ Skip this unless the panel has a URL GitHub can reach. Correctness does not
 depend on a delivery — reconciliation is the baseline, and a webhook only makes
 the panel notice sooner.
 
+**A delivery has no session, and every other panel path requires one.** GitHub
+sends no cookie and no Basic credential, so ForwardAuth refuses a delivery
+before the panel ever sees it — a `401` with an empty body, and nothing in the
+panel's log. One overlay exempts exactly one path from that middleware:
+
+```
+docker/compose/features/panel-webhook.yaml
+```
+
+It is applied when `GITHUB_APP_ENABLED=true` **and** the panel is routed with
+`PORTTA_WEB_EXPOSE=domain`. Both halves matter: `domain` is the only mode that
+gives the panel a hostname over HTTPS, and GitHub will not deliver to the plain
+HTTP the `panel` entrypoint serves. `portta doctor` warns when the App is on and
+the panel is in any other mode, because the symptom otherwise is deliveries
+GitHub retries and this host refuses, invisibly.
+
+**Why that exemption is not a hole.** The path is not unauthenticated; it
+authenticates differently, and for a machine-to-machine callback more strongly
+than a cookie would. GitHub signs the raw body with HMAC-SHA256 under a secret
+only it and this host know, and nothing is parsed before that check passes. A
+session cookie would be the wrong instrument here — GitHub has no session, and
+any scheme that let it in by origin or by address would trust something
+forgeable.
+
+It is **not** a general "these URLs are public" list, and Portta does not offer
+one. Every other panel path authenticates by session and by nothing else, so
+exempting any of them would open an unauthenticated door into an API that can
+start, stop and remove containers. The router names one exact path with
+`Path(...)`, never a prefix.
+
 Generate a secret and keep it where you can paste it twice:
 
 ```bash
@@ -287,7 +318,7 @@ On the App's settings page, under *Webhook*:
 | Field | Value |
 |---|---|
 | **Active** | ticked |
-| **Payload URL** | `https://<your panel host>/api/integrations/github/webhook` |
+| **Payload URL** | `https://<PORTTA_PANEL_ADVERTISED_HOST>/api/integrations/github/webhook` |
 | **Content type** | `application/json` |
 | **Secret** | the string you just generated |
 
