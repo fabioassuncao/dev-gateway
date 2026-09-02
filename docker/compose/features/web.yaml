@@ -97,7 +97,7 @@ services:
     # (docker/compose/features/web-build.yaml), and `portta web dev` still
     # builds the dev target. Keep the default tag in step with VERSION;
     # tests/unit/audit.test.sh enforces that.
-    image: ${PORTTA_WEB_IMAGE:-ghcr.io/fabioassuncao/portta:0.5.0}
+    image: ${PORTTA_WEB_IMAGE:-ghcr.io/fabioassuncao/portta:0.5.1}
     restart: unless-stopped
     depends_on:
       web-socket-proxy:

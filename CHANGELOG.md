@@ -9,6 +9,22 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-09-02
+
+### Fixed
+
+- **`portta public enable` pointed every bind mount at the wrong directory.**
+  It built the Compose file list by hand instead of going through
+  `composeArguments`, which is what carries `--project-directory`, so Compose
+  anchored every relative bind at `docker/compose/` and created `.env`,
+  `VERSION`, `config/traefik/dynamic` and `state/auth` there as empty
+  directories. The gateway came back up healthy and reading none of its own
+  configuration: the panel answered `500 EISDIR` for `/api/status` with a
+  gateway version of `unknown`, and the authentication service had lost the
+  protection store it fails closed without. The audit now fails any Compose
+  invocation that names a file under the gateway root without going through
+  `composeArguments`.
+
 ## [0.5.0] — 2026-09-02
 
 ### Added
