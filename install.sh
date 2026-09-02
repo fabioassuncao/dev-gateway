@@ -818,9 +818,15 @@ good "state directories"
 
 step "Configuration"
 
+# Whether this run created the file matters later: `.env.example` ships values
+# for everything, so reading one back cannot tell "the operator chose this"
+# from "this is the template's default". Only a file that already existed
+# carries a choice.
+ENV_WAS_CREATED=false
 if [ ! -f "$ENV_FILE" ]; then
   cp "$PORTTA_HOME/.env.example" "$ENV_FILE"
   chmod 600 "$ENV_FILE"
+  ENV_WAS_CREATED=true
   good "created .env from the shipped example"
 else
   chmod 600 "$ENV_FILE"
@@ -839,7 +845,8 @@ PANEL_IMAGE="${PORTTA_REGISTRY}/portta:${NEW_VERSION}"
 # publishes no application. An update must not reimpose that: `portta public
 # enable` writes remote-public deliberately, and overwriting it here would
 # silently un-expose a host on every routine update.
-EXISTING_PROFILE=$(env_get "$ENV_FILE" PORTTA_PROFILE)
+EXISTING_PROFILE=""
+[ "$ENV_WAS_CREATED" = "false" ] && EXISTING_PROFILE=$(env_get "$ENV_FILE" PORTTA_PROFILE)
 if [ -z "$EXISTING_PROFILE" ]; then
   env_set "$ENV_FILE" PORTTA_PROFILE "local"
 else
@@ -893,7 +900,12 @@ fi
 # This is a name and nothing more: it does not publish a single service. See
 # docs/adr/0022-project-domain-modes.md.
 
-if [ -z "$DOMAIN_MODE" ]; then
+# On an update the configured mode is a decision and is kept. On a fresh
+# install the value in the file is only the template's default, and reading it
+# back would pin every new host to `local` — including one whose panel is on a
+# tailnet or the public internet, which then advertises *.localhost to somebody
+# who cannot open it. That is the failure ADR 0022 exists to prevent.
+if [ -z "$DOMAIN_MODE" ] && [ "$ENV_WAS_CREATED" = "false" ]; then
   DOMAIN_MODE=$(env_get "$ENV_FILE" PORTTA_DOMAIN_MODE)
 fi
 if [ -z "$DOMAIN_MODE" ]; then

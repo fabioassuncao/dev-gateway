@@ -184,6 +184,18 @@ assert_contains "$SOURCE" 'if [ "$PANEL_ACCESS" = "tailscale" ] && [ -n "$TAILSC
 it "an existing mode is kept on an update"
 assert_contains "$SOURCE" 'DOMAIN_MODE=$(env_get "$ENV_FILE" PORTTA_DOMAIN_MODE)'
 
+# `.env.example` ships a value for everything, so reading one back cannot tell
+# "the operator chose this" from "this is the template's default". Reading it on
+# a fresh install pinned every new host to `local` — including one whose panel
+# is on a tailnet, which then advertised *.localhost to somebody who could not
+# open it. Found by installing from scratch on a real host.
+it "but the template's default is not mistaken for a choice on a fresh install"
+assert_contains "$SOURCE" 'ENV_WAS_CREATED=true'
+assert_contains "$SOURCE" 'if [ -z "$DOMAIN_MODE" ] && [ "$ENV_WAS_CREATED" = "false" ]; then'
+
+it "and the same distinction guards the profile"
+assert_contains "$SOURCE" '[ "$ENV_WAS_CREATED" = "false" ] && EXISTING_PROFILE=$(env_get "$ENV_FILE" PORTTA_PROFILE)'
+
 it "the detected address is written down, so no later command has to look it up"
 assert_contains "$SOURCE" 'env_set "$ENV_FILE" PORTTA_PUBLIC_IP "$PUBLIC_IP"'
 
