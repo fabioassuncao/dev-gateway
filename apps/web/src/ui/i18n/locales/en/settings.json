@@ -36,8 +36,8 @@
       "help": "Which set of Compose overlays the gateway starts with."
     },
     "PORTTA_DOMAIN": {
-      "label": "Local domain",
-      "help": "Base domain for generated hostnames: <project>-<service>.<domain>."
+      "label": "Custom domain",
+      "help": "Used when the mode is custom. A wildcard *.<domain> must resolve to this host."
     },
     "PORTTA_BIND_ADDRESS": {
       "label": "Bind address",

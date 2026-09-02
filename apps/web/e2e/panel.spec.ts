@@ -330,14 +330,18 @@ test.describe('the panel end to end', () => {
 
   test('settings keep one draft while moving between deep-linked groups', async ({ page, request }) => {
     try {
-      await page.goto('/#/settings/gateway')
-      await expect(page).toHaveTitle('Gateway · Settings · Portta')
-      await page.getByLabel('Local domain').fill('e2e.localhost')
+      // The base domain moved out of Gateway when it became a mode of its own
+      // (ADR 0022); it is the `custom` value now, in its own group. The
+      // behaviour under test is unchanged: a draft in one group survives while
+      // another is edited, and Save sends both.
+      await page.goto('/#/settings/project-domain')
+      await expect(page).toHaveTitle('Project domain · Settings · Portta')
+      await page.getByLabel('Custom domain').fill('e2e.localhost')
 
       await page.getByRole('link', { name: 'TLS' }).click()
       await expect(page).toHaveURL(/#\/settings\/tls$/)
       await page.getByLabel('HTTPS').click()
-      await expect(page.getByRole('link', { name: 'Gateway, 1 unsaved' })).toBeVisible()
+      await expect(page.getByRole('link', { name: 'Project domain, 1 unsaved' })).toBeVisible()
       await expect(page.getByText('2 unsaved')).toBeVisible()
 
       const patch = page.waitForRequest(
@@ -348,10 +352,10 @@ test.describe('the panel end to end', () => {
         values: { PORTTA_DOMAIN: 'e2e.localhost', TLS_ENABLED: 'true' },
       })
 
-      await page.getByRole('link', { name: 'Gateway' }).click()
-      await expect(page.getByLabel('Local domain')).toHaveValue('e2e.localhost')
+      await page.getByRole('link', { name: 'Project domain' }).click()
+      await expect(page.getByLabel('Custom domain')).toHaveValue('e2e.localhost')
       await page.reload()
-      await expect(page.getByLabel('Local domain')).toHaveValue('e2e.localhost')
+      await expect(page.getByLabel('Custom domain')).toHaveValue('e2e.localhost')
     } finally {
       await request.patch('/api/config', {
         data: { values: { PORTTA_DOMAIN: 'localhost', TLS_ENABLED: 'false' } },

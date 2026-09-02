@@ -42,7 +42,7 @@ const view: ConfigView = {
       pending: false,
       kind: 'string',
       group: 'Gateway',
-      label: 'Local domain',
+      label: 'Custom domain',
       help: 'Base domain for generated hostnames.',
       restartRequired: true,
     },
@@ -96,7 +96,7 @@ describe('Settings', () => {
 
   it('sends only what was edited', async () => {
     renderWithQuery(<Settings group="gateway" />)
-    const domain = await screen.findByLabelText('Local domain')
+    const domain = await screen.findByLabelText('Custom domain')
 
     await userEvent.clear(domain)
     await userEvent.type(domain, 'dev.test')
@@ -107,7 +107,7 @@ describe('Settings', () => {
 
   it('will not save when nothing changed', async () => {
     renderWithQuery(<Settings group="gateway" />)
-    await screen.findByLabelText('Local domain')
+    await screen.findByLabelText('Custom domain')
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
   })
 
@@ -134,7 +134,7 @@ describe('Settings', () => {
       }),
     )
     renderWithQuery(<Settings group="gateway" />)
-    const domain = await screen.findByLabelText('Local domain')
+    const domain = await screen.findByLabelText('Custom domain')
     await userEvent.type(domain, 'x')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
@@ -156,7 +156,7 @@ describe('Settings', () => {
     renderWithQuery(<Settings group="tls" />)
 
     expect(await screen.findByLabelText('HTTPS')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Local domain')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Custom domain')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Tailscale auth key')).not.toBeInTheDocument()
     expect(document.title).toBe('TLS · Settings · Portta')
     expect(screen.getByRole('link', { name: 'TLS' })).toHaveAttribute('aria-current', 'page')
@@ -164,7 +164,7 @@ describe('Settings', () => {
 
   it('keeps one draft across groups and saves all changes together', async () => {
     const rendered = renderWithQuery(<Settings group="gateway" />)
-    const domain = await screen.findByLabelText('Local domain')
+    const domain = await screen.findByLabelText('Custom domain')
     await userEvent.clear(domain)
     await userEvent.type(domain, 'dev.test')
 
@@ -191,7 +191,7 @@ describe('Settings', () => {
 
   it('redirects the settings root to the first server-defined group', async () => {
     renderWithQuery(<Settings group={null} />)
-    await screen.findByLabelText('Local domain')
+    await screen.findByLabelText('Custom domain')
     await waitFor(() => expect(window.location.hash).toBe('#/settings/gateway'))
   })
 
@@ -199,6 +199,6 @@ describe('Settings', () => {
     renderWithQuery(<Settings group="missing" />)
     expect(await screen.findByText('Settings section “missing” does not exist')).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Settings groups' })).toBeInTheDocument()
-    expect(screen.queryByLabelText('Local domain')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Custom domain')).not.toBeInTheDocument()
   })
 })

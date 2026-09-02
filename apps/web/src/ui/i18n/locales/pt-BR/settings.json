@@ -36,8 +36,8 @@
       "help": "Conjunto de overlays Compose com que o gateway inicia."
     },
     "PORTTA_DOMAIN": {
-      "label": "Domínio local",
-      "help": "Domínio base para hostnames gerados: <project>-<service>.<domain>."
+      "label": "Domínio próprio",
+      "help": "Usado quando o modo é custom. Um curinga *.<domínio> precisa resolver para este host."
     },
     "PORTTA_BIND_ADDRESS": {
       "label": "Endereço de bind",
