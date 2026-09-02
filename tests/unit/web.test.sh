@@ -177,6 +177,30 @@ for key in PORTTA_DOMAIN PORTTA_DOMAIN_MODE PORTTA_PUBLIC_IP PORTTA_AUTO_DOMAIN_
   assert_contains "$compose" "$key: \${$key"
 done
 
+# A field the Settings page validates and flags a restart for, whose value the
+# container never sees, is worse than no field: GITHUB_APP_PRIVATE_KEY_FILE was
+# a literal here, so doctor read the .env and the panel read app.pem, and the
+# two could certify different files.
+it "the GitHub App key path the panel reads is the one .env sets"
+for key in GITHUB_APP_ENABLED GITHUB_APP_ID GITHUB_APP_PRIVATE_KEY_FILE GITHUB_APP_WEBHOOK_SECRET GITHUB_API_URL; do
+  assert_contains "$compose" "$key: \${$key"
+done
+
+it "and the operator who sets nothing keeps today's path"
+assert_contains "$compose" 'GITHUB_APP_PRIVATE_KEY_FILE: ${GITHUB_APP_PRIVATE_KEY_FILE:-/app/state/github/app.pem}'
+
+# The mount is what makes the setting expressible at all: the directory is
+# fixed because this is the only place the key comes from, and the filename is
+# free because the whole directory is mounted, not one file in it.
+it "the key still comes from one read-only directory, not one filename"
+assert_contains "$compose" './state/github:/app/state/github:ro'
+
+it "the panel refuses a path it could not open, naming that directory"
+assert_contains "$(cat apps/web/src/server/core/settings.ts)" "the directory mounted into the panel"
+
+it "and doctor refuses the same paths rather than checking the host for them"
+assert_contains "$(cat scripts/doctor.sh)" "is outside /app/state/github/"
+
 describe "every panel command resolves the file list with the panel enabled"
 
 # The environment beats .env, so an inherited PORTTA_WEB=false drops the

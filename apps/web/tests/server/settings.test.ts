@@ -67,6 +67,25 @@ describe('validation', () => {
     expect(() => validateValue('PORTTA_PROFILE', 'remote-private')).not.toThrow()
   })
 
+  // The panel reads this path; `portta doctor` translates it back to the host.
+  // Only `./state/github` is mounted, so a path outside it names a file that is
+  // not in the container at all, and the two diagnostics would disagree about a
+  // key neither of them could authenticate with.
+  it('takes the key filename GitHub gave, and only from the mounted directory', () => {
+    const key = 'GITHUB_APP_PRIVATE_KEY_FILE'
+
+    expect(() => validateValue(key, '/app/state/github/portta.2026-09-02.private-key.pem')).not.toThrow()
+    expect(() => validateValue(key, '/app/state/github/app.pem')).not.toThrow()
+    // Empty falls through to the same default in Compose and in config.ts.
+    expect(() => validateValue(key, '')).not.toThrow()
+
+    expect(() => validateValue(key, '/run/secrets/app.pem')).toThrowError(/mounted into the panel/)
+    expect(() => validateValue(key, 'app.pem')).toThrow(ValidationError)
+    expect(() => validateValue(key, '/app/state/github/')).toThrow(ValidationError)
+    expect(() => validateValue(key, '/app/state/github-old/app.pem')).toThrow(ValidationError)
+    expect(() => validateValue(key, '/app/state/github/../../etc/shadow')).toThrow(ValidationError)
+  })
+
   it('refuses combinations the CLI would refuse at startup', () => {
     expect(() =>
       validateCombination(new Map([['PORTTA_PROFILE', 'remote-public']])),

@@ -15,9 +15,9 @@ import type { Overview } from '../../src/shared/types.ts'
 const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
 const PEM = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString()
 
-function keyFile(mode = 0o600): string {
+function keyFile(mode = 0o600, name = 'app.pem'): string {
   const dir = mkdtempSync(join(tmpdir(), 'portta-github-'))
-  const path = join(dir, 'app.pem')
+  const path = join(dir, name)
   writeFileSync(path, PEM, { mode })
   chmodSync(path, mode)
   return path
@@ -121,6 +121,32 @@ describe('the key file', () => {
     expect(keyIsPrivate(keyFile(0o600))).toBe(true)
     expect(keyIsPrivate(keyFile(0o644))).toBe(false)
     expect(keyIsPrivate('/nonexistent/app.pem')).toBe(false)
+  })
+
+  // GitHub names the download `<app>.<date>.private-key.pem`, and the operator
+  // who keeps that name used to get a passing doctor and a panel reading
+  // app.pem. Nothing here may depend on the filename: only the directory is
+  // fixed, by the mount.
+  it('authenticates under the name GitHub gave it, not only app.pem', async () => {
+    const privateKeyFile = keyFile(0o600, 'portta.2026-09-02.private-key.pem')
+    const { calls } = fakeGitHub({ '/app': { body: { slug: 'portta' } } })
+    const integration = new GitHubIntegration({
+      enabled: true, appId: '12345', privateKeyFile, apiUrl: 'https://api.github.test',
+    })
+
+    const status = await integration.check()
+
+    expect(status.configured).toBe(true)
+    expect(status.available).toBe(true)
+    expect(status.reason).toBeNull()
+    expect(integration.keyIsPrivate()).toBe(true)
+
+    // Signed by that file, and by the App id beside it.
+    const [header, payload, signature] = calls[0]!.authorization.replace('Bearer ', '').split('.')
+    const verifier = createVerify('RSA-SHA256')
+    verifier.update(`${header}.${payload}`)
+    verifier.end()
+    expect(verifier.verify(publicKey, Buffer.from(signature!, 'base64url'))).toBe(true)
   })
 })
 
