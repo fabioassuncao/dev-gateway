@@ -115,6 +115,16 @@ portta_backup_database() {
   [ -s "$target" ] || { rm -f "$target"; return 1; }
 }
 
+# portta_mode_of <path>: the octal mode, on both GNU and BSD userlands.
+#
+# Order matters. `stat -f` means "file system status" to GNU stat and exits 0
+# with completely unrelated output, so trying BSD first does not fail over —
+# it returns nonsense. GNU's `-c` simply fails on BSD, which is what a fallback
+# needs.
+portta_mode_of() {
+  stat -c '%a' "$1" 2>/dev/null || stat -f '%OLp' "$1" 2>/dev/null || printf ''
+}
+
 portta_human_size() {
   if portta_have du; then du -h "$1" 2>/dev/null | cut -f1; else printf 'unknown'; fi
 }
@@ -236,13 +246,19 @@ PORTTA_HELP
 
   # 1. Directories the compose files bind-mount. A missing one makes Docker
   #    create it as root, which then breaks the panel writing to it.
-  local directory
+  local directory mode
   for directory in config/traefik/dynamic config/tls state/traefik/acme state/tailscale state/access state/git state/github state/cloudflared; do
     if [ ! -d "$PORTTA_ROOT/$directory" ]; then
+      # Created with the mode it must end up with, so the permission pass below
+      # never reports work this loop just made for it.
+      case "$directory" in
+        state/traefik/acme|state/cloudflared) mode=700 ;;
+        *) mode=755 ;;
+      esac
       if [ "$dry" = "true" ]; then
         printf '   would create %s\n' "$directory" >&2
       else
-        mkdir -p "$PORTTA_ROOT/$directory" && ok "created $directory"
+        mkdir -p "$PORTTA_ROOT/$directory" && chmod "$mode" "$PORTTA_ROOT/$directory" && ok "created $directory"
       fi
       fixed=$((fixed + 1))
     fi
@@ -260,8 +276,11 @@ PORTTA_HELP
   #    housekeeping sweep on the host can remove it and nothing brings it back.
   #    (The gateway itself never prunes anything; tests/unit/audit.test.sh
   #    enforces that by refusing the literal command anywhere in this tree.)
-  local network
-  for network in "${PORTTA_NETWORK:-portta}" "${PORTTA_ACCESS_NETWORK:-portta-access}"; do
+  local network networks="${PORTTA_NETWORK:-portta}"
+  # The access network carries TCP services and is absent by design when they
+  # are off. Demanding it on every host would report a repair that is not one.
+  portta_is_true "${PORTTA_TCP:-false}" && networks="$networks ${PORTTA_ACCESS_NETWORK:-portta-access}"
+  for network in $networks; do
     if ! docker network inspect "$network" >/dev/null 2>&1; then
       if [ "$dry" = "true" ]; then
         printf '   would create network %s\n' "$network" >&2
@@ -303,7 +322,7 @@ PORTTA_HELP
 portta_repair_mode() {
   local path="$PORTTA_ROOT/$1" want="$2" dry="$3" have
   [ -e "$path" ] || return 1
-  have=$(stat -f '%OLp' "$path" 2>/dev/null || stat -c '%a' "$path" 2>/dev/null || printf '')
+  have=$(portta_mode_of "$path")
   [ -n "$have" ] || return 1
   [ "$have" = "$want" ] && return 1
   if [ "$dry" = "true" ]; then

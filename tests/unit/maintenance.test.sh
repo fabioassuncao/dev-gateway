@@ -31,8 +31,33 @@ make_home() {
   printf '%s' "$home"
 }
 
+# GNU first, deliberately: `stat -f` means "file system status" to GNU stat and
+# exits 0 with unrelated output, so a BSD-first fallback does not fail over — it
+# returns nonsense, and every mode assertion below would pass against garbage.
 mode_of() {
-  stat -f '%OLp' "$1" 2>/dev/null || stat -c '%a' "$1" 2>/dev/null
+  stat -c '%a' "$1" 2>/dev/null || stat -f '%OLp' "$1" 2>/dev/null
+}
+
+# A Docker that reports nothing: no running gateway, no networks.
+#
+# Both restore and repair ask Docker about the world, and the machine running
+# these tests may well have a real Portta on it — the developer's own. Without
+# this stub, restore is refused because a gateway is up and the network
+# assertions pass by accident. What these commands *decide* is the subject.
+NO_NETWORKS=$(mktemp -d)
+cat > "$NO_NETWORKS/docker" <<'STUB'
+#!/usr/bin/env bash
+case "$1 $2" in
+  "network inspect") exit 1 ;;
+  "network create") exit 0 ;;
+esac
+exit 1
+STUB
+chmod +x "$NO_NETWORKS/docker"
+
+run_isolated() {
+  local home="$1"; shift
+  ( cd "$home" && PATH="$NO_NETWORKS:$PATH" env -u PORTTA_ROOT -u PORTTA_STATE_DIR ./bin/portta "$@" )
 }
 
 describe "backup"
@@ -69,7 +94,7 @@ describe "restore"
 # Break the installation the way a bad edit or a bad deploy would.
 printf 'MARKER=CLOBBERED\n' > "$HOME_A/.env"
 rm -f "$HOME_A/config/traefik/dynamic/mine.yaml"
-RESTORE_OUT=$(run_in_home "$HOME_A" restore "$HOME_A/b.tar.gz" 2>&1)
+RESTORE_OUT=$(run_isolated "$HOME_A" restore "$HOME_A/b.tar.gz" 2>&1)
 
 it "puts the configuration back"
 assert_contains "$(cat "$HOME_A/.env")" "MARKER=original"
@@ -86,19 +111,35 @@ SAFETY=$(find "$HOME_A/state" -maxdepth 1 -name 'restore-*' -type d | head -1)
 assert_ne "" "$SAFETY"
 assert_contains "$(cat "$SAFETY/.env" 2>/dev/null)" "MARKER=CLOBBERED"
 
+# The refusal is the safety that matters most: restoring under a running
+# gateway swaps its credentials while the containers keep the old ones.
+it "refuses while a gateway is running"
+RUNNING=$(mktemp -d)
+cat > "$RUNNING/docker" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = "inspect" ] && { echo true; exit 0; }
+exit 1
+STUB
+chmod +x "$RUNNING/docker"
+assert_contains "$( cd "$HOME_A" && PATH="$RUNNING:$PATH" env -u PORTTA_ROOT ./bin/portta restore "$HOME_A/b.tar.gz" 2>&1 )" "the gateway is running"
+
+it "and proceeds anyway when told to"
+assert_not_contains "$( cd "$HOME_A" && PATH="$RUNNING:$PATH" env -u PORTTA_ROOT ./bin/portta restore "$HOME_A/b.tar.gz" --force 2>&1 )" "the gateway is running"
+rm -rf "$RUNNING"
+
 it "says which version the archive came from"
 assert_contains "$RESTORE_OUT" "0.2.0"
 
 it "refuses a file that is not a Portta backup"
 printf 'not an archive' > "$HOME_A/junk.tar.gz"
-assert_contains "$(run_in_home "$HOME_A" restore "$HOME_A/junk.tar.gz" 2>&1)" "not a Portta backup"
+assert_contains "$(run_isolated "$HOME_A" restore "$HOME_A/junk.tar.gz" 2>&1)" "not a Portta backup"
 
 it "refuses an archive without a manifest"
 ( cd "$HOME_A" && tar -czf stray.tar.gz VERSION ) 2>/dev/null
-assert_contains "$(run_in_home "$HOME_A" restore "$HOME_A/stray.tar.gz" 2>&1)" "no Portta manifest"
+assert_contains "$(run_isolated "$HOME_A" restore "$HOME_A/stray.tar.gz" 2>&1)" "no Portta manifest"
 
 it "asks which backup when given none"
-assert_contains "$(run_in_home "$HOME_A" restore 2>&1)" "which backup"
+assert_contains "$(run_isolated "$HOME_A" restore 2>&1)" "which backup"
 
 describe "repair"
 
@@ -140,6 +181,31 @@ SECOND=$(run_in_home "$HOME_C" repair --dry-run 2>&1)
 
 it "finds nothing once everything is in place"
 assert_contains "$SECOND" "nothing to repair"
+
+# repair created state/cloudflared with the default umask and then reported it
+# as needing 700 — work it had just made for itself, on a healthy install.
+# Behavioural, not a grep: the mode on disk is the thing that matters. The
+# compose step afterwards fails without Docker, which is fine; the directories
+# are created before it runs.
+it "creates a private directory private, rather than fixing it afterwards"
+HOME_D=$(make_home)
+run_in_home "$HOME_D" repair >/dev/null 2>&1 || true
+assert_eq "700" "$(mode_of "$HOME_D/state/cloudflared")"
+
+it "and leaves an ordinary directory ordinary"
+assert_eq "755" "$(mode_of "$HOME_D/state/github")"
+
+# The access network carries TCP services. On a host with them off it is absent
+# by design, and demanding it reported a repair that was not one.
+# `.env` wins over the environment here, so the setting goes in the file.
+it "does not demand the access network when TCP routing is off"
+printf 'PORTTA_TCP=false\n' >> "$HOME_D/.env"
+assert_not_contains "$(run_isolated "$HOME_D" repair --dry-run 2>&1)" "portta-access"
+
+it "does demand it when TCP routing is on"
+sed -i.bak 's/^PORTTA_TCP=false/PORTTA_TCP=true/' "$HOME_D/.env"
+assert_contains "$(run_isolated "$HOME_D" repair --dry-run 2>&1)" "portta-access"
+rm -rf "$HOME_D" "$NO_NETWORKS"
 
 rm -rf "$HOME_A" "$HOME_B" "$HOME_C"
 
