@@ -22,6 +22,21 @@ function isGatewayRoot(path: string): boolean {
     || existsSync(join(path, 'compose.yaml'))
 }
 
+/**
+ * Where the installer puts PORTTA_HOME. `npx portta` is meant to be run from
+ * anywhere on an installed host, and walking up from the current directory
+ * only finds a checkout somebody is standing in.
+ */
+function wellKnownRoots(): string[] {
+  const home = process.env['HOME']
+  return [
+    process.env['PORTTA_HOME'],
+    '/opt/portta',
+    home ? join(home, '.portta') : undefined,
+    '/var/lib/portta',
+  ].filter((path): path is string => Boolean(path))
+}
+
 export function findGatewayRoot(start = process.cwd()): string | null {
   const configured = process.env['PORTTA_ROOT']
   if (configured && isGatewayRoot(resolve(configured))) return resolve(configured)
@@ -29,12 +44,26 @@ export function findGatewayRoot(start = process.cwd()): string | null {
   for (;;) {
     if (isGatewayRoot(current)) return current
     const parent = dirname(current)
-    if (parent === current) return null
+    if (parent === current) break
     current = parent
   }
+  // Only once the walk found nothing: a checkout you are standing in always
+  // wins over an installation elsewhere on the host.
+  for (const candidate of wellKnownRoots()) {
+    if (isGatewayRoot(resolve(candidate))) return resolve(candidate)
+  }
+  return null
 }
 
-export function gatewayContext(options: { root?: string; profile?: string; required?: boolean } = {}): GatewayContext {
+/**
+ * `overrides` is for a caller that has just written a value to .env and needs
+ * the context to reflect it. The shell environment normally wins over the file
+ * — deliberately, so `PORTTA_DOMAIN=foo portta up` works — and that precedence
+ * is exactly wrong immediately after a deliberate write: an inherited
+ * PORTTA_WEB=false would silently undo the PORTTA_WEB=true that `web up` just
+ * made, and Compose would then be asked to start a service no overlay defines.
+ */
+export function gatewayContext(options: { root?: string; profile?: string; required?: boolean; overrides?: Record<string, string> } = {}): GatewayContext {
   const root = options.root ? resolve(options.root) : findGatewayRoot()
   if (!root) {
     if (options.required === false) {
@@ -42,13 +71,22 @@ export function gatewayContext(options: { root?: string; profile?: string; requi
       const config = loadGatewayConfig(env)
       return { root: process.cwd(), env, config, composeFiles: [], version: CLI_VERSION }
     }
-    throw new PreconditionError('this command needs a Portta checkout', 'run portta setup, or execute it inside the gateway directory')
+    throw new PreconditionError('no Portta installation found', 'install one with the installer, set PORTTA_HOME, or run this inside the gateway directory')
   }
   const file = existsSync(join(root, '.env')) ? parseEnv(readFileSync(join(root, '.env'), 'utf8')) : new Map<string, string>()
   const env = mergeEnvironment(file, process.env)
+  for (const [key, value] of Object.entries(options.overrides ?? {})) env[key] = value
   if (options.profile) env['PORTTA_PROFILE'] = options.profile
   env['PORTTA_ROOT'] = root
   const config = loadGatewayConfig(env)
+  // The resolved values go back into the environment Compose is handed, the
+  // same way portta_resolve_profile exports them. Traefik bakes PORTTA_DOMAIN
+  // into its default rule and publishes PORTTA_BIND_ADDRESS, and both are
+  // derived here — from the domain mode and from the profile — so leaving the
+  // raw .env values in place would start a gateway that disagrees with every
+  // command that describes it.
+  env['PORTTA_DOMAIN'] = config.domain
+  env['PORTTA_BIND_ADDRESS'] = config.bindAddress
   const files = composeFiles(config)
   for (const fileName of files) {
     if (!existsSync(join(root, fileName))) throw new PreconditionError(`missing compose file: ${fileName}`)

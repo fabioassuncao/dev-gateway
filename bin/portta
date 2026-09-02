@@ -9,13 +9,44 @@
 
 set -euo pipefail
 
-PORTTA_BIN_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# Resolved through symlinks: the installer puts one in /usr/local/bin, and
+# without this the libraries would be looked for next to the link.
+_portta_entry="${BASH_SOURCE[0]}"
+while [ -L "$_portta_entry" ]; do
+  _portta_dir=$(cd -P "$(dirname "$_portta_entry")" && pwd)
+  _portta_entry=$(readlink "$_portta_entry")
+  case "$_portta_entry" in
+    /*) ;;
+    *) _portta_entry="$_portta_dir/$_portta_entry" ;;
+  esac
+done
+PORTTA_BIN_DIR=$(cd -P "$(dirname "$_portta_entry")" && pwd)
+unset _portta_entry _portta_dir
 
 # The full CLI is TypeScript. Keep this tiny entry point because a bare host
 # must still be able to bootstrap, start, stop, inspect status and run doctor
 # without Node (ADR 0015). Shell-native drivers can deliberately set
 # PORTTA_FORCE_BASH when the TypeScript command delegates to openssl/ssh/toolbox.
-PORTTA_TS_CLI="$PORTTA_BIN_DIR/../packages/cli/dist/cli.js"
+# This entry point knows which installation it belongs to; the TypeScript CLI
+# would otherwise have to guess from the working directory, and would not find
+# a PORTTA_HOME outside the conventional locations.
+if [ -z "${PORTTA_ROOT:-}" ] && [ -f "$PORTTA_BIN_DIR/../VERSION" ]; then
+  PORTTA_ROOT=$(cd -P "$PORTTA_BIN_DIR/.." && pwd)
+  export PORTTA_ROOT
+fi
+
+PORTTA_TS_CLI="${PORTTA_TS_CLI:-$PORTTA_BIN_DIR/../packages/cli/dist/cli.js}"
+# An installed PORTTA_HOME has no packages/ directory, and its bin/portta is
+# linked onto PATH, where it would otherwise shadow a globally installed
+# `portta` npm package and quietly give the reduced command set. npm puts a
+# global package in lib/node_modules next to the node binary's own directory.
+if [ ! -f "$PORTTA_TS_CLI" ] && command -v node >/dev/null 2>&1; then
+  _portta_node_prefix=$(dirname "$(dirname "$(command -v node)")")
+  if [ -f "$_portta_node_prefix/lib/node_modules/portta/dist/cli.js" ]; then
+    PORTTA_TS_CLI="$_portta_node_prefix/lib/node_modules/portta/dist/cli.js"
+  fi
+  unset _portta_node_prefix
+fi
 if [ "${PORTTA_FORCE_BASH:-false}" != "true" ] \
    && command -v node >/dev/null 2>&1 \
    && [ -f "$PORTTA_TS_CLI" ] \
@@ -68,6 +99,19 @@ CORE
   inspect                Print the resolved configuration and compose files
   update                 Pull the pinned component images and recreate
   version                Print the gateway version
+
+MAINTENANCE
+  backup [-o <file>]     Archive everything this installation cannot regenerate
+  restore <file>         Put a backup back, keeping what it replaced
+  repair [--dry-run]     Recreate what is missing and fix what is provably wrong
+  tunnel setup|enable    Publish over HTTPS with no open port (Cloudflare Tunnel)
+  tunnel status|test     Inspect the connector and confirm it carries traffic
+
+CONFIGURATION
+  config list            Named settings and their current values
+  config get <setting>   One setting
+  config set <s> <v>     Change one setting and apply it, for example:
+                           config set panel.access public|tailscale|local
 
 WEB PANEL
   web up                 Start the administration panel (loopback by default)
@@ -584,12 +628,21 @@ main() {
     down) cmd_down "$@" ;;
     status) cmd_status "$@" ;;
     doctor) cmd_doctor "$@" ;;
+    restart) cmd_restart "$@" ;;
+    logs) cmd_logs "$@" ;;
+    urls) cmd_urls "$@" ;;
+    inspect) cmd_inspect "$@" ;;
+    update) cmd_update "$@" ;;
     toolbox) cmd_toolbox "$@" ;;
     tls) portta_cmd_tls "$@" ;;
+    tunnel) portta_cmd_tunnel "$@" ;;
+    backup) portta_cmd_backup "$@" ;;
+    restore) portta_cmd_restore "$@" ;;
+    repair) portta_cmd_repair "$@" ;;
     remote) portta_cmd_remote "$@" ;;
-    restart|logs|urls|inspect|update|network|public|dns|analyze|analyse|init|adapt|namespace|ns|access|services|git|share|web|db|redis|service|project|setup)
-      err "'$cmd' requires Node 22.12 or newer and the built TypeScript CLI"
-      hint "run npm ci && npm run build --workspace=portta"
+    network|public|dns|analyze|analyse|init|adapt|namespace|ns|access|services|git|share|web|db|redis|service|project|setup|config)
+      err "'$cmd' requires Node 22.12 or newer and the full CLI"
+      hint "npm install -g portta   (or run it inside a built checkout)"
       exit 3
       ;;
     *)

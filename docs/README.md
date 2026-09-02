@@ -6,6 +6,7 @@ is the complete operator and contributor index. Historical build briefs under
 
 ## Getting started
 
+- [Installing and updating](install.md) — the one-command installer, PORTTA_HOME, panel access, and non-interactive use.
 - [Local development](local-development.md) — workstation setup, local DNS, and daily use.
 - [Configuration](configuration.md) — every managed environment setting and its default.
 - [Adopting projects](adopting-projects.md) — analyse a Compose project and add the integration overlay.
@@ -34,6 +35,7 @@ is the complete operator and contributor index. Historical build briefs under
 - [Persistent Tailscale services](tailscale-services.md) — stable private addresses for selected services.
 - [DNS and TLS](dns-and-tls.md) — wildcard records and certificates.
 - [Cloudflare](cloudflare.md) — optional scoped DNS automation.
+- [Cloudflare Tunnel](cloudflare-tunnel.md) — publish over HTTPS with no open port, from anywhere
 - [Public access](public-access.md) — deliberate internet exposure and its limits.
 - [Firewall](firewall.md) — minimal rules and why Docker bypasses UFW.
 - [Remote tunnels](remote-tunnels.md) — reach loopback-only services on a VPS.

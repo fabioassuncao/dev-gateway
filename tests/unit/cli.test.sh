@@ -74,6 +74,84 @@ assert_contains "$("$GW" --version 2>&1)" "portta"
 it "VERSION and the CLI agree"
 assert_contains "$("$GW" version)" "$(tr -d '[:space:]' < "$PORTTA_ROOT/VERSION")"
 
+describe "the host needs no Node for the commands the shell implements"
+# ADR 0015. The installer ships this entry point and nothing else on a host
+# without Node, so a command it implements must be reachable there: every
+# cmd_* defined in bin/portta has to have a dispatch arm.
+for c in version bootstrap up down status doctor restart logs urls inspect update toolbox; do
+  it "PORTTA_FORCE_BASH portta $c is dispatched, not refused"
+  out=$(PORTTA_FORCE_BASH=true "$GW" "$c" --help 2>&1)
+  assert_not_contains "$out" "requires Node"
+done
+
+it "every cmd_* in bin/portta has a dispatch arm"
+missing=""
+for fn in $(grep -oE '^cmd_[a-z_]+' "$GW" | sed 's/^cmd_//' | sort -u); do
+  case "$fn" in help_for) continue ;; esac
+  grep -qE "^\s+([a-z|]*\|)?$fn\)" "$GW" || missing="$missing $fn"
+done
+assert_eq "" "$missing"
+
+describe "a closed pipe is not an error"
+
+# `portta status | head -3` is ordinary, and it used to end in an unhandled
+# EPIPE and a Node stack trace printed over the output the reader asked for.
+for c in status doctor urls inspect; do
+  it "portta $c | head -2 exits cleanly"
+  assert_success sh -c "'$GW' $c 2>/dev/null | head -2 >/dev/null"
+  it "and prints no stack trace"
+  assert_not_contains "$("$GW" "$c" 2>/dev/null | head -2)" "EPIPE"
+done
+
+describe "public access accepts a derived base domain"
+
+# Requiring PUBLIC_DOMAIN on top of an auto base would mean buying a domain to
+# publish on a name that already resolves here.
+it "the derived base is offered when PUBLIC_DOMAIN is unset"
+assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/network.ts")" "context.config.domainMode !== 'local'"
+
+it "and localhost is still refused, with the way out named"
+network="$(cat "$PORTTA_ROOT/packages/cli/src/commands/network.ts")"
+assert_contains "$network" 'public access needs a domain, and this host has only localhost'
+assert_contains "$network" 'portta config set domain.mode auto'
+
+describe "one doctor, two surfaces"
+# The deep diagnostics live in scripts/doctor.sh. The TypeScript CLI runs it
+# rather than reimplementing a thinner version, so `portta doctor` and
+# `npx portta doctor` cannot answer differently.
+it "the TypeScript doctor runs the shell one"
+assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" "scripts/doctor.sh"
+if ! docker info >/dev/null 2>&1; then
+  it "shared checks"; skip "docker unavailable"
+else
+  it "and reports the checks only the shell doctor makes"
+  ids=$("$GW" doctor --json 2>/dev/null | python3 -c "import json,sys; print(' '.join(c['id'] for c in json.load(sys.stdin)['checks']))")
+  for id in panel.access agents.claude tools.git vpn.tailscale; do
+    assert_contains "$ids" "$id"
+  done
+  it "and a warning is not a failure"
+  assert_contains "$("$GW" doctor --json 2>/dev/null)" '"status": "warn"'
+fi
+
+describe "the CLI says which installation it is talking to"
+# A CLI installed from npm outlives the installation it addresses in both
+# directions, so `version` reports both and whether they agree.
+it "it names the gateway it resolved"
+assert_contains "$("$GW" version 2>&1)" "gateway"
+it "and the root it found"
+assert_contains "$("$GW" version 2>&1)" "$PORTTA_ROOT"
+it "the JSON form carries a compatibility verdict"
+assert_success sh -c "'$GW' version --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert set([\"cli\",\"gateway\",\"panel\",\"compatible\",\"apiSeries\"]) <= set(d)'"
+it "and this checkout is self-consistent"
+assert_success sh -c "'$GW' version --json | python3 -c 'import json,sys; assert json.load(sys.stdin)[\"compatible\"] is True'"
+it "a mismatched installation is reported, not ignored"
+mismatch=$(mktemp -d "${TMPDIR:-/tmp}/portta-version.XXXXXX")
+mkdir -p "$mismatch/docker/compose/attach" "$mismatch/docker/compose/profiles"
+printf '9.9.9\n' > "$mismatch/VERSION"
+for f in compose.yaml attach/host.yaml profiles/local.yaml; do printf '{}\n' > "$mismatch/docker/compose/$f"; done
+assert_contains "$(PORTTA_ROOT="$mismatch" "$GW" version 2>&1)" "installation is 9.9.9"
+rm -rf "$mismatch"
+
 describe "exit codes have a stable machine contract"
 it "success is 0"; assert_success "$GW" version
 failure_root=$(mktemp -d "${TMPDIR:-/tmp}/portta-cli-exit.XXXXXX")
@@ -87,7 +165,13 @@ it "an operational failure is 1"; assert_exit 1 env PORTTA_ROOT="$failure_root" 
 rm -rf "$failure_root"
 it "usage is 2"; assert_exit 2 "$GW" definitely-not-a-command
 it "a missing runtime precondition is 3"
-assert_exit 3 sh -c "cd /tmp && env -u PORTTA_ROOT '$GW' inspect >/dev/null 2>&1"
+# Through the TypeScript CLI directly, because bin/portta deliberately carries
+# the root it lives in: an installed PORTTA_HOME links its entry point onto
+# PATH, and running it from elsewhere must still address that installation.
+assert_exit 3 sh -c "cd /tmp && env -u PORTTA_ROOT -u PORTTA_HOME node '$PORTTA_ROOT/packages/cli/dist/cli.js' inspect >/dev/null 2>&1"
+
+it "and the entry point addresses the installation it belongs to"
+assert_contains "$(cd /tmp && env -u PORTTA_ROOT "$GW" inspect 2>&1)" "PORTTA_ROOT"
 it "a refused unsafe operation is 4"
 assert_exit 4 "$GW" service publish --public --project demo --service db
 

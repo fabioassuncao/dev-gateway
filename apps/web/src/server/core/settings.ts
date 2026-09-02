@@ -35,6 +35,11 @@ function port(value: string): string | null {
   return null
 }
 
+function publicIp(value: string): string | null {
+  if (value === '') return null
+  return IPV4.test(value) ? null : 'must be an IPv4 address, for example 203.0.113.10'
+}
+
 function bindAddress(value: string): string | null {
   if (value === '') return null
   if (value === 'localhost' || value === '::1') return null
@@ -85,10 +90,39 @@ export const FIELDS: FieldSpec[] = [
     restartRequired: true,
   },
   {
+    key: 'PORTTA_DOMAIN_MODE',
+    group: 'Project domain',
+    label: 'Mode',
+    help:
+      'What every project hostname is built on. local is localhost, which only resolves on this machine. ' +
+      'auto derives a name from this host public address and needs no DNS record. custom uses a wildcard you own.',
+    kind: 'choice',
+    choices: ['local', 'auto', 'custom'],
+    restartRequired: true,
+  },
+  {
+    key: 'PORTTA_PUBLIC_IP',
+    group: 'Project domain',
+    label: 'Public address',
+    help: 'The address the auto mode builds a hostname from. Detected during installation.',
+    kind: 'string',
+    restartRequired: true,
+    validate: publicIp,
+  },
+  {
+    key: 'PORTTA_AUTO_DOMAIN_PROVIDER',
+    group: 'Project domain',
+    label: 'Wildcard DNS service',
+    help: 'Both resolve any name embedding an address, so neither needs a record or an account.',
+    kind: 'choice',
+    choices: ['sslip.io', 'nip.io'],
+    restartRequired: true,
+  },
+  {
     key: 'PORTTA_DOMAIN',
-    group: 'Gateway',
-    label: 'Local domain',
-    help: 'Base domain for generated hostnames: <project>-<service>.<domain>.',
+    group: 'Project domain',
+    label: 'Custom domain',
+    help: 'Used when the mode is custom. A wildcard *.<domain> must resolve to this host.',
     kind: 'string',
     restartRequired: true,
     validate: domain,
@@ -297,9 +331,11 @@ export const FIELDS: FieldSpec[] = [
     key: 'PORTTA_WEB_EXPOSE',
     group: 'Panel',
     label: 'Reachable from',
-    help: 'local is loopback only. vpn adds a Traefik router, and requires panel authentication.',
+    help:
+      'local is loopback only. tailscale binds the tailnet address. public and vpn put the panel beyond ' +
+      'this host and both require panel authentication. See docs/adr/0021-panel-access-modes.md.',
     kind: 'choice',
-    choices: ['local', 'vpn'],
+    choices: ['local', 'tailscale', 'public', 'vpn'],
     restartRequired: true,
   },
   {
@@ -450,11 +486,22 @@ export function validateCombination(values: Map<string, string>): void {
   if (truthy('TAILSCALE_ENABLED') && get('TS_AUTHKEY') === '' && get('TAILSCALE_HOSTNAME') === '') {
     throw new ValidationError('TAILSCALE_HOSTNAME', 'is required when Tailscale is enabled')
   }
+  // A mode that cannot be honoured resolves to localhost, which is the failure
+  // this whole setting exists to avoid. Refuse it here, where the operator is
+  // looking, rather than letting it fall back quietly.
+  const domainMode = get('PORTTA_DOMAIN_MODE') || 'local'
+  if (domainMode === 'auto' && get('PORTTA_PUBLIC_IP') === '') {
+    throw new ValidationError('PORTTA_PUBLIC_IP', 'is required by the auto domain mode')
+  }
+  if (domainMode === 'custom' && (get('PORTTA_DOMAIN') === '' || get('PORTTA_DOMAIN') === 'localhost')) {
+    throw new ValidationError('PORTTA_DOMAIN', 'the custom domain mode needs a domain of its own')
+  }
+
   // A routed panel can stop containers and, since ADR 0010, says what is being
   // worked on. The tailnet is a good boundary and a poor last one.
-  if (get('PORTTA_WEB_EXPOSE') === 'vpn') {
+  if (get('PORTTA_WEB_EXPOSE') === 'vpn' || get('PORTTA_WEB_EXPOSE') === 'public') {
     if (get('PORTTA_WEB_AUTH') !== 'basic') {
-      throw new ValidationError('PORTTA_WEB_AUTH', 'must be basic while the panel is routed')
+      throw new ValidationError('PORTTA_WEB_AUTH', 'must be basic while the panel is reachable beyond this host')
     }
     if (get('PORTTA_WEB_AUTH_USER') === '' || get('PORTTA_WEB_AUTH_HASH') === '') {
       throw new ValidationError(

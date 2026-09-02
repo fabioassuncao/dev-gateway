@@ -91,11 +91,13 @@ services:
   # The panel: API and UI in one process
   # --------------------------------------------------------------------------
   web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      target: runtime
-    image: fabioassuncao/portta:local
+    # A normal installation never builds: the panel is a published image, and
+    # PORTTA_HOME holds no application source to build from. Developers opt
+    # back into a local build with PORTTA_WEB_BUILD=true
+    # (docker/compose/features/web-build.yaml), and `portta web dev` still
+    # builds the dev target. Keep the default tag in step with VERSION;
+    # tests/unit/audit.test.sh enforces that.
+    image: ${PORTTA_WEB_IMAGE:-ghcr.io/fabioassuncao/portta:0.2.0}
     restart: unless-stopped
     depends_on:
       web-socket-proxy:
@@ -125,6 +127,12 @@ services:
       PORTTA_TCP_POSTGRES_PORT: ${PORTTA_TCP_POSTGRES_PORT:-5432}
       PORTTA_TCP_REDIS_PORT: ${PORTTA_TCP_REDIS_PORT:-6379}
       PORTTA_DOMAIN: ${PORTTA_DOMAIN:-localhost}
+      # How that base was chosen, so the Settings page can show the mode and
+      # the address behind it rather than a bare hostname with no explanation.
+      # See docs/adr/0022-project-domain-modes.md.
+      PORTTA_DOMAIN_MODE: ${PORTTA_DOMAIN_MODE:-local}
+      PORTTA_PUBLIC_IP: ${PORTTA_PUBLIC_IP:-}
+      PORTTA_AUTO_DOMAIN_PROVIDER: ${PORTTA_AUTO_DOMAIN_PROVIDER:-sslip.io}
       PORTTA_BIND_ADDRESS: ${PORTTA_BIND_ADDRESS:-127.0.0.1}
       PORTTA_HTTP_PORT: ${PORTTA_HTTP_PORT:-80}
       PORTTA_HTTPS_PORT: ${PORTTA_HTTPS_PORT:-443}
@@ -173,7 +181,7 @@ services:
       GITHUB_APP_WEBHOOK_SECRET: ${GITHUB_APP_WEBHOOK_SECRET:-}
       GITHUB_API_URL: ${GITHUB_API_URL:-https://api.github.com}
     volumes:
-      # Five paths from the host, and nothing else. No project directory is ever
+      # Six paths from the host, and nothing else. No project directory is ever
       # mounted here: see docs/adr/0001-decoupled-infrastructure.md.
       #
       #   .env             the configuration the Settings page edits
@@ -190,13 +198,23 @@ services:
       # The GitHub App private key, read-only. Empty unless you put one there.
       - ./state/github:/app/state/github:ro
       - ./config/traefik/dynamic:/app/state/traefik-dynamic
+      # The Cloudflare Tunnel connector's generated config and its credential.
+      # Read-write because setting the tunnel up is something the panel is asked
+      # to do; the directory stays 0700 and the credentials file 0600, and the
+      # token itself is never stored anywhere else — not in .env, not in a log,
+      # not in any API response. See docs/adr/0025-cloudflare-tunnel.md.
+      - ./state/cloudflared:/app/state/cloudflared
     networks:
       # `gateway` so the panel can be published and, with the VPN overlay,
       # routed by Traefik. `webcontrol` for the socket proxy.
       - gateway
       - webcontrol
-    ports:
-      - "${PORTTA_WEB_BIND_ADDRESS:-127.0.0.1}:${PORTTA_WEB_PORT:-8081}:8081"
+    # Deliberately no `ports:` here. Exactly one overlay decides how the panel
+    # is reached, so the two ways can never both bind the same host port:
+    #   docker/compose/features/web-bind.yaml    publishes it on PORTTA_WEB_BIND_ADDRESS
+    #   docker/compose/features/panel-public.yaml routes it through Traefik's
+    #                                             own `panel` entrypoint, behind
+    #                                             BasicAuth
     labels:
       # Off unless docker/compose/features/web-vpn.yaml turns it on: the panel is
       # never routed through the public entrypoints by accident.

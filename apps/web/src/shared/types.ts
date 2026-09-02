@@ -904,9 +904,71 @@ export const ConfigField = named(
 )
 export type ConfigField = z.infer<typeof ConfigField>
 
+/**
+ * What the chosen domain mode actually produces, resolved on the server so the
+ * settings page shows the hostname a project will get rather than the raw
+ * variables it was assembled from.
+ */
+export const ProjectDomain = named(
+  z.object({
+    mode: z.enum(['local', 'auto', 'custom']),
+    domain: z.string().describe('The base every project hostname is built on'),
+    publicIp: z.string().nullable(),
+    provider: z.string(),
+    examples: z.array(z.string()).describe('Hostnames a project would get'),
+    problem: z.string().nullable().describe('Set when the mode could not be honoured'),
+    reachable: z
+      .boolean()
+      .describe('Whether Traefik listens somewhere these names can actually reach it'),
+    advice: z.string().nullable().describe('What to do about it, when something is off'),
+  }).strict(),
+  'ProjectDomain',
+)
+export type ProjectDomain = z.infer<typeof ProjectDomain>
+
+export const TunnelRoute = named(
+  z.object({
+    hostname: z.string(),
+    service: z.string(),
+  }).strict(),
+  'TunnelRoute',
+)
+export type TunnelRoute = z.infer<typeof TunnelRoute>
+
+export const TunnelView = named(
+  z.object({
+    state: z
+      .enum(['not-configured', 'configured', 'starting', 'connected', 'disconnected', 'auth-error', 'config-error'])
+      .describe('What the connector is doing, distinguished so the fix is obvious'),
+    detail: z.string(),
+    hint: z.string().nullable().describe('The single next step, when there is one'),
+    enabled: z.boolean().describe('Whether the connector is part of the running stack'),
+    zone: z.string().nullable().describe('The domain whose wildcard reaches this gateway'),
+    wildcard: z.string().nullable(),
+    tunnelId: z.string().nullable().describe('Not a secret: cfargotunnel only accepts records from the owning account'),
+    // Never the token itself, in any state. The panel says whether one exists.
+    credentialConfigured: z.boolean(),
+    container: z.object({
+      name: z.string(),
+      state: z.string(),
+      health: z.string(),
+    }),
+    routes: z.array(TunnelRoute).describe('What the connector serves, in match order'),
+    endpointCount: z.number().describe('HTTP services this tunnel could publish'),
+    dnsRecord: z
+      .object({ type: z.string(), name: z.string(), target: z.string(), proxied: z.boolean() })
+      .nullable()
+      .describe('The one record the operator creates by hand, once'),
+    imageAvailable: z.boolean().describe('Whether the connector image is already pulled'),
+  }).strict(),
+  'TunnelView',
+)
+export type TunnelView = z.infer<typeof TunnelView>
+
 export const ConfigView = named(
   z.object({
     fields: z.array(ConfigField),
+    projectDomain: ProjectDomain,
     envFile: z.object({ path: z.string(), exists: z.boolean(), writable: z.boolean() }).strict(),
     pendingRestart: z.boolean(),
     applyCommand: z.string().describe('Host command that applies saved changes'),

@@ -79,9 +79,13 @@ portta_resolve_profile() {
 
   PORTTA_PROFILE="$profile"
 
+  # The base every project hostname is built on, resolved from the mode before
+  # the profile has its say. Mirrors resolveDomain in packages/core/src/domain.ts;
+  # see docs/adr/0022-project-domain-modes.md.
+  portta_resolve_domain
+
   case "$profile" in
     local)
-      : "${PORTTA_DOMAIN:=localhost}"
       : "${PORTTA_BIND_ADDRESS:=127.0.0.1}"
       ;;
 
@@ -103,9 +107,19 @@ portta_resolve_profile() {
       ;;
 
     remote-public)
+      # An auto or custom base fills in for PUBLIC_DOMAIN where none is set, so
+      # going public no longer means buying a domain first. `local` does not:
+      # publishing *.localhost to the internet would serve nobody.
+      if [ -z "${PUBLIC_DOMAIN:-}" ] \
+         && [ "${PORTTA_DOMAIN_MODE:-local}" != "local" ] \
+         && [ -n "${PORTTA_DOMAIN:-}" ] && [ "$PORTTA_DOMAIN" != "localhost" ]; then
+        PUBLIC_DOMAIN="$PORTTA_DOMAIN"
+        export PUBLIC_DOMAIN
+      fi
       if [ -z "${PUBLIC_DOMAIN:-}" ]; then
-        err "profile remote-public requires PUBLIC_DOMAIN"
+        err "profile remote-public requires PUBLIC_DOMAIN, or a project domain mode that yields one"
         hint "set PUBLIC_DOMAIN in .env, e.g. PUBLIC_DOMAIN=dev.example.com"
+        hint "or: portta config set domain.mode auto   (derives one from this host's public address)"
         return 1
       fi
       PORTTA_DOMAIN="$PUBLIC_DOMAIN"
@@ -126,17 +140,30 @@ portta_resolve_profile() {
     return 1
   fi
 
-  # A routed panel is one credential away from being an open control plane over
-  # every container on the host, so this is refused here too: `portta up`
-  # must not be a way around `portta web up`.
+  # A panel reachable beyond this machine is one credential away from being an
+  # open control plane over every container on the host, so this is refused
+  # here too: `portta up` must not be a way around `portta web up`.
   if portta_is_true "${PORTTA_WEB:-false}" \
-     && [ "${PORTTA_WEB_EXPOSE:-local}" = "vpn" ] \
+     && { [ "${PORTTA_WEB_EXPOSE:-local}" = "vpn" ] \
+          || [ "${PORTTA_WEB_EXPOSE:-local}" = "public" ]; } \
      && { [ "${PORTTA_WEB_AUTH:-none}" != "basic" ] \
           || [ -z "${PORTTA_WEB_AUTH_USER:-}" ] \
           || [ -z "${PORTTA_WEB_AUTH_HASH:-}" ]; }; then
-    err "the routed panel has no credential in front of it"
+    err "the panel is reachable beyond this host with no credential in front of it"
     hint "portta web auth set   generates one and shows it once"
     hint "or set PORTTA_WEB_EXPOSE=local to keep it on loopback"
+    return 1
+  fi
+
+  # The `public` panel entrypoint is a port on the Traefik container. Under the
+  # Tailscale attachment Traefik has no network namespace of its own, so there
+  # is no port to publish and the mode cannot be honoured.
+  if portta_is_true "${PORTTA_WEB:-false}" \
+     && [ "${PORTTA_WEB_EXPOSE:-local}" = "public" ] \
+     && [ "$(portta_attachment "$profile")" = "tailscale" ]; then
+    err "panel access 'public' cannot be combined with the Tailscale attachment"
+    hint "Traefik shares the Tailscale namespace there and publishes no port of its own"
+    hint "use PORTTA_WEB_EXPOSE=tailscale, or disable TAILSCALE_ENABLED"
     return 1
   fi
 
@@ -201,8 +228,19 @@ portta_compose_files() {
         files="$files docker/compose/profiles/local-tls.yaml"
       fi
       ;;
-    remote-private) files="$files docker/compose/profiles/remote.yaml" ;;
-    remote-public) files="$files docker/compose/profiles/remote.yaml docker/compose/profiles/public.yaml" ;;
+    remote-private|remote-public)
+      # Redirecting :80 to :443 without a certificate the browser accepts turns
+      # a working URL into a warning page, so the TLS overlay is applied only
+      # when there is TLS. See docs/adr/0022-project-domain-modes.md.
+      if portta_is_true "${TLS_ENABLED:-false}"; then
+        files="$files docker/compose/profiles/remote-tls.yaml"
+      else
+        files="$files docker/compose/profiles/remote.yaml"
+      fi
+      if [ "$profile" = "remote-public" ]; then
+        files="$files docker/compose/profiles/public.yaml"
+      fi
+      ;;
   esac
 
   if portta_is_true "${PORTTA_DASHBOARD:-false}"; then
@@ -228,12 +266,29 @@ portta_compose_files() {
   # `portta up` and `portta web` cannot drift apart.
   if portta_is_true "${PORTTA_WEB:-false}"; then
     files="$files docker/compose/features/web.yaml docker/compose/features/db.yaml"
+    # Exactly one overlay owns the panel's front door, so a host publish and
+    # the public Traefik entrypoint can never both claim PORTTA_WEB_PORT.
+    if [ "${PORTTA_WEB_EXPOSE:-local}" = "public" ]; then
+      files="$files docker/compose/features/panel-public.yaml"
+    else
+      files="$files docker/compose/features/web-bind.yaml"
+    fi
+    if portta_is_true "${PORTTA_WEB_BUILD:-false}"; then
+      files="$files docker/compose/features/web-build.yaml"
+    fi
     if portta_is_true "${PORTTA_WEB_DEV:-false}"; then
       files="$files docker/compose/features/web-dev.yaml"
     fi
     if [ "${PORTTA_WEB_EXPOSE:-local}" = "vpn" ]; then
       files="$files docker/compose/features/web-vpn.yaml"
     fi
+  fi
+
+  # Last, and independent of every other axis: the connector is an extra way in,
+  # never a replacement for one. A gateway can carry a tunnel while publishing
+  # ports, or while publishing none at all.
+  if portta_is_true "${CLOUDFLARE_TUNNEL_ENABLED:-false}"; then
+    files="$files docker/compose/features/cloudflare-tunnel.yaml"
   fi
 
   local f out=""
@@ -372,6 +427,10 @@ portta_discover_http() {
     host=""
     if [ -n "$rule" ]; then
       host=$(printf '%s' "$rule" | sed -n 's/.*Host(`\([^`]*\)`).*/\1/p')
+      # An explicit rule that names no host has no hostname to list, and the
+      # derived one would be fiction: nothing answers there. The panel's public
+      # entrypoint is exactly this shape (PathPrefix on its own entrypoint).
+      [ -n "$host" ] || continue
     fi
     if [ -z "$host" ]; then
       if [ -n "$project" ]; then

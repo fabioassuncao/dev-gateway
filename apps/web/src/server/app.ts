@@ -10,6 +10,7 @@ import { workspaceRoutes } from './routes/workspaces.ts'
 import { serviceRoutes } from './routes/services.ts'
 import { dockerRoutes } from './routes/docker.ts'
 import { networkRoutes } from './routes/network.ts'
+import { tunnelRoutes } from './routes/tunnel.ts'
 import { accessRoutes } from './routes/access.ts'
 import { gatewayRoutes } from './routes/gateway.ts'
 import { configRoutes } from './routes/config.ts'
@@ -80,6 +81,7 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', serviceRoutes(deps))
   api.route('/', dockerRoutes(deps))
   api.route('/', networkRoutes(deps))
+  api.route('/', tunnelRoutes(deps))
   api.route('/', accessRoutes(deps))
   api.route('/', shareRoutes(deps))
   api.route('/', gatewayRoutes(deps))

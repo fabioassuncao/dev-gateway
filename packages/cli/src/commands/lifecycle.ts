@@ -7,6 +7,7 @@ import { ensureNetwork, inspectContainers, networkExists, requireDocker } from '
 import { CliError, EXIT, RefusedError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
+import { CLI_VERSION } from '../version.js'
 import { confirm } from '../confirm.js'
 
 function globals(command: Command) {
@@ -19,9 +20,70 @@ async function compose(command: Command, args: string[], stdio: 'inherit' | 'pip
   return runProcess('docker', ['compose', ...composeArguments(context), ...args], { cwd: context.root, env: context.env, stdio })
 }
 
+/** major.minor, which is the granularity the API contract moves at. */
+function series(version: string): string {
+  const parts = version.split('.')
+  return `${parts[0] ?? '0'}.${parts[1] ?? '0'}`
+}
+
+/**
+ * The panel's own version, read from the API it serves. Unauthenticated on
+ * loopback and over the tailnet; behind BasicAuth in `public` mode, where a
+ * 401 is a perfectly good answer to "is it there" and no answer at all to
+ * "which version" — so that case reports the image tag instead, which is what
+ * the installation pinned.
+ */
+async function panelReport(context: ReturnType<typeof gatewayContext>): Promise<{ version: string | null; detail: string }> {
+  const image = context.env['PORTTA_WEB_IMAGE'] ?? ''
+  const tag = image.includes(':') ? image.slice(image.lastIndexOf(':') + 1) : null
+  if (!context.config.webEnabled) return { version: null, detail: 'disabled' }
+  const host = context.config.webExpose === 'public' ? '127.0.0.1' : (context.env['PORTTA_WEB_BIND_ADDRESS'] ?? '127.0.0.1')
+  try {
+    const response = await fetch(`http://${host}:${context.config.webPort}/api/health`, { signal: AbortSignal.timeout(3000) })
+    if (response.status === 401) return { version: tag, detail: tag ? `${tag} (from the image tag; the API is behind authentication)` : 'behind authentication' }
+    if (!response.ok) return { version: tag, detail: `unreachable (HTTP ${response.status})` }
+    const body = await response.json() as { panelVersion?: string }
+    return { version: body.panelVersion ?? tag, detail: body.panelVersion ?? 'unknown' }
+  } catch {
+    return { version: tag, detail: tag ? `${tag} (from the image tag; the panel did not answer)` : 'not running' }
+  }
+}
+
 export async function versionCommand(command: Command): Promise<void> {
+  const global = globals(command)
+  const output = new Output(global)
   const context = gatewayContext({ required: false })
-  new Output(globals(command)).data(`portta ${context.version}`)
+  const cli = CLI_VERSION
+  const gateway = context.version
+  // A CLI installed from npm outlives the installation it is pointed at in
+  // both directions, so it says which one it is talking to and whether the
+  // two agree, rather than failing obscurely three commands later.
+  const compatible = series(cli) === series(gateway)
+
+  if (!output.json && !context.composeFiles.length) {
+    output.data(`portta ${cli}`)
+    return
+  }
+
+  const panel = await panelReport(context)
+  if (output.json) {
+    output.data({
+      cli,
+      gateway,
+      panel: panel.version,
+      root: context.root,
+      compatible,
+      apiSeries: series(gateway),
+    })
+    return
+  }
+  output.line(`portta ${cli}`)
+  output.line(`  gateway  ${gateway}  (${context.root})`)
+  output.line(`  panel    ${panel.detail}`)
+  if (!compatible) {
+    output.warning(`this CLI is ${cli} and the installation is ${gateway}`)
+    output.hint('update the installation by re-running the installer, or install the matching CLI: npm i -g portta@' + gateway)
+  }
 }
 
 export async function bootstrapCommand(options: { skipPull?: boolean }, command: Command): Promise<void> {
@@ -48,7 +110,12 @@ export async function upCommand(profile: string | undefined, options: { attach?:
   if (context.config.profile === 'remote-public' && context.config.tcpEnabled) throw new RefusedError('TCP entrypoints must not run on the remote-public profile')
   if (context.config.profile === 'remote-public' && context.config.webEnabled && context.config.webExpose === 'vpn') throw new RefusedError('the panel must not be routed on the remote-public profile')
   await requireDocker()
+  // Both networks are `external: true` in the overlays, so Compose refuses to
+  // start until they exist. The shell entry point creates both; this created
+  // only the shared one, so `PORTTA_TCP=true portta up` failed here and
+  // succeeded there.
   await ensureNetwork(context.config.network)
+  if (context.config.tcpEnabled) await ensureNetwork(context.config.accessNetwork)
   await compose(command, ['up', options.attach ? '' : '-d', options.attach ? '' : '--remove-orphans'].filter(Boolean))
 }
 
@@ -111,7 +178,9 @@ export async function statusCommand(command: Command): Promise<void> {
   }
 }
 
-export interface Check { id: string; status: 'pass' | 'fail'; message: string; fix?: string }
+// `warn` comes from the shell doctor, which distinguishes "worth knowing"
+// from "broken": an absent GitHub CLI is not a reason to fail a run.
+export interface Check { id: string; status: 'pass' | 'warn' | 'fail'; message: string; fix?: string }
 
 /**
  * What `doctor` prints, as data.
@@ -121,21 +190,60 @@ export interface Check { id: string; status: 'pass' | 'fail'; message: string; f
  */
 export function doctorReport(checks: Check[]): { line: string; hint?: string }[] {
   return checks.map((check) => ({
-    line: `${check.status === 'pass' ? 'ok  ' : 'FAIL'} ${check.message}`,
+    line: `${check.status === 'pass' ? 'ok  ' : check.status === 'warn' ? 'warn' : 'FAIL'} ${check.message}`,
     ...(check.fix && check.status !== 'pass' ? { hint: check.fix } : {}),
   }))
+}
+
+/**
+ * The deep diagnostics live in scripts/doctor.sh, which every checkout and
+ * every PORTTA_HOME carries: the host, the runtime, exposure, the panel's
+ * front door, the development toolchain and the AI agent CLIs. Running it here
+ * rather than reimplementing a thinner version is what makes
+ * `npx portta doctor` and `portta doctor` the same answer — ADR 0015 asks the
+ * two surfaces to agree, and a second implementation could only drift.
+ */
+async function shellDoctor(root: string): Promise<Check[] | null> {
+  const script = join(root, 'scripts/doctor.sh')
+  if (!existsSync(script)) return null
+  const result = await runProcess('bash', [script, '--json'], {
+    cwd: root,
+    env: { ...process.env, PORTTA_ROOT: root },
+    reject: false,
+  })
+  if (!result.stdout.trim()) return null
+  try {
+    const parsed = JSON.parse(result.stdout) as { checks?: { id: string; status: string; title: string; detail: string; fix?: string }[] }
+    return (parsed.checks ?? []).map((check) => ({
+      id: check.id,
+      status: check.status === 'fail' ? 'fail' : check.status === 'warn' ? 'warn' : 'pass',
+      message: `${check.title}: ${check.detail}`,
+      ...(check.fix ? { fix: check.fix } : {}),
+    }))
+  } catch {
+    return null
+  }
 }
 
 export async function doctorCommand(command: Command): Promise<void> {
   const options = globals(command)
   const context = gatewayContext({ profile: options.profile })
   const checks: Check[] = []
+  const deep = await shellDoctor(context.root)
+  if (deep) checks.push(...deep)
   const docker = await runProcess('docker', ['version', '--format', '{{.Server.Version}}'], { reject: false })
-  checks.push(docker.exitCode === 0 ? { id: 'docker', status: 'pass', message: `Docker ${docker.stdout}` } : { id: 'docker', status: 'fail', message: 'Docker is unreachable', fix: 'start Docker or check DOCKER_HOST' })
-  const composeVersion = await runProcess('docker', ['compose', 'version', '--short'], { reject: false })
-  checks.push(composeVersion.exitCode === 0 ? { id: 'compose', status: 'pass', message: `Compose ${composeVersion.stdout}` } : { id: 'compose', status: 'fail', message: 'Compose v2 is unavailable', fix: 'install the Docker Compose plugin' })
-  checks.push({ id: 'env', status: existsSync(join(context.root, '.env')) ? 'pass' : 'fail', message: existsSync(join(context.root, '.env')) ? '.env exists' : '.env is missing', fix: 'copy .env.example to .env' })
-  if (docker.exitCode === 0) checks.push({ id: 'network', status: await networkExists(context.config.network) ? 'pass' : 'fail', message: `shared network ${context.config.network}`, fix: 'run portta bootstrap' })
+  // Everything below duplicates a check the shell doctor already made, so it
+  // runs only when that could not: an installation whose scripts/ is missing,
+  // or a bash that refused to produce JSON.
+  if (!deep) {
+    checks.push(docker.exitCode === 0 ? { id: 'docker', status: 'pass', message: `Docker ${docker.stdout}` } : { id: 'docker', status: 'fail', message: 'Docker is unreachable', fix: 'start Docker or check DOCKER_HOST' })
+    const composeVersion = await runProcess('docker', ['compose', 'version', '--short'], { reject: false })
+    checks.push(composeVersion.exitCode === 0 ? { id: 'compose', status: 'pass', message: `Compose ${composeVersion.stdout}` } : { id: 'compose', status: 'fail', message: 'Compose v2 is unavailable', fix: 'install the Docker Compose plugin' })
+    checks.push({ id: 'env', status: existsSync(join(context.root, '.env')) ? 'pass' : 'fail', message: existsSync(join(context.root, '.env')) ? '.env exists' : '.env is missing', fix: 'copy .env.example to .env' })
+    if (docker.exitCode === 0) checks.push({ id: 'network', status: await networkExists(context.config.network) ? 'pass' : 'fail', message: `shared network ${context.config.network}`, fix: 'run portta bootstrap' })
+  }
+  // Not duplicated: the shell doctor checks the files the shell selects, and a
+  // published CLI can be pointed at an installation whose overlay set differs.
   for (const file of context.composeFiles) checks.push({ id: `compose:${file}`, status: existsSync(join(context.root, file)) ? 'pass' : 'fail', message: `${file} exists` })
   // An alias pins a container name, so a recreated environment leaves a router
   // pointing at nothing. Traefik reports no error for that; this does.

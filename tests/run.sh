@@ -34,7 +34,7 @@ if [ "$RUN_LINT" = "1" ]; then
   if command -v shellcheck >/dev/null 2>&1; then
     # Linting is a developer convenience here, never a runtime dependency:
     # when the tool is absent the suite says so instead of quietly passing.
-    files=$(find bin scripts tests -type f \( -name '*.sh' -o -name 'portta' \) | sort)
+    files=$(find bin scripts tests -type f \( -name '*.sh' -o -name 'portta' \) | sort; printf '%s\n' install.sh)
     # shellcheck disable=SC2086  # deliberate word splitting over the file list
     if shellcheck -S warning -x $files; then
       echo "  ok  $(printf '%s\n' "$files" | wc -l | tr -d ' ') files clean"
@@ -47,7 +47,7 @@ if [ "$RUN_LINT" = "1" ]; then
 
   bold "== executable bits =="
   missing=""
-  for f in bin/portta scripts/bootstrap.sh scripts/doctor.sh tests/run.sh; do
+  for f in bin/portta install.sh scripts/bootstrap.sh scripts/doctor.sh tests/run.sh; do
     [ -x "$f" ] || missing="$missing $f"
   done
   if [ -n "$missing" ]; then echo "  FAIL not executable:$missing"; FAILED=1
@@ -130,6 +130,22 @@ fi
 # Playwright for the end-to-end run). It needs Node, which the gateway itself
 # never does, so it is skipped rather than assumed.
 if [ "$RUN_UNIT" = "1" ] && [ -d apps/web ]; then
+  # The shared package the shell gateway and the CLI both encode a copy of.
+  # Its suite ran only in CI, so a change to composeFiles could pass here and
+  # fail there.
+  bold "== shared core =="
+  if ! command -v node >/dev/null 2>&1; then
+    echo "  skip node not installed"
+  elif [ ! -d node_modules ] && [ ! -d packages/core/node_modules ]; then
+    echo "  skip node_modules missing (run: npm ci)"
+  else
+    if ( cd packages/core && npm run --silent test ); then
+      echo "  ok  core unit suite"
+    else
+      echo "  FAIL core unit suite"; FAILED=1
+    fi
+  fi
+
   bold "== web panel =="
   if ! command -v node >/dev/null 2>&1; then
     echo "  skip node not installed (the panel is built and run in a container)"
@@ -164,10 +180,25 @@ if [ "$RUN_E2E" = "1" ]; then
     bash "$t" || FAILED=1
   done
 
+  # The package being installed says nothing about the browser being present,
+  # and the suite cannot pass without one: it starts, reports "1 passed" out of
+  # forty, and fails. Look for the browser itself.
+  playwright_browser_present() {
+    ( cd apps/web && npx --no-install playwright --version >/dev/null 2>&1 ) || return 1
+    local cache="${PLAYWRIGHT_BROWSERS_PATH:-}"
+    if [ -z "$cache" ]; then
+      case "$(uname -s)" in
+        Darwin) cache="$HOME/Library/Caches/ms-playwright" ;;
+        *) cache="$HOME/.cache/ms-playwright" ;;
+      esac
+    fi
+    ls -d "$cache"/chromium-* >/dev/null 2>&1
+  }
+
   bold "== web panel end to end =="
   if [ ! -d node_modules ] && [ ! -d apps/web/node_modules ]; then
     echo "  skip node_modules missing (run: npm ci)"
-  elif ! ( cd apps/web && npx --no-install playwright --version >/dev/null 2>&1 ); then
+  elif ! playwright_browser_present; then
     echo "  skip playwright browsers not installed (npx --workspace=portta-web playwright install chromium)"
   else
     if ( cd apps/web && npm run --silent test:e2e ); then

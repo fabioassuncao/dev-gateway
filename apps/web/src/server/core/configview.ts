@@ -4,8 +4,57 @@ import type { PanelConfig } from '../config.ts'
 import { parseEnv, readEnvFile, setEnvValue, writeEnvFile, isWritable } from './envfile.ts'
 import { FIELDS, FIELDS_BY_KEY, ValidationError, validateCombination, validateValue } from './settings.ts'
 import { GENERATED_FILES, reconcilePanelAuth } from './dynamic.ts'
-import type { ConfigField, ConfigPatchResult, ConfigView } from '../../shared/types.ts'
+import type { ConfigField, ConfigPatchResult, ConfigView, ProjectDomain } from '../../shared/types.ts'
+import { exampleHostnames, isDomainMode } from 'portta-core'
 import { existsSync } from 'node:fs'
+
+/**
+ * The base domain the running gateway resolved, and whether it is any use.
+ *
+ * A hostname is a name, not an exposure: this says nothing about who may reach
+ * a service, only whether the name they would be given can reach this host at
+ * all. Reporting `demo-web.localhost` to somebody reading the panel over the
+ * internet is the failure this exists to catch.
+ */
+function projectDomainOf(config: PanelConfig): ProjectDomain {
+  const mode = isDomainMode(config.domainMode) ? config.domainMode : 'local'
+  const isLoopbackOnly = ['127.0.0.1', 'localhost', '::1'].includes(config.bindAddress)
+  const isLocalName = config.domain === 'localhost' || config.domain.endsWith('.localhost')
+  // A name that resolves off this machine is only useful if Traefik answers
+  // somewhere that name reaches, which is a separate, deliberate setting.
+  const reachable = isLocalName ? isLoopbackOnly : !isLoopbackOnly
+
+  let advice: string | null = null
+  if (config.domainProblem) {
+    advice = mode === 'auto'
+      ? 'Set the public address, or run: portta config set domain.mode auto'
+      : 'Set a custom domain, or switch the mode back to local.'
+  } else if (isLocalName && config.webExpose !== 'local') {
+    // The panel is being reached from elsewhere, so localhost is certainly the
+    // wrong base: whoever is reading this cannot open any of these URLs.
+    advice = 'This panel is reachable beyond this host, so *.localhost project URLs will not open. Switch the mode to auto.'
+  } else if (!isLocalName && isLoopbackOnly) {
+    // A name resolving to a tailnet or LAN address is served by binding that
+    // address; suggesting public exposure there would be a far larger change
+    // than the one needed.
+    const ip = config.publicIp ?? ''
+    const isPrivate = /^(10\.|192\.168\.|127\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(ip)
+    advice = isPrivate
+      ? `These names resolve to ${ip}, but Traefik only listens on loopback. Set the bind address to ${ip} to serve them on that network alone.`
+      : 'These names resolve to this host, but Traefik only listens on loopback, so nothing answers from outside. Enable public access to serve them.'
+  }
+
+  return {
+    mode,
+    domain: config.domain,
+    publicIp: config.publicIp,
+    provider: config.autoDomainProvider,
+    examples: exampleHostnames(config.domain),
+    problem: config.domainProblem,
+    reachable,
+    advice,
+  }
+}
 
 /** Values the running gateway was actually started with. */
 function runtimeValue(key: string): string | null {
@@ -48,6 +97,7 @@ export function buildConfigView(config: PanelConfig): ConfigView {
 
   return {
     fields,
+    projectDomain: projectDomainOf(config),
     envFile: {
       path: config.envFile,
       exists: existsSync(config.envFile),

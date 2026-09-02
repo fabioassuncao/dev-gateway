@@ -21,6 +21,16 @@ const view: ConfigView = {
   applyCommand: './bin/portta up local',
   pendingRestart: false,
   groups: ['Gateway', 'TLS', 'VPN'],
+  projectDomain: {
+    mode: 'local',
+    domain: 'localhost',
+    publicIp: null,
+    provider: 'sslip.io',
+    examples: ['web.localhost', 'api.localhost', 'mail.localhost'],
+    problem: null,
+    reachable: true,
+    advice: null,
+  },
   envFile: { path: '/app/state/.env', exists: true, writable: true },
   fields: [
     {

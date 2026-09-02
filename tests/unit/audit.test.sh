@@ -133,10 +133,21 @@ describe "supply chain"
 it "every image pins an explicit version"
 # Multi-stage builds refer to their own earlier stages by name, and `FROM x AS y`
 # carries the stage name on the end. Neither is an unpinned image.
+#
+# `image: ${PORTTA_WEB_IMAGE:-ghcr.io/…/portta:0.2.0}` is pinned too: the
+# override exists so a developer can point at a local build, and the default
+# is what a normal installation pulls. Unwrap the interpolation and judge the
+# default the same way as a literal.
 assert_eq "" "$(grep -rhE '^\s*(image|FROM):?\s' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml toolbox/Dockerfile apps/web/Dockerfile 2>/dev/null \
   | sed -E 's/[[:space:]]+[Aa][Ss][[:space:]]+[A-Za-z0-9_.-]+[[:space:]]*$//' \
+  | sed -E 's/\$\{[A-Za-z0-9_]+:-([^}]*)\}/\1/g' \
   | grep -vE '^[[:space:]]*FROM[[:space:]]+(deps|base|build|dev|runtime)[[:space:]]*$' \
   | grep -vE ':[A-Za-z0-9][A-Za-z0-9._-]*[[:space:]]*$' || true)"
+
+it "the panel image the installer pulls matches VERSION"
+# A tag that drifts from VERSION means an installation pinned by the compose
+# file would pull an image that was never published for it.
+assert_contains "$(cat docker/compose/features/web.yaml)" "portta:$(tr -d '[:space:]' < VERSION)}"
 
 it "no floating latest tag"
 assert_eq "" "$(grep -rn ':latest' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml toolbox/Dockerfile apps/web/Dockerfile 2>/dev/null || true)"
@@ -162,7 +173,14 @@ assert_eq ".env,.git,config/tls,state" "$ignore"
 
 it "the Dockerfile builds from the repository root"
 assert_contains "$(cat apps/web/Dockerfile)" "COPY package.json package-lock.json ./"
-assert_contains "$(cat docker/compose/features/web.yaml)" "dockerfile: apps/web/Dockerfile"
+# The build lives in the two overlays that are only ever applied inside a
+# checkout. web.yaml itself pulls, because an installed PORTTA_HOME has no
+# source tree to build from. See docs/adr/0020-installer-and-portta-home.md.
+assert_contains "$(cat docker/compose/features/web-build.yaml)" "dockerfile: apps/web/Dockerfile"
+assert_contains "$(cat docker/compose/features/web-dev.yaml)" "dockerfile: apps/web/Dockerfile"
+
+it "a normal installation never builds the panel"
+assert_eq "" "$(grep -n 'build:' docker/compose/features/web.yaml || true)"
 
 
 describe "the TypeScript CLI never constructs a shell command from input"

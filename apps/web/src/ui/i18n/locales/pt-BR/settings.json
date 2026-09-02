@@ -6,6 +6,19 @@
   "sectionNotFound": "A seção de configurações “{{group}}” não existe",
   "chooseGroup": "Escolha um dos grupos disponíveis.",
   "secretsNote": "Segredos nunca são retornados pela API: o painel só informa se um token está definido. Valores são gravados em {{path}} com mode 600.",
+  "projectDomain": {
+    "title": "Endereços dos projetos",
+    "description": "Cada projeto recebe <projeto>-<serviço>.<base>. Esta é a base em uso agora.",
+    "mode": "Modo",
+    "base": "Domínio base",
+    "publicIp": "Endereço público",
+    "provider": "DNS curinga",
+    "examples": "Um projeto chamado web, api ou mail responderia em:",
+    "stateOk": "utilizável",
+    "stateLimited": "requer atenção",
+    "stateBroken": "não resolve",
+    "note": "Isto escolhe apenas o nome. Quais serviços são alcançáveis, e de onde, continua sendo do acesso público e de cada projeto."
+  },
   "groups": {
     "Gateway": "Gateway",
     "Traefik": "Traefik",
@@ -14,7 +27,8 @@
     "Public access": "Acesso público",
     "DNS": "DNS",
     "Panel": "Painel",
-    "GitHub": "GitHub"
+    "GitHub": "GitHub",
+    "Project domain": "Domínio dos projetos"
   },
   "fields": {
     "PORTTA_PROFILE": {

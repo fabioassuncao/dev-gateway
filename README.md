@@ -90,7 +90,7 @@ Traefik reaches HTTP services only on the shared network; it has no route into a
 
 ## Requirements
 
-**Required on the host:** Docker Engine 24+ with Compose v2, Git, and a POSIX shell. Node is not required for the core commands (`bootstrap`, `up`, `down`, `status`, `doctor`); the full CLI needs Node 22.12+.
+**Required on the host:** Docker Engine 24+ with Compose v2 and a POSIX shell. Node is not required for the core commands (`bootstrap`, `up`, `down`, `restart`, `status`, `logs`, `urls`, `inspect`, `update`, `doctor`, `tls`, `remote`, `toolbox`); the full CLI needs Node 22.12+. Git is needed only to develop Portta or to collect project metadata.
 
 **Run by the gateway:** Traefik, filtered Docker socket proxies, `jq`, `socat`, OpenSSL, database clients, access bridges, and the panel's Node runtime.
 
@@ -105,14 +105,20 @@ Other platforms may work but are not claimed as verified. See the complete [comp
 
 ## Quick start
 
-With Node 22.12+ already installed, the package can provision the checkout:
+On a VPS or a workstation, one command installs it and the same command updates
+it. It pulls published images, keeps everything under one directory, and asks
+only what it cannot detect:
 
 ```bash
-npx portta setup --dry-run
-npx portta setup --yes
+curl -fsSL https://raw.githubusercontent.com/fabioassuncao/portta/main/install.sh | bash
 ```
 
-On a bare host without Node, the zero-dependency path remains:
+No clone, no build, and no Node on the host. It asks where to keep its data,
+how you want to reach the panel (public behind authentication, over Tailscale,
+or localhost only), and nothing else. Applications stay unexposed either way.
+See [installing and updating](docs/install.md).
+
+To work on Portta itself, take the checkout instead:
 
 ```bash
 git clone git@github.com:fabioassuncao/portta.git

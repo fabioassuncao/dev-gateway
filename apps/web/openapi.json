@@ -2932,6 +2932,158 @@
         ],
         "additionalProperties": false
       },
+      "TunnelRoute": {
+        "type": "object",
+        "properties": {
+          "hostname": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "hostname",
+          "service"
+        ],
+        "additionalProperties": false
+      },
+      "TunnelView": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "not-configured",
+              "configured",
+              "starting",
+              "connected",
+              "disconnected",
+              "auth-error",
+              "config-error"
+            ],
+            "description": "What the connector is doing, distinguished so the fix is obvious"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "hint": {
+            "description": "The single next step, when there is one",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the connector is part of the running stack"
+          },
+          "zone": {
+            "description": "The domain whose wildcard reaches this gateway",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "wildcard": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tunnelId": {
+            "description": "Not a secret: cfargotunnel only accepts records from the owning account",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "credentialConfigured": {
+            "type": "boolean"
+          },
+          "container": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "health": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "state",
+              "health"
+            ]
+          },
+          "routes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TunnelRoute"
+            },
+            "description": "What the connector serves, in match order"
+          },
+          "endpointCount": {
+            "type": "number",
+            "description": "HTTP services this tunnel could publish"
+          },
+          "dnsRecord": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "proxied": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "type",
+                  "name",
+                  "target",
+                  "proxied"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The one record the operator creates by hand, once"
+          },
+          "imageAvailable": {
+            "type": "boolean",
+            "description": "Whether the connector image is already pulled"
+          }
+        },
+        "required": [
+          "state",
+          "detail",
+          "hint",
+          "enabled",
+          "zone",
+          "wildcard",
+          "tunnelId",
+          "credentialConfigured",
+          "container",
+          "routes",
+          "endpointCount",
+          "dnsRecord",
+          "imageAvailable"
+        ],
+        "additionalProperties": false
+      },
       "Bridge": {
         "type": "object",
         "properties": {
@@ -3703,6 +3855,68 @@
         ],
         "additionalProperties": false
       },
+      "ProjectDomain": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "local",
+              "auto",
+              "custom"
+            ]
+          },
+          "domain": {
+            "type": "string",
+            "description": "The base every project hostname is built on"
+          },
+          "publicIp": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          },
+          "examples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Hostnames a project would get"
+          },
+          "problem": {
+            "description": "Set when the mode could not be honoured",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reachable": {
+            "type": "boolean",
+            "description": "Whether Traefik listens somewhere these names can actually reach it"
+          },
+          "advice": {
+            "description": "What to do about it, when something is off",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "mode",
+          "domain",
+          "publicIp",
+          "provider",
+          "examples",
+          "problem",
+          "reachable",
+          "advice"
+        ],
+        "additionalProperties": false
+      },
       "ConfigView": {
         "type": "object",
         "properties": {
@@ -3711,6 +3925,9 @@
             "items": {
               "$ref": "#/components/schemas/ConfigField"
             }
+          },
+          "projectDomain": {
+            "$ref": "#/components/schemas/ProjectDomain"
           },
           "envFile": {
             "type": "object",
@@ -3748,6 +3965,7 @@
         },
         "required": [
           "fields",
+          "projectDomain",
           "envFile",
           "pendingRestart",
           "applyCommand",
@@ -7392,6 +7610,248 @@
             "basicAuth": []
           }
         ]
+      }
+    },
+    "/tunnel": {
+      "get": {
+        "operationId": "getTunnel",
+        "tags": [
+          "Network"
+        ],
+        "summary": "Cloudflare Tunnel state and routes",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TunnelView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/tunnel/setup": {
+      "post": {
+        "operationId": "setupTunnel",
+        "tags": [
+          "Network"
+        ],
+        "summary": "Configure the connector from a tunnel token",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TunnelView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "zone": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "token": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "includeApex": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "zone",
+                  "token"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tunnel/enable": {
+      "post": {
+        "operationId": "enableTunnel",
+        "tags": [
+          "Network"
+        ],
+        "summary": "Include the connector in the running stack",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TunnelView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      }
+    },
+    "/tunnel/disable": {
+      "post": {
+        "operationId": "disableTunnel",
+        "tags": [
+          "Network"
+        ],
+        "summary": "Stop including the connector",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TunnelView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "forget": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
       }
     },
     "/access": {

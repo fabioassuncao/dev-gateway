@@ -297,15 +297,26 @@ if [ -n "$traefik_id" ] && [ "$(portta_container_state "$traefik_id")" = "runnin
     --format '{{ range $p, $conf := .NetworkSettings.Ports }}{{ range $conf }}{{ $p }}={{ .HostIp }}:{{ .HostPort }} {{ end }}{{ end }}' 2>/dev/null)
   check pass exposure.binds "published ports" "${binds:-none}" ""
 
+  # The panel's own entrypoint (container port 8090) is public on purpose in
+  # `public` access mode, and is the one port that is authenticated. Judge the
+  # application entrypoints without it: see docs/adr/0021-panel-access-modes.md.
+  app_binds="$binds"
+  if [ "${PORTTA_WEB_EXPOSE:-local}" = "public" ]; then
+    app_binds=$(printf '%s' "$binds" | tr ' ' '\n' | grep -v '^8090/tcp=' | tr '\n' ' ')
+  fi
+
   case "$PORTTA_PROFILE" in
     local)
-      case "$binds" in
+      case "$app_binds" in
         *0.0.0.0:*|*::*)
           check fail exposure.local "local profile exposure" \
-            "the gateway is bound to a non-loopback address in the local profile" \
+            "an application entrypoint is bound to a non-loopback address in the local profile" \
             "set PORTTA_BIND_ADDRESS=127.0.0.1 and run 'portta up local'" ;;
         *)
-          check pass exposure.local "local profile exposure" "loopback only" "" ;;
+          check pass exposure.local "local profile exposure" \
+            "$([ "${PORTTA_WEB_EXPOSE:-local}" = "public" ] \
+               && printf 'applications on loopback; only the authenticated panel entrypoint is public' \
+               || printf 'loopback only')" "" ;;
       esac
       ;;
     remote-private)
@@ -424,10 +435,15 @@ if portta_is_true "$PORTTA_WEB"; then
   if [ "$PORTTA_WEB_EXPOSE" = "local" ]; then
     check pass web.auth "panel authentication" \
       "not routed: loopback only on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT" ""
+  elif [ "$PORTTA_WEB_EXPOSE" = "tailscale" ]; then
+    # The tailnet is the boundary here, and it is a better one than a password.
+    # A credential on top is welcome, and not required.
+    check pass web.auth "panel authentication" \
+      "$([ "$PORTTA_WEB_AUTH" = "basic" ] && printf 'traefik basicauth as %s, ' "$PORTTA_WEB_AUTH_USER")reachable only on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT" ""
   elif [ "$PORTTA_WEB_AUTH" != "basic" ] \
        || [ -z "$PORTTA_WEB_AUTH_USER" ] || [ -z "$PORTTA_WEB_AUTH_HASH" ]; then
     check fail web.auth "panel authentication" \
-      "the panel is routed (expose: $PORTTA_WEB_EXPOSE) with nothing in front of it" \
+      "the panel is reachable beyond this host (access: $PORTTA_WEB_EXPOSE) with nothing in front of it" \
       "portta web auth set"
   else
     check pass web.auth "panel authentication" \
@@ -551,15 +567,38 @@ fi
 # more than for anything else the gateway runs.
 
 if portta_is_true "$PORTTA_WEB"; then
-  case "$PORTTA_WEB_BIND_ADDRESS" in
-    127.0.0.1|localhost|::1)
-      check pass web.bind "web panel" \
-        "enabled on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT (loopback)" "" ;;
-    *)
+  if [ "$PORTTA_WEB_EXPOSE" = "public" ]; then
+    # The panel container publishes nothing in this mode: the address belongs
+    # to Traefik's `panel` entrypoint, and web.auth above proves what is in
+    # front of it. What would be wrong here is a second, unauthenticated door.
+    web_own_ports=""
+    web_container=$(portta_gateway_container web)
+    if [ -n "$web_container" ]; then
+      web_own_ports=$(docker inspect "$web_container" --format \
+        '{{ range $p, $c := .NetworkSettings.Ports }}{{ range $c }}{{ .HostIp }}:{{ .HostPort }} {{ end }}{{ end }}' 2>/dev/null)
+    fi
+    if [ -n "$web_own_ports" ]; then
       check fail web.bind "web panel" \
-        "enabled and bound to $PORTTA_WEB_BIND_ADDRESS; it has no authentication" \
-        "set PORTTA_WEB_BIND_ADDRESS=127.0.0.1, and reach it over the VPN or an SSH tunnel" ;;
-  esac
+        "published directly on the host at $web_own_ports, bypassing the authenticating entrypoint" \
+        "remove the ports: entry; docker/compose/features/panel-public.yaml owns this port"
+    else
+      check pass web.bind "web panel" \
+        "reached only through Traefik's authenticated panel entrypoint on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT" ""
+    fi
+  else
+    case "$PORTTA_WEB_BIND_ADDRESS" in
+      127.0.0.1|localhost|::1)
+        check pass web.bind "web panel" \
+          "enabled on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT (loopback)" "" ;;
+      0.0.0.0|::)
+        check fail web.bind "web panel" \
+          "enabled and bound to $PORTTA_WEB_BIND_ADDRESS with nothing authenticating it" \
+          "portta config set panel.access public   (or set PORTTA_WEB_BIND_ADDRESS=127.0.0.1)" ;;
+      *)
+        check pass web.bind "web panel" \
+          "enabled on $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT (access: $PORTTA_WEB_EXPOSE)" "" ;;
+    esac
+  fi
 
   if [ "$PORTTA_WEB_EXPOSE" = "vpn" ] && [ "$PORTTA_PROFILE" = "remote-public" ]; then
     check fail web.expose "web panel routing" \
@@ -599,6 +638,13 @@ fi
 # DNS and TLS
 # ---------------------------------------------------------------------------
 
+check pass domain.mode "project domain mode" \
+  "${PORTTA_DOMAIN_MODE:-local} (*.${PORTTA_DOMAIN})" ""
+if [ -n "${PORTTA_DOMAIN_PROBLEM:-}" ]; then
+  check fail domain.resolved "project domain" "$PORTTA_DOMAIN_PROBLEM" \
+    "portta config set domain.mode auto"
+fi
+
 case "$PORTTA_DOMAIN" in
   localhost|*.localhost)
     # RFC 6761 reserves `localhost`; resolvers must map it to loopback.
@@ -608,6 +654,13 @@ case "$PORTTA_DOMAIN" in
       check warn dns.local "local DNS" "could not confirm *.localhost resolution" \
         "see docs/local-development.md if hostnames do not resolve"
     fi
+    # A loopback name on a host reached from elsewhere is a URL nobody can
+    # open, which is the failure docs/adr/0022 exists to catch.
+    if [ "${PORTTA_WEB_EXPOSE:-local}" != "local" ]; then
+      check warn domain.reachable "project hostnames" \
+        "*.localhost only resolves on this machine, and the panel is reached from elsewhere" \
+        "portta config set domain.mode auto"
+    fi
     ;;
   *)
     check pass dns.domain "domain" "$PORTTA_DOMAIN" ""
@@ -615,12 +668,46 @@ case "$PORTTA_DOMAIN" in
     # make a broken wildcard look healthy.
     probe_host="portta-probe.$PORTTA_DOMAIN"
     resolved=$(portta_dig +short "$probe_host" A 2>/dev/null | grep -E '^[0-9]+\.' | head -1)
-    if [ -n "$resolved" ]; then
-      check pass dns.wildcard "wildcard DNS" "*.$PORTTA_DOMAIN -> $resolved" ""
-    else
+    if [ -z "$resolved" ]; then
       check fail dns.wildcard "wildcard DNS" "*.$PORTTA_DOMAIN does not resolve" \
         "portta dns setup"
+    else
+      # Resolving is not the same as resolving here. A wildcard pointed at a
+      # machine that is no longer this one produces URLs that load somebody
+      # else's site, which is worse than a URL that fails.
+      expected="${PORTTA_PUBLIC_IP:-}"
+      if [ -z "$expected" ]; then
+        check pass dns.wildcard "wildcard DNS" "*.$PORTTA_DOMAIN -> $resolved" ""
+      elif [ "$resolved" = "$expected" ]; then
+        check pass dns.wildcard "wildcard DNS" "*.$PORTTA_DOMAIN -> $resolved (this host)" ""
+      else
+        check fail dns.wildcard "wildcard DNS" \
+          "*.$PORTTA_DOMAIN -> $resolved, and this host is $expected" \
+          "point the wildcard here, or refresh the address: portta config set domain.mode auto"
+      fi
     fi
+
+    # A name that reaches this host is only useful if Traefik answers where it
+    # points. Exposure is a separate, deliberate decision, so this warns.
+    case "${PORTTA_BIND_ADDRESS:-127.0.0.1}" in
+      127.0.0.1|localhost|::1)
+        # A name that resolves to a tailnet or LAN address is served by binding
+        # that address. Suggesting public exposure there would be a far larger
+        # change than the one actually needed.
+        if portta_ip_is_private "${PORTTA_PUBLIC_IP:-}"; then
+          domain_fix="portta config set gateway.bindAddress $PORTTA_PUBLIC_IP   serves them on that network only"
+        else
+          domain_fix="portta public enable   exposes the HTTP services that opted in"
+        fi
+        check warn domain.reachable "project hostnames" \
+          "*.$PORTTA_DOMAIN points here, but Traefik listens on $PORTTA_BIND_ADDRESS only" \
+          "$domain_fix"
+        ;;
+      *)
+        check pass domain.reachable "project hostnames" \
+          "*.$PORTTA_DOMAIN, served on $PORTTA_BIND_ADDRESS" ""
+        ;;
+    esac
     ;;
 esac
 
@@ -803,6 +890,130 @@ if [ -n "$orphans" ]; then
 else
   check pass orphans "stopped gateway containers" "none" ""
 fi
+
+# ---------------------------------------------------------------------------
+# Panel access
+# ---------------------------------------------------------------------------
+# How the panel is reached is a security decision, so it is checked rather than
+# merely reported. See docs/adr/0021-panel-access-modes.md.
+
+if portta_is_true "$PORTTA_WEB"; then
+  case "$PORTTA_WEB_EXPOSE" in
+    local|tailscale|public|vpn)
+      check pass panel.access "panel access" "$PORTTA_WEB_EXPOSE (bind $PORTTA_WEB_BIND_ADDRESS:$PORTTA_WEB_PORT)" "" ;;
+    *)
+      check fail panel.access "panel access" "unknown mode '$PORTTA_WEB_EXPOSE'" \
+        "portta config set panel.access public|tailscale|local" ;;
+  esac
+
+  # What is in front of the panel, whether the middleware exists and where it
+  # listens are checked above, under `web.auth`, `web.auth.file` and
+  # `web.bind`. This one records the mode itself, which is what a person
+  # actually wants to read back.
+fi
+
+# ---------------------------------------------------------------------------
+# Development environment
+# ---------------------------------------------------------------------------
+# Reported, never changed. Nothing below can fail the run: Portta needs Docker
+# and a shell, and everything here is a convenience on top of that.
+
+# A tool present but off this PATH is a different answer from a tool that is
+# not installed, and the fix for it is different too. Both are reported.
+portta_tool_report() { # portta_tool_report <id> <title> <command> [version-args...]
+  local id="$1" title="$2" cmd="$3"; shift 3
+  local value path
+  if ! path=$(portta_locate "$cmd"); then
+    check warn "$id" "$title" "not found" "optional; install it if you want it"
+    return 0
+  fi
+  value=$("$path" "$@" 2>/dev/null | head -n1)
+  if portta_have "$cmd"; then
+    check pass "$id" "$title" "${value:-installed}" ""
+  elif [ -n "$value" ]; then
+    check warn "$id" "$title" "$value at $path, but not on this PATH" \
+      "it is wired into your interactive shell only; export PATH in ~/.profile to reach it from scripts"
+  else
+    # Located, and it will not run: npm's shebang is `env node`, so nvm's npm
+    # is unusable from a shell that cannot see nvm's node either.
+    check warn "$id" "$title" "at $path, but not usable from this shell" \
+      "put its directory on PATH in ~/.profile, not only in your interactive shell"
+  fi
+}
+
+portta_tool_report tools.git       "git"           git --version
+portta_tool_report tools.node      "node"          node --version
+portta_tool_report tools.npm       "npm"           npm --version
+portta_tool_report tools.gh        "github cli"    gh --version
+portta_tool_report tools.tailscale "tailscale"     tailscale version
+
+if npx_path=$(portta_locate npx); then
+  if portta_have npx; then
+    check pass tools.npx "npx" "available" ""
+  else
+    check warn tools.npx "npx" "at $npx_path, but not on this PATH" \
+      "npx portta will not resolve from a script until PATH includes it"
+  fi
+else
+  check warn tools.npx "npx" "not found" "npx ships with npm; the full CLI needs Node 22.12+"
+fi
+
+if portta_have git; then
+  git_user=$(git config --global user.name 2>/dev/null || true)
+  git_mail=$(git config --global user.email 2>/dev/null || true)
+  if [ -n "$git_user" ] && [ -n "$git_mail" ]; then
+    check pass git.identity "git identity" "$git_user <$git_mail>" ""
+  else
+    check warn git.identity "git identity" "not configured globally" \
+      "git config --global user.name / user.email"
+  fi
+fi
+
+if portta_have gh; then
+  if gh auth status >/dev/null 2>&1; then
+    check pass github.auth "github cli auth" "authenticated" ""
+  else
+    check warn github.auth "github cli auth" "not authenticated" "gh auth login"
+  fi
+fi
+
+if portta_have tailscale; then
+  ts_addr=$(tailscale ip -4 2>/dev/null | head -n1 || true)
+  if [ -n "$ts_addr" ]; then
+    check pass vpn.tailscale "tailscale" "connected ($ts_addr)" ""
+  else
+    check warn vpn.tailscale "tailscale" "installed but not connected" \
+      "tailscale up   (run it yourself; Portta never authenticates it for you)"
+  fi
+else
+  check warn vpn.tailscale "tailscale" "not found" \
+    "optional; the panel can also be reached publicly or over an SSH tunnel"
+fi
+
+# ---------------------------------------------------------------------------
+# AI development agents
+# ---------------------------------------------------------------------------
+# Diagnostic only. Portta never installs, authenticates or reconfigures these.
+
+portta_agent_report() { # portta_agent_report <id> <title> <command>
+  local id="$1" title="$2" cmd="$3" value path
+  if path=$(portta_locate "$cmd"); then
+    value=$("$path" --version 2>/dev/null | head -n1)
+    if portta_have "$cmd"; then
+      check pass "$id" "$title" "${value:-installed}" ""
+    else
+      check pass "$id" "$title" "${value:-installed} at $path (not on this PATH)" ""
+    fi
+  else
+    check warn "$id" "$title" "not found" ""
+  fi
+}
+
+portta_agent_report agents.claude    "claude code"   claude
+portta_agent_report agents.codex     "codex cli"     codex
+portta_agent_report agents.cursor    "cursor agent"  cursor-agent
+portta_agent_report agents.gemini    "gemini cli"    gemini
+portta_agent_report agents.antigravity "antigravity" antigravity
 
 # ---------------------------------------------------------------------------
 # Report

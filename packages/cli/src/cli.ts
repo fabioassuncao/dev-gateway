@@ -7,6 +7,7 @@ import { analyzeCommand, initCommand, namespaceCommand, projectList, projectShow
 import { bootstrapCommand, doctorCommand, downCommand, inspectCommand, logsCommand, restartCommand, statusCommand, updateCommand, upCommand, urlsCommand, versionCommand } from './commands/lifecycle.js'
 import { dnsCheck, dnsSetup, dnsStatus, networkStatus, publicDisable, publicEnable, publicStatus } from './commands/network.js'
 import { gitClear, gitScan, gitStatus } from './commands/git.js'
+import { configGet, configList, configSet } from './commands/config.js'
 import { setupCommand } from './commands/setup.js'
 import { shareGc, shareList, shareRevoke } from './commands/share.js'
 import { tlsStatus } from './commands/tls.js'
@@ -106,7 +107,7 @@ describe(dns.command('status'), 'Show DNS configuration without secrets').action
 describe(dns.command('setup'), 'Plan or apply a Cloudflare wildcard record').option('--target <ip>').option('--dry-run').action(dnsSetup)
 
 const web = describe(program.command('web'), 'Run the optional administration panel')
-describe(web.command('up'), 'Enable and start the panel').option('--expose <scope>', 'local or vpn').option('--port <number>').option('--read-only').option('--writable').action(webUp)
+describe(web.command('up'), 'Enable and start the panel').option('--expose <scope>', 'local, tailscale, public or vpn').option('--port <number>').option('--read-only').option('--writable').action(webUp)
 describe(web.command('dev'), 'Start the panel with hot reload').option('--expose <scope>').option('--port <number>').option('--read-only').option('--writable').action((options, command) => webUp({ ...options, dev: true }, command))
 describe(web.command('down'), 'Stop the panel only').action((_options, command) => webDown(command))
 describe(web.command('disable'), 'Stop and disable the panel').action((_options, command) => webDisable(command))
@@ -120,6 +121,13 @@ describe(webAuth.command('status', { isDefault: true }), 'Show panel authenticat
 describe(webAuth.command('set'), 'Generate or read a password and store only its hash').option('--user <name>').option('--password-stdin').action(webAuthSet)
 describe(webAuth.command('clear'), 'Remove the credential while the panel is local').action((_options, command) => webAuthClear(command))
 describe(webAuth.command('apply'), 'Render the middleware from .env').action((_options, command) => webAuthApply(command))
+
+const config = describe(program.command('config'), 'Read and change settings on an installed gateway')
+describe(config.command('list', { isDefault: true }).alias('ls'), 'List the named settings and their values').action((_options, command) => configList(command))
+describe(config.command('get <setting>'), 'Print one setting').action((name, _options, command) => configGet(name, command))
+describe(config.command('set <setting> <value>'), 'Change one setting and apply it')
+  .option('--no-apply', 'write the value without recreating anything')
+  .action((name, value, options, command) => configSet(name, value, options, command))
 
 const git = describe(program.command('git'), 'Collect project Git metadata on the host')
 describe(git.command('scan'), 'Collect Git state into state/git').option('--project <name>').option('--with-prs').option('--forge-ttl <seconds>').action(gitScan)
@@ -152,7 +160,23 @@ for (const [name, description] of [['remote', 'Operate another gateway over ssh'
   describe(program.command(`${name} [args...]`), description).allowUnknownOption(true).allowExcessArguments(true).action((args, _options, command) => legacy(name, args, command))
 }
 
+/**
+ * `portta status | head -3` is an ordinary thing to type, and it made Node
+ * throw an unhandled EPIPE and print a stack trace over the output the reader
+ * asked for. A closed downstream pipe is not an error here: it means the
+ * reader has what they wanted.
+ */
+function tolerateClosedOutput(): void {
+  for (const stream of [process.stdout, process.stderr]) {
+    stream.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EPIPE') process.exit(0)
+      throw error
+    })
+  }
+}
+
 async function main(): Promise<void> {
+  tolerateClosedOutput()
   try {
     if (process.argv.length === 2) {
       program.outputHelp()

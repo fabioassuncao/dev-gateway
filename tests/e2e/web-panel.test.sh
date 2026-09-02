@@ -48,6 +48,20 @@ get() { curl -fsS -m 10 "$BASE$1" 2>/dev/null; }
 # dependency (the host only needs Docker, Git and a shell).
 jq_py() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
 
+# wait_until <seconds> <command...>: poll until it succeeds, or give up.
+#
+# A fixed `sleep` is a guess about how slow the machine is, and it is wrong in
+# both directions: too long on a workstation, too short on a loaded CI runner,
+# where it turns a passing assertion into a flake nobody can reproduce.
+wait_until() {
+  local deadline=$(( $(date +%s) + $1 )); shift
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    if "$@" >/dev/null 2>&1; then return 0; fi
+    sleep 1
+  done
+  return 1
+}
+
 describe "the panel starts through the CLI"
 
 ( cd "$PORTTA_ROOT/docker/examples/demo-a" && docker compose \
@@ -56,7 +70,17 @@ describe "the panel starts through the CLI"
 # A container that belongs to nobody: exactly what the Docker page exists for.
 docker run -d --name "$STRAY" --label portta.e2e=true alpine:3.24.1 sleep 600 >/dev/null 2>&1
 
-"$GW" web up >/dev/null 2>&1
+# Kept, not discarded: when `web up` fails, its own output is the only thing
+# that says why, and every assertion below then fails for a reason none of them
+# can explain.
+WEB_UP_LOG=$(mktemp "${TMPDIR:-/tmp}/portta-web-up.XXXXXX")
+"$GW" web up >"$WEB_UP_LOG" 2>&1 || true
+if ! get /api/health >/dev/null 2>&1; then
+  printf '\n--- web up said ---\n%s\n--- end ---\n\n' "$(cat "$WEB_UP_LOG")" >&2
+  docker ps -a --filter 'label=portta.managed=true' --format '{{.Names}} {{.Status}}' >&2
+  docker logs "$(portta_gateway_container db)" 2>&1 | tail -20 >&2 || true
+fi
+rm -f "$WEB_UP_LOG"
 
 it "answers as soon as 'web up' returns"
 # Regression: `web up` used to report success the moment Compose created the
@@ -91,12 +115,16 @@ assert_eq "0005_issue_environments.sql" "$(docker exec "$DB_CONTAINER" psql -U p
   -At -c 'SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1')"
 
 docker stop "$DB_CONTAINER" >/dev/null
-sleep 2
+
+# The panel notices the database is gone on its next query, and how long that
+# takes depends on the machine, not on anything worth asserting.
+wait_until 30 sh -c 'curl -fsS -m 10 "'"$BASE"'/api/health" >/dev/null'
 
 it "health remains available while PostgreSQL is down"
 assert_success get /api/health
 
 it "Docker-backed project discovery remains available too"
+wait_until 30 sh -c 'curl -fsS -m 10 "'"$BASE"'/api/projects" >/dev/null'
 assert_contains "$(get /api/projects)" '"projects"'
 
 it "the degraded database is an explicit warning"
@@ -234,9 +262,11 @@ assert_success "$GW" doctor
 describe "stopping the panel leaves everything else alone"
 
 "$GW" web down >/dev/null 2>&1
-sleep 1
 
 it "the panel is gone"
+# The daemon settles a removal asynchronously, so poll rather than sleeping a
+# second and hoping that was enough.
+wait_until 30 sh -c '[ -z "$(docker ps -q --filter label=portta.component=web)" ]'
 assert_eq "" "$(docker ps -q --filter 'label=portta.component=web')"
 
 it "Traefik is still running"
