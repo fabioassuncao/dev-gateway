@@ -35,6 +35,7 @@ is the complete operator and contributor index. Historical build briefs under
 - [Persistent Tailscale services](tailscale-services.md) — stable private addresses for selected services.
 - [DNS and TLS](dns-and-tls.md) — wildcard records and certificates.
 - [Cloudflare](cloudflare.md) — optional scoped DNS automation.
+- [Cloudflare Tunnel](cloudflare-tunnel.md) — publish over HTTPS with no open port, from anywhere
 - [Public access](public-access.md) — deliberate internet exposure and its limits.
 - [Firewall](firewall.md) — minimal rules and why Docker bypasses UFW.
 - [Remote tunnels](remote-tunnels.md) — reach loopback-only services on a VPS.

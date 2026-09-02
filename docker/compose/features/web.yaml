@@ -181,7 +181,7 @@ services:
       GITHUB_APP_WEBHOOK_SECRET: ${GITHUB_APP_WEBHOOK_SECRET:-}
       GITHUB_API_URL: ${GITHUB_API_URL:-https://api.github.com}
     volumes:
-      # Five paths from the host, and nothing else. No project directory is ever
+      # Six paths from the host, and nothing else. No project directory is ever
       # mounted here: see docs/adr/0001-decoupled-infrastructure.md.
       #
       #   .env             the configuration the Settings page edits
@@ -198,6 +198,12 @@ services:
       # The GitHub App private key, read-only. Empty unless you put one there.
       - ./state/github:/app/state/github:ro
       - ./config/traefik/dynamic:/app/state/traefik-dynamic
+      # The Cloudflare Tunnel connector's generated config and its credential.
+      # Read-write because setting the tunnel up is something the panel is asked
+      # to do; the directory stays 0700 and the credentials file 0600, and the
+      # token itself is never stored anywhere else — not in .env, not in a log,
+      # not in any API response. See docs/adr/0025-cloudflare-tunnel.md.
+      - ./state/cloudflared:/app/state/cloudflared
     networks:
       # `gateway` so the panel can be published and, with the VPN overlay,
       # routed by Traefik. `webcontrol` for the socket proxy.

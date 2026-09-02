@@ -55,6 +55,10 @@ export interface GatewayConfig {
   publicIp: string | null
   webPort: number
   webReadOnly: boolean
+  /** Whether the Cloudflare Tunnel connector runs beside the gateway. */
+  tunnelEnabled: boolean
+  /** The zone whose wildcard the tunnel carries, when one is configured. */
+  tunnelZone: string | null
 }
 
 function value(env: Record<string, string | undefined>, key: string, fallback: string): string {
@@ -133,6 +137,8 @@ export function loadGatewayConfig(env: Record<string, string | undefined> = proc
     publicIp: optional(env, 'PORTTA_PUBLIC_IP'),
     webPort: Number(value(env, 'PORTTA_WEB_PORT', '8081')),
     webReadOnly: isTrue(env['PORTTA_WEB_READ_ONLY']),
+    tunnelEnabled: isTrue(env['CLOUDFLARE_TUNNEL_ENABLED']),
+    tunnelZone: optional(env, 'CLOUDFLARE_TUNNEL_ZONE'),
   }
 }
 
@@ -166,5 +172,9 @@ export function composeFiles(config: GatewayConfig): string[] {
     if (config.webDev) files.push('docker/compose/features/web-dev.yaml')
     if (config.webExpose === 'vpn') files.push('docker/compose/features/web-vpn.yaml')
   }
+  // Last, and independent of every other axis: the connector is an extra way in,
+  // never a replacement for one. A gateway can carry a tunnel while still
+  // publishing ports, or while publishing none at all.
+  if (config.tunnelEnabled) files.push('docker/compose/features/cloudflare-tunnel.yaml')
   return files
 }

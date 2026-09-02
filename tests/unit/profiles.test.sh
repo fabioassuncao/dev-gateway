@@ -323,7 +323,10 @@ else
     "PORTTA_PROFILE=remote-private PRIVATE_DOMAIN=vpn.test TAILSCALE_ENABLED=true" \
     "PORTTA_PROFILE=remote-public PUBLIC_DOMAIN=d.test" \
     "PORTTA_PROFILE=remote-public PUBLIC_DOMAIN=d.test TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test" \
-    "PORTTA_PROFILE=remote-private PRIVATE_DOMAIN=vpn.test TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test"
+    "PORTTA_PROFILE=remote-private PRIVATE_DOMAIN=vpn.test TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test" \
+    "PORTTA_PROFILE=local CLOUDFLARE_TUNNEL_ENABLED=true" \
+    "PORTTA_PROFILE=local PORTTA_WEB=true CLOUDFLARE_TUNNEL_ENABLED=true" \
+    "PORTTA_PROFILE=remote-public PUBLIC_DOMAIN=d.test CLOUDFLARE_TUNNEL_ENABLED=true"
   do
     it "same files for: $case_env"
     # shellcheck disable=SC2086

@@ -58,6 +58,16 @@ export interface PanelConfig {
   publicEnabled: boolean
   cloudflareEnabled: boolean
   cloudflareZone: string | null
+  /** Whether the connector is part of the running stack. */
+  tunnelEnabled: boolean
+  /** The domain whose wildcard reaches this gateway through the tunnel. */
+  tunnelZone: string | null
+  /**
+   * Where the connector's generated config and its credential live. Mounted
+   * read-write because this is the one credential the panel is asked to set up;
+   * the directory is 0700 and the credentials file 0600.
+   */
+  tunnelDir: string
   dashboardEnabled: boolean
   dashboardBindAddress: string
   dashboardPort: string
@@ -141,6 +151,9 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     publicEnabled: gateway.publicEnabled,
     cloudflareEnabled: isTrue(process.env.CLOUDFLARE_ENABLED),
     cloudflareZone: optional('CLOUDFLARE_ZONE'),
+    tunnelEnabled: isTrue(process.env['CLOUDFLARE_TUNNEL_ENABLED']),
+    tunnelZone: optional('CLOUDFLARE_TUNNEL_ZONE'),
+    tunnelDir: env('PORTTA_RUNTIME_TUNNEL_DIR', '/app/state/cloudflared'),
     dashboardEnabled: gateway.dashboardEnabled,
     dashboardBindAddress: env('PORTTA_DASHBOARD_BIND_ADDRESS', '127.0.0.1'),
     dashboardPort: env('PORTTA_DASHBOARD_PORT', '8080'),

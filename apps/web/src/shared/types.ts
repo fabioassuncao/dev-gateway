@@ -926,6 +926,45 @@ export const ProjectDomain = named(
 )
 export type ProjectDomain = z.infer<typeof ProjectDomain>
 
+export const TunnelRoute = named(
+  z.object({
+    hostname: z.string(),
+    service: z.string(),
+  }).strict(),
+  'TunnelRoute',
+)
+export type TunnelRoute = z.infer<typeof TunnelRoute>
+
+export const TunnelView = named(
+  z.object({
+    state: z
+      .enum(['not-configured', 'configured', 'starting', 'connected', 'disconnected', 'auth-error', 'config-error'])
+      .describe('What the connector is doing, distinguished so the fix is obvious'),
+    detail: z.string(),
+    hint: z.string().nullable().describe('The single next step, when there is one'),
+    enabled: z.boolean().describe('Whether the connector is part of the running stack'),
+    zone: z.string().nullable().describe('The domain whose wildcard reaches this gateway'),
+    wildcard: z.string().nullable(),
+    tunnelId: z.string().nullable().describe('Not a secret: cfargotunnel only accepts records from the owning account'),
+    // Never the token itself, in any state. The panel says whether one exists.
+    credentialConfigured: z.boolean(),
+    container: z.object({
+      name: z.string(),
+      state: z.string(),
+      health: z.string(),
+    }),
+    routes: z.array(TunnelRoute).describe('What the connector serves, in match order'),
+    endpointCount: z.number().describe('HTTP services this tunnel could publish'),
+    dnsRecord: z
+      .object({ type: z.string(), name: z.string(), target: z.string(), proxied: z.boolean() })
+      .nullable()
+      .describe('The one record the operator creates by hand, once'),
+    imageAvailable: z.boolean().describe('Whether the connector image is already pulled'),
+  }).strict(),
+  'TunnelView',
+)
+export type TunnelView = z.infer<typeof TunnelView>
+
 export const ConfigView = named(
   z.object({
     fields: z.array(ConfigField),

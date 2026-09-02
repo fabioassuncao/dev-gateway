@@ -284,6 +284,13 @@ portta_compose_files() {
     fi
   fi
 
+  # Last, and independent of every other axis: the connector is an extra way in,
+  # never a replacement for one. A gateway can carry a tunnel while publishing
+  # ports, or while publishing none at all.
+  if portta_is_true "${CLOUDFLARE_TUNNEL_ENABLED:-false}"; then
+    files="$files docker/compose/features/cloudflare-tunnel.yaml"
+  fi
+
   local f out=""
   for f in $files; do
     [ -f "$PORTTA_ROOT/$f" ] || {
