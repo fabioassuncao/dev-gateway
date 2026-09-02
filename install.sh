@@ -1412,12 +1412,23 @@ case "$PANEL_ACCESS" in
 esac
 
 printf '\n' >&2
-say "applications stay unexposed: publishing the panel published nothing else"
-say "each project chooses its own exposure from the panel or the CLI"
-if [ "$PROJECT_DOMAIN" != "localhost" ]; then
-  say ""
-  say "a project called web would answer on  web.${PROJECT_DOMAIN}"
-  note "the name resolves already; 'portta public enable' is what makes Traefik answer there"
+# On an update of a host that already ran `portta public enable`, the two lines
+# below were both false: Traefik was already answering for opted-in projects.
+if [ "$(env_get "$ENV_FILE" PUBLIC_ENABLED)" = "true" ]; then
+  say "public access is enabled: Traefik answers for the projects that opted in"
+  say "each project still chooses its own exposure from the panel or the CLI"
+  [ "$PROJECT_DOMAIN" != "localhost" ] && {
+    say ""
+    say "a project called web answers on  web.${PROJECT_DOMAIN}"
+  }
+else
+  say "applications stay unexposed: publishing the panel published nothing else"
+  say "each project chooses its own exposure from the panel or the CLI"
+  if [ "$PROJECT_DOMAIN" != "localhost" ]; then
+    say ""
+    say "a project called web would answer on  web.${PROJECT_DOMAIN}"
+    note "the name resolves already; 'portta public enable' is what makes Traefik answer there"
+  fi
 fi
 
 printf '\n' >&2
