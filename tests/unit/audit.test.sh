@@ -69,7 +69,7 @@ describe "the applier is bounded by construction"
 it "only the applier mounts the docker socket writable, and only it"
 # Everywhere else the socket is `:ro`, into a socket proxy. The compose audit
 # above cannot see this one, because the applier is not a compose service.
-assert_eq "packages/core/src/apply.ts scripts/lib/apply.sh" \
+assert_eq "packages/core/src/apply.ts packages/core/src/runner.ts scripts/lib/apply.sh scripts/lib/runner.sh" \
   "$(code | xargs grep -ln 'docker\.sock:/var/run/docker\.sock[^:]*$' 2>/dev/null | sort | tr '\n' ' ' | sed 's/ $//')"
 
 it "the applier is not a compose service"
@@ -103,6 +103,15 @@ it "the panel cannot enable the applier"
 # Turning it on is a host decision: the key is deliberately absent from the
 # catalogue of everything the Settings page may write.
 assert_eq "" "$(grep -n \"PORTTA_APPLY\" apps/web/src/server/core/settings.ts || true)"
+
+it "the runner is not a compose service"
+assert_eq "" "$(grep -rn 'portta-runner\|component: runner' docker/compose/ 2>/dev/null || true)"
+
+it "the runner command is fixed, never composed from input"
+assert_contains "$(cat scripts/lib/runner.sh)" 'bash "$PORTTA_ROOT/scripts/lib/runner-exec.sh"'
+
+it "the panel cannot enable the runner"
+assert_eq "" "$(grep -n \"PORTTA_RUNNER\" apps/web/src/server/core/settings.ts || true)"
 
 it "the panel gains no new Docker permission for it"
 # start, inspect and logs were already allowed; that is the whole point. Four

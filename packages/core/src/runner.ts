@@ -1,0 +1,150 @@
+// The project runner: the one thing on a host that may drive a consumer
+// project's Compose on the panel's behalf.
+//
+// The panel's Docker permissions stop at start, stop, restart and one fixed
+// container shape (ADR 0008). Rebuilding, taking a project down, or starting
+// containers that no longer exist means Compose, and reimplementing Compose
+// inside the panel is not an option (ADR 0026). So `up` prepares a
+// single-purpose container, stopped, whose command is fixed at creation and
+// reads a closed `{ verb, project }` request — never a command line.
+// Starting it is a permission the panel already has. See ADR 0030.
+//
+// This is the source of truth. scripts/lib/runner.sh carries a second
+// implementation because `up` must work with no Node on the host (ADR 0015),
+// and tests/unit/runner.test.sh runs both and compares the `docker create`
+// argument lists.
+
+import { APPLY_IMAGE } from './apply.ts'
+
+export const RUNNER_IMAGE = APPLY_IMAGE
+export const RUNNER_CONTAINER = 'portta-runner'
+export const RUNNER_COMPONENT = 'runner'
+export const RUNNER_REQUEST_RELATIVE = 'state/runner/request.json'
+
+/**
+ * Operations Compose must perform. Adding a verb is an ADR-level change.
+ *
+ * `down-volumes` is the destructive form of `down`. It is a distinct verb so
+ * a request cannot smuggle `--volumes` onto a preserving removal.
+ */
+export const RUNNER_VERBS = ['up', 'stop', 'restart', 'build', 'down', 'down-volumes'] as const
+export type RunnerVerb = (typeof RUNNER_VERBS)[number]
+
+export const RUNNER_FLAGS = ['no-cache'] as const
+export type RunnerFlag = (typeof RUNNER_FLAGS)[number]
+
+export interface RunnerRequest {
+  verb: RunnerVerb
+  project: string
+  flags?: RunnerFlag[]
+}
+
+export function isRunnerVerb(value: string): value is RunnerVerb {
+  return (RUNNER_VERBS as readonly string[]).includes(value)
+}
+
+export function isRunnerFlag(value: string): value is RunnerFlag {
+  return (RUNNER_FLAGS as readonly string[]).includes(value)
+}
+
+export function parseRunnerRequest(value: unknown): RunnerRequest {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('the runner request must be an object')
+  }
+  const body = value as Record<string, unknown>
+  if (typeof body.verb !== 'string' || !isRunnerVerb(body.verb)) {
+    throw new Error(`unknown runner verb '${String(body.verb)}'`)
+  }
+  if (typeof body.project !== 'string' || body.project.trim() === '') {
+    throw new Error('the runner request needs a project name')
+  }
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(body.project)) {
+    throw new Error(`refusing project name '${body.project}'`)
+  }
+  const flags: RunnerFlag[] = []
+  if (body.flags !== undefined) {
+    if (!Array.isArray(body.flags)) throw new Error('runner flags must be an array')
+    for (const flag of body.flags) {
+      if (typeof flag !== 'string' || !isRunnerFlag(flag)) {
+        throw new Error(`unknown runner flag '${String(flag)}'`)
+      }
+      flags.push(flag)
+    }
+  }
+  if (flags.includes('no-cache') && body.verb !== 'build') {
+    throw new Error('no-cache is only valid with build')
+  }
+  return { verb: body.verb, project: body.project, flags: flags.length > 0 ? flags : undefined }
+}
+
+export function runnerCreateArguments(root: string, spec: string): string[] {
+  return [
+    'create',
+    '--name', RUNNER_CONTAINER,
+    '--label', 'portta.managed=true',
+    '--label', `portta.component=${RUNNER_COMPONENT}`,
+    '--label', `portta.runner.spec=${spec}`,
+    '--label', 'traefik.enable=false',
+    '--restart', 'no',
+    '--network', 'none',
+    '--user', '0:0',
+    '--security-opt', 'no-new-privileges:true',
+    '--workdir', root,
+    '--env', `PORTTA_ROOT=${root}`,
+    '--env', 'PORTTA_FORCE_BASH=true',
+    '--env', 'HOME=/tmp',
+    '--volume', '/var/run/docker.sock:/var/run/docker.sock',
+    '--volume', `${root}:${root}`,
+    // The host filesystem, so the runner can read a project's Compose files
+    // at the path Docker recorded. --project-directory stays the host path.
+    '--volume', '/:/host',
+    RUNNER_IMAGE,
+    'bash', `${root}/scripts/lib/runner-exec.sh`,
+  ]
+}
+
+export function runnerSpec(root: string, version: string): string {
+  return `${RUNNER_IMAGE}|${root}|${version}`
+}
+
+/**
+ * Why this host must not prepare a runner, or null when it may.
+ *
+ * The same public-exposure refusals as the applier: handing Compose over a
+ * panel reachable from the internet is a different decision from handing it
+ * over loopback.
+ */
+export function runnerRefusal(env: Record<string, string | undefined>): string | null {
+  if ((env['PORTTA_WEB_EXPOSE'] ?? 'local') === 'public') {
+    return 'the panel is exposed publicly: operate projects on the host instead'
+  }
+  if ((env['PORTTA_PROFILE'] ?? 'local') === 'remote-public') {
+    return 'the remote-public profile operates projects on the host only'
+  }
+  return null
+}
+
+export function composeFilesFromLabel(value: string | null | undefined): string[] {
+  if (!value) return []
+  return value.split(',').map((entry) => entry.trim()).filter((entry) => entry.length > 0)
+}
+
+export interface ProjectOperable {
+  ok: boolean
+  reason: string | null
+  workingDir: string | null
+  configFiles: string[]
+}
+
+/** Labels are the project's own truth. Missing ones are not operable. */
+export function projectOperable(workingDir: string | null, configFiles: string[] = []): ProjectOperable {
+  if (!workingDir) {
+    return {
+      ok: false,
+      reason: 'this project has no Compose working directory label, so the runner cannot find it',
+      workingDir: null,
+      configFiles,
+    }
+  }
+  return { ok: true, reason: null, workingDir, configFiles }
+}
