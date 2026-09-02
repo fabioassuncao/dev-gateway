@@ -181,14 +181,16 @@ browser downloads a `.pem`. In your Portta directory, on the host:
 
 ```bash
 mkdir -p state/github
-mv ~/Downloads/your-app.*.private-key.pem state/github/app.pem
-chmod 600 state/github/app.pem
+mv ~/Downloads/your-app.*.private-key.pem state/github/
+chmod 600 state/github/*.pem
 ```
 
-**The filename matters.** Compose mounts `./state/github` into the panel
-read-only and passes `/app/state/github/app.pem` as a fixed value
-(`docker/compose/features/web.yaml`). A key under any other name is a key the
-panel cannot read, whatever the Settings field says.
+**The directory matters, the filename does not.** Compose mounts
+`./state/github` into the panel read-only, and that mount is the only route the
+key has into the container (`docker/compose/features/web.yaml`). So the .pem has
+to live there, under whatever name you like: keep the one GitHub gave the
+download, or rename it to `app.pem`, which is what the panel assumes when you
+set nothing. Whichever you choose, step 5 is where you say so.
 
 `chmod 600` is not ceremony. The panel checks the mode as it starts and writes
 `… is readable by more than its owner: chmod 600 it`; `portta doctor` fails on
@@ -204,7 +206,7 @@ order they appear:
 |---|---|---|---|
 | **GitHub App** (toggle) | `GITHUB_APP_ENABLED` | on | — |
 | **App id** | `GITHUB_APP_ID` | the number at the top of the App's settings page, e.g. `123456` | it is not digits alone |
-| **Private key file** | `GITHUB_APP_PRIVATE_KEY_FILE` | `/app/state/github/app.pem` | it is not an absolute path |
+| **Private key file** | `GITHUB_APP_PRIVATE_KEY_FILE` | `/app/state/github/` and the filename you used in step 4 | it is not under `/app/state/github/` |
 | **Webhook secret** | `GITHUB_APP_WEBHOOK_SECRET` | leave it empty for now | — |
 | **API base URL** | `GITHUB_API_URL` | `https://api.github.com`, or `https://ghe.example.com/api/v3` on Enterprise Server | it is not a URL |
 
@@ -214,9 +216,16 @@ The **App id** is the App id — not the App name, and not the client id. The
 field takes digits and nothing else.
 
 The **private key file** is the path *inside the container*, which is why it
-begins `/app/` and not with your home directory. The field writes `.env`, which
-is what `portta doctor` inspects on the host; the panel itself always reads
-`/app/state/github/app.pem`, so that is the only value that describes reality.
+begins `/app/` and not with your home directory. `state/github/` on the host is
+`/app/state/github/` there, so a key you dropped in as
+`portta.2026-09-02.private-key.pem` is
+`/app/state/github/portta.2026-09-02.private-key.pem` here. The field is
+refused if it points anywhere else, because nothing else is mounted and the
+panel could not open it. Leave it empty and the panel reads
+`/app/state/github/app.pem`.
+
+This is the value both diagnostics use: the panel opens the file you name, and
+`portta doctor` checks that same file on the host.
 
 The **webhook secret** field shows *not set* or *set*, never a value. No secret
 is ever returned by the API, and the `.env` it is written to is mode 600.
@@ -310,10 +319,11 @@ the App is the one that is a file, and that has not moved.
 |---|---|---|
 | *No GitHub App is configured*, after saving | `.env` was written; the container still has the old environment | `./bin/portta up local` |
 | Save refuses the App id | it is validated as digits only | use the numeric id, not the App name and not the client id |
-| Save refuses the key path | it must be absolute | `/app/state/github/app.pem` |
+| Save refuses the key path | it must be under the one mounted directory | `/app/state/github/<your-file>.pem` |
 | doctor: `enabled with no GITHUB_APP_ID` | the toggle is on and the id is empty | copy the id from the App's settings page |
-| doctor: `no private key at …` | the `.pem` is not at `state/github/app.pem` | rename it; the filename is fixed |
-| doctor: `readable by more than its owner` | the key's mode | `chmod 600 state/github/app.pem` |
+| doctor: `no private key at …` | no `.pem` at the name the field gives, under `state/github/` | correct the filename on one side or the other |
+| doctor: `… is outside /app/state/github/` | a path from before the field took effect | move the `.pem` into `state/github/` and re-point the field |
+| doctor: `readable by more than its owner` | the key's mode | `chmod 600` the file doctor named |
 | doctor: `GITHUB_API_URL is not https` | an API root without TLS | use an `https://` root |
 | **unreachable**, *GitHub refused the App credentials* | the id and the key belong to different Apps, or the App was deleted | regenerate the key and re-copy the id |
 | **Repositories: 0** after a Sync | the installation granted none | *Install App → Configure* on GitHub |

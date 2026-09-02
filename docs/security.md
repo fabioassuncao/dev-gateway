@@ -257,11 +257,12 @@ attached to; `webcontrol` and `webdata` stay `internal: true`, so neither the
 Docker socket proxy nor the database gains a route out.
 
 The panel holds one long-lived secret for this — the App's private key — and it
-holds it as a **file it cannot write**: `state/github/app.pem`, mounted
+holds it as a **file it cannot write**: a `.pem` under `state/github/`, mounted
 read-only at mode 600, passed by path rather than as a `.env` value precisely
-because the panel can write `.env`. `portta doctor` fails, rather than
-warns, on a key that is missing, unreadable, or readable by more than its
-owner.
+because the panel can write `.env`. That directory is the only route the key
+has into the container, so it is also the only path the panel accepts.
+`portta doctor` fails, rather than warns, on a key that is missing, unreadable,
+readable by more than its owner, or outside that directory.
 
 Installation tokens live for an hour in memory and are never persisted. No
 token, key or webhook secret appears in any API response, and tests assert it.
