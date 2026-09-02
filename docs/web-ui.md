@@ -769,12 +769,17 @@ Overview, in the dark theme:
 | External container | logs, start, stop, restart, details, remove (with confirmation) |
 | Project | restart its running services, open its URLs, see its services |
 | TCP service | open a loopback bridge, close it, copy host / port / connection string |
-| Gateway | status, diagnostics, logs, restart components |
+| Gateway | status, diagnostics, logs, restart components, apply saved settings (opt-in) |
 
-Never offered: recreating a Compose project, editing configuration or
-environment variables of a container, changing its networks or volumes, running
-an arbitrary command, `docker compose down -v`, resetting a database, mass
-removal, or any kind of prune.
+Never offered: recreating **somebody else's** Compose project, editing
+configuration or environment variables of a container, changing its networks or
+volumes, running an arbitrary command, `docker compose down -v`, resetting a
+database, mass removal, or any kind of prune.
+
+The one exception is the gateway's own project, and only through the opt-in
+applier described below ([ADR 0026](adr/0026-applying-settings-from-the-panel.md)):
+a container the host prepares, whose command is fixed at creation and which the
+panel can only start.
 
 ### Removing a container
 
@@ -799,14 +804,37 @@ closed from the Access page, which removes them cleanly.
 `Restart Traefik` restarts the container in place. Traefik reads its static
 configuration from the environment it was created with
 ([ADR 0003](adr/0003-traefik-static-config-via-env.md)), so a settings change
-needs the containers recreated, on the host:
+needs the containers **recreated**, not restarted. The panel says this rather
+than pretending a restart was enough: saved settings the running gateway has not
+picked up are marked `pending restart`, and a bar at the top of every page says
+so wherever you are.
+
+By default, applying them is a command on the host:
 
 ```bash
 ./bin/portta up local
 ```
 
-The panel says this rather than pretending a restart was enough. Saved settings
-that the running gateway has not picked up are marked `pending restart`.
+### Applying settings from the panel
+
+With `PORTTA_APPLY=true` in `.env`, `portta up` also prepares a stopped
+container whose command is fixed at creation — `portta up`, with no argument the
+panel can influence — and the pending bar gains an **Apply and restart** button
+that starts it.
+
+The confirmation names the pending keys, and says plainly that this panel is one
+of the containers being recreated. It then shows a dialog with a stopwatch while
+the panel goes offline and comes back, and reports the applier's exit code and
+output if it failed. If a pending setting moves the panel's own address, the
+confirmation says the tab will not reconnect on its own.
+
+Turning this on is a host decision, deliberately: the key is not in the panel's
+field catalogue, so the panel cannot enable itself. Be clear about what it
+grants — anyone who can write through the panel can then run `portta up` on the
+host. It is refused in read-only mode, refused when the panel is exposed
+publicly, and refused on the `remote-public` profile. See
+[ADR 0026](adr/0026-applying-settings-from-the-panel.md) for the full account,
+including what can still go wrong.
 
 ---
 

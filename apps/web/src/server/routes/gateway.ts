@@ -7,7 +7,10 @@ import { loadAliases } from '../core/overrides.ts'
 import { githubStatusOf } from './integrations.ts'
 import { diagnose } from '../core/diagnostics.ts'
 import { readLogs } from './services.ts'
-import { Diagnostic, GatewayStatus, LogsResponse, TraefikVerdict } from '../../shared/types.ts'
+import { ApplyResult, ApplyStatus, Diagnostic, GatewayStatus, LogsResponse, TraefikVerdict } from '../../shared/types.ts'
+import { applier, applyStatus } from '../core/apply.ts'
+import { ActionRefused } from '../core/actions.ts'
+import { DockerApiError } from '../docker/client.ts'
 import { documentRoute, tailParameter } from '../openapi.ts'
 import { unavailableDatabaseStatus } from '../db/index.ts'
 
@@ -106,6 +109,75 @@ export function gatewayRoutes(deps: AppDeps): Hono {
       restarted,
       missing,
       note: 'settings saved in .env take effect once the containers are recreated',
+      applyCommand: `./bin/portta up ${deps.config.profile}`,
+    })
+  })
+
+  /**
+   * The state of the last apply, derived from the applier container itself and
+   * never from this process's memory: applying recreates this process, so
+   * anything held here is gone before there is a result to report.
+   */
+  app.get('/gateway/apply', documentRoute({
+    tag: 'Gateway', operationId: 'getApplyStatus', summary: 'Get the state of the last settings apply',
+    response: ApplyStatus,
+    parameters: [{
+      name: 'logs', in: 'query', required: false,
+      description: "Include the tail of the applier's output. A failed apply always includes it.",
+      schema: { type: 'string', enum: ['0', '1'], default: '0' },
+    }],
+    errors: [500, 502],
+  }), async (c) => {
+    const snapshot = await deps.cache.get()
+    return c.json(await applyStatus(deps.client, snapshot, deps.config, { logs: c.req.query('logs') === '1' }))
+  })
+
+  /**
+   * Start the applier. It runs `portta up` on the host, which recreates this
+   * panel: the response is written and flushed long before that happens, since
+   * Docker returns from `start` as soon as the container is running and Compose
+   * takes seconds to converge. The browser learns the outcome by polling
+   * `/api/health` and this endpoint, not from this response.
+   *
+   * The panel sends no argument. There is nothing to send: the command was
+   * fixed when the host created the container.
+   */
+  app.post('/gateway/apply', documentRoute({
+    tag: 'Gateway', operationId: 'applySettings', summary: 'Apply saved settings by starting the applier',
+    response: ApplyResult, errors: [403, 404, 409, 500, 502],
+  }), async (c) => {
+    const snapshot = await deps.cache.get(true)
+    const container = applier(snapshot)
+    if (!container) {
+      throw new ActionRefused(
+        'this host has no applier',
+        `set PORTTA_APPLY=true and run: ./bin/portta up ${deps.config.profile}`,
+        404,
+      )
+    }
+
+    const inspect = await deps.client.inspect(container.id)
+    if (inspect.State.Running) {
+      throw new ActionRefused('an apply is already running', 'watch it rather than starting a second one', 409)
+    }
+
+    try {
+      await deps.client.start(container.id)
+    } catch (cause) {
+      // Docker answers 304 when the container started between the inspect above
+      // and here — two tabs pressing the button at once. That is the same
+      // situation as the check above, and must not surface as a 502.
+      if (cause instanceof DockerApiError && cause.status === 304) {
+        throw new ActionRefused('an apply is already running', 'watch it rather than starting a second one', 409)
+      }
+      throw cause
+    }
+
+    deps.cache.invalidate()
+    return c.json({
+      ok: true as const,
+      startedAt: Math.floor(Date.now() / 1000),
+      note: 'the gateway containers are being recreated; this panel goes offline for a few seconds',
       applyCommand: `./bin/portta up ${deps.config.profile}`,
     })
   })

@@ -132,5 +132,41 @@
       "volumesKept": "They are kept. The panel never removes a volume, and never runs a prune.",
       "notAllowed": "The panel does not remove its own infrastructure"
     }
+  },
+  "apply": {
+    "title": "Apply and restart",
+    "barPending": "Saved settings are not running yet.",
+    "barApplying": "Applying saved settings…",
+    "barAction": "Apply and restart",
+    "barManual": "Apply them on the host with:",
+    "barEnableHint": "Set PORTTA_APPLY=true on the host to do this from here.",
+    "confirmTitle": "Apply saved settings?",
+    "confirmDescription": "Portta recreates its own containers so these saved values take effect.",
+    "confirmPanel": "This panel is one of them: it goes offline for a few seconds and comes back on its own.",
+    "confirmProjects": "Your projects are not touched. Only Portta's own containers are recreated, and the shared network stays as it is.",
+    "confirmMoves": "A pending setting changes where this panel answers, so this tab will not reconnect on its own.",
+    "confirmKeepTab": "Keep this tab open while it runs.",
+    "confirm": "Apply and restart",
+    "keepTabOpen": "Do not close this tab. The panel comes back on its own.",
+    "phase": {
+      "starting": "Starting the applier…",
+      "applying": "Recreating the gateway containers…",
+      "waiting": "The panel is restarting. Waiting for it to answer…",
+      "reconnected": "Done. The saved settings are running.",
+      "failed": "The apply failed.",
+      "timeout": "The panel has not answered yet."
+    },
+    "steps": {
+      "started": "Applier started",
+      "offline": "Panel went offline",
+      "back": "Panel answered again",
+      "applied": "Settings are running"
+    },
+    "reload": "Reload the panel",
+    "reloadWhy": "This page still shows what the previous process answered with.",
+    "failedExit": "The applier exited with code {{code}}. Nothing was rolled back.",
+    "failedHint": "Run it on the host to see the whole output:",
+    "showOutput": "Show output",
+    "timeoutBody": "The panel has not answered for {{time}}. It may still be starting. Reload the page, or finish it on the host:"
   }
 }

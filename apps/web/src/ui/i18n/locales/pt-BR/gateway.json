@@ -132,5 +132,41 @@
       "volumesKept": "Eles são mantidos. O painel nunca remove um volume e nunca executa prune.",
       "notAllowed": "O painel não remove sua própria infraestrutura"
     }
+  },
+  "apply": {
+    "title": "Aplicar e reiniciar",
+    "barPending": "As configurações salvas ainda não estão valendo.",
+    "barApplying": "Aplicando as configurações salvas…",
+    "barAction": "Aplicar e reiniciar",
+    "barManual": "Aplique no host com:",
+    "barEnableHint": "Defina PORTTA_APPLY=true no host para fazer isso daqui.",
+    "confirmTitle": "Aplicar as configurações salvas?",
+    "confirmDescription": "O Portta recria os próprios containers para esses valores salvos passarem a valer.",
+    "confirmPanel": "Este painel é um deles: ele sai do ar por alguns segundos e volta sozinho.",
+    "confirmProjects": "Seus projetos não são tocados. Só os containers do próprio Portta são recriados, e a rede compartilhada fica como está.",
+    "confirmMoves": "Uma configuração pendente muda o endereço em que este painel responde, então esta aba não vai reconectar sozinha.",
+    "confirmKeepTab": "Mantenha esta aba aberta enquanto roda.",
+    "confirm": "Aplicar e reiniciar",
+    "keepTabOpen": "Não feche esta aba. O painel volta sozinho.",
+    "phase": {
+      "starting": "Iniciando o applier…",
+      "applying": "Recriando os containers do gateway…",
+      "waiting": "O painel está reiniciando. Esperando ele responder…",
+      "reconnected": "Pronto. As configurações salvas estão valendo.",
+      "failed": "A aplicação falhou.",
+      "timeout": "O painel ainda não respondeu."
+    },
+    "steps": {
+      "started": "Applier iniciado",
+      "offline": "Painel saiu do ar",
+      "back": "Painel voltou a responder",
+      "applied": "Configurações valendo"
+    },
+    "reload": "Recarregar o painel",
+    "reloadWhy": "Esta página ainda mostra o que o processo anterior respondeu.",
+    "failedExit": "O applier terminou com código {{code}}. Nada foi desfeito.",
+    "failedHint": "Rode no host para ver a saída inteira:",
+    "showOutput": "Mostrar saída",
+    "timeoutBody": "O painel não responde há {{time}}. Ele pode ainda estar subindo. Recarregue a página, ou termine no host:"
   }
 }

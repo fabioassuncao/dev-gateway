@@ -1,4 +1,5 @@
 export * from './aliases.ts'
+export * from './apply.ts'
 export * from './capabilities.ts'
 export * from './config.ts'
 export * from './domain.ts'

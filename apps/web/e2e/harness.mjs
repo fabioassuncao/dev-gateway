@@ -49,6 +49,22 @@ const docker = createServer((req, res) => {
     return json(res, { ok: true })
   }
 
+  // Finish the applier on demand. The suite drives the transition rather than
+  // waiting for one, so "the apply ended" is a step in the test and not a race
+  // against a timer.
+  if (path === '/__finish-apply' && req.method === 'POST') {
+    const found = containers.find((c) => c.id === 'gwapply')
+    if (!found) return json(res, { message: 'no applier' }, 404)
+    found.state = 'exited'
+    found.item.State = 'exited'
+    found.item.Status = 'Exited just now'
+    found.inspect.State.Status = 'exited'
+    found.inspect.State.Running = false
+    found.inspect.State.ExitCode = Number(url.searchParams.get('code') ?? 0)
+    found.inspect.State.FinishedAt = new Date().toISOString()
+    return json(res, { ok: true })
+  }
+
   if (path === '/_ping') return res.end('OK')
   if (path === '/version') {
     return json(res, { Version: '29.4.0', ApiVersion: '1.51', Os: 'linux', Arch: 'arm64' })
@@ -110,6 +126,9 @@ const docker = createServer((req, res) => {
       found.item.Status = 'Up 1 second'
       found.inspect.State.Status = 'running'
       found.inspect.State.Running = true
+      // A started container has a start time. Without this a one-shot that was
+      // just started still reads as "created and never run".
+      found.inspect.State.StartedAt = new Date().toISOString()
     }
     res.writeHead(204)
     return res.end()

@@ -23,6 +23,8 @@ import type {
   Share,
   ServiceTraefik,
   ShareView,
+  ApplyResult,
+  ApplyStatus,
   TraefikVerdict,
 } from '../../shared/types.ts'
 
@@ -70,6 +72,19 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ components }),
     }),
+
+  applyStatus: () => request<ApplyStatus>('/gateway/apply'),
+  apply: () => request<ApplyResult>('/gateway/apply', { method: 'POST', body: '{}' }),
+
+  // The two probes the apply dialog polls with while the panel is being
+  // recreated. They take an explicit signal and are deliberately separate from
+  // `applyStatus` and `config` above: React Query calls a bare `queryFn` with a
+  // QueryFunctionContext as its first argument, so a shared function would
+  // silently receive that object where it expects an AbortSignal.
+  healthProbe: (signal: AbortSignal) =>
+    request<{ ok: boolean; panelVersion: string; gatewayVersion: string }>('/health', { signal }),
+  applyProbe: (signal: AbortSignal, logs = false) =>
+    request<ApplyStatus>(`/gateway/apply${logs ? '?logs=1' : ''}`, { signal }),
 
   projects: () => request<{ projects: Project[] }>('/projects').then((data) => data.projects),
   project: (name: string) => request<Project>(`/projects/${encodeURIComponent(name)}`),

@@ -9,7 +9,6 @@ import { navigate } from '../lib/router.ts'
 import { Badge } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
-import { CopyButton } from '../components/copy.tsx'
 import { SettingsGroup } from '../components/settings/settings-group.tsx'
 import { SettingsNav } from '../components/settings/settings-nav.tsx'
 import { GitHubStatusCard } from '../components/github-status.tsx'
@@ -112,12 +111,13 @@ export function Settings({ group }: { group: string | null }) {
         </div>
       ) : null}
 
-      {(view.pendingRestart || saved) && !dirty ? (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-info/40 bg-info/5 px-3 py-2 text-sm text-info">
+      {/* Confirmation that the file was written, and nothing more. What is
+          pending, and how to apply it, is the global bar's job now — it says
+          the same thing on every page instead of only on this one. */}
+      {saved && !dirty ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-ok/40 bg-ok/5 px-3 py-2 text-sm text-ok">
           <ShieldCheck className="h-4 w-4" />
-          <span>{t('saved')}</span>
-          <span className="font-mono text-xs">{view.applyCommand}</span>
-          <CopyButton value={view.applyCommand} label={tc('copyCommand')} />
+          <span>{t('savedShort')}</span>
         </div>
       ) : null}
 

@@ -11,10 +11,38 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Added
 
+- **Applying saved settings from the panel, with a stopwatch while it restarts.**
+  Changing `PORTTA_DOMAIN` wrote `.env`, marked the field `pending restart`, and
+  then printed a command for someone to run on the host — which on a VPS reached
+  only through the panel is where the flow stopped. Traefik takes its static
+  configuration from the environment its container was created with, so a saved
+  setting needs the containers *recreated*, and recreating them means Compose,
+  which the panel deliberately cannot reach. With `PORTTA_APPLY=true` (off by
+  default, a host decision, absent from the panel's field catalogue so the panel
+  cannot enable itself), `portta up` now prepares a stopped container whose
+  command is fixed at creation, and the panel gains an **Apply and restart**
+  button that only starts it. The panel goes offline while it is recreated and
+  comes back on its own; the dialog counts the time, says not to close the tab,
+  and reports the applier's exit code and output if it failed. The state is read
+  back from the applier rather than remembered, so a reload mid-apply resumes.
+  Read `docs/adr/0026-applying-settings-from-the-panel.md` before enabling it:
+  it says without softening that this lets anyone who can write through the
+  panel run `portta up` on the host.
+- **Pending settings are visible on every page**, not only on Settings — the one
+  page where the operator already knew. With the applier off, the bar shows the
+  same host command the Settings banner used to.
+- **`portta up --wait`** exits only once every component is healthy, or fails
+  after 180s. The applier runs with it, so its exit code means the gateway came
+  back rather than that Compose accepted the plan.
 - **`make dev`**: gateway up plus the panel with hot reloading, in one command.
 
 ### Fixed
 
+- **`npm run openapi` and the panel's own snapshot test disagreed on every
+  release.** The generator stamps `info.version` from `VERSION`, while the test
+  built the document with a hardcoded fixture version, so `openapi:check` was
+  already failing on `develop` after the 0.3.0 bump while the vitest snapshot
+  demanded the old value. The test now reads `VERSION` too.
 - **`make help` never listed `test-e2e`**: its filter did not allow digits in a
   target name.
 

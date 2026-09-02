@@ -9,6 +9,7 @@ import { Output } from '../output.js'
 import { runProcess } from '../process.js'
 import { CLI_VERSION } from '../version.js'
 import { confirm } from '../confirm.js'
+import { ensureApplier, removeApplier } from './apply.js'
 
 function globals(command: Command) {
   return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string }
@@ -117,9 +118,24 @@ export async function upCommand(profile: string | undefined, options: { attach?:
   await ensureNetwork(context.config.network)
   if (context.config.tcpEnabled) await ensureNetwork(context.config.accessNetwork)
   await compose(command, ['up', options.attach ? '' : '-d', options.attach ? '' : '--remove-orphans'].filter(Boolean))
+
+  // The optional applier, so the panel can recreate these containers itself.
+  // Off unless PORTTA_APPLY=true, and never fatal: the gateway is up either way.
+  const applier = await ensureApplier(context)
+  const output = new Output(globals(command))
+  if (applier.action === 'created') output.progress('ok       applier ready; the panel can apply settings without a terminal')
+  if (applier.action === 'removed') output.progress('ok       applier removed (PORTTA_APPLY is false)')
+  if (applier.action === 'refused') output.progress(`warn     not preparing the applier: ${applier.reason}`)
+  if (applier.action === 'failed') output.progress(`warn     ${applier.reason}; settings still apply with: portta up`)
 }
 
-export async function downCommand(command: Command): Promise<void> { await compose(command, ['down']) }
+export async function downCommand(command: Command): Promise<void> {
+  await compose(command, ['down'])
+  // The applier lives outside the Compose project, so `down` does not see it.
+  // `up` recreates it, and leaving a stopped gateway container behind is the one
+  // thing `down` does to nothing else.
+  await removeApplier()
+}
 export async function restartCommand(command: Command): Promise<void> { await compose(command, ['up', '-d', '--force-recreate']) }
 export async function logsCommand(service: string | undefined, options: { follow?: boolean; tail?: string }, command: Command): Promise<void> {
   const global = globals(command)

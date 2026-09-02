@@ -784,7 +784,7 @@ NEW_VERSION=$(tr -d '[:space:]' < "$WORK_DIR/src/VERSION")
 
 # Replaced on every run: these are the product, and a stale copy is exactly the
 # problem an update is meant to fix.
-for path in VERSION .env.example bin scripts docker/compose toolbox; do
+for path in VERSION .env.example bin scripts docker/compose toolbox apply; do
   [ -e "$WORK_DIR/src/$path" ] || continue
   target="$PORTTA_HOME/$path"
   mkdir -p "$(dirname "$target")"

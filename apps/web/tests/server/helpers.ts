@@ -30,6 +30,10 @@ export interface FakeContainer {
   health?: 'healthy' | 'unhealthy' | 'starting'
   mounts?: { Type: string; Name?: string; Source: string; Destination: string; RW: boolean }[]
   startedAt?: string
+  // A one-shot container is described by how it ended, not by whether it runs.
+  // Without these two a fixture cannot say "exited with 2 at 10:05".
+  exitCode?: number
+  finishedAt?: string
 }
 
 export function container(spec: FakeContainer): {
@@ -70,9 +74,9 @@ export function container(spec: FakeContainer): {
     State: {
       Status: state,
       Running: state === 'running',
-      ExitCode: state === 'running' ? 0 : 1,
+      ExitCode: spec.exitCode ?? (state === 'running' ? 0 : 1),
       StartedAt: spec.startedAt ?? '2026-01-01T00:00:00Z',
-      FinishedAt: '0001-01-01T00:00:00Z',
+      FinishedAt: spec.finishedAt ?? '0001-01-01T00:00:00Z',
       ...(spec.health ? { Health: { Status: spec.health, FailingStreak: 0 } } : {}),
     },
     Config: {

@@ -363,6 +363,57 @@ test.describe('the panel end to end', () => {
     }
   })
 
+  test('a saved setting can be applied from the panel', async ({ page, request }) => {
+    try {
+      // Save something the running panel disagrees with. `pending` is exactly
+      // that comparison: the .env value against the process environment.
+      await request.patch('/api/config', { data: { values: { PORTTA_DOMAIN: 'e2e.localhost' } } })
+
+      await page.goto('/#/overview')
+      await expect(page.getByText('Saved settings are not running yet.')).toBeVisible()
+
+      // The panel is about to become unreachable, which is what applying looks
+      // like from a browser. Aborting the probe reproduces that exactly, and
+      // without stopping the server the rest of the suite needs.
+      await page.route('**/api/health', (route) => route.abort())
+
+      await page.getByRole('button', { name: 'Apply and restart' }).click()
+      await expect(page.getByText(/projects are not touched/)).toBeVisible()
+      await page.getByRole('button', { name: 'Apply and restart' }).click()
+
+      await expect(page.getByText('Do not close this tab. The panel comes back on its own.')).toBeVisible()
+      await expect(page.getByText('Panel went offline')).toBeVisible({ timeout: 15_000 })
+
+      // The applier finishes, and the effect lands: .env agrees with the
+      // environment the panel is running with again.
+      await request.post(`http://127.0.0.1:${DOCKER_PORT}/__finish-apply?code=0`)
+      await request.patch('/api/config', { data: { values: { PORTTA_DOMAIN: 'localhost' } } })
+      await page.unroute('**/api/health')
+
+      await expect(page.getByText(/The saved settings are running/)).toBeVisible({ timeout: 20_000 })
+    } finally {
+      await request.patch('/api/config', { data: { values: { PORTTA_DOMAIN: 'localhost' } } })
+      await request.post(`http://127.0.0.1:${DOCKER_PORT}/__reset`)
+    }
+  })
+
+  test('a failed apply shows the exit code and the host command', async ({ page, request }) => {
+    try {
+      await request.patch('/api/config', { data: { values: { PORTTA_DOMAIN: 'e2e.localhost' } } })
+      await page.goto('/#/overview')
+
+      await page.getByRole('button', { name: 'Apply and restart' }).click()
+      await page.getByRole('button', { name: 'Apply and restart' }).click()
+      await request.post(`http://127.0.0.1:${DOCKER_PORT}/__finish-apply?code=2`)
+
+      await expect(page.getByText(/exited with code 2/)).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByText('./bin/portta up local')).toBeVisible()
+    } finally {
+      await request.patch('/api/config', { data: { values: { PORTTA_DOMAIN: 'localhost' } } })
+      await request.post(`http://127.0.0.1:${DOCKER_PORT}/__reset`)
+    }
+  })
+
   test('the offline API browser filters operations and tries a GET', async ({ page }) => {
     await page.goto('/api/docs')
 

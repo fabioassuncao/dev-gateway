@@ -201,5 +201,6 @@
     "authBasicRequired": "must be basic while the panel is routed",
     "credentialRequired": "a routed panel needs a credential: run portta web auth set",
     "panelNotOnEveryInterface": "the panel is not published on every interface; reach it over the VPN instead"
-  }
+  },
+  "savedShort": "Saved."
 }

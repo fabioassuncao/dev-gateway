@@ -35,8 +35,15 @@ type OpenApi = {
   }>>
 }
 
+// The generator stamps info.version from VERSION, so the byte-for-byte
+// comparison below has to build the document with that same version rather than
+// the fixture's. Without this the two checks contradict each other on every
+// release: `npm run openapi` writes the real version and this test demands the
+// fixture's, so one of them is always red.
+const RELEASED_VERSION = readFileSync(new URL('../../../../VERSION', import.meta.url), 'utf8').trim()
+
 async function contract() {
-  const { app } = makeApp({ containers: FULL_HOST })
+  const { app } = makeApp({ containers: FULL_HOST }, { gatewayVersion: RELEASED_VERSION })
   const response = await app.request('/api/openapi.json')
   expect(response.status).toBe(200)
   return { app, spec: await response.json() as OpenApi }

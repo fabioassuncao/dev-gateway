@@ -201,5 +201,6 @@
     "authBasicRequired": "deve ser basic enquanto o painel estiver roteado",
     "credentialRequired": "um painel roteado precisa de credencial: execute portta web auth set",
     "panelNotOnEveryInterface": "o painel não é publicado em todas as interfaces; acesse pela VPN"
-  }
+  },
+  "savedShort": "Salvo."
 }

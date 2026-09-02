@@ -67,3 +67,12 @@ The panel needs no Docker socket, no Docker CLI and no host filesystem beyond
 two files (`.env`, which its Settings page edits, and `VERSION`, which it
 reads). It cannot pull an image, so `portta web up` pulls the bridge image
 on the host, where the CLI already has real Docker access.
+
+That is still true after
+[ADR 0026](0026-applying-settings-from-the-panel.md), and it is why that ADR is
+shaped the way it is: applying settings needs Compose on the host, so the host
+prepares a container to run it and the panel only *starts* it. Neither the
+proxy's flags nor the allowlist grew a single entry — `start` was already
+there. A future change that grants the panel `IMAGES`, `VOLUMES`, or a rule for
+`/exec` is still the thing this ADR exists to prevent, and
+`tests/unit/web.test.sh` still fails the build for it.

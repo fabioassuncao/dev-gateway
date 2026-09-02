@@ -995,6 +995,55 @@ export const ConfigPatchResult = named(
 )
 export type ConfigPatchResult = z.infer<typeof ConfigPatchResult>
 
+/**
+ * Applying is a container the gateway created stopped, which the panel may
+ * start. Every field is derived from that container rather than remembered in
+ * this process, because the apply recreates this process. See ADR 0026.
+ */
+export const ApplyState = named(
+  z.enum(['unavailable', 'idle', 'running', 'ok', 'failed']),
+  'ApplyState',
+)
+export type ApplyState = z.infer<typeof ApplyState>
+
+export const ApplyStatus = named(
+  z.object({
+    state: ApplyState,
+    available: z.boolean().describe('An applier container exists on this host'),
+    reason: z.string().nullable().describe('Why the panel cannot apply, in one line'),
+    startedAt: unixSeconds.nullable(),
+    finishedAt: unixSeconds.nullable(),
+    exitCode: z.number().int().nullable(),
+    // Repeated from ConfigView deliberately: while the panel is being recreated
+    // every extra request is another chance to fail, so one poll has to answer
+    // both "has it finished?" and "did it take?".
+    pendingRestart: z.boolean(),
+    // Keys whose saved value is not running yet, so the confirmation can say
+    // what is about to change rather than asking for blind trust.
+    pendingKeys: z.array(z.string()),
+    // A pending key that moves the panel's own address: this tab will not
+    // reconnect on its own, and saying so is the difference between a wait and
+    // a hang.
+    movesPanel: z.boolean(),
+    logTail: z.array(z.string()),
+    profile: z.string(),
+    applyCommand: z.string().describe('Host command that applies saved changes'),
+  }).strict(),
+  'ApplyStatus',
+)
+export type ApplyStatus = z.infer<typeof ApplyStatus>
+
+export const ApplyResult = named(
+  z.object({
+    ok: z.literal(true),
+    startedAt: unixSeconds,
+    note: z.string(),
+    applyCommand: z.string(),
+  }).strict(),
+  'ApplyResult',
+)
+export type ApplyResult = z.infer<typeof ApplyResult>
+
 const LogLine = z.object({
   stream: z.enum(['stdout', 'stderr']),
   timestamp: z.string().nullable(),

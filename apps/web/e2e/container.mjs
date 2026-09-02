@@ -20,6 +20,11 @@ export function makeContainer({
   health,
   mounts = [],
   upSeconds = 2 * HOUR,
+  // A one-shot container is described by how it ended. Without these two, a
+  // fixture cannot say "created and never started", which is exactly the state
+  // a prepared applier is in.
+  startedAt,
+  exitCode = 0,
 }) {
   const now = Math.floor(Date.now() / 1000)
   const started = now - upSeconds
@@ -62,8 +67,8 @@ export function makeContainer({
       State: {
         Status: state,
         Running: state === 'running',
-        ExitCode: 0,
-        StartedAt: new Date(started * 1000).toISOString(),
+        ExitCode: exitCode,
+        StartedAt: startedAt ?? new Date(started * 1000).toISOString(),
         FinishedAt: '0001-01-01T00:00:00Z',
         ...(health ? { Health: { Status: health, FailingStreak: 0 } } : {}),
       },

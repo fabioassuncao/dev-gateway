@@ -27,6 +27,7 @@ import { useLocale, type Locale } from './i18n/use-locale.ts'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from './components/ui/menu.tsx'
 import { GatewayStatusDot } from './components/gateway-status-dot.tsx'
 import { ConnectionBanner } from './components/connection-banner.tsx'
+import { ApplyBar } from './components/apply-bar.tsx'
 import { Overview } from './pages/Overview.tsx'
 import { Projects } from './pages/Projects.tsx'
 import { ProjectPage } from './pages/Project.tsx'
@@ -88,6 +89,7 @@ export function App() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <ConnectionBanner state={live.state} />
+      <ApplyBar readOnly={gateway?.panel.readOnly ?? false} />
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
       <aside
         data-collapsed={sidebarCollapsed}

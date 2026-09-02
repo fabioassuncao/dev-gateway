@@ -27,6 +27,17 @@ export function initialState() {
       networks: ['portta-control'],
       labels: gatewayLabels('socket-proxy'),
     }),
+    // Prepared and never started: the state `portta up` leaves the applier in
+    // on a host with PORTTA_APPLY=true.
+    makeContainer({
+      id: 'gwapply',
+      name: 'portta-apply',
+      image: 'fabioassuncao/portta-apply:0.1.0',
+      state: 'created',
+      startedAt: '0001-01-01T00:00:00Z',
+      networks: [],
+      labels: gatewayLabels('apply'),
+    }),
     makeContainer({
       id: 'alphaweb',
       name: 'alpha-web-1',

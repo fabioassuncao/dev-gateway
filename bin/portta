@@ -61,6 +61,8 @@ fi
 . "$PORTTA_BIN_DIR/../scripts/lib/toolbox.sh"
 # shellcheck source=../scripts/lib/discovery.sh
 . "$PORTTA_BIN_DIR/../scripts/lib/discovery.sh"
+# shellcheck source=../scripts/lib/apply.sh
+. "$PORTTA_BIN_DIR/../scripts/lib/apply.sh"
 
 # Subcommand groups live in their own files to keep this dispatcher readable.
 for _portta_cmd_file in "$PORTTA_BIN_DIR"/../scripts/cmd/*.sh; do
@@ -196,10 +198,15 @@ cmd_doctor() {
 cmd_up() {
   local profile="${PORTTA_PROFILE}"
   local detach=1
+  # --wait makes the exit code mean "the gateway came back healthy" rather than
+  # "Compose accepted the plan". The applier runs with it, because its exit code
+  # is the only account of the apply the panel gets to read.
+  local wait=0
 
   while [ $# -gt 0 ]; do
     case "$1" in
       --attach) detach=0 ;;
+      --wait) wait=1 ;;
       -*) die "unknown flag for 'up': $1" ;;
       *) profile="$1" ;;
     esac
@@ -225,7 +232,11 @@ cmd_up() {
 
   info "starting gateway (profile: $profile, domain: $PORTTA_DOMAIN)"
   if [ "$detach" = "1" ]; then
-    portta_compose "$profile" up -d --remove-orphans
+    if [ "$wait" = "1" ]; then
+      portta_compose "$profile" up -d --remove-orphans --wait --wait-timeout 180 || exit 1
+    else
+      portta_compose "$profile" up -d --remove-orphans
+    fi
   else
     portta_compose "$profile" up --remove-orphans
   fi
@@ -238,6 +249,10 @@ cmd_up() {
     ( portta_git_scan ) >/dev/null 2>&1 || true
   fi
 
+  # The optional applier, so the panel can recreate these containers itself.
+  # Off unless PORTTA_APPLY=true, and never fatal. See scripts/lib/apply.sh.
+  portta_apply_ensure
+
   ok "gateway is up"
   hint "portta status shows what is running"
   hint "portta urls lists the hostnames being served"
@@ -245,6 +260,7 @@ cmd_up() {
 
 cmd_down() {
   local profile="${PORTTA_PROFILE}"
+  local apply_id
   while [ $# -gt 0 ]; do
     case "$1" in
       --profile) shift; profile="${1:-$profile}" ;;
@@ -261,6 +277,12 @@ cmd_down() {
   # No `--volumes`, no `--remove-orphans`: this must never reach past the
   # gateway's own Compose project.
   portta_compose "$profile" down
+
+  # The applier lives outside that project, so Compose does not see it. `up`
+  # recreates it, and leaving a stopped gateway container behind is the one
+  # thing `down` does to nothing else.
+  apply_id=$(portta_gateway_container apply)
+  [ -n "$apply_id" ] && portta_apply_remove "$apply_id" >/dev/null 2>&1
 
   ok "gateway stopped; consumer projects were not touched"
   if portta_network_exists "$PORTTA_NETWORK"; then
@@ -520,17 +542,22 @@ portta up [profile]: start the gateway
   profile     local | remote-private | remote-public
               (default: PORTTA_PROFILE, or `local`)
   --attach    Run in the foreground and stream logs
+  --wait      Exit only once every component is healthy, or fail after 180s
 
 Creates the shared network if it is missing, then starts Traefik and the
 socket proxy. Consumer projects are never started or stopped by this.
+
+With PORTTA_APPLY=true this also prepares the applier: a stopped, single-purpose
+container the panel may start to run this command for you. See
+docs/adr/0026-applying-settings-from-the-panel.md.
 PORTTA_HELP
       ;;
     down) cat >&2 <<'PORTTA_HELP'
 portta down: stop the gateway
 
-Stops Traefik and the socket proxy. Applications keep running, the shared
-network is kept because other projects are attached to it, and no volume is
-ever removed.
+Stops Traefik and the socket proxy, and removes the applier when there is one.
+Applications keep running, the shared network is kept because other projects are
+attached to it, and no volume is ever removed.
 PORTTA_HELP
       ;;
     restart) cat >&2 <<'PORTTA_HELP'

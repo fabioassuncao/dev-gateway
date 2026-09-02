@@ -3,7 +3,7 @@
   "info": {
     "title": "Portta panel API",
     "description": "The API used by the panel UI and by local agents. Writes can be refused by read-only mode or the same-origin guard. Authentication, when enabled, is enforced by Traefik before a request reaches this application.",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "summary": "Runtime inventory and bounded control for Portta.",
     "license": {
       "name": "MIT"
@@ -3668,6 +3668,135 @@
           "ok",
           "restarted",
           "missing",
+          "note",
+          "applyCommand"
+        ],
+        "additionalProperties": false
+      },
+      "ApplyState": {
+        "type": "string",
+        "enum": [
+          "unavailable",
+          "idle",
+          "running",
+          "ok",
+          "failed"
+        ]
+      },
+      "ApplyStatus": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/ApplyState"
+          },
+          "available": {
+            "type": "boolean",
+            "description": "An applier container exists on this host"
+          },
+          "reason": {
+            "description": "Why the panel cannot apply, in one line",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exitCode": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pendingRestart": {
+            "type": "boolean"
+          },
+          "pendingKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "movesPanel": {
+            "type": "boolean"
+          },
+          "logTail": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "profile": {
+            "type": "string"
+          },
+          "applyCommand": {
+            "type": "string",
+            "description": "Host command that applies saved changes"
+          }
+        },
+        "required": [
+          "state",
+          "available",
+          "reason",
+          "startedAt",
+          "finishedAt",
+          "exitCode",
+          "pendingRestart",
+          "pendingKeys",
+          "movesPanel",
+          "logTail",
+          "profile",
+          "applyCommand"
+        ],
+        "additionalProperties": false
+      },
+      "ApplyResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "startedAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          },
+          "note": {
+            "type": "string"
+          },
+          "applyCommand": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "startedAt",
           "note",
           "applyCommand"
         ],
@@ -8640,6 +8769,144 @@
             }
           }
         }
+      }
+    },
+    "/gateway/apply": {
+      "get": {
+        "operationId": "getApplyStatus",
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Get the state of the last settings apply",
+        "parameters": [
+          {
+            "name": "logs",
+            "in": "query",
+            "required": false,
+            "description": "Include the tail of the applier's output. A failed apply always includes it.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1"
+              ],
+              "default": "0"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplyStatus"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "applySettings",
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Apply saved settings by starting the applier",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplyResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The requested operation conflicts with the current runtime state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "basicAuth": []
+          }
+        ]
       }
     },
     "/gateway/traefik": {

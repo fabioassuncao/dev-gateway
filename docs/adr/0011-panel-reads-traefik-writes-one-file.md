@@ -14,8 +14,13 @@ nothing left to say.
 
 In the other direction, the panel cannot change exposure at all. Routing is
 opted into per container by labels the project owns, Docker has no API to
-mutate a label on a running container, and recreating one would mean driving
-Compose, which [ADR 0001](0001-decoupled-infrastructure.md) forbids. The
+mutate a label on a running container, and recreating one would mean driving a
+*consumer's* Compose project, which
+[ADR 0001](0001-decoupled-infrastructure.md) forbids. (The gateway's own
+project is a different matter, and
+[ADR 0026](0026-applying-settings-from-the-panel.md) later allowed exactly
+that, under an opt-in. It changes nothing here: a consumer's container stays
+out of reach, which is why aliases go to the file provider.) The
 choices available today are "not routed", "routed on the VPN" and
 "`PUBLIC_ENABLED=true`, so every opted-in service on the host is on the
 internet". There is no per-service grain and no expiry.

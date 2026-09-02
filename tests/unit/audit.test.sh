@@ -20,7 +20,7 @@ cd "$PORTTA_ROOT" || exit 1
 # own text, so keep the patterns here and the enforcement here only.
 SELF="tests/unit/audit.test.sh"
 tracked() { git ls-files "$@" 2>/dev/null | grep -v '^docs/prompts/' | grep -vx "$SELF"; }
-code() { git ls-files 'bin/*' 'scripts/**' 'docker/**' 'toolbox/*' '.github/**' 2>/dev/null | grep -vx "$SELF"; }
+code() { git ls-files 'bin/*' 'scripts/**' 'docker/**' 'toolbox/*' 'apply/*' '.github/**' 2>/dev/null | grep -vx "$SELF"; }
 
 describe "the gateway stays decoupled from consumer projects"
 
@@ -49,6 +49,55 @@ assert_eq "" "$(grep -hE '^\s+- [./][^ ]*:' docker/compose/compose.yaml docker/c
   | grep -vE '\./(\.env|VERSION):' \
   | grep -vE '/var/run/docker\.sock:/var/run/docker\.sock:ro' \
   | grep -vE '/dev/net/tun:/dev/net/tun' || true)"
+
+describe "the applier is bounded by construction"
+
+# One container on this host may drive Compose, and this is the whole of what
+# keeps it from becoming a general remote-execution channel.
+# See docs/adr/0026-applying-settings-from-the-panel.md.
+
+it "only the applier mounts the docker socket writable, and only it"
+# Everywhere else the socket is `:ro`, into a socket proxy. The compose audit
+# above cannot see this one, because the applier is not a compose service.
+assert_eq "scripts/lib/apply.sh" "$(code | xargs grep -ln 'docker\.sock:/var/run/docker\.sock[^:]*$' 2>/dev/null || true)"
+
+it "the applier is not a compose service"
+# A compose applier would be an orphan the moment PORTTA_APPLY went false, and
+# would remove itself in the middle of the `up` it was running.
+assert_eq "" "$(grep -rn 'portta-apply\|component: apply' docker/compose/ 2>/dev/null || true)"
+
+it "the applier carries no compose project label"
+# Set, not merely named: both files explain in prose why the label is absent.
+assert_eq "" "$(grep -nE '(--label|label=)[^ ]*com\.docker\.compose' scripts/lib/apply.sh packages/core/src/apply.ts 2>/dev/null || true)"
+
+it "the applier command is fixed, never composed from input"
+assert_contains "$(cat scripts/lib/apply.sh)" 'bash "$PORTTA_ROOT/bin/portta" up --wait'
+assert_eq "" "$(grep -n 'PORTTA_APPLY_COMMAND\|APPLY_ARGS\|APPLY_PROFILE' scripts/lib/apply.sh || true)"
+
+it "the applier bakes in no profile, so a profile change applies to itself"
+assert_eq "" "$(grep -nE 'up.*(local|remote-private|remote-public)' scripts/lib/apply.sh || true)"
+
+it "the applier mounts the root at its host path, and nothing else"
+assert_contains "$(cat scripts/lib/apply.sh)" '"$PORTTA_ROOT:$PORTTA_ROOT"'
+assert_eq "2" "$(grep -c -- '--volume' scripts/lib/apply.sh)"
+
+it "the applier has no network and is never disposable"
+assert_contains "$(cat scripts/lib/apply.sh)" '--network none'
+assert_eq "" "$(grep -n -- '--rm' scripts/lib/apply.sh || true)"
+
+it "removing the applier checks ownership first"
+assert_contains "$(cat scripts/lib/apply.sh)" 'portta_container_is_managed'
+
+it "the panel cannot enable the applier"
+# Turning it on is a host decision: the key is deliberately absent from the
+# catalogue of everything the Settings page may write.
+assert_eq "" "$(grep -n \"PORTTA_APPLY\" apps/web/src/server/core/settings.ts || true)"
+
+it "the panel gains no new Docker permission for it"
+# start, inspect and logs were already allowed; that is the whole point. Four
+# POST rules and one create, exactly as before this feature existed.
+assert_eq "4" "$(grep -c "method: 'POST'" apps/web/src/server/docker/allowlist.ts)"
+assert_eq "1" "$(grep -c 'containers..create' apps/web/src/server/docker/allowlist.ts)"
 
 describe "every job that runs the panel end to end builds what it imports"
 
@@ -195,7 +244,7 @@ it "the panel image the installer pulls matches VERSION"
 assert_contains "$(cat docker/compose/features/web.yaml)" "portta:$(tr -d '[:space:]' < VERSION)}"
 
 it "no floating latest tag"
-assert_eq "" "$(grep -rn ':latest' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml toolbox/Dockerfile apps/web/Dockerfile 2>/dev/null || true)"
+assert_eq "" "$(grep -rn ':latest' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml toolbox/Dockerfile apply/Dockerfile apps/web/Dockerfile 2>/dev/null || true)"
 
 it "the versions table in ADR 0004 lists every pinned image"
 adr="docs/adr/0004-pinned-versions.md"

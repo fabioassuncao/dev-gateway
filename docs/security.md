@@ -161,6 +161,31 @@ A mutating request must come from the panel's own origin, so a page on another
 site cannot drive it through `127.0.0.1`. `PORTTA_WEB_READ_ONLY=true`
 refuses every write, which is the right setting when an agent is driving it.
 
+### Applying settings, and what it costs
+
+`PORTTA_APPLY=true` is the one setting that widens the panel's reach past that
+fence, and it is off by default. With it, `portta up` prepares a stopped
+container holding the Docker socket, whose command is fixed at creation, and the
+panel gains a button that starts it.
+
+Said plainly: **anyone who can write through the panel can then run `portta up`
+on this host, in a root container holding the socket** — which is root on the
+host. The sharpest edge is `PORTTA_PROFILE`, which the Settings page can already
+write: saving `remote-public` and applying puts every opted-in service on the
+internet with nobody at a terminal.
+
+What bounds it: it is off unless the operator edits `.env` on the host, and
+`PORTTA_APPLY` is deliberately absent from the panel's field catalogue, so the
+panel cannot enable itself. It is refused in read-only mode, refused when the
+panel is exposed publicly, and refused on the `remote-public` profile. The
+applier takes no argument from the panel, has no network, and the panel gains no
+new Docker permission for it — `start` was already allowed, and
+`tests/unit/audit.test.sh` fails the build if the proxy flags or the allowlist
+grow. See [ADR 0026](adr/0026-applying-settings-from-the-panel.md).
+
+Leave it `false` on any host whose panel is reachable by someone you would not
+hand a shell.
+
 ## Secrets
 
 - `.env` is git-ignored; `bootstrap` creates it `0600`; `doctor` warns if it

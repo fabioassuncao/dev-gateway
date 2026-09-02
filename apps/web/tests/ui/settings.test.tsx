@@ -120,11 +120,14 @@ describe('Settings', () => {
     await waitFor(() => expect(patchConfig).toHaveBeenCalledWith({ TS_AUTHKEY: null }))
   })
 
-  it('says what to run on the host after saving', async () => {
+  it('leaves what is pending, and how to apply it, to the global bar', async () => {
+    // Pending settings used to be announced here and nowhere else, which is the
+    // one page where the operator already knows. ApplyBar now says it on every
+    // page, so repeating it here would be two messages for one fact.
     config.mockResolvedValue({ ...view, pendingRestart: true })
     renderWithQuery(<Settings group="gateway" />)
-    expect(await screen.findByText('./bin/portta up local')).toBeInTheDocument()
-    expect(screen.getByText(/take effect once the gateway containers are recreated/)).toBeInTheDocument()
+    await screen.findByLabelText('Custom domain')
+    expect(screen.queryByText('./bin/portta up local')).not.toBeInTheDocument()
   })
 
   it('shows the validation error and does not pretend it saved', async () => {
