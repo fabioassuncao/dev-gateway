@@ -12,7 +12,7 @@ describe('GET /api/status', () => {
     expect(overview.gateway.profile).toBe('local')
     expect(overview.counts.integratedProjects).toBe(2)
     expect(overview.counts.services).toBe(5)
-    expect(overview.counts.containersGateway).toBe(3) // traefik, socket proxy, bridge
+    expect(overview.counts.containersGateway).toBe(4) // auth, traefik, socket proxy, bridge
     expect(overview.counts.containersExternal).toBe(1)
     expect(overview.counts.containersStandalone).toBe(1)
     expect(overview.counts.bridges).toBe(1)
@@ -226,7 +226,7 @@ describe('GET /api/docker/host', () => {
     const { app } = makeApp({ containers: FULL_HOST })
     const host = (await (await app.request('/api/docker/host')).json()) as DockerHost
     expect(host.engine.version).toBe('29.4.0')
-    expect(host.byOwnership.gateway).toBe(2)
+    expect(host.byOwnership.gateway).toBe(3)
     expect(host.byOwnership.external).toBe(1)
     expect(host.ports.map((port) => port.hostPort)).toContain(5432)
   })

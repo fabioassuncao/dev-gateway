@@ -142,3 +142,30 @@ protection and the reserved login path.
   because authentication is now part of the default gateway topology.
 
 ---
+
+## 2026-09-02T02:21:00-03:00 - US-007: Validate every protected-access flow
+
+### What was implemented
+Expanded the ForwardAuth acceptance coverage for REST, webhook POST, health,
+WebSocket and SSE clients, epoch revocation, logout and trusted-proxy headers.
+The new webhook case found and fixed the GET-only verifier; repeat-after-build
+testing found and fixed both the auth test glob and sanitized-share migration.
+
+### Validation
+- `npm run lint`, `npm run typecheck`, `npm run build` and `npm test` pass.
+- `npm --workspace portta-web run openapi:check` passes.
+- `bash tests/run.sh --lint` and `bash tests/run.sh --unit` pass.
+- The auth login UI and successful browser submit were verified at desktop and
+  mobile sizes during US-003.
+- `tests/run.sh --all` was not run because active user-owned `demo-b-*`
+  containers occupy namespaces that the E2E cleanup deletes with `down -v`.
+
+### Learnings for future iterations
+- ForwardAuth subrequests can preserve the protected request method, so the
+  verifier must accept every method rather than only GET.
+- A sanitized legacy shares file is valid migration input after the credential
+  has moved into the store; repeat runs must consult the store first.
+- Quote Vitest exclusion globs so shell expansion cannot reintroduce compiled
+  tests after a build.
+
+---

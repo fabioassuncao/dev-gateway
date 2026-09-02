@@ -114,6 +114,7 @@ export function migrateLegacyState(options: MigrationOptions): { migrated: numbe
       throw new Error(`${share.mode === 'protected' ? 'protected share' : 'share'} ${share.id || '<unknown>'} cannot be migrated`)
     }
     if (share.mode !== 'protected') continue
+    if (store.protections.some((item) => item.scope === `share:${share.id}`)) continue
     if (!share.id || !share.host || !share.entryPoint || !share.user || !share.hash || !isSupportedHash(share.hash)) {
       throw new Error(`protected share ${share.id || '<unknown>'} cannot be migrated`)
     }

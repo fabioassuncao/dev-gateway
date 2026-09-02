@@ -2,8 +2,8 @@
   "issue": 24,
   "title": "Replace BasicAuth with a Portta login page behind ForwardAuth",
   "branchName": "develop",
-  "issueStatus": "in_progress",
-  "completedAt": null,
+  "issueStatus": "completed",
+  "completedAt": "2026-09-02T02:21:00-03:00",
   "lastAttemptAt": "2026-09-02T00:00:00-03:00",
   "lastError": null,
   "stories": [
@@ -93,8 +93,8 @@
         "Login UI and the critical browser flow are verified",
         "The develop worktree ends in consistent commits with no unrelated changes"
       ],
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Lint, typecheck, build, OpenAPI, all Node suites and the complete non-Docker shell suite pass; the login UI and successful browser submit were verified. Docker E2E was intentionally not run because active user-owned demo-b containers share the destructive test namespace."
     }
   ]
 }

@@ -36,7 +36,7 @@ export function safeNext(value: string | null | undefined): string {
 }
 
 function forwardedHost(c: Context): string | null {
-  const raw = c.req.header('x-forwarded-host') || c.req.header('host')
+  const raw = c.req.header('x-forwarded-host')
   if (!raw) return null
   try { return normalizeProtectionHost(raw) } catch { return null }
 }
@@ -124,7 +124,9 @@ export function createAuthApp(dependencies: AuthAppDependencies = {}): Hono {
     }
   })
 
-  app.get('/verify', async (c) => {
+  // Traefik preserves the protected request method for its auth subrequest.
+  // Accept all methods so POST webhooks and other non-GET clients can pass.
+  app.all('/verify', async (c) => {
     const protection = findProtection(c)
     const host = forwardedHost(c)
     if (!protection || !host || protection.host !== host) return c.body(null, 401)

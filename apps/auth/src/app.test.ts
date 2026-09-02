@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { apr1, emptyProtectionStore, setProtection, writeProtectionStore } from 'portta-core'
+import { apr1, emptyProtectionStore, readProtectionStore, setProtection, writeProtectionStore } from 'portta-core'
 import { createAuthApp, safeNext } from './app.ts'
 import type { AuthConfig } from './config.ts'
 import { LoginLimiter } from './rate-limit.ts'
@@ -21,7 +21,7 @@ function setup(options: { now?: () => number; limiter?: LoginLimiter; logs?: Rec
   const config: AuthConfig = { host: '127.0.0.1', port: 4180, storePath, secret, uiDir: directory, sessionSeconds: 43_200 }
   const logs = options.logs ?? []
   const app = createAuthApp({ config, now: options.now, limiter: options.limiter, log: (value) => logs.push(value), loadHtml: () => html })
-  return { app, logs }
+  return { app, logs, storePath }
 }
 
 const forwarded = {
@@ -40,6 +40,17 @@ describe('ForwardAuth app', () => {
     expect(response.headers.has('www-authenticate')).toBe(false)
   })
 
+  it.each([
+    ['a WebSocket upgrade', { upgrade: 'websocket', connection: 'Upgrade', accept: 'text/html' }],
+    ['an SSE stream', { accept: 'text/event-stream' }],
+  ])('returns 401 rather than redirecting %s', async (_name, headers) => {
+    const { app } = setup()
+    const response = await app.request('/verify', { headers: { ...forwarded, ...headers } })
+    expect(response.status).toBe(401)
+    expect(response.headers.has('location')).toBe(false)
+    expect(response.headers.has('www-authenticate')).toBe(false)
+  })
+
   it('redirects only browser navigation and preserves a local path', async () => {
     const { app } = setup()
     const response = await app.request('/verify', { headers: { ...forwarded, accept: 'text/html', 'sec-fetch-mode': 'navigate', 'x-forwarded-uri': '/orders/42?tab=items' } })
@@ -54,6 +65,22 @@ describe('ForwardAuth app', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('x-forwarded-user')).toBe('reviewer')
     expect(response.headers.has('set-cookie')).toBe(false)
+  })
+
+  it.each([
+    ['REST request', 'GET', 'application/json'],
+    ['webhook POST', 'POST', 'application/json'],
+    ['health check', 'GET', '*/*'],
+    ['WebSocket upgrade', 'GET', 'text/html'],
+    ['SSE stream', 'GET', 'text/event-stream'],
+  ])('accepts Basic credentials for a %s', async (_name, method, accept) => {
+    const { app } = setup()
+    const authorization = `Basic ${Buffer.from('reviewer:correct').toString('base64')}`
+    const headers: Record<string, string> = { ...forwarded, authorization, accept }
+    if (_name === 'WebSocket upgrade') headers.upgrade = 'websocket'
+    const response = await app.request('/verify', { method, headers })
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-forwarded-user')).toBe('reviewer')
   })
 
   it('renders destination context without embedding a credential', async () => {
@@ -96,6 +123,29 @@ describe('ForwardAuth app', () => {
     expect(response.status).toBe(401)
   })
 
+  it('refuses requests that did not arrive through the trusted proxy headers', async () => {
+    const { app } = setup()
+    const authorization = `Basic ${Buffer.from('reviewer:correct').toString('base64')}`
+    const response = await app.request('/verify', {
+      headers: { host: 'demo.example.com', authorization },
+    })
+    expect(response.status).toBe(401)
+  })
+
+  it('rejects a session after its protection epoch changes', async () => {
+    const { app, storePath } = setup()
+    const login = await app.request('/__portta/auth/login', {
+      method: 'POST',
+      headers: { ...forwarded, origin: 'https://demo.example.com', 'content-type': 'application/x-www-form-urlencoded' },
+      body: 'user=reviewer&password=correct&next=%2F',
+    })
+    const cookie = (login.headers.get('set-cookie') ?? '').split(';')[0] ?? ''
+    const store = readProtectionStore(storePath)
+    const protection = store.protections[0]!
+    writeProtectionStore(storePath, setProtection(store, { ...protection, hash: apr1('rotated', 'ijklmnop') }))
+    expect((await app.request('/verify', { headers: { ...forwarded, cookie } })).status).toBe(401)
+  })
+
   it('does not let an explicit middleware scope bypass the host boundary', async () => {
     const { app } = setup()
     const authorization = `Basic ${Buffer.from('reviewer:correct').toString('base64')}`
@@ -128,6 +178,10 @@ describe('ForwardAuth app', () => {
     const logout = await app.request('/__portta/auth/logout', { method: 'POST', headers: { ...forwarded, origin: 'https://demo.example.com' } })
     expect(logout.status).toBe(303)
     expect(logout.headers.get('set-cookie')).toContain('Max-Age=0')
+    const nextRequest = await app.request('/verify', {
+      headers: { ...forwarded, accept: 'text/html', 'sec-fetch-mode': 'navigate' },
+    })
+    expect(nextRequest.status).toBe(302)
   })
 })
 
