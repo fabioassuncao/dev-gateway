@@ -150,7 +150,9 @@ REMOTE HOSTS
 WHAT AN ENVIRONMENT IS RUNNING
   git scan               Collect each project's branch, HEAD and dirty state
   git status             What was collected, and how old it is
-  host collect           CPU, memory, disk and GPU for the Overview, into state/host
+  host collect           One host and project metrics snapshot into state/metrics
+  host watch             Keep collecting (started by up)
+  host status            Whether the collector is running, and how old the last snapshot is
 
 ADOPTING A PROJECT
   analyze <path>         Read-only report on how a project would adopt the gateway

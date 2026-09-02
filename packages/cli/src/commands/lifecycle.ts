@@ -14,7 +14,7 @@ import { runDoctor } from '../doctor.js'
 import { ensureApplier, removeApplier } from './apply.js'
 import { ensureRunner, removeRunner } from './runner.js'
 import { refreshGitMetadata } from './git.js'
-import { refreshHostResources } from './host.js'
+import { ensureMetricsCollector, stopMetricsCollector } from './host.js'
 import { webUp } from './web.js'
 
 export function checkoutLocalEnv(): Record<string, string> {
@@ -159,7 +159,7 @@ export async function bootstrapCommand(options: { skipPull?: boolean }, command:
     copyFileSync(join(context.root, '.env.example'), join(context.root, '.env'))
     output.progress('created  .env from .env.example')
   }
-  for (const directory of ['state', 'state/auth', 'state/git', 'state/github', 'config/tls', 'config/traefik/dynamic']) mkdirSync(join(context.root, directory), { recursive: true })
+  for (const directory of ['state', 'state/auth', 'state/git', 'state/github', 'state/metrics', 'state/logs', 'config/tls', 'config/traefik/dynamic']) mkdirSync(join(context.root, directory), { recursive: true })
   ensureAuthState(context.root)
   const network = await ensureNetwork(context.config.network)
   output.progress(`${network.padEnd(8)} shared network ${context.config.network}`)
@@ -202,7 +202,7 @@ export async function upCommand(profile: string | undefined, options: { attach?:
 
   const output = new Output(globals(command))
   await refreshGitMetadata(context.config.profile, output)
-  await refreshHostResources(context.config.profile, output)
+  await ensureMetricsCollector(context.config.profile, output)
 
   // The optional applier, so the panel can recreate these containers itself.
   // Off unless PORTTA_APPLY=true, and never fatal: the gateway is up either way.
@@ -243,6 +243,7 @@ export async function downCommand(command: Command): Promise<void> {
   // thing `down` does to nothing else.
   await removeApplier()
   await removeRunner()
+  stopMetricsCollector(globals(command).profile, new Output(globals(command)))
 }
 export async function restartCommand(command: Command): Promise<void> { await compose(command, ['up', '-d', '--force-recreate']) }
 export async function logsCommand(service: string | undefined, options: { follow?: boolean; tail?: string }, command: Command): Promise<void> {

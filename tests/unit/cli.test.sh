@@ -36,7 +36,7 @@ COMMAND_TREE=(
   "web auth:status set clear apply"
   "auth:status protect unprotect"
   "git:scan status clear"
-  "host:collect"
+  "host:collect watch status"
   "share:list revoke gc"
 )
 
@@ -163,11 +163,11 @@ assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" "
 it "web up refreshes the same metadata"
 assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/web.ts")" "await refreshGitMetadata(context.config.profile, output)"
 
-it "the full up command collects host resources"
-assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" "await refreshHostResources(context.config.profile, output)"
+it "the full up command starts the host metrics collector"
+assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" "await ensureMetricsCollector(context.config.profile, output)"
 
-it "web up collects the same host resources"
-assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/web.ts")" "await refreshHostResources(context.config.profile, output)"
+it "web up starts the same host metrics collector"
+assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/web.ts")" "await ensureMetricsCollector(context.config.profile, output)"
 
 describe "a closed pipe is not an error"
 

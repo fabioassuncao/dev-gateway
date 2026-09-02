@@ -32,6 +32,39 @@ export async function requireDocker(): Promise<void> {
   if (!(await dockerAvailable())) throw new PreconditionError('cannot talk to the Docker daemon', 'start Docker or check DOCKER_HOST')
 }
 
+export async function dockerOperatingSystem(): Promise<string | null> {
+  const result = await runProcess('docker', ['info', '--format', '{{.OperatingSystem}}'], { reject: false, timeout: 8_000 })
+  if (result.exitCode !== 0) return null
+  const value = result.stdout.trim()
+  return value === '' ? null : value
+}
+
+export interface DockerStatsRow {
+  id: string
+  name: string
+  raw: Record<string, unknown>
+}
+
+export async function readContainerStats(): Promise<DockerStatsRow[]> {
+  const result = await runProcess('docker', ['stats', '--no-stream', '--format', '{{json .}}'], { reject: false, timeout: 20_000 })
+  if (result.exitCode !== 0 || result.stdout.trim() === '') return []
+  const rows: DockerStatsRow[] = []
+  for (const line of result.stdout.split('\n')) {
+    const trimmed = line.trim()
+    if (trimmed === '') continue
+    try {
+      const parsed = JSON.parse(trimmed) as Record<string, unknown>
+      const id = typeof parsed.ID === 'string' ? parsed.ID : ''
+      const name = typeof parsed.Name === 'string' ? parsed.Name : ''
+      if (id === '' && name === '') continue
+      rows.push({ id, name, raw: parsed })
+    } catch {
+      // one malformed line must not drop the rest
+    }
+  }
+  return rows
+}
+
 export async function inspectContainers(all = true): Promise<ContainerRecord[]> {
   await requireDocker()
   const listed = await runProcess('docker', ['ps', all ? '-aq' : '-q'])

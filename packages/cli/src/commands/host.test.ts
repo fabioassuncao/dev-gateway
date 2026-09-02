@@ -2,22 +2,29 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { emptySnapshot } from 'portta-core'
 import { Output } from '../output.js'
 
 const mocks = vi.hoisted(() => ({
-  collectHostSnapshot: vi.fn(),
+  collectSnapshot: vi.fn(),
   gatewayContext: vi.fn(),
+  startCollector: vi.fn(),
 }))
-vi.mock('../host.js', () => ({ collectHostSnapshot: mocks.collectHostSnapshot }))
+vi.mock('../metrics/collect.js', () => ({ collectSnapshot: mocks.collectSnapshot }))
 vi.mock('../context.js', () => ({ gatewayContext: mocks.gatewayContext }))
+vi.mock('../metrics/lifecycle.js', async () => {
+  const actual = await vi.importActual<typeof import('../metrics/lifecycle.js')>('../metrics/lifecycle.js')
+  return { ...actual, startCollector: mocks.startCollector }
+})
 
-import { collectHostResources, refreshHostResources } from './host.js'
+import { collectHostResources, ensureMetricsCollector } from './host.js'
 
 const roots: string[] = []
 afterEach(() => {
   vi.restoreAllMocks()
-  mocks.collectHostSnapshot.mockReset()
+  mocks.collectSnapshot.mockReset()
   mocks.gatewayContext.mockReset()
+  mocks.startCollector.mockReset()
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
@@ -28,26 +35,19 @@ function tree(): string {
 }
 
 describe('host collection', () => {
-  it('writes one file the panel can read, and nothing else', async () => {
+  it('writes current.json and nothing else', async () => {
     const root = tree()
-    mocks.collectHostSnapshot.mockResolvedValue({
-      collectedAt: 1_700_000_000,
-      uptimeSeconds: 3600,
-      load: { one: 0.2, five: 0.1, fifteen: 0.05 },
-      cpu: { model: 'Test CPU', utilisation: 0.1 },
-      memory: { totalBytes: 8, availableBytes: 4, usedBytes: 4 },
-      storage: [],
-      gpu: [],
-    })
+    mocks.collectSnapshot.mockResolvedValue(emptySnapshot({ id: 'i', name: 'box', hostname: 'box' }, 1_700_000_000))
 
     const file = await collectHostResources(root)
-    expect(file).toBe(join(root, 'state/host/host.json'))
+    expect(file).toBe(join(root, 'state/metrics/current.json'))
     expect(existsSync(file)).toBe(true)
-    const written = JSON.parse(readFileSync(file, 'utf8')) as { cpu: { model: string } }
-    expect(written.cpu.model).toBe('Test CPU')
+    const written = JSON.parse(readFileSync(file, 'utf8')) as { version: number; instance: { id: string } }
+    expect(written.version).toBe(1)
+    expect(written.instance.id).toBe('i')
   })
 
-  it('keeps an automatic refresh non-fatal', async () => {
+  it('keeps an automatic collector start non-fatal', async () => {
     mocks.gatewayContext.mockImplementation(() => {
       throw new Error('no gateway here')
     })
@@ -57,7 +57,7 @@ describe('host collection', () => {
       return true
     })
 
-    await expect(refreshHostResources(undefined, new Output())).resolves.toBeUndefined()
-    expect(stderr).toContain('warning: Host resources could not be collected: no gateway here')
+    await expect(ensureMetricsCollector(undefined, new Output())).resolves.toBeUndefined()
+    expect(stderr).toContain('warning: Host metrics collector could not start: no gateway here')
   })
 })

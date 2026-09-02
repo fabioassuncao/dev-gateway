@@ -239,6 +239,8 @@ export const REPAIR_DIRECTORIES: Array<{ path: string; mode: number }> = [
   { path: 'state/git', mode: 0o755 },
   { path: 'state/github', mode: 0o755 },
   { path: 'state/host', mode: 0o755 },
+  { path: 'state/metrics', mode: 0o755 },
+  { path: 'state/logs', mode: 0o755 },
   { path: 'state/runner', mode: 0o700 },
   { path: 'state/cloudflared', mode: 0o700 },
 ]

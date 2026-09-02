@@ -192,6 +192,7 @@ assert_contains "$compose" 'GITHUB_APP_PRIVATE_KEY_FILE: ${GITHUB_APP_PRIVATE_KE
 it "the key still comes from one read-only directory, not one filename"
 assert_contains "$compose" './state/github:/app/state/github:ro'
 assert_contains "$compose" './state/host:/app/state/host:ro'
+assert_contains "$compose" './state/metrics:/app/state/metrics:ro'
 assert_contains "$compose" './state/runner:/app/state/runner'
 assert_contains "$compose" './state/access:/app/state/access'
 

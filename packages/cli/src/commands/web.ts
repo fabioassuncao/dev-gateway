@@ -25,7 +25,7 @@ import { EXIT, RefusedError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
 import { refreshGitMetadata } from './git.js'
-import { refreshHostResources } from './host.js'
+import { ensureMetricsCollector, stopMetricsCollector } from './host.js'
 
 function globals(command: Command) { return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string } }
 
@@ -134,6 +134,8 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   setValues(initial.root, values)
   mkdirSync(join(initial.root, 'state/git'), { recursive: true })
   mkdirSync(join(initial.root, 'state/github'), { recursive: true })
+  mkdirSync(join(initial.root, 'state/metrics'), { recursive: true })
+  mkdirSync(join(initial.root, 'state/logs'), { recursive: true })
   mkdirSync(join(initial.root, 'state/auth'), { recursive: true, mode: 0o700 })
   chmodSync(join(initial.root, 'state/auth'), 0o700)
   mkdirSync(join(initial.root, 'config/traefik/dynamic'), { recursive: true })
@@ -155,7 +157,7 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', ...buildArgs, '--remove-orphans', '--wait', '--wait-timeout', '180', ...services], { cwd: context.root, env: context.env, stdio: 'inherit' })
   const output = new Output(globals(command))
   await refreshGitMetadata(context.config.profile, output)
-  await refreshHostResources(context.config.profile, output)
+  await ensureMetricsCollector(context.config.profile, output)
   // The context was resolved before .env was rewritten, so `web dev` would
   // otherwise report the URL the previous mode used.
   output.data(webUrl(gatewayContext({ profile: globals(command).profile, overrides: values })))
@@ -198,7 +200,9 @@ export async function webDown(command: Command): Promise<void> {
   await runProcess('docker', ['compose', ...composeArguments({ ...context, env }), 'rm', '-f', ...services], { cwd: context.root, env, reject: false })
   await runProcess('docker', ['compose', ...composeArguments({ ...context, env }), 'stop', 'web-ui'], { cwd: context.root, env, reject: false })
   await runProcess('docker', ['compose', ...composeArguments({ ...context, env }), 'rm', '-f', 'web-ui'], { cwd: context.root, env, reject: false })
-  new Output(globals(command)).progress('panel stopped; gateway and projects were not touched')
+  const output = new Output(globals(command))
+  stopMetricsCollector(globals(command).profile, output)
+  output.progress('panel stopped; gateway and projects were not touched')
 }
 
 export async function webDisable(command: Command): Promise<void> {
