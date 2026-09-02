@@ -27,6 +27,13 @@ portta_load_env; portta_defaults
 
 GW="$PORTTA_ROOT/bin/portta"
 ORIGINAL_LOG_LEVEL="$PORTTA_LOG_LEVEL"
+# The whole point of the apply is that a *changed* static setting reaches
+# Traefik, so the target has to differ from what this host already has. Writing
+# DEBUG unconditionally made the suite pass or fail on the developer's own .env:
+# on a host already logging at DEBUG the `up` was a no-op, Traefik kept its
+# container, and "because its container was replaced" failed while every other
+# assertion passed.
+if [ "$ORIGINAL_LOG_LEVEL" = "DEBUG" ]; then TARGET_LOG_LEVEL=INFO; else TARGET_LOG_LEVEL=DEBUG; fi
 
 # A publicly exposed panel, or the remote-public profile, refuses to prepare an
 # applier at all -- correctly, and that is asserted in tests/unit/apply.test.sh.
@@ -103,7 +110,7 @@ describe "it recreates the gateway, rather than restarting it"
 DEMO_BEFORE=$(docker inspect demo-a-web-1 --format '{{.Id}}' 2>/dev/null)
 TRAEFIK_BEFORE=$(docker inspect portta-traefik-1 --format '{{.Id}}' 2>/dev/null)
 
-portta_env_set PORTTA_LOG_LEVEL DEBUG >/dev/null
+portta_env_set PORTTA_LOG_LEVEL "$TARGET_LOG_LEVEL" >/dev/null
 docker start -a "$APPLIER" >/dev/null 2>&1
 APPLY_EXIT=$(docker inspect "$APPLIER" --format '{{.State.ExitCode}}')
 
@@ -111,7 +118,7 @@ it "the apply succeeds"
 assert_eq "0" "$APPLY_EXIT"
 
 it "Traefik now runs with the saved value"
-assert_eq "DEBUG" "$(traefik_log_level)"
+assert_eq "$TARGET_LOG_LEVEL" "$(traefik_log_level)"
 
 it "because its container was replaced"
 assert_ne "$TRAEFIK_BEFORE" "$(docker inspect portta-traefik-1 --format '{{.Id}}' 2>/dev/null)"
