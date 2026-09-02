@@ -50,7 +50,7 @@ is the complete operator and contributor index. Historical build briefs under
 ## Web panel
 
 - [Web UI](web-ui.md) — installation, pages, API, actions, authentication, and screenshots.
-- [GitHub](github.md) — source of truth for issues versus environments (architecture; not yet in the panel).
+- [GitHub](github.md) — the App, issues and sub-issues, workspaces, and the backlog and board that write back.
 - [Sharing](sharing.md) — temporary public or protected hostnames with mandatory expiry.
 
 ## Working day to day

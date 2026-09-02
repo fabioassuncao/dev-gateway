@@ -1,6 +1,6 @@
 # Portta
 
-A personal, experimental gateway for running many Docker projects at once — locally, on a VPS or in a homelab — each on a predictable URL instead of a port to remember.
+A personal, experimental development environment for many Docker projects at once. Each one gets a predictable URL instead of a port to remember, on a laptop, a VPS or a homelab, and you can reach it from anywhere.
 
 ```text
 $ portta urls
@@ -18,19 +18,23 @@ All of those can use the same internal ports. None needs to publish one on the h
 
 I keep several side projects, experiments and prototypes alive at once. An idea may be written down today and picked up whenever there is time.
 
-The work is not always on one machine: there is a laptop, a development VPS, a homelab, and increasingly agents such as Claude Code and Codex doing work while I am elsewhere. I still want to see what is running from a browser or phone.
+The work is not always on one machine. There is a laptop, a development VPS, a homelab, and increasingly agents such as Claude Code and Codex doing work while I am elsewhere. I still want to open a browser or a phone and see what is running, whether it is healthy, and what the last change actually did.
 
 Everything runs in containers on purpose. Dependencies stay isolated, the host stays clean, and a stack can be started or discarded without becoming part of the machine.
 
-That creates a different set of problems: port conflicts, ports nobody remembers, remote access, testing on a phone, and occasionally sharing one URL with someone else. Portta is the arrangement I use to solve those for my own workflow; it is public because there is no reason for it not to be.
+That creates a different set of problems: port conflicts, ports nobody remembers, reaching a machine that has no public address, testing on a phone, and occasionally showing one URL to someone else. Portta is the arrangement I use to solve those for my own workflow. It is public because there is no reason for it not to be.
 
 ## What it does
 
-A host port can only be held by one process, but many containers can listen on the same internal port. Portta therefore publishes almost nothing. One Traefik instance holds 80 and 443, HTTP services join one shared Docker network, and each gets a hostname derived from its Compose project and service names.
+**Names instead of ports.** A host port can only be held by one process, but many containers can listen on the same internal port. Portta therefore publishes almost nothing. One Traefik instance holds 80 and 443, HTTP services join one shared Docker network, and each gets a hostname derived from its Compose project and service names. Databases and caches stay on each project's private network, reached through a temporary loopback bridge or optional TLS/SNI routing when a human needs them.
 
-Databases and caches stay on each project's private network. A temporary loopback bridge, or optional TLS/SNI routing on a private entrypoint, reaches them when a human needs to. The optional panel shows projects, routes and problems, manages the permitted container lifecycle, and persists only durable decisions and identity in its private PostgreSQL.
+**Reachable from where you are.** The base domain is a mode rather than a fixed value: `*.localhost` on a workstation, a name derived from the machine's address through sslip.io when there is no domain, or a wildcard you own. Beyond that, a host can be reached over Tailscale, or through a Cloudflare Tunnel that needs no open port and works behind CGNAT. A single service can also be shared on a temporary hostname with a mandatory expiry.
 
-This is host infrastructure installed once, not a parent Compose project. It does not move projects, own their volumes, or participate in their lifecycle. See [ADR 0001](docs/adr/0001-decoupled-infrastructure.md).
+**The work around the code.** Branches and worktrees become parallel environments with their own namespaces and URLs. Existing Compose projects are adopted with a small overlay rather than moved. The optional panel shows projects, routes, logs and problems, manages the permitted container lifecycle, and connects to GitHub for issues, a backlog and a board that writes back.
+
+**This is for development, not deployment.** It exists so you can see and test what you are building, from wherever you happen to be. It is not a hosting platform, has no release or rollback story, and should not be what stands between your users and your application.
+
+It is host infrastructure installed once, not a parent Compose project. It does not move projects, own their volumes, or participate in their lifecycle. See [ADR 0001](docs/adr/0001-decoupled-infrastructure.md).
 
 ## Screenshots
 
@@ -86,11 +90,13 @@ flowchart TB
     traefik -. "TLS / SNI" .-> routeddb
 ```
 
-Traefik reaches HTTP services only on the shared network; it has no route into a project's private network. `remote-private` adds the Tailscale sidecar and `remote-public` deliberately binds the public interface. The exact networks, profiles and persistence boundary are in [Architecture](docs/architecture.md).
+Traefik reaches HTTP services only on the shared network. It has no route into a project's private network.
+
+There are three ways in beyond the local one, and each is a deliberate choice rather than a default. `remote-private` attaches the gateway to a Tailscale sidecar, `remote-public` binds the public interface, and the [Cloudflare Tunnel](docs/cloudflare-tunnel.md) connector dials out instead, which is the only option when the machine has no public address at all. The exact networks, profiles and persistence boundary are in [Architecture](docs/architecture.md).
 
 ## Requirements
 
-**Required on the host:** Docker Engine 24+ with Compose v2 and a POSIX shell. Node is not required for the core commands (`bootstrap`, `up`, `down`, `restart`, `status`, `logs`, `urls`, `inspect`, `update`, `doctor`, `tls`, `remote`, `toolbox`); the full CLI needs Node 22.12+. Git is needed only to develop Portta or to collect project metadata.
+**Required on the host:** Docker Engine 24+ with Compose v2 and a POSIX shell. Node is not required for the core commands (`bootstrap`, `up`, `down`, `restart`, `status`, `logs`, `urls`, `inspect`, `update`, `doctor`, `tls`, `tunnel`, `backup`, `restore`, `repair`, `remote`, `toolbox`). The full CLI needs Node 22.12+. Git is needed only to develop Portta or to collect project metadata.
 
 **Run by the gateway:** Traefik, filtered Docker socket proxies, `jq`, `socat`, OpenSSL, database clients, access bridges, and the panel's Node runtime.
 
@@ -100,6 +106,7 @@ Traefik reaches HTTP services only on the shared network; it has no route into a
 |---|---|
 | macOS 15+ arm64 with OrbStack | Full suite run during development |
 | Ubuntu 24.04 amd64 with Docker Engine | Full suite in CI |
+| Ubuntu VPS with Docker and Tailscale | Installed from scratch, `doctor` clean |
 
 Other platforms may work but are not claimed as verified. See the complete [compatibility matrix](docs/compatibility.md).
 
@@ -166,9 +173,15 @@ Nothing is exposed by default. Datastores stay private, Docker access is filtere
 
 ## Status
 
-Experimental (`v0.x`), personal, and without a support promise. The local profile, panel, persistence, parallel environments and TCP access are exercised end to end. Remote profiles render and are checked for unsafe binds, but the tailnet and ACME paths require real credentials and are not automated.
+Experimental (`v0.x`), personal, and without a support promise. Expect rough edges and bugs. I break it regularly.
 
-Cross-host synchronisation and task orchestration are future work, not current features. The TypeScript package and its binary are both named `portta`. More mature tools exist; use one of them if this particular set of trade-offs is not useful to you. Issues, pull requests and forks are welcome.
+**Exercised end to end:** the local profile, the panel, persistence, parallel environments, TCP access, and installing from scratch on a real VPS.
+
+**Partly verified:** Cloudflare Tunnel. The transport was measured against a live tunnel from the public internet, including the single wildcard rule, the Host header surviving to the container, WebSocket, and each distinct failure mode. The named-tunnel path against a real zone has not been exercised, because that needs credentials I do not want in a test.
+
+**Present but not finished:** the tunnel is configured through the CLI and the API, and has no panel interface yet. The capabilities and endpoints model exists in the shared core and is not exposed in the interface either. Remote profiles render and are checked for unsafe binds, but the tailnet and ACME paths need real credentials and are not automated.
+
+Cross-host synchronisation and task orchestration are future work, not current features. The TypeScript package and its binary are both named `portta`. More mature tools exist. Use one of them if this particular set of trade-offs is not useful to you. Issues, pull requests and forks are welcome.
 
 See [compatibility](docs/compatibility.md) and the [changelog](CHANGELOG.md).
 
