@@ -240,4 +240,15 @@ for c in "inspect" "git status" "share list" "tls status" "public status" "dns s
   assert_success sh -c "'$GW' ${words[*]} --json 2>/dev/null | python3 -m json.tool >/dev/null"
 done
 
+describe "the published CLI declares everything it imports"
+
+# esbuild bundles with `packages: 'external'` and inlines packages/core through
+# an alias, so core's dependencies become bare imports in dist/cli.js while
+# staying invisible in packages/cli/package.json. `bcryptjs` arrived with the
+# auth work that way, and the tarball crashed on `npx portta` with
+# ERR_MODULE_NOT_FOUND — a failure no test in the repo could see, because every
+# other surface runs from the workspace where the package is hoisted.
+it "no runtime import is missing from its dependencies"
+assert_eq "" "$(python3 "$PORTTA_TEST_DIR/lib/cli-deps.py" "$PORTTA_ROOT")"
+
 t_summary
