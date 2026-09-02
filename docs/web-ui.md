@@ -128,7 +128,8 @@ CLI requires Node 22.12+ on the host; the core zero-Node fallbacks remain
 ### Development, with hot reloading
 
 ```bash
-./bin/portta web dev
+make dev                     # gateway up, panel with hot reloading, routed URLs
+./bin/portta web dev         # the panel alone, on a gateway already running
 ```
 
 Two containers from the same image: the API with `node --watch`, and Vite in

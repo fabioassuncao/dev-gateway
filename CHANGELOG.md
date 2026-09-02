@@ -9,6 +9,23 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+### Added
+
+- **`make dev`**: gateway up plus the panel with hot reloading, in one command.
+
+### Fixed
+
+- **`make help` never listed `test-e2e`**: its filter did not allow digits in a
+  target name.
+
+### Changed
+
+- **CI runs on Linux and one Node version.** The `cli` job was a four-way matrix
+  over two operating systems and two Node versions re-running identical
+  assertions, the `audit` job duplicated what `tests/run.sh` already runs, and
+  the panel's unit suite ran in two jobs. macOS is verified by hand with
+  `make test`, which is what `docs/compatibility.md` already claimed.
+
 ## [0.3.0] — 2026-09-02
 
 ### Fixed

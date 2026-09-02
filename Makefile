@@ -8,15 +8,24 @@ GW    := ./bin/portta
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap up down restart status doctor urls logs inspect update \
+.PHONY: help dev bootstrap up down restart status doctor urls logs inspect update \
         web web-dev web-down test test-all test-e2e lint \
         demo-up demo-up-all demo-down demo-down-all
 
 help: ## Show this help
 	@printf 'Portta make targets\n\n'
-	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
 	  | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 	@printf '\nEverything here just calls %s.\n' '$(GW)'
+
+# One command from a fresh clone to a running gateway with a hot-reloading
+# panel. It is deliberately the only target that chains others: everything
+# else stays a single call to the CLI.
+dev: ## Start the gateway and the panel with hot reloading
+	@test -f .env || $(GW) bootstrap --yes
+	@$(GW) up $(PROFILE)
+	@$(GW) web dev
+	@$(GW) urls
 
 bootstrap: ## Prepare this host to run the gateway
 	@$(GW) bootstrap

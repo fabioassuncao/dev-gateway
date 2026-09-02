@@ -14,41 +14,75 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
+# CI runs on Linux only, on one Node. macOS and older Node are checked by hand
+# with `make test` on the machine that actually has them: this is a personal
+# tool, and a matrix that triples the bill to re-run identical assertions buys
+# nothing here.
+env:
+  NODE_VERSION: '24'
+
 jobs:
-  cli:
-    name: CLI (${{ matrix.os }}, Node ${{ matrix.node }})
+  # Everything that needs no Docker daemon of its own, once. This is the whole
+  # of `tests/run.sh` (shell lint, compose parsing, the unit suites including
+  # the audit invariants, the core suite and the panel's unit and API suites),
+  # plus the two things it does not cover: the CLI's own suite and the package
+  # npm will actually receive.
+  check:
+    name: Lint, types and unit suites
     if: github.event_name != 'release'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-latest]
-        node: [22, 24]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-24.04
     # A hung step must fail fast and leave readable logs: without this a
     # deadlocked test run sits for GitHub's six-hour default, reporting nothing.
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+
+      # shellcheck ships with the ubuntu-24.04 image; installing it again cost
+      # an apt update on every run for a binary already on PATH.
       - uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node }}
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: package-lock.json
+
       - run: npm ci
-      - run: npm run typecheck --workspace=portta-core
-      - run: npm test --workspace=portta-core
-      - run: npm run typecheck --workspace=portta
-      - run: npm test --workspace=portta
-      - run: npm run build --workspace=portta
+
+      - name: Workspace types
+        run: npm run typecheck
+
+      # portta-core's dist as well: the contract tests and the panel's built
+      # server both import the package through it, not through its sources.
+      - name: Build
+        run: |
+          npm run build --workspace=portta-core
+          npm run build --workspace=portta
+
+      - name: CLI suite
+        run: npm test --workspace=portta
+
+      # tests/run.sh *skips* shell lint when shellcheck is absent, which on a
+      # runner would be a silent loss of coverage rather than a failure.
+      - name: shellcheck is present
+        run: shellcheck --version
+
+      - name: Lint and unit suites
+        run: ./tests/run.sh
+
       - name: Entry-point smoke
         run: node packages/cli/dist/cli.js --help
+
+      # `npx portta` and a global install are the two documented ways in, and
+      # both read the packed tarball rather than the working tree. A missing
+      # file or a lost shebang is invisible until someone installs it.
       - name: Pack and install exactly what npm will receive
         shell: bash
         run: |
           pack_dir="$RUNNER_TEMP/portta-pack"
-          install_dir="$RUNNER_TEMP/portta-install"
           global_dir="$RUNNER_TEMP/portta-global"
-          mkdir -p "$pack_dir" "$install_dir" "$global_dir"
+          mkdir -p "$pack_dir" "$global_dir"
           tarball=$(npm pack --workspace=portta --pack-destination "$pack_dir" --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s)[0].filename))')
           tar -xOf "$pack_dir/$tarball" package/package.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s);if(p.name!=="portta"||p.bin?.portta!=="./dist/cli.js")process.exit(1)})'
           # Extract to a file rather than piping into head: head closes the
@@ -57,109 +91,85 @@ jobs:
           # small enough to fit the pipe buffer.
           tar -xOf "$pack_dir/$tarball" package/dist/cli.js > "$pack_dir/cli.js"
           head -n 1 "$pack_dir/cli.js" | grep -Fx '#!/usr/bin/env node'
-          npm install --prefix "$install_dir" "$pack_dir/$tarball"
-          cli="$install_dir/node_modules/.bin/portta"
-          "$cli" | grep -F 'Usage: portta'
-          "$cli" --version
-          "$cli" --help
-          "$cli" inspect --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>JSON.parse(s))'
           npx --yes --package "$pack_dir/$tarball" -- portta | grep -F 'Usage: portta'
-          npx --yes --package "$pack_dir/$tarball" -- portta --version
           npm install --global --prefix "$global_dir" "$pack_dir/$tarball"
-          "$global_dir/bin/portta" | grep -F 'Usage: portta'
           "$global_dir/bin/portta" --version
+          "$global_dir/bin/portta" --help
+          "$global_dir/bin/portta" inspect --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>JSON.parse(s))'
 
-  published-cli:
-    name: Published CLI smoke
-    if: github.event_name == 'release'
+  # The panel's browser run and its published contract. Its types and unit
+  # suites belong to `check`, which already runs them through tests/run.sh.
+  # The panel image is not rebuilt here: publish.yaml builds and pushes it on
+  # every branch push, so a broken Dockerfile fails there instead.
+  web:
+    name: Web panel (browser)
+    if: github.event_name != 'release'
     runs-on: ubuntu-24.04
-    # A hung step must fail fast and leave readable logs: without this a
-    # deadlocked test run sits for GitHub's six-hour default, reporting nothing.
-    timeout-minutes: 10
-    steps:
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-      - name: Install from the public registry
-        shell: bash
-        env:
-          TAG: ${{ github.event.release.tag_name }}
-        run: |
-          version="${TAG#v}"
-          npm install --global "portta@$version"
-          portta --version | grep -F "$version"
-
-  lint:
-    name: Lint and unit tests
-    runs-on: ubuntu-24.04
-    # A hung step must fail fast and leave readable logs: without this a
-    # deadlocked test run sits for GitHub's six-hour default, reporting nothing.
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
-
-      # The gateway itself never needs Node; its panel does, and the runner
-      # already has one. The suite skips the panel when it is absent.
       - uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install workspace dependencies
-        run: npm ci
+      - run: npm ci
 
-      - name: Workspace types
-        run: npm run typecheck
+      # The vitest suites resolve portta-core through its TypeScript sources,
+      # so they pass without this. The Playwright web server does not: it runs
+      # the *built* panel, which imports the package's `dist` and exits with
+      # ERR_MODULE_NOT_FOUND before a single test starts.
+      - name: Build the shared core the panel's server imports
+        run: npm run build --workspace=portta-core
 
-      - name: Build the TypeScript CLI used by contract tests
-        run: npm run build --workspace=portta
+      - name: OpenAPI snapshot has no drift
+        run: npm run openapi:check --workspace=portta-web
 
-      - name: Lint and unit tests
-        run: ./tests/run.sh
+      - name: Install the browser
+        run: npx --workspace=portta-web playwright install --with-deps chromium
+
+      # Drives the real panel against a fake Docker Engine API, so it needs no
+      # daemon and describes the same host every time.
+      - name: End to end
+        run: npm run test:e2e --workspace=portta-web
+
+      - name: Report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 5
 
   e2e:
-    name: End-to-end (Linux)
+    name: End-to-end (Docker)
+    if: github.event_name != 'release'
     runs-on: ubuntu-24.04
-    # A hung step must fail fast and leave readable logs: without this a
-    # deadlocked test run sits for GitHub's six-hour default, reporting nothing.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: package-lock.json
 
-      # portta-core too: the panel's Playwright web server imports it through
-      # its `dist`, and this job runs that suite. Without it the server exits
-      # with ERR_MODULE_NOT_FOUND before a single test starts.
       - name: Build the full CLI
-        run: npm ci && npm run build --workspace=portta-core && npm run build --workspace=portta
-
-      - name: Show runtime versions
         run: |
-          docker version --format 'engine {{.Server.Version}}'
-          docker compose version
+          npm ci
+          npm run build --workspace=portta-core
+          npm run build --workspace=portta
 
-      - name: Bootstrap the gateway
+      - name: Bootstrap and start the gateway
         run: |
           cp .env.example .env
           ./bin/portta bootstrap --yes
-
-      - name: Start the gateway
-        run: ./bin/portta up local
-
-      - name: Build the toolbox
-        run: ./bin/portta toolbox build
-
-      - name: Doctor
-        run: ./bin/portta doctor
+          ./bin/portta up local
+          ./bin/portta toolbox build
+          ./bin/portta doctor
 
       - name: End-to-end suites
         run: ./tests/run.sh --e2e
@@ -179,95 +189,28 @@ jobs:
         if: always()
         run: ./bin/portta down || true
 
-  web:
-    name: Web panel
-    runs-on: ubuntu-24.04
-    # A hung step must fail fast and leave readable logs: without this a
-    # deadlocked test run sits for GitHub's six-hour default, reporting nothing.
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install
-        run: npm ci
-
-      # The vitest suites resolve portta-core through its TypeScript sources,
-      # so they pass without this. The Playwright web server does not: it runs
-      # the *built* panel, which imports the package's `dist` and exits with
-      # ERR_MODULE_NOT_FOUND before a single test starts.
-      #
-      # Two other jobs already carried this line. This one was missing it and
-      # nobody could tell, because the step that needs it was never reached
-      # while the suite hung.
-      - name: Build the shared core the panel's server imports
-        run: npm run build --workspace=portta-core
-
-      - name: Types
-        run: npm run typecheck --workspace=portta-web
-
-      - name: OpenAPI snapshot has no drift
-        run: npm run openapi:check --workspace=portta-web
-
-      - name: Unit, API and component suites
-        run: npm test --workspace=portta-web
-
-      - name: Install the browser for the end-to-end run
-        run: npx --workspace=portta-web playwright install --with-deps chromium
-
-      # Drives the real panel against a fake Docker Engine API, so it needs no
-      # daemon and describes the same host every time.
-      - name: End to end
-        run: npm run test:e2e --workspace=portta-web
-
-      - name: Report on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: apps/web/playwright-report/
-          retention-days: 5
-
-      - name: The panel image builds
-        run: docker build -t fabioassuncao/portta:ci -f apps/web/Dockerfile .
-
-  audit:
-    name: Audit invariants
-    runs-on: ubuntu-24.04
-    # A hung step must fail fast and leave readable logs: without this a
-    # deadlocked test run sits for GitHub's six-hour default, reporting nothing.
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v5
-      # No Docker needed: these are static checks on what is tracked.
-      - name: Decoupling, ownership, secrets and supply chain
-        run: bash tests/unit/audit.test.sh
-
+  # A default install must never put the Docker API, the dashboard or a
+  # datastore on a public interface. This job exists to make that a
+  # build-breaking regression rather than something noticed in production.
   exposure:
     name: Exposure regression checks
+    if: github.event_name != 'release'
     runs-on: ubuntu-24.04
-    # A hung step must fail fast and leave readable logs: without this a
-    # deadlocked test run sits for GitHub's six-hour default, reporting nothing.
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: package-lock.json
 
-      # portta-core too: the panel's Playwright web server imports it through
-      # its `dist`, and this job runs that suite. Without it the server exits
-      # with ERR_MODULE_NOT_FOUND before a single test starts.
       - name: Build the full CLI
-        run: npm ci && npm run build --workspace=portta-core && npm run build --workspace=portta
+        run: |
+          npm ci
+          npm run build --workspace=portta-core
+          npm run build --workspace=portta
 
       - name: Bring up the default local profile
         run: |
@@ -275,9 +218,6 @@ jobs:
           ./bin/portta bootstrap --yes --skip-pull
           ./bin/portta up local
 
-      # A default install must never put the Docker API, the dashboard or a
-      # datastore on a public interface. This job exists to make that a
-      # build-breaking regression rather than something noticed in production.
       - name: Nothing sensitive is bound to 0.0.0.0
         run: |
           set -euo pipefail
@@ -359,3 +299,21 @@ jobs:
         run: |
           ./bin/portta access close --all || true
           cd docker/examples/demo-a && docker compose -f compose.yaml -f compose.portta.yaml down -v || true
+
+  published-cli:
+    name: Published CLI smoke
+    if: github.event_name == 'release'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install from the public registry
+        shell: bash
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${TAG#v}"
+          npm install --global "portta@$version"
+          portta --version | grep -F "$version"
