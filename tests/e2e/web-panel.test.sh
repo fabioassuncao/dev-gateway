@@ -111,7 +111,7 @@ it "the data network has no external route"
 assert_eq "true" "$(docker network inspect "$PORTTA_DB_NETWORK" --format '{{ .Internal }}')"
 
 it "the latest migration is recorded"
-assert_eq "0011_environment_config_files.sql" "$(docker exec "$DB_CONTAINER" psql -U portta -d portta \
+assert_eq "0013_task_issue_experience.sql" "$(docker exec "$DB_CONTAINER" psql -U portta -d portta \
   -At -c 'SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1')"
 
 docker stop "$DB_CONTAINER" >/dev/null

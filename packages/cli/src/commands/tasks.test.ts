@@ -105,7 +105,7 @@ describe('portta tasks', () => {
     mocks.requests.length = 0
     stubFetch({ id: 'n2', actor: 'codex', body: 'from stdin' })
     const chunks = [Buffer.from('from stdin')]
-    vi.spyOn(process.stdin, Symbol.asyncIterator).mockImplementation(async function* () { yield* chunks })
+    vi.spyOn(process.stdin, Symbol.asyncIterator).mockImplementation(async function* (): AsyncGenerator<Buffer, undefined> { yield* chunks })
     await tasksComment('12', undefined, { stdin: true }, command())
     expect(mocks.requests[0]).toMatchObject({ method: 'POST', url: 'http://127.0.0.1:8081/api/tasks/12/comments', body: { body: 'from stdin' } })
 

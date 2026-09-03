@@ -9,6 +9,8 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-09-03
+
 ### Changed
 
 - **Portta is a development platform, organised around the Project.**
@@ -42,6 +44,14 @@ While the version is `0.x`, minor releases may contain breaking changes.
   directories. A duplicate remote never overrides an exact local-path match.
 
 ### Added
+
+- **`portta reset` and `portta dev --reset`.** Wipe the panel database
+  volume (`${PORTTA_DB_VOLUME:-portta-db}`) and restart the checkout as
+  `dev`. `--yes` skips the TTY confirmation; `--examples` imports
+  `docker/examples` afterwards. `make reset` and `make dev RESET=1 YES=1`
+  are the Make forms. Development project volumes, `.env`, GitHub keys and
+  `state/auth/` stay. `state/git/` and `state/metrics/` are cleared because
+  the scan and the collector rewrite them.
 
 - **Remembered environments.** An environment whose containers were all
   removed stays listed, with `presence: remembered`, no services, and where

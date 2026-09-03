@@ -3,7 +3,7 @@
   "info": {
     "title": "Portta panel API",
     "description": "The API used by the panel UI, the CLI and local agents. Every operation declares the capability it needs (x-portta-capability); read-only mode holds every read, and an agent that announces itself with X-Portta-Actor holds what the agentCapabilities setting grants. Writes can also be refused by the same-origin guard. Authentication, when enabled, is enforced by Traefik before a request reaches this application.",
-    "version": "0.7.2",
+    "version": "0.8.0",
     "summary": "Runtime inventory and bounded control for Portta.",
     "license": {
       "name": "MIT"
