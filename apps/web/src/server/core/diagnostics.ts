@@ -208,6 +208,32 @@ export function diagnose(
     results.push(check('project-domain', 'pass', 'Project hostnames', `projects answer on *.${config.domain}`))
   }
 
+  // One COMPOSE_PROJECT_NAME, two checkouts: Compose treats both as the same
+  // project, so `up` in either directory recreates the other's containers.
+  // Nothing reports it; the labels are the only trace.
+  const workingDirs = new Map<string, Set<string>>()
+  for (const container of snapshot.containers) {
+    const environment = container.labels['com.docker.compose.project']
+    const workingDir = container.labels['com.docker.compose.project.working_dir']
+    if (!environment || !workingDir) continue
+    const dirs = workingDirs.get(environment)
+    if (dirs) dirs.add(workingDir)
+    else workingDirs.set(environment, new Set([workingDir]))
+  }
+  for (const [environment, dirs] of [...workingDirs.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    if (dirs.size < 2) continue
+    results.push(
+      check(
+        'split-working-dir',
+        'warn',
+        `Environment '${environment}' runs from two directories`,
+        [...dirs].sort().join(', '),
+        'two checkouts share a COMPOSE_PROJECT_NAME; give one of them another name (portta namespace)',
+        { name: environment },
+      ),
+    )
+  }
+
   const conflicts = snapshot.ports.filter((usage) => usage.conflict)
   if (conflicts.length > 0) {
     results.push(

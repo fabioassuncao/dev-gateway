@@ -90,6 +90,7 @@ export function serviceView(container: ContainerSummary, config: PanelConfig, me
     uptimeSeconds: container.uptimeSeconds,
     restartCount: container.restartCount,
     exitCode: container.exitCode,
+    completed: container.completed,
     ports: container.ports,
     exposedPorts: container.exposedPorts,
     networks: container.networks,

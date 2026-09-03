@@ -64,6 +64,7 @@ export function serviceFromContainer(container: ContainerSummary, options: { hid
     uptimeSeconds: container.uptimeSeconds,
     restartCount: container.restartCount,
     exitCode: container.exitCode,
+    completed: container.completed,
     ports: container.ports,
     exposedPorts: container.exposedPorts,
     networks: container.networks,

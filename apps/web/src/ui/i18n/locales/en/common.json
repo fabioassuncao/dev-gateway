@@ -16,6 +16,7 @@
   "running": "Running",
   "stopped": "Stopped",
   "unhealthy": "Unhealthy",
+  "oneOff": "one-off",
   "disabled": "disabled",
   "enabled": "enabled",
   "yes": "Yes",
@@ -101,7 +102,8 @@
     "restarting": "restarting",
     "removing": "removing",
     "exited": "exited",
-    "dead": "dead"
+    "dead": "dead",
+    "completed": "completed"
   },
   "logs": {
     "filterLines": "Filter lines",

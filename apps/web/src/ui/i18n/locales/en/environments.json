@@ -15,7 +15,12 @@
     "stopConfirmTitle": "Stop this project?",
     "stopConfirm": "{{name}} has {{count}} service(s). Nothing is removed; Start brings them back.",
     "cancel": "Cancel",
-    "partial": "{{failed}} failed, {{succeeded}} succeeded."
+    "partial": "{{failed}} failed, {{succeeded}} succeeded.",
+    "forget": "Forget",
+    "forgetConfirmTitle": "Forget this environment?",
+    "forgetConfirm": "Portta stops listing {{name}}. Nothing on disk or in Docker changes.",
+    "startedViaRunner": "Started through the runner; containers appear as they come up.",
+    "startCommand": "Start it from a terminal:"
   },
   "operations": {
     "rebuild": "Rebuild",
@@ -219,11 +224,16 @@
     "empty": "No environment is running",
     "emptyHint": "An environment appears when Compose is up on this host. Adopt it onto a Project with the portta.project label or by hand.",
     "noMatch": "No environment matches the filters",
-    "count": "{{count}} environment(s)"
+    "count": "{{count}} environment(s)",
+    "remembered": "Not running"
   },
   "servicesTable": {
     "empty": "This environment has no services",
-    "fallback": "Live measurements need the panel to serve this environment's services; showing what the containers report."
+    "fallback": "Live measurements need the panel to serve this environment's services; showing what the containers report.",
+    "emptyRemembered": "Containers were removed. Start recreates them through the runner."
+  },
+  "presence": {
+    "remembered": "Not running"
   },
   "settings": {
     "title": "Settings",

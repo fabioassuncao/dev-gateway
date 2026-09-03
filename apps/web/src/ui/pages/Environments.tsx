@@ -8,7 +8,7 @@ import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.t
 import { EnvironmentCard } from '../components/entities/environment-card.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 
-type Filter = 'all' | 'unattributed' | 'running'
+type Filter = 'all' | 'unattributed' | 'running' | 'remembered'
 
 /** Every Compose project on this host, adopted or not: what is running, as opposed to what is being built. */
 export function EnvironmentsPage() {
@@ -21,12 +21,14 @@ export function EnvironmentsPage() {
 
   const environments = useMemo(() => {
     let list = [...(query.data ?? [])].sort((left, right) => {
+      // Pinned first, archived last; a remembered one (containers gone) sits after the live ones of its rank.
       const rank = (environment: Environment) =>
-        (environment.overrides?.pinned ? -1 : 0) + (environment.overrides?.archived ? 2 : 0)
+        (environment.overrides?.pinned ? -2 : 0) + (environment.overrides?.archived ? 4 : 0) + (environment.presence === 'remembered' ? 1 : 0)
       return rank(left) - rank(right)
     })
     if (filter === 'unattributed') list = list.filter((environment) => !owners.has(environment.name))
     if (filter === 'running') list = list.filter((environment) => environment.runningCount > 0)
+    if (filter === 'remembered') list = list.filter((environment) => environment.presence === 'remembered')
     if (search.trim() !== '') {
       const needle = search.toLowerCase()
       list = list.filter((environment) =>
@@ -52,6 +54,7 @@ export function EnvironmentsPage() {
             <Select value={filter} onChange={(event) => setFilter(event.target.value as Filter)} className="w-40" aria-label={t('filterAria')}>
               <option value="all">{t('all')}</option>
               <option value="running">{t('running')}</option>
+              <option value="remembered">{t('remembered')}</option>
               <option value="unattributed">{t('unattributed')}</option>
             </Select>
             <Input

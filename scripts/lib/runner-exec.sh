@@ -45,6 +45,16 @@ assert_request_path() {
   esac
 }
 
+# With no container left there is no managed label to protect Portta itself.
+# Refuse both its root and descendants: a remembered request must never run a
+# consumer Compose file from the gateway checkout.
+assert_not_portta_path() {
+  local path="$1" what="$2"
+  case "$path" in
+    "$PORTTA_ROOT"|"$PORTTA_ROOT"/*) die "refusing Portta's own directory as $what" ;;
+  esac
+}
+
 id=$(docker ps -aq --filter "label=com.docker.compose.project=${project}" | head -n1)
 if [ -n "$id" ]; then
   # A container exists: its labels are the truth, whatever the request says.
@@ -62,8 +72,8 @@ else
   own_name="${own_name%\"}"; own_name="${own_name#\"}"; own_name="${own_name%\'}"; own_name="${own_name#\'}"
   own_name="${own_name:-portta}"
   [ "$project" != "$own_name" ] || die "refusing to operate Portta's own project"
-  [ "$request_working_dir" != "$PORTTA_ROOT" ] || die "refusing Portta's own directory as a working directory"
   assert_request_path "$request_working_dir" "working directory"
+  assert_not_portta_path "$request_working_dir" "a working directory"
   working_dir="$request_working_dir"
   config_files="$request_config_files"
 fi
@@ -110,6 +120,7 @@ if [ -n "$config_files" ]; then
     file="${file%"${file##*[![:space:]]}"}"
     [ -n "$file" ] || continue
     [ -z "$id" ] && assert_request_path "$file" "compose file"
+    [ -n "$id" ] || assert_not_portta_path "$file" "a compose file"
     [ -f "${HOST_ROOT}${file}" ] || die "compose file ${file} is not readable"
     case "$file" in
       "$working_dir"/*) ;;

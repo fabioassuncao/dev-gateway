@@ -106,7 +106,7 @@ export function ServiceRow({
       </Td>
       <Td>
         <div className="flex flex-wrap items-center gap-1">
-          <StateBadge state={service.state} health={service.health} />
+          <StateBadge state={service.state} health={service.health} completed={service.completed} />
           {service.restartCount > 0 ? <Badge tone={service.restartCount > 3 ? 'danger' : 'warn'}>{t('row.restarts', { count: service.restartCount })}</Badge> : null}
           {!running && service.exitCode !== null && service.exitCode !== 0 ? <Badge tone="danger">{t('row.exitCode', { code: service.exitCode })}</Badge> : null}
         </div>

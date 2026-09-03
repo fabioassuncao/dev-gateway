@@ -1008,7 +1008,8 @@
           "amqp",
           "clickhouse",
           "smtp",
-          "tcp"
+          "tcp",
+          "worker"
         ]
       },
       "ServiceTech": {
@@ -1259,6 +1260,14 @@
               }
             ]
           },
+          "oneOff": {
+            "type": "boolean",
+            "description": "A docker compose run container: it belongs to the environment but is not one of its services"
+          },
+          "completed": {
+            "type": "boolean",
+            "description": "Exited 0 with no restart policy: a one-shot that did its job, not a service that is down"
+          },
           "overrides": {
             "$ref": "#/components/schemas/ServiceOverrides"
           }
@@ -1294,7 +1303,9 @@
           "mounts",
           "labels",
           "restartCount",
-          "exitCode"
+          "exitCode",
+          "oneOff",
+          "completed"
         ],
         "additionalProperties": false
       },
@@ -1606,6 +1617,12 @@
             "maximum": 9007199254740991
           },
           "runningCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "completedCount": {
+            "description": "Services that exited 0 with no restart policy; they count as fine, not as down",
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
@@ -3172,6 +3189,12 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "completedCount": {
+            "description": "Services that exited 0 with no restart policy",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "unhealthyCount": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -3316,7 +3339,7 @@
             ]
           },
           "relativePath": {
-            "description": "First-level directory under Projects Home, when managed",
+            "description": "One- or two-level path under Projects Home, when managed",
             "type": [
               "string",
               "null"
@@ -3726,6 +3749,11 @@
             "maximum": 9007199254740991
           },
           "runningCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "completedCount": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
@@ -8644,6 +8672,10 @@
                 "type": "null"
               }
             ]
+          },
+          "completed": {
+            "description": "Exited 0 with no restart policy: a one-shot that did its job",
+            "type": "boolean"
           },
           "ports": {
             "type": "array",

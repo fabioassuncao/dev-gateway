@@ -380,3 +380,90 @@ describe('the optional identity labels', () => {
     expect(snapshot.environments[0]?.repoUrl).toBeNull()
   })
 })
+
+describe('what is not a service', () => {
+  const oneOff: FakeContainer = {
+    id: 'a-web-run',
+    name: 'alpha-web-run-3f2a1c',
+    image: 'nginx:1.31.4-alpine',
+    networks: ['portta', 'alpha_default'],
+    exposed: [80],
+    state: 'exited',
+    exitCode: 0,
+    labels: {
+      'com.docker.compose.project': 'alpha',
+      'com.docker.compose.service': 'web',
+      'com.docker.compose.oneoff': 'True',
+      'traefik.enable': 'true',
+    },
+  }
+
+  it('keeps a `compose run` container out of the environment’s services, counts and URLs', async () => {
+    const { client } = fakeDocker({ containers: [...GATEWAY, ...PROJECT_A, oneOff] })
+    const snapshot = await buildSnapshot(client, config)
+    const container = snapshot.containers.find((c) => c.id === 'a-web-run')
+    expect(container?.oneOff).toBe(true)
+    expect(container?.environment).toBe('alpha')
+    expect(container?.urls).toEqual([])
+    expect(container?.kind).not.toBe('http')
+
+    const alpha = snapshot.environments.find((p) => p.name === 'alpha')
+    expect(alpha?.services.map((s) => s.id)).not.toContain('a-web-run')
+    expect(alpha?.serviceCount).toBe(4)
+    expect(alpha?.urls.filter((url) => url.host === 'alpha-web.localhost')).toHaveLength(1)
+  })
+
+  it('calls a service that exited 0 with no restart policy completed, and counts it', async () => {
+    const migrate: FakeContainer = {
+      id: 'a-migrate',
+      name: 'alpha-migrate-1',
+      image: 'alpine:3.24.1',
+      networks: ['alpha_default'],
+      state: 'exited',
+      exitCode: 0,
+      labels: { 'com.docker.compose.project': 'alpha', 'com.docker.compose.service': 'migrate' },
+    }
+    const crashed: FakeContainer = { ...migrate, id: 'a-crashed', name: 'alpha-crashed-1', exitCode: 1, labels: { ...migrate.labels, 'com.docker.compose.service': 'crashed' } }
+    const restarts: FakeContainer = { ...migrate, id: 'a-restarts', name: 'alpha-restarts-1', restartPolicy: 'unless-stopped', labels: { ...migrate.labels, 'com.docker.compose.service': 'restarts' } }
+    const { client } = fakeDocker({ containers: [...GATEWAY, ...PROJECT_A, migrate, crashed, restarts] })
+    const snapshot = await buildSnapshot(client, config)
+    const completed = (id: string) => snapshot.containers.find((c) => c.id === id)?.completed
+    expect(completed('a-migrate')).toBe(true)
+    expect(completed('a-crashed')).toBe(false)
+    expect(completed('a-restarts')).toBe(false)
+    expect(completed('a-web')).toBe(false)
+
+    const stoppedWeb: FakeContainer = {
+      ...migrate,
+      id: 'a-stopped-web',
+      name: 'alpha-stopped-web-1',
+      labels: { ...migrate.labels, 'com.docker.compose.service': 'web' },
+    }
+    const stoppedSnapshot = await buildSnapshot(fakeDocker({ containers: [...GATEWAY, stoppedWeb] }).client, config)
+    expect(stoppedSnapshot.containers.find((container) => container.id === 'a-stopped-web')?.completed).toBe(false)
+
+    const alpha = snapshot.environments.find((p) => p.name === 'alpha')
+    expect(alpha?.serviceCount).toBe(7)
+    expect(alpha?.runningCount).toBe(4)
+    expect(alpha?.completedCount).toBe(1)
+  })
+
+  it('calls a container with no port a worker, not TCP', async () => {
+    const worker: FakeContainer = {
+      id: 'a-horizon',
+      name: 'alpha-horizon-1',
+      image: 'php:8.4-cli',
+      networks: ['alpha_default'],
+      // Inherited from the shared PHP image; it does not make Horizon a TCP
+      // service because this process never listens on it.
+      exposed: [8000],
+      labels: { 'com.docker.compose.project': 'alpha', 'com.docker.compose.service': 'horizon' },
+    }
+    const { client } = fakeDocker({ containers: [...GATEWAY, ...PROJECT_A, worker] })
+    const snapshot = await buildSnapshot(client, config)
+    expect(snapshot.containers.find((c) => c.id === 'a-horizon')?.kind).toBe('worker')
+    // A port, even unpublished, keeps the honest fallback.
+    expect(snapshot.containers.find((c) => c.id === 'a-postgres')?.kind).toBe('postgres')
+    expect(snapshot.containers.find((c) => c.id === 'a-web')?.kind).toBe('http')
+  })
+})

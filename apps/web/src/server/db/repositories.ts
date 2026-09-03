@@ -55,7 +55,7 @@ export function providerFor(remoteUrl: string | null | undefined, githubLinked =
   return 'other'
 }
 
-const Name = z.string().min(1).max(120).regex(/^[A-Za-z0-9][A-Za-z0-9._ -]*$/, 'a repository name is letters, digits, dots, dashes and spaces')
+const Name = z.string().min(1).max(120).regex(/^\.?[A-Za-z0-9][A-Za-z0-9._ -]*$/, 'a repository name is letters, digits, dots, dashes and spaces; a leading dot is allowed (.github)')
 
 /** Absolute, canonical, and never walking up. The panel cannot stat it; the host scan can. */
 const LocalPath = z.string().max(1024).transform((value, ctx) => {

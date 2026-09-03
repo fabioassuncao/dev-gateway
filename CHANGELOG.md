@@ -35,6 +35,11 @@ While the version is `0.x`, minor releases may contain breaking changes.
   are aliases that say so.
 - **`portta envs` is what `portta project` was**, with `logs` and
   `endpoints` added; `project`, `environment` and `env` remain aliases.
+- **Repository discovery understands a workspace of repositories.** The host
+  scan inspects Git roots directly under Projects Home and one workspace level
+  below it, keeps the complete relative path (for example
+  `BrasilDataHub/base-eleicoes`), and still ignores hidden and deeper
+  directories. A duplicate remote never overrides an exact local-path match.
 
 ### Added
 
@@ -95,6 +100,16 @@ While the version is `0.x`, minor releases may contain breaking changes.
 - **`portta projects`, `tasks`, `sessions`, `activity` and `overview`** over
   the panel client, all with `--json`; `portta mcp` serves twenty-seven
   tools, one endpoint each, addressed by project.
+- **Explicit Compose files and logical Projects during adoption.** `portta
+  analyze|init <path> --file <compose-file>` supports a Compose file outside
+  the repository root without a heuristic search. `portta init --project
+  <slug>` writes `portta.project` on routed services so isolated Compose
+  namespaces can belong to one Project.
+- **Adoption collision diagnostics.** Analyze reports fixed `container_name`
+  collisions, a Compose namespace already running from another working
+  directory, and ambiguous `name:`/`COMPOSE_PROJECT_NAME` choices. The panel
+  reports a suspicious split working directory as a warning rather than a
+  fatal error.
 
 ### Added (earlier in this cycle)
 
@@ -194,7 +209,14 @@ While the version is `0.x`, minor releases may contain breaking changes.
   so any path a Compose file named (`include:`, `extends`, `env_file`, a
   relative bind) resolved against the runner's own root and was not found.
   It now links the host directories it needs under their own paths and
-  passes Compose the host paths, so files resolve as they do on the host.
+  passes Compose the host paths, so files resolve as they do on the host. A
+  remembered request is also refused when its working directory or Compose
+  file is Portta's own root or anything below it.
+
+- **Internal processes are no longer presented as web applications.** Worker,
+  scheduler and completed migration/init services stay internal even when
+  their base image exposes an HTTP port; Mailpit and object-storage consoles
+  keep their real UI ports and databases never receive an invented URL.
 
 - **The documentation site opened the panel Overview in development.** Vite on
   :5173 only proxied `/api`, so `/docs/` fell through to the panel SPA. A

@@ -5,6 +5,7 @@ import type {
   EnvironmentActionResult,
   EnvironmentOverrides,
   EnvironmentRemovalPreview,
+  EnvironmentRunnerStartResult,
   ProjectGit,
   ProjectLogsResponse,
   ProjectRebuildResult,
@@ -15,8 +16,9 @@ import type { EnvironmentServices } from '../../../shared/service-types.ts'
 import { request } from './client.ts'
 
 export const environmentsApi = {
+  /** Iterates the containers; a remembered environment (none left) is started through the runner instead, with a different result shape. */
   environmentAction: (name: string, action: 'start' | 'stop' | 'restart') =>
-    request<EnvironmentActionResult>(`/environments/${encodeURIComponent(name)}/actions/${action}`, {
+    request<EnvironmentActionResult | EnvironmentRunnerStartResult>(`/environments/${encodeURIComponent(name)}/actions/${action}`, {
       method: 'POST',
       body: '{}',
     }),

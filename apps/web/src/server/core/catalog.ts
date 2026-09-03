@@ -139,6 +139,7 @@ export async function loadProjectCatalog(db: Database, snapshot: Snapshot, confi
       running: environment.runningCount > 0,
       serviceCount: environment.serviceCount,
       runningCount: environment.runningCount,
+      completedCount: environment.completedCount ?? 0,
       unhealthyCount: environment.unhealthyCount,
       urls: environment.urls,
     })

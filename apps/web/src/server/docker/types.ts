@@ -42,6 +42,8 @@ export interface DockerContainerInspect {
     FinishedAt: string
     Health?: { Status: string; FailingStreak: number }
   }
+  /** Only the restart policy is read: it tells an exited one-shot from a service that is down. */
+  HostConfig?: { RestartPolicy?: { Name?: string } }
   Config: {
     Image: string
     Labels: Record<string, string>

@@ -15,7 +15,7 @@ function container(overrides: Partial<ContainerSummary> = {}): ContainerSummary 
       { url: 'https://shop-web.dev.example.com', host: 'shop-web.dev.example.com', scope: 'public', scheme: 'https' },
       { url: 'http://shop-web.localhost', host: 'shop-web.localhost', scope: 'local', scheme: 'http' },
     ],
-    mounts: [], labels: {}, restartCount: 0, exitCode: null,
+    mounts: [], labels: {}, restartCount: 0, exitCode: null, oneOff: false, completed: false,
     ...overrides,
   }
 }

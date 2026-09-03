@@ -77,6 +77,15 @@ function basename(path: string | null): string | null {
   return parts.length ? (parts[parts.length - 1] ?? null) : null
 }
 
+/**
+ * Compose does not have a first-class job kind. An exit code of zero is not
+ * enough: an ordinary web service stopped cleanly also exits zero under the
+ * default `restart: no`. Only conventional one-shot service names earn the
+ * completed state.
+ */
+const COMPLETED_JOB = /(^|[-_])(migrat(?:e|or|ion|ions)|init|seed|setup|bootstrap|job)([-_]|$)/i
+const WORKER_SERVICE = /(^|[-_])(worker|queue|scheduler|cron|consumer|beat|horizon|celery|sidekiq|resque)([-_]|$)/i
+
 /** Every Host(`...`) a router rule names, in label order. */
 export function hostsFromRules(labels: Record<string, string>): string[] {
   const hosts: string[] = []
@@ -219,7 +228,18 @@ export function summarise(
   const state = toState(inspect?.State.Status ?? item.State)
   const dirName = basename(workingDir)
 
-  const urls = urlsFor(labels, name, config)
+  // `docker compose run` gives the container the service's labels and one more.
+  // It belongs to the environment, but it is not the service: no URL, so the
+  // panel never routes it or sees it collide with the real one.
+  const oneOff = (labels[LABELS.composeOneoff] ?? '').toLowerCase() === 'true'
+  const urls = oneOff ? [] : urlsFor(labels, name, config)
+  const ports = publishedPorts(inspect, item)
+  const exposed = exposedPorts(inspect)
+  const exitCode = inspect ? inspect.State.ExitCode : null
+  const restartPolicy = inspect?.HostConfig?.RestartPolicy?.Name ?? ''
+  // A migration that ran and exited 0 under `restart: no` did its job. Docker
+  // calls it exited; the environment is not degraded because of it.
+  const completed = state === 'exited' && exitCode === 0 && (restartPolicy === '' || restartPolicy === 'no') && COMPLETED_JOB.test(service ?? '')
 
   return {
     id: item.Id,
@@ -245,12 +265,19 @@ export function summarise(
     networks,
     onGatewayNetwork,
     traefikEnabled: labels[LABELS.traefikEnable] === 'true',
-    ports: publishedPorts(inspect, item),
-    exposedPorts: exposedPorts(inspect),
+    ports,
+    exposedPorts: exposed,
     // Opting a database into hostname routing also sets traefik.enable, so
     // asking that label alone would call PostgreSQL an HTTP service. What
-    // makes something HTTP is ending up with a URL.
-    kind: urls.length > 0 ? 'http' : serviceKind(image),
+    // makes something HTTP is ending up with a URL. A worker image can inherit
+    // EXPOSE from the web runtime it shares, so a conventional worker/job name
+    // is stronger evidence than that image metadata. A container with no port
+    // at all is likewise a worker, not "TCP".
+    kind: urls.length > 0
+      ? 'http'
+      : completed || WORKER_SERVICE.test(service ?? '') || (exposed.length === 0 && ports.length === 0)
+        ? 'worker'
+        : serviceKind(image),
     tech: resolveServiceTech({ image, service, labels }),
     urls,
     mounts: (inspect?.Mounts ?? item.Mounts ?? []).map((mount) => ({
@@ -262,7 +289,9 @@ export function summarise(
     })),
     labels: relevantLabels(labels),
     restartCount: inspect?.RestartCount ?? 0,
-    exitCode: inspect ? inspect.State.ExitCode : null,
+    exitCode,
+    oneOff,
+    completed,
   }
 }
 
@@ -275,6 +304,10 @@ export function groupEnvironments(containers: ContainerSummary[], now: number): 
   const byEnvironment = new Map<string, ContainerSummary[]>()
   for (const container of containers) {
     if (container.ownership === 'gateway' || container.environment === null) continue
+    // A `compose run` container stays in the snapshot (the Docker page lists
+    // it) but is not a service of the environment: not a row, not a count,
+    // not a URL. Its state is its own business.
+    if (container.oneOff) continue
     const list = byEnvironment.get(container.environment)
     if (list) list.push(container)
     else byEnvironment.set(container.environment, [container])
@@ -318,6 +351,7 @@ export function groupEnvironments(containers: ContainerSummary[], now: number): 
       services,
       serviceCount: services.length,
       runningCount: services.filter((service) => service.state === 'running').length,
+      completedCount: services.filter((service) => service.completed).length,
       healthyCount: services.filter((service) => service.health === 'healthy').length,
       unhealthyCount: services.filter((service) => service.health === 'unhealthy').length,
       networks: [...new Set(services.flatMap((service) => service.networks))].sort(),

@@ -333,6 +333,7 @@ export function resolveBridgePlan(
     (item) =>
       item.environment === request.project &&
       item.service === request.service &&
+      !item.oneOff &&
       item.state === 'running',
   )
   if (!container) {

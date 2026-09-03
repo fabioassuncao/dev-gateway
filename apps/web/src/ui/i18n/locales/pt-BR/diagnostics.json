@@ -87,6 +87,12 @@
       "detail": "sem colisões"
     }
   },
+  "split-working-dir": {
+    "title": "O ambiente '{{name}}' roda a partir de dois diretórios",
+    "warn": {
+      "fix": "dois checkouts compartilham um COMPOSE_PROJECT_NAME; dê outro nome a um deles (portta namespace)"
+    }
+  },
   "port-conflict": {
     "title": "Conflitos de portas publicadas",
     "warn": {

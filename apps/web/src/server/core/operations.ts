@@ -321,7 +321,7 @@ export async function removeProject(
     const verb: RunnerVerb = body.volumes ? 'down-volumes' : 'down'
     const flags: RunnerFlag[] = body.directory ? ['directory'] : []
     const status = await dispatchRunner(client, snapshot, config, { verb, project: name, flags })
-    const cleaned = await cleanupPorttaRecords(client, snapshot, config, db, name)
+    const cleaned = await cleanupPorttaRecords(client, snapshot, config, db, name, { forget: body.directory })
     return {
       ok: true,
       project: name,
@@ -370,7 +370,8 @@ export async function removeProject(
     remainingCommands.push(`rm -rf -- ${shellSingle(dir)}`)
   }
 
-  const cleaned = await cleanupPorttaRecords(client, snapshot, config, db, name)
+  // Without the runner the directory stays, so the environment stays remembered.
+  const cleaned = await cleanupPorttaRecords(client, snapshot, config, db, name, { forget: false })
   return {
     ok: true,
     project: name,
@@ -392,6 +393,7 @@ async function cleanupPorttaRecords(
   config: PanelConfig,
   db: Database | null,
   name: string,
+  options: { forget: boolean },
 ): Promise<EnvironmentPorttaRecords> {
   const before = await collectRecords(snapshot, config, db, name)
 
@@ -419,7 +421,10 @@ async function cleanupPorttaRecords(
 
   deleteAccessFiles(accessFilesFor(config.accessDir, name), config.accessDir)
 
-  if (db !== null && db.status().available) {
+  // Taking the containers down leaves the environment remembered: the
+  // working directory is still there and the panel can start it again
+  // through the runner. Only removing the directory forgets it.
+  if (options.forget && db !== null && db.status().available) {
     await db.environments.forget(name)
   }
 

@@ -28,6 +28,7 @@ export function serviceRoutes(deps: AppDeps): Hono {
     const services = snapshot.containers.filter(
       (container) =>
         container.environment !== null &&
+        !container.oneOff &&
         integrated.has(container.environment) &&
         (project === undefined || container.environment === project),
     )

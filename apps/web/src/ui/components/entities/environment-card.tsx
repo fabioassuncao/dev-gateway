@@ -32,6 +32,7 @@ export function EnvironmentCard({
   const health = environmentHealth(environment)
   const rows = serviceRowsFor(environment, null, readOnly).filter((row) => !row.hidden)
   const hidden = serviceRowsFor(environment, null, readOnly).filter((row) => row.hidden)
+  const remembered = environment.presence === 'remembered'
 
   return (
     <Card>
@@ -47,8 +48,12 @@ export function EnvironmentCard({
             </a>
             {environment.overrides?.pinned ? <Badge tone="accent">{t('pinned')}</Badge> : null}
             {environment.overrides?.archived ? <Badge tone="outline">{t('archived')}</Badge> : null}
-            <Badge tone={healthTone(health)}>{t('running', { running: environment.runningCount, total: environment.serviceCount })}</Badge>
-            {environment.unhealthyCount > 0 ? <Badge tone="danger">{t('unhealthy', { count: environment.unhealthyCount })}</Badge> : null}
+            {remembered ? (
+              <Badge tone="outline">{t('presence.remembered')}</Badge>
+            ) : (
+              <Badge tone={healthTone(health)}>{t('running', { running: environment.runningCount, total: environment.serviceCount })}</Badge>
+            )}
+            {!remembered && environment.unhealthyCount > 0 ? <Badge tone="danger">{t('unhealthy', { count: environment.unhealthyCount })}</Badge> : null}
             {environment.namespace ? <Badge tone="outline">{t('worktree', { name: environment.namespace })}</Badge> : null}
             {owner ? (
               <a className="text-xs text-muted underline-offset-2 hover:text-accent hover:underline" href={`#/projects/${encodeURIComponent(owner.slug)}`}>
@@ -73,13 +78,13 @@ export function EnvironmentCard({
         }
         actions={
           <>
-            <EnvironmentOpenMenu environment={environment} />
+            {environment.urls.length > 0 ? <EnvironmentOpenMenu environment={environment} /> : null}
             <EnvironmentActions project={environment} />
           </>
         }
       />
       {git.data ? <GitStatusLine git={git.data} variant="line" className="border-b border-line" refreshHint={false} /> : null}
-      <ServiceTable services={rows} containers={environment.services} emptyTitle={t('servicesTable.empty')} />
+      <ServiceTable services={rows} containers={environment.services} emptyTitle={t(remembered ? 'servicesTable.emptyRemembered' : 'servicesTable.empty')} />
       {hidden.length > 0 ? (
         <details className="border-t border-line px-4 py-2">
           <summary className="cursor-pointer text-xs text-subtle">

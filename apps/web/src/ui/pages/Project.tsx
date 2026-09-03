@@ -284,16 +284,27 @@ function Section({ label, tasks, slug, empty }: { label: string; tasks: TaskSumm
   )
 }
 
+/**
+ * The adopted environment when the list does not carry it in full. One with no
+ * services at all is a remembered one (its containers are gone), which the
+ * link carries no presence for: "0/0 running" would be the wrong word.
+ */
 function AdoptedRow({ environment }: { environment: ProjectEnvironment }) {
   const { t } = useTranslation('projects')
+  const { t: te } = useTranslation('environments')
   const sourceReason = t(sourceKey(environment.source))
   const health = environmentHealth(environment)
+  const remembered = environment.serviceCount === 0 && !environment.running
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2 text-sm last:border-b-0">
       <a className="font-medium underline-offset-2 hover:text-accent hover:underline" href={`#/environments/${encodeURIComponent(environment.environment)}`}>
         {environment.environment}
       </a>
-      <Badge tone={healthTone(health)}>{t('running', { running: environment.runningCount, total: environment.serviceCount })}</Badge>
+      {remembered ? (
+        <Badge tone="outline">{te('presence.remembered')}</Badge>
+      ) : (
+        <Badge tone={healthTone(health)}>{t('running', { running: environment.runningCount, total: environment.serviceCount })}</Badge>
+      )}
       {environment.unhealthyCount > 0 ? <Badge tone="danger">{t('detail.unhealthyCount', { count: environment.unhealthyCount })}</Badge> : null}
       <span className="text-xs text-subtle">{sourceReason}</span>
     </div>

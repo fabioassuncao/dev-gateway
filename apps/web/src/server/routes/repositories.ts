@@ -38,6 +38,7 @@ const RepositoryEnvironment = z.object({
   running: z.boolean(),
   serviceCount: z.number().int(),
   runningCount: z.number().int(),
+  completedCount: z.number().int().optional(),
   unhealthyCount: z.number().int(),
   urls: z.array(RouteUrl),
 }).strict().meta({ ref: 'RepositoryEnvironment' })

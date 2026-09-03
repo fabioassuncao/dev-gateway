@@ -15,7 +15,12 @@
     "stopConfirmTitle": "Parar este projeto?",
     "stopConfirm": "{{name}} tem {{count}} serviço(s). Nada é removido; Iniciar os traz de volta.",
     "cancel": "Cancelar",
-    "partial": "{{failed}} falhou(aram), {{succeeded}} ok."
+    "partial": "{{failed}} falhou(aram), {{succeeded}} ok.",
+    "forget": "Esquecer",
+    "forgetConfirmTitle": "Esquecer este ambiente?",
+    "forgetConfirm": "O Portta deixa de listar {{name}}. Nada muda em disco ou no Docker.",
+    "startedViaRunner": "Iniciado pelo runner; os containers aparecem conforme sobem.",
+    "startCommand": "Inicie por um terminal:"
   },
   "operations": {
     "rebuild": "Reconstruir",
@@ -219,11 +224,16 @@
     "empty": "Nenhum ambiente em execução",
     "emptyHint": "Um ambiente aparece quando o Compose está no ar neste host. Adote-o num Project com a label portta.project ou à mão.",
     "noMatch": "Nenhum ambiente corresponde aos filtros",
-    "count": "{{count}} ambiente(s)"
+    "count": "{{count}} ambiente(s)",
+    "remembered": "Não em execução"
   },
   "servicesTable": {
     "empty": "Este ambiente não tem serviços",
-    "fallback": "Medições ao vivo precisam que o painel sirva os serviços deste ambiente; mostrando o que os containers reportam."
+    "fallback": "Medições ao vivo precisam que o painel sirva os serviços deste ambiente; mostrando o que os containers reportam.",
+    "emptyRemembered": "Os containers foram removidos. Iniciar recria pelo runner."
+  },
+  "presence": {
+    "remembered": "Não em execução"
   },
   "settings": {
     "title": "Configurações",

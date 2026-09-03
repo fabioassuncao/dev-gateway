@@ -82,7 +82,11 @@ export function EnvironmentPage({ project: name, tab: requested, service }: {
       <Tabs tabs={tabs} active={tab} label={`${name} sections`} />
       <TabPanel id={tab}>
         {tab === 'overview' ? <OverviewTab environment={environment} service={service} /> : null}
-        {tab === 'logs' ? <EnvironmentLogs project={environment} service={service} /> : null}
+        {tab === 'logs' ? (
+          environment.presence === 'remembered'
+            ? <Card><Empty title={t('servicesTable.emptyRemembered')} /></Card>
+            : <EnvironmentLogs project={environment} service={service} />
+        ) : null}
         {tab === 'settings' ? (
           <Card>
             <CardHeader title={t('settings.title')} description={t('settings.description')} />
@@ -122,6 +126,7 @@ function EnvironmentHeader({ environment, owner }: { environment: Environment; o
   const { uptime } = useFormat()
   const git = useEnvironmentGit(environment.name)
   const health = environmentHealth(environment)
+  const remembered = environment.presence === 'remembered'
   const shown = environment.overrides?.displayName ?? environment.name
   const breadcrumb: BreadcrumbItem[] = owner
     ? [
@@ -149,16 +154,20 @@ function EnvironmentHeader({ environment, owner }: { environment: Environment; o
         }
         actions={
           <>
-            <EnvironmentOpenMenu environment={environment} />
-            <EnvironmentActions project={environment} />
-            <EnvironmentOperations project={environment} />
+            {environment.urls.length > 0 ? <EnvironmentOpenMenu environment={environment} /> : null}
+            <EnvironmentActions project={environment} onForgotten={() => navigate('/environments')} />
+            {remembered ? null : <EnvironmentOperations project={environment} />}
           </>
         }
       />
       <div className="mb-4 rounded-lg border border-line bg-surface">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-xs">
-          <Badge tone={healthTone(health)}>{t('header.services', { running: environment.runningCount, total: environment.serviceCount })}</Badge>
-          {environment.unhealthyCount > 0 ? <Badge tone="danger">{t('unhealthy', { count: environment.unhealthyCount })}</Badge> : null}
+          {remembered ? (
+            <Badge tone="outline">{t('presence.remembered')}</Badge>
+          ) : (
+            <Badge tone={healthTone(health)}>{t('header.services', { running: environment.runningCount, total: environment.serviceCount })}</Badge>
+          )}
+          {!remembered && environment.unhealthyCount > 0 ? <Badge tone="danger">{t('unhealthy', { count: environment.unhealthyCount })}</Badge> : null}
           {owner ? (
             owner.repository ? (
               <a className="text-accent underline-offset-2 hover:underline" href={repositoryHref(owner.slug, owner.repository.id)}>
@@ -244,8 +253,8 @@ function OverviewTab({ environment, service }: { environment: Environment; servi
             containers={environment.services}
             initialService={service}
             onSelect={(next) => navigate(next ? `${base}?service=${encodeURIComponent(next)}` : base)}
-            emptyTitle={t('servicesTable.empty')}
-            emptyHint={t('servicesEmptyHint')}
+            emptyTitle={t(environment.presence === 'remembered' ? 'servicesTable.emptyRemembered' : 'servicesTable.empty')}
+            emptyHint={environment.presence === 'remembered' ? undefined : t('servicesEmptyHint')}
           />
         )}
       </Card>

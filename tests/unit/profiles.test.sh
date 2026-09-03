@@ -90,6 +90,10 @@ it "off by default"
 assert_not_contains "$(files_for local)" "docker/compose/features/web.yaml"
 it "enabled by PORTTA_WEB"
 assert_contains "$(files_for local PORTTA_WEB=true)" "docker/compose/features/web.yaml"
+it "passes Projects Home as configuration without mounting it"
+web_overlay=$(cat "$PORTTA_ROOT/docker/compose/features/web.yaml")
+assert_contains "$web_overlay" 'PORTTA_PROJECTS_HOME: ${PORTTA_PROJECTS_HOME:-}'
+assert_eq "1" "$(printf '%s\n' "$web_overlay" | grep -c 'PORTTA_PROJECTS_HOME')"
 it "development mode adds the HMR overlay"
 assert_contains "$(files_for local PORTTA_WEB=true PORTTA_WEB_DEV=true)" "docker/compose/features/web-dev.yaml"
 it "and does not add it otherwise"

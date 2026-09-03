@@ -135,6 +135,7 @@ export function environmentsOf(repository: Repository, snapshot: Snapshot) {
       running: environment.runningCount > 0,
       serviceCount: environment.serviceCount,
       runningCount: environment.runningCount,
+      completedCount: environment.completedCount ?? 0,
       unhealthyCount: environment.unhealthyCount,
       urls: environment.urls,
     }))

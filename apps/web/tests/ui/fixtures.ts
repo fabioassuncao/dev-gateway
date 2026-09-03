@@ -1,4 +1,4 @@
-import type { ContainerSummary, DockerHost, EnvironmentOperable, EnvironmentStartable } from '../../src/shared/types.ts'
+import type { ContainerSummary, DockerHost, Environment, EnvironmentOperable, EnvironmentStartable } from '../../src/shared/types.ts'
 
 export function makeStartable(ok = false): EnvironmentStartable {
   return ok
@@ -18,6 +18,42 @@ export function makeOperable(workingDir: string | null = '/srv/dev/alpha'): Envi
   return { ok: true, reason: null, workingDir, configFiles: [] }
 }
 import { resolveServiceTech } from '../../src/server/core/tech.ts'
+
+/**
+ * One environment as the list serves it. Counts follow the services given;
+ * `presence: 'remembered'` empties them, the way the panel does for an
+ * environment whose containers are gone.
+ */
+export function makeEnvironment(overrides: Partial<Environment> = {}): Environment {
+  const remembered = overrides.presence === 'remembered'
+  const services = remembered ? [] : overrides.services ?? [
+    makeContainer({ id: 'a-web', name: 'alpha-web-1', service: 'web', environment: 'alpha', ownership: 'integrated' }),
+  ]
+  const base: Environment = {
+    name: 'alpha',
+    presence: 'live',
+    integrated: !remembered,
+    workingDir: '/srv/dev/alpha',
+    operable: makeOperable('/srv/dev/alpha'),
+    startable: remembered ? { ok: true, reason: null, via: 'runner' } : makeStartable(),
+    namespace: null,
+    group: null,
+    repo: null,
+    repoUrl: null,
+    gitRoot: null,
+    serviceCount: services.length,
+    runningCount: services.filter((service) => service.state === 'running').length,
+    healthyCount: services.filter((service) => service.health === 'healthy').length,
+    unhealthyCount: services.filter((service) => service.health === 'unhealthy').length,
+    services,
+    networks: remembered ? [] : ['portta', 'alpha_default'],
+    urls: [],
+    scopes: [],
+    startedAt: remembered ? null : 1_700_000_000,
+    uptimeSeconds: remembered ? null : 3600,
+  }
+  return { ...base, ...overrides, services: overrides.services ?? services }
+}
 
 export function makeContainer(overrides: Partial<ContainerSummary> = {}): ContainerSummary {
   const image = overrides.image ?? 'nginx:1.31.4-alpine'
@@ -54,6 +90,8 @@ export function makeContainer(overrides: Partial<ContainerSummary> = {}): Contai
     labels: {},
     restartCount: 0,
     exitCode: null,
+    oneOff: false,
+    completed: false,
   }
   return { ...base, ...overrides, tech: overrides.tech ?? resolveServiceTech({
     image: overrides.image ?? base.image,

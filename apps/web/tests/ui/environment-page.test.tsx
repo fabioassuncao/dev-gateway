@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
-import { makeContainer, makeOperable, makeStartable } from './fixtures.ts'
+import { makeContainer, makeEnvironment, makeOperable, makeStartable } from './fixtures.ts'
 import type { Environment, ProjectGit } from '../../src/shared/types.ts'
 
 class ApiError extends Error {
@@ -22,6 +22,7 @@ const environmentLogs = vi.fn()
 const environmentServices = vi.fn()
 const projects = vi.fn()
 const projectDetail = vi.fn()
+const forgetEnvironment = vi.fn()
 
 vi.mock('../../src/ui/lib/api/index.ts', () => ({
   ApiError,
@@ -31,6 +32,7 @@ vi.mock('../../src/ui/lib/api/index.ts', () => ({
     environmentLogs: (name: string, options: unknown) => environmentLogs(name, options),
     containerAction: vi.fn().mockResolvedValue({ ok: true }),
     environmentAction: vi.fn().mockResolvedValue({ ok: true, project: 'alpha', action: 'restart', requested: 0, succeeded: 0, failed: 0, skipped: 0, results: [] }),
+    forgetEnvironment: (name: string) => forgetEnvironment(name),
     logs: vi.fn().mockResolvedValue({ lines: [], truncated: false }),
     removalPreview: vi.fn().mockResolvedValue({ allowed: true, warnings: [], namedVolumes: [] }),
     stats: vi.fn().mockResolvedValue({ cpuPercent: null }),
@@ -153,6 +155,7 @@ beforeEach(() => {
     ],
   })
   environmentServices.mockReset().mockRejectedValue(new ApiError(404, 'not found'))
+  forgetEnvironment.mockReset().mockResolvedValue({ ok: true, forgotten: 'alpha' })
   projects.mockReset().mockResolvedValue([{ slug: 'shop', name: 'Shop' }])
   projectDetail.mockReset().mockResolvedValue({ slug: 'shop', name: 'Shop', repositories: [{ id: 'r1', name: 'api', environments: ['alpha'] }], environments: [{ environment: 'alpha' }] })
   window.location.hash = '/environments/alpha'
@@ -334,5 +337,43 @@ describe('Environment page', () => {
     within(list).getAllByRole('tab')[0]!.focus()
     await userEvent.keyboard('{ArrowRight}')
     await waitFor(() => expect(window.location.hash).toBe('#/environments/alpha/logs'))
+  })
+
+  describe('when remembered', () => {
+    const remembered = makeEnvironment({ presence: 'remembered', workingDir: '/srv/dev/alpha' })
+
+    beforeEach(() => {
+      project.mockResolvedValue(remembered)
+      environmentGit.mockRejectedValue(new ApiError(404, 'no scan'))
+    })
+
+    it('says it is not running and hides rebuild and remove', async () => {
+      renderWithQuery(<EnvironmentPage project="alpha" tab="overview" service={null} />)
+      await screen.findByRole('heading', { name: 'alpha' })
+      expect(screen.getByText('Not running')).toBeInTheDocument()
+      expect(screen.queryByText(/services running/)).toBeNull()
+      expect(screen.getByRole('button', { name: 'Start' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Forget' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Rebuild' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Remove, keep data' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Open / Test' })).toBeNull()
+      expect(await screen.findByText('Containers were removed. Start recreates them through the runner.')).toBeInTheDocument()
+    })
+
+    it('does not read logs that no container can write', async () => {
+      renderWithQuery(<EnvironmentPage project="alpha" tab="logs" service={null} />)
+      expect(await screen.findByText('Containers were removed. Start recreates them through the runner.')).toBeInTheDocument()
+      expect(environmentLogs).not.toHaveBeenCalled()
+    })
+
+    it('goes back to the list once forgotten', async () => {
+      renderWithQuery(<EnvironmentPage project="alpha" tab="overview" service={null} />)
+      await userEvent.click(await screen.findByRole('button', { name: 'Forget' }))
+      await screen.findByRole('dialog', { name: 'Forget this environment?' })
+      await userEvent.click(screen.getAllByRole('button', { name: 'Forget' }).at(-1)!)
+      await waitFor(() => expect(forgetEnvironment).toHaveBeenCalledWith('alpha'))
+      await waitFor(() => expect(window.location.hash).toBe('#/environments'))
+    })
   })
 })

@@ -16,6 +16,7 @@
   "running": "Em execução",
   "stopped": "Parado",
   "unhealthy": "Não saudável",
+  "oneOff": "avulso",
   "disabled": "desativado",
   "enabled": "ativado",
   "yes": "Sim",
@@ -101,7 +102,8 @@
     "restarting": "reiniciando",
     "removing": "removendo",
     "exited": "encerrado",
-    "dead": "morto"
+    "dead": "morto",
+    "completed": "concluído"
   },
   "logs": {
     "filterLines": "Filtrar linhas",

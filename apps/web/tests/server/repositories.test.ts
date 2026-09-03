@@ -24,6 +24,7 @@ function scanDir(): string {
     repositories: [
       { key: KEY, path: ROOT, name: 'alpha', remote: 'git@github.com:acme/alpha.git', location: 'managed', relativePath: 'alpha' },
       { key: repositoryKey('/srv/projects/orphan'), path: '/srv/projects/orphan', name: 'orphan', remote: null, location: 'managed', relativePath: 'orphan' },
+      { key: repositoryKey('/srv/projects/workspace/nested'), path: '/srv/projects/workspace/nested', name: 'nested', remote: null, location: 'managed', relativePath: 'workspace/nested' },
     ],
     environments: { alpha: KEY, 'alpha-pr7': KEY },
   }))
@@ -79,7 +80,7 @@ describe('reading a repository scan', () => {
 
   it('reads the index with its repositories', () => {
     const index = readScanIndex(testConfig({ gitDir: scanDir() }))
-    expect(index?.repositories.map((entry) => entry.name)).toEqual(['alpha', 'orphan'])
+    expect(index?.repositories.map((entry) => entry.name)).toEqual(['alpha', 'orphan', 'nested'])
     expect(index?.home).toBe('/srv/projects')
   })
 })
@@ -106,8 +107,10 @@ describe('joining a registered repository with the scan', () => {
   it('offers only the scanned roots nobody registered', () => {
     const config = testConfig({ gitDir: scanDir() })
     const discovered = discoveredRepositories([row({ localPath: ROOT })], loadScans(config))
-    expect(discovered.map((entry) => entry.name)).toEqual(['orphan'])
+    expect(discovered.map((entry) => entry.name)).toEqual(['orphan', 'nested'])
     expect(discovered[0]).toMatchObject({ location: 'managed', relativePath: 'orphan', environments: [] })
+    // A repository inside a workspace directory carries the two-segment path the scan gave it.
+    expect(discovered[1]).toMatchObject({ location: 'managed', relativePath: 'workspace/nested', path: '/srv/projects/workspace/nested' })
   })
 
   it('names the provider from the remote', () => {
@@ -170,7 +173,7 @@ describe('the repository endpoints', () => {
   it('offers what the host scanned, then registers it from its key', async () => {
     const instance = app()
     const discovered = await (await instance.app.request('/api/repositories/discovered')).json()
-    expect(discovered.repositories.map((entry: { name: string }) => entry.name)).toEqual(['alpha', 'orphan'])
+    expect(discovered.repositories.map((entry: { name: string }) => entry.name)).toEqual(['alpha', 'orphan', 'nested'])
 
     const created = await post(instance.app, '/api/projects/produto/repositories', { scanKey: KEY, role: 'web' })
     expect(created.status).toBe(201)
@@ -180,7 +183,7 @@ describe('the repository endpoints', () => {
     expect(body.environments).toEqual(['alpha', 'alpha-pr7'])
 
     const after = await (await instance.app.request('/api/repositories/discovered')).json()
-    expect(after.repositories.map((entry: { name: string }) => entry.name)).toEqual(['orphan'])
+    expect(after.repositories.map((entry: { name: string }) => entry.name)).toEqual(['orphan', 'nested'])
   })
 
   it('serves git, commits, instructions and environments for one repository', async () => {

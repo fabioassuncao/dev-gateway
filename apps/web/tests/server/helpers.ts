@@ -36,6 +36,8 @@ export interface FakeContainer {
   // Without these two a fixture cannot say "exited with 2 at 10:05".
   exitCode?: number
   finishedAt?: string
+  /** Docker's restart policy name; `no` when unset, as Docker reports it. */
+  restartPolicy?: string
   env?: string[]
 }
 
@@ -94,6 +96,7 @@ export function container(spec: FakeContainer): {
       Tty: false,
       Env: spec.env ?? [],
     },
+    HostConfig: { RestartPolicy: { Name: spec.restartPolicy ?? 'no' } },
     NetworkSettings: { Ports: ports, Networks: networks },
     Mounts: spec.mounts ?? [],
   }

@@ -1,15 +1,25 @@
-import { describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { screen, waitFor } from '@testing-library/react'
+import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
-import { makeContainer, makeOperable, makeStartable } from './fixtures.ts'
+import { makeContainer, makeEnvironment, makeOperable, makeStartable } from './fixtures.ts'
 import type { Environment } from '../../src/shared/types.ts'
 
 const environmentAction = vi.fn()
+const forgetEnvironment = vi.fn()
 
 vi.mock('../../src/ui/lib/api/index.ts', () => ({
   ApiError: class ApiError extends Error {},
-  api: { environmentAction: (...args: unknown[]) => environmentAction(...args) },
+  api: {
+    environmentAction: (...args: unknown[]) => environmentAction(...args),
+    forgetEnvironment: (...args: unknown[]) => forgetEnvironment(...args),
+  },
 }))
+
+beforeEach(() => {
+  environmentAction.mockReset()
+  forgetEnvironment.mockReset().mockResolvedValue({ ok: true, forgotten: 'alpha' })
+})
 
 const { EnvironmentActions } = await import('../../src/ui/components/environment-actions.tsx')
 
@@ -77,5 +87,57 @@ describe('project actions', () => {
     )
     expect(screen.getByRole('button', { name: 'Start' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled()
+  })
+})
+
+describe('a remembered environment', () => {
+  const COMMAND = 'docker compose -p alpha -f /srv/dev/alpha/compose.yaml up -d'
+
+  it('offers Start through the runner and Forget, never Stop or Restart', () => {
+    renderWithQuery(<EnvironmentActions project={makeEnvironment({ presence: 'remembered' })} />)
+    expect(screen.getByRole('button', { name: 'Start' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Forget' })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Restart' })).toBeNull()
+    expect(screen.queryByText(/Start it from a terminal/)).toBeNull()
+  })
+
+  it('reports a runner start in one line, without per-service results', async () => {
+    environmentAction.mockResolvedValue({ ok: true, project: 'alpha', action: 'start', via: 'runner', runner: { available: true } })
+    renderWithQuery(<EnvironmentActions project={makeEnvironment({ presence: 'remembered' })} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Start' }))
+    expect(await screen.findByText('Started through the runner; containers appear as they come up.')).toBeInTheDocument()
+    expect(environmentAction).toHaveBeenCalledWith('alpha', 'start')
+  })
+
+  it('shows the Compose command when there is no runner to start it', () => {
+    renderWithQuery(
+      <EnvironmentActions project={makeEnvironment({ presence: 'remembered', startable: { ok: false, reason: COMMAND, via: 'runner' } })} />,
+    )
+    const start = screen.getByRole('button', { name: 'Start' })
+    expect(start).toBeDisabled()
+    expect(start).toHaveAttribute('title', COMMAND)
+    expect(screen.getByText('Start it from a terminal:')).toBeInTheDocument()
+    expect(screen.getByText(COMMAND)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
+  })
+
+  it('forgets it after confirmation, then tells the page', async () => {
+    const onForgotten = vi.fn()
+    renderWithQuery(<EnvironmentActions project={makeEnvironment({ presence: 'remembered' })} onForgotten={onForgotten} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Forget' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Forget this environment?' })
+    expect(dialog).toHaveTextContent('Portta stops listing alpha. Nothing on disk or in Docker changes.')
+    expect(forgetEnvironment).not.toHaveBeenCalled()
+    await userEvent.click(screen.getAllByRole('button', { name: 'Forget' }).at(-1)!)
+    await waitFor(() => expect(forgetEnvironment).toHaveBeenCalledWith('alpha'))
+    await waitFor(() => expect(onForgotten).toHaveBeenCalled())
+  })
+
+  it('keeps it when the dialog is cancelled', async () => {
+    renderWithQuery(<EnvironmentActions project={makeEnvironment({ presence: 'remembered' })} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Forget' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    expect(forgetEnvironment).not.toHaveBeenCalled()
   })
 })

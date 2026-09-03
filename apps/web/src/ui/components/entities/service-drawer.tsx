@@ -66,7 +66,7 @@ export function ServiceDrawer({
         <span className="flex flex-wrap items-center gap-2">
           <ServiceIcon tech={container.tech} className="text-ink" />
           <span>{row.name}</span>
-          <StateBadge state={container.state} health={container.health} />
+          <StateBadge state={container.state} health={container.health} completed={container.completed} />
           <OwnershipBadge ownership={container.ownership} />
         </span>
       }

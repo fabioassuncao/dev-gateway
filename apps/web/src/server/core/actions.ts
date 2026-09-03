@@ -145,7 +145,9 @@ export async function runProjectAction(
   name: string,
   action: ContainerAction,
 ): Promise<EnvironmentActionResult> {
-  const members = snapshot.containers.filter((container) => container.environment === name)
+  // A `compose run` container is not a service: starting the environment
+  // must not rerun a finished `composer install`.
+  const members = snapshot.containers.filter((container) => container.environment === name && !container.oneOff)
   if (members.length === 0) {
     throw new ActionRefused(`no project '${name}' is running`, CONTAINERS_GONE_REASON, 404)
   }

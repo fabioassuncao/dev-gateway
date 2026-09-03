@@ -241,7 +241,29 @@ describe('the Project catalogue', () => {
     const snapshot = await createSnapshotCache(docker.client, config, 0).get()
     const catalog = await loadProjectCatalog(db, snapshot, config)
     expect(catalog.environments.get('p1')).toEqual([
-      { environment: 'gamma', source: 'manual', attribution: 'resolved', running: false, serviceCount: 0, runningCount: 0, unhealthyCount: 0, urls: [] },
+      { environment: 'gamma', source: 'manual', attribution: 'resolved', running: false, serviceCount: 0, runningCount: 0, completedCount: 0, unhealthyCount: 0, urls: [] },
     ])
+  })
+})
+
+describe('removal keeps the environment remembered', () => {
+  const alpha: EnvironmentRecord = {
+    id: '1', composeProject: 'alpha', workingDir: '/srv/dev/alpha', configFiles: ['/srv/dev/alpha/compose.yaml'],
+    repoUrl: null, repoSubpath: null, firstSeenAt: new Date(0), lastSeenAt: new Date(0), updatedAt: new Date(0),
+  } as EnvironmentRecord
+
+  it('down, with or without volumes, leaves the row alone', async () => {
+    const { db, forgotten } = withRecords([alpha])
+    const { app } = makeApp({ containers: [...PROJECT_A, RUNNER] }, isolated(), db)
+    await post(app, '/api/environments/alpha/operations/remove', { confirmation: 'alpha', volumes: true, directory: false })
+    expect(forgotten).toEqual([])
+  })
+
+  it('removing the directory forgets it in the same step', async () => {
+    const { db, forgotten } = withRecords([alpha])
+    const { app } = makeApp({ containers: [...PROJECT_A, RUNNER] }, isolated(), db)
+    const response = await post(app, '/api/environments/alpha/operations/remove', { confirmation: 'alpha', volumes: true, directory: true })
+    expect(response.status).toBe(200)
+    expect(forgotten).toEqual(['alpha'])
   })
 })

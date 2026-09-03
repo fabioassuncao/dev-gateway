@@ -29,10 +29,17 @@ export interface OverviewInput {
   lastActivity: Map<string, { at: number; summary: string }>
 }
 
+// A service that exited 0 with no restart policy (a migration, an init job)
+// did what it was for. It is not running, and the environment is not degraded
+// because of it. Same rule as environmentHealth in the UI.
+function degraded(env: Pick<Environment, 'serviceCount' | 'runningCount' | 'completedCount'>): boolean {
+  return env.runningCount > 0 && env.runningCount + (env.completedCount ?? 0) < env.serviceCount
+}
+
 function environmentHealth(env: Environment): 'ok' | 'partial' | 'unhealthy' | 'idle' {
   if (env.runningCount === 0) return 'idle'
   if (env.unhealthyCount > 0) return 'unhealthy'
-  if (env.runningCount < env.serviceCount) return 'partial'
+  if (degraded(env)) return 'partial'
   return 'ok'
 }
 
@@ -57,7 +64,7 @@ export function attentionFor(input: OverviewInput): AttentionItem[] {
         })
       }
     }
-    if (env.runningCount > 0 && env.runningCount < env.serviceCount) {
+    if (degraded(env)) {
       items.push({
         kind: 'environment-degraded', severity: 'warn',
         summary: `${env.name}: ${env.runningCount} of ${env.serviceCount} services running`,

@@ -29,7 +29,7 @@ STRAY="portta-web-e2e-stray"
 cleanup() {
   [ -z "$DB_CONTAINER" ] || docker start "$DB_CONTAINER" >/dev/null 2>&1
   [ -z "$DB_CONTAINER" ] || docker exec "$DB_CONTAINER" psql -U portta -d portta \
-    -c "DELETE FROM integrations WHERE kind = 'web-e2e-persistence';" >/dev/null 2>&1
+    -c "DELETE FROM settings WHERE key = 'web-e2e-persistence';" >/dev/null 2>&1
   curl -s -X DELETE "$BASE/api/access/$BRIDGE_ID" >/dev/null 2>&1
   "$GW" access close --all >/dev/null 2>&1
   docker rm -f "$STRAY" >/dev/null 2>&1
@@ -111,7 +111,7 @@ it "the data network has no external route"
 assert_eq "true" "$(docker network inspect "$PORTTA_DB_NETWORK" --format '{{ .Internal }}')"
 
 it "the latest migration is recorded"
-assert_eq "0005_issue_environments.sql" "$(docker exec "$DB_CONTAINER" psql -U portta -d portta \
+assert_eq "0011_environment_config_files.sql" "$(docker exec "$DB_CONTAINER" psql -U portta -d portta \
   -At -c 'SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1')"
 
 docker stop "$DB_CONTAINER" >/dev/null
@@ -123,9 +123,9 @@ wait_until 30 sh -c 'curl -fsS -m 10 "'"$BASE"'/api/health" >/dev/null'
 it "health remains available while PostgreSQL is down"
 assert_success get /api/health
 
-it "Docker-backed project discovery remains available too"
-wait_until 30 sh -c 'curl -fsS -m 10 "'"$BASE"'/api/projects" >/dev/null'
-assert_contains "$(get /api/projects)" '"projects"'
+it "Docker-backed environment discovery remains available too"
+wait_until 30 sh -c 'curl -fsS -m 10 "'"$BASE"'/api/environments" >/dev/null'
+assert_contains "$(get /api/environments)" '"environments"'
 
 it "the degraded database is an explicit warning"
 db_status=""
@@ -143,8 +143,8 @@ for _ in $(seq 1 30); do
 done
 
 docker exec "$DB_CONTAINER" psql -U portta -d portta -v ON_ERROR_STOP=1 \
-  -c "DELETE FROM integrations WHERE kind = 'web-e2e-persistence';
-      INSERT INTO integrations (kind, config) VALUES ('web-e2e-persistence', '{}');" >/dev/null
+  -c "DELETE FROM settings WHERE key = 'web-e2e-persistence';
+      INSERT INTO settings (key, value) VALUES ('web-e2e-persistence', 'true');" >/dev/null
 
 describe "it describes the host the way the CLI does"
 
@@ -160,15 +160,15 @@ it "counts the same routes as portta urls"
 assert_eq "$("$GW" urls --json 2>/dev/null | jq_py "len(d['routes'])")" \
   "$(printf '%s' "$status" | jq_py "d['counts']['routes']")"
 
-it "lists demo-a as an integrated project"
-assert_contains "$(get /api/projects | jq_py "[p['name'] for p in d['projects']]")" "demo-a"
+it "lists demo-a as an integrated environment"
+assert_contains "$(get /api/environments | jq_py "[e['name'] for e in d['environments'] if e['integrated']]")" "demo-a"
 
-it "groups the project's database under it, though it never joined the gateway"
+it "groups the environment's database under it, though it never joined the gateway"
 assert_contains \
-  "$(get /api/projects/demo-a | jq_py "[s['service'] for s in d['services']]")" "postgres"
+  "$(get /api/environments/demo-a | jq_py "[s['service'] for s in d['services']]")" "postgres"
 
 it "shows the URL Traefik actually serves"
-assert_contains "$(get /api/projects/demo-a | jq_py "[u['host'] for u in d['urls']]")" \
+assert_contains "$(get /api/environments/demo-a | jq_py "[u['host'] for u in d['urls']]")" \
   "demo-a-web.$PORTTA_DOMAIN"
 
 describe "it tells the gateway's containers from everybody else's"
@@ -282,13 +282,13 @@ DB_CONTAINER=$(portta_gateway_container db)
 
 it "the persisted marker comes back"
 assert_eq "1" "$(docker exec "$DB_CONTAINER" psql -U portta -d portta -At \
-  -c "SELECT count(*) FROM integrations WHERE kind = 'web-e2e-persistence'")"
+  -c "SELECT count(*) FROM settings WHERE key = 'web-e2e-persistence'")"
 
 it "the migration is still recorded exactly once"
 assert_eq "1" "$(docker exec "$DB_CONTAINER" psql -U portta -d portta -At \
   -c "SELECT count(*) FROM schema_migrations WHERE version = '0001_initial.sql'")"
 
 docker exec "$DB_CONTAINER" psql -U portta -d portta \
-  -c "DELETE FROM integrations WHERE kind = 'web-e2e-persistence';" >/dev/null
+  -c "DELETE FROM settings WHERE key = 'web-e2e-persistence';" >/dev/null
 
 t_summary

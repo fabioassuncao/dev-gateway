@@ -51,6 +51,7 @@ export function rememberedEnvironment(record: EnvironmentRecord, runnerPresent: 
     services: [],
     serviceCount: 0,
     runningCount: 0,
+    completedCount: 0,
     healthyCount: 0,
     unhealthyCount: 0,
     networks: [],

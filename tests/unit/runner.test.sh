@@ -96,6 +96,11 @@ assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" 'link_host_pa
 assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" 'files+=(-f "$file")'
 assert_eq "" "$(grep -n 'files+=(-f "${HOST_ROOT}' "$PORTTA_ROOT/scripts/lib/runner-exec.sh" || true)"
 
+it "refuses remembered working directories and Compose files under Portta's own root"
+assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" '"$PORTTA_ROOT"|"$PORTTA_ROOT"/*'
+assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" 'assert_not_portta_path "$request_working_dir" "a working directory"'
+assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" 'assert_not_portta_path "$file" "a compose file"'
+
 describe "the shell and the TypeScript CLI create the same container"
 
 if ! command -v node >/dev/null 2>&1 || [ ! -f "$PORTTA_ROOT/packages/core/dist/runner.js" ]; then

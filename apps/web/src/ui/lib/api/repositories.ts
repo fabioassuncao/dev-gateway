@@ -16,6 +16,7 @@ export interface RepositoryEnvironmentRow {
   running: boolean
   serviceCount: number
   runningCount: number
+  completedCount?: number
   unhealthyCount: number
   urls: RouteUrl[]
 }

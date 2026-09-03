@@ -59,7 +59,7 @@ export function accessRoutes(deps: AppDeps): Hono {
     const project = c.req.param('project')
     const service = c.req.param('service')
     const container = snapshot.containers.find(
-      (item) => item.environment === project && item.service === service,
+      (item) => item.environment === project && item.service === service && !item.oneOff,
     )
     if (!container) {
       throw new HTTPException(404, { message: `no service ${project}/${service}` })

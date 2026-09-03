@@ -82,7 +82,7 @@ beforeEach(() => {
   ])
   createRepository.mockReset().mockResolvedValue(detail.repositories[0])
   deleteRepository.mockReset().mockResolvedValue({ ok: true, removed: 'r1', note: '' })
-  discoveredRepositories.mockReset().mockResolvedValue([{ key: 'abcdef012345', path: '/srv/projects/shop/web', name: 'web', remote: null, location: 'managed', relativePath: 'shop', environments: ['alpha'] }])
+  discoveredRepositories.mockReset().mockResolvedValue([{ key: 'abcdef012345', path: '/srv/projects/shop/web', name: 'web', remote: null, location: 'managed', relativePath: 'shop/web', environments: ['alpha'] }])
   environments.mockReset().mockResolvedValue([])
   tasks.mockReset().mockResolvedValue([
     makeTaskSummary({ id: '42', project: 'meu-produto', status: 'in_progress', agent: 'claude-code', assignee: null }),
@@ -161,7 +161,7 @@ describe('the project cockpit', () => {
     renderWithQuery(<ProjectPage slug="meu-produto" tab="repositories" />)
     await screen.findByRole('group', { name: 'web repository' })
     await userEvent.click(screen.getByRole('button', { name: /Add repository/ }))
-    expect(await screen.findByText('/srv/projects/shop/web')).toBeInTheDocument()
+    expect(await screen.findByText('shop/web')).toHaveAttribute('title', '/srv/projects/shop/web')
     await userEvent.click(screen.getByRole('button', { name: 'Add' }))
     await waitFor(() => expect(createRepository).toHaveBeenCalledWith('meu-produto', { scanKey: 'abcdef012345' }))
   })

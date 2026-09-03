@@ -380,6 +380,9 @@ who is working, running environments, health, last commit and last activity.
 **New project** creates one; a Project needs the panel's database and the page
 says so when it is down. `Environments on this host` opens the list of every
 Compose project Docker is running, adopted or not.
+The panel classifies a Project's location against Projects Home by comparing
+paths the host scan reported; it never mounts Projects Home or any project
+directory.
 
 Opening a Project is the cockpit. The header carries its health, its tasks and
 sessions, an **Open / Test** menu for its primary environment and **New task**;
@@ -458,6 +461,21 @@ connection string. It is the same model the Access page manages
 
 An old `#/environments/<name>/services` opens the overview; `#/…/git` opens
 the repository the environment runs from.
+
+#### Remembered environments
+
+An environment whose containers were all removed does not vanish: the panel
+remembers where it ran (`working_dir`, the Compose files) and lists it as
+**remembered**, with no services. On a Project page it stays under its
+Project. Two things can happen to it: **Start**, which asks the runner for
+`docker compose up` with the remembered paths when `PORTTA_RUNNER=true`, or
+answers with the exact command to run on the host when it is not; and
+**Forget**, which drops the row with its overrides and links, and touches
+nothing on the host. A live environment cannot be forgotten: stop and remove
+it first. Removing an environment (with or without its volumes) leaves it
+remembered, since its directory is still there; only removing the directory
+forgets it in the same step. `GET /api/environments?all=true` returns both kinds, each with
+`presence: live` or `presence: remembered`.
 
 #### Logs across an environment
 

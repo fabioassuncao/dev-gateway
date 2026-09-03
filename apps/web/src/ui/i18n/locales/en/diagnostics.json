@@ -87,6 +87,12 @@
       "detail": "no collisions"
     }
   },
+  "split-working-dir": {
+    "title": "Environment '{{name}}' runs from two directories",
+    "warn": {
+      "fix": "two checkouts share a COMPOSE_PROJECT_NAME; give one of them another name (portta namespace)"
+    }
+  },
   "port-conflict": {
     "title": "Published port conflicts",
     "warn": {

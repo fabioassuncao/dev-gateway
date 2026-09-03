@@ -102,6 +102,51 @@ describe('diagnostics', () => {
     expect(problem?.detail).toContain('alpha-web.localhost')
   })
 
+  it('never sees a `compose run` container collide with the service it ran as', async () => {
+    const oneOff: FakeContainer = {
+      id: 'a-web-run',
+      name: 'alpha-web-run-3f2a1c',
+      image: 'nginx:1.31.4-alpine',
+      networks: ['portta', 'alpha_default'],
+      labels: {
+        'com.docker.compose.project': 'alpha',
+        'com.docker.compose.service': 'web',
+        'com.docker.compose.oneoff': 'True',
+        'traefik.enable': 'true',
+      },
+    }
+    const checks = await check([...GATEWAY, ...PROJECT_A, oneOff])
+    expect(find(checks, 'hostname-collision')?.status).toBe('pass')
+  })
+
+  it('warns when one environment runs from two directories', async () => {
+    const elsewhere = {
+      id: 'a-web-2',
+      name: 'alpha-web-2',
+      image: 'nginx:1.31.4-alpine',
+      networks: ['portta', 'alpha_default'],
+      labels: {
+        'com.docker.compose.project': 'alpha',
+        'com.docker.compose.service': 'web',
+        'com.docker.compose.project.working_dir': '/srv/projects/alpha-copy',
+      },
+    }
+    const tagged = PROJECT_A.map((container) => ({
+      ...container,
+      labels: { ...container.labels, 'com.docker.compose.project.working_dir': '/srv/projects/alpha' },
+    }))
+    const checks = await check([...GATEWAY, ...tagged, elsewhere])
+    const problem = find(checks, 'split-working-dir')
+    expect(problem?.status).toBe('warn')
+    expect(problem?.title).toBe("Environment 'alpha' runs from two directories")
+    expect(problem?.detail).toBe('/srv/projects/alpha, /srv/projects/alpha-copy')
+    expect(problem?.fix).toContain('portta namespace')
+    expect(problem?.params).toEqual({ name: 'alpha' })
+
+    const clean = await check([...GATEWAY, ...tagged])
+    expect(find(clean, 'split-working-dir')).toBeUndefined()
+  })
+
   it('warns when something else holds the gateway ports', async () => {
     const checks = await check([
       ...GATEWAY,

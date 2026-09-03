@@ -70,6 +70,16 @@ describe('the development dashboard', () => {
     expect(items[0]?.href).toContain('service=worker')
   })
 
+  it('does not call an environment degraded because a one-shot completed', () => {
+    const withMigration = environment('shop', { serviceCount: 3, runningCount: 2, completedCount: 1 })
+    expect(attentionFor(input({ environments: [withMigration] })).map((item) => item.kind)).toEqual([])
+    expect(projectPulses(input({ environments: [withMigration] }))[0]?.health).toBe('ok')
+
+    const stillDown = environment('shop', { serviceCount: 4, runningCount: 2, completedCount: 1 })
+    expect(attentionFor(input({ environments: [stillDown] })).map((item) => item.kind)).toEqual(['environment-degraded'])
+    expect(projectPulses(input({ environments: [stillDown] }))[0]?.health).toBe('partial')
+  })
+
   it('lists recent commits with forge links and the repositories with local changes', () => {
     const code = codeSection(input())
     expect(code.recentCommits.map((c) => c.shortSha)).toEqual(['aaaaaaa', 'bbbbbbb'])

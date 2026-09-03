@@ -239,6 +239,7 @@ function ContainerGroup({
   onDetails: (container: ContainerSummary) => void
 }) {
   const { t } = useTranslation('docker')
+  const { t: tc } = useTranslation('common')
   const { shortImage, uptime } = useFormat()
 
   return (
@@ -282,7 +283,10 @@ function ContainerGroup({
               </Td>
               <Td className="font-mono text-xs text-muted">{shortImage(container.image)}</Td>
               <Td>
-                <StateBadge state={container.state} health={container.health} />
+                <div className="flex flex-wrap items-center gap-1">
+                  <StateBadge state={container.state} health={container.health} completed={container.completed} />
+                  {container.oneOff ? <Badge tone="outline">{tc('oneOff')}</Badge> : null}
+                </div>
               </Td>
               <Td className="text-xs text-muted">
                 {container.environment ? (

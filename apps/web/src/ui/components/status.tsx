@@ -29,8 +29,10 @@ export function StateDot({ state, health }: { state: ContainerState | 'absent'; 
   )
 }
 
-export function StateBadge({ state, health }: { state: ContainerState | 'absent'; health?: Health }) {
+export function StateBadge({ state, health, completed }: { state: ContainerState | 'absent'; health?: Health; completed?: boolean }) {
   const { t } = useTranslation('common')
+  // A one-shot that exited 0 is not "exited" the way a crashed service is.
+  if (completed && state === 'exited') return <Badge tone="neutral">{t('state.completed')}</Badge>
   const stateLabel = t(`state.${state}`, { defaultValue: state })
   const healthLabel = health && health !== 'none' ? t(`health.${health}`, { defaultValue: health }) : null
   const label = healthLabel && state === 'running' ? `${stateLabel} · ${healthLabel}` : stateLabel

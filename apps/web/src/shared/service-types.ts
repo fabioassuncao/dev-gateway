@@ -85,6 +85,7 @@ export const Service = named(
     uptimeSeconds: z.number().nullable(),
     restartCount: z.number().int(),
     exitCode: z.number().int().nullable(),
+    completed: z.boolean().optional().describe('Exited 0 with no restart policy: a one-shot that did its job'),
     ports: z.array(PublishedPort),
     exposedPorts: z.array(z.number().int()),
     networks: z.array(z.string()),

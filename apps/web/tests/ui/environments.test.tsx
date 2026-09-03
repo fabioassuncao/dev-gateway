@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
-import { makeContainer, makeOperable, makeStartable } from './fixtures.ts'
+import { makeContainer, makeEnvironment, makeOperable, makeStartable } from './fixtures.ts'
 import type { Environment } from '../../src/shared/types.ts'
 
 const environments = vi.fn()
@@ -21,6 +21,7 @@ vi.mock('../../src/ui/lib/api/index.ts', () => ({
     containerAction: (...args: unknown[]) => containerAction(...args),
     serviceAction: (...args: unknown[]) => serviceAction(...args),
     environmentAction: (...args: unknown[]) => environmentAction(...args),
+    forgetEnvironment: vi.fn().mockResolvedValue({ ok: true, forgotten: 'gamma' }),
     logs: vi.fn().mockResolvedValue({ lines: [] }),
     removalPreview: vi.fn().mockResolvedValue({ allowed: true, warnings: [], namedVolumes: [] }),
     stats: vi.fn().mockResolvedValue({ cpuPercent: null }),
@@ -164,5 +165,31 @@ describe('the Environments page', () => {
     renderWithQuery(<EnvironmentsPage />)
     expect(await screen.findByText('No environment is running')).toBeInTheDocument()
     expect(screen.getByText(/Adopt it onto a Project/)).toBeInTheDocument()
+  })
+
+  it('lists a remembered environment as not running, after the live ones, with Start and Forget', async () => {
+    const gamma = makeEnvironment({ name: 'gamma', presence: 'remembered', workingDir: '/srv/dev/gamma' })
+    environments.mockResolvedValue([gamma, alpha, beta])
+    renderWithQuery(<EnvironmentsPage />)
+    await screen.findByRole('link', { name: 'gamma' })
+    const headings = screen.getAllByRole('link', { name: /^(alpha|beta|gamma)$/ }).map((link) => link.textContent)
+    expect(headings).toEqual(['alpha', 'beta', 'gamma'])
+    expect(screen.getByText('Not running', { selector: 'span' })).toBeInTheDocument()
+    expect(screen.queryByText('0/0 running')).toBeNull()
+    expect(screen.getByText('Containers were removed. Start recreates them through the runner.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Forget' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Stop' })).toHaveLength(2)
+  })
+
+  it('filters down to the remembered ones', async () => {
+    environments.mockResolvedValue([alpha, beta, makeEnvironment({ name: 'gamma', presence: 'remembered' })])
+    renderWithQuery(<EnvironmentsPage />)
+    await screen.findByRole('link', { name: 'gamma' })
+    await userEvent.selectOptions(screen.getAllByLabelText('Filter environments')[0]!, 'remembered')
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'alpha' })).not.toBeInTheDocument())
+    expect(screen.getByRole('link', { name: 'gamma' })).toBeInTheDocument()
+    await userEvent.selectOptions(screen.getAllByLabelText('Filter environments')[0]!, 'running')
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'gamma' })).not.toBeInTheDocument())
+    expect(screen.getByRole('link', { name: 'alpha' })).toBeInTheDocument()
   })
 })

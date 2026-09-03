@@ -53,7 +53,7 @@ export const TcpRouting = named(
 export type TcpRouting = z.infer<typeof TcpRouting>
 
 export const ServiceKind = named(
-  z.enum(['http', 'postgres', 'mysql', 'redis', 'mongodb', 'memcached', 'search', 'amqp', 'clickhouse', 'smtp', 'tcp']),
+  z.enum(['http', 'postgres', 'mysql', 'redis', 'mongodb', 'memcached', 'search', 'amqp', 'clickhouse', 'smtp', 'tcp', 'worker']),
   'ServiceKind',
 )
 export type ServiceKind = z.infer<typeof ServiceKind>
@@ -221,6 +221,8 @@ export const ContainerSummary = named(
     labels: z.record(z.string(), z.string()),
     restartCount: z.number().int(),
     exitCode: z.number().int().nullable(),
+    oneOff: z.boolean().describe('A docker compose run container: it belongs to the environment but is not one of its services'),
+    completed: z.boolean().describe('Exited 0 with no restart policy: a one-shot that did its job, not a service that is down'),
     overrides: ServiceOverrides.optional().describe('Absent when nothing was overridden'),
   }).strict(),
   'ContainerSummary',
@@ -339,6 +341,7 @@ export const Environment = named(
     services: z.array(ContainerSummary),
     serviceCount: z.number().int(),
     runningCount: z.number().int(),
+    completedCount: z.number().int().optional().describe('Services that exited 0 with no restart policy; they count as fine, not as down'),
     healthyCount: z.number().int(),
     unhealthyCount: z.number().int(),
     networks: z.array(z.string()),
@@ -495,7 +498,7 @@ export const DiscoveredRepository = named(
     name: z.string(),
     remote: z.string().nullable(),
     location: ProjectLocation.nullable(),
-    relativePath: z.string().nullable().describe('First-level directory under Projects Home, when managed'),
+    relativePath: z.string().nullable().describe('One- or two-level path under Projects Home, when managed'),
     environments: z.array(z.string()),
   }).strict(),
   'DiscoveredRepository',
@@ -510,6 +513,7 @@ export const ProjectEnvironment = named(
     running: z.boolean(),
     serviceCount: z.number().int(),
     runningCount: z.number().int(),
+    completedCount: z.number().int().optional().describe('Services that exited 0 with no restart policy'),
     unhealthyCount: z.number().int(),
     urls: z.array(RouteUrl),
   }).strict(),

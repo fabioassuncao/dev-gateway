@@ -30,6 +30,9 @@ export const LABELS = {
   composeConfigFiles: 'com.docker.compose.project.config_files',
   composeContainerNumber: 'com.docker.compose.container-number',
   composeDependsOn: 'com.docker.compose.depends_on',
+  // `True` on a `docker compose run` container. It carries the service's
+  // labels too, so without this it would pass for a second copy of the service.
+  composeOneoff: 'com.docker.compose.oneoff',
 
   traefikEnable: 'traefik.enable',
 
