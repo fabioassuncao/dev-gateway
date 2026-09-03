@@ -60,7 +60,13 @@
     "project": "Project",
     "ports": "Ports",
     "actions": "Actions",
-    "uptime": "Up"
+    "uptime": "Up",
+    "resources": "Resources",
+    "restarts": "{{count}} restarts",
+    "restarts_one": "{{count}} restart",
+    "restarts_other": "{{count}} restarts",
+    "exitCode": "exit {{code}}",
+    "caption": "Containers in {{group}}, their state and what they cost"
   },
   "anyState": "Any state",
   "containersTotal": "{{total}} containers total",

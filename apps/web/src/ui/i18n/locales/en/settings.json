@@ -231,5 +231,9 @@
     "credentialRequired": "a routed panel needs a credential: run portta web auth set",
     "panelNotOnEveryInterface": "the panel is not published on every interface; reach it over the VPN instead"
   },
-  "savedShort": "Saved."
+  "savedShort": "Saved.",
+  "restartRequired": "Needs a restart",
+  "restartHint": "Changing this takes effect after the gateway restarts, not when it is saved.",
+  "pendingHint": "Saved, but the running process still has {{value}}. Apply to restart it.",
+  "runningValue": "running: {{value}}"
 }

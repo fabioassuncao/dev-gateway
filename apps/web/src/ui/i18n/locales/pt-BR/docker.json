@@ -60,7 +60,13 @@
     "project": "Projeto",
     "ports": "Portas",
     "actions": "Ações",
-    "uptime": "Ativo há"
+    "uptime": "Ativo há",
+    "resources": "Recursos",
+    "restarts": "{{count}} reinícios",
+    "restarts_one": "{{count}} reinício",
+    "restarts_other": "{{count}} reinícios",
+    "exitCode": "saída {{code}}",
+    "caption": "Contêineres em {{group}}, seu estado e o que consomem"
   },
   "anyState": "Qualquer estado",
   "containersTotal": "{{total}} containers no total",

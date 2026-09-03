@@ -231,5 +231,9 @@
     "credentialRequired": "um painel roteado precisa de credencial: execute portta web auth set",
     "panelNotOnEveryInterface": "o painel não é publicado em todas as interfaces; acesse pela VPN"
   },
-  "savedShort": "Salvo."
+  "savedShort": "Salvo.",
+  "restartRequired": "Exige reinício",
+  "restartHint": "Mudar isto passa a valer depois que o gateway reiniciar, não ao salvar.",
+  "pendingHint": "Salvo, mas o processo em execução ainda usa {{value}}. Aplique para reiniciá-lo.",
+  "runningValue": "em execução: {{value}}"
 }

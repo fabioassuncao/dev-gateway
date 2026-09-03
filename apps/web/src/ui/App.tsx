@@ -22,7 +22,7 @@ import { legacyRedirect } from './lib/redirects.ts'
 import { useTheme } from './lib/theme.ts'
 import { useLive } from './lib/live.ts'
 import { useSidebarCollapsed } from './lib/sidebar.ts'
-import { useStatus } from './lib/queries/index.ts'
+import { useMetricsCurrent, useStatus } from './lib/queries/index.ts'
 import { cn } from './lib/utils.ts'
 import { useLocale, type Locale } from './i18n/use-locale.ts'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from './components/ui/menu.tsx'
@@ -102,6 +102,26 @@ const ROOT_OF: Record<string, string> = {
   environments: '/projects',
 }
 
+/**
+ * The mark. Three bars of decreasing height inside a rounded square: a port,
+ * and the panel's own shorthand for a host with things running on it. Small on
+ * purpose — it identifies the product, it does not decorate the page.
+ */
+function Brand() {
+  return (
+    <span
+      aria-hidden
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-accent-fg shadow-raised"
+    >
+      <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+        <path d="M4 11.5V6" />
+        <path d="M8 11.5V3.5" />
+        <path d="M12 11.5V8" />
+      </svg>
+    </span>
+  )
+}
+
 export function App() {
   const { t } = useTranslation('nav')
   const { t: tc } = useTranslation('common')
@@ -111,12 +131,17 @@ export function App() {
   const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
   const live = useLive()
   const status = useStatus()
+  const metrics = useMetricsCurrent()
 
   const first = segments(path)[0] ?? 'overview'
   const root = ROOT_OF[first] ?? `/${first}`
   const gateway = status.data?.gateway
 
   const gatewayTitle = gateway?.up ? t('gatewayUp') : t('gatewayDown')
+  const hostname = metrics.data?.host?.hostname ?? metrics.data?.instance.hostname ?? null
+  const hostLine = gateway
+    ? [hostname, gateway.gatewayVersion, gateway.profile].filter(Boolean).join(' · ')
+    : '…'
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -132,27 +157,28 @@ export function App() {
       >
         <div
           className={cn(
-            'flex items-center justify-between gap-2 px-4 py-3.5',
+            'flex items-center gap-2.5 border-b border-line px-3 py-3',
             sidebarCollapsed && 'md:justify-center md:px-0',
           )}
         >
-          <div className={cn('min-w-0', sidebarCollapsed && 'md:hidden')}>
-            <div className="text-sm font-semibold tracking-tight">{t('appName')}</div>
-            <div className="truncate font-mono text-[11px] text-subtle">
-              {gateway ? `${gateway.gatewayVersion} · ${gateway.profile}` : '…'}
+          <Brand />
+          <div className={cn('min-w-0 flex-1', sidebarCollapsed && 'md:hidden')}>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-semibold tracking-tight">{t('appName')}</span>
+              <GatewayStatusDot up={gateway?.up} pending={status.isPending} title={gatewayTitle} />
+            </div>
+            {/* What this panel is attached to, which is the one thing a person
+                with two of them open needs to tell them apart. */}
+            <div className="truncate font-mono text-[11px] text-subtle" title={hostLine}>
+              {hostLine}
             </div>
           </div>
-          <GatewayStatusDot
-            up={gateway?.up}
-            pending={status.isPending}
-            title={gatewayTitle}
-          />
         </div>
 
         <nav
           id="section-navigation"
           aria-label={t('sections')}
-          className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:overflow-visible scroll-thin"
+          className="flex gap-1 overflow-x-auto p-2 md:flex-col md:overflow-visible scroll-thin"
         >
           {NAV_GROUPS.map((group, index) => (
             <div
@@ -184,9 +210,14 @@ export function App() {
                     aria-current={active ? 'page' : undefined}
                     title={label}
                     className={cn(
-                      'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors',
+                      'relative flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors',
                       sidebarCollapsed && 'md:justify-center md:px-0',
-                      active ? 'bg-accent/12 font-medium text-accent' : 'text-muted hover:bg-surface-2 hover:text-ink',
+                      active
+                        // A bar on the leading edge as well as the tint: on a
+                        // tablet the nav is a horizontal strip, where a tint
+                        // alone is easy to lose.
+                        ? 'bg-accent/12 font-medium text-accent md:before:absolute md:before:inset-y-1 md:before:left-0 md:before:w-0.5 md:before:rounded-full md:before:bg-accent'
+                        : 'text-muted hover:bg-surface-2 hover:text-ink',
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />

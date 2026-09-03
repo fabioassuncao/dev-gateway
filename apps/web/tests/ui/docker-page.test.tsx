@@ -17,6 +17,11 @@ vi.mock('../../src/ui/lib/api/index.ts', () => ({
     removeContainer: vi.fn().mockResolvedValue({ ok: true }),
     logs: vi.fn().mockResolvedValue({ lines: [] }),
     stats: vi.fn().mockResolvedValue({ cpuPercent: null }),
+    // The Docker page joins the collector's per-container readings by id.
+    metricsCurrent: vi.fn().mockResolvedValue({
+      version: 1, instance: { id: '', name: null, hostname: null }, collectedAt: null, ageSeconds: null,
+      stale: true, collectorActive: false, host: null, runtime: null, projects: [],
+    }),
   },
 }))
 
@@ -28,16 +33,16 @@ beforeEach(() => {
 })
 
 describe('the Docker page', () => {
-  const group = (name: string) => within(screen.getByRole('table', { name }))
+  const group = (name: string) => within(screen.getByRole('table', { name: new RegExp(name) }))
   const tile = (name: string) =>
     screen.getByRole('group', { name }).querySelector('[data-slot="value"]')?.textContent
 
   it('keeps external containers in their own section, away from the projects', async () => {
     renderWithQuery(<DockerPage />)
-    await screen.findByRole('table', { name: 'External Docker' })
+    await screen.findByRole('table', { name: /External Docker/ })
 
-    expect(screen.getByText('Integrated projects')).toBeInTheDocument()
-    expect(screen.getByText('Standalone containers')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Integrated projects/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Standalone containers/ })).toBeInTheDocument()
 
     expect(group('External Docker').getByText('legacy-postgres')).toBeInTheDocument()
     expect(group('External Docker').queryByText('alpha-web-1')).not.toBeInTheDocument()
@@ -58,16 +63,16 @@ describe('the Docker page', () => {
 
   it('filters by ownership', async () => {
     renderWithQuery(<DockerPage />)
-    await screen.findByRole('table', { name: 'External Docker' })
+    await screen.findByRole('table', { name: /External Docker/ })
 
     await userEvent.selectOptions(screen.getByLabelText('Filter by ownership'), 'external')
-    await waitFor(() => expect(screen.queryByRole('table', { name: 'Integrated projects' })).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('table', { name: /Integrated projects/ })).toBeNull())
     expect(group('External Docker').getByText('legacy-postgres')).toBeInTheDocument()
   })
 
   it('filters by state', async () => {
     renderWithQuery(<DockerPage />)
-    await screen.findByRole('table', { name: 'Standalone containers' })
+    await screen.findByRole('table', { name: /Standalone containers/ })
 
     await userEvent.selectOptions(screen.getByLabelText('Filter by state'), 'stopped')
     await waitFor(() => expect(screen.queryByRole('table', { name: 'External Docker' })).toBeNull())
@@ -76,16 +81,16 @@ describe('the Docker page', () => {
 
   it('searches across name, image and project', async () => {
     renderWithQuery(<DockerPage />)
-    await screen.findByRole('table', { name: 'External Docker' })
+    await screen.findByRole('table', { name: /External Docker/ })
 
     await userEvent.type(screen.getByLabelText('Search containers'), 'postgres')
-    await waitFor(() => expect(screen.queryByRole('table', { name: 'Integrated projects' })).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('table', { name: /Integrated projects/ })).toBeNull())
     expect(group('External Docker').getByText('legacy-postgres')).toBeInTheDocument()
   })
 
   it('says so when nothing matches, instead of showing an empty table', async () => {
     renderWithQuery(<DockerPage />)
-    await screen.findByRole('table', { name: 'External Docker' })
+    await screen.findByRole('table', { name: /External Docker/ })
     await userEvent.type(screen.getByLabelText('Search containers'), 'nothing-like-this')
     expect(await screen.findByText('No container matches the filters')).toBeInTheDocument()
   })

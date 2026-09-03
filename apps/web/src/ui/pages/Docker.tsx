@@ -1,18 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useContainers, useDockerHost } from '../lib/queries/index.ts'
-import type { ContainerSummary, Ownership } from '../../shared/types.ts'
+import { useContainers, useDockerHost, useMetricsCurrent } from '../lib/queries/index.ts'
+import type { ContainerSummary, MetricsCurrent, Ownership } from '../../shared/types.ts'
 import { Card, CardHeader } from '../components/ui/card.tsx'
 import { Badge } from '../components/ui/badge.tsx'
 import { Input, Select } from '../components/ui/field.tsx'
 import { Table, Td, Th, Tr } from '../components/ui/table.tsx'
 import { Empty, ErrorBox, KeyValue, Loading, PageHeader, StatTile } from '../components/shell-bits.tsx'
-import { Mono } from '../components/copy.tsx'
-import { OwnershipBadge, StateBadge } from '../components/status.tsx'
-import { ContainerActions } from '../components/container-actions.tsx'
+import { OwnershipBadge } from '../components/status.tsx'
+import { ContainerTable } from '../components/entities/container-table.tsx'
 import { ServiceDrawer } from '../components/entities/service-drawer.tsx'
 import { useFormat } from '../lib/use-format.ts'
-import { ServiceIcon } from '../components/service-icon.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 
 const GROUP_KEYS: Ownership[] = ['gateway', 'integrated', 'external', 'standalone']
@@ -29,6 +27,8 @@ export function DockerPage() {
 
   const host = useDockerHost()
   const containers = useContainers()
+  // What each container costs comes from the collector, joined by container id.
+  const metrics = useMetricsCurrent()
 
   const filtered = useMemo(() => {
     let list = containers.data?.containers ?? []
@@ -127,6 +127,8 @@ export function DockerPage() {
                 title={t(`groups.${key}.title`)}
                 description={t(`groups.${key}.description`)}
                 containers={rows}
+                metrics={metrics.data}
+                storageKey={`docker-${key}`}
                 onDetails={setDetails}
               />
             )
@@ -136,6 +138,8 @@ export function DockerPage() {
             title={t(`groups.${ownership}.title`)}
             description={t(`groups.${ownership}.description`)}
             containers={filtered}
+            metrics={metrics.data}
+            storageKey={`docker-${ownership}`}
             onDetails={setDetails}
           />
         )}
@@ -231,94 +235,28 @@ function ContainerGroup({
   title,
   description,
   containers,
+  metrics,
+  storageKey,
   onDetails,
 }: {
   title: string
   description: string
   containers: ContainerSummary[]
+  metrics?: MetricsCurrent
+  storageKey: string
   onDetails: (container: ContainerSummary) => void
 }) {
   const { t } = useTranslation('docker')
-  const { t: tc } = useTranslation('common')
-  const { shortImage, uptime } = useFormat()
-
   return (
     <Card>
-      <CardHeader
-        title={
-          <span className="flex items-center gap-2">
-            {title}
-            <Badge>{containers.length}</Badge>
-          </span>
-        }
-        description={description}
+      <CardHeader title={title} meta={<Badge tone="outline">{containers.length}</Badge>} description={description} />
+      <ContainerTable
+        containers={containers}
+        metrics={metrics}
+        storageKey={storageKey}
+        caption={t('table.caption', { group: title })}
+        onDetails={onDetails}
       />
-      <Table aria-label={title}>
-        <thead>
-          <tr>
-            <Th>{t('table.name')}</Th>
-            <Th>{t('table.image')}</Th>
-            <Th>{t('table.state')}</Th>
-            <Th>{t('table.project')}</Th>
-            <Th>{t('table.ports')}</Th>
-            <Th>{t('networks')}</Th>
-            <Th>{t('table.uptime')}</Th>
-            <Th className="text-right">{t('table.actions')}</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {containers.map((container) => (
-            <Tr key={container.id}>
-              <Td>
-                <button
-                  className="flex items-center gap-1.5 text-left font-medium text-ink hover:text-accent"
-                  onClick={() => onDetails(container)}
-                >
-                  <ServiceIcon tech={container.tech} />
-                  <span>{container.name}</span>
-                </button>
-                <div className="mt-0.5">
-                  <OwnershipBadge ownership={container.ownership} />
-                </div>
-              </Td>
-              <Td className="font-mono text-xs text-muted">{shortImage(container.image)}</Td>
-              <Td>
-                <div className="flex flex-wrap items-center gap-1">
-                  <StateBadge state={container.state} health={container.health} completed={container.completed} />
-                  {container.oneOff ? <Badge tone="outline">{tc('oneOff')}</Badge> : null}
-                </div>
-              </Td>
-              <Td className="text-xs text-muted">
-                {container.environment ? (
-                  <a
-                    className="underline-offset-2 hover:text-accent hover:underline"
-                    href={`#/environments/${encodeURIComponent(container.environment)}`}
-                  >
-                    {container.environment}
-                  </a>
-                ) : (
-                  '-'
-                )}
-                {container.service ? (
-                  <span className="text-subtle"> · {container.service}</span>
-                ) : null}
-              </Td>
-              <Td className="font-mono text-xs text-muted">
-                {container.ports.length
-                  ? container.ports.map((port) => `${port.ip}:${port.hostPort}`).join(' ')
-                  : '-'}
-              </Td>
-              <Td>
-                <Mono value={container.networks.join(', ') || '-'} />
-              </Td>
-              <Td className="text-xs text-muted tabular-nums">{uptime(container.uptimeSeconds)}</Td>
-              <Td>
-                <ContainerActions container={container} onShowDetails={() => onDetails(container)} />
-              </Td>
-            </Tr>
-          ))}
-        </tbody>
-      </Table>
     </Card>
   )
 }
