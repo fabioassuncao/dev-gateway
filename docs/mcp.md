@@ -1,9 +1,8 @@
 # MCP: Portta, for an agent
 
 `portta mcp` is a [Model Context Protocol](https://modelcontextprotocol.io)
-server. It speaks stdio to an agent and HTTP to the panel, and it registers
-twenty-seven tools — one endpoint each — over the same API the panel and the
-CLI use.
+server. It speaks stdio to an agent and HTTP to the panel. Each tool reaches
+one endpoint over the same API the panel and the CLI use.
 
 The point of it is what the agent *does not* get: **no GitHub credential and
 no Docker socket**. The App's private key stays a file the panel mounts
@@ -33,8 +32,7 @@ verbs that reach github.com.
       "env": {
         // Only when the panel is authenticated. Omitted for a loopback panel
         // with no credential, which is the default.
-        "PORTTA_WEB_AUTH_USER": "dev",
-        "PORTTA_PANEL_PASSWORD": "…"
+        "PORTTA_TOKEN": "ptt_…"
       }
     }
   }
@@ -49,10 +47,11 @@ claude mcp add portta -- portta mcp --actor claude-code
 
 | Flag / variable | What it does |
 |---|---|
-| `--url <url>`, `PORTTA_PANEL_URL` | The panel API base. Defaults to `http://127.0.0.1:<PORTTA_WEB_PORT>` |
+| `--url <url>`, `PORTTA_URL` | The panel API base. Defaults to `http://127.0.0.1:<PORTTA_WEB_PORT>`; `PORTTA_PANEL_URL` is a compatibility alias |
 | `--allow-remote` | Permit a non-loopback panel URL. **Required** for one: that URL is where the panel credential would be sent |
 | `--actor <name>`, `PORTTA_MCP_ACTOR` | Sent on every call as `X-Portta-Actor`. Recorded on tasks, notes, sessions and activity; never forwarded to GitHub |
 | `PORTTA_WEB_AUTH_USER` + `PORTTA_PANEL_PASSWORD` | The panel credential, when the panel is authenticated |
+| `PORTTA_TOKEN` | Preferred non-interactive Bearer credential; the token supplies the authenticated actor and capabilities |
 
 `portta mcp` refuses a non-loopback panel URL unless you pass `--allow-remote`,
 because that URL is where a credential goes.
@@ -100,11 +99,14 @@ Work:
 | `get_subtasks` | `GET /api/tasks/:ref/subtasks` | — |
 | `create_task` | `POST /api/projects/:slug/tasks` | — |
 | `start_task` | `POST /api/tasks/:ref/start` | GitHub, when the task is bound |
-| `set_task_status` | `POST /api/tasks/:ref/status` | GitHub, when bound |
+| `set_task_status` | `POST /api/tasks/:ref/move` | GitHub, when bound |
 | `finish_task` | `POST /api/tasks/:ref/finish` | GitHub, when bound |
+| `update_task` | `PATCH /api/tasks/:ref` | GitHub, for fields in the binding contract |
+| `create_subtask` | `POST /api/tasks/:ref/subtasks` | — |
+| `link_subtask` | `PUT /api/tasks/:ref/subtasks/:childRef` | — |
 | `add_task_note` | `POST /api/tasks/:ref/notes` | — |
-| `link_task` | `POST /api/tasks/:ref/github/link` | — |
-| `comment_task` | `POST /api/tasks/:ref/comments` | GitHub |
+| `link_task` | `POST /api/tasks/:ref/github/link` | Requires `initialSync: pull\|push` |
+| `comment_task` | `POST /api/tasks/:ref/comments` | —; creates a local comment |
 | `start_session` | `POST /api/projects/:slug/sessions` | — |
 | `end_session` | `PATCH /api/sessions/:id` | — |
 
@@ -160,16 +162,17 @@ It answers `null` when there is nothing to do. That is an answer, not an error.
 one write, so a task is never half-taken. `finish_task` sets `done` and, when
 asked, closes the bound issue.
 
-A task is Portta's own. A write to an unbound task is local. A write to a
-task bound to a GitHub issue reaches GitHub first and the row second; when
-the App is unavailable the row is written anyway and the binding is marked
-`pending` until the next sync. A remote change that lands on a pending local
+A task is Portta's own. Every write is local first. For a bound task the API
+then attempts the defined GitHub push; when the App is unavailable the local
+write remains successful and the binding is marked `pending` or `error` for
+retry. A remote change that lands on a pending local
 edit is a `conflict`, kept and shown, never resolved silently.
 
 ## What an agent cannot do through this
 
-- **Read GitHub comments.** They are never projected; `comment_task` writes
-  one. Reading a discussion is a link to GitHub.
+- **Read GitHub comments.** They are never projected. `comment_task` writes a
+  local Portta comment; the UI/API can explicitly publish that comment as a
+  copy when required.
 - **Destroy anything**, by default: removing an environment, a container or a
   volume needs a capability the operator grants explicitly.
 - **Reach a repository the App was not installed on**, or publish a task to

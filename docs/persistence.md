@@ -45,12 +45,14 @@ classifies what could ever be shared between two gateways (project and user
 decisions) and what must never be (runtime observations and instance
 configuration). No synchronisation is implemented.
 
-Migrations `0001` to `0011` build that schema; `0007` renamed the tables to
+Migrations `0001` to `0013` build that schema; `0007` renamed the tables to
 the words [ADR 0031](adr/0031-projects-home-and-project.md) chose,
-`0008` to `0010` added repositories, tasks, sessions and activity
-([ADR 0032](adr/0032-portta-development-model.md)), turning every existing
-issue of an owned repository into a bound task, and `0011` added
-`config_files` to `environments`. Applied migration filenames
+`0008` to `0010` added repositories, tasks, sessions and activity, `0011`
+added `config_files` to `environments`, and `0012` added task workspace
+metadata. Migration `0013` adds sparse Kanban ranking, comment publication
+state and activity source attribution. The original task migration turned
+every existing issue of an owned repository into a bound task
+([ADR 0032](adr/0032-portta-development-model.md)). Applied migration filenames
 are recorded in `schema_migrations`. Startup takes a transaction scoped
 advisory lock and runs every pending migration in filename order, so
 concurrent starts cannot partially apply one; `portta db migrate` applies

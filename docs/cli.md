@@ -105,12 +105,15 @@ project Docker is running: an observation, read locally.
 | `envs analyze <path>` | Read-only. `--file <path>` names the Compose file (relative to `<path>` or absolute) when it is not `compose.yaml` in `<path>`; the project directory is then the file's. |
 | `envs init <path>` | `--dry-run`, repeatable `--service <name:port>`, `--file`, `--project <slug>`, `--output`, `--force`; writing needs confirmation. With `--file` the overlay is written next to that Compose file. `--project` emits `portta.project` on routed services so worktree namespaces adopt the logical Project. |
 | `envs namespace` | `--path`, `--base`, `--suffix`, `--no-check` |
-| `tasks list` | `--project <slug>`, `--status <a,b>`, `--open`, `--mine`, `--assignee`, `--repository <id>`, `-q <text>` |
+| `tasks list` | Optional `--project`; filters for `--status`, `--priority`, `--type`, `--label`, `--assignee`, `--agent`, `--repository`, `--environment`, `--service`, `--parent`, `--open`, `--mine`, `-q` |
 | `tasks next` | `--project <slug>`. The task to take, or nothing |
-| `tasks show\|subtasks <ref>` | `<ref>` is an id, `#id`, or `owner/repo#n` for a bound task |
-| `tasks create` | `--project`, `--title`, `--description`, `--priority`, `--status`, `--parent`, `--repository`, `--environment`, `--labels`, `--assignee` |
-| `tasks start\|status\|finish\|edit\|note <ref> …` | `start --no-assign`; `finish --close` closes the bound issue too |
-| `tasks link\|unlink\|publish\|sync <ref>` | The GitHub binding; `sync --resolve local\|remote` settles a conflict |
+| `tasks show\|view\|subtasks <ref>` | `<ref>` is an id, `#id`, or `owner/repo#n`; `--json` includes properties, subtasks, comments and binding |
+| `tasks create` | `--project`, `--title`, `--description`, `--priority`, `--status`, `--type`, `--parent`, `--repository`, `--environment`, `--service`, `--labels`, `--assignee`, `--agent`, `--deadline` |
+| `tasks edit\|update <ref>` | Partial update of title, description and every common property; never overwrites unspecified fields |
+| `tasks start\|status\|move\|block\|review\|finish\|complete\|reopen <ref>` | All status shortcuts use the same move API; `finish --close` also closes the bound issue |
+| `tasks comment <ref>` | One of `-m/--message`, `--file`, `--stdin` or the legacy positional text; creates a local Markdown comment |
+| `tasks subtask list\|create\|link` | Read the tree, create a child, or link an existing task |
+| `tasks github status\|link\|publish\|sync` | `link` requires exactly one of `--pull` or `--push`; `sync --resolve local\|remote` settles a conflict |
 | `sessions start\|end\|heartbeat\|list` | `start --project --task --repository --environment --summary`; `end --summary --abandon` |
 | `activity` | `--project`, `--kind`, `--task`, `--repository`, `--environment`, `--limit` |
 
@@ -118,6 +121,10 @@ Every verb that calls the panel accepts `--url`, `--allow-remote` and
 `--actor` (`PORTTA_ACTOR`), exactly as `portta mcp` does. `services`,
 `analyze`, `init` and `namespace` remain compatibility aliases at the top
 level.
+
+`PORTTA_URL` is the preferred API base variable (`PORTTA_PANEL_URL` remains a
+compatibility alias). `PORTTA_TOKEN` sends a Bearer token and takes precedence
+over Basic credentials. The singular `portta task` is an alias of `tasks`.
 
 ### Private access
 
@@ -151,6 +158,7 @@ file or stdin.
 | `auth protect <host>` | `--user`, `--password-stdin`, `--project`, `--service`; creates or rotates a protected-host record. |
 | `auth status [host]` | Read-only; never returns credential hashes. |
 | `auth unprotect <host>` | Removes the record; the consumer project's middleware label is unchanged. |
+| `auth token list\|create\|revoke` | Manage revocable Bearer tokens. `create --name --actor [--human] [--capabilities <a,b>]` prints the secret once. |
 | `network status` | `--public-ip` explicitly permits one external lookup. |
 | `public status|enable|disable` | Enable needs confirmation; TCP services are never published. |
 | `dns check|status` | Read-only. |

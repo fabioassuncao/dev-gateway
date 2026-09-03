@@ -27,16 +27,20 @@ read-only. A Personal Access Token in `.env` is not the design.
 
 | Fact | Owner |
 |---|---|
-| Issue title, body, state, labels, assignees, milestone, type, field values, sub-issue links, pull-request state | GitHub, as a projection. A bound Portta task is the local row; see [Tasks](tasks.md) and ADR 0032 |
+| Portta Task title, description, status, priority, labels and assignee | Portta. These fields can be copied explicitly across a GitHub binding; the local Task remains usable and authoritative when GitHub is unavailable |
+| Agent, due date, parent, repository/environment/service, board rank and local comments | Portta only |
+| GitHub issue state, milestone, field values, sub-issue links and pull-request state | GitHub, held as an external projection |
 | Branch, HEAD, dirty counts, ahead/behind | Local `git` on the host |
 | Containers, health, URLs, networks | Docker / Traefik on this host |
 | Which GitHub repositories a Portta project owns | Portta |
 | Which environments a Portta project has adopted | Portta |
 | A link from an issue to an environment | Portta |
 
-The panel never treats PostgreSQL as a second GitHub. A board action that
-means "close" closes the issue on GitHub; the local row is a cache with
-an age, not the original.
+The panel never treats a Task as a cache of GitHub. A local write commits
+first. When a binding exists, the shared fields are then pushed; an unavailable
+GitHub leaves the binding `pending` or `error` and never rolls the Task back.
+Linking an existing issue also requires an explicit first direction (`pull` or
+`push`), so neither side silently wins. See [ADR 0033](adr/0033-tasks-are-local-issues.md).
 
 ## Projects: repositories and the environments that belong to them
 
@@ -435,15 +439,14 @@ Issues are **projected**: GitHub owns them, and the panel keeps a local copy so
 the board answers while GitHub is unreachable. Every row carries `syncedAt` and
 a staleness flag, exactly as `ProjectGit` carries `collectedAt` and `stale`.
 
-Comments are deliberately not projected. They are large, they change often, and
-a link to GitHub beats a worse comment reader — the same reasoning
+GitHub comments are deliberately not projected wholesale. They are large, they change often, and
+a link to GitHub beats a partial mirror — the same reasoning
 [ADR 0010](adr/0010-git-collected-on-the-host.md) used for commit lists. There
 is no `github_issue_comments` table and a test asserts there is not.
 
-That is an argument about *projecting* a comment, not about writing one: a
-write-through endpoint that posts straight to GitHub and returns what GitHub
-returned creates no cache to keep in step. ADR 0018's 2026-09-02 amendment
-allows it; it is not built yet.
+Portta comments are local entities. A user may explicitly publish one as a
+copy to the bound GitHub issue. Portta records the returned comment id and URL,
+and a failed publication remains retryable without losing the local comment.
 
 ### Issues and tasks
 
@@ -453,11 +456,11 @@ issue did so in the migration that introduced tasks, and a new one does on
 the next reconciliation. The board, `portta tasks` and `portta mcp` all work
 on tasks; `owner/repo#number` still addresses a bound one.
 
-A write to a bound task reaches GitHub first and the row second. When the
-App is unavailable the row is written anyway and the binding is marked
-`pending` until `POST /api/tasks/:ref/github/sync` pushes it. A remote
+A write to a bound task is persisted in Portta first and then pushed. When the
+App is unavailable the local write succeeds and the binding is marked
+`pending` or `error` until `POST /api/tasks/:ref/github/sync` retries it. A remote
 change that lands on a pending local edit is a `conflict`, kept and shown
-with both sides; `sync` with `resolve: local | remote` settles it. Notes,
+with both sides; `sync` with `resolve: local | remote` settles it. Comments,
 parent, agent, type, service, due date and draft stay local; a draft is
 not published until it has a real title. See [Tasks](tasks.md) and
 [ADR 0032](adr/0032-portta-development-model.md).

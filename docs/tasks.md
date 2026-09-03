@@ -12,6 +12,19 @@ older than 24 hours are removed.
 
 `portta tasks create`, MCP and GitHub sync write published tasks.
 
+## Board and editing
+
+The board persists a sparse integer rank in `tasks.position`. Ranks normally
+have a gap of 1024; moving a card writes a midpoint between its neighbours.
+Only the destination column is compacted when no integer gap remains. The UI
+updates optimistically and rolls back if `POST /api/tasks/:ref/move` fails.
+
+The task page is read-first: the title and properties edit inline, while the
+description and comments share one GitHub-Flavoured Markdown editor and one
+sanitised renderer. Description edits autosave after 800 ms. Escape and a
+click outside flush a pending save before returning to rendered Markdown; a
+failed save keeps the local draft open so text is never discarded.
+
 ## Status
 
 The six statuses live in `TASK_STATUS_CATALOG` in `packages/core`. Each entry
@@ -47,9 +60,24 @@ without a `source_key` export as `task-<id>` so a later import can reconcile.
 - Both moved → `conflict`; resolve with `POST /tasks/:ref/github/sync` and
   `resolve: local|remote`.
 
-Title, description, status, priority and assignee travel across the binding.
-Notes, parent, agent, type, service, due date and draft do not. A draft cannot
+Title, description, status, priority, labels and assignee travel across the binding.
+Comments, parent, agent, type, service, due date and draft do not. A local
+comment can be explicitly published as a copy on the bound issue; its GitHub
+id, URL and publication state are recorded without changing the local source
+of truth. A draft cannot
 be published to GitHub until it has a real title.
+
+Linking an existing issue requires choosing an initial direction: `pull`
+imports the issue fields into Portta; `push` publishes the current Portta task.
+There is no implicit winner at link time.
+
+## REST surface
+
+The UI, CLI and MCP share the same task routes. `GET /api/tasks` offers global
+filtering; project-scoped list/create routes remain available. A task supports
+partial `PATCH`, `DELETE`, `/move`, `/comments`, `/subtasks`, `/activity` and
+the explicit `/github/*` operations. Mutations carry a source and generate the
+same activity regardless of whether they came from web, CLI, MCP or API.
 
 ## Commits and a task
 
