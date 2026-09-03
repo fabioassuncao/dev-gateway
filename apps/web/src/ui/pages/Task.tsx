@@ -70,6 +70,42 @@ export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: str
   const unlink = useMutation({ mutationFn: () => api.unlinkTaskGitHub(id), onSuccess: refresh, onError: failed })
   const publish = useMutation({ mutationFn: () => api.publishTaskGitHub(id), onSuccess: refresh, onError: failed })
   const sync = useMutation({ mutationFn: (resolve: 'local' | 'remote' | undefined) => api.syncTaskGitHub(id, resolve), onSuccess: refresh, onError: failed })
+  /**
+   * One file at a time rather than in parallel: the server caps how many a
+   * task may carry, and a burst of eight concurrent uploads would have eight
+   * different opinions about how many are already there.
+   */
+  const upload = useMutation({
+    mutationFn: async (files: File[]) => {
+      for (const file of files) await api.addTaskAttachment(id, file)
+      return files
+    },
+    onSuccess: (files) => {
+      refresh()
+      toast.push({
+        tone: 'ok',
+        duration: 3000,
+        title: files.length === 1
+          ? t('attachments.uploaded', { name: files[0]!.name })
+          : t('attachments.title', { count: files.length }),
+      })
+    },
+    onError: (error, files) => {
+      setSaveState('error')
+      toast.push({
+        tone: 'danger',
+        title: t('attachments.failed', { name: files[0]?.name ?? '' }),
+        description: error instanceof ApiError ? [error.message, error.hint].filter(Boolean).join(' · ') : String(error),
+      })
+    },
+  })
+
+  const removeAttachment = useMutation({
+    mutationFn: (attachmentId: string) => api.deleteTaskAttachment(id, attachmentId),
+    onSuccess: () => refresh(),
+    onError: failed,
+  })
+
   const remove = useMutation({
     mutationFn: () => api.deleteTask(id),
     onSuccess: () => {
@@ -114,7 +150,10 @@ export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: str
         parentTitle={siblings.data?.find((entry) => entry.id === data.parentId)?.title ?? null}
         readOnly={readOnly}
         saveState={saveState}
+        uploading={upload.isPending}
         actions={{
+          uploadAttachments: (files) => upload.mutate(files),
+          removeAttachment: (attachment) => removeAttachment.mutate(attachment.id),
           patch: (body) => patch.mutateAsync(body),
           start: () => start.mutate(),
           finish: (close) => finish.mutate(close),

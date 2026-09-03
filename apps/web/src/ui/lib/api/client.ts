@@ -15,7 +15,9 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, {
     ...init,
     headers: {
-      ...(init?.body ? { 'content-type': 'application/json' } : {}),
+      // A string body is JSON; FormData is not, and the browser has to set its
+      // own multipart content-type with the boundary in it.
+      ...(typeof init?.body === 'string' ? { 'content-type': 'application/json' } : {}),
       'X-Portta-Source': 'web',
       ...(init?.headers ?? {}),
     },

@@ -9,10 +9,11 @@ import { loadTaskLinks, type ResolvedTaskLink } from './task-environments.ts'
 import { panelUrlFor } from './issue-environments.ts'
 import type { PanelConfig } from '../config.ts'
 import type { Database } from '../db/index.ts'
-import type { TaskGitHubLinkRow, TaskNoteRow, TaskRow } from '../db/tasks.ts'
+import type { TaskAttachmentRow, TaskGitHubLinkRow, TaskNoteRow, TaskRow } from '../db/tasks.ts'
 import type { StoredIssue } from '../db/github.ts'
 import type { SessionRow } from '../db/sessions.ts'
-import type { Task, TaskEnvironmentLink, TaskGitHubBinding, TaskNote, TaskSummary } from '../../shared/task-types.ts'
+import type { Task, TaskAttachment, TaskEnvironmentLink, TaskGitHubBinding, TaskNote, TaskSummary } from '../../shared/task-types.ts'
+import { attachmentKind } from './attachments.ts'
 import { taskFieldsFromIssue } from 'portta-core'
 
 function seconds(date: Date | null): number | null {
@@ -29,6 +30,8 @@ export interface TaskContext {
   repositoryNameById: Map<string, string>
   environmentNameById: Map<string, string>
   tasks: TaskRow[]
+  /** How many files each task carries; counted once for the whole listing. */
+  attachmentCounts: Map<string, number>
   links: Map<string, TaskGitHubLinkRow>
   issues: Map<string, StoredIssue>
   resolved: Map<string, ResolvedTaskLink>
@@ -37,8 +40,9 @@ export interface TaskContext {
 
 export async function loadTaskContext(config: PanelConfig, db: Database, snapshot: Snapshot, tasks?: TaskRow[]): Promise<TaskContext> {
   const corpus = tasks ?? await db.tasks.list({ limit: 2000 })
-  const [projects, repositories, environments, links] = await Promise.all([
+  const [projects, repositories, environments, links, attachmentCounts] = await Promise.all([
     db.projects.list(), db.repositories.list(), db.environments.list(), db.tasks.listLinks(),
+    db.tasks.countAttachments(corpus.map((task) => task.id)),
   ])
   const issues = new Map<string, StoredIssue>()
   if (links.length > 0) {
@@ -49,6 +53,7 @@ export async function loadTaskContext(config: PanelConfig, db: Database, snapsho
     repositoryNameById: new Map(repositories.map((repository) => [repository.id, repository.name])),
     environmentNameById: new Map(environments.map((environment) => [environment.id, environment.composeProject])),
     tasks: corpus,
+    attachmentCounts,
     links: new Map(links.map((link) => [link.taskId, link])),
     issues,
     resolved: await loadTaskLinks(config, db, snapshot, corpus),
@@ -86,6 +91,7 @@ export function taskSummary(context: TaskContext, row: TaskRow): TaskSummary {
     github: bindingSummary(context, row),
     dueAt: seconds(row.dueAt),
     draft: row.draft,
+    attachmentCount: context.attachmentCounts.get(row.id) ?? 0,
     position: row.position,
     createdAt: seconds(row.createdAt) ?? 0,
     updatedAt: seconds(row.updatedAt) ?? 0,
@@ -156,7 +162,29 @@ export function noteView(note: TaskNoteRow): TaskNote {
   }
 }
 
-export function taskView(context: TaskContext, row: TaskRow, notes: readonly TaskNoteRow[], sessions: readonly SessionRow[]): Task {
+export function attachmentView(taskId: string, row: TaskAttachmentRow): TaskAttachment {
+  return {
+    id: row.id,
+    filename: row.filename,
+    contentType: row.contentType,
+    sizeBytes: row.sizeBytes,
+    kind: attachmentKind(row.contentType),
+    actor: row.actor,
+    actorKind: row.actorKind,
+    createdAt: seconds(row.createdAt) ?? 0,
+    // The bytes are behind this URL rather than in the payload: a task with
+    // ten screenshots would otherwise be a ten-megabyte JSON response.
+    downloadUrl: `/api/tasks/${encodeURIComponent(taskId)}/attachments/${encodeURIComponent(row.id)}`,
+  }
+}
+
+export function taskView(
+  context: TaskContext,
+  row: TaskRow,
+  notes: readonly TaskNoteRow[],
+  sessions: readonly SessionRow[],
+  attachments: readonly TaskAttachmentRow[] = [],
+): Task {
   const summary = taskSummary(context, row)
   return {
     ...summary,
@@ -165,6 +193,7 @@ export function taskView(context: TaskContext, row: TaskRow, notes: readonly Tas
     github: binding(context, row),
     environments: environmentsOfTask(context, row.id),
     notes: notes.map(noteView),
+    attachments: attachments.map((attachment) => attachmentView(row.id, attachment)),
     subtasks: taskSummaries(context, context.tasks.filter((task) => task.parentId === row.id)),
     activeSessionCount: sessions.filter((session) => session.status === 'active' && session.taskId === row.id).length,
   }

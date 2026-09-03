@@ -251,5 +251,24 @@
   "columnEmpty": "Nada em {{label}}",
   "dropHere": "Solte aqui",
   "moveFailed": "#{{id}} continuou onde estava",
-  "moveFailedHint": "A mudança foi desfeita porque o servidor a recusou."
+  "moveFailedHint": "A mudança foi desfeita porque o servidor a recusou.",
+  "attachments": {
+    "title": "Anexos ({{count}})",
+    "empty": "Nenhum arquivo anexado",
+    "emptyHint": "Solte um arquivo aqui, cole um screenshot ou escolha um. Até {{max}} MB cada.",
+    "add": "Anexar arquivo",
+    "dropHere": "Solte para anexar",
+    "uploading": "Anexando {{name}}…",
+    "uploaded": "{{name}} anexado",
+    "failed": "{{name}} não foi anexado",
+    "removeTitle": "Remover {{name}}?",
+    "removeImpact": "O arquivo é excluído desta tarefa e não pode ser recuperado.",
+    "remove": "Remover",
+    "removed": "{{name}} removido",
+    "openFile": "Abrir {{name}}",
+    "byOn": "{{actor}} · {{time}}",
+    "unknownActor": "alguém",
+    "pasted": "colado-{{time}}",
+    "preview": "Prévia de {{name}}"
+  }
 }

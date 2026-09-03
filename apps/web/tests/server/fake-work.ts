@@ -3,7 +3,7 @@
 // tests are about; the SQL is exercised against a real database elsewhere.
 
 import { isIntactDraft } from 'portta-core'
-import { CreateTask, UpdateTask, type TaskEnvironmentRow, type TaskFilter, type TaskGitHubLinkRow, type TaskNoteRow, type TaskRow, type TasksRepository } from '../../src/server/db/tasks.ts'
+import { CreateTask, UpdateTask, type TaskAttachmentRow, type TaskEnvironmentRow, type TaskFilter, type TaskGitHubLinkRow, type TaskNoteRow, type TaskRow, type TasksRepository } from '../../src/server/db/tasks.ts'
 import { StartSession, UpdateSession, type SessionRow, type SessionsRepository } from '../../src/server/db/sessions.ts'
 import type { ActivityInput, ActivityRepository, ActivityRow } from '../../src/server/db/activity.ts'
 
@@ -24,6 +24,8 @@ export function fakeTasks(): FakeTasks {
   const rows: TaskRow[] = []
   const notes: TaskNoteRow[] = []
   const links: TaskGitHubLinkRow[] = []
+  const attachments: TaskAttachmentRow[] = []
+  const attachmentBytes = new Map<string, Buffer>()
   const environments: TaskEnvironmentRow[] = []
   const environmentIds = new Map<string, string>([['alpha', 'e1'], ['alpha-issue182', 'e2']])
 
@@ -163,6 +165,46 @@ export function fakeTasks(): FakeTasks {
       note.githubHtmlUrl = detail.githubHtmlUrl ?? null
       note.publishError = detail.error ?? null
       return note
+    },
+    async listAttachments(taskId: string) {
+      return attachments.filter((attachment) => attachment.taskId === taskId)
+    },
+    async countAttachments(taskIds: string[]) {
+      const map = new Map<string, number>()
+      for (const attachment of attachments) {
+        if (!taskIds.includes(attachment.taskId)) continue
+        map.set(attachment.taskId, (map.get(attachment.taskId) ?? 0) + 1)
+      }
+      return map
+    },
+    async findAttachment(taskId: string, attachmentId: string) {
+      return attachments.find((entry) => entry.taskId === taskId && entry.id === attachmentId) ?? null
+    },
+    async readAttachment(taskId: string, attachmentId: string) {
+      const row = attachments.find((entry) => entry.taskId === taskId && entry.id === attachmentId)
+      if (!row) return null
+      return { row, content: attachmentBytes.get(row.id) ?? Buffer.alloc(0) }
+    },
+    async addAttachment(
+      taskId: string,
+      file: { filename: string; contentType: string; content: Buffer },
+      actor: string | null,
+      actorKind: 'human' | 'agent' | 'system',
+    ) {
+      const row: TaskAttachmentRow = {
+        id: nextId(), taskId, filename: file.filename, contentType: file.contentType,
+        sizeBytes: file.content.byteLength, actor, actorKind, createdAt: new Date(),
+      }
+      attachments.push(row)
+      attachmentBytes.set(row.id, file.content)
+      return row
+    },
+    async removeAttachment(taskId: string, attachmentId: string) {
+      const index = attachments.findIndex((entry) => entry.taskId === taskId && entry.id === attachmentId)
+      if (index < 0) return false
+      attachmentBytes.delete(attachments[index]!.id)
+      attachments.splice(index, 1)
+      return true
     },
     async findLink(taskId: string) { return links.find((link) => link.taskId === taskId) ?? null },
     async listLinks(taskIds?: string[]) { return taskIds ? links.filter((link) => taskIds.includes(link.taskId)) : links },

@@ -32,6 +32,41 @@ has a tone, a category and whether it is terminal. The SQL check and the Zod
 enum still list those six values. A later change can add per-project workflows
 without rewriting the board.
 
+## Attachments
+
+A task carries files: the screenshot of the bug, the log that proves it, the
+JSON the API actually returned. Attach one from the file picker, by dropping it
+onto the Attachments section, or by pasting a screenshot straight from the
+clipboard.
+
+| Limit | Value | Enforced by |
+|---|---|---|
+| Size per file | 10 MB | `ATTACHMENT_LIMITS` and a SQL `CHECK` |
+| Files per task | 25 | `ATTACHMENT_LIMITS` |
+| Filename | one path segment, 255 chars | `safeFilename` |
+
+The bytes live in `task_attachments` in PostgreSQL rather than on disk. Every
+filesystem path the panel touches is a channel shared with the host —
+`state/metrics` is written by the collector, `state/runner` is read by the
+runner, `traefik-dynamic` is read by Traefik. An attachment is none of those:
+it belongs to a task, it is only ever read back through the API, and it must
+disappear when the task does, which makes it a durable decision and puts it in
+the database ([ADR 0013](adr/0013-what-the-panel-persists.md)). It also means
+an existing install gains attachments by running a migration rather than by
+re-running Compose with a new mount, and that a database backup is complete.
+
+The content type is an allowlist, not a guess. A type the panel will render —
+PNG, JPEG, GIF, WebP, AVIF, PDF, plain text, Markdown, CSV, JSON — is kept;
+anything else, SVG included, is stored as `application/octet-stream` and only
+ever downloaded. SVG is excluded deliberately: it can carry script, and these
+bytes are served from the panel's own origin. Every download goes out with
+`X-Content-Type-Options: nosniff` and a `sandbox` CSP.
+
+`GET /api/tasks/:ref/attachments` lists the metadata; the bytes are behind the
+`downloadUrl` each entry carries, so a task with ten screenshots is not a
+ten-megabyte JSON response. `POST` takes `multipart/form-data` with the file in
+a `file` field, which is what a browser's file input and `curl -F` both speak.
+
 ## Import and export
 
 Example stacks under `docker/examples/*/portta.example.json` are the first

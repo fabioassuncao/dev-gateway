@@ -7599,6 +7599,11 @@
           "draft": {
             "type": "boolean"
           },
+          "attachmentCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "position": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -7646,6 +7651,7 @@
           "github",
           "dueAt",
           "draft",
+          "attachmentCount",
           "position",
           "createdAt",
           "updatedAt",
@@ -7963,6 +7969,62 @@
         ],
         "additionalProperties": false
       },
+      "TaskAttachment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "image",
+              "text",
+              "pdf",
+              "file"
+            ]
+          },
+          "actor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actorKind": {
+            "$ref": "#/components/schemas/ActorKind"
+          },
+          "createdAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          },
+          "downloadUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "contentType",
+          "sizeBytes",
+          "kind",
+          "actor",
+          "actorKind",
+          "createdAt",
+          "downloadUrl"
+        ],
+        "additionalProperties": false
+      },
       "Task": {
         "type": "object",
         "properties": {
@@ -8089,6 +8151,11 @@
           "draft": {
             "type": "boolean"
           },
+          "attachmentCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "position": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -8140,6 +8207,12 @@
               "$ref": "#/components/schemas/TaskNote"
             }
           },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskAttachment"
+            }
+          },
           "subtasks": {
             "type": "array",
             "items": {
@@ -8171,6 +8244,7 @@
           "github",
           "dueAt",
           "draft",
+          "attachmentCount",
           "position",
           "createdAt",
           "updatedAt",
@@ -8180,6 +8254,7 @@
           "createdBy",
           "environments",
           "notes",
+          "attachments",
           "subtasks",
           "activeSessionCount"
         ],
@@ -8270,6 +8345,24 @@
         ],
         "additionalProperties": false
       },
+      "TaskAttachmentsResponse": {
+        "type": "object",
+        "properties": {
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskAttachment"
+            }
+          }
+        },
+        "required": [
+          "attachments"
+        ],
+        "additionalProperties": false
+      },
+      "TaskAttachmentBytes": {
+        "type": "string"
+      },
       "TaskRemoval": {
         "type": "object",
         "properties": {
@@ -8287,6 +8380,18 @@
           "ok",
           "removed",
           "note"
+        ],
+        "additionalProperties": false
+      },
+      "TaskOkResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
         ],
         "additionalProperties": false
       },
@@ -19999,6 +20104,423 @@
             }
           }
         },
+        "x-portta-capability": "task:write"
+      }
+    },
+    "/tasks/{ref}/attachments": {
+      "get": {
+        "operationId": "listTaskAttachments",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "The files attached to a task, newest first",
+        "description": "Metadata only. The bytes are at the downloadUrl each entry carries.",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskAttachmentsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-capability": "task:read"
+      },
+      "post": {
+        "operationId": "addTaskAttachment",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Attach a file to a task",
+        "description": "Multipart, one file in the `file` field. At most 10 MB per file and 25 files per task.",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Portta-Actor",
+            "in": "header",
+            "required": false,
+            "description": "Who asked. Recorded on the task, its notes and the activity; never forwarded to GitHub.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskAttachment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "description": "Overrides the name the part carries"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-portta-capability": "task:write"
+      }
+    },
+    "/tasks/{ref}/attachments/{attachmentId}": {
+      "get": {
+        "operationId": "downloadTaskAttachment",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "The bytes of one attachment",
+        "description": "Served with a Content-Disposition that renders an image or a PDF inline and downloads everything else.",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attachmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskAttachmentBytes"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-capability": "task:read"
+      },
+      "delete": {
+        "operationId": "deleteTaskAttachment",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Remove an attachment",
+        "description": "The bytes go with it. Nothing outside this task is touched.",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attachmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Portta-Actor",
+            "in": "header",
+            "required": false,
+            "description": "Who asked. Recorded on the task, its notes and the activity; never forwarded to GitHub.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskOkResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-portta-capability": "task:write"
       }
     },

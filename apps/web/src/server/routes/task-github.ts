@@ -40,8 +40,12 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
     const task = await db.tasks.find(id)
     if (!task) throw new HTTPException(404, { message: `no task '${id}'` })
     const ctx = await loadTaskContext(deps.config, db, await deps.cache.get())
-    const [notes, sessions] = await Promise.all([db.tasks.listNotes(task.id), db.sessions.list({ taskId: task.id, status: ['active'] })])
-    return taskView(ctx, task, notes, sessions)
+    const [notes, sessions, attachments] = await Promise.all([
+      db.tasks.listNotes(task.id),
+      db.sessions.list({ taskId: task.id, status: ['active'] }),
+      db.tasks.listAttachments(task.id),
+    ])
+    return taskView(ctx, task, notes, sessions, attachments)
   }
 
   function requireGitHub() {

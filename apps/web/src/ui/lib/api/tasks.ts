@@ -1,6 +1,6 @@
 // Work: Portta's own tasks, and the optional GitHub binding on top of them.
 
-import type { Task, TaskSummary } from '../../../shared/task-types.ts'
+import type { Task, TaskAttachment, TaskSummary } from '../../../shared/task-types.ts'
 import { request } from './client.ts'
 
 export type TaskFilters = Partial<Record<'status' | 'open' | 'priority' | 'type' | 'label' | 'assignee' | 'agent' | 'repository' | 'environment' | 'service' | 'parent' | 'q', string>>
@@ -81,6 +81,21 @@ export const tasksApi = {
     request<Task>(`/tasks/${ref(id)}/finish`, { method: 'POST', body: JSON.stringify(close === undefined ? {} : { close }) }),
   setTaskEnvironments: (id: string, environments: string[]) =>
     request<Task>(`/tasks/${ref(id)}/environments`, { method: 'PUT', body: JSON.stringify({ environments }) }),
+  taskAttachments: (id: string) =>
+    request<{ attachments: TaskAttachment[] }>(`/tasks/${ref(id)}/attachments`).then((data) => data.attachments),
+  /**
+   * Multipart rather than JSON: it is what a file input and a `curl -F` both
+   * already speak, and it keeps the bytes out of a base64 round-trip.
+   */
+  addTaskAttachment: (id: string, file: File) => {
+    const form = new FormData()
+    form.set('file', file)
+    form.set('filename', file.name)
+    // No content-type header: the browser sets it with the multipart boundary.
+    return request<TaskAttachment>(`/tasks/${ref(id)}/attachments`, { method: 'POST', body: form })
+  },
+  deleteTaskAttachment: (id: string, attachmentId: string) =>
+    request<{ ok: boolean }>(`/tasks/${ref(id)}/attachments/${ref(attachmentId)}`, { method: 'DELETE', body: '{}' }),
   createTaskSubtask: (id: string, body: TaskBody & { title: string }) =>
     request<Task>(`/tasks/${ref(id)}/subtasks`, { method: 'POST', body: JSON.stringify(body) }),
   linkTaskSubtask: (id: string, childId: string) =>

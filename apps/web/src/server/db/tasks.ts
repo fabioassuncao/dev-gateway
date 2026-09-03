@@ -49,6 +49,22 @@ export interface TaskNoteRow {
   publishError: string | null
 }
 
+/**
+ * An attachment's metadata. The bytes are deliberately not on this row: every
+ * listing would carry megabytes it never uses, so `readAttachment` is a
+ * separate, explicit read.
+ */
+export interface TaskAttachmentRow {
+  id: string
+  taskId: string
+  filename: string
+  contentType: string
+  sizeBytes: number
+  actor: string | null
+  actorKind: 'human' | 'agent' | 'system'
+  createdAt: Date
+}
+
 export interface TaskGitHubLinkRow {
   taskId: string
   githubIssueId: string
@@ -138,6 +154,12 @@ const TASK_COLUMNS = `
   t.created_by AS "createdBy", t.position AS "position", t.due_at AS "dueAt",
   t.source_key AS "sourceKey", t.draft AS "draft", t.created_at AS "createdAt",
   t.updated_at AS "updatedAt", t.closed_at AS "closedAt"
+`
+
+const ATTACHMENT_COLUMNS = `
+  id::text AS "id", task_id::text AS "taskId", filename AS "filename",
+  content_type AS "contentType", size_bytes::int AS "sizeBytes",
+  actor AS "actor", actor_kind AS "actorKind", created_at AS "createdAt"
 `
 
 export class TasksRepository {
@@ -450,6 +472,63 @@ export class TasksRepository {
   }
 
   // --- GitHub binding ------------------------------------------------------
+
+  async listAttachments(taskId: string): Promise<TaskAttachmentRow[]> {
+    return this.sql<TaskAttachmentRow[]>`
+      SELECT ${this.sql.unsafe(ATTACHMENT_COLUMNS)}
+      FROM task_attachments WHERE task_id = ${taskId} ORDER BY created_at DESC, id DESC
+    `
+  }
+
+  async countAttachments(taskIds: string[]): Promise<Map<string, number>> {
+    if (taskIds.length === 0) return new Map()
+    const rows = await this.sql<Array<{ taskId: string; count: string }>>`
+      SELECT task_id::text AS "taskId", count(*)::text AS "count"
+      FROM task_attachments WHERE task_id = ANY(${taskIds}) GROUP BY task_id
+    `
+    return new Map(rows.map((row) => [row.taskId, Number(row.count)]))
+  }
+
+  async findAttachment(taskId: string, attachmentId: string): Promise<TaskAttachmentRow | null> {
+    const rows = await this.sql<TaskAttachmentRow[]>`
+      SELECT ${this.sql.unsafe(ATTACHMENT_COLUMNS)}
+      FROM task_attachments WHERE task_id = ${taskId} AND id = ${attachmentId}
+    `
+    return rows[0] ?? null
+  }
+
+  /** The bytes, asked for on their own, only when something is about to serve them. */
+  async readAttachment(taskId: string, attachmentId: string): Promise<{ row: TaskAttachmentRow; content: Buffer } | null> {
+    const rows = await this.sql<Array<TaskAttachmentRow & { content: Uint8Array }>>`
+      SELECT ${this.sql.unsafe(ATTACHMENT_COLUMNS)}, content
+      FROM task_attachments WHERE task_id = ${taskId} AND id = ${attachmentId}
+    `
+    const row = rows[0]
+    if (!row) return null
+    const { content, ...meta } = row
+    return { row: meta, content: Buffer.from(content) }
+  }
+
+  async addAttachment(
+    taskId: string,
+    file: { filename: string; contentType: string; content: Buffer },
+    actor: string | null,
+    actorKind: 'human' | 'agent' | 'system',
+  ): Promise<TaskAttachmentRow> {
+    const rows = await this.sql<TaskAttachmentRow[]>`
+      INSERT INTO task_attachments (task_id, filename, content_type, size_bytes, content, actor, actor_kind)
+      VALUES (${taskId}, ${file.filename}, ${file.contentType}, ${file.content.byteLength}, ${file.content}, ${actor}, ${actorKind})
+      RETURNING ${this.sql.unsafe(ATTACHMENT_COLUMNS)}
+    `
+    await this.sql`UPDATE tasks SET updated_at = now() WHERE id = ${taskId}`
+    return rows[0]!
+  }
+
+  async removeAttachment(taskId: string, attachmentId: string): Promise<boolean> {
+    const rows = await this.sql`DELETE FROM task_attachments WHERE task_id = ${taskId} AND id = ${attachmentId} RETURNING id`
+    if (rows.length > 0) await this.sql`UPDATE tasks SET updated_at = now() WHERE id = ${taskId}`
+    return rows.length > 0
+  }
 
   async findLink(taskId: string): Promise<TaskGitHubLinkRow | null> {
     const rows = await this.sql<TaskGitHubLinkRow[]>`

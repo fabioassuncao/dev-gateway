@@ -14,12 +14,13 @@ import type { AppDeps } from './deps.ts'
 import { requireDatabase, type Database } from '../db/index.ts'
 import type { TaskRow } from '../db/tasks.ts'
 import { OverrideRefused } from '../core/overrides.ts'
-import { loadTaskContext, taskSummaries, taskSummary, taskView, noteView, type TaskContext } from '../core/task-view.ts'
+import { attachmentView, loadTaskContext, taskSummaries, taskSummary, taskView, noteView, type TaskContext } from '../core/task-view.ts'
+import { ATTACHMENT_LIMITS, contentDisposition, normaliseContentType, rejectUpload, safeFilename } from '../core/attachments.ts'
 import { pushToGitHub, resolveTask, type TaskChange } from '../core/task-write.ts'
 import { recordActivity } from '../core/activity.ts'
 import { applyExampleDocument, exportProjectTasks } from '../core/task-example-apply.ts'
 import { principalOf, type Principal } from '../principal.ts'
-import { Task, TaskNote, TaskSummary } from '../../shared/task-types.ts'
+import { Task, TaskAttachment, TaskNote, TaskSummary } from '../../shared/task-types.ts'
 import { documentRoute } from '../openapi.ts'
 
 const TasksResponse = z.object({ tasks: z.array(TaskSummary) }).strict().meta({ ref: 'TasksResponse' })
@@ -29,6 +30,8 @@ const SubtaskNode: z.ZodType = z.lazy(() => z.object({ task: TaskSummary, childr
 const SubtasksResponse = z.object({ subtasks: z.array(SubtaskNode) }).strict().meta({ ref: 'SubtasksResponse' })
 const NotesResponse = z.object({ notes: z.array(TaskNote) }).strict().meta({ ref: 'TaskNotesResponse' })
 const CommentsResponse = z.object({ comments: z.array(TaskNote) }).strict().meta({ ref: 'TaskCommentsResponse' })
+const AttachmentsResponse = z.object({ attachments: z.array(TaskAttachment) }).strict().meta({ ref: 'TaskAttachmentsResponse' })
+const OkResponse = z.object({ ok: z.boolean() }).strict().meta({ ref: 'TaskOkResponse' })
 
 const LocalId = z.string().regex(/^\d+$/)
 const CreateTaskBody = z.object({
@@ -108,8 +111,12 @@ export function taskRoutes(deps: AppDeps): Hono {
   async function present(db: Database, task: TaskRow): Promise<Task> {
     const fresh = (await db.tasks.find(task.id)) ?? task
     const ctx = await context(db)
-    const [notes, sessions] = await Promise.all([db.tasks.listNotes(fresh.id), db.sessions.list({ taskId: fresh.id, status: ['active'] })])
-    return taskView(ctx, fresh, notes, sessions)
+    const [notes, sessions, attachments] = await Promise.all([
+      db.tasks.listNotes(fresh.id),
+      db.sessions.list({ taskId: fresh.id, status: ['active'] }),
+      db.tasks.listAttachments(fresh.id),
+    ])
+    return taskView(ctx, fresh, notes, sessions, attachments)
   }
 
   function announce(task: TaskRow, action: string, slug: string | null): void {
@@ -383,6 +390,50 @@ export function taskRoutes(deps: AppDeps): Hono {
     return c.json({ comments: (await db.tasks.listNotes(task.id)).map(noteView) })
   })
 
+  const attachmentParameter = { name: 'attachmentId', in: 'path' as const, required: true, schema: { type: 'string' as const } }
+
+  app.get('/tasks/:ref/attachments', documentRoute({
+    tag: 'Tasks', operationId: 'listTaskAttachments', capability: 'task:read',
+    summary: 'The files attached to a task, newest first',
+    description: 'Metadata only. The bytes are at the downloadUrl each entry carries.',
+    response: AttachmentsResponse, parameters: [refParameter], errors: [400, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const task = await resolveTask(db, c.req.param('ref'))
+    const rows = await db.tasks.listAttachments(task.id)
+    return c.json({ attachments: rows.map((row) => attachmentView(task.id, row)) })
+  })
+
+  app.get('/tasks/:ref/attachments/:attachmentId', documentRoute({
+    tag: 'Tasks', operationId: 'downloadTaskAttachment', capability: 'task:read',
+    summary: 'The bytes of one attachment',
+    description: 'Served with a Content-Disposition that renders an image or a PDF inline and downloads everything else.',
+    response: z.string().meta({ ref: 'TaskAttachmentBytes' }), mediaType: 'application/octet-stream',
+    parameters: [refParameter, attachmentParameter], errors: [400, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const task = await resolveTask(db, c.req.param('ref'))
+    const found = await db.tasks.readAttachment(task.id, c.req.param('attachmentId'))
+    if (!found) throw new HTTPException(404, { message: 'no such attachment' })
+    // Uploaded bytes are served from the panel's own origin, so the browser is
+    // told exactly what they are and never allowed to sniff something else out
+    // of them.
+    // A Buffer is a view into a shared pool, so the exact bytes of this row
+    // are sliced out before they leave the process.
+    const body = found.content.buffer.slice(
+      found.content.byteOffset,
+      found.content.byteOffset + found.content.byteLength,
+    ) as ArrayBuffer
+    return c.body(body, 200, {
+      'Content-Type': found.row.contentType,
+      'Content-Length': String(found.content.byteLength),
+      'Content-Disposition': contentDisposition(found.row.filename, found.row.contentType),
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; sandbox",
+      'Cache-Control': 'private, max-age=300',
+    })
+  })
+
   // --- writes ---------------------------------------------------------------
 
   app.post('/projects/:slug/tasks', documentRoute({
@@ -626,6 +677,75 @@ export function taskRoutes(deps: AppDeps): Hono {
     })
     announce(task, 'comment', slug)
     return c.json(noteView(note), 201)
+  })
+
+  app.post('/tasks/:ref/attachments', documentRoute({
+    tag: 'Tasks', operationId: 'addTaskAttachment', capability: 'task:write',
+    summary: 'Attach a file to a task',
+    description: `Multipart, one file in the \`file\` field. At most ${ATTACHMENT_LIMITS.maxBytes / 1024 / 1024} MB per file and ${ATTACHMENT_LIMITS.maxPerTask} files per task.`,
+    requestMediaType: 'multipart/form-data',
+    requestSchemaOverride: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        filename: { type: 'string', description: 'Overrides the name the part carries' },
+      },
+    },
+    response: TaskAttachment, status: 201, parameters: [refParameter, actorHeader],
+    errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const task = await resolveTask(db, c.req.param('ref'))
+    const form = await c.req.parseBody()
+    const file = form['file']
+    if (!(file instanceof File)) throw new OverrideRefused('send the file in a multipart field named file')
+
+    const existing = await db.tasks.listAttachments(task.id)
+    const bytes = Buffer.from(await file.arrayBuffer())
+    const rejection = rejectUpload({ sizeBytes: bytes.byteLength, existingCount: existing.length })
+    if (rejection) throw new OverrideRefused(`that file was not stored: ${rejection.detail}`)
+
+    const declaredName = typeof form['filename'] === 'string' ? form['filename'] : file.name
+    const filename = safeFilename(declaredName)
+    const contentType = normaliseContentType(file.type, filename)
+    const principal = principalOf(c)
+    const stored = await db.tasks.addAttachment(task.id, { filename, contentType, content: bytes }, principal.actor, principal.actorKind)
+    if (task.draft) await db.tasks.update(task.id, { draft: false })
+    const slug = await slugOf(db, task)
+    await recordActivity({ db, hub: deps.hub }, {
+      kind: 'task.updated', actor: principal.actor, actorKind: principal.actorKind, source: principal.source,
+      project: slug, projectId: task.projectId, taskId: task.id, repositoryId: task.repositoryId,
+      summary: `${principal.actor ?? 'somebody'} attached ${filename} to "${task.title}"`,
+      data: { attachmentId: stored.id, filename },
+    })
+    announce(task, 'attachment', slug)
+    return c.json(attachmentView(task.id, stored), 201)
+  })
+
+  app.delete('/tasks/:ref/attachments/:attachmentId', documentRoute({
+    tag: 'Tasks', operationId: 'deleteTaskAttachment', capability: 'task:write',
+    summary: 'Remove an attachment',
+    description: 'The bytes go with it. Nothing outside this task is touched.',
+    response: OkResponse, parameters: [refParameter, attachmentParameter, actorHeader],
+    errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const task = await resolveTask(db, c.req.param('ref'))
+    const attachmentId = c.req.param('attachmentId')
+    const found = await db.tasks.findAttachment(task.id, attachmentId)
+    if (!found) throw new HTTPException(404, { message: 'no such attachment' })
+    await db.tasks.removeAttachment(task.id, attachmentId)
+    const principal = principalOf(c)
+    const slug = await slugOf(db, task)
+    await recordActivity({ db, hub: deps.hub }, {
+      kind: 'task.updated', actor: principal.actor, actorKind: principal.actorKind, source: principal.source,
+      project: slug, projectId: task.projectId, taskId: task.id, repositoryId: task.repositoryId,
+      summary: `${principal.actor ?? 'somebody'} removed ${found.filename} from "${task.title}"`,
+      data: { attachmentId, filename: found.filename },
+    })
+    announce(task, 'attachment', slug)
+    return c.json({ ok: true })
   })
 
   app.patch('/tasks/:ref/notes/:noteId', documentRoute({

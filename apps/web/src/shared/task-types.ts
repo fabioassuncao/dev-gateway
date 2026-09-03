@@ -81,6 +81,7 @@ export const TaskSummary = named(
     github: z.object({ repository: z.string(), number: z.number().int(), htmlUrl: z.string(), syncState: TaskSyncState }).strict().nullable(),
     dueAt: unixSeconds.nullable(),
     draft: z.boolean(),
+    attachmentCount: z.number().int(),
     position: z.number().int(),
     createdAt: unixSeconds,
     updatedAt: unixSeconds,
@@ -110,6 +111,28 @@ export type TaskNote = z.infer<typeof TaskNote>
 export const TaskComment = TaskNote
 export type TaskComment = TaskNote
 
+/**
+ * A file attached to a task: a screenshot, a log, the JSON that reproduces it.
+ * The bytes are never in an API response body — `downloadUrl` is where they
+ * are, so a listing stays a listing.
+ */
+export const TaskAttachment = named(
+  z.object({
+    id: z.string(),
+    filename: z.string(),
+    contentType: z.string(),
+    sizeBytes: z.number().int(),
+    /** How the panel may present it: inline, as text, as a PDF, or as a download only. */
+    kind: z.enum(['image', 'text', 'pdf', 'file']),
+    actor: z.string().nullable(),
+    actorKind: ActorKind,
+    createdAt: unixSeconds,
+    downloadUrl: z.string(),
+  }).strict(),
+  'TaskAttachment',
+)
+export type TaskAttachment = z.infer<typeof TaskAttachment>
+
 export const Task = named(
   TaskSummary.extend({
     description: z.string().nullable(),
@@ -117,6 +140,7 @@ export const Task = named(
     github: TaskGitHubBinding.nullable(),
     environments: z.array(TaskEnvironmentLink),
     notes: z.array(TaskNote),
+    attachments: z.array(TaskAttachment),
     subtasks: z.array(TaskSummary),
     activeSessionCount: z.number().int(),
   }).strict(),

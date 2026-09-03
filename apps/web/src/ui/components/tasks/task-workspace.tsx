@@ -12,8 +12,11 @@ import { TaskProperties } from './task-properties.tsx'
 import { TaskSubtasks } from './task-subtasks.tsx'
 import { TaskActivity } from './task-activity.tsx'
 import { TaskActions } from './task-actions.tsx'
+import { TaskAttachments } from './task-attachments.tsx'
 
 export interface TaskWorkspaceActions {
+  uploadAttachments: (files: File[]) => void
+  removeAttachment: (attachment: Task['attachments'][number]) => void
   patch: (body: TaskBody) => Promise<unknown>
   start: () => void
   finish: (close: boolean) => void
@@ -46,6 +49,7 @@ export function TaskWorkspace({
   actions,
   readOnly = false,
   saveState,
+  uploading = false,
 }: {
   task: Task
   project: Project | null
@@ -56,6 +60,8 @@ export function TaskWorkspace({
   actions: TaskWorkspaceActions
   readOnly?: boolean
   saveState?: 'idle' | 'saving' | 'saved' | 'error'
+  /** An attachment is on its way to the server. */
+  uploading?: boolean
 }) {
   const { t } = useTranslation('tasks')
   const { relativeTime } = useFormat()
@@ -93,6 +99,14 @@ export function TaskWorkspace({
         </div>
 
         <TaskDescription value={task.description} disabled={readOnly} onSave={(description) => actions.patch({ description })} />
+        <TaskAttachments
+          attachments={task.attachments}
+          readOnly={readOnly}
+          busy={uploading}
+          onUpload={actions.uploadAttachments}
+          onRemove={actions.removeAttachment}
+        />
+
         <TaskSubtasks
           task={task}
           candidates={candidates}

@@ -251,5 +251,24 @@
   "columnEmpty": "Nothing in {{label}}",
   "dropHere": "Drop here",
   "moveFailed": "#{{id}} stayed where it was",
-  "moveFailedHint": "The change was undone because the server refused it."
+  "moveFailedHint": "The change was undone because the server refused it.",
+  "attachments": {
+    "title": "Attachments ({{count}})",
+    "empty": "No file attached",
+    "emptyHint": "Drop a file here, paste a screenshot, or choose one. Up to {{max}} MB each.",
+    "add": "Attach a file",
+    "dropHere": "Drop to attach",
+    "uploading": "Attaching {{name}}…",
+    "uploaded": "{{name}} attached",
+    "failed": "{{name}} was not attached",
+    "removeTitle": "Remove {{name}}?",
+    "removeImpact": "The file is deleted from this task and cannot be recovered.",
+    "remove": "Remove",
+    "removed": "{{name}} removed",
+    "openFile": "Open {{name}}",
+    "byOn": "{{actor}} · {{time}}",
+    "unknownActor": "somebody",
+    "pasted": "pasted-{{time}}",
+    "preview": "Preview of {{name}}"
+  }
 }

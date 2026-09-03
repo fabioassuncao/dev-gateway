@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest'
 import type { Database } from '../../src/server/db/index.ts'
 import type { GitHubIntegration } from '../../src/server/integrations/github/index.ts'
 import { GATEWAY, PROJECT_A } from './fixtures.ts'
-import { makeApp, post } from './helpers.ts'
+import { del, makeApp, post } from './helpers.ts'
 import { fakeActivity, fakeSessions, fakeTasks, type FakeActivity, type FakeTasks } from './fake-work.ts'
 
 const NOW = new Date('2026-01-01T12:00:00Z')
@@ -463,5 +463,115 @@ describe('refusals', () => {
     for (const path of [`/api/tasks/${task.id}/start`, `/api/tasks/${task.id}/notes`, '/api/projects/produto/tasks']) {
       expect((await post(app, path, { title: 'x', body: 'x' })).status).toBe(403)
     }
+  })
+})
+
+describe('attachments', () => {
+  async function upload(app: Parameters<typeof post>[0], path: string, file: File, filename?: string): Promise<Response> {
+    const form = new FormData()
+    form.set('file', file)
+    if (filename) form.set('filename', filename)
+    return app.request(path, {
+      method: 'POST',
+      body: form,
+      headers: { origin: 'http://localhost', host: 'localhost' },
+    })
+  }
+
+  it('stores a file, lists it and serves the bytes back', async () => {
+    const { db, tasks } = work()
+    const task = tasks.seed({ projectId: 'w1', title: 'Fix the queue' })
+    const { app } = makeApp({ containers: GATEWAY }, {}, db)
+
+    const created = await upload(app, `/api/tasks/${task.id}/attachments`, new File(['{"a":1}'], 'payload.json', { type: 'application/json' }))
+    expect(created.status).toBe(201)
+    const attachment = await json(created)
+    expect(attachment).toMatchObject({ filename: 'payload.json', contentType: 'application/json', kind: 'text', sizeBytes: 7 })
+
+    const listed = await json(await app.request(`/api/tasks/${task.id}/attachments`))
+    expect(listed.attachments).toHaveLength(1)
+
+    // The bytes are behind the URL, not in the task payload.
+    const detail = await json(await app.request(`/api/tasks/${task.id}`))
+    expect(detail.attachments[0].downloadUrl).toBe(`/api/tasks/${task.id}/attachments/${attachment.id}`)
+    expect(detail.attachmentCount).toBe(1)
+
+    const bytes = await app.request(attachment.downloadUrl)
+    expect(bytes.status).toBe(200)
+    expect(bytes.headers.get('content-type')).toBe('application/json')
+    expect(bytes.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(await bytes.text()).toBe('{"a":1}')
+  })
+
+  it('names an image inline and a download as a download', async () => {
+    const { db, tasks } = work()
+    const task = tasks.seed({ projectId: 'w1', title: 't' })
+    const { app } = makeApp({ containers: GATEWAY }, {}, db)
+
+    const image = await json(await upload(app, `/api/tasks/${task.id}/attachments`, new File(['png'], 'shot.png', { type: 'image/png' })))
+    const served = await app.request(image.downloadUrl)
+    expect(served.headers.get('content-disposition')).toMatch(/^inline;/)
+
+    const binary = await json(await upload(app, `/api/tasks/${task.id}/attachments`, new File(['MZ'], 'setup.exe', { type: 'application/x-msdownload' })))
+    expect(binary.contentType).toBe('application/octet-stream')
+    expect((await app.request(binary.downloadUrl)).headers.get('content-disposition')).toMatch(/^attachment;/)
+  })
+
+  it('refuses a file that is too large, and says by how much', async () => {
+    const { db, tasks } = work()
+    const task = tasks.seed({ projectId: 'w1', title: 't' })
+    const { app } = makeApp({ containers: GATEWAY }, {}, db)
+    const oversized = new File(['x'.repeat(11 * 1024 * 1024)], 'huge.log', { type: 'text/plain' })
+    const refused = await upload(app, `/api/tasks/${task.id}/attachments`, oversized)
+    expect(refused.status).toBe(400)
+    expect((await json(refused)).error).toContain('the limit is 10 MB')
+  })
+
+  it('refuses a request with no file part at all', async () => {
+    const { db, tasks } = work()
+    const task = tasks.seed({ projectId: 'w1', title: 't' })
+    const { app } = makeApp({ containers: GATEWAY }, {}, db)
+    const response = await app.request(`/api/tasks/${task.id}/attachments`, {
+      method: 'POST',
+      body: new FormData(),
+      headers: { origin: 'http://localhost', host: 'localhost' },
+    })
+    expect(response.status).toBe(400)
+  })
+
+  it('stores a traversing name as one safe segment', async () => {
+    const { db, tasks } = work()
+    const task = tasks.seed({ projectId: 'w1', title: 't' })
+    const { app } = makeApp({ containers: GATEWAY }, {}, db)
+    const created = await json(await upload(app, `/api/tasks/${task.id}/attachments`, new File(['x'], 'x.txt', { type: 'text/plain' }), '../../etc/passwd'))
+    expect(created.filename).toBe('passwd')
+  })
+
+  it('removes an attachment and stops serving it', async () => {
+    const { db, tasks, activity } = work()
+    const task = tasks.seed({ projectId: 'w1', title: 't' })
+    const { app } = makeApp({ containers: GATEWAY }, {}, db)
+    const created = await json(await upload(app, `/api/tasks/${task.id}/attachments`, new File(['x'], 'note.txt', { type: 'text/plain' })))
+
+    expect((await del(app, created.downloadUrl)).status).toBe(200)
+    expect((await app.request(created.downloadUrl)).status).toBe(404)
+    expect(activity.rows.map((row) => row.summary)).toContainEqual(expect.stringContaining('removed note.txt'))
+  })
+
+  it('answers 404 for an attachment of another task', async () => {
+    const { db, tasks } = work()
+    const mine = tasks.seed({ projectId: 'w1', title: 'mine' })
+    const other = tasks.seed({ projectId: 'w1', title: 'other' })
+    const { app } = makeApp({ containers: GATEWAY }, {}, db)
+    const created = await json(await upload(app, `/api/tasks/${mine.id}/attachments`, new File(['x'], 'a.txt', { type: 'text/plain' })))
+    expect((await app.request(`/api/tasks/${other.id}/attachments/${created.id}`)).status).toBe(404)
+  })
+
+  it('refuses to attach anything in read-only mode', async () => {
+    const { db, tasks } = work()
+    const task = tasks.seed({ projectId: 'w1', title: 't' })
+    const { app } = makeApp({ containers: GATEWAY }, { readOnly: true }, db)
+    const refused = await upload(app, `/api/tasks/${task.id}/attachments`, new File(['x'], 'a.txt', { type: 'text/plain' }))
+    expect(refused.status).toBe(403)
   })
 })

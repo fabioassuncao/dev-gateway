@@ -48,6 +48,14 @@ export interface RouteDocumentation {
   parameters?: OpenAPIV3_1.ParameterObject[]
   request?: z.ZodType
   requestDescription?: string
+  /**
+   * How the request body arrives. Everything the panel takes is JSON except an
+   * upload, which is multipart because that is what a browser's file input and
+   * a `curl -F` both already speak.
+   */
+  requestMediaType?: string
+  /** For a body this schema language cannot describe, such as a binary part. */
+  requestSchemaOverride?: OpenAPIV3_1.SchemaObject
   errors?: ErrorStatus[]
 }
 
@@ -100,11 +108,15 @@ export function documentRoute(doc: RouteDocumentation): MiddlewareHandler {
     responses,
     security: [{}, { cookieAuth: [] }, { basicAuth: [] }, { bearerAuth: [] }],
   }
-  if (doc.request) {
+  if (doc.request || doc.requestSchemaOverride) {
     spec.requestBody = {
       required: true,
       description: doc.requestDescription,
-      content: { 'application/json': { schema: requestSchema(doc.request) } },
+      content: {
+        [doc.requestMediaType ?? 'application/json']: {
+          schema: doc.requestSchemaOverride ?? requestSchema(doc.request!),
+        },
+      },
     }
   }
   CAPABILITY_BY_OPERATION.set(doc.operationId, doc.capability)
