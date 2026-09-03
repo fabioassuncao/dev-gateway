@@ -327,6 +327,12 @@ export async function scanRepositories(options: ReposScanOptions = {}, profile?:
   const partial = Boolean(options.environment || options.path)
   const registered = partial ? [] : await registeredRepositoryPaths(context, (line) => output.detail(line))
   const { candidates, home } = await findCandidates(options, context.env, registered)
+  // A walk of the projects home with a `git` call per repository. It is fast
+  // per repository and slow in total, so it reports a count rather than a
+  // ticker: seeing 12/40 answers "is it stuck?" better than an elapsed time.
+  if (candidates.size > 0) {
+    output.progress(`scanning ${candidates.size} ${candidates.size === 1 ? 'repository' : 'repositories'}${home ? ` under ${home}` : ''}`)
+  }
   const forgeTtl = Number(options.forgeTtl ?? 300)
   const now = Math.floor(Date.now() / 1000)
   const homeReal = home ? safeRealpath(home) : null
@@ -348,6 +354,7 @@ export async function scanRepositories(options: ReposScanOptions = {}, profile?:
       const forge = readJson(target)?.['forge'] as Record<string, unknown> | undefined
       if (forge && now - Number(forge['collectedAt'] ?? 0) < forgeTtl) cachedForge = forge
     }
+    output.detail(`scanning ${candidate.root}`)
     const scan = await collectRepository(candidate, options, cachedForge)
     if (partial) {
       // Keep the environments a full scan already attributed to this root.

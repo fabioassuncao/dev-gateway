@@ -48,11 +48,31 @@ is idempotent; `--dry-run` changes nothing.
 |---|---|
 | `--json` | Emit the documented data object on stdout. Progress and warnings stay on stderr. |
 | `-y`, `--yes` | Confirm every gated operation non-interactively. `PORTTA_ASSUME_YES` remains a compatibility alias. |
-| `--quiet` | Suppress progress; never suppress errors or requested data. |
-| `--verbose` | Add diagnostic detail on stderr. |
+| `--quiet` | Suppress progress and the elapsed-time line; never suppress errors or requested data. |
+| `--verbose` | Add diagnostic detail on stderr, and stream every child process's output. |
 | `--profile <name>` | Select `local`, `remote-private` or `remote-public`. |
 | `-h`, `--help` | Available at the root and every command level. |
 | `-V`, `--version` | Available globally, including after a subcommand. |
+
+### Progress and long operations
+
+The CLI runs `docker`, `docker compose` and `git`. What happens to their output
+is a contract, not an accident ([ADR 0034](adr/0034-child-process-output.md)):
+
+- **Nothing is silent for long.** A child whose output is being captured
+  announces itself on stderr after ten seconds and every thirty after that:
+  `wait     still running: docker compose run --build … (1m20s)`. After three
+  minutes it says what to do about it.
+- **Work you are waiting on shows its own output.** Builds, pulls and the first
+  start of the panel database stream while they run.
+- **Child stderr is always mirrored; child stdout is mirrored except under
+  `--json`.** `docker pull` writes layer progress to stdout, and that must not
+  land inside the document a machine is reading. Build progress is on stderr,
+  so a `--json` run still sees it.
+- **`--verbose` streams everything**, including the short probes.
+- **A build is never killed on a timer.** A cold first build legitimately takes
+  minutes; the elapsed-time line is there so you can decide. `Ctrl-C` during a
+  build is safe — BuildKit keeps its cache.
 
 A command that needs confirmation never prompts when stdin is not a TTY. It
 exits 4 and names `--yes` instead. Programs are always executed as an

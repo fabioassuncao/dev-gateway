@@ -231,6 +231,59 @@ describe('resetCommand', () => {
     expect(mocks.examplesApply).not.toHaveBeenCalled()
   })
 
+  it('runs no long docker operation on the dev path with its output swallowed', async () => {
+    // The regression this file exists to hold. `portta reset` sat silent for
+    // ten minutes because `migrateAuthState` called runProcess directly and
+    // got the piped default while carrying `--build`. Anything that builds,
+    // pulls or brings containers up is work a person is waiting on, and must
+    // reach the terminal.
+    checkout()
+    mocks.confirm.mockResolvedValue(undefined)
+    mocks.requireDocker.mockResolvedValue(undefined)
+    mocks.ensureNetwork.mockResolvedValue('created')
+    mocks.ensureApplier.mockResolvedValue({ action: 'absent' })
+    mocks.ensureRunner.mockResolvedValue({ action: 'absent' })
+    mocks.refreshRepositories.mockResolvedValue(undefined)
+    mocks.ensureMetricsCollector.mockResolvedValue(undefined)
+    mocks.inspectContainers.mockResolvedValue([])
+    mocks.webUp.mockResolvedValue(undefined)
+    mocks.runProcess.mockResolvedValue(ok())
+
+    await resetCommand({}, command())
+
+    const LONG = new Set(['build', '--build', 'pull', 'up', 'run'])
+    const swallowed = mocks.runProcess.mock.calls
+      .filter((call) => {
+        const args = (call[1] ?? []) as string[]
+        const options = call[2] as { stdio?: string } | undefined
+        return call[0] === 'docker' && args.some((argument) => LONG.has(argument)) && (options?.stdio ?? 'pipe') === 'pipe'
+      })
+      .map((call) => `docker ${((call[1] ?? []) as string[]).join(' ')}`)
+
+    // The list, not a count: when this fails the message is the diagnosis.
+    expect(swallowed).toEqual([])
+  })
+
+  it('shows the authentication migration, which is the build that used to be invisible', async () => {
+    checkout()
+    mocks.confirm.mockResolvedValue(undefined)
+    mocks.requireDocker.mockResolvedValue(undefined)
+    mocks.ensureNetwork.mockResolvedValue('created')
+    mocks.ensureApplier.mockResolvedValue({ action: 'absent' })
+    mocks.ensureRunner.mockResolvedValue({ action: 'absent' })
+    mocks.refreshRepositories.mockResolvedValue(undefined)
+    mocks.ensureMetricsCollector.mockResolvedValue(undefined)
+    mocks.inspectContainers.mockResolvedValue([])
+    mocks.webUp.mockResolvedValue(undefined)
+    mocks.runProcess.mockResolvedValue(ok())
+
+    await resetCommand({}, command())
+
+    const migrate = mocks.runProcess.mock.calls.find((call) => ((call[1] ?? []) as string[]).includes('portta-auth-migrate'))
+    expect(migrate).toBeDefined()
+    expect(migrate?.[2]).toMatchObject({ stdio: 'inherit' })
+  })
+
   it('treats a missing panel volume as success and imports examples when asked', async () => {
     checkout()
     mocks.confirm.mockResolvedValue(undefined)

@@ -144,9 +144,16 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   // the environment would otherwise drop the panel overlays and leave Compose
   // starting a service that no longer exists in its file list.
   const context = gatewayContext({ profile: globals(command).profile, overrides: values })
+  const output = new Output(globals(command))
+  output.step('panel')
   await ensureNetwork(context.config.network)
-  await runProcess('docker', ['pull', 'alpine/socat:1.8.1.3'], { reject: false })
-  await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', 'db'], { cwd: context.root, env: context.env, reject: false })
+  // Both of these were silent and both can be slow: a cold pull, and — right
+  // after `reset` removed the volume — initialising a fresh Postgres cluster.
+  // `reject: false` on the second one meant a failure produced no output at all.
+  output.progress('pulling alpine/socat:1.8.1.3')
+  await runProcess('docker', ['pull', 'alpine/socat:1.8.1.3'], { reject: false, stdio: 'stream' })
+  output.progress('starting the panel database')
+  await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', 'db'], { cwd: context.root, env: context.env, reject: false, stdio: 'stream' })
   const services = options.dev ? ['portta-auth', 'web', 'web-ui', 'web-socket-proxy'] : ['portta-auth', 'web', 'web-socket-proxy']
   // `--remove-orphans`, as `portta up` already does: leaving development
   // mode drops docker/compose/features/web-dev.yaml from the file list, and without this the
@@ -154,8 +161,19 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   // `--build` only where a build overlay is actually applied: an installed
   // PORTTA_HOME has no source tree, and asking Compose to build there fails.
   const buildArgs = context.config.webDev || context.config.webBuild ? ['--build'] : []
-  await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', ...buildArgs, '--remove-orphans', '--wait', '--wait-timeout', '180', ...services], { cwd: context.root, env: context.env, stdio: 'inherit' })
-  const output = new Output(globals(command))
+  output.progress(buildArgs.length > 0
+    ? `starting ${services.join(', ')}, building the panel image`
+    : `starting ${services.join(', ')}`)
+  const started = await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', ...buildArgs, '--remove-orphans', '--wait', '--wait-timeout', '180', ...services], { cwd: context.root, env: context.env, stdio: 'inherit', reject: false })
+  // `--wait-timeout` is a health wait, not a build limit: the images are built
+  // and the containers exist, they just did not report healthy. Say which
+  // question that is, because execa's own message says only "exited with 1".
+  if (started.exitCode !== 0) {
+    throw new PreconditionError(
+      'the panel did not report healthy within 180s',
+      'portta web logs   shows what it is doing; portta doctor checks the rest',
+    )
+  }
   await refreshRepositories(context.config.profile, output)
   await ensureMetricsCollector(context.config.profile, output)
   const running = gatewayContext({ profile: globals(command).profile, overrides: values })

@@ -156,6 +156,30 @@ docker network inspect portta --format '{{ len .Containers }}'
 docker network rm portta
 ```
 
+## `make dev` or `make reset` seems to hang
+
+It is almost always a build, not a hang. The first run in a checkout, and any
+run after a dependency change, builds the panel image — two `npm ci`, three
+workspace builds and a docs render — which takes minutes.
+
+The CLI says so now. A phase announces itself, a build streams its own
+progress, and anything quiet reports how long it has been going:
+
+```
+wait     still running: docker compose run --build portta-auth-migrate (2m10s)
+```
+
+If you want to see what it is actually doing, or to confirm it is moving:
+
+```bash
+make dev VERBOSE=1                      # stream every child process
+docker buildx du                        # the build cache, from another terminal
+docker compose -f docker/compose/compose.yaml ps
+```
+
+`Ctrl-C` during a build is safe: BuildKit keeps the layers it has finished, so
+the next run resumes rather than starting over.
+
 ## Everything looks right and it still does not work
 
 ```bash

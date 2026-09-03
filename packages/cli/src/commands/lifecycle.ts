@@ -69,18 +69,18 @@ function ensureAuthState(root: string): void {
   }
 }
 
+/**
+ * Goes through `compose()` rather than calling `runProcess` itself, which is
+ * not a tidying: this ran with the piped default and carries `--build`, so a
+ * cold run built the whole panel image with nothing on screen. That was the
+ * ten silent minutes of `portta reset`.
+ */
 async function migrateAuthState(command: Command): Promise<void> {
   const context = gatewayContext({ profile: globals(command).profile })
   const user = typeof process.getuid === 'function'
     ? `${process.getuid()}:${process.getgid?.() ?? 0}`
     : undefined
-  await runProcess('docker', [
-    'compose', ...composeArguments(context),
-    ...authMigrationRunArguments(
-      context.composeFiles.includes(AUTH_BUILD_FILE),
-      user,
-    ),
-  ], { cwd: context.root, env: context.env })
+  await compose(command, authMigrationRunArguments(context.composeFiles.includes(AUTH_BUILD_FILE), user))
 }
 
 /** major.minor, which is the granularity the API contract moves at. */
@@ -153,6 +153,7 @@ export async function bootstrapCommand(options: { skipPull?: boolean }, command:
   const global = globals(command)
   const output = new Output(global)
   const context = gatewayContext({ profile: global.profile })
+  output.step('checkout')
   await requireDocker()
   const composeVersion = await runProcess('docker', ['compose', 'version', '--short'], { reject: false })
   if (composeVersion.exitCode !== 0) throw new CliError('Docker Compose v2 is required', EXIT.precondition)
@@ -185,6 +186,9 @@ export async function upCommand(profile: string | undefined, options: { attach?:
   }
   const dashboardRefusal = dashboardExposeRefusal(context.env)
   if (dashboardRefusal) throw new RefusedError(dashboardRefusal)
+  const output = new Output(globals(command))
+  const builds = buildsLocally(command)
+  output.step('gateway components')
   await requireDocker()
   // Both networks are `external: true` in the overlays, so Compose refuses to
   // start until they exist. The shell entry point creates both; this created
@@ -193,15 +197,20 @@ export async function upCommand(profile: string | undefined, options: { attach?:
   await ensureNetwork(context.config.network)
   if (context.config.tcpEnabled) await ensureNetwork(context.config.accessNetwork)
   ensureAuthState(context.root)
+  // The wait is named before it happens, not after: on a cold cache this one
+  // step builds the panel image and is the longest part of `portta dev`.
+  output.progress(builds
+    ? 'migrating the authentication schema; the first run builds the panel image and takes several minutes'
+    : 'migrating the authentication schema')
   await migrateAuthState(command)
+  output.progress(builds ? 'starting components, building local images' : 'starting components')
   await compose(command, [
     'up',
     options.attach ? '' : '-d',
-    ...(buildsLocally(command) ? ['--build'] : []),
+    ...(builds ? ['--build'] : []),
     options.attach ? '' : '--remove-orphans',
   ].filter(Boolean))
 
-  const output = new Output(globals(command))
   await refreshRepositories(context.config.profile, output)
   await ensureMetricsCollector(context.config.profile, output)
 
@@ -232,9 +241,20 @@ export async function devCommand(
   command: Command,
 ): Promise<void> {
   if (profile) command.setOptionValueWithSource('profile', profile, 'cli')
-  if (options.reset) await wipePanelDatabase(command)
   const existing = gatewayContext({ profile: profile ?? globals(command).profile, required: false })
-  if (!existsSync(join(existing.root, '.env'))) {
+  const needsBootstrap = !existsSync(join(existing.root, '.env'))
+  // What the whole run will do, before the first step of it starts. `dev` is
+  // the longest command here and the one most likely to be mistaken for a hang.
+  new Output(globals(command)).progress(`dev runs: ${[
+    ...(options.reset ? ['wipe the panel database'] : []),
+    ...(needsBootstrap ? ['prepare the checkout'] : []),
+    'start gateway components',
+    'start the panel',
+    'list routed hostnames',
+    ...(options.examples ? ['import docker/examples'] : []),
+  ].join(' -> ')}`)
+  if (options.reset) await wipePanelDatabase(command)
+  if (needsBootstrap) {
     command.setOptionValueWithSource('yes', true, 'cli')
     await bootstrapCommand({ skipPull: true }, command)
   }
@@ -284,6 +304,7 @@ export async function wipePanelDatabase(command: Command): Promise<void> {
   await requireDocker()
   const context = gatewayContext({ profile: globals(command).profile })
   const output = new Output(globals(command))
+  output.step('panel database')
   await downCommand(command)
   const volume = identifier(panelDatabaseVolume(context.env), 'volume')
   const removed = await runProcess('docker', ['volume', 'rm', volume], { reject: false })

@@ -1,6 +1,7 @@
 import { Command, CommanderError } from 'commander'
 import { CliError, EXIT } from './errors.js'
 import { Output } from './output.js'
+import { setProcessReporter } from './process.js'
 import { accessClose, accessGc, accessInspect, accessList, accessOpen, serviceList, servicePublish, serviceUnpublish } from './commands/access.js'
 import { dbDump, dbMigrate, dbOpen, dbRestore, dbShell, dbStatus, dbUrl, clientClose, clientExec, redisOpen } from './commands/clients.js'
 import { analyzeCommand, initCommand, namespaceCommand, projectAction, projectList, projectShow, servicesCommand } from './commands/projects.js'
@@ -49,6 +50,10 @@ program
   .option('--profile <name>', 'local, remote-private or remote-public')
   .configureOutput({ writeErr: (value) => process.stderr.write(value) })
   .exitOverride()
+  // The process layer decides on its own whether a child streams and whether a
+  // slow one announces itself. This is the one place the resolved global flags
+  // exist before any command runs.
+  .hook('preAction', () => setProcessReporter(program.opts()))
 
 describe(program.command('version'), 'Print the installed version').action((_options, command) => versionCommand(command))
 

@@ -51,6 +51,15 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Fixed
 
+- **`portta reset` and `portta dev` went silent for minutes.** `migrateAuthState`
+  was the one `docker compose` call on that path that took `runProcess`'s piped
+  default while carrying `--build`, so it built the whole panel image with
+  nothing on screen. It streams now, and so do the pull, the first start of the
+  panel database and the applier and runner builds. Underneath, any child whose
+  output is captured reports how long it has been running after ten seconds, so
+  no call site can be mistaken for a hang again; `--verbose` streams everything,
+  `--quiet` silences it, and `--json` keeps stdout to itself.
+  [ADR 0034](docs/adr/0034-child-process-output.md).
 - **"This host is under pressure" could never appear.** It compared ratios
   against percentages. It compares ratios against ratios now.
 - **A wide table pushed the whole page sideways** on anything narrower than a

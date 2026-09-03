@@ -6,7 +6,6 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  APPLY_IMAGE,
   RUNNER_CONTAINER,
   RUNNER_IMAGE,
   isTrue,
@@ -73,7 +72,9 @@ export async function ensureRunner(context: GatewayContext): Promise<RunnerOutco
   }
   const present = await runProcess('docker', ['image', 'inspect', RUNNER_IMAGE], { reject: false })
   if (present.exitCode !== 0) {
-    const built = await runProcess('docker', ['build', '-q', '-t', APPLY_IMAGE, context_dir], { reject: false })
+    // RUNNER_IMAGE is APPLY_IMAGE (packages/core/src/runner.ts); tagged by the
+    // name this file inspected, so the two lines read as the same image.
+    const built = await runProcess('docker', ['build', '-t', RUNNER_IMAGE, context_dir], { reject: false, stdio: 'stream' })
     if (built.exitCode !== 0) return { action: 'failed', reason: `could not build ${RUNNER_IMAGE}` }
   }
 

@@ -315,10 +315,16 @@ it "Make never pulls a published Portta image"
 assert_eq "" "$(grep -E 'ghcr.io/fabioassuncao' Makefile || true)"
 
 it "make dev calls the checkout setup command"
-assert_contains "$(sed -n '/^dev:/,/^[^[:space:]#][^:]*:/p' Makefile)" '$(GW) $(if $(YES),--yes,) dev'
+assert_contains "$(sed -n '/^dev:/,/^[^[:space:]#][^:]*:/p' Makefile)" '$(GW) $(if $(YES),--yes,)'
+assert_contains "$(sed -n '/^dev:/,/^[^[:space:]#][^:]*:/p' Makefile)" ') dev '
 
 it "make reset calls the checkout reset command"
-assert_contains "$(sed -n '/^reset:/,/^[^[:space:]#][^:]*:/p' Makefile)" '$(GW) $(if $(YES),--yes,) reset'
+assert_contains "$(sed -n '/^reset:/,/^[^[:space:]#][^:]*:/p' Makefile)" '$(GW) $(if $(YES),--yes,)'
+assert_contains "$(sed -n '/^reset:/,/^[^[:space:]#][^:]*:/p' Makefile)" ') reset '
+
+it "make VERBOSE=1 forwards --verbose, so a silent build can be made to speak"
+assert_contains "$(sed -n '/^dev:/,/^[^[:space:]#][^:]*:/p' Makefile)" '--verbose'
+assert_contains "$(sed -n '/^reset:/,/^[^[:space:]#][^:]*:/p' Makefile)" '--verbose'
 
 it "make reset EXAMPLES=1 forwards --examples"
 assert_contains "$(sed -n '/^reset:/,/^[^[:space:]#][^:]*:/p' Makefile)" '--examples'

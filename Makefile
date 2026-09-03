@@ -27,8 +27,8 @@ help: ## Show this help
 # panel. It is deliberately the only target that chains others: everything
 # else stays a single call to the CLI. Pending panel SQL is applied after
 # the panel is up; `db-migrate` does the same without a restart.
-dev: ## Start the gateway and the panel; RESET=1 wipes the panel database first
-	@$(GW) $(if $(YES),--yes,) dev $(PROFILE) $(if $(RESET),--reset,) $(if $(EXAMPLES),--examples,)
+dev: ## Start the gateway and the panel; RESET=1 wipes the panel database first, VERBOSE=1 streams every child process
+	@$(GW) $(if $(YES),--yes,) $(if $(VERBOSE),--verbose,) dev $(PROFILE) $(if $(RESET),--reset,) $(if $(EXAMPLES),--examples,)
 
 bootstrap: ## Prepare this checkout (no published Portta image pull)
 	@$(GW) bootstrap --skip-pull
@@ -40,7 +40,7 @@ down: ## Stop the gateway; consumer projects keep running
 	@$(GW) down
 
 reset: ## Wipe the panel database and start like a fresh clone (same as RESET=1)
-	@$(GW) $(if $(YES),--yes,) reset $(if $(EXAMPLES),--examples,)
+	@$(GW) $(if $(YES),--yes,) $(if $(VERBOSE),--verbose,) reset $(if $(EXAMPLES),--examples,)
 
 restart: ## Restart gateway components
 	@$(GW) restart

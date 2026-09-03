@@ -84,6 +84,15 @@ make reset                # alias for the above
 make reset EXAMPLES=1     # then import docker/examples
 ```
 
+**What takes the time.** The first `make dev` or `make reset` in a checkout,
+and any run after a dependency change, builds the panel image: two `npm ci`, a
+build across three workspaces and a render of the documentation. Several
+minutes is normal. It now says so before it starts and streams BuildKit's
+progress while it runs, and anything else that goes quiet reports how long it
+has been going. `make dev VERBOSE=1` shows every child process;
+`./bin/portta --quiet reset` shows none of it. A `Ctrl-C` during a build is
+safe: BuildKit keeps the cache it has earned.
+
 **Gone.** The named volume `${PORTTA_DB_VOLUME:-portta-db}` — Projects, tasks,
 tokens, activity, the GitHub projection — and the snapshots `repos scan` and
 the host collector rewrite under `state/git/` and `state/metrics/`.

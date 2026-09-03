@@ -73,7 +73,10 @@ export async function ensureApplier(context: GatewayContext): Promise<ApplierOut
   }
   const present = await runProcess('docker', ['image', 'inspect', APPLY_IMAGE], { reject: false })
   if (present.exitCode !== 0) {
-    const built = await runProcess('docker', ['build', '-q', '-t', APPLY_IMAGE, context_dir], { reject: false })
+    // Not `-q`: this is a cold build a person is waiting on, and `-q` would
+    // suppress the progress that says so. Nothing here reads the image id it
+    // would have printed.
+    const built = await runProcess('docker', ['build', '-t', APPLY_IMAGE, context_dir], { reject: false, stdio: 'stream' })
     if (built.exitCode !== 0) return { action: 'failed', reason: `could not build ${APPLY_IMAGE}` }
   }
 
