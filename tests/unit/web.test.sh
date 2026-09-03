@@ -385,6 +385,11 @@ assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./docs:/app/docs:
 it "mounts the docs Vite config beside the UI one"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./apps/web/vite.docs.config.ts:/app/apps/web/vite.docs.config.ts:ro"
 
+it "each Vite writes its pre-bundle to its own cacheDir"
+assert_contains "$(cat apps/web/vite.config.ts)" "node_modules/.vite/ui"
+assert_contains "$(cat apps/web/vite.docs.config.ts)" "node_modules/.vite/docs"
+assert_contains "$(cat apps/web/vite.auth.config.ts)" "node_modules/.vite/auth"
+
 it "the checkout migrator builds the auth image before running"
 assert_contains "$(sed -n '/export function authMigrationRunArguments/,/^}/p' packages/cli/src/commands/lifecycle.ts)" "'--build'"
 

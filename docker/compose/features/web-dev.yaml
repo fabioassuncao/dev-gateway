@@ -43,7 +43,9 @@ services:
       - web
     # `node`, never PORTTA_WEB_USER. That override exists so the API container
     # can write the host's .env; Vite writes no host file at all, and does write
-    # inside the image (node_modules/.vite), which only `node` owns.
+    # inside the image (node_modules/.vite/{ui,docs}), which only `node` owns.
+    # Each Vite has its own cacheDir: a shared deps/ would make one process
+    # delete the other's pre-bundle (504 Outdated Optimize Dep).
     user: node
     command: ["npm", "run", "dev:ui"]
     environment:

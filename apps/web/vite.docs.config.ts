@@ -62,6 +62,7 @@ function porttaDocs(): Plugin {
 
 export default defineConfig({
   root: 'src/docs',
+  cacheDir: resolve(import.meta.dirname, 'node_modules/.vite/docs'),
   base: '/docs/',
   plugins: [react(), tailwindcss(), porttaDocs()],
   build: {
