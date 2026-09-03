@@ -533,6 +533,18 @@ export const ProjectSummary = named(
     repositoryCount: z.number().int(),
     environmentCount: z.number().int(),
     runningEnvironmentCount: z.number().int(),
+    /**
+     * Enough of each adopted environment to act on it from a list: the name to
+     * address it by, and what stopping or starting it would do. Without this a
+     * project list can only link to a project, never operate one.
+     */
+    environments: z.array(z.object({
+      name: z.string().describe('COMPOSE_PROJECT_NAME'),
+      running: z.boolean(),
+      serviceCount: z.number().int(),
+      runningCount: z.number().int(),
+      unhealthyCount: z.number().int(),
+    }).strict()),
   }).strict(),
   'ProjectSummary',
 )

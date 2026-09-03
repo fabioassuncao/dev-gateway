@@ -58,7 +58,7 @@ describe('the development dashboard', () => {
     renderWithQuery(<Overview />)
     const project = await screen.findByRole('group', { name: 'Meu Produto' })
     expect(within(project).getByText('3 open · 1 in progress')).toBeInTheDocument()
-    expect(within(project).getByText('1 blocked')).toBeInTheDocument()
+    expect(within(project).getByLabelText('1 blocked')).toBeInTheDocument()
     expect(screen.getByText('Add totals')).toBeInTheDocument()
     expect(screen.getByText('3 uncommitted')).toBeInTheDocument()
   })

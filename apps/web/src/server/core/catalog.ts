@@ -48,6 +48,13 @@ export function toProjectSummary(
     repositoryCount,
     environmentCount: adopted.length,
     runningEnvironmentCount: adopted.filter((environment) => environment.running).length,
+    environments: adopted.map((environment) => ({
+      name: environment.environment,
+      running: environment.running,
+      serviceCount: environment.serviceCount,
+      runningCount: environment.runningCount,
+      unhealthyCount: environment.unhealthyCount,
+    })),
   }
 }
 

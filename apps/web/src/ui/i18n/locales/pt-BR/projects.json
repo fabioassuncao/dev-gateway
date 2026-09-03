@@ -124,5 +124,110 @@
     "deleteKeeps": "Mantido: todos os containers, volumes, redes, diretórios e issues do GitHub. Os environments voltam a ficar sem projeto.",
     "typeSlug": "Digite {{slug}} para confirmar",
     "deleteButton": "Excluir projeto"
-  }
+  },
+  "actions": {
+    "label": "Ambientes",
+    "menuFor": "Ações para {{name}}",
+    "start": "Iniciar ambientes",
+    "stop": "Parar ambientes",
+    "restart": "Reiniciar ambientes",
+    "archive": "Arquivar",
+    "unarchive": "Desarquivar",
+    "delete": "Excluir projeto",
+    "openTasks": "Tarefas",
+    "openRepositories": "Repositórios",
+    "openEnvironments": "Ambientes",
+    "settings": "Configurações",
+    "failed": "Não foi possível agir sobre {{name}}",
+    "done": {
+      "start": "{{count}} ambiente de {{name}} iniciado",
+      "start_one": "{{count}} ambiente de {{name}} iniciado",
+      "start_other": "{{count}} ambientes de {{name}} iniciados",
+      "stop": "{{count}} ambiente de {{name}} parado",
+      "stop_one": "{{count}} ambiente de {{name}} parado",
+      "stop_other": "{{count}} ambientes de {{name}} parados",
+      "restart": "{{count}} ambiente de {{name}} reiniciado",
+      "restart_one": "{{count}} ambiente de {{name}} reiniciado",
+      "restart_other": "{{count}} ambientes de {{name}} reiniciados",
+      "archive": "{{name}} arquivado",
+      "unarchive": "{{name}} está ativo novamente",
+      "delete": "{{name}} removido"
+    },
+    "partial": {
+      "start": "{{name}}: {{failed}} de {{total}} ambientes não iniciaram",
+      "stop": "{{name}}: {{failed}} de {{total}} ambientes não pararam",
+      "restart": "{{name}}: {{failed}} de {{total}} ambientes não reiniciaram"
+    },
+    "confirm": {
+      "stopTitle": "Parar {{name}}?",
+      "stopImpact": "Isso interrompe {{count}} contêineres em {{environments}} ambientes.",
+      "stopImpact_one": "Isso interrompe {{count}} contêiner.",
+      "stopImpact_other": "Isso interrompe {{count}} contêineres em {{environments}} ambientes.",
+      "restartTitle": "Reiniciar {{name}}?",
+      "restartImpact": "Isso reinicia {{count}} contêineres em {{environments}} ambientes; cada um fica brevemente inacessível.",
+      "restartImpact_one": "Isso reinicia {{count}} contêiner; ele fica brevemente inacessível.",
+      "restartImpact_other": "Isso reinicia {{count}} contêineres em {{environments}} ambientes; cada um fica brevemente inacessível.",
+      "deleteTitle": "Excluir {{name}}?",
+      "deleteImpact": "Isso remove o projeto, os registros de seus repositórios, suas tarefas, notas, sessões e atividade.",
+      "deleteKeeps": "Preservado: todo contêiner, volume, rede, diretório de trabalho e issue do GitHub. Os ambientes voltam a ficar sem projeto."
+    },
+    "bulk": {
+      "start": "Iniciar",
+      "stop": "Parar",
+      "restart": "Reiniciar",
+      "archive": "Arquivar",
+      "nothingToStart": "Nenhum dos projetos selecionados tem ambiente parado",
+      "nothingToStop": "Nenhum dos projetos selecionados tem ambiente em execução",
+      "stopTitle": "Parar {{count}} projetos?",
+      "stopTitle_one": "Parar {{count}} projeto?",
+      "stopTitle_other": "Parar {{count}} projetos?",
+      "stopImpact": "Isso interrompe {{count}} contêineres.",
+      "restartTitle": "Reiniciar {{count}} projetos?",
+      "restartTitle_one": "Reiniciar {{count}} projeto?",
+      "restartTitle_other": "Reiniciar {{count}} projetos?",
+      "restartImpact": "Isso reinicia {{count}} contêineres; cada um fica brevemente inacessível.",
+      "archiveTitle": "Arquivar {{count}} projetos?",
+      "archiveImpact": "Eles saem da lista padrão. Nada no host muda, e podem ser desarquivados a qualquer momento."
+    }
+  },
+  "views": {
+    "cards": "Cards",
+    "table": "Tabela"
+  },
+  "viewLabel": "Visualização",
+  "table": {
+    "caption": "Projetos, seu estado e seu trabalho",
+    "name": "Projeto",
+    "state": "Estado",
+    "repositories": "Repos",
+    "environments": "Ambientes",
+    "tasks": "Abertas",
+    "inProgress": "Em andamento",
+    "blocked": "Bloqueadas",
+    "agents": "Agentes",
+    "activity": "Última atividade",
+    "commit": "Último commit",
+    "resources": "Recursos",
+    "actions": "Ações"
+  },
+  "state": {
+    "running": "Em execução",
+    "partial": "Degradado",
+    "unhealthy": "Não saudável",
+    "idle": "Ocioso",
+    "archived": "Arquivado",
+    "runningHint": "Todo ambiente adotado está no ar e saudável.",
+    "partialHint": "Um ambiente está no ar com menos serviços do que declara.",
+    "unhealthyHint": "Um serviço deste projeto está falhando no health check.",
+    "idleHint": "Nada está rodando para este projeto agora."
+  },
+  "filters": {
+    "state": "Estado",
+    "anyState": "Qualquer estado",
+    "showArchived": "Mostrar arquivados",
+    "onlyRunning": "Só em execução",
+    "onlyProblems": "Precisa de atenção"
+  },
+  "noMatch": "Nenhum projeto corresponde a estes filtros",
+  "noMatchHint": "Amplie a busca ou limpe o filtro de estado."
 }

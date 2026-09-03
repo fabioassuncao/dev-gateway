@@ -2893,6 +2893,44 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "environments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "COMPOSE_PROJECT_NAME"
+                },
+                "running": {
+                  "type": "boolean"
+                },
+                "serviceCount": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "runningCount": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "unhealthyCount": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "name",
+                "running",
+                "serviceCount",
+                "runningCount",
+                "unhealthyCount"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -2905,7 +2943,8 @@
           "location",
           "repositoryCount",
           "environmentCount",
-          "runningEnvironmentCount"
+          "runningEnvironmentCount",
+          "environments"
         ],
         "additionalProperties": false
       },

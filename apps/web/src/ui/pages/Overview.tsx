@@ -14,6 +14,7 @@ import { HostSummary } from '../components/host-summary.tsx'
 import { EnvironmentActions } from '../components/environment-actions.tsx'
 import { CommitRow } from '../components/entities/commit-row.tsx'
 import { ProjectRow } from '../components/entities/project-card.tsx'
+import { fromPulse } from '../lib/projects.ts'
 import { ResourceUsage } from '../components/entities/resource-usage.tsx'
 import { SessionRow } from '../components/entities/session-row.tsx'
 import { TaskRow } from '../components/entities/task-row.tsx'
@@ -219,7 +220,7 @@ function ProjectsPanel({ data }: { data: DevelopmentOverview }) {
       {shown.length === 0 ? (
         <Empty compact title={t('projects.empty')} hint={t('projects.emptyHint')} />
       ) : (
-        shown.map((pulse) => <ProjectRow key={pulse.slug} item={{ kind: 'pulse', pulse }} />)
+        shown.map((pulse) => <ProjectRow key={pulse.slug} item={fromPulse(pulse)} />)
       )}
     </Card>
   )

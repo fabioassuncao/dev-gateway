@@ -1,105 +1,180 @@
 import { useTranslation } from 'react-i18next'
-import type { ProjectSummary } from '../../../shared/types.ts'
-import type { ProjectPulse } from '../../../shared/overview-types.ts'
+import { Bot, Boxes, FolderGit2, GitCommitHorizontal, OctagonX } from 'lucide-react'
+import type { ProjectListItem } from '../../lib/projects.ts'
+import { projectState, projectStateTone } from '../../lib/projects.ts'
 import { Badge } from '../ui/badge.tsx'
-import { Card, CardHeader } from '../ui/card.tsx'
+import { Card } from '../ui/card.tsx'
+import { Tooltip } from '../ui/tooltip.tsx'
 import { useFormat } from '../../lib/use-format.ts'
 import { ResourceUsage } from './resource-usage.tsx'
+import { ProjectActionsMenu, ProjectPrimaryAction } from './project-actions.tsx'
 import { cn } from '../../lib/utils.ts'
 
-/**
- * What a project list shows about each product. A pulse (from the dashboard)
- * says what is happening; a summary (from the catalog) says what it owns.
- * Both render through the same rows, so the page reads the same either way.
- */
-export type ProjectLike =
-  | { kind: 'pulse'; pulse: ProjectPulse }
-  | { kind: 'summary'; summary: ProjectSummary }
-
-export function pulseFor(summary: ProjectSummary, pulses: readonly ProjectPulse[] | undefined): ProjectLike {
-  const pulse = pulses?.find((entry) => entry.slug === summary.slug)
-  return pulse ? { kind: 'pulse', pulse } : { kind: 'summary', summary }
-}
-
-function healthTone(health: ProjectPulse['health']): 'ok' | 'warn' | 'danger' | 'neutral' {
-  return health === 'ok' ? 'ok' : health === 'partial' ? 'warn' : health === 'unhealthy' ? 'danger' : 'neutral'
-}
-
-function ProjectFacts({ item }: { item: ProjectLike }) {
-  const { t } = useTranslation('projects')
-  const { relativeTime } = useFormat()
-  if (item.kind === 'summary') {
-    const project = item.summary
-    return (
-      <>
-        <Badge tone="outline">{t(project.repositoryCount === 1 ? 'repository' : 'repositories', { count: project.repositoryCount })}</Badge>
-        <Badge tone={project.runningEnvironmentCount > 0 ? 'ok' : 'neutral'}>
-          {t('running', { running: project.runningEnvironmentCount, total: project.environmentCount })}
-        </Badge>
-      </>
-    )
-  }
-  const pulse = item.pulse
+/** The project's operational state, said once, in the tone that state deserves. */
+export function ProjectStateBadge({ item, className }: { item: ProjectListItem; className?: string }) {
+  const { t } = useTranslation('projects', { keyPrefix: 'state' })
+  const state = projectState(item)
   return (
-    <>
-      <Badge tone="outline">{t(pulse.repositoryCount === 1 ? 'repository' : 'repositories', { count: pulse.repositoryCount })}</Badge>
-      <Badge tone={pulse.inProgressTasks > 0 ? 'info' : 'outline'}>
-        {t('pulse.tasks', { open: pulse.openTasks, inProgress: pulse.inProgressTasks })}
-      </Badge>
-      {pulse.blockedTasks > 0 ? <Badge tone="danger">{t('pulse.blocked', { count: pulse.blockedTasks })}</Badge> : null}
-      {pulse.activeSessions > 0 ? <Badge tone="accent">{t('pulse.sessions', { count: pulse.activeSessions })}</Badge> : null}
-      <Badge tone={healthTone(pulse.health)}>
-        {t('running', { running: pulse.runningEnvironments, total: pulse.environmentCount })}
-        {pulse.unhealthyServices > 0 ? ` · ${t('pulse.unhealthy', { count: pulse.unhealthyServices })}` : ''}
-      </Badge>
-      {pulse.lastCommit ? (
-        <span className="font-mono text-[11px] text-subtle" title={pulse.lastCommit.subject}>
-          {pulse.lastCommit.repository} {pulse.lastCommit.shortSha} · {relativeTime(pulse.lastCommit.date)}
-        </span>
-      ) : null}
-      {pulse.resources ? <ResourceUsage cpu={pulse.resources.cpuUtilisation} memoryBytes={pulse.resources.memoryUsedBytes} className="text-[11px] text-subtle" /> : null}
-    </>
+    <Tooltip label={t(`${state}Hint` as 'runningHint')}>
+      <span tabIndex={0} className={cn('rounded outline-none focus-visible:outline-2 focus-visible:outline-accent', className)}>
+        <Badge tone={projectStateTone(state)} dot={state !== 'archived' && state !== 'idle'}>
+          {t(state)}
+        </Badge>
+      </span>
+    </Tooltip>
   )
 }
 
-function nameOf(item: ProjectLike) {
-  return item.kind === 'pulse' ? item.pulse : item.summary
+/**
+ * The counts that say what is happening in a project, as one line rather than
+ * six scattered badges. Anything that is zero is left out; a project with no
+ * blocked task should not carry a badge saying so.
+ */
+export function ProjectCounts({ item, className }: { item: ProjectListItem; className?: string }) {
+  const { t } = useTranslation('projects')
+  const facts: Array<{ id: string; icon: typeof Boxes; label: string; text: string; tone?: 'danger' | 'agent' }> = []
+
+  facts.push({
+    id: 'repositories',
+    icon: FolderGit2,
+    label: t(item.repositoryCount === 1 ? 'repository' : 'repositories', { count: item.repositoryCount }),
+    text: String(item.repositoryCount),
+  })
+  facts.push({
+    id: 'environments',
+    icon: Boxes,
+    label: t('running', { running: item.runningEnvironments, total: item.environmentCount }),
+    text: `${item.runningEnvironments}/${item.environmentCount}`,
+  })
+  if (item.blockedTasks) {
+    facts.push({ id: 'blocked', icon: OctagonX, label: t('pulse.blocked', { count: item.blockedTasks }), text: String(item.blockedTasks), tone: 'danger' })
+  }
+  if (item.activeSessions) {
+    facts.push({ id: 'sessions', icon: Bot, label: t('pulse.sessions', { count: item.activeSessions }), text: String(item.activeSessions), tone: 'agent' })
+  }
+
+  return (
+    <span className={cn('inline-flex items-center gap-2.5 text-[11px] tabular-nums text-muted', className)}>
+      {facts.map((fact) => {
+        const Icon = fact.icon
+        return (
+          <Tooltip key={fact.id} label={fact.label}>
+            <span
+              tabIndex={0}
+              // The tooltip only exists while it is open; the number and its
+              // icon need a name at all times, for a reader and for a test.
+              aria-label={fact.label}
+              className={cn(
+                'inline-flex items-center gap-1 rounded outline-none focus-visible:outline-2 focus-visible:outline-accent',
+                fact.tone === 'danger' ? 'text-danger' : fact.tone === 'agent' ? 'text-agent' : undefined,
+              )}
+            >
+              <Icon className="h-3 w-3" aria-hidden />
+              {fact.text}
+            </span>
+          </Tooltip>
+        )
+      })}
+    </span>
+  )
 }
 
-export function ProjectCard({ item }: { item: ProjectLike }) {
+/** Open tasks and what is in flight, when the dashboard could tell us. */
+export function ProjectWork({ item, className }: { item: ProjectListItem; className?: string }) {
   const { t } = useTranslation('projects')
-  const project = nameOf(item)
-  const description = item.kind === 'summary' ? item.summary.description : item.pulse.lastActivity
+  if (item.openTasks === null) return null
+  if (item.openTasks === 0 && !item.inProgressTasks) return null
   return (
-    <Card>
-      <CardHeader
-        title={
-          <span className="flex flex-wrap items-center gap-2">
-            <a className="underline-offset-2 hover:text-accent hover:underline" href={`#/projects/${encodeURIComponent(project.slug)}`}>
-              {project.name}
+    <Badge tone={item.inProgressTasks ? 'info' : 'outline'} className={className}>
+      {t('pulse.tasks', { open: item.openTasks, inProgress: item.inProgressTasks ?? 0 })}
+    </Badge>
+  )
+}
+
+/**
+ * A project as a card.
+ *
+ * It was a passive tile: a name, a description and a row of badges. It now
+ * carries the one action its state allows and a menu with the rest, so a
+ * project can be started, stopped or opened without ever leaving the list —
+ * which was the whole complaint about this page.
+ */
+export function ProjectCard({ item }: { item: ProjectListItem }) {
+  const { relativeTime } = useFormat()
+  const target = { slug: item.slug, name: item.name, archived: item.archived, environments: item.environments }
+
+  return (
+    <Card className="group flex min-w-0 flex-col">
+      <div className="flex items-start gap-2 border-b border-line px-3.5 py-2.5">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <a
+              className="min-w-0 truncate text-sm font-semibold text-ink underline-offset-2 hover:text-accent hover:underline"
+              href={`#/projects/${encodeURIComponent(item.slug)}`}
+            >
+              {item.name}
             </a>
-            {project.archived ? <Badge tone="outline">{t('archived')}</Badge> : null}
-          </span>
-        }
-        description={description ?? undefined}
-      />
-      <div className="flex flex-wrap items-center gap-1.5 px-4 py-3">
-        <ProjectFacts item={item} />
+            <ProjectStateBadge item={item} />
+          </div>
+          {item.description ? (
+            <p className="mt-0.5 line-clamp-2 text-xs text-muted">{item.description}</p>
+          ) : null}
+        </div>
+        <div className="row-actions flex shrink-0 items-center">
+          <ProjectPrimaryAction target={target} />
+          <ProjectActionsMenu target={target} />
+        </div>
       </div>
+
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2.5">
+        <ProjectCounts item={item} />
+        <ProjectWork item={item} />
+        {item.resources ? (
+          <ResourceUsage cpu={item.resources.cpuUtilisation} memoryBytes={item.resources.memoryUsedBytes} className="text-[11px]" />
+        ) : null}
+      </div>
+
+      {item.lastCommit || item.lastActivity ? (
+        <div className="mt-auto flex min-w-0 items-center gap-1.5 border-t border-line px-3.5 py-1.5 text-[11px] text-subtle">
+          {item.lastCommit ? (
+            <>
+              <GitCommitHorizontal className="h-3 w-3 shrink-0" aria-hidden />
+              <span className="font-mono">{item.lastCommit.shortSha}</span>
+              <span className="min-w-0 truncate">{item.lastCommit.subject}</span>
+              <span className="ml-auto shrink-0">{relativeTime(item.lastCommit.date)}</span>
+            </>
+          ) : (
+            <>
+              <span className="min-w-0 truncate">{item.lastActivity}</span>
+              <span className="ml-auto shrink-0">{relativeTime(item.lastActivityAt)}</span>
+            </>
+          )}
+        </div>
+      ) : null}
     </Card>
   )
 }
 
-export function ProjectRow({ item, className }: { item: ProjectLike; className?: string }) {
-  const { t } = useTranslation('projects')
-  const project = nameOf(item)
+/**
+ * A project as one line, for a dashboard panel. The Projects page uses the
+ * table instead; this is what fits in a third of a cockpit.
+ */
+export function ProjectRow({ item, className }: { item: ProjectListItem; className?: string }) {
   return (
-    <div role="group" aria-label={project.name} className={cn('flex min-w-0 flex-wrap items-center gap-2 border-b border-line px-4 py-2 text-sm last:border-b-0', className)}>
-      <a className="font-medium text-ink underline-offset-2 hover:text-accent hover:underline" href={`#/projects/${encodeURIComponent(project.slug)}`}>
-        {project.name}
+    <div
+      role="group"
+      aria-label={item.name}
+      className={cn('flex min-w-0 items-center gap-2 border-b border-line px-4 py-1.5 text-sm last:border-b-0', className)}
+    >
+      <a
+        className="min-w-0 flex-1 truncate font-medium text-ink underline-offset-2 hover:text-accent hover:underline"
+        href={`#/projects/${encodeURIComponent(item.slug)}`}
+      >
+        {item.name}
       </a>
-      {project.archived ? <Badge tone="outline">{t('archived')}</Badge> : null}
-      <ProjectFacts item={item} />
+      <ProjectWork item={item} className="hidden shrink-0 sm:inline-flex" />
+      <ProjectCounts item={item} className="shrink-0" />
+      <ProjectStateBadge item={item} className="shrink-0" />
     </div>
   )
 }
