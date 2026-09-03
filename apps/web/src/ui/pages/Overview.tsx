@@ -10,7 +10,7 @@ import { Badge } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
 import { DiagnosticText } from '../components/diagnostic-text.tsx'
-import { HostSummary } from '../components/host-summary.tsx'
+import { HostSummary, HostSummarySkeleton } from '../components/host-summary.tsx'
 import { EnvironmentActions } from '../components/environment-actions.tsx'
 import { CommitRow } from '../components/entities/commit-row.tsx'
 import { ProjectRow } from '../components/entities/project-card.tsx'
@@ -105,7 +105,7 @@ function Dashboard({ data }: { data: DevelopmentOverview }) {
           pressure={data.resources.host?.pressure}
           gateway={{ up: data.gateway.up, label: data.gateway.up ? t('gatewayRunning') : t('gatewayDown') }}
         />
-      ) : null}
+      ) : metrics.isPending ? <HostSummarySkeleton /> : null}
 
       <div className="grid items-start gap-4 lg:grid-cols-3">
         {widgets.map((widget) => (

@@ -30,6 +30,7 @@ import { Badge } from './ui/badge.tsx'
 import { Button } from './ui/button.tsx'
 import { Tooltip } from './ui/tooltip.tsx'
 import { Sparkline } from './sparkline.tsx'
+import { Skeleton } from './shell-bits.tsx'
 
 /** How long the history window the sparklines draw is, in minutes. */
 export const HISTORY_MINUTES = 30
@@ -229,6 +230,24 @@ function identityLine(host: HostMetrics): string {
  * the first thing on the cockpit, and it says the verdict in a word before it
  * says the numbers.
  */
+/** The band's own shape while the first snapshot is on its way. */
+export function HostSummarySkeleton() {
+  return (
+    <div className="mb-4 rounded-lg border border-line bg-surface shadow-raised" aria-hidden>
+      <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+        <Skeleton className="h-4 w-4 rounded" />
+        <Skeleton className="h-3.5 w-40" />
+        <Skeleton className="ml-auto h-4 w-24" />
+      </div>
+      <div className="grid gap-2 px-4 py-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {[0, 1, 2].map((index) => (
+          <Skeleton key={index} className="h-[4.5rem]" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function HostSummary({
   data,
   history,

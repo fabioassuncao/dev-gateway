@@ -11,7 +11,7 @@ import { Input, Select } from '../components/ui/field.tsx'
 import { Segmented } from '../components/ui/segmented.tsx'
 import { ProjectCard } from '../components/entities/project-card.tsx'
 import { ProjectTable } from '../components/entities/project-table.tsx'
-import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
+import { Empty, ErrorBox, PageHeader, SkeletonRows } from '../components/shell-bits.tsx'
 import {
   DEFAULT_PROJECT_FILTERS,
   defaultProjectOrder,
@@ -134,7 +134,12 @@ export function Projects() {
 
       <section className="mb-6">
         {catalog.isPending ? (
-          <Loading />
+          // The controls and the shape of the list stay put, so nothing jumps
+          // when the catalog lands.
+          <>
+            <div className="mb-3 flex flex-wrap items-center gap-2">{controls}</div>
+            <Card><SkeletonRows rows={4} /></Card>
+          </>
         ) : catalogUnavailable ? (
           <Card>
             <Empty title={t('needsDatabase')} hint={t('needsDatabaseHint')} />
