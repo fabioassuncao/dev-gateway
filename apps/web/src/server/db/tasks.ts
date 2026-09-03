@@ -6,7 +6,7 @@
 
 import { z } from 'zod'
 import type { Sql } from 'postgres'
-import { TASK_PRIORITIES, TASK_STATUSES, TASK_SYNC_STATES, type TaskPriority, type TaskStatus, type TaskSyncState } from 'portta-core'
+import { isIntactDraft, TASK_PRIORITIES, TASK_STATUSES, TASK_SYNC_STATES, type TaskPriority, type TaskStatus, type TaskSyncState } from 'portta-core'
 import type { DatabaseClient } from './client.ts'
 
 export interface TaskRow {
@@ -26,6 +26,9 @@ export interface TaskRow {
   agent: string | null
   createdBy: string | null
   position: number
+  dueAt: Date | null
+  sourceKey: string | null
+  draft: boolean
   createdAt: Date
   updatedAt: Date
   closedAt: Date | null
@@ -37,7 +40,9 @@ export interface TaskNoteRow {
   actor: string | null
   actorKind: 'human' | 'agent' | 'system'
   body: string
+  sourceKey: string | null
   createdAt: Date
+  updatedAt: Date | null
 }
 
 export interface TaskGitHubLinkRow {
@@ -75,6 +80,9 @@ export const CreateTask = z.object({
   repositoryId: z.string().min(1).max(64).nullable().default(null),
   environmentId: z.string().min(1).max(64).nullable().default(null),
   service: z.string().max(64).nullable().default(null),
+  dueAt: z.coerce.date().nullable().default(null),
+  sourceKey: z.string().min(1).max(80).nullable().default(null),
+  draft: z.boolean().default(false),
 }).strict()
 export type CreateTaskInput = z.infer<typeof CreateTask>
 
@@ -92,6 +100,9 @@ export const UpdateTask = z.object({
   environmentId: z.string().min(1).max(64).nullable().optional(),
   service: z.string().max(64).nullable().optional(),
   position: z.number().int().min(0).optional(),
+  dueAt: z.coerce.date().nullable().optional(),
+  sourceKey: z.string().min(1).max(80).nullable().optional(),
+  draft: z.boolean().optional(),
 }).strict()
 export type UpdateTaskInput = z.infer<typeof UpdateTask>
 
@@ -104,6 +115,9 @@ export interface TaskFilter {
   parentId?: string | null
   open?: boolean
   q?: string
+  draft?: boolean
+  createdBy?: string | null
+  sourceKey?: string
   limit?: number
 }
 
@@ -112,7 +126,8 @@ const TASK_COLUMNS = `
   t.environment_id::text AS "environmentId", t.service AS "service", t.parent_id::text AS "parentId",
   t.title AS "title", t.description AS "description", t.status AS "status", t.priority AS "priority",
   t.type AS "type", t.labels AS "labels", t.assignee AS "assignee", t.agent AS "agent",
-  t.created_by AS "createdBy", t.position AS "position", t.created_at AS "createdAt",
+  t.created_by AS "createdBy", t.position AS "position", t.due_at AS "dueAt",
+  t.source_key AS "sourceKey", t.draft AS "draft", t.created_at AS "createdAt",
   t.updated_at AS "updatedAt", t.closed_at AS "closedAt"
 `
 
@@ -137,6 +152,9 @@ export class TasksRepository {
         ${filter.assignee ? sql`AND t.assignee = ${filter.assignee}` : sql``}
         ${filter.parentId === null ? sql`AND t.parent_id IS NULL` : filter.parentId ? sql`AND t.parent_id = ${filter.parentId}` : sql``}
         ${filter.open === true ? sql`AND t.status <> 'done'` : filter.open === false ? sql`AND t.status = 'done'` : sql``}
+        ${filter.draft === false ? sql`AND t.draft = false` : filter.draft === true ? sql`AND t.draft = true` : sql``}
+        ${filter.createdBy !== undefined ? sql`AND t.created_by IS NOT DISTINCT FROM ${filter.createdBy}` : sql``}
+        ${filter.sourceKey ? sql`AND t.source_key = ${filter.sourceKey}` : sql``}
         ${filter.q ? sql`AND (t.title ILIKE ${`%${filter.q}%`} OR t.description ILIKE ${`%${filter.q}%`})` : sql``}
       ORDER BY t.position, t.updated_at DESC, t.id
       LIMIT ${Math.min(Math.max(filter.limit ?? 500, 1), 2000)}
@@ -164,9 +182,10 @@ export class TasksRepository {
     const input = CreateTask.parse(raw)
     const sql = this.sql
     const rows = await sql<TaskRow[]>`
-      INSERT INTO tasks (project_id, repository_id, environment_id, service, parent_id, title, description, status, priority, type, labels, assignee, agent, created_by, closed_at)
+      INSERT INTO tasks (project_id, repository_id, environment_id, service, parent_id, title, description, status, priority, type, labels, assignee, agent, created_by, due_at, source_key, draft, closed_at)
       VALUES (${projectId}, ${input.repositoryId}, ${input.environmentId}, ${input.service}, ${input.parentId}, ${input.title}, ${input.description},
               ${input.status}, ${input.priority}, ${input.type}, ${sql.json(input.labels)}, ${input.assignee}, ${input.agent}, ${createdBy},
+              ${input.dueAt}, ${input.sourceKey}, ${input.draft},
               ${input.status === 'done' ? sql`now()` : null})
       RETURNING ${sql.unsafe(TASK_COLUMNS.replaceAll('t.', ''))}
     `
@@ -184,7 +203,8 @@ export class TasksRepository {
         title = ${next.title}, description = ${next.description}, status = ${next.status}, priority = ${next.priority},
         type = ${next.type}, labels = ${sql.json(next.labels)}, assignee = ${next.assignee}, agent = ${next.agent},
         parent_id = ${next.parentId}, repository_id = ${next.repositoryId}, environment_id = ${next.environmentId},
-        service = ${next.service}, position = ${next.position},
+        service = ${next.service}, position = ${next.position}, due_at = ${next.dueAt}, source_key = ${next.sourceKey},
+        draft = ${next.draft},
         closed_at = ${next.status === 'done' ? (current.closedAt ?? sql`now()`) : null},
         updated_at = now()
       WHERE id = ${id}
@@ -201,7 +221,7 @@ export class TasksRepository {
   async countByProject(): Promise<Map<string, { open: number; inProgress: number; blocked: number; review: number; done: number }>> {
     const rows = await this.sql<Array<{ projectId: string; status: TaskStatus; count: string }>>`
       SELECT project_id::text AS "projectId", status AS "status", count(*)::text AS "count"
-      FROM tasks GROUP BY project_id, status
+      FROM tasks WHERE draft = false GROUP BY project_id, status
     `
     const map = new Map<string, { open: number; inProgress: number; blocked: number; review: number; done: number }>()
     for (const row of rows) {
@@ -221,21 +241,89 @@ export class TasksRepository {
 
   // --- notes ---------------------------------------------------------------
 
+  async findBySourceKey(projectId: string, sourceKey: string): Promise<TaskRow | null> {
+    const sql = this.sql
+    const rows = await sql<TaskRow[]>`
+      SELECT ${sql.unsafe(TASK_COLUMNS)} FROM tasks t
+      WHERE t.project_id = ${projectId} AND t.source_key = ${sourceKey}
+    `
+    return rows[0] ? normalise(rows[0]) : null
+  }
+
+  async findIntactDraft(filter: { projectId: string; createdBy: string | null; parentId: string | null }): Promise<TaskRow | null> {
+    const matches = await this.list({
+      projectId: filter.projectId,
+      createdBy: filter.createdBy,
+      parentId: filter.parentId,
+      draft: true,
+      limit: 20,
+    })
+    return matches.find((row) => isIntactDraft(row)) ?? null
+  }
+
+  async sweepIntactDrafts(projectId: string, olderThan: Date): Promise<number> {
+    const rows = await this.list({ projectId, draft: true, limit: 200 })
+    let removed = 0
+    for (const row of rows) {
+      if (row.updatedAt < olderThan && isIntactDraft(row)) {
+        if (await this.remove(row.id)) removed += 1
+      }
+    }
+    return removed
+  }
+
   async listNotes(taskId: string): Promise<TaskNoteRow[]> {
     return this.sql<TaskNoteRow[]>`
-      SELECT id::text AS "id", task_id::text AS "taskId", actor AS "actor", actor_kind AS "actorKind", body AS "body", created_at AS "createdAt"
+      SELECT id::text AS "id", task_id::text AS "taskId", actor AS "actor", actor_kind AS "actorKind",
+             body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt"
       FROM task_notes WHERE task_id = ${taskId} ORDER BY created_at, id
     `
   }
 
-  async addNote(taskId: string, body: string, actor: string | null, actorKind: 'human' | 'agent' | 'system'): Promise<TaskNoteRow> {
+  async findNote(taskId: string, noteId: string): Promise<TaskNoteRow | null> {
+    const rows = await this.sql<TaskNoteRow[]>`
+      SELECT id::text AS "id", task_id::text AS "taskId", actor AS "actor", actor_kind AS "actorKind",
+             body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM task_notes WHERE task_id = ${taskId} AND id = ${noteId}
+    `
+    return rows[0] ?? null
+  }
+
+  async findNoteBySourceKey(taskId: string, sourceKey: string): Promise<TaskNoteRow | null> {
+    const rows = await this.sql<TaskNoteRow[]>`
+      SELECT id::text AS "id", task_id::text AS "taskId", actor AS "actor", actor_kind AS "actorKind",
+             body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM task_notes WHERE task_id = ${taskId} AND source_key = ${sourceKey}
+    `
+    return rows[0] ?? null
+  }
+
+  async addNote(taskId: string, body: string, actor: string | null, actorKind: 'human' | 'agent' | 'system', sourceKey: string | null = null): Promise<TaskNoteRow> {
     const text = z.string().min(1).max(65536).parse(body)
     const rows = await this.sql<TaskNoteRow[]>`
-      INSERT INTO task_notes (task_id, actor, actor_kind, body) VALUES (${taskId}, ${actor}, ${actorKind}, ${text})
-      RETURNING id::text AS "id", task_id::text AS "taskId", actor AS "actor", actor_kind AS "actorKind", body AS "body", created_at AS "createdAt"
+      INSERT INTO task_notes (task_id, actor, actor_kind, body, source_key) VALUES (${taskId}, ${actor}, ${actorKind}, ${text}, ${sourceKey})
+      RETURNING id::text AS "id", task_id::text AS "taskId", actor AS "actor", actor_kind AS "actorKind",
+                body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt"
     `
     await this.sql`UPDATE tasks SET updated_at = now() WHERE id = ${taskId}`
     return rows[0]!
+  }
+
+  async updateNote(taskId: string, noteId: string, body: string): Promise<TaskNoteRow | null> {
+    const text = z.string().min(1).max(65536).parse(body)
+    const rows = await this.sql<TaskNoteRow[]>`
+      UPDATE task_notes SET body = ${text}, updated_at = now()
+      WHERE task_id = ${taskId} AND id = ${noteId}
+      RETURNING id::text AS "id", task_id::text AS "taskId", actor AS "actor", actor_kind AS "actorKind",
+                body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt"
+    `
+    if (rows[0]) await this.sql`UPDATE tasks SET updated_at = now() WHERE id = ${taskId}`
+    return rows[0] ?? null
+  }
+
+  async removeNote(taskId: string, noteId: string): Promise<boolean> {
+    const rows = await this.sql`DELETE FROM task_notes WHERE task_id = ${taskId} AND id = ${noteId} RETURNING id`
+    return rows.length > 0
   }
 
   // --- GitHub binding ------------------------------------------------------
@@ -331,5 +419,12 @@ export class TasksRepository {
 }
 
 function normalise(row: TaskRow): TaskRow {
-  return { ...row, labels: Array.isArray(row.labels) ? row.labels.map(String) : [], position: Number(row.position) }
+  return {
+    ...row,
+    labels: Array.isArray(row.labels) ? row.labels.map(String) : [],
+    position: Number(row.position),
+    draft: Boolean(row.draft),
+    sourceKey: row.sourceKey ?? null,
+    dueAt: row.dueAt ?? null,
+  }
 }

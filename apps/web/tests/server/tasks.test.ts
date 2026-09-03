@@ -169,6 +169,26 @@ describe('local tasks', () => {
     expect(note).toMatchObject({ body: 'tests pass', actor: 'claude-code', actorKind: 'agent' })
     expect((await json(await app.request(`/api/tasks/${task.id}/notes`))).notes).toHaveLength(1)
     expect((await json(await app.request(`/api/tasks/${task.id}`))).notes).toHaveLength(1)
+
+    const edited = await json(await app.request(`/api/tasks/${task.id}/notes/${note.id}`, {
+      method: 'PATCH', body: JSON.stringify({ body: 'tests still pass' }),
+      headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost', 'X-Portta-Actor': 'claude-code' },
+    }))
+    expect(edited.body).toBe('tests still pass')
+    expect(edited.updatedAt).not.toBeNull()
+
+    const refused = await app.request(`/api/tasks/${task.id}/notes/${note.id}`, {
+      method: 'PATCH', body: JSON.stringify({ body: 'no' }),
+      headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost', 'X-Portta-Actor': 'someone-else' },
+    })
+    expect(refused.status).toBe(400)
+
+    const removed = await json(await app.request(`/api/tasks/${task.id}/notes/${note.id}`, {
+      method: 'DELETE',
+      headers: { origin: 'http://localhost', host: 'localhost', 'X-Portta-Actor': 'claude-code' },
+    }))
+    expect(removed).toMatchObject({ ok: true, removed: note.id })
+    expect((await json(await app.request(`/api/tasks/${task.id}/notes`))).notes).toHaveLength(0)
   })
 
   it('links a task to a running environment by hand, and refuses one that is not', async () => {
@@ -267,6 +287,13 @@ describe('the GitHub binding', () => {
     expect((await json(published)).github).toMatchObject({ number: 124, syncState: 'synced' })
   })
 
+  it('refuses to publish an intact draft', async () => {
+    const { db, tasks } = work()
+    const task = tasks.seed({ projectId: 'w1', title: 'New task', draft: true, repositoryId: '10' })
+    const { app } = makeApp({ containers: GATEWAY }, {}, db, fakeGitHub())
+    expect((await post(app, `/api/tasks/${task.id}/github/publish`, {})).status).toBe(400)
+  })
+
   it('comments straight through to GitHub, and refuses on an unbound task', async () => {
     const { db, tasks } = work([issueRow()])
     const bound = tasks.seed({ projectId: 'w1', title: 'Bound' })
@@ -304,6 +331,84 @@ describe('the GitHub binding', () => {
     const clash = await applyIssueToTask(db.tasks, issueRow({ title: 'Renamed again', githubUpdatedAt: new Date(NOW.getTime() + 180_000) }) as never, owner)
     expect(clash.outcome).toBe('conflict')
     expect(tasks.rows[0]!.title).toBe('Renamed')
+  })
+})
+
+describe('kick-create drafts', () => {
+  it('reuses one intact draft per actor, keeps it off the board, and promotes on a real title', async () => {
+    const { db, tasks, activity } = work()
+    const { app } = makeApp({ containers: GATEWAY }, {}, db)
+    const headers = { 'X-Portta-Actor': 'fabio', 'X-Portta-Actor-Kind': 'human' }
+    const first = await post(app, '/api/projects/produto/tasks', { title: 'New task', draft: true }, headers)
+    expect(first.status).toBe(201)
+    const draft = await json(first)
+    expect(draft).toMatchObject({ title: 'New task', draft: true, status: 'backlog' })
+    expect(activity.rows).toEqual([])
+    expect((await json(await app.request('/api/projects/produto/tasks'))).tasks).toEqual([])
+    expect((await json(await app.request('/api/projects/produto/tasks?draft=true'))).tasks).toHaveLength(1)
+    expect((await json(await app.request('/api/projects/produto/tasks/next'))).task).toBeNull()
+
+    const reused = await post(app, '/api/projects/produto/tasks', { title: 'New task', draft: true }, headers)
+    expect(reused.status).toBe(200)
+    expect((await json(reused)).id).toBe(draft.id)
+    expect(tasks.rows.filter((row) => row.draft)).toHaveLength(1)
+
+    const promoted = await json(await app.request(`/api/tasks/${draft.id}`, {
+      method: 'PATCH', body: JSON.stringify({ title: 'Configurar API' }),
+      headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost', 'X-Portta-Actor': 'fabio' },
+    }))
+    expect(promoted).toMatchObject({ title: 'Configurar API', draft: false })
+    expect(activity.rows[0]).toMatchObject({ kind: 'task.created', taskId: draft.id })
+    expect((await json(await app.request('/api/projects/produto/tasks'))).tasks).toHaveLength(1)
+  })
+
+  it('sweeps an untouched draft older than a day, stores a due date, and refuses a parent cycle', async () => {
+    const { db, tasks } = work()
+    tasks.seed({
+      projectId: 'w1', title: 'New task', draft: true, createdBy: 'fabio',
+      updatedAt: new Date('2020-01-01T00:00:00Z'),
+    })
+    const parent = tasks.seed({ projectId: 'w1', title: 'Parent' })
+    const child = tasks.seed({ projectId: 'w1', title: 'Child', parentId: parent.id })
+    const { app } = makeApp({ containers: GATEWAY }, {}, db)
+    const created = await json(await post(app, '/api/projects/produto/tasks', {
+      title: 'New task', draft: true, dueAt: 1_735_689_600,
+    }, { 'X-Portta-Actor': 'ada' }))
+    expect(created.dueAt).toBe(1_735_689_600)
+    expect(tasks.rows.some((row) => row.createdBy === 'fabio' && row.draft)).toBe(false)
+
+    const cycled = await app.request(`/api/tasks/${parent.id}`, {
+      method: 'PATCH', body: JSON.stringify({ parentId: child.id }),
+      headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },
+    })
+    expect(cycled.status).toBe(400)
+  })
+
+  it('imports a document by source_key and exports the same keys', async () => {
+    const { db } = work()
+    const { app } = makeApp({ containers: GATEWAY }, {}, db)
+    const document = {
+      schemaVersion: 1,
+      project: { slug: 'produto', name: 'Produto' },
+      tasks: [{
+        key: 'shop-auth', title: 'Auth', environment: 'alpha',
+        comments: [{ key: 'auth-note', actor: 'fabio', body: 'start here' }],
+        subtasks: [{ key: 'shop-auth-ui', title: 'UI' }],
+      }],
+    }
+    const first = await json(await post(app, '/api/projects/produto/tasks/import', document))
+    expect(first).toMatchObject({ created: 2, updated: 0 })
+    expect(first.tasks.map((task: { title: string }) => task.title)).toEqual(['Auth', 'UI'])
+    expect(first.tasks[0].notes[0]).toMatchObject({ body: 'start here' })
+
+    document.tasks[0]!.title = 'Auth (renamed)'
+    const second = await json(await post(app, '/api/projects/produto/tasks/import', document))
+    expect(second).toMatchObject({ created: 0, updated: 2 })
+    expect(second.tasks[0].title).toBe('Auth (renamed)')
+
+    const exported = await json(await app.request('/api/projects/produto/tasks/export'))
+    expect(exported.tasks.map((task: { key: string }) => task.key)).toEqual(['shop-auth'])
+    expect(exported.tasks[0].subtasks[0].key).toBe('shop-auth-ui')
   })
 })
 

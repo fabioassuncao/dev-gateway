@@ -79,6 +79,8 @@ export const TaskSummary = named(
     subtaskCount: z.number().int(),
     openSubtaskCount: z.number().int(),
     github: z.object({ repository: z.string(), number: z.number().int(), htmlUrl: z.string(), syncState: TaskSyncState }).strict().nullable(),
+    dueAt: unixSeconds.nullable(),
+    draft: z.boolean(),
     createdAt: unixSeconds,
     updatedAt: unixSeconds,
     closedAt: unixSeconds.nullable(),
@@ -95,6 +97,7 @@ export const TaskNote = named(
     actorKind: ActorKind,
     body: z.string(),
     createdAt: unixSeconds,
+    updatedAt: unixSeconds.nullable(),
   }).strict(),
   'TaskNote',
 )

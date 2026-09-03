@@ -7455,6 +7455,20 @@
               }
             ]
           },
+          "dueAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "draft": {
+            "type": "boolean"
+          },
           "createdAt": {
             "type": "number",
             "description": "Unix timestamp in seconds"
@@ -7495,6 +7509,8 @@
           "subtaskCount",
           "openSubtaskCount",
           "github",
+          "dueAt",
+          "draft",
           "createdAt",
           "updatedAt",
           "closedAt",
@@ -7751,6 +7767,17 @@
           "createdAt": {
             "type": "number",
             "description": "Unix timestamp in seconds"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -7758,7 +7785,8 @@
           "actor",
           "actorKind",
           "body",
-          "createdAt"
+          "createdAt",
+          "updatedAt"
         ],
         "additionalProperties": false
       },
@@ -7874,6 +7902,20 @@
               }
             ]
           },
+          "dueAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "draft": {
+            "type": "boolean"
+          },
           "createdAt": {
             "type": "number",
             "description": "Unix timestamp in seconds"
@@ -7954,6 +7996,8 @@
           "subtaskCount",
           "openSubtaskCount",
           "github",
+          "dueAt",
+          "draft",
           "createdAt",
           "updatedAt",
           "closedAt",
@@ -17208,6 +17252,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "draft",
+            "in": "query",
+            "required": false,
+            "description": "true to list only drafts; omitted lists published tasks.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -17497,6 +17550,22 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "dueAt": {
+                    "description": "Unix timestamp in seconds",
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "draft": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -17909,6 +17978,22 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "dueAt": {
+                    "description": "Unix timestamp in seconds",
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "draft": {
+                    "type": "boolean"
                   },
                   "position": {
                     "type": "integer",
@@ -18676,6 +18761,1055 @@
           }
         },
         "x-portta-capability": "task:write"
+      }
+    },
+    "/tasks/{ref}/notes/{noteId}": {
+      "patch": {
+        "operationId": "updateTaskNote",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Edit a local note",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Portta-Actor",
+            "in": "header",
+            "required": false,
+            "description": "Who asked. Recorded on the task, its notes and the activity; never forwarded to GitHub.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 65536
+                  }
+                },
+                "required": [
+                  "body"
+                ],
+                "additionalProperties": false,
+                "ref": "TaskNoteBody"
+              }
+            }
+          }
+        },
+        "x-portta-capability": "task:write"
+      },
+      "delete": {
+        "operationId": "deleteTaskNote",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Delete a local note",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Portta-Actor",
+            "in": "header",
+            "required": false,
+            "description": "Who asked. Recorded on the task, its notes and the activity; never forwarded to GitHub.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "removed": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "removed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "x-portta-capability": "task:write"
+      }
+    },
+    "/projects/{slug}/tasks/import": {
+      "post": {
+        "operationId": "importProjectTasks",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Import a versioned task document",
+        "description": "Reconciles by source_key. Repository, environment and parent are names, never database ids.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "description": "The Project slug.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Portta-Actor",
+            "in": "header",
+            "required": false,
+            "description": "Who asked. Recorded on the task, its notes and the activity; never forwarded to GitHub.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "project": {
+                      "type": "string"
+                    },
+                    "created": {
+                      "type": "number"
+                    },
+                    "updated": {
+                      "type": "number"
+                    },
+                    "tasks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Task"
+                      }
+                    }
+                  },
+                  "required": [
+                    "project",
+                    "created",
+                    "updated",
+                    "tasks"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "schemaVersion": {
+                    "type": "number",
+                    "const": 1
+                  },
+                  "project": {
+                    "type": "object",
+                    "properties": {
+                      "slug": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      "description": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "slug",
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "repositories": {
+                    "maxItems": 32,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80,
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "role": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "tasks": {
+                    "maxItems": 64,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema0"
+                    }
+                  }
+                },
+                "required": [
+                  "schemaVersion",
+                  "project",
+                  "tasks"
+                ],
+                "additionalProperties": false,
+                "$defs": {
+                  "__schema0": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80,
+                        "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "description": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 65536
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "backlog",
+                          "ready",
+                          "in_progress",
+                          "review",
+                          "blocked",
+                          "done"
+                        ]
+                      },
+                      "priority": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "low",
+                              "medium",
+                              "high",
+                              "urgent"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "type": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 32
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "labels": {
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        }
+                      },
+                      "assignee": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 64
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "agent": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 64
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "repository": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "environment": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 255
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "service": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 64
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "dueAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}(T[\\d:.+-Z]+)?$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "parent": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80,
+                            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "comments": {
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80,
+                              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                            },
+                            "actor": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64
+                            },
+                            "actorKind": {
+                              "type": "string",
+                              "enum": [
+                                "human",
+                                "agent",
+                                "system"
+                              ]
+                            },
+                            "body": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 65536
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "actor",
+                            "body"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "subtasks": {
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/__schema0"
+                        }
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "title"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-portta-capability": "task:write"
+      }
+    },
+    "/projects/{slug}/tasks/export": {
+      "get": {
+        "operationId": "exportProjectTasks",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Export the project tasks as a versioned document",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "description": "The Project slug.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "number",
+                      "const": 1
+                    },
+                    "project": {
+                      "type": "object",
+                      "properties": {
+                        "slug": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64,
+                          "pattern": "^[a-z0-9][a-z0-9-]*$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "description": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 2000
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "slug",
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "repositories": {
+                      "maxItems": 32,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80,
+                            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "role": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 32
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "tasks": {
+                      "maxItems": 64,
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/__schema0"
+                      }
+                    }
+                  },
+                  "required": [
+                    "schemaVersion",
+                    "project",
+                    "tasks"
+                  ],
+                  "additionalProperties": false,
+                  "$defs": {
+                    "__schema0": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80,
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "title": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "description": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 65536
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "backlog",
+                            "ready",
+                            "in_progress",
+                            "review",
+                            "blocked",
+                            "done"
+                          ]
+                        },
+                        "priority": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "low",
+                                "medium",
+                                "high",
+                                "urgent"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "type": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "labels": {
+                          "maxItems": 32,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          }
+                        },
+                        "assignee": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 64
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "agent": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 64
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "repository": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "environment": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 255
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "service": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 64
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "dueAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}(T[\\d:.+-Z]+)?$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "parent": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80,
+                              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "comments": {
+                          "maxItems": 32,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80,
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              },
+                              "actor": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "actorKind": {
+                                "type": "string",
+                                "enum": [
+                                  "human",
+                                  "agent",
+                                  "system"
+                                ]
+                              },
+                              "body": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 65536
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "actor",
+                              "body"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "subtasks": {
+                          "maxItems": 32,
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/__schema0"
+                          }
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "title"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "x-portta-capability": "task:read"
       }
     },
     "/tasks/{ref}/environments": {

@@ -84,6 +84,8 @@ export function taskSummary(context: TaskContext, row: TaskRow): TaskSummary {
     subtaskCount: children.length,
     openSubtaskCount: children.filter((child) => child.status !== 'done').length,
     github: bindingSummary(context, row),
+    dueAt: seconds(row.dueAt),
+    draft: row.draft,
     createdAt: seconds(row.createdAt) ?? 0,
     updatedAt: seconds(row.updatedAt) ?? 0,
     closedAt: seconds(row.closedAt),
@@ -145,7 +147,7 @@ export function environmentsOfTask(context: TaskContext, taskId: string): TaskEn
 }
 
 export function noteView(note: TaskNoteRow): TaskNote {
-  return { id: note.id, actor: note.actor, actorKind: note.actorKind, body: note.body, createdAt: seconds(note.createdAt) ?? 0 }
+  return { id: note.id, actor: note.actor, actorKind: note.actorKind, body: note.body, createdAt: seconds(note.createdAt) ?? 0, updatedAt: seconds(note.updatedAt) }
 }
 
 export function taskView(context: TaskContext, row: TaskRow, notes: readonly TaskNoteRow[], sessions: readonly SessionRow[]): Task {

@@ -8,8 +8,81 @@
 export const TASK_STATUSES = ['backlog', 'ready', 'in_progress', 'review', 'blocked', 'done'] as const
 export type TaskStatus = (typeof TASK_STATUSES)[number]
 
+/** Presentation and category live here so the UI never hardcodes a seventh status. */
+export const TASK_STATUS_CATALOG = [
+  { id: 'backlog', category: 'unstarted', tone: 'neutral', terminal: false },
+  { id: 'ready', category: 'unstarted', tone: 'outline', terminal: false },
+  { id: 'in_progress', category: 'started', tone: 'info', terminal: false },
+  { id: 'review', category: 'started', tone: 'accent', terminal: false },
+  { id: 'blocked', category: 'blocked', tone: 'danger', terminal: false },
+  { id: 'done', category: 'done', tone: 'ok', terminal: true },
+] as const satisfies ReadonlyArray<{ id: TaskStatus; category: string; tone: string; terminal: boolean }>
+
+export type TaskStatusTone = (typeof TASK_STATUS_CATALOG)[number]['tone']
+export type TaskStatusCategory = (typeof TASK_STATUS_CATALOG)[number]['category']
+
 export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const
 export type TaskPriority = (typeof TASK_PRIORITIES)[number]
+
+export function statusDefinition(status: string): (typeof TASK_STATUS_CATALOG)[number] | undefined {
+  return TASK_STATUS_CATALOG.find((entry) => entry.id === status)
+}
+
+/** Canonical title stored on a kick-created draft. The UI localises the display. */
+export const TASK_DRAFT_TITLE = 'New task'
+export const TASK_DRAFT_TITLES = ['New task', 'Nova tarefa'] as const
+export const TASK_DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000
+
+export interface DraftLike {
+  draft: boolean
+  title: string
+  description: string | null
+  status: TaskStatus
+  priority: TaskPriority | null
+  type: string | null
+  labels: readonly string[]
+  assignee: string | null
+  agent: string | null
+  service: string | null
+  dueAt?: Date | number | string | null
+}
+
+export function isDefaultDraftTitle(title: string): boolean {
+  return (TASK_DRAFT_TITLES as readonly string[]).includes(title.trim())
+}
+
+export function isIntactDraft(task: DraftLike): boolean {
+  return task.draft
+    && isDefaultDraftTitle(task.title)
+    && (task.description === null || task.description.trim() === '')
+    && task.status === 'backlog'
+    && task.priority === null
+    && (task.type === null || task.type === '')
+    && task.labels.length === 0
+    && task.assignee === null
+    && task.agent === null
+    && (task.service === null || task.service === '')
+    && (task.dueAt === null || task.dueAt === undefined)
+}
+
+export function shouldPromoteDraft(current: DraftLike, patch: Partial<DraftLike> = {}): boolean {
+  if (!current.draft) return false
+  const next: DraftLike = {
+    ...current,
+    labels: patch.labels ?? current.labels,
+    title: patch.title ?? current.title,
+    description: patch.description !== undefined ? patch.description : current.description,
+  }
+  if (patch.status !== undefined) next.status = patch.status
+  if (patch.priority !== undefined) next.priority = patch.priority
+  if (patch.type !== undefined) next.type = patch.type
+  if (patch.assignee !== undefined) next.assignee = patch.assignee
+  if (patch.agent !== undefined) next.agent = patch.agent
+  if (patch.service !== undefined) next.service = patch.service
+  if (patch.dueAt !== undefined) next.dueAt = patch.dueAt
+  if (patch.draft !== undefined) next.draft = patch.draft
+  return !isIntactDraft(next)
+}
 
 export const TASK_SYNC_STATES = ['synced', 'pending', 'conflict', 'error'] as const
 export type TaskSyncState = (typeof TASK_SYNC_STATES)[number]
@@ -25,9 +98,9 @@ export function isTaskPriority(value: string): value is TaskPriority {
   return (TASK_PRIORITIES as readonly string[]).includes(value)
 }
 
-/** Statuses that count as open work. `done` is the only closed one. */
+/** Statuses that count as open work. Terminal entries in the catalog are closed. */
 export function isOpenStatus(status: TaskStatus): boolean {
-  return status !== 'done'
+  return statusDefinition(status)?.terminal !== true
 }
 
 /**

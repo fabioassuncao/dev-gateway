@@ -2,6 +2,7 @@
 // routes can be exercised without PostgreSQL. Behaviour, not SQL, is what the
 // tests are about; the SQL is exercised against a real database elsewhere.
 
+import { isIntactDraft } from 'portta-core'
 import { CreateTask, UpdateTask, type TaskEnvironmentRow, type TaskFilter, type TaskGitHubLinkRow, type TaskNoteRow, type TaskRow, type TasksRepository } from '../../src/server/db/tasks.ts'
 import { StartSession, UpdateSession, type SessionRow, type SessionsRepository } from '../../src/server/db/sessions.ts'
 import type { ActivityInput, ActivityRepository, ActivityRow } from '../../src/server/db/activity.ts'
@@ -30,6 +31,7 @@ export function fakeTasks(): FakeTasks {
     const row: TaskRow = {
       id: nextId(), repositoryId: null, environmentId: null, service: null, parentId: null, description: null,
       status: 'backlog', priority: null, type: null, labels: [], assignee: null, agent: null, createdBy: null, position: 0,
+      dueAt: null, sourceKey: null, draft: false,
       createdAt: new Date('2026-01-01T00:00:00Z'), updatedAt: new Date('2026-01-01T00:00:00Z'), closedAt: null,
       ...task,
     }
@@ -47,6 +49,9 @@ export function fakeTasks(): FakeTasks {
         (filter.assignee === undefined || row.assignee === filter.assignee) &&
         (filter.parentId === undefined || row.parentId === filter.parentId) &&
         (filter.open === undefined || (filter.open ? row.status !== 'done' : row.status === 'done')) &&
+        (filter.draft === undefined || row.draft === filter.draft) &&
+        (filter.createdBy === undefined || row.createdBy === filter.createdBy) &&
+        (filter.sourceKey === undefined || row.sourceKey === filter.sourceKey) &&
         (filter.q === undefined || row.title.toLowerCase().includes(filter.q.toLowerCase())))
     },
     async find(id: string) { return rows.find((row) => row.id === id) ?? null },
@@ -56,7 +61,12 @@ export function fakeTasks(): FakeTasks {
     },
     async create(projectId: string, raw: unknown, createdBy: string | null) {
       const input = CreateTask.parse(raw)
-      return seed({ projectId, ...input, createdBy, closedAt: input.status === 'done' ? new Date() : null })
+      const now = new Date()
+      return seed({
+        projectId, ...input, createdBy,
+        createdAt: now, updatedAt: now,
+        closedAt: input.status === 'done' ? now : null,
+      })
     },
     async update(id: string, raw: unknown) {
       const patch = UpdateTask.parse(raw)
@@ -73,9 +83,28 @@ export function fakeTasks(): FakeTasks {
       for (let i = rows.length - 1; i >= 0; i--) if (rows[i]!.parentId === id) rows.splice(i, 1)
       return true
     },
+    async findBySourceKey(projectId: string, sourceKey: string) {
+      return rows.find((row) => row.projectId === projectId && row.sourceKey === sourceKey) ?? null
+    },
+    async findIntactDraft(filter: { projectId: string; createdBy: string | null; parentId: string | null }) {
+      return rows.find((row) =>
+        row.projectId === filter.projectId && row.createdBy === filter.createdBy && row.parentId === filter.parentId && isIntactDraft(row)) ?? null
+    },
+    async sweepIntactDrafts(projectId: string, olderThan: Date) {
+      let removed = 0
+      for (let i = rows.length - 1; i >= 0; i--) {
+        const row = rows[i]!
+        if (row.projectId === projectId && row.updatedAt < olderThan && isIntactDraft(row)) {
+          rows.splice(i, 1)
+          removed += 1
+        }
+      }
+      return removed
+    },
     async countByProject() {
       const map = new Map<string, { open: number; inProgress: number; blocked: number; review: number; done: number }>()
       for (const row of rows) {
+        if (row.draft) continue
         const entry = map.get(row.projectId) ?? { open: 0, inProgress: 0, blocked: 0, review: 0, done: 0 }
         if (row.status === 'done') entry.done++
         else { entry.open++; if (row.status === 'in_progress') entry.inProgress++; if (row.status === 'blocked') entry.blocked++; if (row.status === 'review') entry.review++ }
@@ -84,10 +113,25 @@ export function fakeTasks(): FakeTasks {
       return map
     },
     async listNotes(taskId: string) { return notes.filter((note) => note.taskId === taskId) },
-    async addNote(taskId: string, body: string, actor: string | null, actorKind: 'human' | 'agent' | 'system') {
-      const note: TaskNoteRow = { id: nextId(), taskId, actor, actorKind, body, createdAt: new Date() }
+    async findNote(taskId: string, noteId: string) { return notes.find((note) => note.taskId === taskId && note.id === noteId) ?? null },
+    async findNoteBySourceKey(taskId: string, sourceKey: string) { return notes.find((note) => note.taskId === taskId && note.sourceKey === sourceKey) ?? null },
+    async addNote(taskId: string, body: string, actor: string | null, actorKind: 'human' | 'agent' | 'system', sourceKey: string | null = null) {
+      const note: TaskNoteRow = { id: nextId(), taskId, actor, actorKind, body, sourceKey, createdAt: new Date(), updatedAt: null }
       notes.push(note)
       return note
+    },
+    async updateNote(taskId: string, noteId: string, body: string) {
+      const note = notes.find((entry) => entry.taskId === taskId && entry.id === noteId)
+      if (!note) return null
+      note.body = body
+      note.updatedAt = new Date()
+      return note
+    },
+    async removeNote(taskId: string, noteId: string) {
+      const index = notes.findIndex((note) => note.taskId === taskId && note.id === noteId)
+      if (index < 0) return false
+      notes.splice(index, 1)
+      return true
     },
     async findLink(taskId: string) { return links.find((link) => link.taskId === taskId) ?? null },
     async listLinks(taskIds?: string[]) { return taskIds ? links.filter((link) => taskIds.includes(link.taskId)) : links },

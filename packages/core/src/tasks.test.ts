@@ -3,17 +3,23 @@ import {
   finishPlan,
   flattenSubtasks,
   isBlockedBySubtasks,
+  isIntactDraft,
+  isOpenStatus,
   nextTask,
   parseTaskRef,
   priorityRank,
   readActor,
+  shouldPromoteDraft,
   startPlan,
+  statusDefinition,
   subtaskTree,
   taskIdFromBranch,
   taskIdFromLabel,
   taskIdFromNamespace,
+  TASK_STATUS_CATALOG,
   type SchedulableTask,
 } from './tasks.js'
+import { flattenExampleTasks, ExampleDocument } from './task-example.js'
 
 function task(overrides: Partial<SchedulableTask> & { id: string }): SchedulableTask {
   return { parentId: null, status: 'ready', priority: null, assignee: null, waitingSince: 100, ...overrides }
@@ -97,6 +103,50 @@ describe('actor', () => {
     expect(readActor('with space')).toBeNull()
     expect(readActor('x'.repeat(65))).toBeNull()
     expect(readActor(undefined)).toBeNull()
+  })
+})
+
+describe('status catalog', () => {
+  it('covers every status and marks only done as terminal', () => {
+    expect(TASK_STATUS_CATALOG.map((entry) => entry.id)).toEqual(['backlog', 'ready', 'in_progress', 'review', 'blocked', 'done'])
+    expect(statusDefinition('done')?.terminal).toBe(true)
+    expect(isOpenStatus('ready')).toBe(true)
+    expect(isOpenStatus('done')).toBe(false)
+  })
+})
+
+describe('drafts', () => {
+  const intact = {
+    draft: true, title: 'New task', description: null, status: 'backlog' as const,
+    priority: null, type: null, labels: [], assignee: null, agent: null, service: null, dueAt: null,
+  }
+  it('treats the placeholder as intact and promotes on a real title', () => {
+    expect(isIntactDraft(intact)).toBe(true)
+    expect(shouldPromoteDraft(intact, { title: 'Configurar API' })).toBe(true)
+    expect(shouldPromoteDraft(intact, { title: 'New task' })).toBe(false)
+    expect(shouldPromoteDraft(intact, { title: 'Nova tarefa' })).toBe(false)
+    expect(shouldPromoteDraft(intact, {})).toBe(false)
+    expect(shouldPromoteDraft({ ...intact, draft: false }, { title: 'Configurar API' })).toBe(false)
+  })
+})
+
+describe('example documents', () => {
+  it('flattens nested subtasks with portable parent keys', () => {
+    const flat = flattenExampleTasks([
+      { key: 'parent', title: 'Pai', subtasks: [{ key: 'child', title: 'Filha' }] },
+    ])
+    expect(flat.map((task) => ({ key: task.key, parent: task.parent }))).toEqual([
+      { key: 'parent', parent: null },
+      { key: 'child', parent: 'parent' },
+    ])
+  })
+  it('parses a versioned document', () => {
+    const document = ExampleDocument.parse({
+      schemaVersion: 1,
+      project: { slug: 'demo-shop', name: 'Demo Shop' },
+      tasks: [{ key: 'shop-auth', title: 'Auth' }],
+    })
+    expect(document.tasks[0]?.key).toBe('shop-auth')
   })
 })
 

@@ -16,8 +16,10 @@ export interface TaskBody {
   agent?: string | null
   parentId?: string | null
   repositoryId?: string | null
-  environmentId?: string | null
+  environment?: string | null
   service?: string | null
+  dueAt?: number | null
+  draft?: boolean
   position?: number
 }
 
@@ -52,6 +54,14 @@ export const tasksApi = {
   taskNotes: (id: string) => request<{ notes: Task['notes'] }>(`/tasks/${ref(id)}/notes`).then((data) => data.notes),
   addTaskNote: (id: string, body: string) =>
     request<Task['notes'][number]>(`/tasks/${ref(id)}/notes`, { method: 'POST', body: JSON.stringify({ body }) }),
+  updateTaskNote: (id: string, noteId: string, body: string) =>
+    request<Task['notes'][number]>(`/tasks/${ref(id)}/notes/${ref(noteId)}`, { method: 'PATCH', body: JSON.stringify({ body }) }),
+  deleteTaskNote: (id: string, noteId: string) =>
+    request<{ ok: boolean }>(`/tasks/${ref(id)}/notes/${ref(noteId)}`, { method: 'DELETE', body: '{}' }),
+  importProjectTasks: (slug: string, document: unknown) =>
+    request<{ project: string; created: number; updated: number; tasks: Task[] }>(`/projects/${slugOf(slug)}/tasks/import`, { method: 'POST', body: JSON.stringify(document) }),
+  exportProjectTasks: (slug: string) =>
+    request<unknown>(`/projects/${slugOf(slug)}/tasks/export`),
   startTask: (id: string, assign?: boolean) =>
     request<Task>(`/tasks/${ref(id)}/start`, { method: 'POST', body: JSON.stringify(assign === undefined ? {} : { assign }) }),
   setTaskStatus: (id: string, status: string) =>

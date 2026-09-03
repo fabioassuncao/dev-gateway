@@ -9,7 +9,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
-import { TASK_PRIORITIES, TASK_STATUSES, finishPlan, nextTask, startPlan, subtaskTree, type SchedulableTask } from 'portta-core'
+import { ExampleDocument, TASK_DRAFT_MAX_AGE_MS, TASK_DRAFT_TITLE, TASK_PRIORITIES, TASK_STATUSES, finishPlan, nextTask, shouldPromoteDraft, startPlan, subtaskTree, type SchedulableTask } from 'portta-core'
 import type { AppDeps } from './deps.ts'
 import { requireDatabase, type Database } from '../db/index.ts'
 import type { TaskRow } from '../db/tasks.ts'
@@ -17,6 +17,7 @@ import { OverrideRefused } from '../core/overrides.ts'
 import { loadTaskContext, taskSummaries, taskSummary, taskView, noteView, type TaskContext } from '../core/task-view.ts'
 import { pushToGitHub, resolveTask, type TaskChange } from '../core/task-write.ts'
 import { recordActivity } from '../core/activity.ts'
+import { applyExampleDocument, exportProjectTasks } from '../core/task-example-apply.ts'
 import { principalOf, type Principal } from '../principal.ts'
 import { Task, TaskNote, TaskSummary } from '../../shared/task-types.ts'
 import { documentRoute } from '../openapi.ts'
@@ -42,6 +43,8 @@ const CreateTaskBody = z.object({
   repositoryId: LocalId.nullable().optional(),
   environment: z.string().max(255).nullable().optional().describe('COMPOSE_PROJECT_NAME the task is scoped to'),
   service: z.string().max(64).nullable().optional(),
+  dueAt: z.number().int().nullable().optional().describe('Unix timestamp in seconds'),
+  draft: z.boolean().optional(),
 }).strict().meta({ ref: 'CreateTaskBody' })
 
 const PatchTaskBody = CreateTaskBody.partial().extend({
@@ -71,6 +74,7 @@ const FILTERS = [
   ['status', 'Comma-separated statuses.'], ['open', 'true for anything not done, false for done only.'],
   ['assignee', 'Exact assignee.'], ['repository', 'Repository id.'], ['parent', 'Parent task id, or "none" for top-level tasks.'],
   ['q', 'Substring of the title or description.'],
+  ['draft', 'true to list only drafts; omitted lists published tasks.'],
 ] as const
 const filterParameters = FILTERS.map(([name, description]) => ({ name, in: 'query' as const, required: false, description, schema: { type: 'string' as const } }))
 
@@ -118,12 +122,30 @@ export function taskRoutes(deps: AppDeps): Hono {
     return record.id
   }
 
+  function dueAtOf(value: number | null | undefined): Date | null | undefined {
+    if (value === undefined) return undefined
+    if (value === null) return null
+    return new Date(value * 1000)
+  }
+
+  async function wouldCycle(db: Database, taskId: string, parentId: string): Promise<boolean> {
+    let current: string | null = parentId
+    const seen = new Set<string>([taskId])
+    while (current) {
+      if (seen.has(current)) return true
+      seen.add(current)
+      const parent = await db.tasks.find(current)
+      current = parent?.parentId ?? null
+    }
+    return false
+  }
+
   /**
    * One local write, then GitHub when the task is bound. The activity line and
    * the live event carry the actor, so "did a person do that or an agent" has
    * an answer without inventing an identity system.
    */
-  async function write(db: Database, task: TaskRow, patch: Record<string, unknown>, change: TaskChange, principal: Principal, kind: 'task.updated' | 'task.status' | 'task.assigned', summary: string): Promise<Task> {
+  async function write(db: Database, task: TaskRow, patch: Record<string, unknown>, change: TaskChange, principal: Principal, kind: 'task.created' | 'task.updated' | 'task.status' | 'task.assigned', summary: string): Promise<Task> {
     const updated = await db.tasks.update(task.id, patch)
     if (!updated) throw new HTTPException(404, { message: `no task '${task.id}'` })
     const link = await db.tasks.findLink(task.id)
@@ -159,6 +181,7 @@ export function taskRoutes(deps: AppDeps): Hono {
       ...(query.get('repository') ? { repositoryId: query.get('repository')! } : {}),
       ...(parent === 'none' ? { parentId: null } : parent ? { parentId: parent } : {}),
       ...(query.get('q') ? { q: query.get('q')! } : {}),
+      draft: query.get('draft') === 'true' ? true : query.get('draft') === 'false' ? false : false,
     })
     const ctx = await context(db)
     return c.json({ tasks: taskSummaries(ctx, rows) })
@@ -172,7 +195,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const db = requireDatabase(deps.db)
     const project = await requireProject(db, c.req.param('slug'))
-    const rows = await db.tasks.list({ projectId: project.id, open: true })
+    const rows = await db.tasks.list({ projectId: project.id, open: true, draft: false })
     const chosen = nextTask(schedulable(rows), { actor: principalOf(c).actor })
     const row = chosen ? rows.find((task) => task.id === chosen.id) ?? null : null
     return c.json({ task: row ? await present(db, row) : null })
@@ -221,7 +244,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     const project = await requireProject(db, c.req.param('slug'))
     const body = CreateTaskBody.parse(await c.req.json())
     const principal = principalOf(c)
-    const { environment, ...rest } = body
+    const { environment, dueAt, ...rest } = body
     if (rest.parentId) {
       const parent = await db.tasks.find(rest.parentId)
       if (!parent || parent.projectId !== project.id) throw new OverrideRefused('a subtask belongs to the same Project as its parent')
@@ -231,13 +254,25 @@ export function taskRoutes(deps: AppDeps): Hono {
       if (!repository || repository.projectId !== project.id) throw new OverrideRefused('that repository does not belong to this Project')
     }
     const environmentId = await environmentIdOf(db, environment)
-    const created = await db.tasks.create(project.id, { ...rest, ...(environmentId !== undefined ? { environmentId } : {}) }, principal.actor)
-    await recordActivity({ db, hub: deps.hub }, {
-      kind: 'task.created', actor: principal.actor, actorKind: principal.actorKind, project: project.slug,
-      projectId: project.id, taskId: created.id, repositoryId: created.repositoryId, environmentId: created.environmentId,
-      summary: `${principal.actor ?? 'somebody'} created "${created.title}"`,
-    })
-    announce(created, 'created', project.slug)
+    if (rest.draft) {
+      await db.tasks.sweepIntactDrafts(project.id, new Date(Date.now() - TASK_DRAFT_MAX_AGE_MS))
+      const reused = await db.tasks.findIntactDraft({ projectId: project.id, createdBy: principal.actor, parentId: rest.parentId ?? null })
+      if (reused) return c.json(await present(db, reused), 200)
+    }
+    const created = await db.tasks.create(project.id, {
+      ...rest,
+      title: rest.title || TASK_DRAFT_TITLE,
+      ...(environmentId !== undefined ? { environmentId } : {}),
+      ...(dueAt !== undefined ? { dueAt: dueAtOf(dueAt) } : {}),
+    }, principal.actor)
+    if (!created.draft) {
+      await recordActivity({ db, hub: deps.hub }, {
+        kind: 'task.created', actor: principal.actor, actorKind: principal.actorKind, project: project.slug,
+        projectId: project.id, taskId: created.id, repositoryId: created.repositoryId, environmentId: created.environmentId,
+        summary: `${principal.actor ?? 'somebody'} created "${created.title}"`,
+      })
+      announce(created, 'created', project.slug)
+    }
     return c.json(await present(db, created), 201)
   })
 
@@ -250,18 +285,38 @@ export function taskRoutes(deps: AppDeps): Hono {
     const task = await resolveTask(db, c.req.param('ref'))
     const body = PatchTaskBody.parse(await c.req.json())
     if (Object.keys(body).length === 0) throw new OverrideRefused('nothing to change')
-    const { environment, ...rest } = body
+    const { environment, dueAt, ...rest } = body
     if (rest.parentId) {
       if (rest.parentId === task.id) throw new OverrideRefused('a task cannot be its own parent')
       const parent = await db.tasks.find(rest.parentId)
       if (!parent || parent.projectId !== task.projectId) throw new OverrideRefused('a subtask belongs to the same Project as its parent')
+      if (await wouldCycle(db, task.id, rest.parentId)) throw new OverrideRefused('a task cannot become a descendant of itself')
     }
     if (rest.repositoryId) {
       const repository = await db.repositories.find(rest.repositoryId)
       if (!repository || repository.projectId !== task.projectId) throw new OverrideRefused('that repository does not belong to this Project')
     }
     const environmentId = await environmentIdOf(db, environment)
-    const patch = { ...rest, ...(environmentId !== undefined ? { environmentId } : {}) }
+    const patch: Record<string, unknown> = { ...rest, ...(environmentId !== undefined ? { environmentId } : {}), ...(dueAt !== undefined ? { dueAt: dueAtOf(dueAt) } : {}) }
+    if (task.draft && shouldPromoteDraft({
+      draft: task.draft, title: task.title, description: task.description, status: task.status,
+      priority: task.priority, type: task.type, labels: task.labels, assignee: task.assignee,
+      agent: task.agent, service: task.service, dueAt: task.dueAt,
+    }, {
+      ...(rest.title !== undefined ? { title: rest.title } : {}),
+      ...(rest.description !== undefined ? { description: rest.description } : {}),
+      ...(rest.status !== undefined ? { status: rest.status } : {}),
+      ...(rest.priority !== undefined ? { priority: rest.priority } : {}),
+      ...(rest.type !== undefined ? { type: rest.type } : {}),
+      ...(rest.labels !== undefined ? { labels: rest.labels } : {}),
+      ...(rest.assignee !== undefined ? { assignee: rest.assignee } : {}),
+      ...(rest.agent !== undefined ? { agent: rest.agent } : {}),
+      ...(rest.service !== undefined ? { service: rest.service } : {}),
+      ...(dueAt !== undefined ? { dueAt: dueAtOf(dueAt) } : {}),
+      ...(rest.draft !== undefined ? { draft: rest.draft } : {}),
+    })) {
+      patch.draft = false
+    }
     const change: TaskChange = {
       ...(rest.title !== undefined ? { title: rest.title } : {}),
       ...(rest.description !== undefined ? { description: rest.description } : {}),
@@ -271,8 +326,12 @@ export function taskRoutes(deps: AppDeps): Hono {
       ...(rest.status === 'done' ? { close: true } : {}),
     }
     const principal = principalOf(c)
-    const kind = rest.status !== undefined && rest.status !== task.status ? 'task.status' : rest.assignee !== undefined ? 'task.assigned' : 'task.updated'
-    const summary = kind === 'task.status' ? `"${task.title}" moved to ${rest.status}` : kind === 'task.assigned' ? `"${task.title}" assigned to ${rest.assignee ?? 'nobody'}` : `"${task.title}" was edited`
+    const kind = patch.draft === false && task.draft
+      ? 'task.created'
+      : rest.status !== undefined && rest.status !== task.status ? 'task.status' : rest.assignee !== undefined ? 'task.assigned' : 'task.updated'
+    const summary = kind === 'task.created'
+      ? `${principalOf(c).actor ?? 'somebody'} created "${rest.title ?? task.title}"`
+      : kind === 'task.status' ? `"${task.title}" moved to ${rest.status}` : kind === 'task.assigned' ? `"${task.title}" assigned to ${rest.assignee ?? 'nobody'}` : `"${task.title}" was edited`
     return c.json(await write(db, task, patch, change, principal, kind, summary))
   })
 
@@ -304,7 +363,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     const body = StartBody.parse(await c.req.json().catch(() => ({})))
     const principal = principalOf(c)
     const plan = startPlan(task, body.assign === false ? null : principal.actor)
-    const patch: Record<string, unknown> = { status: plan.status, ...(plan.assignee ? { assignee: plan.assignee } : {}), ...(principal.kind === 'agent' && plan.assignee ? { agent: principal.actor } : {}) }
+    const patch: Record<string, unknown> = { status: plan.status, ...(plan.assignee ? { assignee: plan.assignee } : {}), ...(principal.kind === 'agent' && plan.assignee ? { agent: principal.actor } : {}), ...(task.draft ? { draft: false } : {}) }
     return c.json(await write(db, task, patch, { status: plan.status, ...(plan.assignee ? { assignee: plan.assignee } : {}) }, principal, 'task.status', `${principal.actor ?? 'somebody'} started "${task.title}"`))
   })
 
@@ -316,7 +375,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     const task = await resolveTask(db, c.req.param('ref'))
     const body = StatusBody.parse(await c.req.json())
     const principal = principalOf(c)
-    return c.json(await write(db, task, { status: body.status }, { status: body.status, ...(body.status === 'done' ? { close: true } : {}) }, principal, 'task.status', `"${task.title}" moved to ${body.status}`))
+    return c.json(await write(db, task, { status: body.status, ...(task.draft ? { draft: false } : {}) }, { status: body.status, ...(body.status === 'done' ? { close: true } : {}) }, principal, 'task.status', `"${task.title}" moved to ${body.status}`))
   })
 
   app.post('/tasks/:ref/finish', documentRoute({
@@ -329,7 +388,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     const body = FinishBody.parse(await c.req.json().catch(() => ({})))
     const plan = finishPlan(body.close === true)
     const principal = principalOf(c)
-    return c.json(await write(db, task, { status: plan.status }, { status: plan.status, close: plan.close }, principal, 'task.status', `${principal.actor ?? 'somebody'} finished "${task.title}"`))
+    return c.json(await write(db, task, { status: plan.status, ...(task.draft ? { draft: false } : {}) }, { status: plan.status, close: plan.close }, principal, 'task.status', `${principal.actor ?? 'somebody'} finished "${task.title}"`))
   })
 
   app.post('/tasks/:ref/notes', documentRoute({
@@ -342,6 +401,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     const body = NoteBody.parse(await c.req.json())
     const principal = principalOf(c)
     const note = await db.tasks.addNote(task.id, body.body, principal.actor, principal.actorKind)
+    if (task.draft) await db.tasks.update(task.id, { draft: false })
     const slug = await slugOf(db, task)
     await recordActivity({ db, hub: deps.hub }, {
       kind: 'task.note', actor: principal.actor, actorKind: principal.actorKind, project: slug,
@@ -350,6 +410,64 @@ export function taskRoutes(deps: AppDeps): Hono {
     })
     announce(task, 'note', slug)
     return c.json(noteView(note), 201)
+  })
+
+  app.patch('/tasks/:ref/notes/:noteId', documentRoute({
+    tag: 'Tasks', operationId: 'updateTaskNote', capability: 'task:write', summary: 'Edit a local note',
+    request: NoteBody, response: TaskNote, parameters: [refParameter, { name: 'noteId', in: 'path' as const, required: true, schema: { type: 'string' as const } }, actorHeader],
+    errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const task = await resolveTask(db, c.req.param('ref'))
+    const existing = await db.tasks.findNote(task.id, c.req.param('noteId'))
+    if (!existing) throw new HTTPException(404, { message: `no note '${c.req.param('noteId')}'` })
+    const principal = principalOf(c)
+    if (existing.actor && principal.actor && existing.actor !== principal.actor && principal.kind !== 'operator') {
+      throw new OverrideRefused('only the author can edit this note')
+    }
+    const body = NoteBody.parse(await c.req.json())
+    const updated = await db.tasks.updateNote(task.id, existing.id, body.body)
+    if (!updated) throw new HTTPException(404, { message: `no note '${existing.id}'` })
+    return c.json(noteView(updated))
+  })
+
+  app.delete('/tasks/:ref/notes/:noteId', documentRoute({
+    tag: 'Tasks', operationId: 'deleteTaskNote', capability: 'task:write', summary: 'Delete a local note',
+    response: z.object({ ok: z.boolean(), removed: z.string() }).strict(),
+    parameters: [refParameter, { name: 'noteId', in: 'path' as const, required: true, schema: { type: 'string' as const } }, actorHeader],
+    errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const task = await resolveTask(db, c.req.param('ref'))
+    const existing = await db.tasks.findNote(task.id, c.req.param('noteId'))
+    if (!existing) throw new HTTPException(404, { message: `no note '${c.req.param('noteId')}'` })
+    const principal = principalOf(c)
+    if (existing.actor && principal.actor && existing.actor !== principal.actor && principal.kind !== 'operator') {
+      throw new OverrideRefused('only the author can delete this note')
+    }
+    await db.tasks.removeNote(task.id, existing.id)
+    return c.json({ ok: true, removed: existing.id })
+  })
+
+  app.post('/projects/:slug/tasks/import', documentRoute({
+    tag: 'Tasks', operationId: 'importProjectTasks', capability: 'task:write',
+    summary: 'Import a versioned task document',
+    description: 'Reconciles by source_key. Repository, environment and parent are names, never database ids.',
+    request: ExampleDocument, response: z.object({ project: z.string(), created: z.number(), updated: z.number(), tasks: z.array(Task) }).strict(),
+    parameters: [slugParameter, actorHeader], errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const applied = await applyExampleDocument(db, deps.config, await deps.cache.get(), c.req.param('slug'), await c.req.json())
+    return c.json(applied)
+  })
+
+  app.get('/projects/:slug/tasks/export', documentRoute({
+    tag: 'Tasks', operationId: 'exportProjectTasks', capability: 'task:read',
+    summary: 'Export the project tasks as a versioned document',
+    response: ExampleDocument, parameters: [slugParameter], errors: [404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    return c.json(await exportProjectTasks(db, deps.config, await deps.cache.get(), c.req.param('slug')))
   })
 
   /**

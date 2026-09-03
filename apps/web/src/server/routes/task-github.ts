@@ -114,6 +114,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
     const db = requireDatabase(deps.db)
     const github = requireGitHub()
     const task = await resolveTask(db, c.req.param('ref'))
+    if (task.draft) throw new OverrideRefused('give the task a real title before publishing it to GitHub')
     if (await db.tasks.findLink(task.id)) throw new OverrideRefused('this task is already bound to an issue')
     const body = PublishBody.parse(await c.req.json().catch(() => ({})))
     let fullName = body.repository ?? null
