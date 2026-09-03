@@ -248,14 +248,19 @@ export function HostSummary({
   const host = data.host
 
   if (!host) {
+    // No metrics is not no information: the gateway's own state still belongs
+    // at the top of the page, where it would have been beside them.
     return (
-      <div className="mb-4 rounded-lg border border-line bg-surface px-4 py-3 shadow-raised">
+      <section aria-label={t('summary')} className="mb-4 rounded-lg border border-line bg-surface px-4 py-2.5 shadow-raised">
         <div className="flex flex-wrap items-center gap-2">
           <Server className="h-4 w-4 shrink-0 text-subtle" aria-hidden />
           <span className="text-sm font-medium text-ink">{t('unavailable')}</span>
           <span className="text-xs text-muted">{t('unavailableHint')}</span>
+          {gateway ? (
+            <Badge tone={gateway.up ? 'ok' : 'danger'} dot className="ml-auto">{gateway.label}</Badge>
+          ) : null}
         </div>
-      </div>
+      </section>
     )
   }
 

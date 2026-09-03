@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LayoutGrid, Plus, Table2, X } from 'lucide-react'
+import { LayoutGrid, Table2, X } from 'lucide-react'
 import { api, ApiError } from '../../lib/api/index.ts'
 import { keys, useTasks } from '../../lib/queries/index.ts'
 import type { TaskStatus, TaskSummary } from '../../../shared/task-types.ts'
@@ -25,7 +25,6 @@ import {
 import { useBoardColumns, useTaskStatuses } from '../../i18n/use-task-statuses.ts'
 import { BoardEmpty, TaskBoard } from './task-board.tsx'
 import { TaskTable } from './task-table.tsx'
-import { useKickCreate } from '../../lib/kick-create.ts'
 
 /**
  * The Tasks tab of a project: one board or one table over the same rows, the
@@ -48,7 +47,6 @@ export function TasksTab({
   const toast = useToast()
   const [failure, setFailure] = useState<unknown>(null)
   const slug = project.slug
-  const kickCreate = useKickCreate(slug)
 
   // The board wants every open task; the table is the place to look at what is
   // already done, so it asks for everything.
@@ -161,11 +159,7 @@ export function TasksTab({
           ]}
         />
         {view === 'board' ? controls : null}
-        {readOnly ? <Badge tone="outline">{t('readOnly')}</Badge> : null}
-        <Button size="sm" variant="primary" className="ml-auto" busy={kickCreate.isPending} disabled={readOnly} onClick={() => kickCreate.mutate()}>
-          <Plus className="h-3.5 w-3.5" />
-          {t('newTask')}
-        </Button>
+        {readOnly ? <Badge tone="outline" className="ml-auto">{t('readOnly')}</Badge> : null}
       </div>
 
       {failure ? (
@@ -202,18 +196,15 @@ export function TasksTab({
           tasks={shown}
           columns={boardColumns}
           readOnly={readOnly}
+          // A project with one repository does not need every card to repeat
+          // its name; a project with several does.
+          showRepository={project.repositories.length > 1}
           onMove={(task, status, beforeId, afterId) => {
             setFailure(null)
             move.mutate({ task, status, beforeId, afterId })
           }}
         />
       )}
-
-      {kickCreate.error ? (
-        <div className="mt-3">
-          <ErrorBox error={kickCreate.error} />
-        </div>
-      ) : null}
     </>
   )
 }

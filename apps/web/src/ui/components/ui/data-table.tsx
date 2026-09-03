@@ -187,11 +187,11 @@ export function DataTable<Row>({
       {ordered.length === 0 ? (
         empty ?? <Empty title={emptyTitle ?? t('empty')} hint={emptyHint} />
       ) : (
-        <div className="w-full overflow-x-auto scroll-thin">
-          <table className="w-full border-collapse text-sm table-sticky-first">
+        <div className="w-full overflow-x-auto scroll-thin scroll-contain">
+          <table className={cn('w-full border-collapse text-sm table-sticky-first', selectable && 'table-sticky-select')}>
             {caption ? <caption className="sr-only">{caption}</caption> : null}
             <thead>
-              <tr>
+              <tr className="bg-surface">
                 {selectable ? (
                   <th scope="col" className="w-9 border-b border-line px-3 py-2 text-left">
                     <input
@@ -214,7 +214,7 @@ export function DataTable<Row>({
                       scope="col"
                       aria-sort={active ? (sort?.direction === 'asc' ? 'ascending' : 'descending') : sortable ? 'none' : undefined}
                       className={cn(
-                        'border-b border-line px-3 py-2 text-[11px] font-semibold tracking-wide text-subtle uppercase',
+                        'border-b border-line px-3 py-2 text-[11px] font-semibold tracking-wide whitespace-nowrap text-subtle uppercase',
                         column.align === 'right' ? 'text-right' : column.align === 'center' ? 'text-center' : 'text-left',
                         PRIORITY_CLASS[column.priority ?? 1],
                         column.headerClassName,
@@ -259,8 +259,11 @@ export function DataTable<Row>({
                       }
                     }}
                     className={cn(
-                      'group outline-none transition-colors',
-                      picked ? 'bg-accent/[0.07]' : 'hover:bg-surface-2/70',
+                      // An explicit background so the pinned cells have one to
+                      // inherit; without it they would be transparent and the
+                      // scrolled content would show through them.
+                      'group bg-surface outline-none transition-colors',
+                      picked ? 'bg-accent/[0.07]' : 'hover:bg-surface-2',
                       'focus-visible:bg-surface-2',
                       onRowActivate && 'cursor-default',
                       rowClassName?.(row),

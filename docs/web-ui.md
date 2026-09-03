@@ -354,7 +354,9 @@ panel and you want it to be able to look but not touch.
 
 ### Overview
 
-The Development Dashboard, in the order the questions come:
+The Development Dashboard, in the order the questions come. The first is
+whether this machine has room, so it is answered first, in the band at the
+top; the rest follow:
 
 - **Work** — the tasks in progress, in review and blocked across every
   project, with the person or agent on each;
@@ -366,11 +368,18 @@ The Development Dashboard, in the order the questions come:
   sessions, running environments, health, last commit, last activity;
 - **Code** — the most recent commits across every repository, and the
   repositories with uncommitted or unpushed work;
-- **This host** and **Using this host** — the machine's CPU, memory and
-  storage from `portta host collect`, and the environments using the most of
-  it, each with a Stop.
+- **Using this host** — the environments using the most of it, each with a Stop.
 
-The gateway's own state is one badge in the corner, and its configuration
+The host itself is the band at the top, not a card at the bottom: hostname,
+system, uptime, and every measurement `portta host collect` reported — CPU,
+memory, storage, and, where the machine has them, GPU, temperature, battery
+and load — each with the last thirty minutes beside it. A host that has no
+battery grows no battery tile. Before any of those numbers it says the verdict
+in one word: **Normal**, **Watch**, **Under pressure** or **Critical**,
+computed from all of them together (see `hostPressure` in `packages/core`),
+with the readings that produced it in its tooltip.
+
+The gateway's own state is a badge in that band, and its configuration
 moved to the Gateway page. Without PostgreSQL the work and project sections
 are empty and say so; the runtime, the host and the diagnostics still answer.
 It is served by `GET /api/overview`, which `portta overview` and an agent read
@@ -378,11 +387,26 @@ too.
 
 ### Projects
 
-The products you recognise, as cards or as rows: repositories, open tasks,
+![Projects as cards: each with its state, its counts, its last commit and the actions its state allows](images/panel-projects.png)
+
+The products you recognise, as cards or as a table: repositories, open tasks,
 who is working, running environments, health, last commit and last activity.
 **New project** creates one; a Project needs the panel's database and the page
 says so when it is down. `Environments on this host` opens the list of every
 Compose project Docker is running, adopted or not.
+
+Both views are places to act, not only to look. A card carries the one action
+its state allows — start what is stopped, stop what is running — and a menu
+with the rest: tasks, repositories, environments, settings, archive, delete.
+An action that could not change anything is not offered.
+
+![Projects as a table: state, environments, repositories, open and blocked tasks, agents and last activity, with selection and column controls](images/panel-projects-table.png)
+
+The table sorts on any column, hides the ones a given host does not care about,
+and selects rows for a bulk start, stop, restart or archive. The arrangement is
+remembered per table. Nothing destructive happens without saying what it will
+do: stopping a project names its environments and counts its containers,
+and deleting one asks for its slug and states what survives.
 The panel classifies a Project's location against Projects Home by comparing
 paths the host scan reported; it never mounts Projects Home or any project
 directory.
@@ -410,6 +434,15 @@ the board — six columns, `Backlog`, `To do`, `In progress`, `Review`,
 (status, assignee, repository, text) live in the hash, so a filtered view is
 a link somebody can paste. A card moves by dragging or from its menu; the
 write happens at once and a refusal rolls it back visibly.
+
+![The Demo Shop tasks as a table: id, title, status, priority, type, assignee and when each last moved, with the sort and column controls](images/panel-tasks-table.png)
+
+The **Table** view is the same rows as a table rather than as a board: sortable
+by any column, with the columns a given host does not care about switched off,
+and a status changed from the row without opening the task. Subtasks stay
+nested under their parent until a column is sorted on.
+
+![One task: the status control, the next step it offers, the description, its attachments, subtasks, sessions and activity](images/panel-task.png)
 
 A task page, `#/projects/<slug>/tasks/<id>`, carries the description, the
 subtasks, the notes, the sessions working on it and their commits, the

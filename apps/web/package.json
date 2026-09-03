@@ -24,7 +24,8 @@
     "test:e2e": "playwright test",
     "openapi": "node --conditions=development src/server/generate-openapi.ts",
     "openapi:check": "node --conditions=development src/server/generate-openapi.ts --check",
-    "screenshots": "npm run build && node e2e/screenshots.mjs"
+    "screenshots": "npm run build && node e2e/screenshots.mjs",
+    "viewports": "npm run build && node e2e/viewports.mjs"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",

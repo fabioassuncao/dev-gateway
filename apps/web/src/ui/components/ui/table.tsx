@@ -3,7 +3,7 @@ import { cn } from '../../lib/utils.ts'
 
 export function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="w-full overflow-x-auto scroll-thin">
+    <div className="w-full overflow-x-auto scroll-thin scroll-contain">
       <table className={cn('w-full border-collapse text-sm', className)} {...props} />
     </div>
   )
@@ -13,7 +13,7 @@ export function Th({ className, ...props }: ThHTMLAttributes<HTMLTableCellElemen
   return (
     <th
       className={cn(
-        'border-b border-line px-3 py-2 text-left text-[11px] font-semibold tracking-wide text-subtle uppercase',
+        'border-b border-line px-3 py-2 text-left text-[11px] font-semibold tracking-wide whitespace-nowrap text-subtle uppercase',
         className,
       )}
       {...props}

@@ -17,7 +17,7 @@
     "type": "Tipo",
     "ports": "Porta",
     "access": "Acesso",
-    "resources": "CPU · RAM · Disco",
+    "resources": "Recursos",
     "runtime": "Runtime",
     "environment": "Ambiente"
   },

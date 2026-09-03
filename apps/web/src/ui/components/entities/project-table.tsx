@@ -13,7 +13,7 @@ import { Badge } from '../ui/badge.tsx'
 import { useToast } from '../ui/toast.tsx'
 import { ResourceUsage } from './resource-usage.tsx'
 import { ProjectActionsMenu, affectedBy, type LifecycleAction, type ProjectActionTarget } from './project-actions.tsx'
-import { ProjectStateBadge, ProjectWork } from './project-card.tsx'
+import { ProjectStateBadge } from './project-card.tsx'
 
 function targetOf(item: ProjectListItem): ProjectActionTarget {
   return { slug: item.slug, name: item.name, archived: item.archived, environments: item.environments }
@@ -106,7 +106,7 @@ export function ProjectTable({
       align: 'right',
       priority: 2,
       sortValue: (item) => item.inProgressTasks,
-      cell: (item) => (item.inProgressTasks ? <ProjectWork item={item} /> : <span className="text-subtle">—</span>),
+      cell: (item) => (item.inProgressTasks ? <Badge tone="info">{item.inProgressTasks}</Badge> : <span className="text-subtle">—</span>),
     },
     {
       id: 'blocked',
@@ -138,6 +138,9 @@ export function ProjectTable({
       id: 'commit',
       header: t('table.commit'),
       priority: 3,
+      // Useful, but the widest column here; off by default so the table fits a
+      // laptop without scrolling sideways.
+      defaultHidden: true,
       sortValue: (item) => item.lastCommit?.date ?? null,
       cell: (item) =>
         item.lastCommit ? (

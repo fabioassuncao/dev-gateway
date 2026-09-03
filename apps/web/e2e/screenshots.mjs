@@ -36,7 +36,33 @@ const VIEWPORT = { width: 1440, height: 900 }
 const SHOTS = [
   { name: 'panel-overview', route: '/#/overview', ready: 'Demo Shop' },
   { name: 'panel-projects', route: '/#/projects', ready: 'Demo Shop' },
+  {
+    name: 'panel-projects-table',
+    route: '/#/projects',
+    ready: 'Demo Shop',
+    async before(page) {
+      await page.getByRole('radio', { name: 'Table' }).click()
+      await page.getByRole('table').waitFor()
+    },
+  },
   { name: 'panel-tasks', route: '/#/projects/demo-shop/tasks', ready: 'Configurar autenticação' },
+  {
+    name: 'panel-tasks-table',
+    route: '/#/projects/demo-shop/tasks?view=table',
+    ready: 'Configurar autenticação',
+  },
+  {
+    name: 'panel-task',
+    route: '/#/projects/demo-shop/tasks',
+    ready: 'Configurar autenticação',
+    async before(page) {
+      // The board's ids are minted by the seed, so the shot follows a card
+      // rather than guessing a number.
+      await page.getByRole('link', { name: 'Configurar autenticação' }).first().click()
+      await page.getByRole('heading', { level: 1 }).or(page.getByText('Configurar autenticação')).first().waitFor()
+      await page.waitForTimeout(600)
+    },
+  },
   { name: 'panel-environments', route: '/#/environments', ready: 'demo-shop' },
   { name: 'panel-environment', route: '/#/environments/demo-shop', ready: 'Open / Test' },
   { name: 'panel-services', route: '/#/services', ready: 'demo-shop' },

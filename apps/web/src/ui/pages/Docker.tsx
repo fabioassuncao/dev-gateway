@@ -249,12 +249,15 @@ function ContainerGroup({
   const { t } = useTranslation('docker')
   return (
     <Card>
-      <CardHeader title={title} meta={<Badge tone="outline">{containers.length}</Badge>} description={description} />
+      <CardHeader title={title} meta={<Badge tone="outline">{containers.length}</Badge>} />
       <ContainerTable
         containers={containers}
         metrics={metrics}
         storageKey={storageKey}
         caption={t('table.caption', { group: title })}
+        // The band above the rows holds the column control either way; the
+        // group's description earns it rather than leaving it empty.
+        toolbar={<span className="text-xs text-muted">{description}</span>}
         onDetails={onDetails}
       />
     </Card>

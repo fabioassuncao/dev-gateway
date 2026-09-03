@@ -52,6 +52,7 @@ export function TaskBoard({
   onMove,
   onOpen,
   readOnly = false,
+  showRepository = true,
 }: {
   slug: string
   tasks: TaskSummary[]
@@ -59,6 +60,8 @@ export function TaskBoard({
   onMove: (task: TaskSummary, status: TaskStatus, beforeId: string | null, afterId: string | null) => void
   onOpen?: (task: TaskSummary) => void
   readOnly?: boolean
+  /** False when the project has one repository and naming it on every card is noise. */
+  showRepository?: boolean
 }) {
   const { t } = useTranslation('tasks')
   const defaultColumns = useBoardColumns()
@@ -103,6 +106,7 @@ export function TaskBoard({
             readOnly={readOnly}
             dragActive={dragging !== null}
             isSource={dragging === column.status}
+            showRepository={showRepository}
           />
         ))}
       </div>
@@ -120,6 +124,7 @@ function BoardColumnView({
   readOnly,
   dragActive,
   isSource,
+  showRepository,
 }: {
   slug: string
   column: BoardColumn
@@ -130,6 +135,7 @@ function BoardColumnView({
   readOnly: boolean
   dragActive: boolean
   isSource: boolean
+  showRepository: boolean
 }) {
   const { t } = useTranslation('tasks')
   const region = useRef<HTMLDivElement>(null)
@@ -184,7 +190,7 @@ function BoardColumnView({
           </p>
         ) : (
           shown.map((task) => (
-            <TaskCard key={task.id} task={task} columns={columns} href={taskHref(slug, task.id)} onMove={onMove} onOpen={onOpen} readOnly={readOnly} />
+            <TaskCard key={task.id} task={task} columns={columns} href={taskHref(slug, task.id)} onMove={onMove} onOpen={onOpen} readOnly={readOnly} showRepository={showRepository} />
           ))
         )}
         {tasks.length > shown.length ? (

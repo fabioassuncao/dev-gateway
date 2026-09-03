@@ -291,7 +291,10 @@ export function App() {
         </div>
       </aside>
 
-      <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6 scroll-thin">
+      {/* min-w-0: a flex item will not shrink below its content without it,
+          which is what let a wide table push the whole page sideways instead
+          of scrolling inside its own container. */}
+      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-5 md:px-6 scroll-thin">
         <div className="mx-auto max-w-[1400px]">
           <Page path={path} readOnly={gateway?.panel.readOnly ?? false} />
         </div>

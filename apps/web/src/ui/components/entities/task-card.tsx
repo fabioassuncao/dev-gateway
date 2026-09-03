@@ -33,6 +33,7 @@ export function TaskCard({
   onMove,
   onOpen,
   readOnly = false,
+  showRepository = true,
 }: {
   task: TaskSummary
   columns: BoardColumn[]
@@ -40,6 +41,7 @@ export function TaskCard({
   onMove: (task: TaskSummary, status: TaskStatus, targetId?: string, edge?: 'before' | 'after') => void
   onOpen?: (task: TaskSummary) => void
   readOnly?: boolean
+  showRepository?: boolean
 }) {
   const { t } = useTranslation('tasks')
   const { t: tc } = useTranslation('common')
@@ -137,7 +139,7 @@ export function TaskCard({
       <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-subtle">
         <TaskPriorityBadge priority={task.priority} />
         <TaskTypeBadge type={task.type} />
-        {task.repository ? <Badge tone="outline">{task.repository.name}</Badge> : null}
+        {showRepository && task.repository ? <Badge tone="outline">{task.repository.name}</Badge> : null}
         {task.subtaskCount > 0 ? (
           <span className="tabular-nums">{t('subtasksCount', { done: task.subtaskCount - task.openSubtaskCount, total: task.subtaskCount })}</span>
         ) : null}
