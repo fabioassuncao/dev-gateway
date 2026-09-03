@@ -123,6 +123,9 @@ test.describe('the panel end to end', () => {
 
     await page.goBack()
     await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true')
+
+    await page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Environments' }).click()
+    await expect(page).toHaveURL(/#\/environments$/)
   })
 
   test('the Logs tab reads every service at once and narrows to one', async ({ page }) => {

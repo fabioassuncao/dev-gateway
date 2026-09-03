@@ -20,6 +20,7 @@ const repositoryCommits = vi.fn()
 const repositoryInstructions = vi.fn()
 const repositoryEnvironments = vi.fn()
 const deleteRepository = vi.fn()
+const project = vi.fn()
 
 vi.mock('../../src/ui/lib/api/index.ts', () => ({
   ApiError,
@@ -30,6 +31,7 @@ vi.mock('../../src/ui/lib/api/index.ts', () => ({
     repositoryInstructions: (id: string) => repositoryInstructions(id),
     repositoryEnvironments: (id: string) => repositoryEnvironments(id),
     deleteRepository: (id: string) => deleteRepository(id),
+    project: (slug: string) => project(slug),
   },
 }))
 
@@ -43,6 +45,7 @@ beforeEach(() => {
   repositoryInstructions.mockReset().mockResolvedValue({ instructions: git.instructions, collectedAt: git.collectedAt, stale: false })
   repositoryEnvironments.mockReset().mockResolvedValue([{ environment: 'alpha', running: true, serviceCount: 2, runningCount: 2, unhealthyCount: 0, urls: [{ url: 'http://alpha-web.localhost', host: 'alpha-web.localhost', scope: 'local', scheme: 'http' }] }])
   deleteRepository.mockReset().mockResolvedValue({ ok: true, removed: 'r1', note: '' })
+  project.mockReset().mockResolvedValue({ slug: 'shop', name: 'Shop', repositories: [], environments: [] })
   window.location.hash = '/projects/shop/repositories/r1'
 })
 
@@ -63,6 +66,18 @@ describe('the Repository page', () => {
     expect(screen.getByText('review requested')).toBeInTheDocument()
     expect(await screen.findByRole('link', { name: 'alpha' })).toHaveAttribute('href', '#/environments/alpha')
     expect(screen.getByText('AGENTS.md')).toBeInTheDocument()
+  })
+
+  it('walks Projects, the project and Repositories in the breadcrumb instead of a back button', async () => {
+    renderWithQuery(<RepositoryPage slug="shop" id="r1" tab={null} />)
+    await screen.findByRole('heading', { name: 'api' })
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: 'Projects' })).toHaveAttribute('href', '#/projects')
+    expect(await within(nav).findByRole('link', { name: 'Shop' })).toHaveAttribute('href', '#/projects/shop')
+    expect(within(nav).getByRole('link', { name: 'Repositories' })).toHaveAttribute('href', '#/projects/shop/repositories')
+    expect(within(nav).getByText('api')).toHaveAttribute('aria-current', 'page')
+    expect(screen.queryByRole('button', { name: 'Back to the project' })).toBeNull()
+    await waitFor(() => expect(document.title).toBe('api · Shop · Portta'))
   })
 
   it('lists the recent commits with the sha linked', async () => {

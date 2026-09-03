@@ -179,6 +179,7 @@
     "unavailable": "not measured",
     "stale": "The last measurement is older than expected"
   },
+  "breadcrumb": "Breadcrumb",
   "notifications": "Notifications",
   "dismiss": "Dismiss"
 }

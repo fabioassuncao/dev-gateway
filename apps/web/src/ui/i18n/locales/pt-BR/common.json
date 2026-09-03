@@ -179,6 +179,7 @@
     "unavailable": "não medido",
     "stale": "A última medição é mais antiga do que o esperado"
   },
+  "breadcrumb": "Trilha de navegação",
   "notifications": "Notificações",
   "dismiss": "Dispensar"
 }

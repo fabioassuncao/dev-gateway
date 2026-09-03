@@ -85,6 +85,27 @@ describe('one task', () => {
     expect(screen.getByText(/Not bound to a GitHub issue/)).toBeInTheDocument()
   })
 
+  it('walks Projects, the project and Tasks in the breadcrumb, with no link trio below the title', async () => {
+    renderWithQuery(<TaskPage slug="produto" id="42" />)
+    await screen.findByRole('heading', { name: '#42 Implementar refresh token' })
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: 'Projects' })).toHaveAttribute('href', '#/projects')
+    expect(await within(nav).findByRole('link', { name: 'Meu Produto' })).toHaveAttribute('href', '#/projects/produto')
+    expect(within(nav).getByRole('link', { name: 'Tasks' })).toHaveAttribute('href', '#/projects/produto/tasks')
+    expect(within(nav).getByText('#42')).toHaveAttribute('aria-current', 'page')
+    expect(screen.queryByRole('link', { name: 'All tasks' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Part of #42' })).toBeNull()
+  })
+
+  it('adds the parent task as a crumb of a subtask', async () => {
+    task.mockResolvedValue(makeTask({ id: '44', title: 'Frontend', parentId: '42', subtasks: [], subtaskCount: 0, openSubtaskCount: 0 }))
+    renderWithQuery(<TaskPage slug="produto" id="44" />)
+    await screen.findByRole('heading', { name: '#44 Frontend' })
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: '#42' })).toHaveAttribute('href', '#/projects/produto/tasks/42')
+    expect(within(nav).getByText('#44')).toHaveAttribute('aria-current', 'page')
+  })
+
   it('sends the task to review and adds a note', async () => {
     renderWithQuery(<TaskPage slug="produto" id="42" />)
     await screen.findByRole('heading', { name: '#42 Implementar refresh token' })
@@ -115,9 +136,13 @@ describe('one task', () => {
     await waitFor(() => expect(syncTaskGitHub).toHaveBeenCalledWith('42', 'remote'))
   })
 
-  it('says when the task does not exist', async () => {
+  it('says when the task does not exist, still under its project and Tasks', async () => {
     task.mockRejectedValue(new ApiError(404, 'no task'))
     renderWithQuery(<TaskPage slug="produto" id="99" />)
     expect(await screen.findByText('No task #99')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'All tasks' })).toHaveAttribute('href', '#/projects/produto/tasks')
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: 'Tasks' })).toHaveAttribute('href', '#/projects/produto/tasks')
+    expect(within(nav).getByText('#99')).toHaveAttribute('aria-current', 'page')
   })
 })

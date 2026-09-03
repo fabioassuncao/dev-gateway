@@ -56,6 +56,7 @@ const WEB_URL = {
 
 const alpha: Environment = {
   name: 'alpha',
+  presence: 'live',
   integrated: true,
   workingDir: '/srv/dev/alpha',
   operable: makeOperable('/srv/dev/alpha'),
@@ -213,7 +214,23 @@ describe('Environment page', () => {
     renderWithQuery(<EnvironmentPage project="alpha" tab="overview" service={null} />)
     expect(await screen.findByText('fix/182-tcp-proxy')).toBeInTheDocument()
     expect(await screen.findByRole('link', { name: 'Open repository: api' })).toHaveAttribute('href', '#/projects/shop/repositories/r1')
-    expect(screen.getByRole('link', { name: 'Shop' })).toHaveAttribute('href', '#/projects/shop')
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: 'Projects' })).toHaveAttribute('href', '#/projects')
+    expect(within(nav).getByRole('link', { name: 'Shop' })).toHaveAttribute('href', '#/projects/shop')
+    expect(within(nav).getByRole('link', { name: 'Environments' })).toHaveAttribute('href', '#/projects/shop/environments')
+    expect(within(nav).getByText('alpha')).toHaveAttribute('aria-current', 'page')
+    expect(screen.queryByRole('button', { name: 'Environments' })).toBeNull()
+  })
+
+  it('sits under all environments when no Project owns it', async () => {
+    projectDetail.mockResolvedValue({ slug: 'shop', name: 'Shop', repositories: [], environments: [] })
+    renderWithQuery(<EnvironmentPage project="alpha" tab="overview" service={null} />)
+    await screen.findByRole('heading', { name: 'alpha' })
+    expect(await screen.findByText('not adopted by any project')).toBeInTheDocument()
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: 'Environments' })).toHaveAttribute('href', '#/environments')
+    expect(within(nav).queryByRole('link', { name: 'Projects' })).toBeNull()
+    expect(within(nav).getByText('alpha')).toHaveAttribute('aria-current', 'page')
   })
 
   it('sends the old Git tab to the repository page', async () => {
@@ -295,9 +312,9 @@ describe('Environment page', () => {
     expect(await screen.findByRole('link', { name: '#182' })).toHaveAttribute('href', 'https://github.com/acme/alpha/issues/182')
   })
 
-  it('titles the document with the tab and the environment', async () => {
+  it('titles the document with the tab, the environment and the owning project', async () => {
     renderWithQuery(<EnvironmentPage project="alpha" tab="logs" service={null} />)
-    await waitFor(() => expect(document.title).toBe('Logs · alpha · Portta'))
+    await waitFor(() => expect(document.title).toBe('Logs · alpha · Shop · Portta'))
   })
 
   it('makes every tab a link that survives a reload', async () => {

@@ -109,6 +109,14 @@ describe('the project cockpit', () => {
     expect(screen.getByText('#42 moved to in progress')).toBeInTheDocument()
   })
 
+  it('sits under Projects in the breadcrumb, with the project as the current item', async () => {
+    renderWithQuery(<ProjectPage slug="meu-produto" />)
+    await screen.findByRole('heading', { name: 'Meu Produto' })
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: 'Projects' })).toHaveAttribute('href', '#/projects')
+    expect(within(nav).getByText('Meu Produto')).toHaveAttribute('aria-current', 'page')
+  })
+
   it('shows each repository with its branch and links it to its page', async () => {
     renderWithQuery(<ProjectPage slug="meu-produto" />)
     const row = await screen.findByRole('group', { name: 'web repository' })

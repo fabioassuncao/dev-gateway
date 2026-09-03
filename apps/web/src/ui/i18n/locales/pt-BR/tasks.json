@@ -31,7 +31,6 @@
   "failed": "Não deu certo",
   "notFound": "Não existe a tarefa #{{id}}",
   "backToTasks": "Todas as tarefas",
-  "parentTask": "Parte de #{{id}}",
   "confirmDelete": "Excluir a tarefa #{{id}}? As subtarefas vão junto. Uma issue vinculada no GitHub fica onde está.",
   "worker": {
     "agent": "agente",

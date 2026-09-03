@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink } from 'lucide-react'
 import { api, ApiError } from '../lib/api/index.ts'
-import { keys, useRepository, useRepositoryCommits, useRepositoryEnvironments, useRepositoryGit, useRepositoryInstructions } from '../lib/queries/index.ts'
+import { keys, useProject, useRepository, useRepositoryCommits, useRepositoryEnvironments, useRepositoryGit, useRepositoryInstructions } from '../lib/queries/index.ts'
 import { environmentHealth, healthTone } from '../lib/health.ts'
 import { useFormat } from '../lib/use-format.ts'
 import { useDocumentTitle } from '../lib/title.ts'
@@ -15,6 +15,7 @@ import { Card, CardHeader } from '../components/ui/card.tsx'
 import { Dialog } from '../components/ui/dialog.tsx'
 import { Tabs, TabPanel, type TabDefinition } from '../components/ui/tabs.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
+import type { BreadcrumbItem } from '../components/ui/breadcrumb.tsx'
 import { Mono } from '../components/copy.tsx'
 import { EndpointList } from '../components/entities/endpoint-list.tsx'
 import { CommitRow } from '../components/entities/commit-row.tsx'
@@ -39,7 +40,8 @@ export function RepositoryPage({ slug, id, tab: requested }: { slug: string; id:
   const tab = resolveRepositoryTab(requested)
   const query = useRepository(id)
   const git = useRepositoryGit(id, query.isSuccess)
-  useDocumentTitle(query.data?.name ?? id, tab === 'overview' ? null : t(`tabs.${tab}`))
+  const project = useProject(slug)
+  useDocumentTitle(query.data?.name ?? id, tab === 'overview' ? null : t(`tabs.${tab}`), project.data?.name)
 
   if (query.isPending) return <Loading />
   if (query.error) {
@@ -60,7 +62,7 @@ export function RepositoryPage({ slug, id, tab: requested }: { slug: string; id:
 
   return (
     <>
-      <RepositoryHeader repository={repository} slug={slug} git={git.data ?? null} />
+      <RepositoryHeader repository={repository} slug={slug} git={git.data ?? null} project={{ name: project.data?.name ?? slug, pending: project.isPending }} />
       <Tabs tabs={tabs} active={tab} label={`${repository.name} sections`} />
       <TabPanel id={tab}>
         {tab === 'overview' ? <OverviewTab repository={repository} git={git.data ?? null} slug={slug} /> : null}
@@ -71,9 +73,10 @@ export function RepositoryPage({ slug, id, tab: requested }: { slug: string; id:
   )
 }
 
-function RepositoryHeader({ repository, slug, git }: { repository: Repository; slug: string; git: RepositoryGit | null }) {
+function RepositoryHeader({ repository, slug, git, project }: { repository: Repository; slug: string; git: RepositoryGit | null; project: { name: string; pending: boolean } }) {
   const { t } = useTranslation('repositories')
   const { t: tc } = useTranslation('common')
+  const { t: tn } = useTranslation('nav')
   const queryClient = useQueryClient()
   const [confirm, setConfirm] = useState(false)
   const remove = useMutation({
@@ -84,14 +87,21 @@ function RepositoryHeader({ repository, slug, git }: { repository: Repository; s
     },
   })
   const path = repository.scanPath ?? repository.localPath
+  const base = `#/projects/${encodeURIComponent(slug)}`
+  const breadcrumb: BreadcrumbItem[] = [
+    { label: tn('projects'), href: '#/projects' },
+    { label: project.name, href: base, pending: project.pending },
+    { label: t('title'), href: `${base}/repositories` },
+    { label: repository.name },
+  ]
   return (
     <>
       <PageHeader
         title={repository.name}
+        breadcrumb={breadcrumb}
         description={[repository.role, repository.provider !== 'local' ? repository.provider : null, path].filter(Boolean).join(' · ') || undefined}
         actions={
           <>
-            <Button size="sm" onClick={() => navigate(`/projects/${encodeURIComponent(slug)}`)}>{t('page.backToProject')}</Button>
             {repository.github ? (
               <a className="inline-flex h-7 items-center gap-1 rounded-md border border-line-strong px-2 text-xs text-ink hover:bg-surface-2" href={repository.github.htmlUrl} target="_blank" rel="noreferrer noopener">
                 GitHub <ExternalLink className="h-3 w-3" />

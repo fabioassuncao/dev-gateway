@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '../lib/api/index.ts'
 import { useEnvironment, useEnvironmentGit, useEnvironmentOwners, useEnvironmentServices } from '../lib/queries/index.ts'
+import type { EnvironmentOwner } from '../lib/queries/projects.ts'
 import { environmentHealth, healthTone } from '../lib/health.ts'
 import { serviceRowsFor } from '../lib/services.ts'
 import { useFormat } from '../lib/use-format.ts'
@@ -9,10 +10,10 @@ import { useDocumentTitle } from '../lib/title.ts'
 import { navigate } from '../lib/router.ts'
 import type { Environment } from '../../shared/types.ts'
 import { Badge } from '../components/ui/badge.tsx'
-import { Button } from '../components/ui/button.tsx'
 import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
 import { Tabs, TabPanel, type TabDefinition } from '../components/ui/tabs.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
+import type { BreadcrumbItem } from '../components/ui/breadcrumb.tsx'
 import { EnvironmentActions } from '../components/environment-actions.tsx'
 import { EnvironmentOperations } from '../components/environment-operations.tsx'
 import { EnvironmentLogs } from '../components/environment-logs.tsx'
@@ -40,8 +41,12 @@ export function EnvironmentPage({ project: name, tab: requested, service }: {
 }) {
   const { t } = useTranslation('environments')
   const tab = resolveTab(requested)
-  useDocumentTitle(tab === 'overview' ? null : t(`tabs.${tab}`), name)
   const query = useEnvironment(name)
+  // The Project that owns this environment, when one does: the last crumb
+  // before the name, and the last part of the document title.
+  const { owners } = useEnvironmentOwners()
+  const owner = owners.get(name) ?? null
+  useDocumentTitle(tab === 'overview' ? null : t(`tabs.${tab}`), name, owner?.name)
 
   if (requested === 'services') return <Redirect to={`/environments/${encodeURIComponent(name)}`} />
   if (requested === 'git') return <RepositoryRedirect name={name} />
@@ -73,7 +78,7 @@ export function EnvironmentPage({ project: name, tab: requested, service }: {
 
   return (
     <>
-      <EnvironmentHeader environment={environment} />
+      <EnvironmentHeader environment={environment} owner={owner} />
       <Tabs tabs={tabs} active={tab} label={`${name} sections`} />
       <TabPanel id={tab}>
         {tab === 'overview' ? <OverviewTab environment={environment} service={service} /> : null}
@@ -111,20 +116,27 @@ function RepositoryRedirect({ name }: { name: string }) {
   return <Loading />
 }
 
-function EnvironmentHeader({ environment }: { environment: Environment }) {
+function EnvironmentHeader({ environment, owner }: { environment: Environment; owner: EnvironmentOwner | null }) {
   const { t } = useTranslation('environments')
   const { t: tn } = useTranslation('nav')
   const { uptime } = useFormat()
   const git = useEnvironmentGit(environment.name)
-  const { owners } = useEnvironmentOwners()
-  const owner = owners.get(environment.name) ?? null
   const health = environmentHealth(environment)
   const shown = environment.overrides?.displayName ?? environment.name
+  const breadcrumb: BreadcrumbItem[] = owner
+    ? [
+        { label: tn('projects'), href: '#/projects' },
+        { label: owner.name, href: `#/projects/${encodeURIComponent(owner.slug)}` },
+        { label: tn('environments'), href: `#/projects/${encodeURIComponent(owner.slug)}/environments` },
+        { label: shown },
+      ]
+    : [{ label: tn('environments'), href: '#/environments' }, { label: shown }]
 
   return (
     <>
       <PageHeader
         title={shown}
+        breadcrumb={breadcrumb}
         description={
           [
             environment.overrides?.displayName ? t('derivedName', { name: environment.name }) : null,
@@ -137,7 +149,6 @@ function EnvironmentHeader({ environment }: { environment: Environment }) {
         }
         actions={
           <>
-            <Button size="sm" onClick={() => navigate('/environments')}>{tn('environments')}</Button>
             <EnvironmentOpenMenu environment={environment} />
             <EnvironmentActions project={environment} />
             <EnvironmentOperations project={environment} />
@@ -149,18 +160,11 @@ function EnvironmentHeader({ environment }: { environment: Environment }) {
           <Badge tone={healthTone(health)}>{t('header.services', { running: environment.runningCount, total: environment.serviceCount })}</Badge>
           {environment.unhealthyCount > 0 ? <Badge tone="danger">{t('unhealthy', { count: environment.unhealthyCount })}</Badge> : null}
           {owner ? (
-            <span className="text-muted">
-              {t('header.project')}:{' '}
-              <a className="text-accent underline-offset-2 hover:underline" href={`#/projects/${encodeURIComponent(owner.slug)}`}>{owner.name}</a>
-              {owner.repository ? (
-                <>
-                  {' · '}
-                  <a className="text-accent underline-offset-2 hover:underline" href={repositoryHref(owner.slug, owner.repository.id)}>
-                    {t('header.openRepository')}: {owner.repository.name}
-                  </a>
-                </>
-              ) : null}
-            </span>
+            owner.repository ? (
+              <a className="text-accent underline-offset-2 hover:underline" href={repositoryHref(owner.slug, owner.repository.id)}>
+                {t('header.openRepository')}: {owner.repository.name}
+              </a>
+            ) : null
           ) : environment.group ? (
             <Badge tone="outline">{t('partOf', { group: environment.group })}</Badge>
           ) : (

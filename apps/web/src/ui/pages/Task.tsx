@@ -10,12 +10,14 @@ import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.t
 import { TaskDetail } from '../components/entities/task-detail.tsx'
 import { TaskDialog } from '../components/tasks/task-dialog.tsx'
 import { navigate } from '../lib/router.ts'
-import { tasksHref } from '../lib/tasks.ts'
+import { taskHref, tasksHref } from '../lib/tasks.ts'
+import type { BreadcrumbItem } from '../components/ui/breadcrumb.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 
 /** One task: what it is, who is on it, what came out of it, and what to do next. */
 export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: string; readOnly?: boolean }) {
   const { t } = useTranslation('tasks')
+  const { t: tn } = useTranslation('nav')
   const queryClient = useQueryClient()
   const toast = useToast()
   const task = useTask(id)
@@ -37,6 +39,15 @@ export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: str
     void queryClient.invalidateQueries({ queryKey: keys.developmentOverview() })
   }
   const failed = (error: unknown) => toast.push({ title: t('failed'), description: error instanceof Error ? error.message : String(error), tone: 'danger' })
+
+  // Projects › project › Tasks › (#parent ›) #id. The tab is never a crumb.
+  const crumbs = (parentId: string | null): BreadcrumbItem[] => [
+    { label: tn('projects'), href: '#/projects' },
+    { label: project.data?.name ?? slug, href: `#/projects/${encodeURIComponent(slug)}`, pending: project.isPending },
+    { label: t('title'), href: `#${tasksHref(slug, 'board')}` },
+    ...(parentId ? [{ label: `#${parentId}`, href: taskHref(slug, parentId) }] : []),
+    { label: `#${id}` },
+  ]
 
   const setStatus = useMutation({ mutationFn: (status: TaskStatus) => api.setTaskStatus(id, status), onSuccess: refresh, onError: failed })
   const start = useMutation({ mutationFn: () => api.startTask(id), onSuccess: refresh, onError: failed })
@@ -60,7 +71,7 @@ export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: str
     const status = task.error instanceof ApiError ? task.error.status : null
     return (
       <>
-        <PageHeader title={`#${id}`} />
+        <PageHeader title={`#${id}`} breadcrumb={crumbs(null)} />
         <Card>
           {status === 404 ? (
             <Empty title={t('notFound', { id })} hint={<a className="text-accent hover:underline" href={`#${tasksHref(slug, 'board')}`}>{t('backToTasks')}</a>} />
@@ -79,18 +90,7 @@ export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: str
 
   return (
     <>
-      <PageHeader
-        title={`#${data.id} ${data.title}`}
-        description={
-          <span className="flex flex-wrap items-center gap-2">
-            <a className="text-accent hover:underline" href={`#/projects/${encodeURIComponent(slug)}`}>{project.data?.name ?? slug}</a>
-            <a className="text-accent hover:underline" href={`#${tasksHref(slug, 'board')}`}>{t('backToTasks')}</a>
-            {data.parentId ? (
-              <a className="text-accent hover:underline" href={`#/projects/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(data.parentId)}`}>{t('parentTask', { id: data.parentId })}</a>
-            ) : null}
-          </span>
-        }
-      />
+      <PageHeader title={`#${data.id} ${data.title}`} breadcrumb={crumbs(data.parentId)} />
       <TaskDetail
         task={data}
         sessions={sessions.data ?? []}

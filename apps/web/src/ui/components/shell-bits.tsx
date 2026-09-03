@@ -4,23 +4,28 @@ import { AlertTriangle, Loader2 } from 'lucide-react'
 import { cn } from '../lib/utils.ts'
 import { translateApiError, translateApiHint } from '../i18n/translate-error.ts'
 import { DocText } from './doc-text.tsx'
+import { Breadcrumb, type BreadcrumbItem } from './ui/breadcrumb.tsx'
 
 export function PageHeader({
   title,
   description,
   actions,
+  breadcrumb,
 }: {
   title: string
   description?: ReactNode
   actions?: ReactNode
+  /** Where the page sits; shown above the title when it has at least two steps. */
+  breadcrumb?: BreadcrumbItem[]
 }) {
   return (
     <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-      <div>
+      <div className="min-w-0">
+        {breadcrumb && breadcrumb.length >= 2 ? <Breadcrumb items={breadcrumb} /> : null}
         <h1 className="text-lg font-semibold tracking-tight text-ink">{title}</h1>
         {description ? <p className="mt-0.5 text-sm text-muted">{description}</p> : null}
       </div>
-      {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </div>
   )
 }

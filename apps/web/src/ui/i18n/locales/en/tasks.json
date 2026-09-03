@@ -31,7 +31,6 @@
   "failed": "That did not go through",
   "notFound": "No task #{{id}}",
   "backToTasks": "All tasks",
-  "parentTask": "Part of #{{id}}",
   "confirmDelete": "Delete task #{{id}}? Its subtasks go with it. A bound GitHub issue stays where it is.",
   "worker": {
     "agent": "agent",

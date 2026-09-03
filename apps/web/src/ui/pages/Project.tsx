@@ -119,6 +119,7 @@ export function LegacyEnvironmentRedirect({ name, tab }: { name: string; tab: st
 function ProjectHeader({ project, readOnly, onNewTask }: { project: Project; readOnly: boolean; onNewTask: () => void }) {
   const { t } = useTranslation('projects')
   const { t: tk } = useTranslation('tasks')
+  const { t: tn } = useTranslation('nav')
   const tasks = useTasks(project.slug, { open: 'true' })
   const sessions = useSessions(project.slug, { active: true })
   const environments = useEnvironments(true)
@@ -131,6 +132,7 @@ function ProjectHeader({ project, readOnly, onNewTask }: { project: Project; rea
   return (
     <PageHeader
       title={project.name}
+      breadcrumb={[{ label: tn('projects'), href: '#/projects' }, { label: project.name }]}
       description={
         <span className="flex flex-wrap items-center gap-2">
           {project.description ? <span>{project.description}</span> : null}
@@ -606,7 +608,7 @@ function RepositoriesDialog({ project, open, onOpenChange }: { project: Project;
             {(discovered.data ?? []).map((candidate) => (
               <li key={candidate.key} className="flex flex-wrap items-center gap-2 py-2 text-sm">
                 <span className="font-medium text-ink">{candidate.name}</span>
-                <span className="min-w-0 flex-1 truncate font-mono text-xs text-subtle">{candidate.path}</span>
+                <span className="min-w-0 flex-1 truncate font-mono text-xs text-subtle" title={candidate.path}>{candidate.relativePath ?? candidate.path}</span>
                 {candidate.location ? <Badge tone="outline">{candidate.location}</Badge> : null}
                 {candidate.environments.map((environment) => <Badge key={environment} tone="neutral">{environment}</Badge>)}
                 <Button size="sm" disabled={create.isPending} onClick={() => create.mutate({ scanKey: candidate.key })}>
