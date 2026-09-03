@@ -1061,7 +1061,6 @@
         "additionalProperties": false
       },
       "ServiceOverrides": {
-        "description": "Absent when nothing was overridden",
         "type": "object",
         "properties": {
           "alias": {
@@ -8335,6 +8334,1423 @@
         },
         "required": [
           "events"
+        ],
+        "additionalProperties": false
+      },
+      "ServiceAccessEndpoint": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "description": "An http(s) URL, or host:port for a datastore"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/EndpointScope"
+          },
+          "usable": {
+            "type": "boolean"
+          },
+          "shareable": {
+            "type": "boolean"
+          },
+          "problem": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "provider",
+          "url",
+          "scope",
+          "usable",
+          "shareable",
+          "problem"
+        ],
+        "additionalProperties": false
+      },
+      "ServiceAccess": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "http",
+              "tcp",
+              "none"
+            ],
+            "description": "How this service is reached"
+          },
+          "primary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceAccessEndpoint"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The one address to open first"
+          },
+          "endpoints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceAccessEndpoint"
+            }
+          },
+          "bridge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Bridge"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An open loopback bridge, for a datastore"
+          },
+          "routed": {
+            "type": "boolean",
+            "description": "Whether the service opted into the gateway"
+          },
+          "problem": {
+            "description": "Why it cannot be reached, when it cannot",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "primary",
+          "endpoints",
+          "bridge",
+          "routed",
+          "problem"
+        ],
+        "additionalProperties": false
+      },
+      "ServiceResources": {
+        "type": "object",
+        "properties": {
+          "cpuUtilisation": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memoryUsedBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memoryLimitBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "diskBytes": {
+            "description": "Null: the collector has no per-container disk yet",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "collectedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stale": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cpuUtilisation",
+          "memoryUsedBytes",
+          "memoryLimitBytes",
+          "diskBytes",
+          "collectedAt",
+          "stale"
+        ],
+        "additionalProperties": false
+      },
+      "ServiceActions": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "boolean"
+          },
+          "stop": {
+            "type": "boolean"
+          },
+          "restart": {
+            "type": "boolean"
+          },
+          "logs": {
+            "type": "boolean"
+          },
+          "openAccess": {
+            "type": "boolean",
+            "description": "A loopback bridge can be opened"
+          },
+          "share": {
+            "type": "boolean",
+            "description": "A temporary hostname can be created"
+          }
+        },
+        "required": [
+          "start",
+          "stop",
+          "restart",
+          "logs",
+          "openAccess",
+          "share"
+        ],
+        "additionalProperties": false
+      },
+      "Service": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Compose service name"
+          },
+          "environment": {
+            "type": "string",
+            "description": "COMPOSE_PROJECT_NAME"
+          },
+          "containerId": {
+            "type": "string"
+          },
+          "containerName": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ServiceKind"
+          },
+          "tech": {
+            "$ref": "#/components/schemas/ServiceTech"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ContainerState"
+          },
+          "health": {
+            "$ref": "#/components/schemas/Health"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "uptimeSeconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "restartCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "exitCode": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublishedPort"
+            }
+          },
+          "exposedPorts": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "networks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "onGatewayNetwork": {
+            "type": "boolean"
+          },
+          "access": {
+            "$ref": "#/components/schemas/ServiceAccess"
+          },
+          "resources": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceResources"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actions": {
+            "$ref": "#/components/schemas/ServiceActions"
+          },
+          "overrides": {
+            "$ref": "#/components/schemas/ServiceOverrides"
+          },
+          "hidden": {
+            "type": "boolean",
+            "description": "Collapsed by an environment override"
+          }
+        },
+        "required": [
+          "name",
+          "environment",
+          "containerId",
+          "containerName",
+          "image",
+          "kind",
+          "tech",
+          "state",
+          "health",
+          "startedAt",
+          "uptimeSeconds",
+          "restartCount",
+          "exitCode",
+          "ports",
+          "exposedPorts",
+          "networks",
+          "onGatewayNetwork",
+          "access",
+          "resources",
+          "actions",
+          "hidden"
+        ],
+        "additionalProperties": false
+      },
+      "EnvironmentServices": {
+        "type": "object",
+        "properties": {
+          "environment": {
+            "type": "string"
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Service"
+            }
+          },
+          "resources": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceResources"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The environment as a whole"
+          }
+        },
+        "required": [
+          "environment",
+          "services",
+          "resources"
+        ],
+        "additionalProperties": false
+      },
+      "ContextRepository": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "description": "The git root on the host, when known",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "remoteUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "git": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryGitSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "instructions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InstructionFile"
+            }
+          },
+          "environments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role",
+          "path",
+          "remoteUrl",
+          "git",
+          "instructions",
+          "environments"
+        ],
+        "additionalProperties": false
+      },
+      "ContextEnvironment": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "running": {
+            "type": "boolean"
+          },
+          "repository": {
+            "description": "Repository id it runs from",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "branch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Service"
+            }
+          },
+          "logsCommand": {
+            "type": "string"
+          },
+          "startCommand": {
+            "type": "string"
+          },
+          "stopCommand": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "running",
+          "repository",
+          "branch",
+          "services",
+          "logsCommand",
+          "startCommand",
+          "stopCommand"
+        ],
+        "additionalProperties": false
+      },
+      "DevelopmentContext": {
+        "type": "object",
+        "properties": {
+          "generatedAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          },
+          "actor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "project": {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "path": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "slug",
+              "name",
+              "description",
+              "path"
+            ],
+            "additionalProperties": false
+          },
+          "task": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Task"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The task the caller is about to work on, when it named one"
+          },
+          "work": {
+            "type": "object",
+            "properties": {
+              "inProgress": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TaskSummary"
+                }
+              },
+              "next": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/TaskSummary"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "inProgress",
+              "next"
+            ],
+            "additionalProperties": false
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContextRepository"
+            }
+          },
+          "environments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContextEnvironment"
+            }
+          },
+          "instructions": {
+            "type": "object",
+            "properties": {
+              "platform": {
+                "type": "string",
+                "description": "The rules of a shared development host, in Markdown"
+              },
+              "project": {
+                "description": "The project's description, as its own note to a worker",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "repositories": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "repository": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "audience": {
+                      "type": "string"
+                    },
+                    "content": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "repository",
+                    "path",
+                    "audience",
+                    "content",
+                    "truncated"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "task": {
+                "description": "The task description and notes, when a task was named",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "platform",
+              "project",
+              "repositories",
+              "task"
+            ],
+            "additionalProperties": false
+          },
+          "commands": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "The CLI verbs that matter here, ready to copy"
+          }
+        },
+        "required": [
+          "generatedAt",
+          "actor",
+          "capabilities",
+          "project",
+          "task",
+          "work",
+          "repositories",
+          "environments",
+          "instructions",
+          "commands"
+        ],
+        "additionalProperties": false
+      },
+      "EnvironmentResources": {
+        "type": "object",
+        "properties": {
+          "environment": {
+            "type": "string"
+          },
+          "project": {
+            "description": "Project slug, when adopted",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cpuUtilisation": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memoryUsedBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "containerCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "containers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "service": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "cpuUtilisation": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "memoryUsedBytes": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "memoryLimitBytes": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "service",
+                "cpuUtilisation",
+                "memoryUsedBytes",
+                "memoryLimitBytes"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "environment",
+          "project",
+          "cpuUtilisation",
+          "memoryUsedBytes",
+          "containerCount",
+          "containers"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectResources": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "collectedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "collectorActive": {
+            "type": "boolean"
+          },
+          "cpuUtilisation": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memoryUsedBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "hostMemoryTotalBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "environments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentResources"
+            }
+          }
+        },
+        "required": [
+          "project",
+          "collectedAt",
+          "stale",
+          "collectorActive",
+          "cpuUtilisation",
+          "memoryUsedBytes",
+          "hostMemoryTotalBytes",
+          "environments"
+        ],
+        "additionalProperties": false
+      },
+      "AttentionItem": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "service-unhealthy",
+              "environment-degraded",
+              "diagnostic",
+              "host-pressure",
+              "task-conflict",
+              "task-blocked",
+              "session-stale"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "warn",
+              "fail"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "project": {
+            "description": "Project slug",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "environment": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "taskId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "href": {
+            "type": "string",
+            "description": "Where in the panel to act on it"
+          }
+        },
+        "required": [
+          "kind",
+          "severity",
+          "summary",
+          "project",
+          "environment",
+          "service",
+          "taskId",
+          "href"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectPulse": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "openTasks": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "inProgressTasks": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "blockedTasks": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "activeSessions": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "repositoryCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "environmentCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "runningEnvironments": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "unhealthyServices": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "health": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "partial",
+              "unhealthy",
+              "idle"
+            ]
+          },
+          "lastCommit": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "sha": {
+                    "type": "string"
+                  },
+                  "shortSha": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "repository": {
+                    "type": "string"
+                  },
+                  "date": {
+                    "type": "number",
+                    "description": "Unix timestamp in seconds"
+                  }
+                },
+                "required": [
+                  "sha",
+                  "shortSha",
+                  "subject",
+                  "repository",
+                  "date"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastActivityAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastActivity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resources": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "cpuUtilisation": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "memoryUsedBytes": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "cpuUtilisation",
+                  "memoryUsedBytes"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "archived",
+          "openTasks",
+          "inProgressTasks",
+          "blockedTasks",
+          "activeSessions",
+          "repositoryCount",
+          "environmentCount",
+          "runningEnvironments",
+          "unhealthyServices",
+          "health",
+          "lastCommit",
+          "lastActivityAt",
+          "lastActivity",
+          "resources"
+        ],
+        "additionalProperties": false
+      },
+      "RecentCommit": {
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string"
+          },
+          "shortSha": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "date": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "repository": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "project": {
+            "type": "string",
+            "description": "Project slug"
+          }
+        },
+        "required": [
+          "sha",
+          "shortSha",
+          "subject",
+          "author",
+          "date",
+          "url",
+          "repository",
+          "project"
+        ],
+        "additionalProperties": false
+      },
+      "DirtyRepository": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "branch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "ahead": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "behind": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "project",
+          "branch",
+          "changed",
+          "ahead",
+          "behind"
+        ],
+        "additionalProperties": false
+      },
+      "DevelopmentOverview": {
+        "type": "object",
+        "properties": {
+          "generatedAt": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          },
+          "work": {
+            "type": "object",
+            "properties": {
+              "inProgress": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TaskSummary"
+                }
+              },
+              "review": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TaskSummary"
+                }
+              },
+              "blocked": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TaskSummary"
+                }
+              },
+              "counts": {
+                "type": "object",
+                "properties": {
+                  "open": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "inProgress": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "review": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "blocked": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "done": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "open",
+                  "inProgress",
+                  "review",
+                  "blocked",
+                  "done"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "inProgress",
+              "review",
+              "blocked",
+              "counts"
+            ],
+            "additionalProperties": false
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Session"
+            },
+            "description": "Active sessions, most recent activity first"
+          },
+          "attention": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttentionItem"
+            }
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectPulse"
+            }
+          },
+          "code": {
+            "type": "object",
+            "properties": {
+              "recentCommits": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/RecentCommit"
+                }
+              },
+              "dirtyRepositories": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DirtyRepository"
+                }
+              }
+            },
+            "required": [
+              "recentCommits",
+              "dirtyRepositories"
+            ],
+            "additionalProperties": false
+          },
+          "runtime": {
+            "type": "object",
+            "properties": {
+              "environmentsRunning": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "environmentsTotal": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "servicesRunning": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "servicesUnhealthy": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "routedUrls": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "environmentsRunning",
+              "environmentsTotal",
+              "servicesRunning",
+              "servicesUnhealthy",
+              "routedUrls"
+            ],
+            "additionalProperties": false
+          },
+          "resources": {
+            "type": "object",
+            "properties": {
+              "host": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "cpuUtilisation": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "memoryUsedPercent": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "storageUsedPercent": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "stale": {
+                        "type": "boolean"
+                      },
+                      "collectorActive": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "cpuUtilisation",
+                      "memoryUsedPercent",
+                      "storageUsedPercent",
+                      "stale",
+                      "collectorActive"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "topProjects": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "slug": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "environment": {
+                      "type": "string"
+                    },
+                    "cpuUtilisation": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "memoryUsedBytes": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "slug",
+                    "name",
+                    "environment",
+                    "cpuUtilisation",
+                    "memoryUsedBytes"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "host",
+              "topProjects"
+            ],
+            "additionalProperties": false
+          },
+          "gateway": {
+            "type": "object",
+            "properties": {
+              "up": {
+                "type": "boolean"
+              },
+              "problems": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Diagnostic"
+                }
+              }
+            },
+            "required": [
+              "up",
+              "problems"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generatedAt",
+          "work",
+          "sessions",
+          "attention",
+          "projects",
+          "code",
+          "runtime",
+          "resources",
+          "gateway"
         ],
         "additionalProperties": false
       },
@@ -18602,6 +20018,411 @@
           }
         ],
         "x-portta-capability": "activity:read"
+      }
+    },
+    "/environments/{project}/services": {
+      "get": {
+        "operationId": "listEnvironmentServices",
+        "tags": [
+          "Environments"
+        ],
+        "summary": "The services of one environment, consolidated",
+        "description": "Each service with its state, health, access (endpoints, bridge, primary address), resources from the host collector, runtime and the actions that apply. What used to be three views is one row.",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "COMPOSE_PROJECT_NAME of a running project.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentServices"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "x-portta-capability": "service:read"
+      }
+    },
+    "/environments/{project}/services/{service}/actions/{action}": {
+      "post": {
+        "operationId": "runServiceAction",
+        "tags": [
+          "Environments"
+        ],
+        "summary": "Start, stop or restart one service of an environment",
+        "description": "Resolves the service to its container and runs the same guarded action the Docker endpoints run. Gateway components are refused.",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "COMPOSE_PROJECT_NAME of a running project.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "service",
+            "in": "path",
+            "required": true,
+            "description": "Compose service name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "start",
+                "stop",
+                "restart"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The requested operation conflicts with the current runtime state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "x-portta-capability": "environment:operate"
+      }
+    },
+    "/projects/{slug}/context": {
+      "get": {
+        "operationId": "getProjectContext",
+        "tags": [
+          "Projects"
+        ],
+        "summary": "The Development Context of a project, for an agent about to work",
+        "description": "The project, its repositories with their git state and instruction files, the environments with their services and commands, the work in progress and the next task, the effective instructions, and the CLI verbs that matter. Name a task with ?task= to include it.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "description": "The Project slug.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "task",
+            "in": "query",
+            "required": false,
+            "description": "A task id to include in full.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevelopmentContext"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "x-portta-capability": "project:read"
+      }
+    },
+    "/projects/{slug}/resources": {
+      "get": {
+        "operationId": "getProjectResources",
+        "tags": [
+          "Projects"
+        ],
+        "summary": "A project's resource usage, attributed through its environments",
+        "description": "Host → Project → Environment → Container, summed from the collector over the environments this project adopted. Unattributed usage is not counted here.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "description": "The Project slug.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResources"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "x-portta-capability": "metrics:read"
+      }
+    },
+    "/overview": {
+      "get": {
+        "operationId": "getDevelopmentOverview",
+        "tags": [
+          "Status"
+        ],
+        "summary": "The Development Dashboard: what is happening on this host",
+        "description": "Work in progress, active sessions, what needs attention, each project at a glance, recent code, the runtime and the resources. Without a database the work, session and project sections are empty and everything else still answers.",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevelopmentOverview"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Docker, Traefik or another local upstream returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "x-portta-capability": "project:read"
       }
     },
     "/openapi.json": {

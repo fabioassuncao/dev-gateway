@@ -172,3 +172,35 @@ export const DevelopmentContext = named(
   'DevelopmentContext',
 )
 export type DevelopmentContext = z.infer<typeof DevelopmentContext>
+
+export const EnvironmentResources = named(
+  z.object({
+    environment: z.string(),
+    project: z.string().nullable().describe('Project slug, when adopted'),
+    cpuUtilisation: z.number().nullable(),
+    memoryUsedBytes: z.number().nullable(),
+    containerCount: z.number().int(),
+    containers: z.array(z.object({
+      id: z.string(), name: z.string(), service: z.string().nullable(),
+      cpuUtilisation: z.number().nullable(), memoryUsedBytes: z.number().nullable(), memoryLimitBytes: z.number().nullable(),
+    }).strict()),
+  }).strict(),
+  'EnvironmentResources',
+)
+export type EnvironmentResources = z.infer<typeof EnvironmentResources>
+
+/** Host → Project → Environment → Service → Container, attributed through adoption. */
+export const ProjectResources = named(
+  z.object({
+    project: z.string(),
+    collectedAt: unixSeconds.nullable(),
+    stale: z.boolean(),
+    collectorActive: z.boolean(),
+    cpuUtilisation: z.number().nullable(),
+    memoryUsedBytes: z.number().nullable(),
+    hostMemoryTotalBytes: z.number().nullable(),
+    environments: z.array(EnvironmentResources),
+  }).strict(),
+  'ProjectResources',
+)
+export type ProjectResources = z.infer<typeof ProjectResources>
