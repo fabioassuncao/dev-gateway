@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "slug": "demo-shop",
+    "name": "Demo Shop",
+    "description": "Loja de exemplo com web, API, worker e os serviços que a sustentam."
+  },
+  "repositories": [
+    { "key": "shop", "name": "demo-shop", "role": "web" }
+  ],
+  "tasks": [
+    {
+      "key": "shop-auth",
+      "title": "Configurar autenticação",
+      "description": "## Objetivo\n\nPreparar o login da loja de exemplo.\n\n- [ ] Endpoint de sessão\n- [ ] Cookie httpOnly\n- [ ] Teste de recusa",
+      "status": "in_progress",
+      "priority": "high",
+      "type": "feature",
+      "labels": ["backend", "auth"],
+      "repository": "shop",
+      "environment": "demo-shop",
+      "service": "api",
+      "dueAt": "2026-10-03",
+      "assignee": "fabio",
+      "comments": [
+        {
+          "key": "shop-auth-1",
+          "actor": "fabio",
+          "body": "Começar pelo healthcheck autenticado, não pelo formulário."
+        }
+      ],
+      "subtasks": [
+        { "key": "shop-auth-endpoint", "title": "Criar endpoint de sessão", "status": "done", "priority": "high", "type": "feature", "repository": "shop", "service": "api" },
+        { "key": "shop-auth-ui", "title": "Conectar o formulário de login", "status": "ready", "priority": "medium", "type": "feature", "repository": "shop", "service": "web" }
+      ]
+    },
+    {
+      "key": "shop-dashboard",
+      "title": "Criar dashboard",
+      "description": "Cards de pedidos, estoque e falhas do worker.",
+      "status": "ready",
+      "priority": "medium",
+      "type": "feature",
+      "labels": ["frontend"],
+      "repository": "shop",
+      "environment": "demo-shop",
+      "service": "web",
+      "subtasks": [
+        { "key": "shop-metrics", "title": "Criar endpoint de métricas", "status": "ready", "type": "feature", "repository": "shop", "service": "api" },
+        { "key": "shop-cards", "title": "Construir cards", "status": "backlog", "type": "feature", "repository": "shop", "service": "web" }
+      ]
+    },
+    {
+      "key": "shop-health",
+      "title": "Corrigir healthcheck",
+      "description": "O worker reporta healthy com a fila parada.",
+      "status": "blocked",
+      "priority": "urgent",
+      "type": "bug",
+      "labels": ["worker"],
+      "repository": "shop",
+      "service": "worker"
+    },
+    {
+      "key": "shop-deploy",
+      "title": "Preparar deploy",
+      "description": "Checklist do overlay Portta e das variáveis de ambiente.",
+      "status": "backlog",
+      "priority": "low",
+      "type": "chore",
+      "repository": "shop",
+      "environment": "demo-shop"
+    }
+  ]
+}

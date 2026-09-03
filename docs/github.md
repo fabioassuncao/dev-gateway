@@ -27,7 +27,7 @@ read-only. A Personal Access Token in `.env` is not the design.
 
 | Fact | Owner |
 |---|---|
-| Issue title, body, state, labels, assignees, milestone, type, field values, sub-issue links, pull-request state | GitHub |
+| Issue title, body, state, labels, assignees, milestone, type, field values, sub-issue links, pull-request state | GitHub, as a projection. A bound Portta task is the local row; see [Tasks](tasks.md) and ADR 0032 |
 | Branch, HEAD, dirty counts, ahead/behind | Local `git` on the host |
 | Containers, health, URLs, networks | Docker / Traefik on this host |
 | Which GitHub repositories a Portta project owns | Portta |
@@ -457,7 +457,9 @@ A write to a bound task reaches GitHub first and the row second. When the
 App is unavailable the row is written anyway and the binding is marked
 `pending` until `POST /api/tasks/:ref/github/sync` pushes it. A remote
 change that lands on a pending local edit is a `conflict`, kept and shown
-with both sides; `sync` with `resolve: local | remote` settles it. See
+with both sides; `sync` with `resolve: local | remote` settles it. Notes,
+parent, agent, type, service, due date and draft stay local; a draft is
+not published until it has a real title. See [Tasks](tasks.md) and
 [ADR 0032](adr/0032-portta-development-model.md).
 
 ### Status and priority: fields where they exist, labels where they do not

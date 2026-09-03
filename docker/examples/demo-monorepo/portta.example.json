@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "slug": "demo-monorepo",
+    "name": "Demo Monorepo",
+    "description": "Um produto com web, admin, API e worker no mesmo repositório."
+  },
+  "repositories": [
+    { "key": "monorepo", "name": "demo-monorepo", "role": "services" }
+  ],
+  "tasks": [
+    {
+      "key": "mono-admin",
+      "title": "Liberar o admin só para operadores",
+      "description": "O admin e a API compartilham o mesmo cookie; o recorte é por papel.",
+      "status": "in_progress",
+      "priority": "high",
+      "type": "feature",
+      "labels": ["admin", "auth"],
+      "repository": "monorepo",
+      "environment": "demo-monorepo",
+      "service": "admin",
+      "agent": "claude-code",
+      "comments": [
+        { "key": "mono-admin-1", "actor": "claude-code", "actorKind": "agent", "body": "Vou restringir as rotas `/admin` no gateway interno da API." }
+      ]
+    },
+    {
+      "key": "mono-mail",
+      "title": "Enviar o e-mail de boas-vindas",
+      "description": "Mailpit no environment de desenvolvimento; nada sai da máquina.",
+      "status": "review",
+      "priority": "medium",
+      "type": "feature",
+      "repository": "monorepo",
+      "service": "worker"
+    },
+    {
+      "key": "mono-docs",
+      "title": "Documentar os três frontends",
+      "status": "backlog",
+      "priority": "low",
+      "type": "docs",
+      "repository": "monorepo"
+    }
+  ]
+}

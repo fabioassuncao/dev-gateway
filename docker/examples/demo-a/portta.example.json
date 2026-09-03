@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "slug": "demo-a",
+    "name": "Demo A",
+    "description": "Stack curta usada nos testes do gateway."
+  },
+  "repositories": [
+    { "key": "demo-a", "name": "demo-a", "role": "web" }
+  ],
+  "tasks": [
+    {
+      "key": "a-whoami",
+      "title": "Expor whoami atrás do gateway",
+      "description": "web e api no mesmo namespace, sem porta no host.",
+      "status": "done",
+      "priority": "medium",
+      "type": "chore",
+      "repository": "demo-a",
+      "environment": "demo-a",
+      "service": "web"
+    },
+    {
+      "key": "a-api-health",
+      "title": "Conferir o health da API",
+      "status": "ready",
+      "priority": "low",
+      "type": "chore",
+      "repository": "demo-a",
+      "service": "api"
+    }
+  ]
+}

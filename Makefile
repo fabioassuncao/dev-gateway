@@ -15,7 +15,7 @@ LOCAL_IMAGES := PORTTA_AUTH_IMAGE=fabioassuncao/portta:local \
 
 .PHONY: help dev bootstrap up down restart status doctor urls logs inspect update \
         web web-dev web-down db-migrate test test-all test-e2e lint \
-        demo-up demo-up-all demo-down demo-down-all
+        demo-up demo-up-all demo-down demo-down-all examples
 
 help: ## Show this help
 	@printf 'Portta make targets\n\n'
@@ -93,6 +93,9 @@ demo-up: ## Start every adopted demo (site, shop, monorepo, a, b)
 	@$(GW) urls
 
 demo-up-all: demo-up ## Alias for demo-up
+
+examples: ## Import example projects and tasks into the panel (idempotent)
+	@$(GW) examples apply
 
 demo-down: ## Stop every example stack (including external) and drop volumes
 	@cd docker/examples/demo-a && docker compose -f compose.yaml -f compose.portta.yaml down -v

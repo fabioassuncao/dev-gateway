@@ -18,6 +18,7 @@ import { backupCommand, repairCommand, restoreCommand } from './commands/mainten
 import { mcpCommand } from './commands/mcp.js'
 import { envLogs, overviewCommand, projectsActivity, projectsContext, projectsCreate, projectsList, projectsResources, projectsShow } from './commands/products.js'
 import { tasksComment, tasksCreate, tasksEdit, tasksFinish, tasksLink, tasksList, tasksNext, tasksNote, tasksPublish, tasksShow, tasksStart, tasksStatus, tasksSubtasks, tasksSync, tasksUnlink } from './commands/tasks.js'
+import { examplesApply, tasksImport } from './commands/examples.js'
 import { sessionsEnd, sessionsHeartbeat, sessionsList, sessionsStart } from './commands/sessions.js'
 import { activityCommand } from './commands/activity.js'
 import { remoteAccessClose, remoteAccessList, remoteAccessOpen, remoteBootstrap, remoteExec, remoteGateway } from './commands/remote.js'
@@ -238,6 +239,10 @@ describe(panelOptions(tasks.command('unlink <ref>')), 'Remove the GitHub binding
 describe(panelOptions(tasks.command('publish <ref>')), 'Open a GitHub issue for a task and bind them').option('--repository <owner/name>').action(tasksPublish)
 describe(panelOptions(tasks.command('sync <ref>')), 'Push a pending edit to GitHub, or settle a conflict').option('--resolve <side>', 'local or remote').action(tasksSync)
 describe(panelOptions(tasks.command('comment <ref> <text>')), 'Comment on the bound GitHub issue').action(tasksComment)
+describe(panelOptions(tasks.command('import')), 'Import a versioned task document').option('--project <slug>').option('--file <path>').action(tasksImport)
+
+const examples = describe(program.command('examples'), 'Declarative example projects and their tasks')
+describe(panelOptions(examples.command('apply')), 'Create example projects and import their tasks (idempotent)').option('--file <path>', 'one manifest instead of docker/examples/*/portta.example.json').action(examplesApply)
 
 const sessions = describe(program.command('sessions'), 'Say who is working on what, since when')
 describe(panelOptions(sessions.command('list')), 'List sessions').option('--project <slug>').option('--active', 'only active sessions').action(sessionsList)
