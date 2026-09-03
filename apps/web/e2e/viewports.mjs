@@ -180,6 +180,25 @@ try {
             })
           }
         }
+        // Every control must say what it is. An icon button with no name is
+        // invisible to a screen reader and unnameable in a test.
+        const nameless = []
+        for (const control of document.querySelectorAll('button, a[href], input:not([type="hidden"]), select')) {
+          const box = control.getBoundingClientRect()
+          if (box.width === 0 || box.height === 0) continue
+          const label = (control.getAttribute('aria-label')
+            || control.getAttribute('title')
+            || control.textContent
+            || (control.labels && control.labels[0]?.textContent)
+            || (control.getAttribute('aria-labelledby')
+              ? document.getElementById(control.getAttribute('aria-labelledby'))?.textContent
+              : '')
+            || '').trim()
+          if (label === '') {
+            nameless.push(`${control.tagName.toLowerCase()}.${(typeof control.className === 'string' ? control.className : '').slice(0, 40)}`)
+          }
+        }
+
         // Every control a person is expected to press must be on screen.
         const unreachable = []
         for (const control of document.querySelectorAll('button, a[href], input, select')) {
@@ -208,6 +227,7 @@ try {
         return {
           mainScroll: main ? `${main.scrollWidth}/${main.clientWidth}` : '',
           horizontalScroll: reached,
+          nameless: [...new Set(nameless)].slice(0, 6),
           documentWidth: root.scrollWidth,
           clientWidth: root.clientWidth,
           offenders: offenders.sort((a, b) => b.right - a.right).slice(0, 6),
@@ -224,8 +244,13 @@ try {
       if (measured.unreachable.length > 0) {
         problems.push(`${label}: controls off screen — ${measured.unreachable.join(', ')}`)
       }
+      // Only worth reporting once: an unnamed control is unnamed at every width.
+      if (measured.nameless.length > 0 && viewport === VIEWPORTS[0]) {
+        problems.push(`${target.name}: controls with no accessible name — ${measured.nameless.join(', ')}`)
+      }
       if (SHOTS) await page.screenshot({ path: join(OUT, `${viewport.name}-${target.name}.png`), fullPage: false })
-      process.stdout.write(`${scrolls || measured.unreachable.length > 0 ? '✗' : '✓'} ${label}\n`)
+      const failed = scrolls || measured.unreachable.length > 0 || (measured.nameless.length > 0 && viewport === VIEWPORTS[0])
+      process.stdout.write(`${failed ? '✗' : '✓'} ${label}\n`)
     }
     await context.close()
   }

@@ -116,3 +116,21 @@ review:
 | Shell gateway and invariants | `tests/unit/` | compose only | `tests/run.sh`, CI |
 | Gateway end to end | `tests/e2e/` | yes | `--e2e`, CI |
 | Panel in a browser | `apps/web/e2e/` | no (fake Engine API) | `--e2e`, CI |
+| Panel layout at every width | `apps/web/e2e/viewports.mjs` | yes (a disposable PostgreSQL) | by hand |
+
+### The layout check
+
+```bash
+npm run viewports --workspace=portta-web           # report
+node apps/web/e2e/viewports.mjs --shots            # and write the frames to /tmp
+```
+
+It boots the panel against the documentation host at five widths, from a 1920
+desktop to a tablet in portrait, and asserts the one thing that actually breaks
+a layout: the window must not scroll sideways, and no control may end up
+off-screen. Anything wide — a table, the board, a toolbar — has to scroll
+inside its own container.
+
+Run it after changing a table, the shell, or anything that decides a width. It
+is not in `tests/run.sh` because it wants Docker and a full build; it is the
+check to run when you have been looking at the panel.

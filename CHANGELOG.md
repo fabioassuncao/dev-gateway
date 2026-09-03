@@ -9,6 +9,54 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+### Added
+
+- **Files attach to a task.** A screenshot, a log, the JSON that reproduces
+  it — from the file picker, by dropping onto the Attachments section, or by
+  pasting straight from the clipboard. Up to 10 MB each and 25 per task, stored
+  in `task_attachments` (migration `0014`) because an attachment belongs to a
+  task rather than to a channel shared with the host. The content type is an
+  allowlist, not a guess: what the panel renders inline is enumerated, and
+  anything else — SVG included, since it can carry script — is a download only.
+  See [docs/tasks.md](docs/tasks.md#attachments).
+- **A verdict on the host.** `hostPressure` reads CPU, memory, swap, disk, GPU,
+  temperature, load per core and battery against one set of thresholds and
+  answers Normal, Watch, Under pressure or Critical, with the readings behind
+  it. The Overview says it before it says any number.
+- **The collector reports battery and CPU temperature**, so a laptop's own
+  limits are visible. A host that does not report a metric grows no tile for
+  it.
+- **Bulk actions on Projects**, and contextual actions on every project card
+  and row: start, stop, restart, archive, delete — only when the project's
+  state makes them mean something.
+- **`npm run viewports`** checks the panel at five widths, from a desktop to a
+  tablet in portrait, and fails when the page scrolls sideways or a control
+  ends up off-screen.
+
+### Changed
+
+- **The Overview leads with the host.** The machine's state moved from the
+  bottom of the page to a band at the top, adaptive to what the host reports,
+  with the last thirty minutes beside each measurement.
+- **"List" is a real table**, for Projects and for Tasks: sortable columns,
+  column visibility, multi-selection, and an arrangement remembered per table.
+  Docker's container tables use it too, and now show what each container costs.
+- **Task actions say what they do.** Changing a status is separate from taking
+  the work, and finishing a bound task names the issue it will close.
+- **Destructive actions state their impact.** Stopping a project names its
+  environments and counts its containers; deleting one asks for its slug.
+- **One design system.** Status, priority, type and labels are drawn from one
+  presentation module, so a task looks the same on the board, in the table and
+  on its own page.
+
+### Fixed
+
+- **"This host is under pressure" could never appear.** It compared ratios
+  against percentages. It compares ratios against ratios now.
+- **A wide table pushed the whole page sideways** on anything narrower than a
+  large laptop. It scrolls inside its own container, with the column that
+  identifies the row pinned to the left edge.
+
 ## [0.8.0] — 2026-09-03
 
 ### Changed

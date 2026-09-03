@@ -150,7 +150,7 @@ describe('metrics helpers', () => {
   it('drops history older than the retention window', () => {
     const now = 1_700_000_000
     const stale = JSON.stringify({ timestamp: now - 4000, host: {}, projects: [], containers: [] })
-    const fresh = { timestamp: now - 10, host: { cpuUtilisation: 0.2, memoryUsedBytes: 1, memoryUsedPercent: 0.1, storageUsedPercent: null, load: null, gpuUtilisation: null }, projects: [], containers: [] }
+    const fresh = { timestamp: now - 10, host: { cpuUtilisation: 0.2, memoryUsedBytes: 1, memoryUsedPercent: 0.1, storageUsedPercent: null, load: null, gpuUtilisation: null, temperatureCelsius: null }, projects: [], containers: [] }
     const merged = mergeHistoryLines(`${stale}\n`, fresh, now, 3600)
     const points = parseHistoryLines(merged, now - 3600)
     expect(points).toHaveLength(1)
