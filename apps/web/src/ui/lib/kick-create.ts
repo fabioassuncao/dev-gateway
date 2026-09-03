@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { TASK_DRAFT_TITLE } from 'portta-core'
 import { api, type TaskBody } from './api/index.ts'
+import { TASK_DRAFT_TITLE } from './task-draft.ts'
 import { keys } from './queries/index.ts'
 import { navigate } from './router.ts'
 import { taskHref } from './tasks.ts'

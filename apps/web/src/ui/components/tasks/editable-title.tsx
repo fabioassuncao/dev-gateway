@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { isDefaultDraftTitle } from 'portta-core'
+import { isDefaultDraftTitle } from '../../lib/task-draft.ts'
 import { cn } from '../../lib/utils.ts'
 
 export function EditableTitle({

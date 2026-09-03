@@ -1,6 +1,8 @@
 // How a task looks: tones and columns, once.
+//
+// The browser must not import portta-core (its index pulls node:fs). Tones
+// stay in step with TASK_STATUS_CATALOG in packages/core/src/tasks.ts.
 
-import { statusDefinition } from 'portta-core'
 import type { TaskPriority, TaskStatus, TaskSyncState } from '../../shared/task-types.ts'
 
 /** What a board column needs to say: which status it holds. */
@@ -22,7 +24,20 @@ export function priorityTone(priority: TaskPriority | string | null | undefined)
 }
 
 export function statusTone(status: TaskStatus | string | null | undefined): Tone {
-  return (status ? statusDefinition(status)?.tone : undefined) as Tone | undefined ?? 'neutral'
+  switch (status) {
+    case 'ready':
+      return 'outline'
+    case 'in_progress':
+      return 'info'
+    case 'review':
+      return 'accent'
+    case 'blocked':
+      return 'danger'
+    case 'done':
+      return 'ok'
+    default:
+      return 'neutral'
+  }
 }
 
 export function syncTone(state: TaskSyncState | null | undefined): Tone {

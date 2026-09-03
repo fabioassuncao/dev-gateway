@@ -9,8 +9,12 @@ describe('task presentation', () => {
     expect(priorityTone(null)).toBe('neutral')
   })
   it('tones a status', () => {
-    expect(statusTone('blocked')).toBe('danger')
+    expect(statusTone('backlog')).toBe('neutral')
+    expect(statusTone('ready')).toBe('outline')
     expect(statusTone('in_progress')).toBe('info')
+    expect(statusTone('review')).toBe('accent')
+    expect(statusTone('blocked')).toBe('danger')
+    expect(statusTone('done')).toBe('ok')
     expect(statusTone(null)).toBe('neutral')
   })
   it('places a task in its column, or the first one', () => {
