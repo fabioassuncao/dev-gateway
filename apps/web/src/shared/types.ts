@@ -325,6 +325,7 @@ export type EnvironmentRemovalPreview = z.infer<typeof EnvironmentRemovalPreview
 export const Environment = named(
   z.object({
     name: z.string().describe('COMPOSE_PROJECT_NAME; the Environment key on this Node'),
+    presence: z.enum(['live', 'remembered']).describe('live: it has containers on this Node. remembered: the panel saw it once and kept where it ran; it can be started through the runner, or forgotten'),
     integrated: z.boolean(),
     workingDir: z.string().nullable(),
     operable: EnvironmentOperable.describe('Whether the runner can find this environment on the host'),
@@ -1594,6 +1595,19 @@ export const ProjectRebuildResult = named(
   'ProjectRebuildResult',
 )
 export type ProjectRebuildResult = z.infer<typeof ProjectRebuildResult>
+
+/** A start that could not iterate containers, because none exist: the runner ran Compose `up` instead. */
+export const EnvironmentRunnerStartResult = named(
+  z.object({
+    ok: z.boolean(),
+    project: z.string(),
+    action: z.literal('start'),
+    via: z.literal('runner'),
+    runner: RunnerStatus,
+  }).strict(),
+  'EnvironmentRunnerStartResult',
+)
+export type EnvironmentRunnerStartResult = z.infer<typeof EnvironmentRunnerStartResult>
 
 export const ProjectRemoveResult = named(
   z.object({

@@ -1533,6 +1533,14 @@
             "type": "string",
             "description": "COMPOSE_PROJECT_NAME; the Environment key on this Node"
           },
+          "presence": {
+            "type": "string",
+            "enum": [
+              "live",
+              "remembered"
+            ],
+            "description": "live: it has containers on this Node. remembered: the panel saw it once and kept where it ran; it can be started through the runner, or forgotten"
+          },
           "integrated": {
             "type": "boolean"
           },
@@ -1685,6 +1693,7 @@
         },
         "required": [
           "name",
+          "presence",
           "integrated",
           "workingDir",
           "operable",
@@ -2671,6 +2680,53 @@
           "failed",
           "skipped",
           "results"
+        ],
+        "additionalProperties": false
+      },
+      "EnvironmentRunnerStartResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "project": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "const": "start"
+          },
+          "via": {
+            "type": "string",
+            "const": "runner"
+          },
+          "runner": {
+            "$ref": "#/components/schemas/RunnerStatus"
+          }
+        },
+        "required": [
+          "ok",
+          "project",
+          "action",
+          "via",
+          "runner"
+        ],
+        "additionalProperties": false
+      },
+      "EnvironmentForgotten": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "forgotten": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "forgotten"
         ],
         "additionalProperties": false
       },
@@ -8212,6 +8268,7 @@
           "environment.restarted",
           "environment.rebuilt",
           "environment.removed",
+          "environment.forgotten",
           "environment.adopted",
           "service.unhealthy",
           "service.recovered",
@@ -9906,12 +9963,13 @@
           "Environments"
         ],
         "summary": "List Compose environments",
+        "description": "Live environments (with containers) and, when the panel has persistence, remembered ones (seen before, containers gone). Without ?all the list is the integrated live ones plus the remembered ones a Project adopted.",
         "parameters": [
           {
             "name": "all",
             "in": "query",
             "required": false,
-            "description": "Include environments that have not adopted the gateway.",
+            "description": "Include environments that have not adopted the gateway, and every remembered one.",
             "schema": {
               "type": "boolean",
               "default": false
@@ -9968,7 +10026,8 @@
         "tags": [
           "Environments"
         ],
-        "summary": "Get one running environment",
+        "summary": "Get one environment, live or remembered",
+        "description": "A remembered environment (containers gone, row kept) answers with no services and presence: remembered.",
         "parameters": [
           {
             "name": "project",
@@ -10032,6 +10091,97 @@
           }
         ],
         "x-portta-capability": "environment:read"
+      },
+      "delete": {
+        "operationId": "forgetEnvironment",
+        "tags": [
+          "Environments"
+        ],
+        "summary": "Forget a remembered environment",
+        "description": "Drops the panel's row for an environment whose containers are already gone: its overrides, Project link and task links go with it. A live environment is refused: stop and remove it first. Nothing on the host is touched.",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "COMPOSE_PROJECT_NAME of a running project.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentForgotten"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The requested operation conflicts with the current runtime state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "x-portta-capability": "environment:destroy"
       }
     },
     "/environments/{project}/git": {
@@ -10533,7 +10683,7 @@
           "Environments"
         ],
         "summary": "Start every container in an environment",
-        "description": "Iterates the environment's existing containers in Compose dependency order. Nothing is removed.",
+        "description": "Iterates the environment's existing containers in Compose dependency order. A remembered environment (no containers) is started through the runner with Compose up, or refused with the command to run on the host.",
         "parameters": [
           {
             "name": "project",
@@ -10551,7 +10701,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EnvironmentActionResult"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/EnvironmentActionResult"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EnvironmentRunnerStartResult"
+                    }
+                  ]
                 }
               }
             }

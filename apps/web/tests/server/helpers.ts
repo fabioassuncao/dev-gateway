@@ -271,7 +271,7 @@ export function fakeDatabase(options: { available?: boolean } = {}): Database & 
   const serviceValues = new Map<string, unknown>()
   const available = options.available ?? true
   const record = {
-    id: 'e1', composeProject: 'alpha', workingDir: null, repoUrl: null, repoSubpath: null,
+    id: 'e1', composeProject: 'alpha', workingDir: null, configFiles: [], repoUrl: null, repoSubpath: null,
     firstSeenAt: new Date(0), lastSeenAt: new Date(0), updatedAt: new Date(0),
   }
 

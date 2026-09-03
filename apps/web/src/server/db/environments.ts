@@ -4,6 +4,7 @@ import type { DatabaseClient, EnvironmentRecord, EnvironmentRecordCounts, SeenEn
 const SeenEnvironmentSchema = z.object({
   composeProject: z.string().min(1).max(255),
   workingDir: z.string().min(1).nullable().optional(),
+  configFiles: z.array(z.string().min(1)).optional(),
   repoUrl: z.string().min(1).nullable().optional(),
   repoSubpath: z.string().min(1).nullable().optional(),
 }).strict()

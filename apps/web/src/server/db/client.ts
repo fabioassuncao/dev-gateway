@@ -8,6 +8,8 @@ export interface EnvironmentRecord {
   id: string
   composeProject: string
   workingDir: string | null
+  /** The Compose files as the daemon last recorded them; empty when never observed. */
+  configFiles: string[]
   repoUrl: string | null
   repoSubpath: string | null
   firstSeenAt: Date
@@ -18,6 +20,8 @@ export interface EnvironmentRecord {
 export interface SeenEnvironment {
   composeProject: string
   workingDir?: string | null
+  /** Only a non-empty list overwrites: a stale row keeps its last known paths. */
+  configFiles?: string[]
   repoUrl?: string | null
   repoSubpath?: string | null
 }
@@ -186,6 +190,7 @@ export class DatabaseClient {
         id::text AS id,
         compose_project AS "composeProject",
         working_dir AS "workingDir",
+        config_files AS "configFiles",
         repo_url AS "repoUrl",
         repo_subpath AS "repoSubpath",
         first_seen_at AS "firstSeenAt",
@@ -199,14 +204,18 @@ export class DatabaseClient {
   async upsertSeen(environment: SeenEnvironment): Promise<EnvironmentRecord> {
     const rows = await this.sql<EnvironmentRecord[]>`
       INSERT INTO environments (
-        compose_project, working_dir, repo_url, repo_subpath,
+        compose_project, working_dir, config_files, repo_url, repo_subpath,
         first_seen_at, last_seen_at, updated_at
       ) VALUES (
-        ${environment.composeProject}, ${environment.workingDir ?? null}, ${environment.repoUrl ?? null},
-        ${environment.repoSubpath ?? null}, now(), now(), now()
+        ${environment.composeProject}, ${environment.workingDir ?? null}, ${environment.configFiles ?? []}::text[],
+        ${environment.repoUrl ?? null}, ${environment.repoSubpath ?? null}, now(), now(), now()
       )
       ON CONFLICT (compose_project) DO UPDATE SET
         working_dir = COALESCE(EXCLUDED.working_dir, environments.working_dir),
+        config_files = CASE
+          WHEN cardinality(EXCLUDED.config_files) > 0 THEN EXCLUDED.config_files
+          ELSE environments.config_files
+        END,
         repo_url = COALESCE(EXCLUDED.repo_url, environments.repo_url),
         repo_subpath = COALESCE(EXCLUDED.repo_subpath, environments.repo_subpath),
         last_seen_at = now(),
@@ -215,6 +224,7 @@ export class DatabaseClient {
         id::text AS id,
         compose_project AS "composeProject",
         working_dir AS "workingDir",
+        config_files AS "configFiles",
         repo_url AS "repoUrl",
         repo_subpath AS "repoSubpath",
         first_seen_at AS "firstSeenAt",
@@ -606,6 +616,7 @@ export class DatabaseClient {
         id::text AS id,
         compose_project AS "composeProject",
         working_dir AS "workingDir",
+        config_files AS "configFiles",
         repo_url AS "repoUrl",
         repo_subpath AS "repoSubpath",
         first_seen_at AS "firstSeenAt",

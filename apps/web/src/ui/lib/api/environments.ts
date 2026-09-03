@@ -20,6 +20,12 @@ export const environmentsApi = {
       method: 'POST',
       body: '{}',
     }),
+  /** Drops a remembered environment (containers already gone) from the panel's memory. Live ones are refused. */
+  forgetEnvironment: (name: string) =>
+    request<{ ok: boolean; forgotten: string }>(`/environments/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+      body: '{}',
+    }),
   environmentRemovalPreview: (name: string) =>
     request<EnvironmentRemovalPreview>(`/environments/${encodeURIComponent(name)}/removal-preview`),
   rebuildEnvironment: (name: string, body: { noCache?: boolean } = {}) =>

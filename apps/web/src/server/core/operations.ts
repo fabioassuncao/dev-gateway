@@ -199,7 +199,12 @@ export function writeRunnerRequest(config: PanelConfig, request: RunnerRequest):
   const dest = join(config.runnerDir, 'request.json')
   writeFileSync(
     dest,
-    `${JSON.stringify({ verb: parsed.verb, project: parsed.project, flags: parsed.flags ?? [] })}\n`,
+    `${JSON.stringify({
+      verb: parsed.verb,
+      project: parsed.project,
+      flags: parsed.flags ?? [],
+      ...(parsed.workingDir === undefined ? {} : { workingDir: parsed.workingDir, configFiles: parsed.configFiles ?? [] }),
+    })}\n`,
     { mode: 0o600 },
   )
   return dest

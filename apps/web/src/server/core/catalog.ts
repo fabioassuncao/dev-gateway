@@ -6,6 +6,7 @@ import type { PanelConfig } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import { resolveAdoptions, type ProjectCoordinates } from './adoption.ts'
 import { coordinateOf, loadScans, toRepository, type RepositoryScans } from './repositories.ts'
+import { rememberedEnvironments } from './remembered.ts'
 import type { Database } from '../db/index.ts'
 import type { ProjectRecord } from '../db/client.ts'
 import type { RepositoryRow } from '../db/repositories.ts'
@@ -97,11 +98,12 @@ export function coordinatesOf(
   }
 }
 
-export async function loadProjectCatalog(db: Database, snapshot: Snapshot, config: Pick<PanelConfig, 'projectsHome' | 'gitDir' | 'gitStaleSeconds'>): Promise<ProjectCatalog> {
-  const [records, rows, manualLinks] = await Promise.all([
+export async function loadProjectCatalog(db: Database, snapshot: Snapshot, config: Pick<PanelConfig, 'projectsHome' | 'gitDir' | 'gitStaleSeconds' | 'projectName'>): Promise<ProjectCatalog> {
+  const [records, rows, manualLinks, remembered] = await Promise.all([
     db.projects.list(),
     db.repositories.list(),
     db.projects.listEnvironments(),
+    rememberedEnvironments(db, snapshot, config),
   ])
   const projectsHome = config.projectsHome
   const scans = loadScans(config as PanelConfig)
@@ -118,11 +120,15 @@ export async function loadProjectCatalog(db: Database, snapshot: Snapshot, confi
     coordinatesOf(record, rowsByProject.get(record.id) ?? [], repositoriesByProject.get(record.id) ?? [], projectsHome),
   )
 
+  // A remembered Environment (containers gone, row kept) is still the
+  // Project's: a manual link survives by construction, and a working
+  // directory under the Project's paths adopts it the same way a live one is.
+  const candidates = [...snapshot.environments, ...remembered]
   const manual = new Map(manualLinks.map((row) => [row.composeProject, row.projectId]))
-  const adoptions = resolveAdoptions(snapshot.environments, coordinates, manual, { environmentKeys: scans.index?.environments ?? {} })
+  const adoptions = resolveAdoptions(candidates, coordinates, manual, { environmentKeys: scans.index?.environments ?? {} })
 
   const environments = new Map<string, ProjectEnvironment[]>()
-  for (const environment of snapshot.environments) {
+  for (const environment of candidates) {
     const adoption = adoptions.get(environment.name)
     if (!adoption) continue
     const list = environments.get(adoption.projectId) ?? []

@@ -85,6 +85,17 @@ assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" 'remove_worki
 assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" 'refusing working directory that walks up'
 assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" 'directory=$(grep -q '"'"'"directory"'"'"''
 
+it "reads the remembered paths from the request, and only uses them when no container exists"
+assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" '"workingDir"'
+assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" '"configFiles"'
+assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" '[ "$verb" = "up" ] || die "no container on this host belongs to project'
+assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" 'assert_request_path "$request_working_dir" "working directory"'
+
+it "hands Compose the host paths, linked into the container, so include: resolves"
+assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" 'link_host_path "$working_dir"'
+assert_contains "$(cat "$PORTTA_ROOT/scripts/lib/runner-exec.sh")" 'files+=(-f "$file")'
+assert_eq "" "$(grep -n 'files+=(-f "${HOST_ROOT}' "$PORTTA_ROOT/scripts/lib/runner-exec.sh" || true)"
+
 describe "the shell and the TypeScript CLI create the same container"
 
 if ! command -v node >/dev/null 2>&1 || [ ! -f "$PORTTA_ROOT/packages/core/dist/runner.js" ]; then

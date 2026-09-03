@@ -105,3 +105,36 @@ Docker socket and a view of the host filesystem. The closed verb set, the
 opt-in key, and the project name validated against the live snapshot are what
 keep it bounded. A project started outside Compose has no working-directory
 label and is reported as not operable rather than offered a dead button.
+
+## Amended 2026-09-03: a remembered environment, and `include:`
+
+An Environment whose containers are all gone used to leave the panel: the
+snapshot only knows what Docker still holds, so the row the database kept
+(ADR 0013) had nothing to attach to, and `up` was a verb the panel never
+dispatched. Two changes close that gap without widening the runner.
+
+**`up` carries the paths when no container exists.** The snapshot records
+`config_files` beside `working_dir` in `environments`, and a remembered
+Environment is a full `Environment` with no services and
+`presence: remembered`. Start on one hands the runner
+`{ verb: "up", project, workingDir, configFiles }`. The panel validates both
+paths against the bound `remove_working_dir` already applies (absolute, no
+`..`, not `/`, not a top-level directory) and refuses a comma, a quote or a
+backslash, which is what lets the shell read the list as text. The runner
+uses those fields **only** when `docker ps` finds no container for the
+project; with one, labels win exactly as before, and any verb but `up` with
+no container still dies. Portta's own project is refused by name, from
+`PORTTA_PROJECT_NAME` in `.env`, and by directory, `PORTTA_ROOT`. Without
+the runner, the answer is a 409 whose hint is the exact `docker compose …
+up -d` to run on the host. Forgetting a remembered Environment drops its row;
+a live one is refused.
+
+**Host paths are linked under the runner so `include:` resolves.** The
+runner used to pass `-f /host<file>`, so a Compose file that named a path
+(`include:`, `extends`, an `env_file`, a relative bind) resolved it against
+the container's own root, where it did not exist. The runner now links the
+first missing ancestor of the working directory, and of every Compose file
+outside it, to its `/host` counterpart, and hands Compose the host paths with
+`--project-directory` unchanged. An ancestor that exists in the image and is
+not that link is an error, stated, never a silent misread. The repository
+root is already mounted at its own path and needs no link.

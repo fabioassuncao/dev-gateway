@@ -104,6 +104,8 @@ export class Database {
       workingDir: string | null
       repoUrl: string | null
       gitRoot: string | null
+      /** The Compose files Docker recorded; remembered so `up` can run once the containers are gone. */
+      operable?: { configFiles: string[] }
     }>,
   ): Promise<void> {
     try {
@@ -116,6 +118,7 @@ export class Database {
           this.environments.upsertSeen({
             composeProject: environment.name,
             workingDir: environment.workingDir,
+            configFiles: environment.operable?.configFiles ?? [],
             repoUrl: environment.repoUrl,
             repoSubpath: environment.gitRoot,
           }),

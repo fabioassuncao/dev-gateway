@@ -38,6 +38,20 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Added
 
+- **Remembered environments.** An environment whose containers were all
+  removed stays listed, with `presence: remembered`, no services, and where
+  it ran: `working_dir` and now `config_files` (migration `0011`), as Docker
+  last recorded them. It keeps its Project, its overrides and its task links.
+- **Start through the runner when nothing is left to iterate.** Start on a
+  remembered environment dispatches runner verb `up` carrying the working
+  directory and the Compose files, both bounded the way directory removal
+  already is; without the runner the 409 carries the exact
+  `docker compose … up -d` to run on the host. Portta's own project is
+  refused by name and by directory.
+- **Forget.** `DELETE /api/environments/<name>` drops a remembered
+  environment's row (overrides, Project link and task links go with it) and
+  touches nothing on the host; a live one is refused until it is stopped and
+  removed. Activity records `environment.forgotten`.
 - **Repository, local-first.** A Project's repositories are rows of their
   own (`0008`): a path under Projects Home, a remote, a role; a GitHub
   repository is an optional binding, and one GitHub repository belongs to
@@ -175,6 +189,12 @@ While the version is `0.x`, minor releases may contain breaking changes.
   corpus, not from `.github/images/`.
 
 ### Fixed
+
+- **`include:` under the runner.** The runner handed Compose `-f /host<file>`,
+  so any path a Compose file named (`include:`, `extends`, `env_file`, a
+  relative bind) resolved against the runner's own root and was not found.
+  It now links the host directories it needs under their own paths and
+  passes Compose the host paths, so files resolve as they do on the host.
 
 - **The documentation site opened the panel Overview in development.** Vite on
   :5173 only proxied `/api`, so `/docs/` fell through to the panel SPA. A

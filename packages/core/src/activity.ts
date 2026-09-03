@@ -9,7 +9,7 @@ export const ACTIVITY_KINDS = [
   'task.created', 'task.updated', 'task.status', 'task.assigned', 'task.note', 'task.linked', 'task.synced', 'task.conflict', 'task.deleted',
   'session.started', 'session.ended', 'session.abandoned',
   'repository.added', 'repository.removed', 'repository.commit', 'repository.branch',
-  'environment.started', 'environment.stopped', 'environment.restarted', 'environment.rebuilt', 'environment.removed', 'environment.adopted',
+  'environment.started', 'environment.stopped', 'environment.restarted', 'environment.rebuilt', 'environment.removed', 'environment.forgotten', 'environment.adopted',
   'service.unhealthy', 'service.recovered',
   'project.created', 'project.updated', 'project.deleted',
 ] as const

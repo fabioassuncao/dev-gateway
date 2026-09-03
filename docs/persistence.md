@@ -26,8 +26,11 @@ Decisions, and a bounded history of the development flow:
   started, an environment rebuilt, a commit landed — pruned in code after
   ninety days or five thousand rows per Project;
 - environment identity (`environments`, one row per `COMPOSE_PROJECT_NAME`
-  ever seen) and the closed catalogue of global, environment and service
-  preferences (`settings`, `environment_settings`, `service_settings`);
+  ever seen, with `working_dir` and `config_files` as Docker last recorded
+  them, so an environment whose containers are gone can be started again
+  through the runner, or forgotten) and the closed catalogue of global,
+  environment and service preferences (`settings`, `environment_settings`,
+  `service_settings`);
 - the GitHub projection (`github_installations`, `github_repositories`,
   `github_issues`, `github_issue_relationships`, `github_sync_state`): a
   cache of a remote source of truth, every row with its age.
@@ -42,11 +45,12 @@ classifies what could ever be shared between two gateways (project and user
 decisions) and what must never be (runtime observations and instance
 configuration). No synchronisation is implemented.
 
-Migrations `0001` to `0010` build that schema; `0007` renamed the tables to
-the words [ADR 0031](adr/0031-projects-home-and-project.md) chose, and
+Migrations `0001` to `0011` build that schema; `0007` renamed the tables to
+the words [ADR 0031](adr/0031-projects-home-and-project.md) chose,
 `0008` to `0010` added repositories, tasks, sessions and activity
 ([ADR 0032](adr/0032-portta-development-model.md)), turning every existing
-issue of an owned repository into a bound task. Applied migration filenames
+issue of an owned repository into a bound task, and `0011` added
+`config_files` to `environments`. Applied migration filenames
 are recorded in `schema_migrations`. Startup takes a transaction scoped
 advisory lock and runs every pending migration in filename order, so
 concurrent starts cannot partially apply one; `portta db migrate` applies

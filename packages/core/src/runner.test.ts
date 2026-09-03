@@ -35,6 +35,36 @@ describe('parseRunnerRequest', () => {
     expect(() => parseRunnerRequest({ verb: 'build', project: 'alpha', flags: ['privileged'] })).toThrow('unknown runner flag')
   })
 
+  it('carries the working directory and the compose files only on up', () => {
+    const parsed = parseRunnerRequest({ verb: 'up', project: 'gamma', workingDir: '/srv/dev/gamma', configFiles: ['/srv/dev/gamma/compose.yaml', '/srv/shared/base.yaml'] })
+    expect(parsed.workingDir).toBe('/srv/dev/gamma')
+    expect(parsed.configFiles).toEqual(['/srv/dev/gamma/compose.yaml', '/srv/shared/base.yaml'])
+    expect(parseRunnerRequest({ verb: 'up', project: 'gamma', workingDir: '/srv/dev/gamma' }).configFiles).toBeUndefined()
+    expect(() => parseRunnerRequest({ verb: 'build', project: 'gamma', workingDir: '/srv/dev/gamma' })).toThrow('only valid with up')
+    expect(() => parseRunnerRequest({ verb: 'down-volumes', project: 'gamma', configFiles: ['/srv/dev/gamma/compose.yaml'] })).toThrow('only valid with up')
+    expect(() => parseRunnerRequest({ verb: 'up', project: 'gamma', configFiles: ['/srv/dev/gamma/compose.yaml'] })).toThrow('need a workingDir')
+  })
+
+  it('bounds every path the way remove_working_dir does, and refuses what the shell parser cannot carry', () => {
+    const up = (workingDir: unknown, configFiles?: unknown) => () => parseRunnerRequest({ verb: 'up', project: 'gamma', workingDir, configFiles })
+    expect(up('srv/dev/gamma')).toThrow('not absolute')
+    expect(up('/srv/dev/../gamma')).toThrow('walks up')
+    expect(up('/')).toThrow("refusing working directory '/'")
+    expect(up('/srv')).toThrow('top-level')
+    expect(up('/srv/')).toThrow('top-level')
+    expect(up(' /srv/dev/gamma')).toThrow('padded')
+    expect(up('/srv/dev/ga,mma')).toThrow('cannot be carried')
+    expect(up('/srv/dev/ga"mma')).toThrow('cannot be carried')
+    expect(up('/srv/dev/ga\\mma')).toThrow('cannot be carried')
+    expect(up('/srv/dev/ga\nmma')).toThrow('control character')
+    expect(up(42)).toThrow('need a workingDir')
+    expect(up('/srv/dev/gamma', '/srv/dev/gamma/compose.yaml')).toThrow('must be an array')
+    expect(up('/srv/dev/gamma', [42])).toThrow('must be a string')
+    expect(up('/srv/dev/gamma', ['compose.yaml'])).toThrow('not absolute')
+    expect(up('/srv/dev/gamma', ['/compose.yaml'])).toThrow('top-level')
+    expect(up('/srv/dev/gamma', ['/srv/dev/gamma/../x/compose.yaml'])).toThrow('walks up')
+  })
+
   it('accepts directory only on down-volumes', () => {
     expect(parseRunnerRequest({ verb: 'down-volumes', project: 'alpha', flags: ['directory'] }).flags).toEqual(['directory'])
     expect(() => parseRunnerRequest({ verb: 'down', project: 'alpha', flags: ['directory'] })).toThrow('directory')

@@ -27,6 +27,7 @@ function project(overrides: Partial<Environment> = {}): Environment {
   ]
   return {
     name: 'alpha',
+    presence: 'live',
     integrated: true,
     workingDir: '/srv/dev/alpha',
     operable: makeOperable('/srv/dev/alpha'),

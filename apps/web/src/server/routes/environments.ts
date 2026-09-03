@@ -12,6 +12,7 @@ import {
   Environment,
   EnvironmentActionResult,
   EnvironmentRemovalPreview,
+  EnvironmentRunnerStartResult,
   ProjectGit,
   ProjectLogsResponse,
   ProjectRebuildResult,
@@ -19,14 +20,18 @@ import {
   type ProjectGit as ProjectGitView,
   type ProjectLogSource,
 } from '../../shared/types.ts'
-import { runProjectAction } from '../core/actions.ts'
-import { projectRemovalPreview, rebuildProject, removeProject } from '../core/operations.ts'
+import { ActionRefused, runProjectAction } from '../core/actions.ts'
+import { dispatchRunner, projectRemovalPreview, rebuildProject, removeProject } from '../core/operations.ts'
+import { composeUpCommand, findRememberedEnvironment, rememberedEnvironments } from '../core/remembered.ts'
+import { runnerOf } from '../core/runner.ts'
 import { documentRoute, projectParameter, tailParameter } from '../openapi.ts'
 import { recordActivity } from '../core/activity.ts'
 import { principalOf, type Principal } from '../principal.ts'
 import type { ActivityKind } from 'portta-core'
+import { requireDatabase } from '../db/index.ts'
 
 export const EnvironmentsResponse = z.object({ environments: z.array(Environment) }).strict().meta({ ref: 'EnvironmentsResponse' })
+export const EnvironmentForgotten = z.object({ ok: z.literal(true), forgotten: z.string() }).strict().meta({ ref: 'EnvironmentForgotten' })
 
 /** Per source, and overall: a ten-service project cannot ask for 20 000 lines. */
 const MAX_TAIL = 2000
@@ -123,28 +128,40 @@ export function environmentRoutes(deps: AppDeps): Hono {
   // is clearly labelled as being outside the gateway.
   app.get('/environments', documentRoute({
     tag: 'Environments', operationId: 'listEnvironments', capability: 'environment:read', summary: 'List Compose environments', response: EnvironmentsResponse,
+    description: 'Live environments (with containers) and, when the panel has persistence, remembered ones (seen before, containers gone). Without ?all the list is the integrated live ones plus the remembered ones a Project adopted.',
     parameters: [{
       name: 'all', in: 'query', required: false,
-      description: 'Include environments that have not adopted the gateway.',
+      description: 'Include environments that have not adopted the gateway, and every remembered one.',
       schema: { type: 'boolean', default: false },
     }],
     errors: [500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get()
     const all = c.req.query('all') === 'true'
-    const environments = all ? snapshot.environments : snapshot.environments.filter((environment) => environment.integrated)
+    // A remembered environment has no containers, so it is never integrated.
+    // The default list still shows the ones a Project adopted by hand: the
+    // Project page would otherwise lose an environment the moment it was
+    // taken down, which is the opposite of what "remembered" is for.
+    const remembered = await rememberedEnvironments(deps.db, snapshot, deps.config)
+    const adopted = all || remembered.length === 0 ? new Set<string>() : new Set(
+      (await deps.db!.projects.listEnvironments().catch(() => [])).map((row) => row.composeProject),
+    )
+    const environments = all
+      ? [...snapshot.environments, ...remembered]
+      : [...snapshot.environments.filter((environment) => environment.integrated), ...remembered.filter((environment) => adopted.has(environment.name))]
     // With no database, or none reachable, this is the identity function and
     // the response is byte-identical to a panel with no persistence at all.
     return c.json({ environments: applyOverrides(environments, await loadOverrides(deps.db)) })
   })
 
   app.get('/environments/:project', documentRoute({
-    tag: 'Environments', operationId: 'getEnvironment', capability: 'environment:read', summary: 'Get one running environment', response: Environment,
+    tag: 'Environments', operationId: 'getEnvironment', capability: 'environment:read', summary: 'Get one environment, live or remembered', response: Environment,
+    description: 'A remembered environment (containers gone, row kept) answers with no services and presence: remembered.',
     parameters: [projectParameter], errors: [404, 500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get()
     const name = c.req.param('project')
-    const project = snapshot.environments.find((item) => item.name === name)
+    const project = snapshot.environments.find((item) => item.name === name) ?? await findRememberedEnvironment(deps.db, snapshot, deps.config, name)
     if (!project) throw new HTTPException(404, { message: `no environment '${name}' is running` })
     const decorated = applyOverrides([project], await loadOverrides(deps.db))[0]!
     // Additive, and nullable: a panel with no App, no database or no link gets
@@ -166,7 +183,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const snapshot = await deps.cache.get()
     const name = c.req.param('project')
-    if (!snapshot.environments.some((item) => item.name === name)) {
+    if (!snapshot.environments.some((item) => item.name === name) && await findRememberedEnvironment(deps.db, snapshot, deps.config, name) === null) {
       throw new HTTPException(404, { message: `no environment '${name}' is running` })
     }
     return c.json(await withForgeFromApp(deps, readProjectGit(deps.config, name)))
@@ -197,7 +214,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const snapshot = await deps.cache.get()
     const name = c.req.param('project')
-    const project = snapshot.environments.find((item) => item.name === name)
+    const project = snapshot.environments.find((item) => item.name === name) ?? await findRememberedEnvironment(deps.db, snapshot, deps.config, name)
     if (!project) throw new HTTPException(404, { message: `no environment '${name}' is running` })
 
     const wanted = c.req.query('service')
@@ -302,23 +319,83 @@ export function environmentRoutes(deps: AppDeps): Hono {
     return c.json(result)
   })
 
+  /**
+   * Start with nothing to iterate: the containers are gone and the row
+   * remembers where Compose ran. The runner gets an `up` that carries the
+   * working directory and the Compose files, because there is no container
+   * left to read labels from. Without the runner the answer is the command.
+   */
+  async function startRemembered(principal: Principal, snapshot: Snapshot, name: string): Promise<EnvironmentRunnerStartResult | null> {
+    if (snapshot.environments.some((item) => item.name === name)) return null
+    const remembered = await findRememberedEnvironment(deps.db, snapshot, deps.config, name)
+    if (!remembered) return null
+    if (name === deps.config.projectName) {
+      throw new ActionRefused(`refusing to start ${name}: it is Portta's own project`, 'run portta up on the host', 403)
+    }
+    if (!remembered.operable.ok || !remembered.workingDir) {
+      throw new ActionRefused(remembered.operable.reason ?? 'this environment is not operable', 'without a working directory the panel cannot say where Compose should run; forget it, or start it on the host', 409)
+    }
+    const configFiles = remembered.operable.configFiles
+    if (!runnerOf(snapshot)) {
+      throw new ActionRefused(
+        `${name} has no containers on this host and the runner is not available`,
+        composeUpCommand(name, remembered.workingDir, configFiles),
+        409,
+      )
+    }
+    const runner = await dispatchRunner(deps.client, snapshot, deps.config, {
+      verb: 'up', project: name, workingDir: remembered.workingDir, configFiles,
+    })
+    deps.cache.invalidate()
+    await recordEnvironmentActivity(deps, name, principal, 'environment.started', `${name} start requested through the runner`)
+    return { ok: true, project: name, action: 'start', via: 'runner', runner }
+  }
+
   for (const action of ['start', 'stop', 'restart'] as const) {
     app.post(`/environments/:project/actions/${action}`, documentRoute({
       tag: 'Environments',
       operationId: `${action}Environment`, capability: 'environment:operate',
       summary: `${action[0]?.toUpperCase()}${action.slice(1)} every container in an environment`,
-      description: 'Iterates the environment\'s existing containers in Compose dependency order. Nothing is removed.',
-      response: EnvironmentActionResult,
+      description: action === 'start'
+        ? 'Iterates the environment\'s existing containers in Compose dependency order. A remembered environment (no containers) is started through the runner with Compose up, or refused with the command to run on the host.'
+        : 'Iterates the environment\'s existing containers in Compose dependency order. Nothing is removed.',
+      response: action === 'start' ? z.union([EnvironmentActionResult, EnvironmentRunnerStartResult]) : EnvironmentActionResult,
       parameters: [projectParameter],
       errors: [403, 404, 409, 500, 502],
     }), async (c) => {
       const snapshot = await deps.cache.get()
+      if (action === 'start') {
+        const viaRunner = await startRemembered(principalOf(c), snapshot, c.req.param('project'))
+        if (viaRunner) return c.json(viaRunner)
+      }
       const result = await runProjectAction(deps.client, snapshot, c.req.param('project'), action)
       deps.cache.invalidate()
       await recordEnvironmentActivity(deps, c.req.param('project'), principalOf(c), action === 'start' ? 'environment.started' : action === 'stop' ? 'environment.stopped' : 'environment.restarted', `${c.req.param('project')} ${action === 'stop' ? 'stopped' : `${action}ed`}${result.ok ? '' : ' with failures'}`)
       return c.json(result)
     })
   }
+
+  app.delete('/environments/:project', documentRoute({
+    tag: 'Environments', operationId: 'forgetEnvironment', capability: 'environment:destroy',
+    summary: 'Forget a remembered environment',
+    description: 'Drops the panel\'s row for an environment whose containers are already gone: its overrides, Project link and task links go with it. A live environment is refused: stop and remove it first. Nothing on the host is touched.',
+    response: EnvironmentForgotten,
+    parameters: [projectParameter],
+    errors: [403, 404, 409, 500, 503],
+  }), async (c) => {
+    const snapshot = await deps.cache.get()
+    const name = c.req.param('project')
+    if (snapshot.environments.some((item) => item.name === name)) {
+      throw new ActionRefused(`${name} is live on this host`, 'stop and remove it first; forgetting is for an environment whose containers are gone', 409)
+    }
+    const db = requireDatabase(deps.db)
+    const remembered = await findRememberedEnvironment(db, snapshot, deps.config, name)
+    if (!remembered) throw new HTTPException(404, { message: `no environment '${name}' is remembered` })
+    await recordEnvironmentActivity(deps, name, principalOf(c), 'environment.forgotten', `${name} forgotten`)
+    await db.environments.forget(name)
+    deps.cache.invalidate()
+    return c.json({ ok: true as const, forgotten: name })
+  })
 
   return app
 }

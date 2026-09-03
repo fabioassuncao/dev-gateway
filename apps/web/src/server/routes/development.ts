@@ -24,6 +24,7 @@ import { loadProjectCatalog, toProject } from '../core/catalog.ts'
 import { loadTaskContext, taskSummaries, taskView } from '../core/task-view.ts'
 import { loadNames, sessionView } from '../core/activity-view.ts'
 import { environmentServices } from '../core/service-view.ts'
+import { findRememberedEnvironment } from '../core/remembered.ts'
 import { buildContext } from '../core/context-view.ts'
 import { buildOverview } from '../core/overview-view.ts'
 import { diagnose, problemsOnly } from '../core/diagnostics.ts'
@@ -52,7 +53,9 @@ export function developmentRoutes(deps: AppDeps): Hono {
 
   async function environmentNamed(name: string): Promise<Environment> {
     const snapshot = await deps.cache.get()
-    const found = snapshot.environments.find((item) => item.name === name)
+    // A remembered environment (containers gone, row kept) answers too, with
+    // no services: the page renders it with its start-or-forget choice.
+    const found = snapshot.environments.find((item) => item.name === name) ?? await findRememberedEnvironment(deps.db, snapshot, deps.config, name)
     if (!found) throw new HTTPException(404, { message: `no environment '${name}' is running` })
     return applyOverrides([found], await loadOverrides(deps.db))[0]!
   }

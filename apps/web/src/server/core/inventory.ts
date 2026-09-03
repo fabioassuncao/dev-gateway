@@ -302,6 +302,7 @@ export function groupEnvironments(containers: ContainerSummary[], now: number): 
     const withRepo = services.find((service) => service.repo)
     environments.push({
       name,
+      presence: 'live',
       integrated,
       workingDir: withDir?.workingDir ?? null,
       operable: projectOperable(withDir?.workingDir ?? null, configFiles),

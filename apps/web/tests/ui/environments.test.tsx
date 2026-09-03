@@ -40,7 +40,7 @@ const API_URLS = [
 ]
 
 const alpha: Environment = {
-  name: 'alpha', integrated: true, workingDir: '/srv/dev/alpha',
+  name: 'alpha', presence: 'live', integrated: true, workingDir: '/srv/dev/alpha',
   operable: makeOperable('/srv/dev/alpha'), startable: makeStartable(),
   namespace: null, group: null, repo: null, repoUrl: null, gitRoot: null,
   serviceCount: 4, runningCount: 4, healthyCount: 2, unhealthyCount: 0,

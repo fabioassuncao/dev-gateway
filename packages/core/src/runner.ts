@@ -37,6 +37,14 @@ export interface RunnerRequest {
   verb: RunnerVerb
   project: string
   flags?: RunnerFlag[]
+  /**
+   * Where Compose runs, for an `up` of a project that has no container left
+   * to read labels from (a remembered Environment). Ignored by the runner
+   * when a container exists: labels win.
+   */
+  workingDir?: string
+  /** The Compose files, absolute host paths, in the order the daemon recorded them. */
+  configFiles?: string[]
 }
 
 export function isRunnerVerb(value: string): value is RunnerVerb {
@@ -77,7 +85,40 @@ export function parseRunnerRequest(value: unknown): RunnerRequest {
   if (flags.includes('directory') && body.verb !== 'down-volumes') {
     throw new Error('directory is only valid with down-volumes')
   }
-  return { verb: body.verb, project: body.project, flags: flags.length > 0 ? flags : undefined }
+  const request: RunnerRequest = { verb: body.verb, project: body.project, flags: flags.length > 0 ? flags : undefined }
+  if (body.workingDir !== undefined || body.configFiles !== undefined) {
+    if (body.verb !== 'up') throw new Error('workingDir and configFiles are only valid with up')
+    if (typeof body.workingDir !== 'string') throw new Error('configFiles need a workingDir')
+    request.workingDir = assertRunnerPath(body.workingDir, 'working directory')
+    if (body.configFiles !== undefined) {
+      if (!Array.isArray(body.configFiles)) throw new Error('configFiles must be an array')
+      request.configFiles = body.configFiles.map((file) => {
+        if (typeof file !== 'string') throw new Error('every compose file must be a string')
+        return assertRunnerPath(file, 'compose file')
+      })
+    }
+  }
+  return request
+}
+
+/**
+ * The bound a path in a runner request must satisfy: the same one
+ * `remove_working_dir` applies in scripts/lib/runner-exec.sh (absolute, no
+ * `..` segment, not `/`, not a top-level directory), plus the two characters
+ * the shell parser cannot carry (a comma splits the list, a quote ends it).
+ */
+export function assertRunnerPath(value: string, what: string): string {
+  if (value.trim() === '' || value !== value.trim()) throw new Error(`refusing ${what} '${value}': padded or empty`)
+  if (value.includes('\0') || value.includes('\n')) throw new Error(`refusing ${what} with a control character`)
+  if (value.includes(',') || value.includes('"') || value.includes('\\')) {
+    throw new Error(`refusing ${what} '${value}': commas, quotes and backslashes cannot be carried`)
+  }
+  if (!value.startsWith('/')) throw new Error(`refusing ${what} '${value}': not absolute`)
+  const parts = value.split('/')
+  if (parts.includes('..')) throw new Error(`refusing ${what} '${value}': walks up`)
+  if (value === '/') throw new Error(`refusing ${what} '/'`)
+  if (parts.filter((part) => part.length > 0).length < 2) throw new Error(`refusing ${what} '${value}': a top-level directory`)
+  return value
 }
 
 export function runnerCreateArguments(root: string, spec: string): string[] {
