@@ -1,0 +1,17 @@
+{
+  "rowLabel": "{{actor}} session",
+  "status": {
+    "active": "active",
+    "ended": "ended",
+    "abandoned": "abandoned"
+  },
+  "noTask": "no task",
+  "commits": "{{count}} commits",
+  "activeFor": "{{time}} · last {{last}}",
+  "endedAgo": "ended {{time}}",
+  "active": "Sessions ({{count}} active)",
+  "none": "Nobody is working here right now",
+  "noneHint": "An agent announces itself with portta sessions start --project {{slug}}.",
+  "noneAnywhere": "No active session",
+  "noneAnywhereHint": "When a person or an agent starts a session, it shows here with its task, repository and commits."
+}

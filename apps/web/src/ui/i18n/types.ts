@@ -2,8 +2,11 @@ import type common from './locales/en/common.json'
 import type nav from './locales/en/nav.json'
 import type overview from './locales/en/overview.json'
 import type projects from './locales/en/projects.json'
+import type repositories from './locales/en/repositories.json'
 import type environments from './locales/en/environments.json'
-import type issues from './locales/en/issues.json'
+import type tasks from './locales/en/tasks.json'
+import type sessions from './locales/en/sessions.json'
+import type activity from './locales/en/activity.json'
 import type services from './locales/en/services.json'
 import type docker from './locales/en/docker.json'
 import type network from './locales/en/network.json'
@@ -22,8 +25,11 @@ declare module 'i18next' {
       nav: typeof nav
       overview: typeof overview
       projects: typeof projects
+      repositories: typeof repositories
       environments: typeof environments
-      issues: typeof issues
+      tasks: typeof tasks
+      sessions: typeof sessions
+      activity: typeof activity
       services: typeof services
       docker: typeof docker
       network: typeof network

@@ -23,7 +23,7 @@ const serviceAlias = vi.fn()
 const clearServiceAlias = vi.fn()
 const projects = vi.fn()
 
-vi.mock('../../src/ui/lib/api.ts', () => ({
+vi.mock('../../src/ui/lib/api/index.ts', () => ({
   ApiError,
   api: {
     projects: () => Promise.resolve([]),
@@ -46,7 +46,7 @@ vi.mock('../../src/ui/lib/api.ts', () => ({
 
 const { EnvironmentSettingsDialog } = await import('../../src/ui/components/environment-settings.tsx')
 const { ServiceAlias } = await import('../../src/ui/components/service-alias.tsx')
-const { Projects } = await import('../../src/ui/pages/Projects.tsx')
+const { EnvironmentsPage } = await import('../../src/ui/pages/Environments.tsx')
 
 const WEB_URL = {
   url: 'http://alpha-web.localhost',
@@ -175,19 +175,19 @@ describe('the alias control', () => {
   })
 })
 
-describe('the project list under overrides', () => {
+describe('the environment list under overrides', () => {
   it('shows the display name with the derived one still reachable', async () => {
     projects.mockResolvedValue([project({ overrides: { displayName: 'Awesome Thing' } })])
-    renderWithQuery(<Projects />)
+    renderWithQuery(<EnvironmentsPage />)
     const link = await screen.findByRole('link', { name: 'Awesome Thing' })
     expect(link).toHaveAttribute('title', 'derived name: alpha')
   })
 
   it('collapses a hidden service rather than removing it', async () => {
     projects.mockResolvedValue([project({ overrides: { hiddenServices: ['worker'] } })])
-    renderWithQuery(<Projects />)
+    renderWithQuery(<EnvironmentsPage />)
     expect(await screen.findByText('1 collapsed service')).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'worker service' })).toBeInTheDocument()
+    expect(screen.getByRole('row', { name: 'worker service' })).toBeInTheDocument()
   })
 
   it('puts a pinned project before an archived one', async () => {
@@ -195,7 +195,7 @@ describe('the project list under overrides', () => {
       project({ name: 'zulu', overrides: { archived: true } }),
       project({ name: 'alpha', overrides: { pinned: true } }),
     ])
-    renderWithQuery(<Projects />)
+    renderWithQuery(<EnvironmentsPage />)
     await screen.findByText('pinned')
     const names = screen.getAllByRole('link', { name: /^(alpha|zulu)$/ })
     expect(names[0]).toHaveTextContent('alpha')
@@ -203,7 +203,7 @@ describe('the project list under overrides', () => {
   })
 
   it('renders exactly as before when nothing is overridden', async () => {
-    renderWithQuery(<Projects />)
+    renderWithQuery(<EnvironmentsPage />)
     await screen.findByRole('link', { name: 'alpha' })
     expect(screen.queryByText('pinned')).not.toBeInTheDocument()
     expect(screen.queryByText(/collapsed/)).not.toBeInTheDocument()

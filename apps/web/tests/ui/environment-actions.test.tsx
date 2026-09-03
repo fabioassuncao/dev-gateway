@@ -6,7 +6,7 @@ import type { Environment } from '../../src/shared/types.ts'
 
 const environmentAction = vi.fn()
 
-vi.mock('../../src/ui/lib/api.ts', () => ({
+vi.mock('../../src/ui/lib/api/index.ts', () => ({
   ApiError: class ApiError extends Error {},
   api: { environmentAction: (...args: unknown[]) => environmentAction(...args) },
 }))

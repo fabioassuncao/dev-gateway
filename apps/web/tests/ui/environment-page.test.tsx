@@ -19,8 +19,11 @@ class ApiError extends Error {
 const project = vi.fn()
 const environmentGit = vi.fn()
 const environmentLogs = vi.fn()
+const environmentServices = vi.fn()
+const projects = vi.fn()
+const projectDetail = vi.fn()
 
-vi.mock('../../src/ui/lib/api.ts', () => ({
+vi.mock('../../src/ui/lib/api/index.ts', () => ({
   ApiError,
   api: {
     environment: (name: string) => project(name),
@@ -33,6 +36,12 @@ vi.mock('../../src/ui/lib/api.ts', () => ({
     stats: vi.fn().mockResolvedValue({ cpuPercent: null }),
     shares: vi.fn().mockResolvedValue({ shares: [] }),
     serviceTraefik: vi.fn().mockResolvedValue({ available: false, reason: 'not configured' }),
+    environmentServices: (name: string) => environmentServices(name),
+    serviceAction: vi.fn().mockResolvedValue({ ok: true }),
+    environmentSettings: vi.fn().mockResolvedValue({}),
+    projects: () => projects(),
+    project: (slug: string) => projectDetail(slug),
+    metricsCurrent: vi.fn().mockResolvedValue({ projects: [], collectorActive: false, stale: true }),
   },
 }))
 
@@ -123,7 +132,7 @@ const gitScan: ProjectGit = {
     })),
   },
   reason: null,
-  refreshCommand: 'portta git scan --project alpha',
+  refreshCommand: 'portta repos scan --environment alpha',
 }
 
 beforeEach(() => {
@@ -142,66 +151,101 @@ beforeEach(() => {
       { stream: 'stdout', timestamp: '2026-01-01T10:00:02Z', text: 'postgres ready', service: 'postgres' },
     ],
   })
+  environmentServices.mockReset().mockRejectedValue(new ApiError(404, 'not found'))
+  projects.mockReset().mockResolvedValue([{ slug: 'shop', name: 'Shop' }])
+  projectDetail.mockReset().mockResolvedValue({ slug: 'shop', name: 'Shop', repositories: [{ id: 'r1', name: 'api', environments: ['alpha'] }], environments: [{ environment: 'alpha' }] })
   window.location.hash = '/environments/alpha'
 })
 
 describe('resolveTab', () => {
-  it('falls back to Overview for an unknown tab', () => {
+  it('falls back to Overview for an unknown tab, and for the tabs that no longer exist', () => {
     expect(resolveTab(null)).toBe('overview')
     expect(resolveTab('nope')).toBe('overview')
-    expect(resolveTab('git')).toBe('git')
+    expect(resolveTab('git')).toBe('overview')
+    expect(resolveTab('settings')).toBe('settings')
   })
 })
 
 describe('Environment page', () => {
-  it('fetches one project instead of the whole list', async () => {
+  it('fetches one environment instead of the whole list', async () => {
     renderWithQuery(<EnvironmentPage project="alpha" tab={null} service={null} />)
     await screen.findByRole('heading', { name: 'alpha' })
     expect(project).toHaveBeenCalledWith('alpha')
   })
 
-  it('shows the environment, its host directory and endpoints on Overview', async () => {
+  it('shows the services as one table, from the containers when the panel does not serve rows yet', async () => {
     renderWithQuery(<EnvironmentPage project="alpha" tab="overview" service={null} />)
-    expect(await screen.findByText('/srv/dev/alpha')).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Services' })).toHaveTextContent('2/2')
-    expect(screen.getByRole('link', { name: /alpha-web.localhost/ })).toBeInTheDocument()
-    expect(screen.getByText('portta, alpha_default')).toBeInTheDocument()
+    expect(await screen.findByRole('row', { name: 'web service' })).toBeInTheDocument()
+    expect(screen.getByRole('row', { name: 'postgres service' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'http://alpha-web.localhost' })).toBeInTheDocument()
+    expect(screen.getByText('4 restarts')).toBeInTheDocument()
+    expect(await screen.findByText(/showing what the containers report/)).toBeInTheDocument()
   })
 
-  it('lists every service with mounts, networks and restart counts', async () => {
-    renderWithQuery(<EnvironmentPage project="alpha" tab="services" service={null} />)
-    expect(await screen.findByText('4 restarts')).toBeInTheDocument()
+  it('prefers the measured rows when the panel serves them', async () => {
+    environmentServices.mockResolvedValue({
+      environment: 'alpha',
+      services: [{
+        name: 'web', environment: 'alpha', containerId: 'a-web', containerName: 'alpha-web-1', image: 'nginx:1.31.4-alpine', kind: 'http',
+        tech: { id: 'nginx', label: 'nginx' }, state: 'running', health: 'healthy', startedAt: 1, uptimeSeconds: 7200, restartCount: 0, exitCode: null,
+        ports: [], exposedPorts: [3000], networks: [], onGatewayNetwork: true,
+        access: { kind: 'http', primary: { provider: 'local', url: 'http://alpha-web.localhost', scope: 'local', usable: true, shareable: false, problem: null }, endpoints: [], bridge: null, routed: true, problem: null },
+        resources: { cpuUtilisation: 0.08, memoryUsedBytes: 314572800, memoryLimitBytes: null, diskBytes: null, collectedAt: 1, stale: false },
+        actions: { start: false, stop: true, restart: true, logs: true, openAccess: false, share: true }, hidden: false,
+      }],
+      resources: { cpuUtilisation: 0.12, memoryUsedBytes: 419430400, memoryLimitBytes: null, diskBytes: null, collectedAt: 1, stale: false },
+    })
+    renderWithQuery(<EnvironmentPage project="alpha" tab="overview" service={null} />)
+    await screen.findByText(/CPU 8%/)
+    const web = screen.getByRole('row', { name: 'web service' })
+    expect(web).toHaveTextContent('CPU 8%')
+    expect(web).toHaveTextContent('300 MB')
+    expect(screen.queryByText(/showing what the containers report/)).not.toBeInTheDocument()
+  })
+
+  it('opens the drawer for the service the URL names, with its mounts', async () => {
+    renderWithQuery(<EnvironmentPage project="alpha" tab="overview" service="web" />)
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText(/bind: \/srv\/dev\/alpha → \/app/)).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /postgres/ })).toBeInTheDocument()
   })
 
-  it('shows every open pull request on the Git tab, not the first four', async () => {
+  it('carries the branch in the header and links the repository', async () => {
+    renderWithQuery(<EnvironmentPage project="alpha" tab="overview" service={null} />)
+    expect(await screen.findByText('fix/182-tcp-proxy')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Open repository: api' })).toHaveAttribute('href', '#/projects/shop/repositories/r1')
+    expect(screen.getByRole('link', { name: 'Shop' })).toHaveAttribute('href', '#/projects/shop')
+  })
+
+  it('sends the old Git tab to the repository page', async () => {
     renderWithQuery(<EnvironmentPage project="alpha" tab="git" service={null} />)
-    expect(await screen.findByRole('link', { name: '#5 Pull 5' })).toBeInTheDocument()
-    expect(screen.getByText('origin/fix/182-tcp-proxy')).toBeInTheDocument()
-    expect(screen.getByText('portta git scan --project alpha')).toBeInTheDocument()
+    await waitFor(() => expect(window.location.hash).toBe('#/projects/shop/repositories/r1'))
   })
 
-  it('renders the Git tab without an error when the project has no repository', async () => {
-    environmentGit.mockResolvedValue({ ...gitScan, git: null, remote: null, forge: null, reason: 'not a Git work tree' })
+  it('sends the old Git tab to the overview when no repository is known', async () => {
+    projectDetail.mockResolvedValue({ slug: 'shop', name: 'Shop', repositories: [], environments: [] })
     renderWithQuery(<EnvironmentPage project="alpha" tab="git" service={null} />)
-    expect(await screen.findByText('This project has no Git repository')).toBeInTheDocument()
+    await waitFor(() => expect(window.location.hash).toBe('#/environments/alpha'))
   })
 
-  it('reports a project that stopped existing with a way back to the list', async () => {
+  it('sends the old Services tab to the overview', async () => {
+    renderWithQuery(<EnvironmentPage project="alpha" tab="services" service={null} />)
+    await waitFor(() => expect(window.location.hash).toBe('#/environments/alpha'))
+  })
+
+  it('reports an environment that stopped existing with a way back to the list', async () => {
     project.mockRejectedValue(new ApiError(404, "no project 'ghost' is running"))
     renderWithQuery(<EnvironmentPage project="ghost" tab={null} service={null} />)
     expect(await screen.findByText("No project 'ghost' is running")).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back to all projects' })).toHaveAttribute('href', '#/projects')
+    expect(screen.getByRole('link', { name: 'Back to all projects' })).toHaveAttribute('href', '#/environments')
   })
 
-  it('renders an empty state for a project with no services', async () => {
+  it('renders an empty state for an environment with no services', async () => {
     project.mockResolvedValue({ ...alpha, services: [], serviceCount: 0, runningCount: 0 })
-    renderWithQuery(<EnvironmentPage project="alpha" tab="services" service={null} />)
-    expect(await screen.findByText('This project has no services')).toBeInTheDocument()
+    renderWithQuery(<EnvironmentPage project="alpha" tab="overview" service={null} />)
+    expect(await screen.findByText('This environment has no services')).toBeInTheDocument()
   })
 
-  it('reads every service of the project on the Logs tab', async () => {
+  it('reads every service of the environment on the Logs tab', async () => {
     renderWithQuery(<EnvironmentPage project="alpha" tab="logs" service={null} />)
     expect(await screen.findByText('web up')).toBeInTheDocument()
     expect(screen.getByText('postgres ready')).toBeInTheDocument()
@@ -216,14 +260,27 @@ describe('Environment page', () => {
     expect(screen.getByLabelText('Service')).toHaveValue('postgres')
   })
 
-  it('offers a Logs empty state for a project with no services', async () => {
-    project.mockResolvedValue({ ...alpha, services: [], serviceCount: 0, runningCount: 0 })
-    renderWithQuery(<EnvironmentPage project="alpha" tab="logs" service={null} />)
-    expect(await screen.findByText('This project has no services')).toBeInTheDocument()
-    expect(environmentLogs).not.toHaveBeenCalled()
+  it('shows the settings form on its own tab', async () => {
+    renderWithQuery(<EnvironmentPage project="alpha" tab="settings" service={null} />)
+    expect(await screen.findByLabelText('Display name')).toBeInTheDocument()
   })
 
-  it('shows the issue this environment is running for, and why', async () => {
+  it('shows the task this environment is running for, and why', async () => {
+    project.mockResolvedValue({
+      ...alpha,
+      task: {
+        id: '42', project: 'shop', title: 'Proxy TCP perde conexão', status: 'in_progress', priority: 'high',
+        assignee: null, agent: 'claude-code', source: 'branch', reason: 'this environment is on branch fix/182-tcp-proxy',
+        panelUrl: '#/projects/shop/tasks/42', github: { repository: 'acme/alpha', number: 182, htmlUrl: 'https://github.com/acme/alpha/issues/182' },
+      },
+    })
+    renderWithQuery(<EnvironmentPage project="alpha" tab="overview" service={null} />)
+    expect(await screen.findByRole('link', { name: '#42 Proxy TCP perde conexão' })).toHaveAttribute('href', '#/projects/shop/tasks/42')
+    expect(screen.getByText('this environment is on branch fix/182-tcp-proxy')).toBeInTheDocument()
+    expect(screen.getByText('claude-code')).toBeInTheDocument()
+  })
+
+  it('still shows a bound issue when the panel only knows the issue', async () => {
     project.mockResolvedValue({
       ...alpha,
       issue: {
@@ -235,29 +292,12 @@ describe('Environment page', () => {
       },
     })
     renderWithQuery(<EnvironmentPage project="alpha" tab="overview" service={null} />)
-
-    expect(await screen.findByRole('link', { name: '#182' })).toHaveAttribute(
-      'href',
-      'https://github.com/acme/alpha/issues/182',
-    )
-    expect(screen.getByText('this environment is on branch fix/182-tcp-proxy')).toBeInTheDocument()
-    expect(screen.getByText('Proxy TCP perde conexão')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: '#182' })).toHaveAttribute('href', 'https://github.com/acme/alpha/issues/182')
   })
 
-  it('shows no issue block when nothing links', async () => {
-    renderWithQuery(<EnvironmentPage project="alpha" tab="overview" service={null} />)
-    await screen.findByText('/srv/dev/alpha')
-    expect(screen.queryByText(/this environment is on branch/)).not.toBeInTheDocument()
-  })
-
-  it('titles the document with the tab and the project', async () => {
-    renderWithQuery(<EnvironmentPage project="alpha" tab="git" service={null} />)
-    await waitFor(() => expect(document.title).toBe('Git · alpha · Portta'))
-  })
-
-  it('titles the document with the project alone on Overview', async () => {
-    renderWithQuery(<EnvironmentPage project="alpha" tab={null} service={null} />)
-    await waitFor(() => expect(document.title).toBe('alpha · Portta'))
+  it('titles the document with the tab and the environment', async () => {
+    renderWithQuery(<EnvironmentPage project="alpha" tab="logs" service={null} />)
+    await waitFor(() => expect(document.title).toBe('Logs · alpha · Portta'))
   })
 
   it('makes every tab a link that survives a reload', async () => {
@@ -265,12 +305,10 @@ describe('Environment page', () => {
     const tabs = await screen.findAllByRole('tab')
     expect(tabs.map((tab) => tab.getAttribute('href'))).toEqual([
       '#/environments/alpha/overview',
-      '#/environments/alpha/services',
-      '#/environments/alpha/git',
       '#/environments/alpha/logs',
+      '#/environments/alpha/settings',
     ])
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
-    expect(tabs[2]).toHaveAttribute('aria-selected', 'false')
   })
 
   it('navigates to the next tab with the arrow keys', async () => {
@@ -278,6 +316,6 @@ describe('Environment page', () => {
     const list = await screen.findByRole('tablist')
     within(list).getAllByRole('tab')[0]!.focus()
     await userEvent.keyboard('{ArrowRight}')
-    await waitFor(() => expect(window.location.hash).toBe('#/environments/alpha/services'))
+    await waitFor(() => expect(window.location.hash).toBe('#/environments/alpha/logs'))
   })
 })

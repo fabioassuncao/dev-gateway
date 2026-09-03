@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff } from 'lucide-react'
-import { api } from '../lib/api.ts'
+import { useServiceConnection } from '../lib/queries/index.ts'
 import type { ServiceConnection, ServiceEndpoint } from '../../shared/types.ts'
 import { Button } from './ui/button.tsx'
 import { CopyButton } from './copy.tsx'
@@ -91,11 +90,7 @@ export function ConnectionPanel({
 }) {
   const { t } = useTranslation('access')
   const [open, setOpen] = useState(false)
-  const query = useQuery({
-    queryKey: ['connection', project, service],
-    queryFn: () => api.serviceConnection(project, service),
-    enabled: open,
-  })
+  const query = useServiceConnection(project, service, open)
 
   return (
     <div>

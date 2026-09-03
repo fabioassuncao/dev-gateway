@@ -96,5 +96,19 @@
     "failedHint": "Rode no host para ver a saída inteira:",
     "showOutput": "Mostrar saída",
     "timeoutBody": "O painel não responde há {{time}}. Ele pode ainda estar subindo. Recarregue a página, ou termine no host:"
+  },
+  "overviewCard": {
+    "title": "Gateway",
+    "profile": "Perfil",
+    "domain": "Domínio",
+    "listening": "Escutando",
+    "tls": "TLS",
+    "tlsEnabled": "ativado ({{mode}})",
+    "tailscale": "Tailscale",
+    "tailscaleRunning": "em execução",
+    "tailscaleEnabledNotRunning": "ativado, não em execução",
+    "publicAccess": "Acesso público",
+    "sharedNetwork": "Rede compartilhada",
+    "attached": "{{name}} · {{count}} conectado(s)"
   }
 }

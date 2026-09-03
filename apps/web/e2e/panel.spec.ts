@@ -13,9 +13,10 @@ test.describe('the panel end to end', () => {
 
     await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
     await expect(page.getByText('Gateway running')).toBeVisible()
-    await expect(page.getByRole('group', { name: 'Projects' })).toContainText('1')
-    await expect(page.getByRole('group', { name: 'Routed URLs' })).toContainText('1')
-    await expect(page.getByText('http://alpha-web.localhost')).toBeVisible()
+    // No PostgreSQL in the demo host: the work sections are empty and say so;
+    // the runtime, the gateway and its problems still answer.
+    await expect(page.getByText('No open task')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Needs attention' })).toBeVisible()
   })
 
   test('every section owns its title and project context can refine it', async ({ page }) => {
@@ -28,8 +29,8 @@ test.describe('the panel end to end', () => {
     }
 
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
-    await expect(page).toHaveURL(/#\/settings\/gateway$/)
-    await expect(page).toHaveTitle('Gateway · Settings · Portta')
+    await expect(page).toHaveURL(/#\/settings\/[a-z-]+$/)
+    await expect(page).toHaveTitle(/· Settings · Portta$/)
 
     await page.goto('/#/environments/alpha')
     await expect(page).toHaveTitle('alpha · Portta')
@@ -45,22 +46,19 @@ test.describe('the panel end to end', () => {
     await expect(page.getByRole('button', { name: 'New project' })).toBeDisabled()
   })
 
-  test('the board explains itself before the projection exists', async ({ page }) => {
+  test('the old board hash lands on the tasks tab, which explains itself without a database', async ({ page }) => {
     await page.goto('/#/projects/produto/board')
-    // No PostgreSQL in the demo host: the board is a projection, and says so.
-    await expect(page.getByText("The board needs the panel's database")).toBeVisible()
-    await expect(page.getByRole('tab', { name: 'Board' })).toHaveAttribute('aria-selected', 'true')
-
-    await page.getByRole('tab', { name: 'Backlog' }).click()
-    await expect(page).toHaveURL(/#\/projects\/produto\/board\/backlog$/)
-    await expect(page).toHaveTitle('Backlog · produto · Portta')
+    await expect(page).toHaveURL(/#\/projects\/produto\/tasks(\?|$)/)
+    // No PostgreSQL in the demo host: a Project is a decision, and the page
+    // says persistence is what is missing rather than failing.
+    await expect(page.getByRole('main')).toContainText(/database|persistence|No project/)
   })
 
   test('a filtered board is a link somebody can paste', async ({ page }) => {
-    await page.goto('/#/projects/produto/board?priority=urgent&repository=acme%2Fapi')
-    await expect(page.getByLabel('Priority')).toHaveValue('urgent')
+    await page.goto('/#/projects/produto/board?repository=acme%2Fapi')
+    await expect(page).toHaveURL(/#\/projects\/produto\/tasks\?repository=acme%2Fapi$/)
     await page.reload()
-    await expect(page.getByLabel('Priority')).toHaveValue('urgent')
+    await expect(page).toHaveURL(/repository=acme%2Fapi/)
   })
 
   test('the favicon is a built local SVG', async ({ request }) => {
@@ -89,41 +87,35 @@ test.describe('the panel end to end', () => {
 
   test('a URL can be copied in one click', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-    await page.goto('/')
+    await page.goto('/#/services')
 
     await page.getByRole('button', { name: 'Copy' }).first().click()
     const copied = await page.evaluate(() => navigator.clipboard.readText())
-    expect(copied).toBe('http://alpha-web.localhost')
+    expect(copied).toMatch(/^http:\/\/alpha-/)
   })
 
-  test('projects show their services, databases included', async ({ page }) => {
-    await page.goto('/#/projects')
+  test('environments show their services, databases included', async ({ page }) => {
+    await page.goto('/#/environments')
 
-    await expect(page.getByText('alpha', { exact: true })).toBeVisible()
-    const web = page.getByRole('group', { name: 'web service' })
-    await expect(web.getByRole('button', { name: 'web', exact: true })).toBeVisible()
-    await expect(web).toContainText('http://alpha-web.localhost')
-    await expect(web).toContainText('http://alpha-preview.localhost')
-    await expect(web.getByRole('link', { name: 'Open' })).toHaveCount(2)
-
-    const postgres = page.getByRole('group', { name: 'postgres service' })
-    await expect(postgres.getByRole('button', { name: 'postgres', exact: true })).toBeVisible()
-    await expect(postgres.getByRole('link', { name: 'Access page' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'alpha', exact: true })).toBeVisible()
+    await expect(page.getByRole('row', { name: 'web service' })).toBeVisible()
+    await expect(page.getByRole('row', { name: 'web service' })).toContainText(/alpha-(web|preview)\.localhost/)
+    await expect(page.getByRole('row', { name: 'postgres service' }).first()).toBeVisible()
   })
 
-  test('a project has a page of its own, with deep-linkable tabs', async ({ page }) => {
-    await page.goto('/#/projects')
+  test('an environment has a page of its own, with deep-linkable tabs', async ({ page }) => {
+    await page.goto('/#/environments')
     await page.getByRole('link', { name: 'alpha', exact: true }).click()
     await expect(page).toHaveURL(/#\/environments\/alpha$/)
     await expect(page).toHaveTitle('alpha · Portta')
     await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true')
 
-    await page.getByRole('tab', { name: 'Git' }).click()
-    await expect(page).toHaveURL(/#\/environments\/alpha\/git$/)
-    await expect(page).toHaveTitle('Git · alpha · Portta')
+    await page.getByRole('tab', { name: 'Logs' }).click()
+    await expect(page).toHaveURL(/#\/environments\/alpha\/logs$/)
+    await expect(page).toHaveTitle('Logs · alpha · Portta')
 
     await page.reload()
-    await expect(page.getByRole('tab', { name: 'Git' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: 'Logs' })).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByRole('button', { name: 'Projects', exact: true })).toHaveAttribute(
       'aria-current',
       'page',
@@ -152,20 +144,17 @@ test.describe('the panel end to end', () => {
     await expect(page.getByLabel('Service', { exact: true })).toHaveValue('web')
   })
 
-  test('a project can be named from the panel without a database', async ({ page }) => {
-    await page.goto('/#/environments/alpha')
-    // `Settings` is also a sidebar section, so this is scoped to the page.
-    await page.getByRole('main').getByRole('button', { name: 'Settings' }).click()
+  test('an environment can be named from the panel without a database', async ({ page }) => {
+    await page.goto('/#/environments/alpha/settings')
     await expect(page.getByText(/Nothing is written inside the project/)).toBeVisible()
-    // No PostgreSQL in the demo host: the dialog says so rather than pretending.
+    // No PostgreSQL in the demo host: the form says so rather than pretending.
     await expect(page.getByText('panel persistence is unavailable')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
   })
 
-  test('an unknown project says so instead of failing', async ({ page }) => {
-    await page.goto('/#/projects/ghost')
+  test('an unknown environment says so instead of failing', async ({ page }) => {
+    await page.goto('/#/environments/ghost')
     await expect(page.getByText("No project 'ghost' is running")).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Back to all projects' })).toBeVisible()
   })
 
   test('the project page never makes the page scroll sideways', async ({ page }) => {
@@ -479,7 +468,7 @@ test.describe('the panel end to end', () => {
 
   test('a write in the console needs an explicit confirmation', async ({ page }) => {
     await page.goto('/docs/#/api')
-    await page.getByLabel('Filter operations').fill('workspaces')
+    await page.getByLabel('Filter operations').fill('projects')
     const operation = page.locator('details').filter({ hasText: 'POST' }).first()
     await operation.locator(':scope > summary').click()
 

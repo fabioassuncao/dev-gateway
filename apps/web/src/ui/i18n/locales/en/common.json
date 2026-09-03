@@ -110,7 +110,13 @@
     "refreshEvery3s": "Refresh every 3 seconds",
     "logSources": "Log sources",
     "service": "Service",
-    "readingLogs": "Reading logs"
+    "readingLogs": "Reading logs",
+    "allServices": "All services",
+    "lines": "lines",
+    "lineCount": "{{count}} lines",
+    "approximateOrder": "A source logs without timestamps, so ordering between services is approximate.",
+    "noMatch": "No line matches the filter",
+    "noOutput": "No output yet"
   },
   "container": {
     "status": "Status",
@@ -137,12 +143,42 @@
     "title": "Share",
     "mode": "Mode",
     "expires": "Expires",
-    "revoke": "Revoke"
+    "revoke": "Revoke",
+    "ttl1h": "1 hour",
+    "ttl4h": "4 hours",
+    "ttl24h": "24 hours",
+    "private": "private",
+    "privateHint": "Reachable only where it already is.",
+    "expiresAfter": "Share expires after",
+    "shareWithPassword": "Share with a password",
+    "sharePublicly": "Share publicly",
+    "passwordLabel": "Password:",
+    "passwordHint": "This is the only time it is shown. Only its hash is stored, here and in Traefik.",
+    "expired": "expired",
+    "targetGone": "target is gone",
+    "expiresIn": "expires {{time}}",
+    "regeneratePassword": "Regenerate password"
   },
   "traefikVerdict": {
     "title": "Traefik verdict",
     "available": "Available",
-    "unavailable": "Not available"
+    "unavailable": "Not available",
+    "asking": "asking Traefik…",
+    "couldNotAsk": "Traefik could not be asked.",
+    "labelsFallback": "The addresses above come from the labels, which is what they have always been.",
+    "noRouter": "no router",
+    "noRouterDetail": "Traefik built no router for {{hosts}}. The labels are read from Docker, so the usual cause is the container not being on the shared network.",
+    "dashboard": "dashboard",
+    "middlewares": "middlewares:"
   },
-  "none": "none"
+  "none": "none",
+  "resources": {
+    "cpu": "CPU",
+    "memory": "RAM",
+    "disk": "Disk",
+    "unavailable": "not measured",
+    "stale": "The last measurement is older than expected"
+  },
+  "notifications": "Notifications",
+  "dismiss": "Dismiss"
 }

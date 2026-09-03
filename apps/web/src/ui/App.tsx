@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
   Activity,
@@ -23,7 +22,7 @@ import { legacyRedirect } from './lib/redirects.ts'
 import { useTheme } from './lib/theme.ts'
 import { useLive } from './lib/live.ts'
 import { useSidebarCollapsed } from './lib/sidebar.ts'
-import { api } from './lib/api.ts'
+import { useStatus } from './lib/queries/index.ts'
 import { cn } from './lib/utils.ts'
 import { useLocale, type Locale } from './i18n/use-locale.ts'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from './components/ui/menu.tsx'
@@ -34,8 +33,10 @@ import { Overview } from './pages/Overview.tsx'
 import { Projects } from './pages/Projects.tsx'
 import { ProjectPage } from './pages/Project.tsx'
 import { EnvironmentPage } from './pages/Environment.tsx'
+import { EnvironmentsPage } from './pages/Environments.tsx'
+import { RepositoryPage } from './pages/Repository.tsx'
 import { Loading } from './components/shell-bits.tsx'
-import { BoardPage } from './pages/Board.tsx'
+import { TaskPage } from './pages/Task.tsx'
 import { Services } from './pages/Services.tsx'
 import { DockerPage } from './pages/Docker.tsx'
 import { NetworkPage } from './pages/Network.tsx'
@@ -109,7 +110,7 @@ export function App() {
   const [theme, toggleTheme] = useTheme()
   const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
   const live = useLive()
-  const status = useQuery({ queryKey: ['status'], queryFn: api.overview })
+  const status = useStatus()
 
   const first = segments(path)[0] ?? 'overview'
   const root = ROOT_OF[first] ?? `/${first}`
@@ -269,18 +270,17 @@ export function App() {
   )
 }
 
+function queryOf(path: string): string {
+  const start = path.indexOf('?')
+  return start < 0 ? '' : path.slice(start)
+}
+
 function decode(segment: string): string {
   try {
     return decodeURIComponent(segment)
   } catch {
     return segment
   }
-}
-
-function boardFilters(path: string): Record<string, string> {
-  const start = path.indexOf('?')
-  if (start < 0) return {}
-  return Object.fromEntries(new URLSearchParams(path.slice(start + 1)))
 }
 
 function Page({ path, readOnly = false }: { path: string; readOnly?: boolean }) {
@@ -291,21 +291,17 @@ function Page({ path, readOnly = false }: { path: string; readOnly?: boolean }) 
   switch (parts[0]) {
     case 'projects':
       if (!parts[1]) return <Projects />
-      if (parts[2] === 'board') {
-        return (
-          <BoardPage
-            slug={decode(parts[1])}
-            view={parts[3] ?? null}
-            filters={boardFilters(path)}
-            readOnly={readOnly}
-          />
-        )
+      if (parts[2] === 'repositories' && parts[3]) {
+        return <RepositoryPage slug={decode(parts[1])} id={decode(parts[3])} tab={parts[4] ?? null} />
       }
-      return <ProjectPage slug={decode(parts[1])} tab={parts[2] ?? null} />
+      if (parts[2] === 'tasks' && parts[3]) {
+        return <TaskPage slug={decode(parts[1])} id={decode(parts[3])} readOnly={readOnly} />
+      }
+      return <ProjectPage slug={decode(parts[1])} tab={parts[2] ?? null} query={queryOf(path)} readOnly={readOnly} />
     case 'environments':
       return parts[1]
         ? <EnvironmentPage project={decode(parts[1])} tab={parts[2] ?? null} service={queryParam(path, 'service')} />
-        : <Projects />
+        : <EnvironmentsPage />
     case 'services':
       return <Services />
     case 'docker':

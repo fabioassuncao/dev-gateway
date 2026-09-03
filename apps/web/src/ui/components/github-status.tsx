@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { RefreshCw } from 'lucide-react'
-import { api } from '../lib/api.ts'
+import { api } from '../lib/api/index.ts'
+import { keys, useGitHub } from '../lib/queries/index.ts'
 import { Badge } from './ui/badge.tsx'
 import { Button } from './ui/button.tsx'
 import { Card, CardBody, CardHeader } from './ui/card.tsx'
@@ -12,11 +13,11 @@ export function GitHubStatusCard() {
   const { t } = useTranslation('gateway', { keyPrefix: 'settings.github' })
   const { relativeTime } = useFormat()
   const queryClient = useQueryClient()
-  const query = useQuery({ queryKey: ['github'], queryFn: api.github, retry: false })
+  const query = useGitHub()
 
   const sync = useMutation({
     mutationFn: () => api.syncGitHub(),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['github'] }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: keys.github() }),
   })
 
   if (query.isPending) return <Loading label={t('reading')} />

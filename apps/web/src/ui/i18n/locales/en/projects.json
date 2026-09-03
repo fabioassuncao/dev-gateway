@@ -36,14 +36,17 @@
     "sourceReason": {
       "repoMatch": "its repository belongs to this project",
       "label": "declared by its portta.project label",
-      "manual": "linked by hand"
+      "manual": "linked by hand",
+      "path": "it runs from a directory of this project"
     }
   },
   "environments": {
     "title": "Environments",
     "description": "Compose projects on this host that belong to this project, and why.",
     "empty": "Nothing is running for this project",
-    "emptyHint": "Start an environment, label it portta.project with this slug, or link one by hand."
+    "emptyHint": "Start an environment, label it portta.project with this slug, or link one by hand.",
+    "adopt": "Adopt an environment",
+    "adoptButton": "Adopt"
   },
   "issues": {
     "title": "Issues",
@@ -62,9 +65,9 @@
   },
   "repositoriesCard": {
     "title": "Repositories",
-    "description": "From the GitHub App installation. A repository may belong to more than one project.",
-    "empty": "No repository attached",
-    "emptyHint": "Attach one the GitHub App was granted. With no App configured, a project still groups environments.",
+    "description": "The Git of this product. Local first; GitHub is optional metadata.",
+    "empty": "No repository yet",
+    "emptyHint": "Add one the host scanned, one the GitHub App was granted, or name it by hand.",
     "attach": {
       "description": "Only repositories the GitHub App installation granted can be attached.",
       "reading": "Reading the projection",
@@ -73,6 +76,53 @@
       "hint": "Configure the GitHub App under Settings → GitHub and press Sync. A project works without it; it just has no repositories.",
       "noneGranted": "No repository has been granted yet",
       "noneGrantedHint": "Install the GitHub App on the repositories this project owns, then press Sync under Settings → GitHub."
-    }
+    },
+    "remove": "Unregister"
+  },
+  "environmentsLink": "Environments on this host ({{count}})",
+  "tabs": {
+    "label": "{{name}} sections",
+    "overview": "Overview",
+    "tasks": "Tasks",
+    "repositories": "Repositories ({{count}})",
+    "environments": "Environments ({{count}})",
+    "activity": "Activity",
+    "settings": "Settings"
+  },
+  "pulse": {
+    "tasks": "{{open}} open · {{inProgress}} in progress",
+    "blocked": "{{count}} blocked",
+    "sessions": "{{count}} active",
+    "unhealthy": "{{count}} unhealthy"
+  },
+  "densityLabel": "Density",
+  "density": {
+    "cards": "Cards",
+    "rows": "Rows"
+  },
+  "overview": {
+    "development": "Development status",
+    "developmentDescription": "{{open}} open · {{inProgress}} in progress · {{blocked}} blocked",
+    "allTasks": "Board",
+    "nothingInProgress": "Nothing in progress",
+    "next": "Next",
+    "nothingNext": "nothing ready to pick up",
+    "resources": "Resources",
+    "noMeasurement": "No environment of this project is measured right now.",
+    "manageRepositories": "Manage",
+    "manageEnvironments": "Manage"
+  },
+  "settings": {
+    "title": "Project",
+    "description": "What the panel keeps about this product. Nothing here touches a repository or a container.",
+    "relativePath": "Directory under Projects Home",
+    "relativePathHint": "One first-level directory of PORTTA_PROJECTS_HOME. Files are never moved.",
+    "archived": "Archived",
+    "deleteTitle": "Delete this project",
+    "deleteDescription": "Removes the registration and what Portta keeps about it. Nothing on the host changes.",
+    "deleteRemoves": "Removed: the project, its repositories' registrations, its tasks, notes, sessions and activity.",
+    "deleteKeeps": "Kept: every container, volume, network, working directory and GitHub issue. Environments go back to unassigned.",
+    "typeSlug": "Type {{slug}} to confirm",
+    "deleteButton": "Delete project"
   }
 }

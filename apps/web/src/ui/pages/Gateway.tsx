@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, CheckCircle2, RotateCw, Stethoscope, XCircle } from 'lucide-react'
-import { api } from '../lib/api.ts'
+import { api } from '../lib/api/index.ts'
+import { keys, useGateway } from '../lib/queries/index.ts'
 import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
 import { Badge } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
@@ -25,7 +26,7 @@ export function Gateway() {
   const [component, setComponent] = useState<string>('traefik')
   const [error, setError] = useState<unknown>(null)
 
-  const status = useQuery({ queryKey: ['gateway'], queryFn: api.gateway })
+  const status = useGateway()
 
   const doctor = useMutation({
     mutationFn: api.doctor,
@@ -89,6 +90,34 @@ export function Gateway() {
       ) : null}
 
       <div className="grid items-start gap-4 lg:grid-cols-3">
+        <Card>
+          <CardHeader title={t('overviewCard.title')} />
+          <CardBody>
+            <dl className="divide-y divide-line/60">
+              <KeyValue label={t('overviewCard.profile')}>{gateway.profile}</KeyValue>
+              <KeyValue label={t('overviewCard.domain')}><span className="font-mono text-xs">{gateway.domain}</span></KeyValue>
+              <KeyValue label={t('overviewCard.listening')}>
+                <span className="font-mono text-xs">{gateway.bindAddress}:{gateway.httpPort} / {gateway.httpsPort}</span>
+              </KeyValue>
+              <KeyValue label={t('overviewCard.tls')}>
+                {gateway.tls.enabled ? <Badge tone="ok">{t('overviewCard.tlsEnabled', { mode: gateway.tls.mode })}</Badge> : <Badge>{tc('disabled')}</Badge>}
+              </KeyValue>
+              <KeyValue label={t('overviewCard.tailscale')}>
+                {gateway.tailscale.enabled ? (
+                  <Badge tone={gateway.tailscale.running ? 'ok' : 'warn'}>{gateway.tailscale.running ? t('overviewCard.tailscaleRunning') : t('overviewCard.tailscaleEnabledNotRunning')}</Badge>
+                ) : (
+                  <Badge>{tc('disabled')}</Badge>
+                )}
+              </KeyValue>
+              <KeyValue label={t('overviewCard.publicAccess')}>
+                {gateway.publicAccess.enabled ? <Badge tone="warn">{gateway.publicAccess.domain ?? tc('enabled')}</Badge> : <Badge>{tc('disabled')}</Badge>}
+              </KeyValue>
+              <KeyValue label={t('overviewCard.sharedNetwork')}>
+                <span className="font-mono text-xs">{t('overviewCard.attached', { name: gateway.network.name, count: gateway.network.attached })}</span>
+              </KeyValue>
+            </dl>
+          </CardBody>
+        </Card>
         <Card>
           <CardHeader title={t('components.title')} />
           <CardBody>
@@ -222,7 +251,7 @@ export function Gateway() {
         />
         <div className="h-96 min-h-0">
           <LogViewer
-            queryKey={['gateway-logs', component]}
+            queryKey={keys.gatewayLogs(component)}
             load={(tail) => api.gatewayLogs(component, tail)}
             className="h-full"
           />

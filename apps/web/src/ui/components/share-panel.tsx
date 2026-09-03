@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Share2 } from 'lucide-react'
-import { api } from '../lib/api.ts'
+import { api } from '../lib/api/index.ts'
+import { keys, useShares } from '../lib/queries/index.ts'
 import { useFormat } from '../lib/use-format.ts'
 import { Badge } from './ui/badge.tsx'
 import { Button } from './ui/button.tsx'
@@ -15,19 +16,19 @@ export function SharePanel({ container }: { container: ContainerSummary }) {
   const [password, setPassword] = useState<string | null>(null)
   const [ttl, setTtl] = useState(4 * 3600)
 
-  const query = useQuery({ queryKey: ['shares'], queryFn: api.shares })
+  const query = useShares()
   const share = query.data?.shares.find((entry) => entry.container === container.name) ?? null
 
   const ttls = [
-    { label: t('ttl1h', { defaultValue: '1 hour' }), seconds: 3600 },
-    { label: t('ttl4h', { defaultValue: '4 hours' }), seconds: 4 * 3600 },
-    { label: t('ttl24h', { defaultValue: '24 hours' }), seconds: 24 * 3600 },
+    { label: t('ttl1h'), seconds: 3600 },
+    { label: t('ttl4h'), seconds: 4 * 3600 },
+    { label: t('ttl24h'), seconds: 24 * 3600 },
   ]
 
   const done = () => {
     setPassword(null)
-    void queryClient.invalidateQueries({ queryKey: ['shares'] })
-    void queryClient.invalidateQueries({ queryKey: ['status'] })
+    void queryClient.invalidateQueries({ queryKey: keys.shares() })
+    void queryClient.invalidateQueries({ queryKey: keys.status() })
   }
 
   const create = useMutation({
@@ -35,15 +36,15 @@ export function SharePanel({ container }: { container: ContainerSummary }) {
       api.createShare(container.id, { mode, ttlSeconds: ttl }),
     onSuccess: (result) => {
       setPassword(result.password)
-      void queryClient.invalidateQueries({ queryKey: ['shares'] })
-      void queryClient.invalidateQueries({ queryKey: ['status'] })
+      void queryClient.invalidateQueries({ queryKey: keys.shares() })
+      void queryClient.invalidateQueries({ queryKey: keys.status() })
     },
   })
   const regenerate = useMutation({
     mutationFn: (id: string) => api.regenerateShare(id),
     onSuccess: (result) => {
       setPassword(result.password)
-      void queryClient.invalidateQueries({ queryKey: ['shares'] })
+      void queryClient.invalidateQueries({ queryKey: keys.shares() })
     },
   })
   const revoke = useMutation({ mutationFn: (id: string) => api.revokeShare(id), onSuccess: done })
@@ -61,13 +62,13 @@ export function SharePanel({ container }: { container: ContainerSummary }) {
         />
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          <Badge>{t('private', { defaultValue: 'private' })}</Badge>
-          <span className="text-subtle">{t('privateHint', { defaultValue: 'Reachable only where it already is.' })}</span>
+          <Badge>{t('private')}</Badge>
+          <span className="text-subtle">{t('privateHint')}</span>
           <select
             className="rounded border border-line bg-surface px-1.5 py-1 text-xs"
             value={ttl}
             onChange={(event) => setTtl(Number(event.target.value))}
-            aria-label={t('expiresAfter', { defaultValue: 'Share expires after' })}
+            aria-label={t('expiresAfter')}
           >
             {ttls.map((option) => (
               <option key={option.seconds} value={option.seconds}>
@@ -77,11 +78,11 @@ export function SharePanel({ container }: { container: ContainerSummary }) {
           </select>
           <Button size="sm" disabled={create.isPending} onClick={() => create.mutate('protected')}>
             <Share2 className="h-3.5 w-3.5" />
-            {t('shareWithPassword', { defaultValue: 'Share with a password' })}
+            {t('shareWithPassword')}
           </Button>
           {query.data?.publicAllowed ? (
             <Button size="sm" disabled={create.isPending} onClick={() => create.mutate('public')}>
-              {t('sharePublicly', { defaultValue: 'Share publicly' })}
+              {t('sharePublicly')}
             </Button>
           ) : null}
         </div>
@@ -90,14 +91,11 @@ export function SharePanel({ container }: { container: ContainerSummary }) {
       {password ? (
         <div className="rounded border border-warn/40 bg-warn/10 px-2 py-1.5">
           <div className="font-medium">
-            {t('passwordLabel', { defaultValue: 'Password:' })}{' '}
+            {t('passwordLabel')}{' '}
             <span className="font-mono">{password}</span>
           </div>
           <div className="text-subtle">
-            {t('passwordHint', {
-              defaultValue:
-                'This is the only time it is shown. Only its hash is stored, here and in Traefik.',
-            })}
+            {t('passwordHint')}
           </div>
         </div>
       ) : null}
@@ -133,10 +131,10 @@ function ActiveShare({
         {share.user ? <span className="font-mono text-muted">{share.user}</span> : null}
         <Badge tone={share.state === 'active' ? 'outline' : 'danger'}>
           {share.state === 'expired'
-            ? t('expired', { defaultValue: 'expired' })
+            ? t('expired')
             : share.state === 'dangling'
-              ? t('targetGone', { defaultValue: 'target is gone' })
-              : t('expiresIn', { defaultValue: 'expires {{time}}', time: expiresIn(share.expiresAt) })}
+              ? t('targetGone')
+              : t('expiresIn', { time: expiresIn(share.expiresAt) })}
         </Badge>
       </div>
       <AddressLine value={share.url} href={share.url} />
@@ -146,7 +144,7 @@ function ActiveShare({
         </Button>
         {share.mode === 'protected' ? (
           <Button size="sm" disabled={busy} onClick={onRegenerate}>
-            {t('regeneratePassword', { defaultValue: 'Regenerate password' })}
+            {t('regeneratePassword')}
           </Button>
         ) : null}
       </div>

@@ -4,7 +4,7 @@ import { renderWithQuery } from './render.tsx'
 
 const overview = vi.fn()
 
-vi.mock('../../src/ui/lib/api.ts', () => ({
+vi.mock('../../src/ui/lib/api/index.ts', () => ({
   ApiError: class ApiError extends Error {},
   api: { overview: () => overview(), events: () => ({ close: () => {} }) },
 }))

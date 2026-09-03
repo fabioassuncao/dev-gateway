@@ -8,7 +8,7 @@ const access = vi.fn()
 const openBridge = vi.fn()
 const closeBridge = vi.fn()
 
-vi.mock('../../src/ui/lib/api.ts', () => ({
+vi.mock('../../src/ui/lib/api/index.ts', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     access: () => access(),

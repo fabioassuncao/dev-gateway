@@ -7,7 +7,7 @@ import { CONTAINERS, HOST } from './fixtures.ts'
 const containers = vi.fn()
 const host = vi.fn()
 
-vi.mock('../../src/ui/lib/api.ts', () => ({
+vi.mock('../../src/ui/lib/api/index.ts', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     containers: (...args: unknown[]) => containers(...args),

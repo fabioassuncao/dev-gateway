@@ -6,8 +6,11 @@ import enCommon from './locales/en/common.json' with { type: 'json' }
 import enNav from './locales/en/nav.json' with { type: 'json' }
 import enOverview from './locales/en/overview.json' with { type: 'json' }
 import enProjects from './locales/en/projects.json' with { type: 'json' }
+import enRepositories from './locales/en/repositories.json' with { type: 'json' }
 import enEnvironments from './locales/en/environments.json' with { type: 'json' }
-import enIssues from './locales/en/issues.json' with { type: 'json' }
+import enTasks from './locales/en/tasks.json' with { type: 'json' }
+import enSessions from './locales/en/sessions.json' with { type: 'json' }
+import enActivity from './locales/en/activity.json' with { type: 'json' }
 import enServices from './locales/en/services.json' with { type: 'json' }
 import enDocker from './locales/en/docker.json' with { type: 'json' }
 import enNetwork from './locales/en/network.json' with { type: 'json' }
@@ -22,8 +25,11 @@ import ptCommon from './locales/pt-BR/common.json' with { type: 'json' }
 import ptNav from './locales/pt-BR/nav.json' with { type: 'json' }
 import ptOverview from './locales/pt-BR/overview.json' with { type: 'json' }
 import ptProjects from './locales/pt-BR/projects.json' with { type: 'json' }
+import ptRepositories from './locales/pt-BR/repositories.json' with { type: 'json' }
 import ptEnvironments from './locales/pt-BR/environments.json' with { type: 'json' }
-import ptIssues from './locales/pt-BR/issues.json' with { type: 'json' }
+import ptTasks from './locales/pt-BR/tasks.json' with { type: 'json' }
+import ptSessions from './locales/pt-BR/sessions.json' with { type: 'json' }
+import ptActivity from './locales/pt-BR/activity.json' with { type: 'json' }
 import ptServices from './locales/pt-BR/services.json' with { type: 'json' }
 import ptDocker from './locales/pt-BR/docker.json' with { type: 'json' }
 import ptNetwork from './locales/pt-BR/network.json' with { type: 'json' }
@@ -67,8 +73,11 @@ void i18n.use(initReactI18next).init({
       nav: enNav,
       overview: enOverview,
       projects: enProjects,
+      repositories: enRepositories,
       environments: enEnvironments,
-      issues: enIssues,
+      tasks: enTasks,
+      sessions: enSessions,
+      activity: enActivity,
       services: enServices,
       docker: enDocker,
       network: enNetwork,
@@ -84,8 +93,11 @@ void i18n.use(initReactI18next).init({
       nav: ptNav,
       overview: ptOverview,
       projects: ptProjects,
+      repositories: ptRepositories,
       environments: ptEnvironments,
-      issues: ptIssues,
+      tasks: ptTasks,
+      sessions: ptSessions,
+      activity: ptActivity,
       services: ptServices,
       docker: ptDocker,
       network: ptNetwork,

@@ -1,7 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink, TriangleAlert } from 'lucide-react'
-import { api } from '../lib/api.ts'
+import { useGateway } from '../lib/queries/index.ts'
 import { Badge } from './ui/badge.tsx'
 import { Button } from './ui/button.tsx'
 import { Card, CardBody, CardHeader } from './ui/card.tsx'
@@ -12,7 +11,7 @@ import { primaryUsable } from './dashboard-card-lib.ts'
 export function DashboardCard() {
   const { t } = useTranslation('settings', { keyPrefix: 'dashboard' })
   const { t: tc } = useTranslation('common')
-  const query = useQuery({ queryKey: ['gateway'], queryFn: api.gateway })
+  const query = useGateway()
   const dashboard = query.data?.dashboard
   if (!dashboard) return null
 

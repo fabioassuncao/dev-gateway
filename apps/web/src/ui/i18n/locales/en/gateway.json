@@ -96,5 +96,19 @@
     "failedHint": "Run it on the host to see the whole output:",
     "showOutput": "Show output",
     "timeoutBody": "The panel has not answered for {{time}}. It may still be starting. Reload the page, or finish it on the host:"
+  },
+  "overviewCard": {
+    "title": "Gateway",
+    "profile": "Profile",
+    "domain": "Domain",
+    "listening": "Listening",
+    "tls": "TLS",
+    "tlsEnabled": "enabled ({{mode}})",
+    "tailscale": "Tailscale",
+    "tailscaleRunning": "running",
+    "tailscaleEnabledNotRunning": "enabled, not running",
+    "publicAccess": "Public access",
+    "sharedNetwork": "Shared network",
+    "attached": "{{name}} · {{count}} attached"
   }
 }

@@ -38,10 +38,12 @@
     "description": "Useful for spotting the container that already holds the port you need.",
     "empty": "Nothing is published on the host",
     "aria": "Published ports",
-    "hostPort": "Host port",
+    "hostPort": "Port",
     "protocol": "Protocol",
-    "container": "Container",
-    "conflict": "Conflict"
+    "container": "Bound by",
+    "conflict": "Conflict",
+    "owner": "Owner",
+    "conflictBadge": "conflict"
   },
   "engine": {
     "title": "Engine",
@@ -51,12 +53,16 @@
     "resources": "Resources"
   },
   "table": {
-    "name": "Name",
+    "name": "Container",
     "state": "State",
     "health": "Health",
     "image": "Image",
     "project": "Project",
     "ports": "Ports",
-    "actions": "Actions"
-  }
+    "actions": "Actions",
+    "uptime": "Up"
+  },
+  "anyState": "Any state",
+  "containersTotal": "{{total}} containers total",
+  "networks": "Networks"
 }

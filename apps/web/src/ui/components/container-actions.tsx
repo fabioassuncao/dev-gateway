@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { MoreHorizontal, Play, RotateCw, ScrollText, Square, Trash2 } from 'lucide-react'
 import type { ContainerSummary } from '../../shared/types.ts'
-import { api } from '../lib/api.ts'
+import { api, ApiError } from '../lib/api/index.ts'
+import { keys, useContainerRemovalPreview } from '../lib/queries/index.ts'
+import { useToast } from './ui/toast.tsx'
 import { Button } from './ui/button.tsx'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from './ui/menu.tsx'
 import { Dialog } from './ui/dialog.tsx'
@@ -23,14 +25,19 @@ export function ContainerActions({
   const { t } = useTranslation('environments', { keyPrefix: 'containerActions' })
   const queryClient = useQueryClient()
   const { shortImage } = useFormat()
-  const [error, setError] = useState<unknown>(null)
+  const toast = useToast()
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [showLogs, setShowLogs] = useState(false)
 
   const act = useMutation({
     mutationFn: (action: 'start' | 'stop' | 'restart') => api.containerAction(container.id, action),
     onSuccess: () => void queryClient.invalidateQueries(),
-    onError: setError,
+    onError: (error) =>
+      toast.push({
+        tone: 'danger',
+        title: t('failed'),
+        description: error instanceof ApiError ? [error.message, error.hint].filter(Boolean).join(' · ') : error instanceof Error ? error.message : String(error),
+      }),
   })
 
   const isGateway = container.ownership === 'gateway'
@@ -39,11 +46,6 @@ export function ContainerActions({
   return (
     <>
       <div className="flex items-center justify-end gap-1">
-        {error ? (
-          <Button variant="ghost" size="sm" onClick={() => setError(null)} className="text-danger">
-            {t('error')}
-          </Button>
-        ) : null}
         <Button
           variant="ghost"
           size="icon"
@@ -83,12 +85,6 @@ export function ContainerActions({
         </Menu>
       </div>
 
-      {error ? (
-        <div className="fixed right-4 bottom-4 z-50 w-96">
-          <ErrorBox error={error} />
-        </div>
-      ) : null}
-
       <RemoveDialog container={container} open={confirmRemove} onOpenChange={setConfirmRemove} />
 
       <Dialog
@@ -100,7 +96,7 @@ export function ContainerActions({
       >
         <div className="h-[55vh] min-h-0">
           <LogViewer
-            queryKey={['logs', container.id]}
+            queryKey={keys.containerLogs(container.id)}
             load={(tail) => api.logs(container.id, tail)}
             className="h-full rounded-md border border-line"
           />
@@ -124,11 +120,7 @@ export function RemoveDialog({
   const queryClient = useQueryClient()
   const [error, setError] = useState<unknown>(null)
 
-  const preview = useQuery({
-    queryKey: ['removal-preview', container.id],
-    queryFn: () => api.removalPreview(container.id),
-    enabled: open,
-  })
+  const preview = useContainerRemovalPreview(container.id, open)
 
   const remove = useMutation({
     mutationFn: () => api.removeContainer(container.id, container.state === 'running'),

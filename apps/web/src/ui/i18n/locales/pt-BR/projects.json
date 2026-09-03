@@ -36,14 +36,17 @@
     "sourceReason": {
       "repoMatch": "seu repositório pertence a este projeto",
       "label": "declarado pela label portta.project",
-      "manual": "vinculado manualmente"
+      "manual": "vinculado manualmente",
+      "path": "roda a partir de um diretório deste projeto"
     }
   },
   "environments": {
     "title": "Ambientes",
     "description": "Projetos Compose neste host que pertencem a este project, e por quê.",
     "empty": "Nada está em execução para este project",
-    "emptyHint": "Inicie um ambiente, rotule-o com portta.project usando este slug, ou vincule um manualmente."
+    "emptyHint": "Inicie um ambiente, rotule-o com portta.project usando este slug, ou vincule um manualmente.",
+    "adopt": "Adotar um environment",
+    "adoptButton": "Adotar"
   },
   "issues": {
     "title": "Issues",
@@ -62,9 +65,9 @@
   },
   "repositoriesCard": {
     "title": "Repositórios",
-    "description": "Da instalação do GitHub App. Um repositório pode pertencer a mais de um project.",
-    "empty": "Nenhum repositório anexado",
-    "emptyHint": "Anexe um concedido ao GitHub App. Sem App configurado, um project ainda agrupa ambientes.",
+    "description": "O Git deste produto. Local primeiro; o GitHub é metadado opcional.",
+    "empty": "Nenhum repositório ainda",
+    "emptyHint": "Adicione um que o host escaneou, um concedido ao GitHub App, ou nomeie-o manualmente.",
     "attach": {
       "description": "Apenas repositórios concedidos pela instalação do GitHub App podem ser anexados.",
       "reading": "Lendo a projeção",
@@ -73,6 +76,53 @@
       "hint": "Configure o GitHub App em Configurações → GitHub e pressione Sincronizar. Um project funciona sem ele; só não terá repositórios.",
       "noneGranted": "Nenhum repositório foi concedido ainda",
       "noneGrantedHint": "Instale o GitHub App nos repositórios deste project e pressione Sincronizar em Configurações → GitHub."
-    }
+    },
+    "remove": "Desregistrar"
+  },
+  "environmentsLink": "Ambientes neste host ({{count}})",
+  "tabs": {
+    "label": "Seções de {{name}}",
+    "overview": "Visão geral",
+    "tasks": "Tarefas",
+    "repositories": "Repositórios ({{count}})",
+    "environments": "Environments ({{count}})",
+    "activity": "Atividade",
+    "settings": "Configurações"
+  },
+  "pulse": {
+    "tasks": "{{open}} abertas · {{inProgress}} em andamento",
+    "blocked": "{{count}} bloqueadas",
+    "sessions": "{{count}} ativa(s)",
+    "unhealthy": "{{count}} unhealthy"
+  },
+  "densityLabel": "Densidade",
+  "density": {
+    "cards": "Cartões",
+    "rows": "Linhas"
+  },
+  "overview": {
+    "development": "Status do desenvolvimento",
+    "developmentDescription": "{{open}} abertas · {{inProgress}} em andamento · {{blocked}} bloqueadas",
+    "allTasks": "Quadro",
+    "nothingInProgress": "Nada em andamento",
+    "next": "Próxima",
+    "nothingNext": "nada pronto para pegar",
+    "resources": "Recursos",
+    "noMeasurement": "Nenhum environment deste projeto está sendo medido agora.",
+    "manageRepositories": "Gerenciar",
+    "manageEnvironments": "Gerenciar"
+  },
+  "settings": {
+    "title": "Projeto",
+    "description": "O que o painel guarda sobre este produto. Nada aqui toca um repositório ou um container.",
+    "relativePath": "Diretório no Projects Home",
+    "relativePathHint": "Um diretório de primeiro nível de PORTTA_PROJECTS_HOME. Arquivos nunca são movidos.",
+    "archived": "Arquivado",
+    "deleteTitle": "Excluir este projeto",
+    "deleteDescription": "Remove o registro e o que o Portta guarda sobre ele. Nada muda no host.",
+    "deleteRemoves": "Removido: o projeto, o registro dos repositórios, as tarefas, notas, sessões e atividade.",
+    "deleteKeeps": "Mantido: todos os containers, volumes, redes, diretórios e issues do GitHub. Os environments voltam a ficar sem projeto.",
+    "typeSlug": "Digite {{slug}} para confirmar",
+    "deleteButton": "Excluir projeto"
   }
 }

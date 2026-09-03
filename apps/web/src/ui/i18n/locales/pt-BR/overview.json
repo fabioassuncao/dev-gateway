@@ -1,24 +1,50 @@
 {
   "title": "Visão geral",
-  "readingGateway": "Lendo o gateway",
-  "description": "O que o gateway está servindo agora e o que mais está em execução ao lado dele.",
+  "reading": "Lendo o que está acontecendo",
+  "description": "O que está sendo trabalhado, quem está nisso, o que precisa de atenção e se este host tem folga.",
   "gatewayRunning": "Gateway em execução",
   "gatewayDown": "Gateway inativo",
-  "stats": {
-    "projects": "Projetos",
-    "projectsHint": "{{count}} projeto(s) Compose no host",
-    "services": "Serviços",
-    "servicesHint": "{{healthy}} saudável(is)",
-    "routedUrls": "URLs roteadas",
-    "routedUrlsHint": "via {{scheme}}",
-    "containersRunning": "Contêineres em execução",
-    "containersRunningHint": "{{total}} no total",
-    "outsideGateway": "Fora do gateway",
-    "outsideGatewayHint": "{{gateway}} gateway · {{integrated}} integrado(s)",
-    "problems": "Problemas",
-    "problemsHintFail": "{{count}} precisam de atenção",
-    "problemsHintWarn": "apenas avisos, nada bloqueando",
-    "problemsHintOk": "nada bloqueando"
+  "problems": "{{count}} problemas",
+  "problems_one": "{{count}} problema",
+  "problems_other": "{{count}} problemas",
+  "work": {
+    "title": "Trabalho",
+    "description": "{{open}} abertas · {{inProgress}} em andamento · {{review}} em revisão · {{blocked}} bloqueadas",
+    "empty": "Nenhuma tarefa aberta",
+    "emptyHint": "Abra um projeto e crie uma, ou deixe um agente pegar a próxima com portta tasks next.",
+    "nothingInProgress": "Nada em andamento agora"
+  },
+  "sessions": {
+    "description": "Quem está trabalhando, em quê, desde quando."
+  },
+  "attention": {
+    "title": "Precisa de atenção",
+    "description": "Serviços unhealthy, environments degradados, conflitos, host sob pressão e o que o gateway verifica.",
+    "diagnostics": "Diagnósticos",
+    "none": "Nada precisa de atenção."
+  },
+  "projects": {
+    "title": "Projetos",
+    "all": "Todos os projetos",
+    "empty": "Nenhum projeto ainda",
+    "emptyHint": "Crie um em Projetos; os environments deste host continuam listados de qualquer forma."
+  },
+  "code": {
+    "title": "Código",
+    "description": "Commits recentes em todos os repositórios, e os repositórios com alterações locais.",
+    "uncommitted": "{{count}} sem commit",
+    "empty": "Nenhum commit coletado ainda",
+    "emptyHint": "O coletor do host varre cada repositório uma vez por minuto; portta repos scan faz isso agora."
+  },
+  "resources": {
+    "top": "Usando este host",
+    "topDescription": "Environments por memória. Pare um daqui quando o host estiver sob pressão.",
+    "none": "Nada medido"
+  },
+  "reduced": {
+    "needsDatabase": "O painel de desenvolvimento precisa do banco de dados do painel",
+    "unavailable": "O painel de desenvolvimento não está disponível neste painel",
+    "hint": "O status do próprio gateway e seus problemas continuam aqui."
   },
   "host": {
     "title": "Este host",
@@ -59,32 +85,5 @@
     "memory": "RAM",
     "containers": "{{count}} containers",
     "open": "Abrir"
-  },
-  "detectedProblems": {
-    "title": "Problemas detectados",
-    "description": "Tudo que o painel consegue verificar de dentro do contêiner.",
-    "runDiagnostics": "Executar diagnósticos",
-    "none": "Nenhum problema detectado."
-  },
-  "gatewayCard": {
-    "title": "Gateway",
-    "profile": "Perfil",
-    "domain": "Domínio",
-    "listening": "Escutando",
-    "tls": "TLS",
-    "tlsEnabled": "ativado ({{mode}})",
-    "tailscale": "Tailscale",
-    "tailscaleRunning": "em execução",
-    "tailscaleEnabledNotRunning": "ativado, não em execução",
-    "publicAccess": "Acesso público",
-    "sharedNetwork": "Rede compartilhada",
-    "attached": "{{name}} · {{count}} conectado(s)"
-  },
-  "availableUrls": {
-    "title": "URLs disponíveis",
-    "description": "Lidas das labels que o próprio Traefik roteia.",
-    "allRoutes": "Todas as rotas",
-    "empty": "Nenhum serviço está roteado no momento",
-    "emptyHint": "Um serviço entra definindo traefik.enable=true e conectando-se à rede compartilhada."
   }
 }

@@ -1,7 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink } from 'lucide-react'
-import { api } from '../lib/api.ts'
+import { useServiceTraefik } from '../lib/queries/index.ts'
 import { Badge } from './ui/badge.tsx'
 import type { ContainerSummary } from '../../shared/types.ts'
 
@@ -13,18 +12,13 @@ export function TraefikVerdictRow({
   enabled: boolean
 }) {
   const { t } = useTranslation('common', { keyPrefix: 'traefikVerdict' })
-  const query = useQuery({
-    queryKey: ['service-traefik', container.id],
-    queryFn: () => api.serviceTraefik(container.id),
-    enabled,
-    staleTime: 7_000,
-  })
+  const query = useServiceTraefik(container.id, enabled)
 
   if (query.isPending) {
-    return <span className="text-xs text-subtle">{t('asking', { defaultValue: 'asking Traefik…' })}</span>
+    return <span className="text-xs text-subtle">{t('asking')}</span>
   }
   if (query.error || !query.data) {
-    return <span className="text-xs text-subtle">{t('couldNotAsk', { defaultValue: 'Traefik could not be asked.' })}</span>
+    return <span className="text-xs text-subtle">{t('couldNotAsk')}</span>
   }
 
   const data = query.data
@@ -33,7 +27,7 @@ export function TraefikVerdictRow({
     return (
       <div className="space-y-1 text-xs text-subtle">
         <div>{data.reason}</div>
-        <div>{t('labelsFallback', { defaultValue: 'The addresses above come from the labels, which is what they have always been.' })}</div>
+        <div>{t('labelsFallback')}</div>
       </div>
     )
   }
@@ -41,13 +35,9 @@ export function TraefikVerdictRow({
   if (data.routers.length === 0) {
     return (
       <div className="space-y-1 text-xs">
-        <Badge tone="danger">{t('noRouter', { defaultValue: 'no router' })}</Badge>
+        <Badge tone="danger">{t('noRouter')}</Badge>
         <div className="text-subtle">
-          {t('noRouterDetail', {
-            defaultValue:
-              'Traefik built no router for {{hosts}}. The labels are read from Docker, so the usual cause is the container not being on the shared network.',
-            hosts: data.expectedHosts.join(', '),
-          })}
+          {t('noRouterDetail', { hosts: data.expectedHosts.join(', ') })}
         </div>
       </div>
     )
@@ -76,7 +66,7 @@ export function TraefikVerdictRow({
                 target="_blank"
                 rel="noreferrer noopener"
               >
-                {t('dashboard', { defaultValue: 'dashboard' })}
+                {t('dashboard')}
                 <ExternalLink className="h-3 w-3" />
               </a>
             ) : null}
@@ -86,7 +76,7 @@ export function TraefikVerdictRow({
 
           {router.middlewares.length > 0 ? (
             <div className="text-subtle">
-              {t('middlewares', { defaultValue: 'middlewares:' })} {router.middlewares.join(', ')}
+              {t('middlewares')} {router.middlewares.join(', ')}
             </div>
           ) : null}
 

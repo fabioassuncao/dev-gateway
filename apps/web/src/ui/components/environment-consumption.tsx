@@ -1,17 +1,15 @@
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { api } from '../lib/api.ts'
-import { bytes } from '../lib/format.ts'
+import { useEnvironments } from '../lib/queries/index.ts'
 import { navigate } from '../lib/router.ts'
 import { Button } from './ui/button.tsx'
 import { Card, CardBody, CardHeader } from './ui/card.tsx'
 import { EnvironmentActions } from './environment-actions.tsx'
-import { percentLabel } from './host-resources-lib.ts'
+import { ResourceUsage } from './entities/resource-usage.tsx'
 import type { Environment, ProjectResourceMetrics } from '../../shared/types.ts'
 
 export function EnvironmentConsumption({ projects }: { projects: ProjectResourceMetrics[] }) {
-  const { t, i18n } = useTranslation('overview', { keyPrefix: 'consumption' })
-  const list = useQuery({ queryKey: ['environments'], queryFn: () => api.environments() })
+  const { t } = useTranslation('overview', { keyPrefix: 'consumption' })
+  const list = useEnvironments()
   const known = new Map((list.data ?? []).map((project) => [project.name, project]))
   const rows = [...projects]
     .filter((project) => project.id !== '_standalone' || project.containerCount > 0)
@@ -36,11 +34,8 @@ export function EnvironmentConsumption({ projects }: { projects: ProjectResource
                   {project?.overrides?.displayName ?? row.name}
                 </button>
                 <div className="text-xs text-muted">
-                  {[
-                    percentLabel(row.cpuUtilisation) ? `${t('cpu')} ${percentLabel(row.cpuUtilisation)}` : null,
-                    row.memoryUsedBytes !== null ? `${t('memory')} ${bytes(row.memoryUsedBytes, i18n.language)}` : null,
-                    t('containers', { count: row.containerCount }),
-                  ].filter(Boolean).join(' · ')}
+                  <ResourceUsage cpu={row.cpuUtilisation} memoryBytes={row.memoryUsedBytes} />
+                  <span> · {t('containers', { count: row.containerCount })}</span>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">

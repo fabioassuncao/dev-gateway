@@ -1,12 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { api } from '../lib/api.ts'
+import { useNetwork } from '../lib/queries/index.ts'
+import { EndpointList } from '../components/entities/endpoint-list.tsx'
 import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
 import { Badge } from '../components/ui/badge.tsx'
 import { Table, Td, Th, Tr } from '../components/ui/table.tsx'
 import { Empty, ErrorBox, KeyValue, Loading, PageHeader } from '../components/shell-bits.tsx'
-import { AddressLine } from '../components/copy.tsx'
-import { ScopeBadge, StateBadge } from '../components/status.tsx'
+import { StateBadge } from '../components/status.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 
 const ROLE_TONE = {
@@ -21,7 +20,7 @@ export function NetworkPage() {
   const { t } = useTranslation('network')
   const { t: tc } = useTranslation('common')
   useDocumentTitle(t('title'))
-  const query = useQuery({ queryKey: ['network'], queryFn: api.network })
+  const query = useNetwork()
 
   if (query.isPending) return <Loading />
   if (query.error) return <ErrorBox error={query.error} />
@@ -124,14 +123,7 @@ export function NetworkPage() {
                   </Td>
                   <Td className="font-mono text-xs text-muted">{route.port}</Td>
                   <Td>
-                    <div className="space-y-0.5">
-                      {route.urls.map((url) => (
-                        <div key={url.url} className="flex items-center gap-1.5">
-                          <ScopeBadge scope={url.scope} />
-                          <AddressLine value={url.url} href={url.url} />
-                        </div>
-                      ))}
-                    </div>
+                    <EndpointList endpoints={route.urls} />
                   </Td>
                 </Tr>
               ))}

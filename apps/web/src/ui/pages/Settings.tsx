@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Save, ShieldCheck } from 'lucide-react'
 import type { ConfigField } from '../../shared/types.ts'
 import { slug } from '../../shared/slug.ts'
-import { api } from '../lib/api.ts'
+import { api } from '../lib/api/index.ts'
+import { keys, useConfig } from '../lib/queries/index.ts'
 import { navigate } from '../lib/router.ts'
 import { Badge } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
@@ -23,7 +24,7 @@ export function Settings({ group }: { group: string | null }) {
   const [draft, setDraft] = useState<Record<string, string | null>>({})
   const [error, setError] = useState<unknown>(null)
   const [saved, setSaved] = useState(false)
-  const query = useQuery({ queryKey: ['config'], queryFn: api.config })
+  const query = useConfig()
 
   const view = query.data
   const activeGroup =
@@ -43,7 +44,7 @@ export function Settings({ group }: { group: string | null }) {
       setDraft({})
       setError(null)
       setSaved(true)
-      void queryClient.invalidateQueries({ queryKey: ['config'] })
+      void queryClient.invalidateQueries({ queryKey: keys.config() })
     },
     onError: (cause) => {
       setSaved(false)

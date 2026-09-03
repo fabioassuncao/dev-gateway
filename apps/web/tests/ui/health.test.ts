@@ -1,0 +1,18 @@
+import { describe, expect, it } from 'vitest'
+import { environmentHealth, healthTone } from '../../src/ui/lib/health.ts'
+
+describe('environment health', () => {
+  it('is one word per situation', () => {
+    expect(environmentHealth({ serviceCount: 4, runningCount: 4, unhealthyCount: 0 })).toBe('ok')
+    expect(environmentHealth({ serviceCount: 4, runningCount: 2, unhealthyCount: 0 })).toBe('partial')
+    expect(environmentHealth({ serviceCount: 4, runningCount: 0, unhealthyCount: 0 })).toBe('down')
+    expect(environmentHealth({ serviceCount: 0, runningCount: 0, unhealthyCount: 0 })).toBe('down')
+    expect(environmentHealth({ serviceCount: 4, runningCount: 4, unhealthyCount: 1 })).toBe('unhealthy')
+  })
+  it('maps to a tone', () => {
+    expect(healthTone('ok')).toBe('ok')
+    expect(healthTone('partial')).toBe('warn')
+    expect(healthTone('unhealthy')).toBe('danger')
+    expect(healthTone('down')).toBe('neutral')
+  })
+})

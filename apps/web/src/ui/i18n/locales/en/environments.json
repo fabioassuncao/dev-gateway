@@ -50,7 +50,8 @@
     "overview": "Overview",
     "services": "Services",
     "git": "Git",
-    "logs": "Logs"
+    "logs": "Logs",
+    "settings": "Settings"
   },
   "notFound": "No project '{{name}}' is running",
   "stats": {
@@ -133,7 +134,9 @@
     "openPullRequestsTitle": "Open pull requests",
     "collectedFrom": "Collected {{time}} from {{kind}}",
     "noPullRequestsCollected": "No pull requests were collected",
-    "noPullRequestsHint": "Run portta git scan --with-prs on the host with gh installed and signed in."
+    "noPullRequestsHint": "Run portta git scan --with-prs on the host with gh installed and signed in.",
+    "branch": "Branch",
+    "collected": "Collected"
   },
   "servicesEmpty": "This project has no services",
   "servicesEmptyHint": "A project joins by adding the gateway overlay: see docs/adopting-projects.md.",
@@ -156,7 +159,8 @@
       "namedVolumes": "This container has {{count}} named volume(s)",
       "volumesKept": "They are kept. The panel never removes a volume, and never runs a prune.",
       "notAllowed": "The panel does not remove its own infrastructure"
-    }
+    },
+    "failed": "The action failed"
   },
   "overrides": {
     "description": "Kept in the gateway's own database. Nothing is written inside the project.",
@@ -194,5 +198,34 @@
   "portsMeta": "ports {{ports}}",
   "noUptime": "no current uptime",
   "upMeta": "up {{time}}",
-  "serviceRowLabel": "{{name}} service"
+  "serviceRowLabel": "{{name}} service",
+  "header": {
+    "repository": "Repository",
+    "openRepository": "Open repository",
+    "task": "Working on",
+    "resources": "Resources",
+    "services": "{{running}}/{{total}} services running",
+    "noProject": "not adopted by any project",
+    "project": "Project"
+  },
+  "list": {
+    "title": "Environments",
+    "description": "Every Compose project on this host, adopted or not. A Project is the product; this is what is running for it.",
+    "filterAria": "Filter environments",
+    "all": "All",
+    "unattributed": "Without a project",
+    "running": "Running",
+    "empty": "No environment is running",
+    "emptyHint": "An environment appears when Compose is up on this host. Adopt it onto a Project with the portta.project label or by hand.",
+    "noMatch": "No environment matches the filters",
+    "count": "{{count}} environment(s)"
+  },
+  "servicesTable": {
+    "empty": "This environment has no services",
+    "fallback": "Live measurements need the panel to serve this environment's services; showing what the containers report."
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Presentation overrides, kept in the gateway's database. Nothing is written inside the project."
+  }
 }

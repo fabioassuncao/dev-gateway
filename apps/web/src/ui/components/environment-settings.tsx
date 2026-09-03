@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { api, ApiError } from '../lib/api.ts'
+import { api, ApiError } from '../lib/api/index.ts'
+import { useEnvironmentSettings } from '../lib/queries/index.ts'
 import type { Environment } from '../../shared/types.ts'
 import { Dialog } from './ui/dialog.tsx'
 import { Button } from './ui/button.tsx'
@@ -19,14 +20,27 @@ export function EnvironmentSettingsDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const { t } = useTranslation('environments', { keyPrefix: 'overrides' })
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} title={t('title', { name: project.name })} description={t('description')}>
+      <EnvironmentSettingsForm project={project} enabled={open} onDone={() => onOpenChange(false)} />
+    </Dialog>
+  )
+}
+
+/** The overrides form, on its own so a page can show it without a dialog. */
+export function EnvironmentSettingsForm({
+  project,
+  enabled = true,
+  onDone,
+}: {
+  project: Environment
+  enabled?: boolean
+  onDone?: () => void
+}) {
+  const { t } = useTranslation('environments', { keyPrefix: 'overrides' })
   const { t: tc } = useTranslation('common')
   const queryClient = useQueryClient()
-  const query = useQuery({
-    queryKey: ['environment-settings', project.name],
-    queryFn: () => api.environmentSettings(project.name),
-    enabled: open,
-    retry: false,
-  })
+  const query = useEnvironmentSettings(project.name, enabled)
 
   const [displayName, setDisplayName] = useState('')
   const [description, setDescription] = useState('')
@@ -57,7 +71,7 @@ export function EnvironmentSettingsDialog({
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries()
-      onOpenChange(false)
+      onDone?.()
     },
   })
 
@@ -65,35 +79,26 @@ export function EnvironmentSettingsDialog({
     mutationFn: () => api.clearEnvironmentSettings(project.name),
     onSuccess: () => {
       void queryClient.invalidateQueries()
-      onOpenChange(false)
+      onDone?.()
     },
   })
 
   const names = project.services.map((service) => service.service ?? service.name)
   const unavailable = query.error instanceof ApiError && query.error.status === 503
 
+  const footer = (
+    <div className="mt-4 flex justify-end gap-2">
+      <Button size="sm" disabled={reset.isPending || unavailable} onClick={() => reset.mutate()}>
+        {t('reset')}
+      </Button>
+      <Button size="sm" variant="primary" disabled={save.isPending || unavailable} onClick={() => save.mutate()}>
+        {tc('save')}
+      </Button>
+    </div>
+  )
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={t('title', { name: project.name })}
-      description={t('description')}
-      footer={
-        <>
-          <Button size="sm" disabled={reset.isPending || unavailable} onClick={() => reset.mutate()}>
-            {t('reset')}
-          </Button>
-          <Button
-            size="sm"
-            variant="primary"
-            disabled={save.isPending || unavailable}
-            onClick={() => save.mutate()}
-          >
-            {tc('save')}
-          </Button>
-        </>
-      }
-    >
+    <div>
       {query.error ? <ErrorBox error={query.error} /> : null}
 
       <div className="space-y-3">
@@ -169,6 +174,7 @@ export function EnvironmentSettingsDialog({
           <Switch checked={archived} onCheckedChange={setArchived} aria-label={t('archived')} />
         </div>
       </div>
-    </Dialog>
+      {footer}
+    </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { api } from '../lib/api.ts'
+import { api } from '../lib/api/index.ts'
 import type { ContainerSummary } from '../../shared/types.ts'
 import { Badge } from './ui/badge.tsx'
 import { Button } from './ui/button.tsx'

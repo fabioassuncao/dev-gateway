@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from './api.ts'
+import { api } from './api/index.ts'
+import { keys } from './queries/keys.ts'
 import type { ApplyStatus } from '../../shared/types.ts'
 
 /**
@@ -70,7 +71,7 @@ export function useApply(): ApplyMachine {
   // The resting state, and the only thing that knows an apply is in flight when
   // this tab was opened in the middle of one.
   const resting = useQuery({
-    queryKey: ['apply'],
+    queryKey: keys.apply(),
     queryFn: () => api.applyStatus(),
     refetchInterval: (query) => (query.state.data?.state === 'running' ? 3_000 : false),
   })

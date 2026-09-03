@@ -49,7 +49,7 @@ export function LogViewer({
   selectedService,
   onSelectService,
 }: {
-  queryKey: unknown[]
+  queryKey: readonly unknown[]
   load: (tail: number) => Promise<ViewerResponse>
   className?: string
   sources?: ProjectLogSource[]
@@ -99,7 +99,7 @@ export function LogViewer({
             className="h-7 w-44"
             aria-label={t('logs.service')}
           >
-            <option value="">{t('logs.allServices', { defaultValue: 'All services' })}</option>
+            <option value="">{t('logs.allServices')}</option>
             {sources.map((source) => (
               <option key={source.containerId} value={source.service}>
                 {source.service}
@@ -121,10 +121,10 @@ export function LogViewer({
           className="h-7 w-28"
           aria-label={t('logs.numberOfLines')}
         >
-          <option value="100">100 {t('logs.lines', { defaultValue: 'lines' })}</option>
-          <option value="200">200 {t('logs.lines', { defaultValue: 'lines' })}</option>
-          <option value="500">500 {t('logs.lines', { defaultValue: 'lines' })}</option>
-          <option value="1000">1000 {t('logs.lines', { defaultValue: 'lines' })}</option>
+          <option value="100">100 {t('logs.lines')}</option>
+          <option value="200">200 {t('logs.lines')}</option>
+          <option value="500">500 {t('logs.lines')}</option>
+          <option value="1000">1000 {t('logs.lines')}</option>
         </Select>
         <Button
           size="sm"
@@ -140,7 +140,7 @@ export function LogViewer({
         </Button>
         <div className="ml-auto flex items-center gap-1">
           <span className="text-xs text-subtle">
-            {t('logs.lineCount', { defaultValue: '{{count}} lines', count: lines.length })}
+            {t('logs.lineCount', { count: lines.length })}
           </span>
           <CopyButton value={asText} label={t('copyLog')} />
         </div>
@@ -166,10 +166,7 @@ export function LogViewer({
           ))}
           {approximateOrder ? (
             <span className="text-subtle">
-              {t('logs.approximateOrder', {
-                defaultValue:
-                  'A source logs without timestamps, so ordering between services is approximate.',
-              })}
+              {t('logs.approximateOrder')}
             </span>
           ) : null}
         </div>
@@ -186,8 +183,8 @@ export function LogViewer({
           <Empty
             title={
               filter
-                ? t('logs.noMatch', { defaultValue: 'No line matches the filter' })
-                : t('logs.noOutput', { defaultValue: 'No output yet' })
+                ? t('logs.noMatch')
+                : t('logs.noOutput')
             }
           />
         ) : null}

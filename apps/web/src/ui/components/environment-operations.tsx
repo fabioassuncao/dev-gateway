@@ -8,7 +8,8 @@ import type {
   ProjectRemoveResult,
   RunnerStatus,
 } from '../../shared/types.ts'
-import { api } from '../lib/api.ts'
+import { api } from '../lib/api/index.ts'
+import { keys, useEnvironmentRemovalPreview } from '../lib/queries/index.ts'
 import { Button } from './ui/button.tsx'
 import { Dialog } from './ui/dialog.tsx'
 import { ErrorBox } from './shell-bits.tsx'
@@ -78,7 +79,7 @@ function RebuildDialog({ project, onClose }: { project: Environment; onClose: ()
   })
 
   const runner = useQuery({
-    queryKey: ['runner', 'rebuild', project.name],
+    queryKey: keys.environmentRebuild(project.name),
     queryFn: ({ signal }) => api.runnerProbe(signal, true),
     enabled: started,
     refetchInterval: (query) => (query.state.data?.state === 'running' ? 1500 : false),
@@ -147,10 +148,7 @@ function RemoveDialog({
   const [error, setError] = useState<unknown>(null)
   const [result, setResult] = useState<ProjectRemoveResult | null>(null)
 
-  const preview = useQuery({
-    queryKey: ['project-removal-preview', project.name],
-    queryFn: () => api.environmentRemovalPreview(project.name),
-  })
+  const preview = useEnvironmentRemovalPreview(project.name)
 
   const remove = useMutation({
     mutationFn: () =>

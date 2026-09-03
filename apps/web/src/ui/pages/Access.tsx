@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Plug, PlugZap, X } from 'lucide-react'
-import { api } from '../lib/api.ts'
+import { api } from '../lib/api/index.ts'
+import { useAccess } from '../lib/queries/index.ts'
 import type { Bridge, TcpService } from '../../shared/types.ts'
 import { Card, CardHeader } from '../components/ui/card.tsx'
 import { Badge } from '../components/ui/badge.tsx'
@@ -68,7 +69,7 @@ export function Access() {
   useDocumentTitle(t('title'))
   const queryClient = useQueryClient()
   const [error, setError] = useState<unknown>(null)
-  const query = useQuery({ queryKey: ['access'], queryFn: api.access })
+  const query = useAccess()
 
   const open = useMutation({
     mutationFn: (service: TcpService) =>

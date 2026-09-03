@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { api } from '../lib/api.ts'
+import { useMetricsCurrent, useMetricsHistory } from '../lib/queries/index.ts'
 import { bytes, relativeTime, uptime } from '../lib/format.ts'
 import { Badge } from './ui/badge.tsx'
 import { Card, CardBody, CardHeader } from './ui/card.tsx'
-import { percentLabel, resourceTone } from './host-resources-lib.ts'
+import { percentLabel, resourceTone } from '../lib/resources.ts'
 import { Sparkline } from './sparkline.tsx'
 import { EnvironmentConsumption } from './environment-consumption.tsx'
 import type { HostMetrics, MetricsCurrent, MetricsHistory } from '../../shared/types.ts'
@@ -62,16 +61,8 @@ function runtimeLabel(
 
 export function HostResources() {
   const { t, i18n } = useTranslation('overview', { keyPrefix: 'host' })
-  const current = useQuery({
-    queryKey: ['metrics-current'],
-    queryFn: api.metricsCurrent,
-    refetchInterval: 5_000,
-  })
-  const history = useQuery({
-    queryKey: ['metrics-history'],
-    queryFn: () => api.metricsHistory('30m'),
-    refetchInterval: 15_000,
-  })
+  const current = useMetricsCurrent()
+  const history = useMetricsHistory('30m')
   const data = current.data
   if (current.isPending && !data) return null
   if (!data) return null

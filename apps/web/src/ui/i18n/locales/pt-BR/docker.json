@@ -38,10 +38,12 @@
     "description": "Útil para identificar o container que já ocupa a porta que você precisa.",
     "empty": "Nada está publicado no host",
     "aria": "Portas publicadas",
-    "hostPort": "Porta do host",
+    "hostPort": "Porta",
     "protocol": "Protocolo",
-    "container": "Container",
-    "conflict": "Conflito"
+    "container": "Ocupada por",
+    "conflict": "Conflito",
+    "owner": "Dono",
+    "conflictBadge": "conflito"
   },
   "engine": {
     "title": "Engine",
@@ -51,12 +53,16 @@
     "resources": "Recursos"
   },
   "table": {
-    "name": "Nome",
+    "name": "Container",
     "state": "Estado",
     "health": "Saúde",
     "image": "Imagem",
     "project": "Projeto",
     "ports": "Portas",
-    "actions": "Ações"
-  }
+    "actions": "Ações",
+    "uptime": "Ativo há"
+  },
+  "anyState": "Qualquer estado",
+  "containersTotal": "{{total}} containers no total",
+  "networks": "Redes"
 }

@@ -110,7 +110,13 @@
     "refreshEvery3s": "Atualizar a cada 3 segundos",
     "logSources": "Fontes de log",
     "service": "Serviço",
-    "readingLogs": "Lendo logs"
+    "readingLogs": "Lendo logs",
+    "allServices": "Todos os serviços",
+    "lines": "linhas",
+    "lineCount": "{{count}} linhas",
+    "approximateOrder": "Uma fonte registra sem timestamps, então a ordem entre serviços é aproximada.",
+    "noMatch": "Nenhuma linha corresponde ao filtro",
+    "noOutput": "Nenhuma saída ainda"
   },
   "container": {
     "status": "Status",
@@ -137,12 +143,42 @@
     "title": "Compartilhar",
     "mode": "Modo",
     "expires": "Expira",
-    "revoke": "Revogar"
+    "revoke": "Revogar",
+    "ttl1h": "1 hora",
+    "ttl4h": "4 horas",
+    "ttl24h": "24 horas",
+    "private": "privado",
+    "privateHint": "Acessível apenas onde já está.",
+    "expiresAfter": "O compartilhamento expira após",
+    "shareWithPassword": "Compartilhar com senha",
+    "sharePublicly": "Compartilhar publicamente",
+    "passwordLabel": "Senha:",
+    "passwordHint": "Esta é a única vez em que ela é mostrada. Só o hash é guardado, aqui e no Traefik.",
+    "expired": "expirado",
+    "targetGone": "o destino sumiu",
+    "expiresIn": "expira {{time}}",
+    "regeneratePassword": "Gerar nova senha"
   },
   "traefikVerdict": {
     "title": "Veredito do Traefik",
     "available": "Disponível",
-    "unavailable": "Indisponível"
+    "unavailable": "Indisponível",
+    "asking": "consultando o Traefik…",
+    "couldNotAsk": "O Traefik não pôde ser consultado.",
+    "labelsFallback": "Os endereços acima vêm das labels, como sempre vieram.",
+    "noRouter": "sem router",
+    "noRouterDetail": "O Traefik não construiu router para {{hosts}}. As labels são lidas do Docker, então a causa mais comum é o container não estar na rede compartilhada.",
+    "dashboard": "dashboard",
+    "middlewares": "middlewares:"
   },
-  "none": "nenhum"
+  "none": "nenhum",
+  "resources": {
+    "cpu": "CPU",
+    "memory": "RAM",
+    "disk": "Disco",
+    "unavailable": "não medido",
+    "stale": "A última medição é mais antiga do que o esperado"
+  },
+  "notifications": "Notificações",
+  "dismiss": "Dispensar"
 }

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { api } from '../lib/api.ts'
+import { useContainers, useDockerHost } from '../lib/queries/index.ts'
 import type { ContainerSummary, Ownership } from '../../shared/types.ts'
 import { Card, CardHeader } from '../components/ui/card.tsx'
 import { Badge } from '../components/ui/badge.tsx'
@@ -11,7 +10,7 @@ import { Empty, ErrorBox, KeyValue, Loading, PageHeader, StatTile } from '../com
 import { Mono } from '../components/copy.tsx'
 import { OwnershipBadge, StateBadge } from '../components/status.tsx'
 import { ContainerActions } from '../components/container-actions.tsx'
-import { ContainerDetails } from '../components/container-details.tsx'
+import { ServiceDrawer } from '../components/entities/service-drawer.tsx'
 import { useFormat } from '../lib/use-format.ts'
 import { ServiceIcon } from '../components/service-icon.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
@@ -28,11 +27,8 @@ export function DockerPage() {
   const [state, setState] = useState('all')
   const [details, setDetails] = useState<ContainerSummary | null>(null)
 
-  const host = useQuery({ queryKey: ['host'], queryFn: api.host })
-  const containers = useQuery({
-    queryKey: ['containers'],
-    queryFn: () => api.containers(),
-  })
+  const host = useDockerHost()
+  const containers = useContainers()
 
   const filtered = useMemo(() => {
     let list = containers.data?.containers ?? []
@@ -82,7 +78,7 @@ export function DockerPage() {
               className="w-32"
               aria-label={t('filterState')}
             >
-              <option value="all">{t('anyState', { defaultValue: 'Any state' })}</option>
+              <option value="all">{t('anyState')}</option>
               <option value="running">{tc('running')}</option>
               <option value="stopped">{tc('stopped')}</option>
               <option value="unhealthy">{tc('unhealthy')}</option>
@@ -103,10 +99,7 @@ export function DockerPage() {
           <StatTile
             label={t('stats.running')}
             value={host.data.containers.running}
-            hint={t('containersTotal', {
-              defaultValue: '{{total}} containers total',
-              total: host.data.containers.total,
-            })}
+            hint={t('containersTotal', { total: host.data.containers.total })}
           />
           <StatTile label={t('stats.gateway')} value={host.data.byOwnership.gateway} />
           <StatTile label={t('stats.integrated')} value={host.data.byOwnership.integrated} />
@@ -140,8 +133,8 @@ export function DockerPage() {
           })
         ) : (
           <ContainerGroup
-            title={t(`groups.${ownership}.title`, { defaultValue: t('containers') })}
-            description={t(`groups.${ownership}.description`, { defaultValue: '' })}
+            title={t(`groups.${ownership}.title`)}
+            description={t(`groups.${ownership}.description`)}
             containers={filtered}
             onDetails={setDetails}
           />
@@ -167,9 +160,9 @@ export function DockerPage() {
               <Table aria-label={t('publishedPorts.aria')}>
                 <thead>
                   <tr>
-                    <Th>{t('publishedPorts.hostPort', { defaultValue: 'Port' })}</Th>
-                    <Th>{t('publishedPorts.container', { defaultValue: 'Bound by' })}</Th>
-                    <Th>{t('publishedPorts.owner', { defaultValue: 'Owner' })}</Th>
+                    <Th>{t('publishedPorts.hostPort')}</Th>
+                    <Th>{t('publishedPorts.container')}</Th>
+                    <Th>{t('publishedPorts.owner')}</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -179,7 +172,7 @@ export function DockerPage() {
                         {port.hostPort}/{port.protocol}
                         {port.conflict ? (
                           <Badge tone="warn" className="ml-2">
-                            {t('publishedPorts.conflictBadge', { defaultValue: 'conflict' })}
+                            {t('publishedPorts.conflictBadge')}
                           </Badge>
                         ) : null}
                       </Td>
@@ -224,7 +217,7 @@ export function DockerPage() {
       ) : null}
 
       {details ? (
-        <ContainerDetails
+        <ServiceDrawer
           container={details}
           open={details !== null}
           onOpenChange={(open) => !open && setDetails(null)}
@@ -262,13 +255,13 @@ function ContainerGroup({
       <Table aria-label={title}>
         <thead>
           <tr>
-            <Th>{t('table.name', { defaultValue: 'Container' })}</Th>
+            <Th>{t('table.name')}</Th>
             <Th>{t('table.image')}</Th>
             <Th>{t('table.state')}</Th>
             <Th>{t('table.project')}</Th>
             <Th>{t('table.ports')}</Th>
-            <Th>{t('networks', { defaultValue: 'Networks' })}</Th>
-            <Th>{t('table.uptime', { defaultValue: 'Up' })}</Th>
+            <Th>{t('networks')}</Th>
+            <Th>{t('table.uptime')}</Th>
             <Th className="text-right">{t('table.actions')}</Th>
           </tr>
         </thead>

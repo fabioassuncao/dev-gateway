@@ -1,154 +1,79 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { renderWithQuery } from './render.tsx'
-import type { Overview as OverviewData } from '../../src/shared/types.ts'
+import { makeOverview } from './fixtures.ts'
 
+class ApiError extends Error {
+  status: number
+  hint: string
+  constructor(status: number, message: string, hint = '') {
+    super(message)
+    this.status = status
+    this.hint = hint
+  }
+}
+
+const developmentOverview = vi.fn()
 const overview = vi.fn()
 const metricsCurrent = vi.fn()
 const metricsHistory = vi.fn()
-const projects = vi.fn()
+const environments = vi.fn()
 
-vi.mock('../../src/ui/lib/api.ts', () => ({
-  ApiError: class ApiError extends Error {},
+vi.mock('../../src/ui/lib/api/index.ts', () => ({
+  ApiError,
   api: {
+    developmentOverview: () => developmentOverview(),
     overview: () => overview(),
     metricsCurrent: () => metricsCurrent(),
     metricsHistory: () => metricsHistory(),
-    projects: () => projects(),
+    environments: () => environments(),
   },
 }))
 
 const { Overview } = await import('../../src/ui/pages/Overview.tsx')
 
-const data: OverviewData = {
-  generatedAt: 1_700_000_000,
-  gateway: {
-    gatewayVersion: '0.2.0',
-    panelVersion: '0.1.0',
-    profile: 'local',
-    domain: 'localhost',
-    privateDomain: null,
-    publicDomain: null,
-    bindAddress: '127.0.0.1',
-    httpPort: '80',
-    httpsPort: '443',
-    scheme: 'http',
-    up: true,
-    reachable: true,
-    tls: { enabled: false, mode: 'local' },
-    tailscale: { enabled: false, running: false, hostname: 'portta' },
-    publicAccess: { enabled: false, domain: null },
-    panel: {
-      expose: 'local',
-      routed: false,
-      auth: 'none',
-      authenticated: false,
-      user: '',
-      readOnly: false,
-      docs: true,
-    },
-      dashboard: { enabled: false, bindAddress: '127.0.0.1', port: '8080', expose: 'local', advertisedHost: null, authenticated: false, endpoints: [] },
-    traefik: { containerId: 'gw', state: 'running', health: 'healthy' },
-    socketProxy: { containerId: 'sp', state: 'running' },
-    database: { containerId: 'db', state: 'running', health: 'healthy' },
-    network: { name: 'portta', exists: true, attached: 3, internal: false },
-    routes: 3,
-  },
-  counts: {
-    projects: 3,
-    integratedProjects: 2,
-    services: 5,
-    servicesRunning: 5,
-    servicesHealthy: 3,
-    servicesUnhealthy: 1,
-    containersTotal: 9,
-    containersRunning: 8,
-    containersGateway: 2,
-    containersIntegrated: 5,
-    containersExternal: 1,
-    containersStandalone: 0,
-    shares: 0,
-    sharesStale: 0,
-    bridges: 1,
-    forwarders: 0,
-    routes: 3,
-  },
-  urls: [
-    { url: 'http://alpha-web.localhost', host: 'alpha-web.localhost', scope: 'local', scheme: 'http' },
-    { url: 'https://alpha-web.vpn.test', host: 'alpha-web.vpn.test', scope: 'vpn', scheme: 'https' },
-  ],
-  problems: [
-    {
-      id: 'unhealthy',
-      status: 'warn',
-      title: 'Unhealthy containers',
-      detail: 'beta-web-1',
-      fix: 'open the container logs',
-    },
-  ],
-}
-
 beforeEach(() => {
-  overview.mockReset().mockResolvedValue(data)
-  metricsCurrent.mockReset().mockResolvedValue({
-    version: 1,
-    instance: { id: 'i', name: 'lab', hostname: 'lab' },
-    collectedAt: null,
-    ageSeconds: null,
-    stale: true,
-    collectorActive: false,
-    host: null,
-    runtime: null,
-    projects: [],
-  })
+  developmentOverview.mockReset().mockResolvedValue(makeOverview())
+  overview.mockReset().mockResolvedValue({ gateway: { up: true, panel: { readOnly: false, docs: true } }, problems: [{ id: 'p', status: 'warn', title: 'Unhealthy containers', detail: 'x', fix: null }], counts: {}, urls: [] })
+  metricsCurrent.mockReset().mockResolvedValue({ version: 1, instance: { id: 'i', name: 'lab', hostname: 'lab' }, collectedAt: null, ageSeconds: null, stale: true, collectorActive: false, host: null, runtime: null, projects: [] })
   metricsHistory.mockReset().mockResolvedValue({ windowSeconds: 1800, points: [] })
-  projects.mockReset().mockResolvedValue([])
+  environments.mockReset().mockResolvedValue([])
 })
 
-const tile = (name: string) =>
-  screen.getByRole('group', { name }).querySelector('[data-slot="value"]')?.textContent
-
-describe('the Overview answers the questions the dashboard is for', () => {
-  it('is the gateway running?', async () => {
+describe('the development dashboard', () => {
+  it('answers what is being worked on and by whom', async () => {
     renderWithQuery(<Overview />)
-    expect(await screen.findByText('Gateway running')).toBeInTheDocument()
+    expect(await screen.findByText('3 open · 1 in progress · 0 in review · 1 blocked')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '#42 Implementar refresh token' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '#7 Corrigir fila' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'claude session' })).toBeInTheDocument()
   })
 
-  it('how many projects, services and containers?', async () => {
+  it('says what needs attention and links to it', async () => {
     renderWithQuery(<Overview />)
-    await screen.findByRole('group', { name: 'Projects' })
-
-    expect(tile('Projects')).toBe('2')
-    expect(tile('Services')).toBe('5/5')
-    expect(tile('Routed URLs')).toBe('3')
-    expect(tile('Containers running')).toBe('8')
-    expect(tile('Outside the gateway')).toBe('1')
+    expect(await screen.findByRole('link', { name: 'produto/worker is unhealthy' })).toHaveAttribute('href', '#/environments/produto?service=worker')
   })
 
-  it('what is wrong right now?', async () => {
+  it('summarises each project and the code that moved', async () => {
     renderWithQuery(<Overview />)
-    expect(await screen.findByText('Unhealthy containers')).toBeInTheDocument()
-    expect(screen.getByText('beta-web-1')).toBeInTheDocument()
-    expect(screen.getByText('open the container logs')).toBeInTheDocument()
-    expect(tile('Problems')).toBe('1')
+    const project = await screen.findByRole('group', { name: 'Meu Produto' })
+    expect(within(project).getByText('3 open · 1 in progress')).toBeInTheDocument()
+    expect(within(project).getByText('1 blocked')).toBeInTheDocument()
+    expect(screen.getByText('Add totals')).toBeInTheDocument()
+    expect(screen.getByText('3 uncommitted')).toBeInTheDocument()
   })
 
-  it('which URLs are available, and where do they reach?', async () => {
+  it('lists who is using the host', async () => {
     renderWithQuery(<Overview />)
-    expect(await screen.findByText('http://alpha-web.localhost')).toBeInTheDocument()
-    expect(screen.getByText('https://alpha-web.vpn.test')).toBeInTheDocument()
-    expect(screen.getByText('VPN')).toBeInTheDocument()
+    expect(await screen.findByText('Using this host')).toBeInTheDocument()
+    for (const link of screen.getAllByRole('link', { name: 'Meu Produto' })) expect(link).toHaveAttribute('href', '#/projects/produto')
   })
 
-  it('says plainly when there is nothing wrong', async () => {
-    overview.mockResolvedValue({ ...data, problems: [] })
+  it('falls back to the gateway status when the dashboard needs the database', async () => {
+    developmentOverview.mockRejectedValue(new ApiError(503, 'panel persistence is unavailable'))
     renderWithQuery(<Overview />)
-    expect(await screen.findByText('No problems detected.')).toBeInTheDocument()
-  })
-
-  it('says the gateway is down when it is', async () => {
-    overview.mockResolvedValue({ ...data, gateway: { ...data.gateway, up: false } })
-    renderWithQuery(<Overview />)
-    expect(await screen.findByText('Gateway down')).toBeInTheDocument()
+    expect(await screen.findByText("The development dashboard needs the panel's database")).toBeInTheDocument()
+    expect(screen.getByText('Unhealthy containers')).toBeInTheDocument()
+    expect(screen.getByText('Gateway running')).toBeInTheDocument()
   })
 })

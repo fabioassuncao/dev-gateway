@@ -1,4 +1,5 @@
 import { segments } from './router.ts'
+import { boardToTasksHref } from './tasks.ts'
 
 /**
  * Where an old hash goes now, or null when the path is current.
@@ -20,7 +21,11 @@ export function legacyRedirect(path: string): string | null {
       return parts[1] ? `/projects/${encode(parts[1])}${query}` : `/projects${query}`
     case 'board':
       if (!parts[1]) return '/projects'
-      return `/projects/${encode(parts[1])}/board${parts[2] ? `/${encode(parts[2])}` : ''}${query}`
+      return boardToTasksHref(decode(parts[1]), parts[2] ? decode(parts[2]) : null, query)
+    case 'projects':
+      // The board lived at /projects/:slug/board[/board|backlog] for one increment.
+      if (parts[1] && parts[2] === 'board') return boardToTasksHref(decode(parts[1]), parts[3] ? decode(parts[3]) : null, query)
+      return null
     default:
       return null
   }

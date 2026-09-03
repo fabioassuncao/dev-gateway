@@ -2,13 +2,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { Overview } from '../../shared/types.ts'
 import { splitDocRefs } from '../../shared/docs.ts'
-import { api } from '../lib/api.ts'
+import { api } from '../lib/api/index.ts'
+import { keys } from '../lib/queries/keys.ts'
 
 function useDocsEnabled(): boolean {
   const client = useQueryClient()
   const cached = client.getQueryData<Overview>(['status'])
   const { data } = useQuery({
-    queryKey: ['status'],
+    queryKey: keys.status(),
     queryFn: () => api.overview(),
     enabled: typeof api.overview === 'function',
     retry: false,

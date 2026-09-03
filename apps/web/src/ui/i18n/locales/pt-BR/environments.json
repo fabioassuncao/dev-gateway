@@ -50,7 +50,8 @@
     "overview": "Visão geral",
     "services": "Serviços",
     "git": "Git",
-    "logs": "Logs"
+    "logs": "Logs",
+    "settings": "Configurações"
   },
   "notFound": "Nenhum projeto '{{name}}' está em execução",
   "stats": {
@@ -133,7 +134,9 @@
     "openPullRequestsTitle": "Pull requests abertos",
     "collectedFrom": "Coletado {{time}} de {{kind}}",
     "noPullRequestsCollected": "Nenhum pull request foi coletado",
-    "noPullRequestsHint": "Rode portta git scan --with-prs no host com o gh instalado e autenticado."
+    "noPullRequestsHint": "Rode portta git scan --with-prs no host com o gh instalado e autenticado.",
+    "branch": "Branch",
+    "collected": "Coletado"
   },
   "servicesEmpty": "Este projeto não tem serviços",
   "servicesEmptyHint": "Um projeto entra adicionando o overlay do gateway: veja docs/adopting-projects.md.",
@@ -156,7 +159,8 @@
       "namedVolumes": "Este container tem {{count}} volume(s) nomeado(s)",
       "volumesKept": "Eles são mantidos. O painel nunca remove um volume e nunca executa prune.",
       "notAllowed": "O painel não remove sua própria infraestrutura"
-    }
+    },
+    "failed": "A ação falhou"
   },
   "overrides": {
     "description": "Mantidos no banco de dados próprio do gateway. Nada é gravado dentro do projeto.",
@@ -194,5 +198,34 @@
   "portsMeta": "portas {{ports}}",
   "noUptime": "sem uptime atual",
   "upMeta": "ativo há {{time}}",
-  "serviceRowLabel": "serviço {{name}}"
+  "serviceRowLabel": "serviço {{name}}",
+  "header": {
+    "repository": "Repositório",
+    "openRepository": "Abrir repositório",
+    "task": "Trabalhando em",
+    "resources": "Recursos",
+    "services": "{{running}}/{{total}} serviços em execução",
+    "noProject": "não adotado por nenhum projeto",
+    "project": "Projeto"
+  },
+  "list": {
+    "title": "Ambientes",
+    "description": "Todo projeto Compose neste host, adotado ou não. Um Project é o produto; isto é o que está rodando para ele.",
+    "filterAria": "Filtrar ambientes",
+    "all": "Todos",
+    "unattributed": "Sem projeto",
+    "running": "Em execução",
+    "empty": "Nenhum ambiente em execução",
+    "emptyHint": "Um ambiente aparece quando o Compose está no ar neste host. Adote-o num Project com a label portta.project ou à mão.",
+    "noMatch": "Nenhum ambiente corresponde aos filtros",
+    "count": "{{count}} ambiente(s)"
+  },
+  "servicesTable": {
+    "empty": "Este ambiente não tem serviços",
+    "fallback": "Medições ao vivo precisam que o painel sirva os serviços deste ambiente; mostrando o que os containers reportam."
+  },
+  "settings": {
+    "title": "Configurações",
+    "description": "Substituições de apresentação, mantidas no banco do gateway. Nada é gravado dentro do projeto."
+  }
 }

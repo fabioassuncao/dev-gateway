@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { Environment, ProjectLogSource } from '../../shared/types.ts'
-import { api } from '../lib/api.ts'
+import { api } from '../lib/api/index.ts'
+import { keys } from '../lib/queries/keys.ts'
 import { Card } from './ui/card.tsx'
 import { Empty } from './shell-bits.tsx'
 import { LogViewer } from './logs.tsx'
@@ -33,7 +34,7 @@ export function EnvironmentLogs({ project, service }: { project: Environment; se
     <Card className="flex h-[70vh] min-h-0 flex-col overflow-hidden">
       <LogViewer
         className="min-h-0 flex-1"
-        queryKey={['environment-logs', project.name, service]}
+        queryKey={keys.environmentLogs(project.name, service)}
         load={(tail) => api.environmentLogs(project.name, { tail, service })}
         sources={selectable}
         selectedService={service}

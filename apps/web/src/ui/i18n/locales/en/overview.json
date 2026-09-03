@@ -1,24 +1,50 @@
 {
   "title": "Overview",
-  "readingGateway": "Reading the gateway",
-  "description": "What the gateway is serving right now, and what else is running beside it.",
+  "reading": "Reading what is happening",
+  "description": "What is being worked on, who is on it, what needs attention, and whether this host has room.",
   "gatewayRunning": "Gateway running",
   "gatewayDown": "Gateway down",
-  "stats": {
-    "projects": "Projects",
-    "projectsHint": "{{count}} Compose project(s) on the host",
-    "services": "Services",
-    "servicesHint": "{{healthy}} healthy",
-    "routedUrls": "Routed URLs",
-    "routedUrlsHint": "over {{scheme}}",
-    "containersRunning": "Containers running",
-    "containersRunningHint": "{{total}} in total",
-    "outsideGateway": "Outside the gateway",
-    "outsideGatewayHint": "{{gateway}} gateway · {{integrated}} integrated",
-    "problems": "Problems",
-    "problemsHintFail": "{{count}} need attention",
-    "problemsHintWarn": "warnings only, nothing blocking",
-    "problemsHintOk": "nothing blocking"
+  "problems": "{{count}} problems",
+  "problems_one": "{{count}} problem",
+  "problems_other": "{{count}} problems",
+  "work": {
+    "title": "Work",
+    "description": "{{open}} open · {{inProgress}} in progress · {{review}} in review · {{blocked}} blocked",
+    "empty": "No open task",
+    "emptyHint": "Open a project and create one, or let an agent pick the next one from portta tasks next.",
+    "nothingInProgress": "Nothing in progress right now"
+  },
+  "sessions": {
+    "description": "Who is working, on what, since when."
+  },
+  "attention": {
+    "title": "Needs attention",
+    "description": "Unhealthy services, degraded environments, conflicts, a host under pressure, and what the gateway checks.",
+    "diagnostics": "Diagnostics",
+    "none": "Nothing needs attention."
+  },
+  "projects": {
+    "title": "Projects",
+    "all": "All projects",
+    "empty": "No project yet",
+    "emptyHint": "Create one under Projects; environments on this host stay listed regardless."
+  },
+  "code": {
+    "title": "Code",
+    "description": "Recent commits across every repository, and the repositories with local changes.",
+    "uncommitted": "{{count}} uncommitted",
+    "empty": "No commit collected yet",
+    "emptyHint": "The host collector scans every repository once a minute; portta repos scan does it now."
+  },
+  "resources": {
+    "top": "Using this host",
+    "topDescription": "Environments by memory. Stop one from here when the host is under pressure.",
+    "none": "Nothing measured"
+  },
+  "reduced": {
+    "needsDatabase": "The development dashboard needs the panel's database",
+    "unavailable": "The development dashboard is not available on this panel",
+    "hint": "The gateway's own status and its problems are still here."
   },
   "host": {
     "title": "This host",
@@ -59,32 +85,5 @@
     "memory": "RAM",
     "containers": "{{count}} containers",
     "open": "Open"
-  },
-  "detectedProblems": {
-    "title": "Detected problems",
-    "description": "Everything the panel can check from inside the container.",
-    "runDiagnostics": "Run diagnostics",
-    "none": "No problems detected."
-  },
-  "gatewayCard": {
-    "title": "Gateway",
-    "profile": "Profile",
-    "domain": "Domain",
-    "listening": "Listening",
-    "tls": "TLS",
-    "tlsEnabled": "enabled ({{mode}})",
-    "tailscale": "Tailscale",
-    "tailscaleRunning": "running",
-    "tailscaleEnabledNotRunning": "enabled, not running",
-    "publicAccess": "Public access",
-    "sharedNetwork": "Shared network",
-    "attached": "{{name}} · {{count}} attached"
-  },
-  "availableUrls": {
-    "title": "Available URLs",
-    "description": "Read from the labels Traefik itself routes on.",
-    "allRoutes": "All routes",
-    "empty": "No service is currently routed",
-    "emptyHint": "A service joins by setting traefik.enable=true and attaching to the shared network."
   }
 }
