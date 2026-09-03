@@ -63,14 +63,14 @@ describe('reading what the host collected', () => {
     const old = collected({ ...FULL, collectedAt: NOW / 1000 - 4000 })
     const result = readProjectGit(testConfig({ gitDir: old.dir }), 'alpha', NOW)
     expect(result.stale).toBe(true)
-    expect(result.refreshCommand).toBe('./bin/portta git scan --project alpha')
+    expect(result.refreshCommand).toBe('./bin/portta repos scan --environment alpha')
   })
 
   it('says nothing was collected rather than inventing a state', () => {
     const result = readProjectGit(testConfig({ gitDir: mkdtempSync(join(tmpdir(), 'portta-git-')) }), 'alpha', NOW)
     expect(result.collected).toBe(false)
     expect(result.git).toBeNull()
-    expect(result.refreshCommand).toContain('git scan')
+    expect(result.refreshCommand).toContain('repos scan')
   })
 })
 
@@ -159,5 +159,24 @@ describe('GET /api/environments/:project/git', () => {
   it('404s for a project that is not running', async () => {
     const { app } = makeApp({ containers: FULL_HOST }, { gitDir: collected(FULL).dir })
     expect((await app.request('/api/environments/nope/git')).status).toBe(404)
+  })
+})
+
+describe('the repository scan index', () => {
+  it('maps an environment to the repository file the collector wrote', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'portta-git-'))
+    writeFileSync(join(dir, 'index.json'), JSON.stringify({ version: 1, collectedAt: NOW / 1000 - 30, environments: { alpha: 'abcdef012345', bogus: '../etc' } }))
+    writeFileSync(join(dir, 'abcdef012345.json'), JSON.stringify({ ...FULL, project: undefined, workingDir: undefined, path: '/srv/projects/alpha', key: 'abcdef012345' }))
+    const result = readProjectGit(testConfig({ gitDir: dir }), 'alpha', NOW)
+    expect(result.collected).toBe(true)
+    expect(result.workingDir).toBe('/srv/projects/alpha')
+    expect(result.git?.branch).toBe('feature/59-invoices')
+    expect(readProjectGit(testConfig({ gitDir: dir }), 'bogus', NOW).collected).toBe(false)
+  })
+
+  it('still reads a per-environment file an older scan wrote', () => {
+    const { dir } = collected(FULL)
+    writeFileSync(join(dir, 'index.json'), '{not json')
+    expect(readProjectGit(testConfig({ gitDir: dir }), 'alpha', NOW).collected).toBe(true)
   })
 })

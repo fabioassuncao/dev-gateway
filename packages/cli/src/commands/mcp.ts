@@ -20,56 +20,14 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import type { Command } from 'commander'
+import { PanelClient, describeFailure, isLoopbackUrl, panelHeaders, resolvePanelUrl } from '../api.js'
 import { gatewayContext } from '../context.js'
-import { PreconditionError, RefusedError } from '../errors.js'
+import { PreconditionError } from '../errors.js'
 import { CLI_VERSION } from '../version.js'
 
 function globals(command: Command) { return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string } }
 
-const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1', '[::1]'])
-
-export function isLoopbackUrl(raw: string): boolean {
-  try {
-    return LOOPBACK.has(new URL(raw).hostname)
-  } catch {
-    return false
-  }
-}
-
-/**
- * Where the panel is, and whether we are allowed to send a credential there.
- *
- * The failure worth designing for is a misconfigured URL sending a panel
- * credential somewhere unintended, so a non-loopback panel is refused unless
- * the operator says so explicitly — which is how the rest of Portta treats
- * exposure.
- */
-export function resolvePanelUrl(
-  env: Record<string, string | undefined>,
-  options: { url?: string; allowRemote?: boolean },
-  fallbackPort: string,
-): string {
-  const raw = options.url ?? env['PORTTA_PANEL_URL'] ?? `http://127.0.0.1:${fallbackPort}`
-  const url = raw.replace(/\/+$/, '')
-  if (!isLoopbackUrl(url) && !options.allowRemote) {
-    throw new RefusedError(
-      `refusing to send a panel credential to ${url}`,
-      'pass --allow-remote if that is deliberate; the panel is loopback by default for this reason',
-    )
-  }
-  return url
-}
-
-/** The panel credential, when the panel is authenticated. Never logged. */
-export function panelHeaders(env: Record<string, string | undefined>, actor: string): Record<string, string> {
-  const headers: Record<string, string> = { 'content-type': 'application/json', 'X-Portta-Actor': actor }
-  const user = env['PORTTA_WEB_AUTH_USER']
-  const password = env['PORTTA_PANEL_PASSWORD']
-  if (user && password) {
-    headers['authorization'] = `Basic ${Buffer.from(`${user}:${password}`).toString('base64')}`
-  }
-  return headers
-}
+export { describeFailure, isLoopbackUrl, panelHeaders, resolvePanelUrl }
 
 /**
  * The shape every tool answers with. Widened to the SDK's own result type at
@@ -84,48 +42,23 @@ export interface ToolResult {
 type SdkToolResult = Awaited<ReturnType<Parameters<McpServer['registerTool']>[2]>>
 const asSdkResult = (result: Promise<ToolResult>) => result as Promise<SdkToolResult>
 
-/**
- * How an API answer becomes a tool result.
- *
- * An agent needs to tell "you asked for something impossible" from "try again
- * later", so the panel's status codes are carried through as words rather than
- * flattened into one failure. 503 in particular is temporary by construction:
- * it is what a GitHub outage or an exhausted rate limit looks like.
- */
-export function describeFailure(status: number, body: string): string {
-  const detail = body.trim() || '(no detail)'
-  if (status === 400) return `refused: ${detail}`
-  if (status === 401 || status === 403) return `not permitted: ${detail}`
-  if (status === 404) return `not found: ${detail}`
-  if (status === 503) return `temporarily unavailable, and worth retrying: ${detail}`
-  return `the panel answered ${status}: ${detail}`
-}
-
 export interface ApiCaller {
   (method: 'GET' | 'POST', path: string, body?: unknown): Promise<ToolResult>
 }
 
 export function createCaller(url: string, headers: Record<string, string>, timeoutMs = 15_000): ApiCaller {
+  const client = new PanelClient(url, headers, timeoutMs)
   return async (method, path, body) => {
-    let response: Response
+    let answer
     try {
-      response = await fetch(`${url}/api${path}`, {
-        method,
-        headers,
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        signal: AbortSignal.timeout(timeoutMs),
-      })
+      answer = await client.answer(method, path, body)
     } catch (error) {
-      return {
-        content: [{ type: 'text', text: `the panel at ${url} did not answer: ${error instanceof Error ? error.message : String(error)}` }],
-        isError: true,
-      }
+      return { content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }], isError: true }
     }
-    const text = await response.text()
-    if (!response.ok) {
-      return { content: [{ type: 'text', text: describeFailure(response.status, text) }], isError: true }
+    if (!answer.ok) {
+      return { content: [{ type: 'text', text: describeFailure(answer.status, answer.text) }], isError: true }
     }
-    return { content: [{ type: 'text', text }] }
+    return { content: [{ type: 'text', text: answer.text }] }
   }
 }
 

@@ -19,7 +19,7 @@ GW="$PORTTA_ROOT/bin/portta"
 # per group proves the same thing — a leaf that was never wired up is missing
 # from its parent's help — at a fifteenth of the cost.
 COMMAND_TREE=(
-  ":version setup bootstrap up down restart status logs doctor urls inspect update project network public dns tls remote analyze init namespace access services service db redis web auth git host share toolbox tunnel backup restore repair mcp"
+  ":version setup bootstrap up down restart status logs doctor urls inspect update project network public dns tls remote analyze init namespace access services service db redis web auth git repos host share toolbox tunnel backup restore repair mcp config dev"
   "project:list show services analyze init namespace start stop restart"
   "network:status"
   "public:status enable disable"
@@ -36,6 +36,7 @@ COMMAND_TREE=(
   "web auth:status set clear apply"
   "auth:status protect unprotect"
   "git:scan status clear"
+  "repos:scan status clear"
   "host:collect watch status"
   "share:list revoke gc"
 )
@@ -158,10 +159,10 @@ it "the Bash fallback has no reference to the removed helper"
 assert_not_contains "$(cat "$GW")" "portta_git_scan"
 
 it "the full up command refreshes Git metadata"
-assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" "await refreshGitMetadata(context.config.profile, output)"
+assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" "await refreshRepositories(context.config.profile, output)"
 
 it "web up refreshes the same metadata"
-assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/web.ts")" "await refreshGitMetadata(context.config.profile, output)"
+assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/web.ts")" "await refreshRepositories(context.config.profile, output)"
 
 it "the full up command starts the host metrics collector"
 assert_contains "$(cat "$PORTTA_ROOT/packages/cli/src/commands/lifecycle.ts")" "await ensureMetricsCollector(context.config.profile, output)"
@@ -251,7 +252,7 @@ printf '0.1.1\n' > "$failure_root/VERSION"
 printf '{}\n' > "$failure_root/docker/compose/compose.yaml"
 printf '{}\n' > "$failure_root/docker/compose/attach/host.yaml"
 printf '{}\n' > "$failure_root/docker/compose/profiles/local.yaml"
-printf '{broken\n' > "$failure_root/state/git/broken.json"
+printf '{broken\n' > "$failure_root/state/git/index.json"
 it "an operational failure is 1"; assert_exit 1 env PORTTA_ROOT="$failure_root" "$GW" git status
 rm -rf "$failure_root"
 it "usage is 2"; assert_exit 2 "$GW" definitely-not-a-command

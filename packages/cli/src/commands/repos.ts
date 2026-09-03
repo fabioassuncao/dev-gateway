@@ -1,0 +1,374 @@
+// `portta repos`: what the host knows about every repository, collected here
+// and read by the panel.
+//
+// Keyed by repository, not by environment. Two worktrees of one repository are
+// two repositories (two roots); one repository running as three Compose
+// projects is one file with three environments in it. The index maps each
+// environment to the repository it runs from, which is how the panel answers
+// "what code is this environment running" without a project directory.
+//
+// The scan reads: local `git` (branch, HEAD, dirty counts, ahead/behind, the
+// last RECENT_COMMITS commits as metadata) and the instruction files on the
+// allowlist in portta-core. Nothing else: no diff, no arbitrary file, never a
+// `.env`. ADR 0032 amends ADR 0010 for exactly these two additions.
+
+import { createHash } from 'node:crypto'
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { basename, join } from 'node:path'
+import type { Command } from 'commander'
+import {
+  GIT_LOG_FORMAT,
+  INSTRUCTION_DIRECTORIES,
+  INSTRUCTION_FILES,
+  INSTRUCTION_MAX_BYTES,
+  RECENT_COMMITS,
+  SCAN_INDEX_FILE,
+  SCAN_VERSION,
+  classifyProjectLocation,
+  firstLevelCandidateName,
+  instructionAudience,
+  isInstructionPath,
+  normalizeProjectsHome,
+  parseGitLog,
+  relativePathFromWorkingDir,
+  repositoryKey,
+  repositoryName,
+  type InstructionFile,
+  type RepositoryScan,
+  type ScanIndex,
+  type ScanIndexEntry,
+} from 'portta-core'
+import { gatewayContext } from '../context.js'
+import { inspectContainers } from '../docker.js'
+import { CliError, UsageError } from '../errors.js'
+import { Output } from '../output.js'
+import { runProcess } from '../process.js'
+import { collectGitProject } from './git.js'
+
+function globals(command: Command) { return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string } }
+
+export interface ReposScanOptions {
+  /** Only the repository this environment runs from */
+  environment?: string
+  /** Only this directory (must be inside a git work tree) */
+  path?: string
+  withPrs?: boolean
+  forgeTtl?: string
+}
+
+async function git(cwd: string, args: string[]): Promise<string | null> {
+  const result = await runProcess('git', ['-C', cwd, ...args], { reject: false })
+  return result.exitCode === 0 ? result.stdout.trim() : null
+}
+
+function safeRealpath(path: string): string | null {
+  try {
+    return realpathSync(path)
+  } catch {
+    return null
+  }
+}
+
+/** The git root that owns a directory, realpath'd, or null when it is not in a work tree. */
+export async function gitRootOf(path: string): Promise<string | null> {
+  const real = safeRealpath(path)
+  if (!real) return null
+  const top = await git(real, ['rev-parse', '--show-toplevel'])
+  return top ? safeRealpath(top) : null
+}
+
+function workdir(labels: Record<string, string>): string | null {
+  return labels['portta.git.root'] ?? labels['com.docker.compose.project.working_dir'] ?? null
+}
+
+interface Candidate {
+  root: string
+  declaredRemote: string
+  environments: Set<string>
+}
+
+/**
+ * Every repository this scan should look at, from three sources: the working
+ * directories of running Compose projects, the first level of Projects Home,
+ * and an explicit --path. Deduplicated by realpath of the git root.
+ */
+export async function findCandidates(options: ReposScanOptions, env: NodeJS.ProcessEnv): Promise<{ candidates: Map<string, Candidate>; home: string | null }> {
+  const candidates = new Map<string, Candidate>()
+  const add = (root: string, environment?: string, declaredRemote = '') => {
+    const existing = candidates.get(root) ?? { root, declaredRemote: '', environments: new Set<string>() }
+    if (environment) existing.environments.add(environment)
+    if (declaredRemote && !existing.declaredRemote) existing.declaredRemote = declaredRemote
+    candidates.set(root, existing)
+  }
+
+  if (options.path) {
+    const root = await gitRootOf(options.path)
+    if (!root) throw new UsageError(`${options.path} is not inside a git work tree`)
+    add(root)
+  }
+
+  let containers: Awaited<ReturnType<typeof inspectContainers>> = []
+  try {
+    containers = await inspectContainers(false)
+  } catch {
+    // No Docker, or no permission to ask: the filesystem sources still work.
+  }
+  for (const container of containers) {
+    const name = container.labels['com.docker.compose.project']
+    const path = workdir(container.labels)
+    if (!name || !path) continue
+    if (options.environment && options.environment !== name) continue
+    if (options.path) continue
+    const root = await gitRootOf(path)
+    if (root) add(root, name, container.labels['portta.repo'] ?? '')
+  }
+
+  let home: string | null = null
+  const rawHome = env['PORTTA_PROJECTS_HOME']
+  if (rawHome) {
+    try {
+      home = normalizeProjectsHome(rawHome, process.cwd(), env['HOME'] ?? '')
+    } catch {
+      home = null
+    }
+  }
+  if (home && !options.environment && !options.path && existsSync(home)) {
+    let entries: string[] = []
+    try {
+      entries = readdirSync(home)
+    } catch {
+      entries = []
+    }
+    for (const entry of entries) {
+      if (!firstLevelCandidateName(entry)) continue
+      const path = join(home, entry)
+      try {
+        if (!statSync(path).isDirectory() || !existsSync(join(path, '.git'))) continue
+      } catch {
+        continue
+      }
+      const root = await gitRootOf(path)
+      if (root) add(root)
+    }
+  }
+  return { candidates, home }
+}
+
+function sha256(content: Buffer): string {
+  return createHash('sha256').update(content).digest('hex')
+}
+
+/** The instruction files present at a root, on the allowlist and nowhere else. */
+export async function collectInstructions(root: string): Promise<InstructionFile[]> {
+  const paths: string[] = [...INSTRUCTION_FILES]
+  for (const { directory, extension } of INSTRUCTION_DIRECTORIES) {
+    const dir = join(root, directory)
+    if (!existsSync(dir)) continue
+    try {
+      for (const entry of readdirSync(dir).sort()) {
+        if (entry.endsWith(extension)) paths.push(`${directory}/${entry}`)
+      }
+    } catch {
+      // unreadable directory: nothing to list
+    }
+  }
+  const files: InstructionFile[] = []
+  for (const relative of paths) {
+    if (!isInstructionPath(relative)) continue
+    const absolute = join(root, relative)
+    if (!existsSync(absolute)) continue
+    let size: number
+    let modifiedAt: number
+    try {
+      const stat = statSync(absolute)
+      if (!stat.isFile()) continue
+      size = stat.size
+      modifiedAt = Math.floor(stat.mtimeMs / 1000)
+    } catch {
+      continue
+    }
+    const raw = readFileSync(absolute)
+    const truncated = size > INSTRUCTION_MAX_BYTES
+    const status = await git(root, ['status', '--porcelain', '--untracked-files=all', '--', relative])
+    files.push({
+      path: relative,
+      audience: instructionAudience(relative),
+      sizeBytes: size,
+      modifiedAt,
+      sha256: sha256(raw),
+      dirty: status !== null && status !== '',
+      content: truncated ? null : raw.toString('utf8'),
+      truncated,
+    })
+  }
+  return files
+}
+
+export async function collectRepository(candidate: Candidate, options: ReposScanOptions, cachedForge?: Record<string, unknown>): Promise<RepositoryScan> {
+  const name = repositoryName(candidate.root)
+  const record = await collectGitProject(name, candidate.root, candidate.declaredRemote, options.withPrs, cachedForge)
+  const gitInfo = (record['git'] ?? null) as RepositoryScan['git']
+  const log = gitInfo ? await git(candidate.root, ['log', `-n${RECENT_COMMITS}`, `--format=${GIT_LOG_FORMAT}`]) : null
+  return {
+    version: SCAN_VERSION,
+    key: repositoryKey(candidate.root),
+    path: candidate.root,
+    name,
+    collectedAt: Number(record['collectedAt'] ?? Math.floor(Date.now() / 1000)),
+    git: gitInfo,
+    reason: (record['reason'] as string | null | undefined) ?? null,
+    commits: log ? parseGitLog(log) : [],
+    instructions: gitInfo ? await collectInstructions(candidate.root) : [],
+    environments: [...candidate.environments].sort(),
+    forge: (record['forge'] as Record<string, unknown> | undefined) ?? null,
+  }
+}
+
+function writeSecret(path: string, value: unknown): void {
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 })
+  chmodSync(path, 0o600)
+}
+
+function readJson(path: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+export interface ScanResult {
+  index: ScanIndex
+  repositories: RepositoryScan[]
+}
+
+/**
+ * Scan and write. A partial scan (--environment, --path) rewrites only the
+ * files it touched and merges into the existing index, so a targeted refresh
+ * never forgets the repositories it did not look at.
+ */
+export async function scanRepositories(options: ReposScanOptions = {}, profile?: string): Promise<ScanResult> {
+  if (options.forgeTtl !== undefined && !/^\d+$/.test(options.forgeTtl)) throw new UsageError('--forge-ttl must be a number of seconds')
+  const context = gatewayContext({ profile })
+  const directory = join(context.root, 'state/git')
+  mkdirSync(directory, { recursive: true, mode: 0o700 })
+  const { candidates, home } = await findCandidates(options, context.env)
+  const partial = Boolean(options.environment || options.path)
+  const forgeTtl = Number(options.forgeTtl ?? 300)
+  const now = Math.floor(Date.now() / 1000)
+  const homeReal = home ? safeRealpath(home) : null
+
+  const previous = partial ? (readJson(join(directory, SCAN_INDEX_FILE)) as unknown as ScanIndex | null) : null
+  const entries = new Map<string, ScanIndexEntry>()
+  const environments: Record<string, string> = {}
+  if (previous && previous.version === SCAN_VERSION) {
+    for (const entry of previous.repositories ?? []) entries.set(entry.key, entry)
+    Object.assign(environments, previous.environments ?? {})
+  }
+
+  const repositories: RepositoryScan[] = []
+  for (const candidate of candidates.values()) {
+    const key = repositoryKey(candidate.root)
+    const target = join(directory, `${key}.json`)
+    let cachedForge: Record<string, unknown> | undefined
+    if (options.withPrs && forgeTtl > 0 && existsSync(target)) {
+      const forge = readJson(target)?.['forge'] as Record<string, unknown> | undefined
+      if (forge && now - Number(forge['collectedAt'] ?? 0) < forgeTtl) cachedForge = forge
+    }
+    const scan = await collectRepository(candidate, options, cachedForge)
+    if (partial) {
+      // Keep the environments a full scan already attributed to this root.
+      const known = Object.entries(environments).filter(([, k]) => k === key).map(([environment]) => environment)
+      scan.environments = [...new Set([...scan.environments, ...known])].sort()
+    }
+    writeSecret(target, scan)
+    repositories.push(scan)
+    entries.set(key, {
+      key,
+      path: candidate.root,
+      name: scan.name,
+      remote: scan.git?.remote ?? null,
+      location: home ? classifyProjectLocation({ home, path: candidate.root, homeRealpath: homeReal, pathRealpath: candidate.root }) : null,
+      relativePath: home ? relativePathFromWorkingDir(homeReal ?? home, candidate.root) : null,
+    })
+    for (const environment of scan.environments) environments[environment] = key
+  }
+
+  const index: ScanIndex = {
+    version: SCAN_VERSION,
+    collectedAt: now,
+    home: homeReal ?? home,
+    repositories: [...entries.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    environments,
+  }
+  writeSecret(join(directory, SCAN_INDEX_FILE), index)
+  return { index, repositories }
+}
+
+export async function reposScan(options: ReposScanOptions, command: Command): Promise<void> {
+  const result = await scanRepositories(options, globals(command).profile)
+  const output = new Output(globals(command))
+  if (output.json) output.data(result)
+  else output.progress(`scanned ${result.repositories.length} repositor${result.repositories.length === 1 ? 'y' : 'ies'}`)
+}
+
+/** The index, or null when nothing was collected. A file that exists and cannot be read is an operational failure, not an empty answer. */
+export function readScanIndex(root: string): ScanIndex | null {
+  const path = join(root, 'state/git', SCAN_INDEX_FILE)
+  if (!existsSync(path)) return null
+  const value = readJson(path)
+  if (value === null) throw new CliError(`${path} is not readable JSON`, undefined, 'run `portta repos scan` to rewrite it')
+  return value['version'] === SCAN_VERSION ? (value as unknown as ScanIndex) : null
+}
+
+export async function reposStatus(command: Command): Promise<void> {
+  const context = gatewayContext({ profile: globals(command).profile })
+  const index = readScanIndex(context.root)
+  const output = new Output(globals(command))
+  const now = Math.floor(Date.now() / 1000)
+  const repositories = (index?.repositories ?? []).map((entry) => {
+    const scan = readJson(join(context.root, 'state/git', `${entry.key}.json`))
+    const gitInfo = (scan?.['git'] ?? null) as Record<string, unknown> | null
+    return {
+      ...entry,
+      branch: gitInfo?.['branch'] ?? null,
+      dirty: gitInfo?.['dirty'] === true,
+      environments: Object.entries(index?.environments ?? {}).filter(([, key]) => key === entry.key).map(([environment]) => environment),
+      ageSeconds: Math.max(0, now - Number(scan?.['collectedAt'] ?? index?.collectedAt ?? now)),
+    }
+  })
+  if (output.json) {
+    output.data({ collectedAt: index?.collectedAt ?? null, home: index?.home ?? null, repositories })
+    return
+  }
+  if (repositories.length === 0) {
+    output.progress('nothing collected yet: run `portta repos scan`')
+    return
+  }
+  for (const repository of repositories) {
+    output.line(`${repository.name}\t${String(repository.branch ?? 'detached')}${repository.dirty ? ' (dirty)' : ''}\t${repository.environments.join(',') || '-'}\t${repository.ageSeconds}s old`)
+  }
+}
+
+export async function reposClear(command: Command): Promise<void> {
+  const context = gatewayContext({ profile: globals(command).profile })
+  const directory = join(context.root, 'state/git')
+  if (!existsSync(directory)) return
+  let count = 0
+  for (const file of readdirSync(directory)) {
+    if (file.endsWith('.json')) {
+      unlinkSync(join(directory, file))
+      count++
+    }
+  }
+  new Output(globals(command)).progress(`removed ${count} collected file(s) from ${basename(directory)}`)
+}
+
+/** Called from `up` and `web up`: never fatal, always says why it failed. */
+export async function refreshRepositories(profile: string | undefined, output: Output): Promise<void> {
+  try {
+    await scanRepositories({}, profile)
+  } catch (error) {
+    output.warning(`repository metadata could not be refreshed: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}

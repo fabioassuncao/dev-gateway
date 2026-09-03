@@ -24,7 +24,7 @@ import { ensureNetwork, inspectContainers } from '../docker.js'
 import { CliError, EXIT, PreconditionError, RefusedError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
-import { refreshGitMetadata } from './git.js'
+import { refreshRepositories } from './repos.js'
 import { ensureMetricsCollector, stopMetricsCollector } from './host.js'
 
 function globals(command: Command) { return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string } }
@@ -156,7 +156,7 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   const buildArgs = context.config.webDev || context.config.webBuild ? ['--build'] : []
   await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', ...buildArgs, '--remove-orphans', '--wait', '--wait-timeout', '180', ...services], { cwd: context.root, env: context.env, stdio: 'inherit' })
   const output = new Output(globals(command))
-  await refreshGitMetadata(context.config.profile, output)
+  await refreshRepositories(context.config.profile, output)
   await ensureMetricsCollector(context.config.profile, output)
   const running = gatewayContext({ profile: globals(command).profile, overrides: values })
   try {

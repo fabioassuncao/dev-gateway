@@ -3,12 +3,11 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Output } from '../output.js'
 
 const mocks = vi.hoisted(() => ({ inspectContainers: vi.fn() }))
 vi.mock('../docker.js', () => ({ inspectContainers: mocks.inspectContainers }))
 
-import { collectGitProject, refreshGitMetadata } from './git.js'
+import { collectGitProject } from './git.js'
 
 const roots: string[] = []
 afterEach(() => {
@@ -42,13 +41,4 @@ describe('Git collection', () => {
     expect((await collectGitProject('plain', root))['reason']).toBe('not a git repository')
   })
 
-  it('keeps an automatic refresh non-fatal, but reports why it failed', async () => {
-    mocks.inspectContainers.mockRejectedValue(new Error('inventory unavailable'))
-    let stderr = ''
-    vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => { stderr += String(chunk); return true })
-
-    await expect(refreshGitMetadata(undefined, new Output())).resolves.toBeUndefined()
-
-    expect(stderr).toContain('warning: Git metadata could not be refreshed: inventory unavailable')
-  })
 })

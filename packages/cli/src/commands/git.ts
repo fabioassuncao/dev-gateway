@@ -1,11 +1,8 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { existsSync } from 'node:fs'
 import type { Command } from 'commander'
-import { gatewayContext } from '../context.js'
-import { inspectContainers } from '../docker.js'
-import { UsageError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
+import { refreshRepositories, reposClear, reposScan, reposStatus } from './repos.js'
 
 function globals(command: Command) { return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string } }
 
@@ -16,7 +13,6 @@ async function git(cwd: string, args: string[]): Promise<string | null> {
   return result.exitCode === 0 ? result.stdout.trim() : null
 }
 
-function workdir(labels: Record<string, string>): string | null { return labels['portta.git.root'] ?? labels['com.docker.compose.project.working_dir'] ?? null }
 
 function counts(status: string): { staged: number; unstaged: number; untracked: number; unmerged: number } {
   let staged = 0, unstaged = 0, untracked = 0, unmerged = 0
@@ -99,69 +95,25 @@ export async function collectGitProject(project: string, path: string, declaredR
   return value
 }
 
-export async function scanGitProjects(options: GitScanOptions, profile?: string): Promise<Array<Record<string, unknown>>> {
-  if (options.forgeTtl !== undefined && !/^\d+$/.test(options.forgeTtl)) throw new UsageError('--forge-ttl must be a number of seconds')
-  const context = gatewayContext({ profile })
-  const directory = join(context.root, 'state/git')
-  mkdirSync(directory, { recursive: true })
-  const projects = new Map<string, { path: string; declared: string }>()
-  for (const container of await inspectContainers(false)) {
-    const name = container.labels['com.docker.compose.project']
-    const path = workdir(container.labels)
-    if (name && path && (!options.project || options.project === name)) projects.set(name, { path, declared: container.labels['portta.repo'] ?? '' })
-  }
-  const scanned: Array<Record<string, unknown>> = []
-  for (const [project, coordinate] of projects) {
-    const target = join(directory, `${project}.json`)
-    const forgeTtl = Number(options.forgeTtl ?? 300)
-    let cachedForge: Record<string, unknown> | undefined
-    if (options.withPrs && forgeTtl > 0 && existsSync(target)) {
-      try {
-        const previous = JSON.parse(readFileSync(target, 'utf8')) as Record<string, unknown>
-        const forge = previous['forge'] as Record<string, unknown> | undefined
-        if (forge && Math.floor(Date.now() / 1000) - Number(forge['collectedAt'] ?? 0) < forgeTtl) cachedForge = forge
-      } catch { /* malformed cache is replaced by this scan */ }
-    }
-    const value = await collectGitProject(project, coordinate.path, coordinate.declared, options.withPrs, cachedForge)
-    writeFileSync(target, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 })
-    chmodSync(target, 0o600)
-    scanned.push(value)
-  }
-  return scanned
-}
-
-export async function refreshGitMetadata(profile: string | undefined, output: Output): Promise<void> {
-  try {
-    await scanGitProjects({}, profile)
-  } catch (error) {
-    output.warning(`Git metadata could not be refreshed: ${error instanceof Error ? error.message : String(error)}`)
-  }
-}
-
+/**
+ * `portta git scan|status|clear` are the names this lived under when it was
+ * keyed by Compose project. They now run the repository scan and say so.
+ */
 export async function gitScan(options: GitScanOptions, command: Command): Promise<void> {
-  const scanned = await scanGitProjects(options, globals(command).profile)
   const output = new Output(globals(command))
-  if (output.json) output.data({ projects: scanned })
-  else output.progress(`scanned ${scanned.length} project(s)`)
+  output.warning('`portta git scan` is now `portta repos scan`; --project is --environment')
+  await reposScan({ ...(options.project ? { environment: options.project } : {}), ...(options.withPrs ? { withPrs: true } : {}), ...(options.forgeTtl ? { forgeTtl: options.forgeTtl } : {}) }, command)
 }
 
 export async function gitStatus(command: Command): Promise<void> {
-  const context = gatewayContext({ profile: globals(command).profile })
-  const directory = join(context.root, 'state/git')
-  const projects: Array<Record<string, unknown> & { ageSeconds: number }> = existsSync(directory) ? readdirSync(directory).filter((file) => file.endsWith('.json')).map((file) => {
-    const value = JSON.parse(readFileSync(join(directory, file), 'utf8')) as Record<string, unknown>
-    return { ...value, ageSeconds: Math.max(0, Math.floor(Date.now() / 1000) - Number(value['collectedAt'] ?? 0)) }
-  }) : []
-  const output = new Output(globals(command))
-  if (output.json) output.data({ projects })
-  else for (const project of projects) output.line(`${String(project['project'] ?? basename(String(project['worktree'] ?? 'unknown')))}\t${String(project['branch'] ?? 'detached')}\t${project.ageSeconds}s old`)
+  new Output(globals(command)).warning('`portta git status` is now `portta repos status`')
+  await reposStatus(command)
 }
 
 export async function gitClear(command: Command): Promise<void> {
-  const context = gatewayContext({ profile: globals(command).profile })
-  const directory = join(context.root, 'state/git')
-  if (!existsSync(directory)) return
-  let count = 0
-  for (const file of readdirSync(directory)) if (file.endsWith('.json')) { unlinkSync(join(directory, file)); count++ }
-  new Output(globals(command)).progress(`removed ${count} collected Git file(s)`)
+  new Output(globals(command)).warning('`portta git clear` is now `portta repos clear`')
+  await reposClear(command)
 }
+
+/** @deprecated use refreshRepositories */
+export const refreshGitMetadata = refreshRepositories

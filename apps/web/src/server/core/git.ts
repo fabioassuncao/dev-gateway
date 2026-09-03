@@ -1,8 +1,8 @@
-// Reading what `portta git scan` collected on the host.
+// Reading what `portta repos scan` collected on the host.
 //
 // The panel has no access to any project directory and runs no shell commands.
-// It reads one file per project from a read-only mount, and reports how old it
-// is: what is on screen is as true as the last scan, and the UI says so rather
+// It reads one file per repository from a read-only mount (an index maps each
+// environment to the repository it runs from), and reports how old it is: what is on screen is as true as the last scan, and the UI says so rather
 // than implying currency. See docs/adr/0010-git-collected-on-the-host.md.
 
 import { existsSync, readFileSync, statSync } from 'node:fs'
@@ -75,8 +75,39 @@ function toPullRequests(raw: unknown): ForgePullRequest[] {
   })
 }
 
+/** Only what `repositoryKey` produces: twelve hex characters, nothing that walks a path. */
+const REPOSITORY_KEY = /^[0-9a-f]{12}$/
+
+/**
+ * The scan index: which repository each environment runs from. Read on every
+ * call and never cached, because it is small and the collector rewrites it
+ * once a minute; a missing or malformed index is simply "no mapping".
+ */
+export function readScanIndex(config: PanelConfig): { environments: Record<string, string>; collectedAt: number } | null {
+  const path = join(config.gitDir, 'index.json')
+  if (!existsSync(path)) return null
+  try {
+    if (statSync(path).size > 512 * 1024) return null
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
+    const raw = (parsed.environments ?? {}) as Record<string, unknown>
+    const environments: Record<string, string> = {}
+    for (const [environment, key] of Object.entries(raw)) {
+      if (PROJECT_NAME.test(environment) && typeof key === 'string' && REPOSITORY_KEY.test(key)) environments[environment] = key
+    }
+    return { environments, collectedAt: asNumber(parsed.collectedAt) }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The collected file for an environment: the repository it runs from, per the
+ * index, or the per-environment file an older scan wrote.
+ */
 export function gitFileFor(config: PanelConfig, project: string): string | null {
   if (!PROJECT_NAME.test(project)) return null
+  const key = readScanIndex(config)?.environments[project]
+  if (key) return join(config.gitDir, `${key}.json`)
   return join(config.gitDir, `${project}.json`)
 }
 
@@ -86,7 +117,7 @@ export function gitFileFor(config: PanelConfig, project: string): string | null 
  * collected, with the command that would fix it.
  */
 export function readProjectGit(config: PanelConfig, project: string, now = Date.now()): ProjectGit {
-  const refreshCommand = `./bin/portta git scan --project ${project}`
+  const refreshCommand = `./bin/portta repos scan --environment ${project}`
   const absent: ProjectGit = {
     project,
     collected: false,
@@ -130,7 +161,7 @@ export function readProjectGit(config: PanelConfig, project: string, now = Date.
     ageSeconds,
     stale: ageSeconds !== null && ageSeconds > config.gitStaleSeconds,
     staleAfterSeconds: config.gitStaleSeconds,
-    workingDir: asOptionalString(parsed.workingDir),
+    workingDir: asOptionalString(parsed.workingDir) ?? asOptionalString(parsed.path),
     git,
     remote: remote
       ? { url: remote.url, host: remote.host, slug: remote.slug, kind: remote.kind, repoUrl: remote.repoUrl }

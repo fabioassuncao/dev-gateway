@@ -7,6 +7,7 @@ import { analyzeCommand, initCommand, namespaceCommand, projectAction, projectLi
 import { bootstrapCommand, devCommand, doctorCommand, downCommand, inspectCommand, logsCommand, restartCommand, statusCommand, updateCommand, upCommand, urlsCommand, versionCommand } from './commands/lifecycle.js'
 import { dnsCheck, dnsSetup, dnsStatus, networkStatus, publicDisable, publicEnable, publicStatus } from './commands/network.js'
 import { gitClear, gitScan, gitStatus } from './commands/git.js'
+import { reposClear, reposScan, reposStatus } from './commands/repos.js'
 import { hostCollect, hostStatus, hostWatch } from './commands/host.js'
 import { configGet, configList, configSet } from './commands/config.js'
 import { setupCommand } from './commands/setup.js'
@@ -140,10 +141,14 @@ describe(config.command('set <setting> <value>'), 'Change one setting and apply 
   .option('--no-apply', 'write the value without recreating anything')
   .action((name, value, options, command) => configSet(name, value, options, command))
 
-const git = describe(program.command('git'), 'Collect project Git metadata on the host')
-describe(git.command('scan'), 'Collect Git state into state/git').option('--project <name>').option('--with-prs').option('--forge-ttl <seconds>').action(gitScan)
-describe(git.command('status'), 'Show collected Git state and age').action((_options, command) => gitStatus(command))
-describe(git.command('clear'), 'Remove collected Git files').action((_options, command) => gitClear(command))
+const repos = describe(program.command('repos'), 'Collect repository state (git, commits, instructions) on the host')
+describe(repos.command('scan'), 'Collect every repository into state/git').option('--environment <name>', 'only the repository this environment runs from').option('--path <dir>', 'only this repository').option('--with-prs').option('--forge-ttl <seconds>').action(reposScan)
+describe(repos.command('status'), 'Show collected repositories and their age').action((_options, command) => reposStatus(command))
+describe(repos.command('clear'), 'Remove collected repository files').action((_options, command) => reposClear(command))
+const git = describe(program.command('git'), 'Deprecated alias of `portta repos`')
+describe(git.command('scan'), 'Deprecated: use `portta repos scan`').option('--project <name>').option('--with-prs').option('--forge-ttl <seconds>').action(gitScan)
+describe(git.command('status'), 'Deprecated: use `portta repos status`').action((_options, command) => gitStatus(command))
+describe(git.command('clear'), 'Deprecated: use `portta repos clear`').action((_options, command) => gitClear(command))
 const host = describe(program.command('host'), 'Collect host and project resource metrics')
 describe(host.command('collect'), 'Write one metrics snapshot into state/metrics').action((_options, command) => hostCollect(command))
 describe(host.command('watch'), 'Keep collecting host and Docker metrics').option('--loop', 'run in the foreground (used by the detached collector)').action((_options, command) => hostWatch(command))

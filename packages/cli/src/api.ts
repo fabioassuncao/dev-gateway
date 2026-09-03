@@ -1,0 +1,154 @@
+// The one HTTP client the CLI has for the panel.
+//
+// Local facts come from core, executed locally; persistent decisions come from
+// the API. Every command that needs a decision — a Project, a Task, a session —
+// goes through here, so the credential handling, the loopback refusal and the
+// way a refusal is worded exist once. `portta mcp` wraps the same client.
+
+import type { GatewayContext } from './context.js'
+import { CliError, EXIT, PreconditionError, RefusedError } from './errors.js'
+
+const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1', '[::1]'])
+
+export function isLoopbackUrl(raw: string): boolean {
+  try {
+    return LOOPBACK.has(new URL(raw).hostname)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Where the panel is, and whether we are allowed to send a credential there.
+ *
+ * The failure worth designing for is a misconfigured URL sending a panel
+ * credential somewhere unintended, so a non-loopback panel is refused unless
+ * the operator says so explicitly — which is how the rest of Portta treats
+ * exposure.
+ */
+export function resolvePanelUrl(
+  env: Record<string, string | undefined>,
+  options: { url?: string; allowRemote?: boolean },
+  fallbackPort: string,
+): string {
+  const raw = options.url ?? env['PORTTA_PANEL_URL'] ?? `http://127.0.0.1:${fallbackPort}`
+  const url = raw.replace(/\/+$/, '')
+  if (!isLoopbackUrl(url) && !options.allowRemote) {
+    throw new RefusedError(
+      `refusing to send a panel credential to ${url}`,
+      'pass --allow-remote if that is deliberate; the panel is loopback by default for this reason',
+    )
+  }
+  return url
+}
+
+/** The panel credential, when the panel is authenticated. Never logged. */
+export function panelHeaders(env: Record<string, string | undefined>, actor: string): Record<string, string> {
+  const headers: Record<string, string> = { 'content-type': 'application/json', 'X-Portta-Actor': actor }
+  const user = env['PORTTA_WEB_AUTH_USER']
+  const password = env['PORTTA_PANEL_PASSWORD']
+  if (user && password) {
+    headers['authorization'] = `Basic ${Buffer.from(`${user}:${password}`).toString('base64')}`
+  }
+  return headers
+}
+
+/**
+ * How a panel answer becomes a sentence.
+ *
+ * A caller needs to tell "you asked for something impossible" from "try again
+ * later", so the status codes are carried through as words rather than
+ * flattened into one failure. 503 is temporary by construction: it is what a
+ * GitHub outage, a stopped database or an exhausted rate limit looks like.
+ */
+export function describeFailure(status: number, body: string): string {
+  const detail = extractMessage(body)
+  if (status === 400) return `refused: ${detail}`
+  if (status === 401 || status === 403) return `not permitted: ${detail}`
+  if (status === 404) return `not found: ${detail}`
+  if (status === 503) return `temporarily unavailable, and worth retrying: ${detail}`
+  return `the panel answered ${status}: ${detail}`
+}
+
+function extractMessage(body: string): string {
+  const trimmed = body.trim()
+  if (trimmed === '') return '(no detail)'
+  try {
+    const parsed = JSON.parse(trimmed) as { error?: unknown; message?: unknown; hint?: unknown }
+    const message = typeof parsed.error === 'string' ? parsed.error : typeof parsed.message === 'string' ? parsed.message : null
+    if (message) return typeof parsed.hint === 'string' ? `${message} (${parsed.hint})` : message
+  } catch {
+    // not JSON: the body is the message
+  }
+  return trimmed
+}
+
+export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
+
+export interface PanelAnswer {
+  ok: boolean
+  status: number
+  text: string
+}
+
+export class PanelClient {
+  readonly url: string
+  private readonly headers: Record<string, string>
+  private readonly timeoutMs: number
+
+  constructor(url: string, headers: Record<string, string>, timeoutMs = 15_000) {
+    this.url = url
+    this.headers = headers
+    this.timeoutMs = timeoutMs
+  }
+
+  /** One request, answered as it came. Only a transport failure throws. */
+  async answer(method: HttpMethod, path: string, body?: unknown): Promise<PanelAnswer> {
+    let response: Response
+    try {
+      response = await fetch(`${this.url}/api${path}`, {
+        method,
+        headers: this.headers,
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      })
+    } catch (error) {
+      throw new PreconditionError(
+        `the panel at ${this.url} did not answer: ${error instanceof Error ? error.message : String(error)}`,
+        'start it with `portta web up`, or point --url at the panel',
+      )
+    }
+    return { ok: response.ok, status: response.status, text: await response.text() }
+  }
+
+  /** One request that must succeed; a refusal becomes a CLI error with the panel's words. */
+  async request<T = unknown>(method: HttpMethod, path: string, body?: unknown): Promise<T> {
+    const answer = await this.answer(method, path, body)
+    if (!answer.ok) {
+      const message = describeFailure(answer.status, answer.text)
+      if (answer.status === 401 || answer.status === 403) throw new RefusedError(message)
+      if (answer.status === 503) throw new PreconditionError(message)
+      throw new CliError(message, answer.status === 404 || answer.status === 400 ? EXIT.usage : EXIT.failure)
+    }
+    if (answer.text.trim() === '') return undefined as T
+    return JSON.parse(answer.text) as T
+  }
+}
+
+export interface PanelOptions {
+  url?: string
+  allowRemote?: boolean
+  actor?: string
+}
+
+/** The client a command uses, from the gateway context it already has. */
+export function panelClient(context: GatewayContext, options: PanelOptions = {}): PanelClient {
+  const url = resolvePanelUrl(context.env, options, context.env['PORTTA_WEB_PORT'] ?? '8081')
+  const actor = options.actor ?? context.env['PORTTA_ACTOR'] ?? context.env['PORTTA_MCP_ACTOR'] ?? process.env['USER'] ?? 'operator'
+  return new PanelClient(url, panelHeaders(context.env, actor))
+}
+
+/** `owner/repo#number` and a slug both have to survive a path segment. */
+export function segment(value: string): string {
+  return encodeURIComponent(value)
+}

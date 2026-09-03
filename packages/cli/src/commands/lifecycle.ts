@@ -13,7 +13,7 @@ import { confirm } from '../confirm.js'
 import { runDoctor } from '../doctor.js'
 import { ensureApplier, removeApplier } from './apply.js'
 import { ensureRunner, removeRunner } from './runner.js'
-import { refreshGitMetadata } from './git.js'
+import { refreshRepositories } from './repos.js'
 import { ensureMetricsCollector, stopMetricsCollector } from './host.js'
 import { webUp } from './web.js'
 
@@ -201,7 +201,7 @@ export async function upCommand(profile: string | undefined, options: { attach?:
   ].filter(Boolean))
 
   const output = new Output(globals(command))
-  await refreshGitMetadata(context.config.profile, output)
+  await refreshRepositories(context.config.profile, output)
   await ensureMetricsCollector(context.config.profile, output)
 
   // The optional applier, so the panel can recreate these containers itself.
