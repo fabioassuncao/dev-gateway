@@ -77,7 +77,9 @@ executable plus an argument array with shell expansion disabled.
 | `setup` | `--dir`, `--repo`, `--branch`, `--profile`, `--dry-run`, `--skip-pull` |
 | `bootstrap` | `--skip-pull` |
 | `up [profile]` | `--attach` |
+| `dev [profile]` | `--reset`, `--examples`. Checkout setup from local Dockerfiles; never the published images. `--reset` wipes the panel database first. |
 | `down`, `restart`, `status`, `doctor`, `inspect`, `update`, `version` | Global flags only |
+| `reset` | `--examples`. Alias for `dev --reset`. Development project volumes stay. |
 | `logs [service]` | `--no-follow`, `--tail <lines>` |
 | `urls` | `--project <name>` |
 

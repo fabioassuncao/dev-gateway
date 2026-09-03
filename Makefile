@@ -13,7 +13,7 @@ LOCAL_IMAGES := PORTTA_AUTH_IMAGE=fabioassuncao/portta:local \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help dev bootstrap up down restart status doctor urls logs inspect update \
+.PHONY: help dev bootstrap up down reset restart status doctor urls logs inspect update \
         web web-dev web-down db-migrate test test-all test-e2e lint \
         demo-up demo-up-all demo-down demo-down-all examples
 
@@ -27,8 +27,8 @@ help: ## Show this help
 # panel. It is deliberately the only target that chains others: everything
 # else stays a single call to the CLI. Pending panel SQL is applied after
 # the panel is up; `db-migrate` does the same without a restart.
-dev: ## Start the gateway and the panel; apply pending migrations
-	@$(GW) dev $(PROFILE)
+dev: ## Start the gateway and the panel; RESET=1 wipes the panel database first
+	@$(GW) $(if $(YES),--yes,) dev $(PROFILE) $(if $(RESET),--reset,) $(if $(EXAMPLES),--examples,)
 
 bootstrap: ## Prepare this checkout (no published Portta image pull)
 	@$(GW) bootstrap --skip-pull
@@ -38,6 +38,9 @@ up: ## Start the gateway from local Dockerfiles (PROFILE=local by default)
 
 down: ## Stop the gateway; consumer projects keep running
 	@$(GW) down
+
+reset: ## Wipe the panel database and start like a fresh clone (same as RESET=1)
+	@$(GW) $(if $(YES),--yes,) reset $(if $(EXAMPLES),--examples,)
 
 restart: ## Restart gateway components
 	@$(GW) restart

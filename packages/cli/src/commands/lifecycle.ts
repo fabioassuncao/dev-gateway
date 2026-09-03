@@ -1,10 +1,10 @@
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
 import { AUTH_BUILD_FILE, LOCAL_PORTA_IMAGE, dashboardExposeRefusal, parseAliases, projectsFor, readEnvFile, routesFor, setEnvValue, writeEnvFile, type StoredAlias } from 'portta-core'
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
-import { ensureNetwork, inspectContainers, networkExists, requireDocker } from '../docker.js'
+import { ensureNetwork, identifier, inspectContainers, networkExists, requireDocker } from '../docker.js'
 import { CliError, EXIT, RefusedError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
@@ -16,6 +16,7 @@ import { ensureRunner, removeRunner } from './runner.js'
 import { refreshRepositories } from './repos.js'
 import { ensureMetricsCollector, stopMetricsCollector } from './host.js'
 import { webUp } from './web.js'
+import { examplesApply } from './examples.js'
 
 export function checkoutLocalEnv(): Record<string, string> {
   return {
@@ -222,9 +223,16 @@ export async function upCommand(profile: string | undefined, options: { attach?:
 /**
  * Complete checkout development setup: local Dockerfiles only, never the
  * published GHCR images. Make calls this; an installed PORTTA_HOME keeps `up`.
+ * `--reset` wipes the panel database first; `--examples` imports docker/examples
+ * after the panel is up. `portta reset` is this command with `--reset`.
  */
-export async function devCommand(profile: string | undefined, command: Command): Promise<void> {
+export async function devCommand(
+  profile: string | undefined,
+  options: { reset?: boolean; examples?: boolean },
+  command: Command,
+): Promise<void> {
   if (profile) command.setOptionValueWithSource('profile', profile, 'cli')
+  if (options.reset) await wipePanelDatabase(command)
   const existing = gatewayContext({ profile: profile ?? globals(command).profile, required: false })
   if (!existsSync(join(existing.root, '.env'))) {
     command.setOptionValueWithSource('yes', true, 'cli')
@@ -234,6 +242,7 @@ export async function devCommand(profile: string | undefined, command: Command):
   await upCommand(profile, { attach: false }, command)
   await webUp({ dev: true }, command)
   await urlsCommand({}, command)
+  if (options.examples) await examplesApply({}, command)
 }
 
 export async function downCommand(command: Command): Promise<void> {
@@ -245,6 +254,50 @@ export async function downCommand(command: Command): Promise<void> {
   await removeRunner()
   stopMetricsCollector(globals(command).profile, new Output(globals(command)))
 }
+
+export function panelDatabaseVolume(env: NodeJS.ProcessEnv): string {
+  return env['PORTTA_DB_VOLUME'] || 'portta-db'
+}
+
+/** Snapshots the collector and `repos scan` rewrite. Never `state/` itself. */
+export const REGENERABLE_STATE_DIRS = ['state/git', 'state/metrics'] as const
+
+export function clearRegenerableState(root: string): string[] {
+  const cleared: string[] = []
+  for (const relative of REGENERABLE_STATE_DIRS) {
+    const directory = join(root, relative)
+    if (!existsSync(directory)) continue
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      rmSync(join(directory, entry.name), { recursive: true, force: true })
+    }
+    cleared.push(relative)
+  }
+  return cleared
+}
+
+/**
+ * Recreate a checkout as if it were new: the panel database is gone, then
+ * `dev` runs again. Project containers and their volumes stay where they are.
+ */
+export async function wipePanelDatabase(command: Command): Promise<void> {
+  await confirm('wipe the panel database and restart this checkout as if it were new?', globals(command).yes === true)
+  await requireDocker()
+  const context = gatewayContext({ profile: globals(command).profile })
+  const output = new Output(globals(command))
+  await downCommand(command)
+  const volume = identifier(panelDatabaseVolume(context.env), 'volume')
+  const removed = await runProcess('docker', ['volume', 'rm', volume], { reject: false })
+  if (removed.exitCode === 0) output.progress(`removed volume ${volume}`)
+  else output.progress(`volume ${volume} was already absent`)
+  const cleared = clearRegenerableState(context.root)
+  if (cleared.length > 0) output.progress(`cleared ${cleared.join(', ')}`)
+}
+
+/** Alias for `dev --reset`. Kept so `make reset` stays a one-line call. */
+export async function resetCommand(options: { examples?: boolean }, command: Command): Promise<void> {
+  await devCommand(undefined, { reset: true, examples: options.examples }, command)
+}
+
 export async function restartCommand(command: Command): Promise<void> { await compose(command, ['up', '-d', '--force-recreate']) }
 export async function logsCommand(service: string | undefined, options: { follow?: boolean; tail?: string }, command: Command): Promise<void> {
   const global = globals(command)

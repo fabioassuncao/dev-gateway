@@ -71,6 +71,31 @@ portta doctor     # when something does not behave
 Starting and stopping applications is not the gateway's job. Do that from the
 project's own directory, as you always have.
 
+## Resetting a checkout
+
+`portta dev --reset` wipes the panel database and starts again the same way
+`make dev` does. `portta reset` is that command. Make cannot take `--reset`
+as a flag; it uses variables:
+
+```bash
+make dev RESET=1          # asks for confirmation on a TTY
+make dev RESET=1 YES=1    # same, non-interactive (`--yes`)
+make reset                # alias for the above
+make reset EXAMPLES=1     # then import docker/examples
+```
+
+**Gone.** The named volume `${PORTTA_DB_VOLUME:-portta-db}` — Projects, tasks,
+tokens, activity, the GitHub projection — and the snapshots `repos scan` and
+the host collector rewrite under `state/git/` and `state/metrics/`.
+
+**Kept.** `.env`, GitHub App keys under `state/github/`, `state/auth/`, ACME
+and Tailscale material, and every development project's containers, networks
+and volumes. This is a fresh panel on a developer checkout, not an empty
+machine.
+
+Demo shops under `docker/examples` are out of the default. For that full
+cycle: `make demo-down && make reset && make demo-up && make examples`.
+
 ## Running several environments
 
 `COMPOSE_PROJECT_NAME` is the namespace:

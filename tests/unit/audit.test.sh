@@ -32,7 +32,8 @@ code() {
 describe "the gateway stays decoupled from consumer projects"
 
 it "no absolute home paths are baked in"
-assert_eq "" "$(tracked | xargs grep -ln '/Users/\|/home/[a-z]' 2>/dev/null || true)"
+# Tests may name example home paths; production code may not.
+assert_eq "" "$(tracked | grep -vE '\.test\.(ts|js|mjs|sh)$' | xargs grep -ln '/Users/\|/home/[a-z]' 2>/dev/null || true)"
 
 it "no consumer project is named in the code"
 # Names may appear in prose as examples; code must be vendor-neutral.
@@ -50,13 +51,14 @@ it "no consumer directory is mounted into the gateway"
 #   ./.env, ./VERSION          the configuration the panel's Settings page edits
 #   ./apps/web/                the panel's own source, in development mode
 #   ./packages/core/           the workspace the panel imports, in development mode
+#   ./docs, ./README.md, ./CHANGELOG.md   documentation the panel serves in development
 #   /var/run/docker.sock       read-only, into a socket proxy and nothing else
 #   /dev/net/tun               Tailscale's kernel networking
 # Anything else would be reaching into somebody's project.
 # A bind mount is `src:dst`; a tmpfs entry has no colon, so require one.
 assert_eq "" "$(grep -hE '^\s+- [./][^ ]*:' docker/compose/compose.yaml docker/compose/*/*.yaml \
   | grep -vE '\./(config|state|apps|packages)/' \
-  | grep -vE '\./(\.env|VERSION):' \
+  | grep -vE '\./(\.env|VERSION|README\.md|CHANGELOG\.md|docs):' \
   | grep -vE '/var/run/docker\.sock:/var/run/docker\.sock:ro' \
   | grep -vE '/dev/net/tun:/dev/net/tun' || true)"
 
@@ -151,6 +153,10 @@ assert_eq "" "$(tracked 'bin/*' 'scripts/**' 'tests/**' '.github/**' | xargs gre
 
 it "nothing removes a volume"
 assert_eq "" "$(tracked 'bin/*' 'scripts/**' | xargs grep -n 'docker volume rm' 2>/dev/null || true)"
+
+it "only reset removes the panel database volume"
+assert_eq "packages/cli/src/commands/lifecycle.ts" \
+  "$(code | xargs grep -ln "volume', 'rm'" 2>/dev/null | sort | tr '\n' ' ' | sed 's/ $//')"
 
 it "nothing removes a network"
 assert_eq "" "$(tracked 'bin/*' 'scripts/**' | xargs grep -n 'docker network rm' 2>/dev/null || true)"
@@ -309,10 +315,36 @@ it "Make never pulls a published Portta image"
 assert_eq "" "$(grep -E 'ghcr.io/fabioassuncao' Makefile || true)"
 
 it "make dev calls the checkout setup command"
-assert_contains "$(sed -n '/^dev:/,/^[^[:space:]#][^:]*:/p' Makefile)" '$(GW) dev'
+assert_contains "$(sed -n '/^dev:/,/^[^[:space:]#][^:]*:/p' Makefile)" '$(GW) $(if $(YES),--yes,) dev'
+
+it "make reset calls the checkout reset command"
+assert_contains "$(sed -n '/^reset:/,/^[^[:space:]#][^:]*:/p' Makefile)" '$(GW) $(if $(YES),--yes,) reset'
+
+it "make reset EXAMPLES=1 forwards --examples"
+assert_contains "$(sed -n '/^reset:/,/^[^[:space:]#][^:]*:/p' Makefile)" '--examples'
+
+it "make dev RESET=1 forwards --reset"
+assert_contains "$(sed -n '/^dev:/,/^[^[:space:]#][^:]*:/p' Makefile)" '--reset'
+
+it "make YES=1 forwards --yes"
+assert_contains "$(sed -n '/^dev:/,/^[^[:space:]#][^:]*:/p' Makefile)" '--yes'
+
+it "reset is the checkout setup with --reset"
+assert_contains "$(sed -n '/export async function resetCommand/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)" 'reset: true'
+
+it "dev --reset wipes the panel volume before the checkout setup"
+dev_body="$(sed -n '/export async function devCommand/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)"
+assert_contains "$dev_body" 'options.reset'
+assert_contains "$dev_body" 'wipePanelDatabase'
+
+it "the wipe goes down, removes the panel volume, then returns"
+wipe_body="$(sed -n '/export async function wipePanelDatabase/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)"
+assert_contains "$wipe_body" 'await downCommand(command)'
+assert_contains "$wipe_body" "['volume', 'rm', volume]"
+assert_contains "$wipe_body" 'clearRegenerableState'
 
 it "the checkout setup command keeps Commander’s (arg, options, command) arity"
-assert_contains "$(cat packages/cli/src/cli.ts)" 'devCommand(profile, command)'
+assert_contains "$(cat packages/cli/src/cli.ts)" 'devCommand(profile, options, command)'
 
 it "the checkout setup never pulls the published image"
 assert_contains "$(sed -n '/export async function devCommand/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)" 'skipPull: true'

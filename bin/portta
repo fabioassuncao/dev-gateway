@@ -91,6 +91,7 @@ CORE
   up [profile]           Start the gateway (profile: local | remote-private | remote-public)
   dev [profile]          Checkout setup: build Portta images locally, start the panel
   down                   Stop the gateway. Consumer projects keep running
+  reset                  Wipe the panel database and restart this checkout as if it were new
   restart                Restart gateway components
   status                 Compact overview of the running gateway
   logs [service]         Follow gateway logs
@@ -676,7 +677,7 @@ main() {
     # one stops being: a spelling only this list knows is a command that does
     # not exist on any host with Node, which is every host the installer
     # touched. `analyse` and `adapt` were exactly that.
-    tls|tunnel|remote|backup|restore|repair|network|public|dns|analyze|init|namespace|ns|access|services|git|repos|host|share|auth|web|db|redis|service|setup|config|dev|tasks|sessions|activity|projects|envs|env|overview|examples)
+    tls|tunnel|remote|backup|restore|repair|network|public|dns|analyze|init|namespace|ns|access|services|git|repos|host|share|auth|web|db|redis|service|setup|config|dev|reset|tasks|sessions|activity|projects|envs|env|overview|examples)
       err "'$cmd' requires Node 22.12 or newer and the full CLI"
       hint "npm install -g portta   (or run it inside a built checkout)"
       exit 3

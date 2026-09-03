@@ -12,6 +12,7 @@ and points to the detailed guides.
 | `portta bootstrap` | Check the runtime, create gateway state and the shared network, then run diagnostics. |
 | `portta up [profile]` | Start `local`, `remote-private` or `remote-public`. |
 | `portta down` | Stop gateway components; consumer projects keep running. |
+| `portta reset` | Alias for `portta dev --reset`. `--examples` imports `docker/examples` afterwards. Development project volumes stay. Confirmation uses `--yes`, not `--force`. |
 | `portta restart` | Recreate gateway components without restarting applications. |
 | `portta status` | Print a compact runtime overview. |
 | `portta logs [service]` | Follow gateway component logs. |

@@ -68,7 +68,9 @@ publishes no host port and never joins the shared `portta` HTTP network.
 `portta web up` generates the database password in the git-ignored `.env`
 when needed. The panel API reports only whether that setting exists and never
 returns its value. `portta web down`, `portta down` and subsequent
-`up` operations preserve the named volume.
+`up` operations preserve the named volume. `portta dev --reset` (or
+`portta reset`) is the command that removes it and starts the checkout again;
+development project volumes are not touched.
 
 PostgreSQL is deliberately a soft dependency. If it is unavailable, the panel
 still starts and every Docker-backed page, `/api/health` and the existing API
