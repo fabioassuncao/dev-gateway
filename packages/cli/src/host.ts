@@ -268,7 +268,7 @@ async function nvidiaGpus(): Promise<CollectedHost['gpu']> {
 }
 
 /**
- * What this host looks like right now, as one snapshot for `state/host/host.json`.
+ * What this host looks like right now, as one snapshot the metrics collector folds into `state/metrics/current.json`.
  *
  * Runs on the host. `/proc` and `os.*` here describe the machine, not a
  * container. A missing probe is a missing field, never a thrown error.

@@ -875,7 +875,7 @@ for file in "$WORK_DIR/src/config/traefik/dynamic/"*; do
 done
 good "Traefik dynamic configuration ($added file(s) added, existing ones kept)"
 
-for directory in state/traefik/acme state/tailscale state/access state/auth state/git state/github state/cloudflared state/host state/metrics state/logs state/runner; do
+for directory in state/traefik/acme state/tailscale state/access state/auth state/git state/github state/cloudflared state/metrics state/logs state/runner; do
   mkdir -p "$PORTTA_HOME/$directory"
 done
 # Both hold a credential, and both are bind-mounted. A directory the installer

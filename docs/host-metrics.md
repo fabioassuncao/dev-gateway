@@ -40,9 +40,6 @@ state/metrics/collector.pid    the detached watcher
 state/logs/host-metrics.log    rotated at 256 KiB
 ```
 
-`state/host/host.json` is leftover from the first collector. The panel still
-mounts that directory read-only; nothing live writes it.
-
 The panel container mounts `state/metrics` read-only at
 `/app/state/metrics`. A missing or unreadable file is an empty response,
 never an error.
