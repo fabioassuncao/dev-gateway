@@ -89,6 +89,55 @@ export function rewriteLink(href: string, fromRepoPath: string, known: Set<strin
   return { href: `${GITHUB_BLOB}/${target}${suffix}`, external: true }
 }
 
+const HTML_TAGS = new Set([
+  'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'caption',
+  'a', 'img', 'br', 'sub', 'sup', 'b', 'strong', 'em', 'i',
+])
+const HTML_ATTRS = new Set(['href', 'src', 'alt', 'title', 'width', 'height', 'colspan', 'rowspan'])
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function rewriteHtmlUrl(url: string, fromRepoPath: string, known: Set<string>, kind: 'href' | 'src'): string {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith('//')) return url
+  if (url.startsWith('#')) return url
+  const [rawPath = '', anchor] = url.split('#')
+  const target = relative('.', resolve(dirname(fromRepoPath), rawPath)).replace(/\\/g, '/')
+  const suffix = anchor ? `#${anchor}` : ''
+  if (target.startsWith('docs/images/')) return `./images/${basename(target)}${suffix}`
+  if (kind === 'href') return rewriteLink(url, fromRepoPath, known).href
+  return `${GITHUB_BLOB}/${target}${suffix}`
+}
+
+/**
+ * A raw HTML block from the Markdown: keep a table (and the tags a table
+ * needs), rewrite its images like the rest of the corpus, and escape
+ * anything else. The site renders this with dangerouslySetInnerHTML.
+ */
+export function rewriteHtmlBlock(html: string, fromRepoPath: string, known: Set<string>): string {
+  const tags = [...html.matchAll(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)\/?>/g)]
+  if (tags.length === 0) return escapeHtml(html)
+  for (const match of tags) {
+    const name = match[1]!.toLowerCase()
+    const rawAttrs = match[2] ?? ''
+    if (!HTML_TAGS.has(name)) return escapeHtml(html)
+    const attrs = [...rawAttrs.matchAll(/([^\s=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|(\S+)))?/g)]
+    for (const attr of attrs) {
+      const key = attr[1]!.toLowerCase()
+      const value = attr[2] ?? attr[3] ?? attr[4] ?? ''
+      if (key.startsWith('on') || !HTML_ATTRS.has(key)) return escapeHtml(html)
+      if (/^\s*(javascript|data):/i.test(value)) return escapeHtml(html)
+    }
+  }
+
+  return html.replace(/\s(href|src)=("([^"]*)"|'([^']*)')/gi, (_all, attr: string, _quoted: string, double?: string, single?: string) => {
+    const value = double ?? single ?? ''
+    const rewritten = rewriteHtmlUrl(value, fromRepoPath, known, attr.toLowerCase() === 'href' ? 'href' : 'src')
+    return ` ${attr.toLowerCase()}="${rewritten}"`
+  })
+}
+
 function markdownFiles(root: string): string[] {
   const found: string[] = ['README.md', 'CHANGELOG.md']
   const walk = (directory: string): void => {
@@ -192,7 +241,7 @@ export function collectDocs(root: string): DocsBundle {
   titles.set('overview', 'Portta')
   const known = new Set(titles.keys())
 
-  const md = new MarkdownIt({ html: false, linkify: false, typographer: false })
+  const md = new MarkdownIt({ html: true, linkify: false, typographer: false })
 
   const pages: Record<string, DocPage> = {}
   const broken: string[] = []
@@ -240,9 +289,12 @@ export function collectDocs(root: string): DocsBundle {
           const src = child.attrGet('src') ?? ''
           if (/^[a-z]+:/i.test(src)) continue
           const target = relative('.', resolve(dirname(repoPath), src)).replace(/\\/g, '/')
-          child.attrSet('src', target.startsWith('.github/images/') ? `./images/${basename(target)}` : `${GITHUB_BLOB}/${target}`)
+          child.attrSet('src', target.startsWith('docs/images/') ? `./images/${basename(target)}` : `${GITHUB_BLOB}/${target}`)
           child.attrSet('loading', 'lazy')
         }
+      }
+      if (token.type === 'html_block' || token.type === 'html_inline') {
+        token.content = rewriteHtmlBlock(token.content, repoPath, known)
       }
     }
 

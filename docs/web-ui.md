@@ -13,7 +13,7 @@ It is off by default.
 ./bin/portta web open      # http://127.0.0.1:8081
 ```
 
-![The Overview page: counts for projects, services, routed URLs and containers, the problems the panel detected, the gateway's own configuration, and the available URLs](../.github/images/panel-overview.png)
+![The Overview page: counts for projects, services, routed URLs and containers, the problems the panel detected, the gateway's own configuration, and the available URLs](images/panel-overview.png)
 
 Every screenshot on this page comes from the same host, described in
 `apps/web/e2e/demo-host.mjs` and rendered by the real panel. Regenerate them with
@@ -208,9 +208,10 @@ Offline by construction. Everything comes from the image: no CDN, no font host,
 no telemetry, and no Markdown parser in the panel's production tree — the
 parsing happens at build time and only the rendered HTML ships. A link that
 leaves the documentation set opens the file on GitHub and is marked with an
-arrow. A Mermaid block is shown as labelled source rather than a broken picture:
-rendering one needs a browser at build time, which is a dependency the image
-does not take.
+arrow. A Mermaid fence is ordinary Markdown on GitHub. In the site it becomes
+a diagram: `mermaid` ships in the documentation bundle and renders in the
+browser the image already serves, with no CDN and no Puppeteer at build time.
+A fence that fails to parse stays as the source.
 
 Because the build reads every link, it is also the link checker this repository
 did not have: a link that names a documentation page which does not exist fails
@@ -470,7 +471,7 @@ the containers it can and prints the exact `compose down` / `rm -rf` that
 finish the rest. Directory removal is opt-in on the data-removing mode, and
 only when the runner is present.
 
-![The Projects page: checkout with an unhealthy worker, storefront with four healthy services, and a second worktree of storefront running beside it, each with its own URLs](../.github/images/panel-projects.png)
+![The Projects page: checkout with an unhealthy worker, storefront with four healthy services, and a second worktree of storefront running beside it, each with its own URLs](images/panel-projects.png)
 
 #### One project, one page
 
@@ -741,7 +742,7 @@ Addresses come from the same Docker labels Traefik routes on, so what the panel
 prints is what Traefik serves. An explicit ``Host(`...`)`` label wins over the
 derived hostname, exactly as it does inside Traefik.
 
-![The Services page: every service of every integrated project in one filterable table, with its type, health, container port and the address it answers on](../.github/images/panel-services.png)
+![The Services page: every service of every integrated project in one filterable table, with its type, health, container port and the address it answers on](images/panel-services.png)
 
 ### Docker
 
@@ -759,14 +760,14 @@ diagnosis, not because the gateway has any opinion about it: no URLs, no DNS,
 no bridges, no gateway actions. Just what it is, what it holds, and the few
 operations below.
 
-![The top of the Docker page: counts by section, and Portta section listing the gateway's own containers](../.github/images/panel-docker.png)
+![The top of the Docker page: counts by section, and Portta section listing the gateway's own containers](images/panel-docker.png)
 
 Below the sections, a host summary: engine and resources, container counts by
 section, networks, and every published port with the container holding it.
 Ports claimed by two containers are flagged, which is usually the answer to
 "why will this not start".
 
-![Further down the Docker page: External Docker, Standalone containers, and the published ports table flagging 5432 as claimed by two containers at once](../.github/images/panel-docker-external.png)
+![Further down the Docker page: External Docker, Standalone containers, and the published ports table flagging 5432 as claimed by two containers at once](images/panel-docker-external.png)
 
 Filters: All / Portta / Integrated / External / Standalone, crossed with
 Any state / Running / Stopped / Unhealthy, plus a search over container name,
@@ -778,7 +779,7 @@ Domains (local, VPN, public), TLS mode and ACME contact, Tailscale state, the
 DNS provider, every routed hostname with its target port, and the Docker
 networks with their role: shared, control, access, or a project's own.
 
-![The Network page: domains and TLS, the VPN and DNS settings, every routed hostname, and the Docker networks with their roles](../.github/images/panel-network.png)
+![The Network page: domains and TLS, the VPN and DNS settings, every routed hostname, and the Docker networks with their roles](images/panel-network.png)
 
 ### Access
 
@@ -809,7 +810,7 @@ The **Gateway address** column is the other way in, when
 protocol cannot do it the column says so rather than leaving a blank, and where
 a project has not opted in it says that too.
 
-![The Access page: an open bridge to storefront/postgres on 127.0.0.1:55431 with its connection string, and the other TCP services each with an Open local access button](../.github/images/panel-access.png)
+![The Access page: an open bridge to storefront/postgres on 127.0.0.1:55431 with its connection string, and the other TCP services each with an Open local access button](images/panel-access.png)
 
 This page also lists persistent forwarders created with
 [`portta service publish --private`](tailscale-services.md).
@@ -827,7 +828,7 @@ refuse to start. `doctor` runs on the host and additionally sees `PATH`,
 listening sockets, DNS resolution and certificate files, which this process
 cannot see truthfully. The panel says so and points at the command.
 
-![The Gateway page: component states, versions and profile, the diagnostics it just ran, and Traefik's recent log lines](../.github/images/panel-gateway.png)
+![The Gateway page: component states, versions and profile, the diagnostics it just ran, and Traefik's recent log lines](images/panel-gateway.png)
 
 ### Settings
 
@@ -846,14 +847,14 @@ and an Open action that is enabled only when an endpoint is usable. Changing
 is how that happens. `PORTTA_DASHBOARD_EXPOSE=domain` puts the dashboard on
 the derived hostname behind the same login as the panel.
 
-![The Gateway settings group: a stable group navigation beside each field, the key it writes and what it means](../.github/images/panel-settings.png)
+![The Gateway settings group: a stable group navigation beside each field, the key it writes and what it means](images/panel-settings.png)
 
 ### Light and dark
 
 The panel follows the system theme and remembers an explicit choice. The same
 Overview, in the dark theme:
 
-![The Overview page in the dark theme](../.github/images/panel-overview-dark.png)
+![The Overview page in the dark theme](images/panel-overview-dark.png)
 
 ---
 

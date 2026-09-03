@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { makeApp } from './helpers.ts'
-import { collectDocs, headingId, isMissingDocPage, rewriteLink, sectionsFrom, slugFor } from '../../src/docs/collect.ts'
+import { collectDocs, headingId, isMissingDocPage, rewriteHtmlBlock, rewriteLink, sectionsFrom, slugFor } from '../../src/docs/collect.ts'
 
 const REPOSITORY_ROOT = new URL('../../../../', import.meta.url).pathname
 
@@ -160,8 +160,16 @@ describe('the real corpus', () => {
     expect(bundle.pages['web-ui']?.html).not.toContain('.github/images')
   })
 
-  // markdown-it runs with `html: false`, so a raw tag in a Markdown file is
-  // escaped rather than passed through to dangerouslySetInnerHTML.
+  it('renders the overview screenshot table, with the bundled image paths', () => {
+    const html = bundle.pages['overview']?.html ?? ''
+    expect(html).toContain('<table>')
+    expect(html).toContain('./images/panel-overview.png')
+    expect(html).not.toContain('.github/images')
+    expect(html).not.toContain('&lt;table')
+  })
+
+  // A script or an event handler is escaped at collect time, so a raw tag in
+  // a Markdown file never reaches dangerouslySetInnerHTML.
   it('never emits a script tag', () => {
     for (const page of Object.values(bundle.pages)) {
       expect(page.html.toLowerCase(), page.slug).not.toContain('<script')
@@ -176,6 +184,27 @@ describe('the real corpus', () => {
     const html = Object.values(bundle.pages).map((page) => page.html).join('')
     const remote = [...html.matchAll(/<img[^>]+src="(https?:\/\/[^"]+)"/g)].map((match) => match[1])
     expect(remote).toEqual([])
+  })
+})
+
+describe('raw HTML in a page', () => {
+  const known = new Set(['install'])
+
+  it('keeps a table and rewrites a screenshot path', () => {
+    const html = rewriteHtmlBlock(
+      '<table><tr><td><img src="docs/images/x.png" alt="x"></td></tr></table>',
+      'README.md',
+      known,
+    )
+    expect(html).toContain('<table>')
+    expect(html).toContain('src="./images/x.png"')
+    expect(html).not.toContain('.github/images')
+  })
+
+  it('escapes a script and a table with an event handler', () => {
+    expect(rewriteHtmlBlock('<script>alert(1)</script>', 'README.md', known)).toContain('&lt;script')
+    expect(rewriteHtmlBlock('<table onerror="alert(1)"><tr><td>x</td></tr></table>', 'README.md', known))
+      .toContain('&lt;table')
   })
 })
 

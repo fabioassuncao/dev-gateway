@@ -80,6 +80,23 @@ While the version is `0.x`, minor releases may contain breaking changes.
   absent from the Settings catalogue. A project without a Compose working
   directory label is reported as not operable, with a reason.
 
+### Changed
+
+- **The documentation site is three columns.** The table of contents sits on
+  the right edge, matching the sidebar on the left, so the article uses the
+  space between. The page shows its section and title above the Markdown,
+  the search sits in the middle of the header, and the heading in view is
+  marked in the contents list.
+
+- **Mermaid diagrams render in the documentation site.** The library ships in
+  the docs bundle and draws the fence in the browser, in both themes. A
+  diagram that fails to parse stays as the source. GitHub still shows the
+  fence.
+
+- **Documentation tables have a thin border.** Data tables and the overview
+  screenshot grid share the same light outline and internal dividers, with
+  rounded corners.
+
 ### Fixed
 
 - **The documentation site opened the panel Overview in development.** Vite on
@@ -87,6 +104,12 @@ While the version is `0.x`, minor releases may contain breaking changes.
   second Vite now serves the docs app and the UI proxies `/docs` to it.
   Citations to `docs/*.md` and `/docs` in Settings, diagnostics and empty
   states are deep links to that page.
+
+- **The overview screenshots were shown as raw HTML.** The README table is
+  the one HTML block in the corpus; the collector now keeps a table (and the
+  tags it needs) and still escapes a script or an event handler. The image
+  paths are rewritten to the copies the image carries, as they already were
+  for Markdown images.
 
 ## [0.7.2] — 2026-09-02
 
