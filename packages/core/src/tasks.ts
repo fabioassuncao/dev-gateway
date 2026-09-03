@@ -227,3 +227,66 @@ export function taskIdFromNamespace(namespace: string | null): string | null {
   const match = /[-_]task(\d{1,18})$/i.exec(namespace)
   return match ? match[1]! : null
 }
+
+/**
+ * What a sync should do with one bound task when the projection of its issue
+ * changes. Pure, so the rule can be read here and tested without a database.
+ *
+ *   - no local edit since the last sync → the remote wins, quietly;
+ *   - a pending local edit and a remote that did not move → the local edit is
+ *     what still needs pushing, nothing to apply;
+ *   - a pending local edit and a remote that moved past it → conflict: keep
+ *     the local row, expose both, let a person decide.
+ */
+export type BindingVerdict = 'apply-remote' | 'keep-local' | 'conflict'
+
+export function reconcileBinding(link: {
+  syncState: TaskSyncState
+  localUpdatedAt: number
+  remoteUpdatedAt: number | null
+}, remote: { updatedAt: number }): BindingVerdict {
+  const remoteMoved = link.remoteUpdatedAt === null || remote.updatedAt > link.remoteUpdatedAt
+  const localPending = link.syncState === 'pending' || link.syncState === 'conflict' || link.syncState === 'error'
+  if (!localPending) return 'apply-remote'
+  if (!remoteMoved) return 'keep-local'
+  return 'conflict'
+}
+
+/** The fields a projected issue contributes to a task. One place, so the migration backfill and the sync agree. */
+export interface IssueLikeForTask {
+  title: string
+  body: string | null
+  state: 'open' | 'closed'
+  workflowStatus: string | null
+  priority: string | null
+  issueType: string | null
+  labels: readonly string[]
+  assignees: readonly string[]
+  updatedAt: number
+}
+
+export function taskFieldsFromIssue(issue: IssueLikeForTask): {
+  title: string
+  description: string | null
+  status: TaskStatus
+  priority: TaskPriority | null
+  type: string | null
+  labels: string[]
+  assignee: string | null
+  closedAt: number | null
+} {
+  const status = issue.workflowStatus !== null && isTaskStatus(issue.workflowStatus)
+    ? issue.workflowStatus
+    : issue.state === 'closed' ? 'done' : 'backlog'
+  return {
+    title: issue.title,
+    description: issue.body,
+    status: issue.state === 'closed' && status !== 'done' ? 'done' : status,
+    priority: issue.priority !== null && isTaskPriority(issue.priority) ? issue.priority : null,
+    type: issue.issueType,
+    // The convention's own labels are the status and the priority, already read.
+    labels: issue.labels.filter((label) => !/^(status|priority):/i.test(label)),
+    assignee: issue.assignees[0] ?? null,
+    closedAt: issue.state === 'closed' ? issue.updatedAt : null,
+  }
+}
