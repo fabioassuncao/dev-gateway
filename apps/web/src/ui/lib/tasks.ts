@@ -1,16 +1,19 @@
 // The rules of the task views: nesting, addressing, and filters in the hash.
 
 import type { TaskSummary } from '../../shared/task-types.ts'
+import { taskTypeOf } from './task-presentation.ts'
 
-export const TASK_VIEWS = ['board', 'list'] as const
+export const TASK_VIEWS = ['board', 'table'] as const
 export type TaskView = (typeof TASK_VIEWS)[number]
 
-export const TASK_FILTERS = ['status', 'assignee', 'repository', 'q'] as const
+export const TASK_FILTERS = ['status', 'assignee', 'repository', 'priority', 'type', 'label', 'q'] as const
 export type TaskFilterKey = (typeof TASK_FILTERS)[number]
 export type TaskFilterValues = Partial<Record<TaskFilterKey, string>>
 
 export function resolveTaskView(requested: string | null | undefined): TaskView {
-  return requested === 'list' ? 'list' : 'board'
+  // "list" is what the simplified list called itself before it became a table;
+  // links and bookmarks with it still land somewhere sensible.
+  return requested === 'table' || requested === 'list' ? 'table' : 'board'
 }
 
 export function taskHref(slug: string, id: string): string {
@@ -43,7 +46,7 @@ export function taskFiltersFrom(params: URLSearchParams | Record<string, string>
 export function boardToTasksHref(slug: string, legacyView: string | null, query: string): string {
   const params = new URLSearchParams(query.replace(/^\?/, ''))
   const filters = taskFiltersFrom(params)
-  return tasksHref(slug, legacyView === 'backlog' ? 'list' : 'board', filters)
+  return tasksHref(slug, legacyView === 'backlog' ? 'table' : 'board', filters)
 }
 
 export interface NestedTask {
@@ -81,12 +84,28 @@ export function matchesFilters(task: TaskSummary, filters: TaskFilterValues): bo
   if (filters.status && !filters.status.split(',').includes(task.status)) return false
   if (filters.assignee && task.assignee !== filters.assignee && task.agent !== filters.assignee) return false
   if (filters.repository && task.repository?.id !== filters.repository) return false
+  if (filters.priority && task.priority !== filters.priority) return false
+  // Type is free text, so a filter matches the value or the vocabulary entry it
+  // belongs to: picking "improvement" also finds the tasks typed "refactor".
+  if (filters.type && task.type !== filters.type && taskTypeOf(task.type) !== filters.type) return false
+  if (filters.label && !task.labels.includes(filters.label)) return false
   if (filters.q) {
     const needle = filters.q.toLowerCase()
     const haystack = `#${task.id} ${task.title} ${task.labels.join(' ')} ${task.github ? `${task.github.repository}#${task.github.number}` : ''}`.toLowerCase()
     if (!haystack.includes(needle)) return false
   }
   return true
+}
+
+/** Every label in a set of tasks, once, in the order a filter should offer them. */
+export function labelsOf(tasks: readonly TaskSummary[]): string[] {
+  return [...new Set(tasks.flatMap((task) => task.labels))].sort((left, right) => left.localeCompare(right))
+}
+
+/** Every type in a set of tasks, once, whether or not the vocabulary knows it. */
+export function typesOf(tasks: readonly TaskSummary[]): string[] {
+  return [...new Set(tasks.flatMap((task) => (task.type ? [task.type] : [])))]
+    .sort((left, right) => left.localeCompare(right))
 }
 
 /** Who is on it: the agent when one is, else the person. */

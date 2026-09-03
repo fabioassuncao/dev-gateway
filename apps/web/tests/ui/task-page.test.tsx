@@ -170,3 +170,42 @@ describe('one task', () => {
     expect(within(nav).getByText('#99')).toHaveAttribute('aria-current', 'page')
   })
 })
+
+describe('what the task actions promise', () => {
+  it('says the start button will also take the task, and does both', async () => {
+    task.mockResolvedValue(makeTask({ status: 'ready', github: null }))
+    renderWithQuery(<TaskPage slug="meu-produto" id="42" />)
+    const start = await screen.findByRole('button', { name: 'Start and take it' })
+    await userEvent.hover(start)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('puts your name on it as the assignee')
+    await userEvent.click(start)
+    expect(startTask).toHaveBeenCalledWith('42')
+  })
+
+  it('names the issue it will close, rather than saying "Finish"', async () => {
+    task.mockResolvedValue(makeTask({
+      status: 'review',
+      github: { repository: 'acme/api', number: 7, htmlUrl: 'https://github.com/acme/api/issues/7', state: 'open', syncState: 'synced', lastSyncedAt: 1, lastError: null, remoteUpdatedAt: null, metadataSource: 'fields', remote: null },
+    }))
+    renderWithQuery(<TaskPage slug="meu-produto" id="42" />)
+    const done = await screen.findByRole('button', { name: 'Mark done and close the issue' })
+    await userEvent.hover(done)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('acme/api#7')
+  })
+
+  it('keeps changing a status separate from taking the task', async () => {
+    task.mockResolvedValue(makeTask({ status: 'ready', github: null }))
+    renderWithQuery(<TaskPage slug="meu-produto" id="42" />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Change status' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Blocked' }))
+    expect(setTaskStatus).toHaveBeenCalledWith('42', 'blocked')
+    expect(startTask).not.toHaveBeenCalled()
+  })
+
+  it('says how an agent session actually starts, since the panel cannot start one', async () => {
+    task.mockResolvedValue(makeTask({ status: 'ready' }))
+    sessions.mockResolvedValue([])
+    renderWithQuery(<TaskPage slug="meu-produto" id="42" />)
+    expect(await screen.findByText(/portta sessions start --task 42/)).toBeInTheDocument()
+  })
+})

@@ -33,7 +33,8 @@
   },
   "views": {
     "board": "Quadro",
-    "list": "Lista"
+    "list": "Lista",
+    "table": "Tabela"
   },
   "viewLabel": "Visualização",
   "filterPlaceholder": "Filtrar por id, título ou label",
@@ -170,7 +171,29 @@
     "someone": "alguém",
     "activity": "Atividade",
     "noActivity": "Nada aconteceu ainda",
-    "noActivityYet": "Nenhuma atividade ainda."
+    "noActivityYet": "Nenhuma atividade ainda.",
+    "statusLabel": "Status",
+    "changeStatus": "Mudar status",
+    "nextStep": "Próximo passo",
+    "startAndTake": "Iniciar e assumir",
+    "startAndTakeHint": "Move esta tarefa para Em andamento e coloca seu nome como responsável.",
+    "startOnly": "Mover para Em andamento",
+    "sendToReviewHint": "Move esta tarefa para Revisão. Ela continua com quem a assumiu.",
+    "markDone": "Marcar como concluída",
+    "markDoneHint": "Move esta tarefa para Concluída.",
+    "markDoneAndClose": "Concluir e fechar a issue",
+    "markDoneAndCloseHint": "Move esta tarefa para Concluída e fecha {{issue}} no GitHub.",
+    "reopenHint": "Move esta tarefa de volta para Em andamento. Uma issue fechada no GitHub não é reaberta daqui.",
+    "take": "Assumir",
+    "unassign": "Remover responsável",
+    "assignment": "Responsável",
+    "unassigned": "Ninguém assumiu",
+    "execution": "Execução",
+    "executionHint": "O Portta não inicia agentes. Um agente anuncia a própria sessão com portta sessions start --task {{id}}, e ela aparece aqui enquanto roda.",
+    "agentWorking": "{{agent}} está trabalhando nisto",
+    "typeVocabulary": "Tipos comuns",
+    "typeFree": "Ou escreva o seu",
+    "attachments": "Anexos"
   },
   "github": {
     "section": "GitHub",
@@ -197,5 +220,36 @@
     "publish": "Publicar no GitHub",
     "publishNeedsRepository": "Aponte a tarefa para um repositório com remote no GitHub primeiro",
     "publishNeedsTitle": "Dê um título real à tarefa antes de publicar no GitHub"
-  }
+  },
+  "table": {
+    "caption": "Tarefas, seu estado e quem está nelas",
+    "id": "ID",
+    "title": "Título",
+    "project": "Projeto",
+    "status": "Status",
+    "priority": "Prioridade",
+    "type": "Tipo",
+    "labels": "Labels",
+    "repository": "Repositório",
+    "worker": "Responsável",
+    "github": "GitHub",
+    "due": "Prazo",
+    "updated": "Atualizada",
+    "actions": "Ações"
+  },
+  "priorityFilter": "Prioridade",
+  "anyPriority": "Qualquer prioridade",
+  "typeFilter": "Tipo",
+  "anyType": "Qualquer tipo",
+  "labelFilter": "Label",
+  "anyLabel": "Qualquer label",
+  "clearFilters": "Limpar filtros",
+  "filtersActive": "{{count}} filtros",
+  "filtersActive_one": "{{count}} filtro",
+  "filtersActive_other": "{{count}} filtros",
+  "moreFilters": "Mais filtros",
+  "columnEmpty": "Nada em {{label}}",
+  "dropHere": "Solte aqui",
+  "moveFailed": "#{{id}} continuou onde estava",
+  "moveFailedHint": "A mudança foi desfeita porque o servidor a recusou."
 }

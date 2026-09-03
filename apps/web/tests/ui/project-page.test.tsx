@@ -144,8 +144,8 @@ describe('the project cockpit', () => {
     expect(await screen.findByRole('region', { name: 'Blocked column' })).toBeInTheDocument()
     expect(within(screen.getByRole('region', { name: 'Blocked column' })).getByRole('article', { name: '#7 Corrigir fila' })).toBeInTheDocument()
     expect(screen.queryByRole('article', { name: '#42 Implementar refresh token' })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'List' }))
-    await waitFor(() => expect(window.location.hash).toBe('#/projects/meu-produto/tasks?view=list&status=blocked'))
+    await userEvent.click(screen.getByRole('radio', { name: 'Table' }))
+    await waitFor(() => expect(window.location.hash).toBe('#/projects/meu-produto/tasks?view=table&status=blocked'))
   })
 
   it('moves a card optimistically and rolls it back visibly when refused', async () => {

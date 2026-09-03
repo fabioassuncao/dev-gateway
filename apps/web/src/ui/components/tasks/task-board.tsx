@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
+import { dropTargetForElements, monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import type { TaskStatus, TaskSummary } from '../../../shared/task-types.ts'
 import { Badge } from '../ui/badge.tsx'
 import { Empty } from '../shell-bits.tsx'
 import { cn } from '../../lib/utils.ts'
 import { useBoardColumns, type BoardColumn } from '../../i18n/use-task-statuses.ts'
-import { columnFor } from '../../lib/task-presentation.ts'
+import { columnFor, statusIcon, statusTone } from '../../lib/task-presentation.ts'
 import { taskHref } from '../../lib/tasks.ts'
 import { TaskCard } from '../entities/task-card.tsx'
 
@@ -33,6 +33,18 @@ export function planBoardMove(
   return { beforeId: destination[index - 1]?.id ?? null, afterId: destination[index]?.id ?? null }
 }
 
+/**
+ * The board.
+ *
+ * Columns are the statuses the domain actually has — nothing invented here —
+ * and a card moves between them by drag, or from its menu for anyone not using
+ * a pointer. While a drag is in flight every column says so, because a drop
+ * target you cannot see is a drop target you will miss.
+ *
+ * The board scrolls sideways rather than reflowing into a grid: six columns
+ * wrapped into two rows of three is not a board, and a tablet in landscape is
+ * exactly where that used to happen.
+ */
 export function TaskBoard({
   slug,
   tasks,
@@ -52,6 +64,17 @@ export function TaskBoard({
   const defaultColumns = useBoardColumns()
   const columns = columnsProp ?? defaultColumns
   const [announcement, setAnnouncement] = useState('')
+  const [dragging, setDragging] = useState<string | null>(null)
+
+  // One monitor for the whole board rather than one per column: what every
+  // column needs to know is only "is something being dragged right now".
+  useEffect(() => {
+    if (readOnly) return
+    return monitorForElements({
+      onDragStart: ({ source }) => setDragging((source.data['task'] as TaskSummary | undefined)?.status ?? null),
+      onDrop: () => setDragging(null),
+    })
+  }, [readOnly])
 
   const move = useCallback((task: TaskSummary, status: TaskStatus, targetId?: string, edge?: 'before' | 'after'): void => {
     if (readOnly) return
@@ -67,7 +90,7 @@ export function TaskBoard({
       <div aria-live="polite" className="sr-only">
         {announcement}
       </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 scroll-thin md:mx-0 md:px-0">
         {columns.map((column) => (
           <BoardColumnView
             key={column.id}
@@ -78,6 +101,8 @@ export function TaskBoard({
             onMove={move}
             onOpen={onOpen}
             readOnly={readOnly}
+            dragActive={dragging !== null}
+            isSource={dragging === column.status}
           />
         ))}
       </div>
@@ -93,6 +118,8 @@ function BoardColumnView({
   onMove,
   onOpen,
   readOnly,
+  dragActive,
+  isSource,
 }: {
   slug: string
   column: BoardColumn
@@ -101,6 +128,8 @@ function BoardColumnView({
   onMove: (task: TaskSummary, status: TaskStatus, targetId?: string, edge?: 'before' | 'after') => void
   onOpen?: (task: TaskSummary) => void
   readOnly: boolean
+  dragActive: boolean
+  isSource: boolean
 }) {
   const { t } = useTranslation('tasks')
   const region = useRef<HTMLDivElement>(null)
@@ -124,21 +153,35 @@ function BoardColumnView({
   }, [column.id, column.status, onMove, readOnly])
 
   const shown = [...tasks].sort((a, b) => a.position - b.position || a.id.localeCompare(b.id)).slice(0, COLUMN_CAP)
+  const Icon = statusIcon(column.status)
+  const tone = statusTone(column.status)
+  const accent =
+    tone === 'ok' ? 'bg-ok' : tone === 'danger' ? 'bg-danger' : tone === 'info' ? 'bg-info' : tone === 'accent' ? 'bg-accent' : 'bg-line-strong'
 
   return (
     <section
       ref={region}
       aria-label={t('columnLabel', { label: column.label })}
-      className={cn('flex min-h-0 min-w-0 flex-col rounded-lg border border-line bg-surface', over && 'border-accent/60 bg-accent/[0.04]')}
+      className={cn(
+        'flex w-[17rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-surface transition-colors',
+        over ? 'border-accent bg-accent/[0.05]' : 'border-line',
+        // Every valid destination is visible while a card is in the air; the
+        // column it came from is not a destination worth pointing at.
+        dragActive && !over && !isSource && 'border-dashed border-line-strong',
+      )}
     >
-      <header className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
-        <h2 className="text-sm font-semibold text-ink">{column.label}</h2>
-        <Badge tone="outline">{tasks.length}</Badge>
+      <header className="flex items-center gap-2 border-b border-line px-3 py-2">
+        <span className={cn('h-4 w-0.5 shrink-0 rounded-full', accent)} aria-hidden />
+        <Icon className="h-3.5 w-3.5 shrink-0 text-subtle" aria-hidden />
+        <h2 className="min-w-0 truncate text-sm font-semibold text-ink">{column.label}</h2>
+        <Badge tone="outline" className="ml-auto tabular-nums">{tasks.length}</Badge>
       </header>
 
-      <div className="min-h-24 max-h-[min(70vh,40rem)] space-y-2 overflow-y-auto p-2">
+      <div className="max-h-[min(70vh,40rem)] min-h-24 space-y-2 overflow-y-auto p-2 scroll-thin">
         {shown.length === 0 ? (
-          <p className="px-1 py-6 text-center text-xs text-subtle">{t('nothingHere')}</p>
+          <p className={cn('px-1 py-6 text-center text-xs', over ? 'text-accent' : 'text-subtle')}>
+            {over ? t('dropHere') : t('columnEmpty', { label: column.label })}
+          </p>
         ) : (
           shown.map((task) => (
             <TaskCard key={task.id} task={task} columns={columns} href={taskHref(slug, task.id)} onMove={onMove} onOpen={onOpen} readOnly={readOnly} />

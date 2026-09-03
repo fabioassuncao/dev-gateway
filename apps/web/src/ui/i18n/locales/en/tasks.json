@@ -33,7 +33,8 @@
   },
   "views": {
     "board": "Board",
-    "list": "List"
+    "list": "List",
+    "table": "Table"
   },
   "viewLabel": "View",
   "filterPlaceholder": "Filter by id, title or label",
@@ -170,7 +171,29 @@
     "someone": "someone",
     "activity": "Activity",
     "noActivity": "Nothing happened yet",
-    "noActivityYet": "No activity yet."
+    "noActivityYet": "No activity yet.",
+    "statusLabel": "Status",
+    "changeStatus": "Change status",
+    "nextStep": "Next step",
+    "startAndTake": "Start and take it",
+    "startAndTakeHint": "Moves this task to In progress and puts your name on it as the assignee.",
+    "startOnly": "Move to In progress",
+    "sendToReviewHint": "Moves this task to Review. It stays assigned to whoever has it.",
+    "markDone": "Mark done",
+    "markDoneHint": "Moves this task to Done.",
+    "markDoneAndClose": "Mark done and close the issue",
+    "markDoneAndCloseHint": "Moves this task to Done and closes {{issue}} on GitHub.",
+    "reopenHint": "Moves this task back to In progress. A closed GitHub issue is not reopened from here.",
+    "take": "Take it",
+    "unassign": "Unassign",
+    "assignment": "Assignment",
+    "unassigned": "Nobody has this",
+    "execution": "Execution",
+    "executionHint": "Portta does not launch agents. An agent announces its own session with portta sessions start --task {{id}}, and it shows here while it runs.",
+    "agentWorking": "{{agent}} is working on this",
+    "typeVocabulary": "Common types",
+    "typeFree": "Or type your own",
+    "attachments": "Attachments"
   },
   "github": {
     "section": "GitHub",
@@ -197,5 +220,36 @@
     "publish": "Publish on GitHub",
     "publishNeedsRepository": "Point the task at a repository with a GitHub remote first",
     "publishNeedsTitle": "Give the task a real title before publishing it to GitHub"
-  }
+  },
+  "table": {
+    "caption": "Tasks, their state and who is on them",
+    "id": "ID",
+    "title": "Title",
+    "project": "Project",
+    "status": "Status",
+    "priority": "Priority",
+    "type": "Type",
+    "labels": "Labels",
+    "repository": "Repository",
+    "worker": "Assignee",
+    "github": "GitHub",
+    "due": "Due",
+    "updated": "Updated",
+    "actions": "Actions"
+  },
+  "priorityFilter": "Priority",
+  "anyPriority": "Any priority",
+  "typeFilter": "Type",
+  "anyType": "Any type",
+  "labelFilter": "Label",
+  "anyLabel": "Any label",
+  "clearFilters": "Clear filters",
+  "filtersActive": "{{count}} filters",
+  "filtersActive_one": "{{count}} filter",
+  "filtersActive_other": "{{count}} filters",
+  "moreFilters": "More filters",
+  "columnEmpty": "Nothing in {{label}}",
+  "dropHere": "Drop here",
+  "moveFailed": "#{{id}} stayed where it was",
+  "moveFailedHint": "The change was undone because the server refused it."
 }

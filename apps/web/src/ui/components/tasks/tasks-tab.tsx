@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LayoutGrid, List, Plus } from 'lucide-react'
+import { LayoutGrid, Plus, Table2, X } from 'lucide-react'
 import { api, ApiError } from '../../lib/api/index.ts'
 import { keys, useTasks } from '../../lib/queries/index.ts'
 import type { TaskStatus, TaskSummary } from '../../../shared/task-types.ts'
@@ -9,17 +9,26 @@ import { Badge } from '../ui/badge.tsx'
 import { Button } from '../ui/button.tsx'
 import { Card } from '../ui/card.tsx'
 import { Input, Select } from '../ui/field.tsx'
+import { Segmented } from '../ui/segmented.tsx'
+import { useToast } from '../ui/toast.tsx'
 import { Empty, ErrorBox, Loading } from '../shell-bits.tsx'
 import { useOptimisticMutation } from '../../lib/optimistic.ts'
 import { navigate } from '../../lib/router.ts'
-import { matchesFilters, tasksHref, type TaskFilterValues, type TaskView } from '../../lib/tasks.ts'
-import { useTaskStatuses } from '../../i18n/use-task-statuses.ts'
+import {
+  labelsOf,
+  matchesFilters,
+  tasksHref,
+  typesOf,
+  type TaskFilterValues,
+  type TaskView,
+} from '../../lib/tasks.ts'
+import { useBoardColumns, useTaskStatuses } from '../../i18n/use-task-statuses.ts'
 import { BoardEmpty, TaskBoard } from './task-board.tsx'
-import { TaskList } from './task-list.tsx'
+import { TaskTable } from './task-table.tsx'
 import { useKickCreate } from '../../lib/kick-create.ts'
 
 /**
- * The Tasks tab of a project: one board or one list over the same rows, the
+ * The Tasks tab of a project: one board or one table over the same rows, the
  * filters in the hash, and one dialog to create work.
  */
 export function TasksTab({
@@ -34,14 +43,16 @@ export function TasksTab({
   readOnly?: boolean
 }) {
   const { t } = useTranslation('tasks')
-  const { statusOptions } = useTaskStatuses()
+  const { statusOptions, priorityOptions } = useTaskStatuses()
+  const boardColumns = useBoardColumns()
+  const toast = useToast()
   const [failure, setFailure] = useState<unknown>(null)
   const slug = project.slug
   const kickCreate = useKickCreate(slug)
 
-  // The server takes every filter but the board wants every open task, so
-  // the request asks for the whole open set and the narrowing happens here.
-  const serverFilters = view === 'list' ? {} : { open: 'true' }
+  // The board wants every open task; the table is the place to look at what is
+  // already done, so it asks for everything.
+  const serverFilters = view === 'table' ? {} : { open: 'true' }
   const query = useTasks(slug, serverFilters)
   const queryKey = keys.tasks(slug, serverFilters)
 
@@ -59,42 +70,99 @@ export function TasksTab({
       const ranks = new Map(destination.map((entry, rank) => [entry.id, (rank + 1) * 1024]))
       return [...without, { ...task, status }].map((entry) => ranks.has(entry.id) ? { ...entry, status, position: ranks.get(entry.id)! } : entry)
     },
-    onFailure: (error) => setFailure(error),
+    // The card is already back where it started by the time this runs; the
+    // toast is what tells the operator that, rather than the card twitching.
+    onFailure: (error, { task }) => {
+      setFailure(error)
+      toast.push({
+        tone: 'danger',
+        title: t('moveFailed', { id: task.id }),
+        description: error instanceof ApiError
+          ? [error.message, error.hint].filter(Boolean).join(' · ')
+          : t('moveFailedHint'),
+      })
+    },
   })
 
-  const shown = useMemo(() => (query.data ?? []).filter((task) => matchesFilters(task, filters)), [query.data, filters])
+  const all = query.data ?? []
+  const shown = useMemo(() => all.filter((task) => matchesFilters(task, filters)), [all, filters])
+  const labels = useMemo(() => labelsOf(all), [all])
+  const types = useMemo(() => typesOf(all), [all])
+  const activeFilters = Object.values(filters).filter(Boolean).length
+
   const unavailable = query.error instanceof ApiError && query.error.status === 503
   const setFilter = (key: keyof TaskFilterValues, value: string) =>
     navigate(tasksHref(slug, view, { ...filters, [key]: value === '' ? undefined : value }))
   const setView = (next: TaskView) => navigate(tasksHref(slug, next, filters))
 
+  const setStatus = (task: TaskSummary, status: TaskStatus) => {
+    setFailure(null)
+    move.mutate({ task, status, beforeId: null, afterId: null })
+  }
+
+  const controls = (
+    <>
+      <Input
+        value={filters.q ?? ''}
+        onChange={(event) => setFilter('q', event.target.value)}
+        placeholder={t('filterPlaceholder')}
+        className="h-8 w-52"
+        aria-label={t('filterAria')}
+      />
+      <Select value={filters.status ?? ''} onChange={(event) => setFilter('status', event.target.value)} className="h-8 w-36" aria-label={t('statusFilter')}>
+        <option value="">{t('anyStatus')}</option>
+        {statusOptions.map((entry) => (
+          <option key={entry.value} value={entry.value}>{entry.label}</option>
+        ))}
+      </Select>
+      <Select value={filters.priority ?? ''} onChange={(event) => setFilter('priority', event.target.value)} className="h-8 w-32" aria-label={t('priorityFilter')}>
+        <option value="">{t('anyPriority')}</option>
+        {priorityOptions.filter((entry) => entry.value !== '').map((entry) => (
+          <option key={entry.value} value={entry.value}>{entry.label}</option>
+        ))}
+      </Select>
+      {types.length > 0 ? (
+        <Select value={filters.type ?? ''} onChange={(event) => setFilter('type', event.target.value)} className="hidden h-8 w-32 lg:block" aria-label={t('typeFilter')}>
+          <option value="">{t('anyType')}</option>
+          {types.map((type) => <option key={type} value={type}>{type}</option>)}
+        </Select>
+      ) : null}
+      {labels.length > 0 ? (
+        <Select value={filters.label ?? ''} onChange={(event) => setFilter('label', event.target.value)} className="hidden h-8 w-32 lg:block" aria-label={t('labelFilter')}>
+          <option value="">{t('anyLabel')}</option>
+          {labels.map((label) => <option key={label} value={label}>{label}</option>)}
+        </Select>
+      ) : null}
+      <Select value={filters.repository ?? ''} onChange={(event) => setFilter('repository', event.target.value)} className="hidden h-8 w-40 xl:block" aria-label={t('repositoryFilter')}>
+        <option value="">{t('anyRepository')}</option>
+        {project.repositories.map((repository) => (
+          <option key={repository.id} value={repository.id}>{repository.name}</option>
+        ))}
+      </Select>
+      {activeFilters > 0 ? (
+        <Button size="sm" variant="ghost" onClick={() => navigate(tasksHref(slug, view))}>
+          <X className="h-3.5 w-3.5" />
+          {t('clearFilters')}
+        </Button>
+      ) : null}
+    </>
+  )
+
   return (
     <>
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div role="group" aria-label={t('viewLabel')} className="flex rounded-md border border-line">
-          <button type="button" aria-pressed={view === 'board'} onClick={() => setView('board')} className={`flex items-center gap-1 px-2 py-1 text-xs ${view === 'board' ? 'bg-accent/12 text-accent' : 'text-muted hover:text-ink'}`}>
-            <LayoutGrid className="h-3.5 w-3.5" /> {t('views.board')}
-          </button>
-          <button type="button" aria-pressed={view === 'list'} onClick={() => setView('list')} className={`flex items-center gap-1 px-2 py-1 text-xs ${view === 'list' ? 'bg-accent/12 text-accent' : 'text-muted hover:text-ink'}`}>
-            <List className="h-3.5 w-3.5" /> {t('views.list')}
-          </button>
-        </div>
-        <Input value={filters.q ?? ''} onChange={(event) => setFilter('q', event.target.value)} placeholder={t('filterPlaceholder')} className="h-8 w-56" aria-label={t('filterAria')} />
-        <Select value={filters.status ?? ''} onChange={(event) => setFilter('status', event.target.value)} className="h-8 w-40" aria-label={t('statusFilter')}>
-          <option value="">{t('anyStatus')}</option>
-          {statusOptions.map((entry) => (
-            <option key={entry.value} value={entry.value}>{entry.label}</option>
-          ))}
-        </Select>
-        <Select value={filters.repository ?? ''} onChange={(event) => setFilter('repository', event.target.value)} className="h-8 w-44" aria-label={t('repositoryFilter')}>
-          <option value="">{t('anyRepository')}</option>
-          {project.repositories.map((repository) => (
-            <option key={repository.id} value={repository.id}>{repository.name}</option>
-          ))}
-        </Select>
-        <Input value={filters.assignee ?? ''} onChange={(event) => setFilter('assignee', event.target.value)} placeholder={t('assigneeFilter')} className="h-8 w-36" aria-label={t('assigneeFilter')} />
+        <Segmented
+          label={t('viewLabel')}
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'board', label: t('views.board'), icon: LayoutGrid },
+            { value: 'table', label: t('views.table'), icon: Table2 },
+          ]}
+        />
+        {view === 'board' ? controls : null}
         {readOnly ? <Badge tone="outline">{t('readOnly')}</Badge> : null}
-        <Button size="sm" variant="primary" className="ml-auto" disabled={readOnly || kickCreate.isPending} onClick={() => kickCreate.mutate()}>
+        <Button size="sm" variant="primary" className="ml-auto" busy={kickCreate.isPending} disabled={readOnly} onClick={() => kickCreate.mutate()}>
           <Plus className="h-3.5 w-3.5" />
           {t('newTask')}
         </Button>
@@ -114,9 +182,17 @@ export function TasksTab({
         ) : (
           <ErrorBox error={query.error} />
         )
-      ) : view === 'list' ? (
+      ) : view === 'table' ? (
         <Card>
-          <TaskList slug={slug} tasks={shown} />
+          <TaskTable
+            slug={slug}
+            tasks={shown}
+            columns={boardColumns}
+            readOnly={readOnly}
+            onSetStatus={readOnly ? undefined : setStatus}
+            toolbar={controls}
+            empty={<BoardEmpty />}
+          />
         </Card>
       ) : shown.length === 0 ? (
         <Card><BoardEmpty /></Card>
@@ -124,6 +200,7 @@ export function TasksTab({
         <TaskBoard
           slug={slug}
           tasks={shown}
+          columns={boardColumns}
           readOnly={readOnly}
           onMove={(task, status, beforeId, afterId) => {
             setFailure(null)

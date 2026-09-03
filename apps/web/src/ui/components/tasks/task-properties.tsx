@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PopoverClose } from '../ui/popover.tsx'
-import { Badge } from '../ui/badge.tsx'
 import { Input } from '../ui/field.tsx'
-import { TaskPriorityBadge, TaskStatusBadge } from '../entities/task-badges.tsx'
+import { TaskLabels, TaskPriorityBadge, TaskStatusBadge, TaskTypeBadge } from '../entities/task-badges.tsx'
+import { TASK_TYPE_IDS, taskTypeOf } from '../../lib/task-presentation.ts'
 import { useTaskStatuses } from '../../i18n/use-task-statuses.ts'
 import type { Project } from '../../../shared/types.ts'
 import type { Task, TaskPriority, TaskStatus } from '../../../shared/task-types.ts'
@@ -69,13 +69,33 @@ export function TaskProperties({
           ))}
         </PropertyMenu>
 
-        <PropertyMenu label={t('dialog.type')} empty={!task.type} value={task.type ?? t('detail.addType')} disabled={readOnly}>
-          <form className="p-2" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onPatch({ type: type.trim() === '' ? null : type.trim() }) }} onSubmit={(event) => { event.preventDefault(); onPatch({ type: type.trim() === '' ? null : type.trim() }) }}>
+        {/* Type stays free text — GitHub labels and imports write whatever the
+            repository calls it — but the vocabulary is offered first, so the
+            same idea stops being spelled four ways by hand. */}
+        <PropertyMenu
+          label={t('dialog.type')}
+          empty={!task.type}
+          value={task.type ? <TaskTypeBadge type={task.type} /> : t('detail.addType')}
+          disabled={readOnly}
+        >
+          <div className="px-1 pt-1 text-[11px] font-semibold tracking-wider text-subtle uppercase">{t('detail.typeVocabulary')}</div>
+          <PopoverClose asChild>
+            <PropertyChoice selected={!task.type} onSelect={() => onPatch({ type: null })}>{t('detail.addType')}</PropertyChoice>
+          </PopoverClose>
+          {TASK_TYPE_IDS.map((id) => (
+            <PopoverClose key={id} asChild>
+              <PropertyChoice selected={taskTypeOf(task.type) === id} onSelect={() => onPatch({ type: id })}>
+                <TaskTypeBadge type={id} />
+              </PropertyChoice>
+            </PopoverClose>
+          ))}
+          <div className="mt-1 border-t border-line px-1 pt-1 text-[11px] text-subtle">{t('detail.typeFree')}</div>
+          <form className="p-1" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onPatch({ type: type.trim() === '' ? null : type.trim() }) }} onSubmit={(event) => { event.preventDefault(); onPatch({ type: type.trim() === '' ? null : type.trim() }) }}>
             <Input value={type} onChange={(event) => setType(event.target.value)} placeholder={t('dialog.typePlaceholder')} />
           </form>
         </PropertyMenu>
 
-        <PropertyMenu label={t('dialog.labels')} empty={task.labels.length === 0} value={task.labels.length > 0 ? <span className="flex flex-wrap gap-1">{task.labels.map((label) => <Badge key={label} tone="outline">{label}</Badge>)}</span> : t('detail.addLabels')} disabled={readOnly}>
+        <PropertyMenu label={t('dialog.labels')} empty={task.labels.length === 0} value={task.labels.length > 0 ? <TaskLabels labels={task.labels} max={6} /> : t('detail.addLabels')} disabled={readOnly}>
           <form className="p-2" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onPatch({ labels: labels.split(',').map((entry) => entry.trim()).filter(Boolean) }) }} onSubmit={(event) => { event.preventDefault(); onPatch({ labels: labels.split(',').map((entry) => entry.trim()).filter(Boolean) }) }}>
             <Input value={labels} onChange={(event) => setLabels(event.target.value)} placeholder={t('dialog.labelsPlaceholder')} />
           </form>

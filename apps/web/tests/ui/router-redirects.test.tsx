@@ -9,10 +9,10 @@ describe('legacyRedirect', () => {
 
   it('moves the board to the tasks tab and keeps the filters it still has', () => {
     expect(legacyRedirect('/board/produto/board')).toBe('/projects/produto/tasks')
-    expect(legacyRedirect('/board/produto/backlog?q=1&priority=urgent')).toBe('/projects/produto/tasks?view=list&q=1')
+    expect(legacyRedirect('/board/produto/backlog?q=1&priority=urgent')).toBe('/projects/produto/tasks?view=table&priority=urgent&q=1')
     expect(legacyRedirect('/board/produto')).toBe('/projects/produto/tasks')
     expect(legacyRedirect('/board')).toBe('/projects')
-    expect(legacyRedirect('/projects/produto/board/backlog?status=blocked')).toBe('/projects/produto/tasks?view=list&status=blocked')
+    expect(legacyRedirect('/projects/produto/board/backlog?status=blocked')).toBe('/projects/produto/tasks?view=table&status=blocked')
   })
 
   it('leaves every current path alone', () => {

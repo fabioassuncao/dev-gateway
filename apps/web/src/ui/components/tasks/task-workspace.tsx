@@ -1,11 +1,9 @@
-import { Bot, GitCommitHorizontal, MoreHorizontal, Trash2, User } from 'lucide-react'
+import { Bot, GitCommitHorizontal, User } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ActivityEvent, Session, Task, TaskNote, TaskSummary } from '../../../shared/task-types.ts'
 import type { Project } from '../../../shared/types.ts'
 import type { TaskBody } from '../../lib/api/index.ts'
 import { Badge } from '../ui/badge.tsx'
-import { Button } from '../ui/button.tsx'
-import { Menu, MenuContent, MenuItem, MenuTrigger } from '../ui/menu.tsx'
 import { useFormat } from '../../lib/use-format.ts'
 import { SessionRow } from '../entities/session-row.tsx'
 import { EditableTitle } from './editable-title.tsx'
@@ -13,6 +11,7 @@ import { TaskDescription } from './task-description.tsx'
 import { TaskProperties } from './task-properties.tsx'
 import { TaskSubtasks } from './task-subtasks.tsx'
 import { TaskActivity } from './task-activity.tsx'
+import { TaskActions } from './task-actions.tsx'
 
 export interface TaskWorkspaceActions {
   patch: (body: TaskBody) => Promise<unknown>
@@ -59,7 +58,6 @@ export function TaskWorkspace({
   saveState?: 'idle' | 'saving' | 'saved' | 'error'
 }) {
   const { t } = useTranslation('tasks')
-  const { t: tc } = useTranslation('common')
   const { relativeTime } = useFormat()
   const commits = sessions.flatMap((session) => session.commits.map((commit) => ({ ...commit, session })))
   const activeSessions = sessions.filter((session) => session.status === 'active')
@@ -84,25 +82,14 @@ export function TaskWorkspace({
               onSave={(title) => actions.patch({ title })}
             />
           </div>
-          <div className="flex flex-wrap items-center gap-1">
-            {task.status !== 'in_progress' && task.status !== 'done' ? (
-              <Button size="sm" variant="primary" disabled={readOnly} onClick={actions.start}>{t('detail.start')}</Button>
-            ) : null}
-            {task.status === 'in_progress' ? (
-              <Button size="sm" disabled={readOnly} onClick={() => actions.setStatus('review')}>{t('detail.sendToReview')}</Button>
-            ) : null}
-            {task.status === 'done' ? (
-              <Button size="sm" disabled={readOnly} onClick={() => actions.setStatus('in_progress')}>{t('detail.reopen')}</Button>
-            ) : (
-              <Button size="sm" variant="ghost" disabled={readOnly} onClick={() => actions.finish(Boolean(task.github))}>{t('detail.finish')}</Button>
-            )}
-            <Menu>
-              <MenuTrigger disabled={readOnly} aria-label={tc('actions')} className="rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-ink"><MoreHorizontal className="h-4 w-4" /></MenuTrigger>
-              <MenuContent>
-                <MenuItem onSelect={actions.discard}><Trash2 className="mr-2 h-3.5 w-3.5 text-danger" />{task.draft ? t('draft.discard') : tc('delete')}</MenuItem>
-              </MenuContent>
-            </Menu>
-          </div>
+          <TaskActions
+            task={task}
+            readOnly={readOnly}
+            onSetStatus={actions.setStatus}
+            onStart={actions.start}
+            onFinish={actions.finish}
+            onDiscard={actions.discard}
+          />
         </div>
 
         <TaskDescription value={task.description} disabled={readOnly} onSave={(description) => actions.patch({ description })} />
@@ -116,12 +103,19 @@ export function TaskWorkspace({
           onStatus={actions.setSubtaskStatus}
         />
 
-        {activeSessions.length > 0 || sessions.length > 0 ? (
-          <section className="space-y-2">
-            <h2 className="text-sm font-medium text-ink">{t('detail.sessions', { count: activeSessions.length })}</h2>
-            {sessions.map((session) => <SessionRow key={session.id} session={session} />)}
-          </section>
-        ) : null}
+        {/* Who is executing this, and how execution actually starts here: an
+            agent announces its own session, so the panel reports rather than
+            launches. Saying so is what stops "Start" reading as "run an agent". */}
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium text-ink">{t('detail.sessions', { count: activeSessions.length })}</h2>
+          {sessions.length > 0 ? (
+            <div className="overflow-hidden rounded-md border border-line">
+              {sessions.map((session) => <SessionRow key={session.id} session={session} />)}
+            </div>
+          ) : (
+            <p className="text-xs text-subtle">{t('detail.executionHint', { id: task.id })}</p>
+          )}
+        </section>
 
         {task.environments.length > 0 ? (
           <section className="space-y-2">
