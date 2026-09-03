@@ -68,7 +68,7 @@ export async function resolvedLinks(
   issues: StoredIssue[],
 ): Promise<Map<string, ResolvedLink>> {
   const branches = new Map<string, string | null>(
-    snapshot.projects.map((project) => [project.name, readProjectGit(config, project.name).git?.branch ?? null]),
+    snapshot.environments.map((project) => [project.name, readProjectGit(config, project.name).git?.branch ?? null]),
   )
   const manual = (await db.github.listIssueEnvironments()).map((row) => ({
     issueId: row.issueId,

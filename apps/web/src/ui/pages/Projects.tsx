@@ -10,10 +10,10 @@ import { Card, CardHeader } from '../components/ui/card.tsx'
 import { Dialog } from '../components/ui/dialog.tsx'
 import { Input } from '../components/ui/field.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
-import { ProjectActions } from '../components/project-actions.tsx'
+import { EnvironmentActions } from '../components/environment-actions.tsx'
 import { ContainerDetails } from '../components/container-details.tsx'
 import { GitCard } from '../components/git-card.tsx'
-import { ServiceRow } from '../components/project-services.tsx'
+import { ServiceRow } from '../components/environment-services.tsx'
 import { slug as slugify } from '../../shared/slug.ts'
 import { useDocumentTitle } from '../lib/title.ts'
 import { useFormat } from '../lib/use-format.ts'
@@ -155,7 +155,7 @@ function CatalogCard({ project }: { project: ProjectSummary }) {
 }
 
 function EnvironmentCard({ project }: { project: Environment }) {
-  const { t } = useTranslation('projects')
+  const { t } = useTranslation('environments')
   const { uptime: formatUptime } = useFormat()
   const [details, setDetails] = useState<ContainerSummary | null>(null)
 
@@ -207,7 +207,7 @@ function EnvironmentCard({ project }: { project: Environment }) {
             .filter(Boolean)
             .join(' · ') || undefined
         }
-        actions={<ProjectActions project={project} />}
+        actions={<EnvironmentActions project={project} />}
       />
 
       <GitCard project={project.name} />

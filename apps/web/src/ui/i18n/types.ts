@@ -2,7 +2,7 @@ import type common from './locales/en/common.json'
 import type nav from './locales/en/nav.json'
 import type overview from './locales/en/overview.json'
 import type projects from './locales/en/projects.json'
-import type workspaces from './locales/en/workspaces.json'
+import type environments from './locales/en/environments.json'
 import type issues from './locales/en/issues.json'
 import type services from './locales/en/services.json'
 import type docker from './locales/en/docker.json'
@@ -22,7 +22,7 @@ declare module 'i18next' {
       nav: typeof nav
       overview: typeof overview
       projects: typeof projects
-      workspaces: typeof workspaces
+      environments: typeof environments
       issues: typeof issues
       services: typeof services
       docker: typeof docker

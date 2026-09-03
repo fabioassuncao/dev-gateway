@@ -28,7 +28,7 @@ describe('classification', () => {
   it('does not promote a Compose project that never joined the gateway', async () => {
     const { client } = fakeDocker({ containers: [...GATEWAY, ...EXTERNAL] })
     const snapshot = await buildSnapshot(client, config)
-    expect(snapshot.projects.find((p) => p.name === 'legacy')?.integrated).toBe(false)
+    expect(snapshot.environments.find((p) => p.name === 'legacy')?.integrated).toBe(false)
   })
 
   it('survives a container that disappears between listing and inspecting', async () => {
@@ -44,7 +44,7 @@ describe('projects', () => {
   it('groups services under their Compose project', async () => {
     const { client } = fakeDocker({ containers: FULL_HOST })
     const snapshot = await buildSnapshot(client, config)
-    const alpha = snapshot.projects.find((p) => p.name === 'alpha')
+    const alpha = snapshot.environments.find((p) => p.name === 'alpha')
 
     expect(alpha?.integrated).toBe(true)
     expect(alpha?.services.map((s) => s.service)).toEqual(['api', 'postgres', 'redis', 'web'])
@@ -56,26 +56,26 @@ describe('projects', () => {
   it('reports the unhealthy count so the overview can flag it', async () => {
     const { client } = fakeDocker({ containers: FULL_HOST })
     const snapshot = await buildSnapshot(client, config)
-    expect(snapshot.projects.find((p) => p.name === 'beta')?.unhealthyCount).toBe(1)
+    expect(snapshot.environments.find((p) => p.name === 'beta')?.unhealthyCount).toBe(1)
   })
 
   it('names the worktree when the directory disagrees with the project', async () => {
     const { client } = fakeDocker({ containers: FULL_HOST })
     const snapshot = await buildSnapshot(client, config)
-    expect(snapshot.projects.find((p) => p.name === 'beta')?.namespace).toBe('beta-issue59')
-    expect(snapshot.projects.find((p) => p.name === 'alpha')?.namespace).toBeNull()
+    expect(snapshot.environments.find((p) => p.name === 'beta')?.namespace).toBe('beta-issue59')
+    expect(snapshot.environments.find((p) => p.name === 'alpha')?.namespace).toBeNull()
   })
 
   it('never lists a gateway container as somebody’s service', async () => {
     const { client } = fakeDocker({ containers: FULL_HOST })
     const snapshot = await buildSnapshot(client, config)
-    expect(snapshot.projects.map((p) => p.name)).not.toContain('portta')
+    expect(snapshot.environments.map((p) => p.name)).not.toContain('portta')
   })
 
   it('is operable when Compose recorded a working directory', async () => {
     const { client } = fakeDocker({ containers: FULL_HOST })
     const snapshot = await buildSnapshot(client, config)
-    const alpha = snapshot.projects.find((p) => p.name === 'alpha')
+    const alpha = snapshot.environments.find((p) => p.name === 'alpha')
     expect(alpha?.operable.ok).toBe(true)
     expect(alpha?.operable.workingDir).toBe('/srv/dev/alpha')
   })
@@ -98,7 +98,7 @@ describe('projects', () => {
       ],
     })
     const snapshot = await buildSnapshot(client, config)
-    const lost = snapshot.projects.find((p) => p.name === 'lost')
+    const lost = snapshot.environments.find((p) => p.name === 'lost')
     expect(lost?.operable.ok).toBe(false)
     expect(lost?.operable.reason).toContain('working directory')
   })
@@ -319,7 +319,7 @@ describe('the optional identity labels', () => {
   it('reads them onto the container and up onto the project', async () => {
     const { client } = fakeDocker({ containers: declaring })
     const snapshot = await buildSnapshot(client, config)
-    const project = snapshot.projects.find((item) => item.name === 'storefront-issue59')
+    const project = snapshot.environments.find((item) => item.name === 'storefront-issue59')
 
     expect(project?.group).toBe('storefront')
     expect(project?.repo).toBe('owner/storefront')
@@ -333,7 +333,7 @@ describe('the optional identity labels', () => {
     const postgres = snapshot.containers.find((item) => item.id === 'w-pg')
     // The container itself declared nothing, and says so.
     expect(postgres?.group).toBeNull()
-    expect(snapshot.projects[0]?.group).toBe('storefront')
+    expect(snapshot.environments[0]?.group).toBe('storefront')
   })
 
   it('keeps inferring the worktree namespace alongside them', async () => {
@@ -341,21 +341,21 @@ describe('the optional identity labels', () => {
     const snapshot = await buildSnapshot(client, config)
     // The directory basename agrees with the project name here, so there is no
     // namespace to infer: the declared group is what groups the worktrees.
-    expect(snapshot.projects[0]?.namespace).toBeNull()
-    expect(snapshot.projects[0]?.group).toBe('storefront')
+    expect(snapshot.environments[0]?.namespace).toBeNull()
+    expect(snapshot.environments[0]?.group).toBe('storefront')
   })
 
   it('leaves a project that declares none exactly as it was', async () => {
     // The guarantee ADR 0010 makes, asserted rather than promised.
     const { client } = fakeDocker({ containers: FULL_HOST })
     const snapshot = await buildSnapshot(client, config)
-    for (const project of snapshot.projects) {
+    for (const project of snapshot.environments) {
       expect(project.group).toBeNull()
       expect(project.repo).toBeNull()
       expect(project.repoUrl).toBeNull()
       expect(project.gitRoot).toBeNull()
     }
-    expect(snapshot.projects.find((item) => item.name === 'beta')?.namespace).toBe('beta-issue59')
+    expect(snapshot.environments.find((item) => item.name === 'beta')?.namespace).toBe('beta-issue59')
   })
 
   it('derives no repository link from a label it cannot parse', async () => {
@@ -376,7 +376,7 @@ describe('the optional identity labels', () => {
       ],
     })
     const snapshot = await buildSnapshot(client, config)
-    expect(snapshot.projects[0]?.repo).toBe('not a remote at all')
-    expect(snapshot.projects[0]?.repoUrl).toBeNull()
+    expect(snapshot.environments[0]?.repo).toBe('not a remote at all')
+    expect(snapshot.environments[0]?.repoUrl).toBeNull()
   })
 })

@@ -207,11 +207,11 @@ function issueRow(overrides: Record<string, unknown> = {}) {
 function issueDatabase(rows = [issueRow()], relationships: { parentId: string; childId: string; position: number }[] = []) {
   const db = {
     status: () => ({ configured: true, available: true, reason: null, checkedAt: 0, migrations: [] }),
-    projects: { find: async () => null, upsertSeen: async () => ({}), list: async () => [] },
-    settings: { listAllProject: async () => [], listAllService: async () => [] },
-    workspaces: {
+    environments: { find: async () => null, upsertSeen: async () => ({}), list: async () => [] },
+    settings: { listAllEnvironment: async () => [], listAllService: async () => [] },
+    projects: {
       find: async (slug: string) => (slug === 'produto' ? { id: 'w1', slug, name: 'Produto' } : null),
-      listRepositories: async () => [{ workspaceId: 'w1', repositoryId: 'r1', fullName: 'acme/api' }],
+      listRepositories: async () => [{ projectId: 'w1', repositoryId: 'r1', fullName: 'acme/api' }],
       list: async () => [],
       listEnvironments: async () => [],
     },
@@ -238,9 +238,9 @@ function app(db = issueDatabase()) {
 }
 
 describe('the issue endpoints', () => {
-  it('lists a workspace’s issues with the repository on every row', async () => {
+  it('lists a Project’s issues with the repository on every row', async () => {
     const { app: server } = app()
-    const body = await (await server.request('/api/workspaces/produto/issues')).json()
+    const body = await (await server.request('/api/projects/produto/issues')).json()
     expect(body.issues).toHaveLength(1)
     expect(body.issues[0]).toMatchObject({
       repository: 'acme/api',
@@ -251,28 +251,28 @@ describe('the issue endpoints', () => {
     })
   })
 
-  it('answers empty for a workspace that owns no repository', async () => {
+  it('answers empty for a Project that owns no repository', async () => {
     const db = issueDatabase()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(db as any).workspaces.listRepositories = async () => []
+    ;(db as any).projects.listRepositories = async () => []
     const { app: server } = app(db)
-    const body = await (await server.request('/api/workspaces/produto/issues')).json()
+    const body = await (await server.request('/api/projects/produto/issues')).json()
     expect(body.issues).toEqual([])
   })
 
   it('404s a workspace that does not exist', async () => {
     const { app: server } = app()
-    expect((await server.request('/api/workspaces/ghost/issues')).status).toBe(404)
+    expect((await server.request('/api/projects/ghost/issues')).status).toBe(404)
   })
 
   it('filters by status, priority and text', async () => {
     const rows = [issueRow(), issueRow({ id: '2', number: 124, title: 'Outra', workflowStatus: 'backlog', priority: 'low' })]
     const { app: server } = app(issueDatabase(rows))
 
-    const byStatus = await (await server.request('/api/workspaces/produto/issues?status=backlog')).json()
+    const byStatus = await (await server.request('/api/projects/produto/issues?status=backlog')).json()
     expect(byStatus.issues.map((issue: Issue) => issue.number)).toEqual([124])
 
-    const byText = await (await server.request('/api/workspaces/produto/issues?q=refresh')).json()
+    const byText = await (await server.request('/api/projects/produto/issues?q=refresh')).json()
     expect(byText.issues.map((issue: Issue) => issue.number)).toEqual([123])
   })
 
@@ -280,7 +280,7 @@ describe('the issue endpoints', () => {
     const rows = [issueRow(), issueRow({ id: '2', githubId: 2, number: 124, title: 'Sub' })]
     const { app: server } = app(issueDatabase(rows, [{ parentId: '1', childId: '2', position: 0 }]))
 
-    const body = await (await server.request('/api/workspaces/produto/issues')).json()
+    const body = await (await server.request('/api/projects/produto/issues')).json()
     const parent = body.issues.find((issue: Issue) => issue.id === '1')
     const child = body.issues.find((issue: Issue) => issue.id === '2')
     expect(parent.childIds).toEqual(['2'])
@@ -290,7 +290,7 @@ describe('the issue endpoints', () => {
   it('marks the projection stale rather than hiding it', async () => {
     const old = new Date(Date.now() - 3_600_000)
     const { app: server } = app(issueDatabase([issueRow({ syncedAt: old })]))
-    const body = await (await server.request('/api/workspaces/produto/issues')).json()
+    const body = await (await server.request('/api/projects/produto/issues')).json()
     expect(body.issues[0].stale).toBe(true)
   })
 

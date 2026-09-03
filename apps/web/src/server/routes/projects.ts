@@ -1,304 +1,274 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import type { AppDeps } from './deps.ts'
+import { parseRelativeProjectPath } from 'portta-core'
 import { HTTPException } from 'hono/http-exception'
-import { readProjectGit } from '../core/git.ts'
-import { mergeLogSources, type LogSourceLines } from '../core/projectlogs.ts'
-import { applyOverrides, loadOverrides } from '../core/overrides.ts'
-import { issueForEnvironment, resolveLinks } from '../core/issue-environments.ts'
+import type { AppDeps } from './deps.ts'
+import { requireDatabase, type Database } from '../db/index.ts'
+import { OverrideRefused } from '../core/overrides.ts'
 import type { Snapshot } from '../core/inventory.ts'
-import {
-  Environment,
-  EnvironmentActionResult,
-  EnvironmentRemovalPreview,
-  ProjectGit,
-  ProjectLogsResponse,
-  ProjectRebuildResult,
-  ProjectRemoveResult,
-  type ProjectGit as ProjectGitView,
-  type ProjectLogSource,
-} from '../../shared/types.ts'
-import { runProjectAction } from '../core/actions.ts'
-import { projectRemovalPreview, rebuildProject, removeProject } from '../core/operations.ts'
-import { documentRoute, projectParameter, tailParameter } from '../openapi.ts'
+import { loadProjectCatalog, toProject, toProjectSummary } from '../core/catalog.ts'
+import { Project, ProjectSummary } from '../../shared/types.ts'
+import { documentRoute } from '../openapi.ts'
 
-export const EnvironmentsResponse = z.object({ environments: z.array(Environment) }).strict().meta({ ref: 'EnvironmentsResponse' })
-
-/** Per source, and overall: a ten-service project cannot ask for 20 000 lines. */
-const MAX_TAIL = 2000
-const DEFAULT_TAIL = 200
-const AGGREGATE_DEFAULT_TAIL = 100
-
-function clampTail(requested: string | undefined, fallback: number): number {
-  const value = Number(requested ?? String(fallback))
-  if (!Number.isFinite(value)) return fallback
-  return Math.min(Math.max(Math.trunc(value), 1), MAX_TAIL)
+const slugParameter = {
+  name: 'slug',
+  in: 'path' as const,
+  required: true,
+  description: 'The Project slug, as created.',
+  schema: { type: 'string' as const },
 }
 
+const ProjectsResponse = z
+  .object({ projects: z.array(ProjectSummary) })
+  .strict()
+  .meta({ ref: 'ProjectsResponse' })
+
 /**
- * One source for open pull requests, stated.
- *
- * The host `gh` scan and the App can both report them. When the App is
- * configured **and** this repository is one the installation granted, the App
- * wins, because it is the source that can also write. Otherwise the scan's
- * forge block stands exactly as it does today, so a panel with no App is
- * unchanged and `GitCard` needs no change either.
+ * First-level directory under Projects Home (ADR 0031). Validated here so a
+ * bad path is a 400 with the reason, and again in the repository.
  */
-async function withForgeFromApp(deps: AppDeps, git: ProjectGitView): Promise<ProjectGitView> {
-  const slug = git.remote?.slug
-  if (!slug || deps.github === null || !deps.github.status().configured) return git
-  if (!deps.db?.status().available) return git
+const RelativePath = z
+  .string()
+  .min(1)
+  .max(255)
+  .refine((value) => {
+    try {
+      parseRelativeProjectPath(value)
+      return true
+    } catch {
+      return false
+    }
+  }, {
+    message: 'relativePath must be one directory name under Projects Home: no slashes, no dots, never absolute',
+  })
+  .describe('First-level directory under Projects Home. Never an absolute path.')
 
-  const repository = await deps.db.github.findRepository(slug)
-  if (!repository) return git
+const CreateBody = z
+  .object({
+    slug: z.string().min(1).max(64).regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/),
+    name: z.string().min(1).max(120),
+    description: z.string().max(2000).nullable().optional(),
+    relativePath: RelativePath.nullable().optional(),
+  })
+  .strict()
+  .meta({ ref: 'CreateProjectBody' })
 
-  const pulls = (await deps.db.github.listPullRequests(repository.id)).map((pull) => ({
-    number: pull.number,
-    title: pull.title,
-    state: pull.state,
-    draft: false,
-    reviewDecision: null,
-    checks: null,
-    url: pull.htmlUrl,
-    headRefName: null,
-  }))
+const PatchBody = z
+  .object({
+    name: z.string().min(1).max(120).optional(),
+    description: z.string().max(2000).nullable().optional(),
+    archived: z.boolean().optional(),
+    relativePath: RelativePath.nullable().optional(),
+  })
+  .strict()
+  .meta({ ref: 'PatchProjectBody' })
 
-  return {
-    ...git,
-    forge: {
-      kind: 'github-app',
-      collectedAt: Math.floor(Date.now() / 1000),
-      authenticated: true,
-      reason: null,
-      pulls,
-    },
-  }
+const RepositoriesBody = z
+  .object({
+    repositories: z
+      .array(
+        z.object({ fullName: z.string().min(1), role: z.string().max(32).nullable().optional() }).strict(),
+      )
+      .max(64),
+  })
+  .strict()
+  .meta({ ref: 'ProjectRepositoriesBody' })
+
+const EnvironmentsBody = z
+  .object({ environments: z.array(z.string().min(1).max(255)).max(128) })
+  .strict()
+  .meta({ ref: 'ProjectEnvironmentsBody' })
+
+const Removal = z
+  .object({
+    ok: z.boolean(),
+    removed: z.string(),
+    note: z.string().describe('States what was not touched, because that is the question'),
+  })
+  .strict()
+  .meta({ ref: 'ProjectRemoval' })
+
+/**
+ * Joins the operator's decisions with what is actually running.
+ *
+ * The repository and environment lists come from the database; the runtime
+ * half comes from the snapshot the panel already has, so a Project with
+ * nothing up is a full answer rather than an empty one.
+ */
+async function assemble(db: Database, snapshot: Snapshot, projectsHome: string | null) {
+  return loadProjectCatalog(db, snapshot, projectsHome)
 }
 
-/**
- * The issue this environment is running for, when the panel can tell.
- *
- * Every step degrades to `null`: no database, no projection, no match. Nothing
- * here is required for a project page to render.
- */
-async function issueOf(deps: AppDeps, snapshot: Snapshot, project: Environment) {
-  if (!deps.db?.status().available) return null
-  const issues = await deps.db.github.listIssues({})
-  if (issues.length === 0) return null
-
-  const branches = new Map<string, string | null>(
-    snapshot.environments.map((item) => [item.name, readProjectGit(deps.config, item.name).git?.branch ?? null]),
+function summariesFrom(catalog: Awaited<ReturnType<typeof loadProjectCatalog>>) {
+  return catalog.records.map((record) =>
+    toProjectSummary(
+      record,
+      (catalog.githubByProject.get(record.id) ?? []).length,
+      catalog.environments.get(record.id) ?? [],
+    ),
   )
-  const manual = (await deps.db.github.listIssueEnvironments()).map((row) => ({
-    issueId: row.issueId,
-    composeProject: row.composeProject,
-    branch: row.branch,
-  }))
-  const links = resolveLinks(snapshot, issues, manual, branches)
-  return issueForEnvironment(project, issues, links)
+}
+
+/** A Zod failure on a stored decision is the caller's mistake, said plainly. */
+function refusedOnValidation<T>(work: () => Promise<T>): Promise<T> {
+  return work().catch((error: unknown) => {
+    if (error instanceof z.ZodError) {
+      throw new OverrideRefused(error.issues.map((issue) => issue.message).join('; '))
+    }
+    throw error
+  })
 }
 
 export function projectRoutes(deps: AppDeps): Hono {
   const app = new Hono()
+  const home = () => deps.config.projectsHome
 
-  // Projects are the integrated ones: a Compose project with at least one
-  // service on the gateway. Everything else lives on the Docker page, where it
-  // is clearly labelled as being outside the gateway.
-  app.get('/environments', documentRoute({
-    tag: 'Environments', operationId: 'listEnvironments', summary: 'List Compose environments', response: EnvironmentsResponse,
-    parameters: [{
-      name: 'all', in: 'query', required: false,
-      description: 'Include environments that have not adopted the gateway.',
-      schema: { type: 'boolean', default: false },
-    }],
-    errors: [500, 502],
+  app.get('/projects', documentRoute({
+    tag: 'Projects', operationId: 'listProjects', summary: 'List Projects',
+    response: ProjectsResponse,
+    description: 'A Project is the product the operator recognises. It stays visible with nothing running. See ADR 0031.',
+    errors: [500, 503],
   }), async (c) => {
-    const snapshot = await deps.cache.get()
-    const all = c.req.query('all') === 'true'
-    const environments = all ? snapshot.environments : snapshot.environments.filter((environment) => environment.integrated)
-    // With no database, or none reachable, this is the identity function and
-    // the response is byte-identical to a panel with no persistence at all.
-    return c.json({ environments: applyOverrides(environments, await loadOverrides(deps.db)) })
+    const db = requireDatabase(deps.db)
+    const catalog = await assemble(db, await deps.cache.get(), home())
+    return c.json({ projects: summariesFrom(catalog) })
   })
 
-  app.get('/environments/:project', documentRoute({
-    tag: 'Environments', operationId: 'getEnvironment', summary: 'Get one running environment', response: Environment,
-    parameters: [projectParameter], errors: [404, 500, 502],
+  app.post('/projects', documentRoute({
+    tag: 'Projects', operationId: 'createProject', summary: 'Create a Project',
+    request: CreateBody, response: Project, status: 201,
+    description: 'Persists the product. Nothing on this host is started or stopped. relativePath places it under Projects Home; files are never moved.',
+    errors: [400, 403, 409, 500, 503],
   }), async (c) => {
-    const snapshot = await deps.cache.get()
-    const name = c.req.param('project')
-    const project = snapshot.environments.find((item) => item.name === name)
-    if (!project) throw new HTTPException(404, { message: `no project '${name}' is running` })
-    const decorated = applyOverrides([project], await loadOverrides(deps.db))[0]!
-    // Additive, and nullable: a panel with no App, no database or no link gets
-    // exactly the object it got before.
-    const issue = await issueOf(deps, snapshot, decorated)
-    return c.json(issue === null ? decorated : { ...decorated, issue })
-  })
-
-  /**
-   * What the host collected about this project's repository. Never live: the
-   * panel reads a file and reports its age, and the response carries the
-   * command that refreshes it. A project with no Git, no remote or no scan
-   * gets a 200 with fewer fields, never an error.
-   */
-  app.get('/environments/:project/git', documentRoute({
-    tag: 'Environments', operationId: 'getProjectGit', summary: 'Get collected Git metadata', response: ProjectGit,
-    description: 'Reads a host-collected snapshot. No scan, repository or remote is represented as a smaller 200 response.',
-    parameters: [projectParameter], errors: [404, 500],
-  }), async (c) => {
-    const snapshot = await deps.cache.get()
-    const name = c.req.param('project')
-    if (!snapshot.environments.some((item) => item.name === name)) {
-      throw new HTTPException(404, { message: `no project '${name}' is running` })
+    const db = requireDatabase(deps.db)
+    const body = CreateBody.parse(await c.req.json())
+    if (await db.projects.find(body.slug)) {
+      throw new HTTPException(409, { message: `a project named '${body.slug}' already exists` })
     }
-    return c.json(await withForgeFromApp(deps, readProjectGit(deps.config, name)))
+    const created = await refusedOnValidation(() =>
+      db.projects.create({ ...body, description: body.description ?? null, relativePath: body.relativePath ?? null }),
+    )
+    return c.json(toProject(created, [], [], home()), 201)
+  })
+
+  app.get('/projects/:slug', documentRoute({
+    tag: 'Projects', operationId: 'getProject', summary: 'Get one Project',
+    response: Project, parameters: [slugParameter], errors: [404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const slug = c.req.param('slug')
+    const record = await db.projects.find(slug)
+    if (!record) throw new HTTPException(404, { message: `no project '${slug}'` })
+    const catalog = await assemble(db, await deps.cache.get(), home())
+    return c.json(toProject(
+      record,
+      catalog.githubByProject.get(record.id) ?? [],
+      catalog.environments.get(record.id) ?? [],
+      home(),
+    ))
+  })
+
+  app.patch('/projects/:slug', documentRoute({
+    tag: 'Projects', operationId: 'patchProject', summary: 'Rename, describe, place or archive a Project',
+    request: PatchBody, response: ProjectSummary,
+    parameters: [slugParameter], errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const slug = c.req.param('slug')
+    const patch = PatchBody.parse(await c.req.json())
+    const updated = await refusedOnValidation(() => db.projects.update(slug, patch))
+    if (!updated) throw new HTTPException(404, { message: `no project '${slug}'` })
+    return c.json(toProjectSummary(updated, 0, []))
   })
 
   /**
-   * Every service of a project, interleaved.
+   * Removes the grouping and nothing else.
    *
-   * One unreadable container must not blank the four that answered, so sources
-   * are read concurrently and a failure is reported *in* the response rather
-   * than thrown. An unknown project is still a 404; a known project whose
-   * sources all failed is a 200 carrying the reasons.
+   * This is the endpoint most likely to be misread, so it says what it did not
+   * do: no container is stopped, no volume is removed, no environment is
+   * changed and no repository is unlinked from GitHub.
    */
-  app.get('/environments/:project/logs', documentRoute({
-    tag: 'Environments', operationId: 'getProjectLogs', summary: "Read every service's recent logs",
-    response: ProjectLogsResponse,
-    description: 'Reads each service concurrently. A source that could not be read is reported beside the sources that answered.',
-    parameters: [
-      projectParameter,
-      tailParameter,
-      {
-        name: 'service', in: 'query', required: false,
-        description: 'Restrict the read to one Compose service.',
-        schema: { type: 'string' },
-      },
-    ],
-    errors: [404, 500, 502],
+  app.delete('/projects/:slug', documentRoute({
+    tag: 'Projects', operationId: 'deleteProject', summary: 'Remove a Project grouping',
+    description: 'Deletes the grouping only. No container, volume, environment or repository is touched.',
+    response: Removal, parameters: [slugParameter], errors: [403, 404, 500, 503],
   }), async (c) => {
-    const snapshot = await deps.cache.get()
-    const name = c.req.param('project')
-    const project = snapshot.environments.find((item) => item.name === name)
-    if (!project) throw new HTTPException(404, { message: `no project '${name}' is running` })
-
-    const wanted = c.req.query('service')
-    const services = project.services.filter(
-      (service) => wanted === undefined || (service.service ?? service.name) === wanted,
-    )
-    const aggregating = services.length > 1
-    const tail = clampTail(c.req.query('tail'), aggregating ? AGGREGATE_DEFAULT_TAIL : DEFAULT_TAIL)
-
-    const reads = await Promise.allSettled(
-      services.map((service) => deps.client.logs(service.id, { tail })),
-    )
-
-    const sources: ProjectLogSource[] = []
-    const collected: LogSourceLines[] = []
-
-    services.forEach((service, index) => {
-      const label = service.service ?? service.name
-      const result = reads[index]!
-      const lines = result.status === 'fulfilled' ? result.value : []
-      if (result.status === 'fulfilled') collected.push({ service: label, lines })
-      sources.push({
-        containerId: service.id,
-        service: label,
-        name: service.name,
-        state: service.state,
-        lineCount: lines.length,
-        truncated: lines.length >= tail,
-        error: result.status === 'rejected'
-          ? `could not read logs: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`
-          : null,
-      })
-    })
-
-    const merged = mergeLogSources(collected, MAX_TAIL)
-    return c.json({
-      project: project.name,
-      sources,
-      lines: merged.lines,
-      truncated: merged.truncated || sources.some((source) => source.truncated),
-      ordered: merged.ordered,
-    })
-  })
-
-  app.get('/environments/:project/removal-preview', documentRoute({
-    tag: 'Environments', operationId: 'previewEnvironmentRemoval',
-    summary: 'Preview what removing this environment from this host would touch',
-    description: 'Advisory. Nothing is removed. Volume sizes are null: the panel has no volume inspect.',
-    response: EnvironmentRemovalPreview,
-    parameters: [projectParameter],
-    errors: [403, 404, 500, 502],
-  }), async (c) => {
-    const snapshot = await deps.cache.get()
-    return c.json(await projectRemovalPreview(snapshot, deps.config, deps.db, c.req.param('project')))
-  })
-
-  app.post('/environments/:project/operations/rebuild', documentRoute({
-    tag: 'Environments', operationId: 'rebuildProject',
-    summary: 'Rebuild this project through the runner',
-    description: 'Writes a closed runner request and starts the prepared container. Volumes are preserved.',
-    response: ProjectRebuildResult,
-    parameters: [projectParameter],
-    request: z.object({ noCache: z.boolean().optional() }).strict(),
-    errors: [400, 403, 404, 409, 500, 502],
-  }), async (c) => {
-    const snapshot = await deps.cache.get()
-    const body = await c.req.json().catch(() => ({})) as { noCache?: boolean }
-    const result = await rebuildProject(deps.client, snapshot, deps.config, c.req.param('project'), {
-      noCache: body.noCache === true,
-    })
-    deps.cache.invalidate()
-    return c.json(result)
-  })
-
-  app.post('/environments/:project/operations/remove', documentRoute({
-    tag: 'Environments', operationId: 'removeProject',
-    summary: 'Remove this project from this host',
-    description: 'Confirmation is the exact Compose project name, checked on the server. GitHub is never touched.',
-    response: ProjectRemoveResult,
-    parameters: [projectParameter],
-    request: z.object({
-      confirmation: z.string(),
-      volumes: z.boolean(),
-      directory: z.boolean(),
-      overrideDirty: z.boolean().optional(),
-    }).strict(),
-    errors: [400, 403, 404, 409, 500, 502],
-  }), async (c) => {
-    const snapshot = await deps.cache.get()
-    const body = await c.req.json() as {
-      confirmation: string
-      volumes: boolean
-      directory: boolean
-      overrideDirty?: boolean
+    const db = requireDatabase(deps.db)
+    const slug = c.req.param('slug')
+    if (!(await db.projects.remove(slug))) {
+      throw new HTTPException(404, { message: `no project '${slug}'` })
     }
-    const result = await removeProject(
-      deps.client, snapshot, deps.config, deps.db, c.req.param('project'), body,
-    )
-    deps.cache.invalidate()
-    return c.json(result)
+    return c.json({
+      ok: true,
+      removed: slug,
+      note: 'the grouping only: no container, volume, environment or repository was touched',
+    })
   })
 
-  for (const action of ['start', 'stop', 'restart'] as const) {
-    app.post(`/environments/:project/actions/${action}`, documentRoute({
-      tag: 'Environments',
-      operationId: `${action}Environment`,
-      summary: `${action[0]?.toUpperCase()}${action.slice(1)} every container in an environment`,
-      description: 'Iterates the environment\'s existing containers in Compose dependency order. Nothing is removed.',
-      response: EnvironmentActionResult,
-      parameters: [projectParameter],
-      errors: [403, 404, 409, 500, 502],
-    }), async (c) => {
-      const snapshot = await deps.cache.get()
-      const result = await runProjectAction(deps.client, snapshot, c.req.param('project'), action)
-      deps.cache.invalidate()
-      return c.json(result)
-    })
-  }
+  app.put('/projects/:slug/repositories', documentRoute({
+    tag: 'Projects', operationId: 'setProjectRepositories',
+    summary: 'Set the GitHub repositories a Project owns',
+    description: 'A repository the GitHub App installation did not grant is refused; the projection is the authorisation boundary.',
+    request: RepositoriesBody, response: Project,
+    parameters: [slugParameter], errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const slug = c.req.param('slug')
+    const record = await db.projects.find(slug)
+    if (!record) throw new HTTPException(404, { message: `no project '${slug}'` })
+
+    const body = RepositoriesBody.parse(await c.req.json())
+    const links: { repositoryId: string; role: string | null }[] = []
+    for (const wanted of body.repositories) {
+      const known = await db.github.findRepository(wanted.fullName)
+      if (!known) {
+        throw new OverrideRefused(
+          `${wanted.fullName} is not a repository this gateway was granted`,
+          'install the GitHub App on it, then run a sync; see docs/github.md',
+        )
+      }
+      links.push({ repositoryId: known.id, role: wanted.role ?? null })
+    }
+    await db.projects.setRepositories(record.id, links)
+
+    const catalog = await assemble(db, await deps.cache.get(), home())
+    return c.json(toProject(
+      record,
+      catalog.githubByProject.get(record.id) ?? [],
+      catalog.environments.get(record.id) ?? [],
+      home(),
+    ))
+  })
+
+  app.put('/projects/:slug/environments', documentRoute({
+    tag: 'Projects', operationId: 'setProjectEnvironments',
+    summary: 'Set the environments a Project adopts by hand',
+    description: 'A manual mapping always wins over portta.project and over a repository match.',
+    request: EnvironmentsBody, response: Project,
+    parameters: [slugParameter], errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const slug = c.req.param('slug')
+    const record = await db.projects.find(slug)
+    if (!record) throw new HTTPException(404, { message: `no project '${slug}'` })
+
+    const body = EnvironmentsBody.parse(await c.req.json())
+    const snapshot = await deps.cache.get()
+    for (const name of body.environments) {
+      if (!snapshot.environments.some((environment) => environment.name === name)) {
+        throw new OverrideRefused(`no environment '${name}' is running`)
+      }
+    }
+    await db.projects.setEnvironments(record.id, body.environments)
+
+    const catalog = await assemble(db, await deps.cache.get(true), home())
+    return c.json(toProject(
+      record,
+      catalog.githubByProject.get(record.id) ?? [],
+      catalog.environments.get(record.id) ?? [],
+      home(),
+    ))
+  })
 
   return app
 }

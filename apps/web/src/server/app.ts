@@ -4,10 +4,10 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from './routes/deps.ts'
 import { statusRoutes } from './routes/status.ts'
-import { projectRoutes } from './routes/projects.ts'
+import { environmentRoutes } from './routes/environments.ts'
 import { runnerRoutes } from './routes/runner.ts'
 import { overrideRoutes } from './routes/overrides.ts'
-import { workspaceRoutes } from './routes/workspaces.ts'
+import { projectRoutes } from './routes/projects.ts'
 import { serviceRoutes } from './routes/services.ts'
 import { dockerRoutes } from './routes/docker.ts'
 import { networkRoutes } from './routes/network.ts'
@@ -84,10 +84,10 @@ export function createApi(deps: AppDeps): Hono {
   })
 
   api.route('/', statusRoutes(deps))
-  api.route('/', projectRoutes(deps))
+  api.route('/', environmentRoutes(deps))
   api.route('/', runnerRoutes(deps))
   api.route('/', overrideRoutes(deps))
-  api.route('/', workspaceRoutes(deps))
+  api.route('/', projectRoutes(deps))
   api.route('/', serviceRoutes(deps))
   api.route('/', dockerRoutes(deps))
   api.route('/', networkRoutes(deps))

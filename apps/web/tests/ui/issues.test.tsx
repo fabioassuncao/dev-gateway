@@ -12,7 +12,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-query')>()
   return {
     ...actual,
-    useQueryClient: () => ({ invalidateQueries: () => undefined }),
+    useQueryClient: () => ({ invalidateQueries: () => undefined, getQueryData: () => undefined }),
     useMutation: () => ({ mutate: () => undefined, isPending: false, error: null }),
   }
 })
@@ -132,8 +132,8 @@ describe('the environments an issue is worked in', () => {
                 { url: 'http://web.issue-182.localhost', host: 'web.issue-182.localhost', scope: 'local', scheme: 'http' },
               ],
               branch: 'fix/182-tcp-proxy',
-              panelUrl: '#/projects/alpha-issue182',
-              logsUrl: '#/projects/alpha-issue182/logs',
+              panelUrl: '#/environments/alpha-issue182',
+              logsUrl: '#/environments/alpha-issue182/logs',
             },
           ],
         })}
@@ -145,11 +145,11 @@ describe('the environments an issue is worked in', () => {
     expect(screen.getByText('this environment is on branch fix/182-tcp-proxy')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'alpha-issue182' })).toHaveAttribute(
       'href',
-      '#/projects/alpha-issue182',
+      '#/environments/alpha-issue182',
     )
     expect(screen.getByRole('link', { name: 'Logs' })).toHaveAttribute(
       'href',
-      '#/projects/alpha-issue182/logs',
+      '#/environments/alpha-issue182/logs',
     )
     expect(screen.getByText('web.issue-182.localhost')).toBeInTheDocument()
   })
@@ -165,7 +165,7 @@ describe('the environments an issue is worked in', () => {
               project: 'alpha-issue182', source: 'manual', reason: 'linked by hand',
               running: false, serviceCount: 2, runningCount: 0, unhealthyCount: 0,
               urls: [], branch: null,
-              panelUrl: '#/projects/alpha-issue182', logsUrl: '#/projects/alpha-issue182/logs',
+              panelUrl: '#/environments/alpha-issue182', logsUrl: '#/environments/alpha-issue182/logs',
             },
           ],
         })}

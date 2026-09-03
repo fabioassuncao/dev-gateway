@@ -20,7 +20,7 @@ export function ContainerActions({
   container: ContainerSummary
   onShowDetails?: () => void
 }) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'containerActions' })
+  const { t } = useTranslation('environments', { keyPrefix: 'containerActions' })
   const queryClient = useQueryClient()
   const { shortImage } = useFormat()
   const [error, setError] = useState<unknown>(null)
@@ -119,7 +119,7 @@ export function RemoveDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'containerActions.remove' })
+  const { t } = useTranslation('environments', { keyPrefix: 'containerActions.remove' })
   const { t: tc } = useTranslation('common')
   const queryClient = useQueryClient()
   const [error, setError] = useState<unknown>(null)

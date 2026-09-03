@@ -8,7 +8,7 @@ import { Badge } from './ui/badge.tsx'
 import { Card, CardBody, CardHeader } from './ui/card.tsx'
 import { percentLabel, resourceTone } from './host-resources-lib.ts'
 import { Sparkline } from './sparkline.tsx'
-import { ProjectConsumption } from './project-consumption.tsx'
+import { EnvironmentConsumption } from './environment-consumption.tsx'
 import type { HostMetrics, MetricsCurrent, MetricsHistory } from '../../shared/types.ts'
 
 function Bar({ ratio, kind }: { ratio: number | null; kind: 'cpu' | 'memory' | 'storage' }) {
@@ -79,7 +79,7 @@ export function HostResources() {
   return (
     <>
       <HostResourcesCard data={data} history={history.data} locale={i18n.language} t={t} />
-      <ProjectConsumption projects={data.projects} />
+      <EnvironmentConsumption projects={data.projects} />
     </>
   )
 }

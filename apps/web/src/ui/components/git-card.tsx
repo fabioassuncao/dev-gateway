@@ -8,8 +8,8 @@ import type { ForgePullRequest, ProjectGit } from '../../shared/types.ts'
 
 export function GitCard({ project }: { project: string }) {
   const query = useQuery({
-    queryKey: ['project-git', project],
-    queryFn: () => api.projectGit(project),
+    queryKey: ['environment-git', project],
+    queryFn: () => api.environmentGit(project),
     staleTime: 30_000,
   })
 
@@ -28,7 +28,7 @@ export function GitCard({ project }: { project: string }) {
 }
 
 export function NotCollected({ data }: { data: ProjectGit }) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'project.git' })
+  const { t } = useTranslation('environments', { keyPrefix: 'git' })
 
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line px-4 py-2 text-xs text-subtle">
@@ -40,7 +40,7 @@ export function NotCollected({ data }: { data: ProjectGit }) {
 }
 
 export function ForgeRow({ data }: { data: ProjectGit }) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'project.git' })
+  const { t } = useTranslation('environments', { keyPrefix: 'git' })
   const forge = data.forge
   if (!forge || !forge.authenticated) return null
 
@@ -50,11 +50,10 @@ export function ForgeRow({ data }: { data: ProjectGit }) {
         <GitPullRequest className="h-3.5 w-3.5" />
         <span className="font-medium text-ink">
           {forge.pulls.length === 0
-            ? t('noOpenPullRequests', { defaultValue: 'No open pull requests' })
+            ? t('noOpenPullRequests')
             : forge.pulls.length === 1
-              ? t('oneOpenPullRequest', { defaultValue: '1 open pull request' })
+              ? t('oneOpenPullRequest')
               : t('openPullRequests', {
-                  defaultValue: '{{count}} open pull requests',
                   count: forge.pulls.length,
                 })}
         </span>
@@ -67,14 +66,14 @@ export function ForgeRow({ data }: { data: ProjectGit }) {
 }
 
 export function PullRequest({ pull }: { pull: ForgePullRequest }) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'project.git' })
+  const { t } = useTranslation('environments', { keyPrefix: 'git' })
   const review =
     pull.reviewDecision === 'APPROVED'
-      ? { tone: 'ok' as const, label: t('approved', { defaultValue: 'approved' }) }
+      ? { tone: 'ok' as const, label: t('approved') }
       : pull.reviewDecision === 'CHANGES_REQUESTED'
-        ? { tone: 'danger' as const, label: t('changesRequested', { defaultValue: 'changes requested' }) }
+        ? { tone: 'danger' as const, label: t('changesRequested') }
         : pull.reviewDecision === 'REVIEW_REQUIRED'
-          ? { tone: 'warn' as const, label: t('reviewRequested', { defaultValue: 'review requested' }) }
+          ? { tone: 'warn' as const, label: t('reviewRequested') }
           : null
 
   return (
@@ -93,21 +92,21 @@ export function PullRequest({ pull }: { pull: ForgePullRequest }) {
           #{pull.number} {pull.title}
         </span>
       )}
-      {pull.draft ? <Badge>{t('draft', { defaultValue: 'draft' })}</Badge> : null}
+      {pull.draft ? <Badge>{t('draft')}</Badge> : null}
       {review ? <Badge tone={review.tone}>{review.label}</Badge> : null}
       {pull.checks === 'failing' ? (
-        <Badge tone="danger">{t('checksFailing', { defaultValue: 'checks failing' })}</Badge>
+        <Badge tone="danger">{t('checksFailing')}</Badge>
       ) : pull.checks === 'pending' ? (
-        <Badge tone="warn">{t('checksPending', { defaultValue: 'checks pending' })}</Badge>
+        <Badge tone="warn">{t('checksPending')}</Badge>
       ) : pull.checks === 'passing' ? (
-        <Badge tone="ok">{t('checksPassing', { defaultValue: 'checks passing' })}</Badge>
+        <Badge tone="ok">{t('checksPassing')}</Badge>
       ) : null}
     </span>
   )
 }
 
 export function GitRow({ data }: { data: ProjectGit }) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'project.git' })
+  const { t } = useTranslation('environments', { keyPrefix: 'git' })
   const { relativeTime } = useFormat()
   const git = data.git!
   const head = git.head
@@ -118,7 +117,7 @@ export function GitRow({ data }: { data: ProjectGit }) {
       <span className="flex items-center gap-1.5 text-muted">
         <GitBranch className="h-3.5 w-3.5" />
         {git.detached ? (
-          <Badge tone="warn">{t('detachedHead', { defaultValue: 'detached HEAD' })}</Badge>
+          <Badge tone="warn">{t('detachedHead')}</Badge>
         ) : data.links.branch ? (
           <a
             className="font-medium text-ink underline-offset-2 hover:text-accent hover:underline"
@@ -155,18 +154,17 @@ export function GitRow({ data }: { data: ProjectGit }) {
         {changed > 0 ? (
           <Badge tone="warn">
             {t('uncommittedChanges', {
-              defaultValue: '{{count}} uncommitted changes',
               count: changed,
             })}
           </Badge>
         ) : (
-          <Badge tone="ok">{t('clean', { defaultValue: 'clean' })}</Badge>
+          <Badge tone="ok">{t('clean')}</Badge>
         )}
         {git.ahead > 0 ? (
-          <Badge tone="outline">{t('ahead', { defaultValue: '{{count}} ahead', count: git.ahead })}</Badge>
+          <Badge tone="outline">{t('ahead', { count: git.ahead })}</Badge>
         ) : null}
         {git.behind > 0 ? (
-          <Badge tone="outline">{t('behind', { defaultValue: '{{count}} behind', count: git.behind })}</Badge>
+          <Badge tone="outline">{t('behind', { count: git.behind })}</Badge>
         ) : null}
       </span>
 
@@ -181,18 +179,16 @@ export function GitRow({ data }: { data: ProjectGit }) {
             {data.remote.slug}
           </a>
         ) : null}
-        <span title={data.stale ? t('staleHint', { seconds: data.staleAfterSeconds, defaultValue: 'older than {{seconds}}s' }) : undefined}>
+        <span title={data.stale ? t('staleHint', { seconds: data.staleAfterSeconds,}) : undefined}>
           {data.stale ? (
             <Badge tone="warn">
               {t('collectedAgo', {
-                defaultValue: 'collected {{time}}',
                 time: relativeTime(data.collectedAt),
               })}
             </Badge>
           ) : (
             <>
               {t('collectedAgo', {
-                defaultValue: 'collected {{time}}',
                 time: relativeTime(data.collectedAt),
               })}
             </>

@@ -12,7 +12,6 @@ export type ApiTag =
   | 'Status'
   | 'Projects'
   | 'Environments'
-  | 'Workspaces'
   | 'Issues'
   | 'Tasks'
   | 'Services'
@@ -168,7 +167,6 @@ export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
       { name: 'Status', description: 'Liveness and overview.' },
       { name: 'Projects', description: 'The product the operator recognises. Persisted. See ADR 0031.' },
       { name: 'Environments', description: 'Compose environments running on this host.' },
-      { name: 'Workspaces', description: 'Deprecated alias of Projects.' },
       { name: 'Issues', description: 'The GitHub issue projection, and writes that go back to GitHub.' },
       { name: 'Tasks', description: 'The same issues, asked the way an agent asks: what is next, take it, comment, finish. No GitHub credential is needed to call these.' },
       { name: 'Services', description: 'Containers belonging to adopted projects.' },

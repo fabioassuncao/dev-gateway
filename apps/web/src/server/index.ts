@@ -86,7 +86,7 @@ if (schedule) {
   }
 }
 
-const cache = createSnapshotCache(client, config, 1000, (snapshot) => db?.recordSeen(snapshot.projects))
+const cache = createSnapshotCache(client, config, 1000, (snapshot) => db?.recordEnvironmentsSeen(snapshot.environments))
 const hub = new LiveHub(client, cache)
 const verdict = createVerdictCache(config)
 

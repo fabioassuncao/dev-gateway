@@ -115,10 +115,6 @@ export interface PanelConfig {
   gitDir: string
   /** Past this age, collected Git metadata is marked stale rather than shown. */
   gitStaleSeconds: number
-  /** Where `portta host collect` writes, mounted read-only. */
-  hostDir: string
-  /** Past this age, collected host resources are marked stale rather than shown. */
-  hostStaleSeconds: number
   /** Where the CLI metrics collector writes current.json and history. */
   metricsDir: string
   /** Past this age, current.json is marked stale. */
@@ -217,8 +213,6 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     dynamicDir: env('PORTTA_RUNTIME_DYNAMIC_DIR', '/app/state/traefik-dynamic'),
     gitDir: env('PORTTA_RUNTIME_GIT_DIR', '/app/state/git'),
     gitStaleSeconds: Number(env('PORTTA_RUNTIME_GIT_STALE_SECONDS', '600')),
-    hostDir: env('PORTTA_RUNTIME_HOST_DIR', '/app/state/host'),
-    hostStaleSeconds: Number(env('PORTTA_RUNTIME_HOST_STALE_SECONDS', '600')),
     metricsDir: env('PORTTA_RUNTIME_METRICS_DIR', '/app/state/metrics'),
     metricsStaleSeconds: Number(env('PORTTA_RUNTIME_METRICS_STALE_SECONDS', '30')),
     runnerDir: env('PORTTA_RUNTIME_RUNNER_DIR', '/app/state/runner'),

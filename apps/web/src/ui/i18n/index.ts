@@ -6,7 +6,7 @@ import enCommon from './locales/en/common.json' with { type: 'json' }
 import enNav from './locales/en/nav.json' with { type: 'json' }
 import enOverview from './locales/en/overview.json' with { type: 'json' }
 import enProjects from './locales/en/projects.json' with { type: 'json' }
-import enWorkspaces from './locales/en/workspaces.json' with { type: 'json' }
+import enEnvironments from './locales/en/environments.json' with { type: 'json' }
 import enIssues from './locales/en/issues.json' with { type: 'json' }
 import enServices from './locales/en/services.json' with { type: 'json' }
 import enDocker from './locales/en/docker.json' with { type: 'json' }
@@ -22,7 +22,7 @@ import ptCommon from './locales/pt-BR/common.json' with { type: 'json' }
 import ptNav from './locales/pt-BR/nav.json' with { type: 'json' }
 import ptOverview from './locales/pt-BR/overview.json' with { type: 'json' }
 import ptProjects from './locales/pt-BR/projects.json' with { type: 'json' }
-import ptWorkspaces from './locales/pt-BR/workspaces.json' with { type: 'json' }
+import ptEnvironments from './locales/pt-BR/environments.json' with { type: 'json' }
 import ptIssues from './locales/pt-BR/issues.json' with { type: 'json' }
 import ptServices from './locales/pt-BR/services.json' with { type: 'json' }
 import ptDocker from './locales/pt-BR/docker.json' with { type: 'json' }
@@ -67,7 +67,7 @@ void i18n.use(initReactI18next).init({
       nav: enNav,
       overview: enOverview,
       projects: enProjects,
-      workspaces: enWorkspaces,
+      environments: enEnvironments,
       issues: enIssues,
       services: enServices,
       docker: enDocker,
@@ -84,7 +84,7 @@ void i18n.use(initReactI18next).init({
       nav: ptNav,
       overview: ptOverview,
       projects: ptProjects,
-      workspaces: ptWorkspaces,
+      environments: ptEnvironments,
       issues: ptIssues,
       services: ptServices,
       docker: ptDocker,

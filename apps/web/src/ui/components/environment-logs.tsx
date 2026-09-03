@@ -6,10 +6,10 @@ import { Empty } from './shell-bits.tsx'
 import { LogViewer } from './logs.tsx'
 import { navigate } from '../lib/router.ts'
 
-export function ProjectLogs({ project, service }: { project: Environment; service: string | null }) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'project' })
+export function EnvironmentLogs({ project, service }: { project: Environment; service: string | null }) {
+  const { t } = useTranslation('environments')
 
-  const base = `/projects/${encodeURIComponent(project.name)}/logs`
+  const base = `/environments/${encodeURIComponent(project.name)}/logs`
 
   if (project.services.length === 0) {
     return (
@@ -33,8 +33,8 @@ export function ProjectLogs({ project, service }: { project: Environment; servic
     <Card className="flex h-[70vh] min-h-0 flex-col overflow-hidden">
       <LogViewer
         className="min-h-0 flex-1"
-        queryKey={['project-logs', project.name, service]}
-        load={(tail) => api.projectLogs(project.name, { tail, service })}
+        queryKey={['environment-logs', project.name, service]}
+        load={(tail) => api.environmentLogs(project.name, { tail, service })}
         sources={selectable}
         selectedService={service}
         onSelectService={(next) => navigate(next ? `${base}?service=${encodeURIComponent(next)}` : base)}

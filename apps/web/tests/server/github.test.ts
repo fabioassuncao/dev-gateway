@@ -238,8 +238,8 @@ function projectionDatabase(): { db: Database; store: FakeProjection } {
   const store: FakeProjection = { installations: new Map(), repositories: new Map(), sync: new Map() }
   const db = {
     status: () => ({ configured: true, available: true, reason: null, checkedAt: 0, migrations: [] }),
-    projects: { find: async () => null, upsertSeen: async () => ({}), list: async () => [] },
-    settings: { listAllProject: async () => [], listAllService: async () => [] },
+    environments: { find: async () => null, upsertSeen: async () => ({}), list: async () => [] },
+    settings: { listAllEnvironment: async () => [], listAllService: async () => [] },
     github: {
       upsertInstallation: async (installation: { installationId: number }) =>
         void store.installations.set(installation.installationId, { ...installation, syncedAt: new Date(0) }),

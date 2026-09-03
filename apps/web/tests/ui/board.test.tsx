@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
-import type { Issue, Workspace } from '../../src/shared/types.ts'
+import type { Issue, Project } from '../../src/shared/types.ts'
 
 class ApiError extends Error {
   status: number
@@ -15,18 +15,18 @@ class ApiError extends Error {
   }
 }
 
-const workspaceIssues = vi.fn()
+const projectIssues = vi.fn()
 const patchIssue = vi.fn()
 const createIssue = vi.fn()
-const workspace = vi.fn()
+const project = vi.fn()
 
 vi.mock('../../src/ui/lib/api.ts', () => ({
   ApiError,
   api: {
-    workspaceIssues: (slug: string, filters: unknown) => workspaceIssues(slug, filters),
+    projectIssues: (slug: string, filters: unknown) => projectIssues(slug, filters),
     patchIssue: (id: string, body: unknown) => patchIssue(id, body),
     createIssue: (repository: string, body: unknown) => createIssue(repository, body),
-    workspace: (slug: string) => workspace(slug),
+    project: (slug: string) => project(slug),
   },
 }))
 
@@ -60,7 +60,7 @@ function issue(overrides: Partial<Issue> = {}): Issue {
   }
 }
 
-const detail: Workspace = {
+const detail: Project = {
   id: 'ws-1',
   slug: 'produto',
   name: 'Meu Produto',
@@ -68,7 +68,7 @@ const detail: Workspace = {
   archived: false,
   relativePath: null,
   resolvedPath: null,
-  location: 'unmanaged',
+  location: 'external',
   repositories: [],
   githubRepositories: [
     {
@@ -80,13 +80,13 @@ const detail: Workspace = {
 }
 
 beforeEach(() => {
-  workspaceIssues.mockReset().mockResolvedValue([issue()])
+  projectIssues.mockReset().mockResolvedValue([issue()])
   patchIssue.mockReset().mockImplementation(async (_id: string, body: { status: string }) =>
     issue({ status: body.status as Issue['status'] }),
   )
   createIssue.mockReset().mockResolvedValue(issue())
-  workspace.mockReset().mockResolvedValue(detail)
-  window.location.hash = '/board/produto/board'
+  project.mockReset().mockResolvedValue(detail)
+  window.location.hash = '/projects/produto/board'
 })
 
 describe('resolveView', () => {
@@ -182,7 +182,7 @@ describe('the board', () => {
   it('passes the filters through to the request', async () => {
     renderWithQuery(<BoardPage slug="produto" view="board" filters={{ priority: 'urgent' }} />)
     await waitFor(() =>
-      expect(workspaceIssues).toHaveBeenCalledWith('produto', { priority: 'urgent', state: 'open' }),
+      expect(projectIssues).toHaveBeenCalledWith('produto', { priority: 'urgent', state: 'open' }),
     )
   })
 
@@ -199,13 +199,13 @@ describe('the board', () => {
   })
 
   it('says the database is needed rather than showing a stack', async () => {
-    workspaceIssues.mockRejectedValue(new ApiError(503, 'panel persistence is unavailable'))
+    projectIssues.mockRejectedValue(new ApiError(503, 'panel persistence is unavailable'))
     renderWithQuery(<BoardPage slug="produto" view="board" filters={{}} />)
     expect(await screen.findByText("The board needs the panel's database")).toBeInTheDocument()
   })
 
   it('explains an empty board rather than showing six blank columns', async () => {
-    workspaceIssues.mockResolvedValue([])
+    projectIssues.mockResolvedValue([])
     renderWithQuery(<BoardPage slug="produto" view="board" filters={{}} />)
     expect(await screen.findByText('No issue matches these filters')).toBeInTheDocument()
   })
@@ -213,7 +213,7 @@ describe('the board', () => {
 
 describe('the backlog', () => {
   it('is a list of what has no status yet, not the board', async () => {
-    workspaceIssues.mockResolvedValue([issue(), issue({ id: '2', number: 124, title: 'Sem status', status: null })])
+    projectIssues.mockResolvedValue([issue(), issue({ id: '2', number: 124, title: 'Sem status', status: null })])
     renderWithQuery(<BoardPage slug="produto" view="backlog" filters={{}} />)
 
     expect(await screen.findByText('Sem status')).toBeInTheDocument()
@@ -222,7 +222,7 @@ describe('the backlog', () => {
   })
 
   it('opens an issue for editing from a row', async () => {
-    workspaceIssues.mockResolvedValue([issue({ status: null })])
+    projectIssues.mockResolvedValue([issue({ status: null })])
     renderWithQuery(<BoardPage slug="produto" view="backlog" filters={{}} />)
 
     await userEvent.click(await screen.findByRole('button', { name: 'Implementar refresh token' }))
@@ -231,7 +231,7 @@ describe('the backlog', () => {
 })
 
 describe('creating an issue', () => {
-  it('writes to GitHub through the repositories the workspace owns', async () => {
+  it('writes to GitHub through the repositories the project owns', async () => {
     renderWithQuery(<BoardPage slug="produto" view="board" filters={{}} />)
     await screen.findByRole('article', { name: /#123/ })
 
@@ -245,8 +245,8 @@ describe('creating an issue', () => {
     expect(createIssue.mock.calls[0]![1]).toMatchObject({ title: 'Nova tarefa', status: 'ready' })
   })
 
-  it('cannot be started for a workspace with no repository', async () => {
-    workspace.mockResolvedValue({ ...detail, githubRepositories: [] })
+  it('cannot be started for a project with no repository', async () => {
+    project.mockResolvedValue({ ...detail, githubRepositories: [] })
     renderWithQuery(<BoardPage slug="produto" view="board" filters={{}} />)
     await screen.findByRole('article', { name: /#123/ })
     expect(screen.getByRole('button', { name: /New issue/ })).toBeDisabled()

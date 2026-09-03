@@ -35,14 +35,5 @@ export function hostRoutes(deps: AppDeps): Hono {
     return c.json(readMetricsHistory(deps.config, windowSeconds))
   })
 
-  app.get('/host', documentRoute({
-    tag: 'Status',
-    operationId: 'getHostResources',
-    summary: 'Get this host\'s capacity right now',
-    response: MetricsCurrent,
-    description: 'Alias of GET /metrics/current.',
-    errors: [500],
-  }), (c) => c.json(readCurrentMetrics(deps.config)))
-
   return app
 }

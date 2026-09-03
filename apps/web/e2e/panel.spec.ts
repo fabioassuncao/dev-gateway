@@ -31,7 +31,7 @@ test.describe('the panel end to end', () => {
     await expect(page).toHaveURL(/#\/settings\/gateway$/)
     await expect(page).toHaveTitle('Gateway · Settings · Portta')
 
-    await page.goto('/#/projects/alpha')
+    await page.goto('/#/environments/alpha')
     await expect(page).toHaveTitle('alpha · Portta')
   })
 
@@ -46,18 +46,18 @@ test.describe('the panel end to end', () => {
   })
 
   test('the board explains itself before the projection exists', async ({ page }) => {
-    await page.goto('/#/board/produto/board')
+    await page.goto('/#/projects/produto/board')
     // No PostgreSQL in the demo host: the board is a projection, and says so.
     await expect(page.getByText("The board needs the panel's database")).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Board' })).toHaveAttribute('aria-selected', 'true')
 
     await page.getByRole('tab', { name: 'Backlog' }).click()
-    await expect(page).toHaveURL(/#\/board\/produto\/backlog$/)
+    await expect(page).toHaveURL(/#\/projects\/produto\/board\/backlog$/)
     await expect(page).toHaveTitle('Backlog · produto · Portta')
   })
 
   test('a filtered board is a link somebody can paste', async ({ page }) => {
-    await page.goto('/#/board/produto/board?priority=urgent&repository=acme%2Fapi')
+    await page.goto('/#/projects/produto/board?priority=urgent&repository=acme%2Fapi')
     await expect(page.getByLabel('Priority')).toHaveValue('urgent')
     await page.reload()
     await expect(page.getByLabel('Priority')).toHaveValue('urgent')
@@ -114,12 +114,12 @@ test.describe('the panel end to end', () => {
   test('a project has a page of its own, with deep-linkable tabs', async ({ page }) => {
     await page.goto('/#/projects')
     await page.getByRole('link', { name: 'alpha', exact: true }).click()
-    await expect(page).toHaveURL(/#\/projects\/alpha$/)
+    await expect(page).toHaveURL(/#\/environments\/alpha$/)
     await expect(page).toHaveTitle('alpha · Portta')
     await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true')
 
     await page.getByRole('tab', { name: 'Git' }).click()
-    await expect(page).toHaveURL(/#\/projects\/alpha\/git$/)
+    await expect(page).toHaveURL(/#\/environments\/alpha\/git$/)
     await expect(page).toHaveTitle('Git · alpha · Portta')
 
     await page.reload()
@@ -134,7 +134,7 @@ test.describe('the panel end to end', () => {
   })
 
   test('the Logs tab reads every service at once and narrows to one', async ({ page }) => {
-    await page.goto('/#/projects/alpha/logs')
+    await page.goto('/#/environments/alpha/logs')
     const output = page.locator('pre')
     await expect(output).toBeVisible()
 
@@ -145,7 +145,7 @@ test.describe('the panel end to end', () => {
     // `Services` is also a sidebar button, so the selector is exact.
     const selector = page.getByLabel('Service', { exact: true })
     await selector.selectOption('web')
-    await expect(page).toHaveURL(/#\/projects\/alpha\/logs\?service=web$/)
+    await expect(page).toHaveURL(/#\/environments\/alpha\/logs\?service=web$/)
     await expect(selector).toHaveValue('web')
 
     await page.reload()
@@ -153,7 +153,7 @@ test.describe('the panel end to end', () => {
   })
 
   test('a project can be named from the panel without a database', async ({ page }) => {
-    await page.goto('/#/projects/alpha')
+    await page.goto('/#/environments/alpha')
     // `Settings` is also a sidebar section, so this is scoped to the page.
     await page.getByRole('main').getByRole('button', { name: 'Settings' }).click()
     await expect(page.getByText(/Nothing is written inside the project/)).toBeVisible()
@@ -171,7 +171,7 @@ test.describe('the panel end to end', () => {
   test('the project page never makes the page scroll sideways', async ({ page }) => {
     for (const width of [375, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 900 })
-      await page.goto('/#/projects/alpha/services')
+      await page.goto('/#/environments/alpha/services')
       await expect(page.getByRole('heading', { name: 'alpha' })).toBeVisible()
       const overflows = await page.evaluate(
         () => document.documentElement.scrollWidth > document.documentElement.clientWidth,

@@ -146,7 +146,7 @@ describe('GET /api/environments/:project/logs', () => {
     const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] })
     const response = await app.request('/api/environments/ghost/logs')
     expect(response.status).toBe(404)
-    expect((await response.json()).error).toContain("no project 'ghost'")
+    expect((await response.json()).error).toContain("no environment 'ghost'")
   })
 
   it('clamps the requested tail per service', async () => {

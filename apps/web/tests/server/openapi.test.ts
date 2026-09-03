@@ -23,7 +23,7 @@ import {
 } from '../../src/shared/types.ts'
 import { OpenApiDocument } from '../../src/server/openapi.ts'
 import { HealthResponse } from '../../src/server/routes/status.ts'
-import { EnvironmentsResponse } from '../../src/server/routes/projects.ts'
+import { EnvironmentsResponse } from '../../src/server/routes/environments.ts'
 import { ServicesResponse } from '../../src/server/routes/services.ts'
 import { ContainersResponse, StatsResponse } from '../../src/server/routes/docker.ts'
 

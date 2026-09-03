@@ -36,14 +36,14 @@ export function statusRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const snapshot = await deps.cache.get()
     const gateway = gatewayStatus(snapshot, deps.config)
-    const integrated = snapshot.projects.filter((project) => project.integrated)
+    const integrated = snapshot.environments.filter((environment) => environment.integrated)
     const running = snapshot.containers.filter((container) => container.state === 'running')
     // Shares are on the Overview so they are visible without being looked
     // for: an exposure nobody remembers is the failure mode worth catching.
     const shares = listShares(deps.config, snapshot)
 
     const counts: OverviewCounts = {
-      projects: snapshot.projects.length,
+      projects: snapshot.environments.length,
       integratedProjects: integrated.length,
       services: integrated.reduce((total, project) => total + project.serviceCount, 0),
       servicesRunning: integrated.reduce((total, project) => total + project.runningCount, 0),

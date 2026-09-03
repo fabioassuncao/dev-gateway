@@ -3,6 +3,7 @@
 // Responses are validated in tests, not on the production hot path.
 
 import { z } from 'zod'
+import type { ProjectLocation as CoreProjectLocation } from 'portta-core'
 
 const named = <T extends z.ZodType>(schema: T, ref: string): T => schema.meta({ ref }) as T
 const unixSeconds = z.number().describe('Unix timestamp in seconds')
@@ -391,11 +392,19 @@ export const ProjectEnvironment = named(
 )
 export type ProjectEnvironment = z.infer<typeof ProjectEnvironment>
 
+/**
+ * Where a Project sits relative to Projects Home. The vocabulary is the core's
+ * (`classifyProjectLocation` in portta-core); the panel, which cannot see the
+ * filesystem, only ever answers `managed` or `external` from what is stored.
+ */
 export const ProjectLocation = named(
-  z.enum(['managed', 'external', 'unmanaged', 'candidate']).describe('Where this Project sits relative to Projects Home'),
+  z.enum(['managed', 'external', 'escaped', 'missing', 'inaccessible']).describe('Where this Project sits relative to Projects Home'),
   'ProjectLocation',
 )
 export type ProjectLocation = z.infer<typeof ProjectLocation>
+// Compile-time check that the panel's enum is exactly the core's.
+const _projectLocations: readonly CoreProjectLocation[] = ProjectLocation.options
+void _projectLocations
 
 export const ProjectSummary = named(
   z.object({
@@ -432,52 +441,6 @@ export const Project = named(
   'Project',
 )
 export type Project = z.infer<typeof Project>
-
-/** @deprecated Use EnvironmentOverrides. Removed with the schema cleanup. */
-export const ProjectOverrides = EnvironmentOverrides
-/** @deprecated Use EnvironmentOverrides */
-export type ProjectOverrides = EnvironmentOverrides
-/** @deprecated Use EnvironmentOperable */
-export const ProjectOperable = EnvironmentOperable
-/** @deprecated Use EnvironmentOperable */
-export type ProjectOperable = EnvironmentOperable
-/** @deprecated Use EnvironmentStartable */
-export const ProjectStartable = EnvironmentStartable
-/** @deprecated Use EnvironmentStartable */
-export type ProjectStartable = EnvironmentStartable
-/** @deprecated Use EnvironmentActionEntry */
-export const ProjectActionEntry = EnvironmentActionEntry
-/** @deprecated Use EnvironmentActionEntry */
-export type ProjectActionEntry = EnvironmentActionEntry
-/** @deprecated Use EnvironmentActionResult */
-export const ProjectActionResult = EnvironmentActionResult
-/** @deprecated Use EnvironmentActionResult */
-export type ProjectActionResult = EnvironmentActionResult
-/** @deprecated Use EnvironmentPorttaRecords */
-export const ProjectPorttaRecords = EnvironmentPorttaRecords
-/** @deprecated Use EnvironmentPorttaRecords */
-export type ProjectPorttaRecords = EnvironmentPorttaRecords
-/** @deprecated Use EnvironmentRemovalPreview */
-export const ProjectRemovalPreview = EnvironmentRemovalPreview
-/** @deprecated Use EnvironmentRemovalPreview */
-export type ProjectRemovalPreview = EnvironmentRemovalPreview
-
-/** @deprecated Use Project. `/api/workspaces` is a deprecated alias of `/api/projects`. */
-export const Workspace = Project
-/** @deprecated Use Project */
-export type Workspace = Project
-/** @deprecated Use ProjectSummary */
-export const WorkspaceSummary = ProjectSummary
-/** @deprecated Use ProjectSummary */
-export type WorkspaceSummary = ProjectSummary
-/** @deprecated Use ProjectGitHubRepository */
-export const WorkspaceRepository = ProjectGitHubRepository
-/** @deprecated Use ProjectGitHubRepository */
-export type WorkspaceRepository = ProjectGitHubRepository
-/** @deprecated Use ProjectEnvironment */
-export const WorkspaceEnvironment = ProjectEnvironment
-/** @deprecated Use ProjectEnvironment */
-export type WorkspaceEnvironment = ProjectEnvironment
 
 export const WorkflowStatus = named(
   z.enum(['backlog', 'ready', 'in_progress', 'review', 'blocked', 'done']),
@@ -1518,7 +1481,7 @@ export const ProjectRemoveResult = named(
     directory: z.boolean(),
     via: z.enum(['runner', 'iteration']),
     removedContainers: z.array(z.string()),
-    cleaned: ProjectPorttaRecords,
+    cleaned: EnvironmentPorttaRecords,
     remainingCommands: z.array(z.string()),
     runner: RunnerStatus.nullable(),
     note: z.string().nullable(),

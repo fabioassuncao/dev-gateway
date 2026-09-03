@@ -1,12 +1,11 @@
-// Assemble a Project from the persisted grouping (still stored as `workspaces`)
-// plus the live Environment snapshot. Persistence names stay in db/; this
-// file speaks the canonical domain. See docs/adr/0031-projects-home-and-project.md.
+// Assemble a Project from the persisted grouping plus the live Environment
+// snapshot. See docs/adr/0031-projects-home-and-project.md.
 
 import { relativePathFromWorkingDir, resolveProjectPath } from 'portta-core'
 import type { Snapshot } from './inventory.ts'
-import { resolveAdoptions, type WorkspaceCoordinates } from './adoption.ts'
+import { resolveAdoptions, type ProjectCoordinates } from './adoption.ts'
 import type { Database } from '../db/index.ts'
-import type { WorkspaceRecord, WorkspaceRepositoryRow } from '../db/client.ts'
+import type { ProjectRecord, ProjectRepositoryRow } from '../db/client.ts'
 import type {
   Project,
   ProjectEnvironment,
@@ -15,8 +14,9 @@ import type {
   ProjectSummary,
 } from '../../shared/types.ts'
 
+/** The panel cannot stat the host: with a stored path it is managed, without one it is external. */
 export function projectLocationOf(relativePath: string | null): ProjectLocation {
-  return relativePath ? 'managed' : 'unmanaged'
+  return relativePath ? 'managed' : 'external'
 }
 
 export function resolvedPathOf(projectsHome: string | null, relativePath: string | null): string | null {
@@ -28,7 +28,7 @@ export function resolvedPathOf(projectsHome: string | null, relativePath: string
   }
 }
 
-export function toGitHubRepository(row: WorkspaceRepositoryRow): ProjectGitHubRepository {
+export function toGitHubRepository(row: ProjectRepositoryRow): ProjectGitHubRepository {
   return {
     repositoryId: row.repositoryId,
     fullName: row.fullName,
@@ -42,7 +42,7 @@ export function toGitHubRepository(row: WorkspaceRepositoryRow): ProjectGitHubRe
 }
 
 export function toProjectSummary(
-  record: WorkspaceRecord,
+  record: ProjectRecord,
   githubCount: number,
   adopted: ProjectEnvironment[],
 ): ProjectSummary {
@@ -61,7 +61,7 @@ export function toProjectSummary(
 }
 
 export function toProject(
-  record: WorkspaceRecord,
+  record: ProjectRecord,
   github: ProjectGitHubRepository[],
   adopted: ProjectEnvironment[],
   projectsHome: string | null,
@@ -83,32 +83,32 @@ export function toProject(
 
 export async function loadProjectCatalog(db: Database, snapshot: Snapshot, projectsHome: string | null) {
   const [records, repositoryRows, manualLinks] = await Promise.all([
-    db.workspaces.list(),
-    db.workspaces.listRepositories(),
-    db.workspaces.listEnvironments(),
+    db.projects.list(),
+    db.projects.listRepositories(),
+    db.projects.listEnvironments(),
   ])
 
   const githubByProject = new Map<string, ProjectGitHubRepository[]>()
   for (const row of repositoryRows) {
-    const list = githubByProject.get(row.workspaceId) ?? []
+    const list = githubByProject.get(row.projectId) ?? []
     list.push(toGitHubRepository(row))
-    githubByProject.set(row.workspaceId, list)
+    githubByProject.set(row.projectId, list)
   }
 
-  const coordinates: WorkspaceCoordinates[] = records.map((record) => ({
+  const coordinates: ProjectCoordinates[] = records.map((record) => ({
     id: record.id,
     slug: record.slug,
     repositories: (githubByProject.get(record.id) ?? []).map((repository) => repository.fullName.toLowerCase()),
   }))
 
-  const manual = new Map(manualLinks.map((row) => [row.composeProject, row.workspaceId]))
+  const manual = new Map(manualLinks.map((row) => [row.composeProject, row.projectId]))
   const adoptions = resolveAdoptions(snapshot.environments, coordinates, manual)
 
   const environments = new Map<string, ProjectEnvironment[]>()
   for (const environment of snapshot.environments) {
     const adoption = adoptions.get(environment.name)
     if (!adoption) continue
-    const list = environments.get(adoption.workspaceId) ?? []
+    const list = environments.get(adoption.projectId) ?? []
     list.push({
       environment: environment.name,
       source: adoption.source,
@@ -119,7 +119,7 @@ export async function loadProjectCatalog(db: Database, snapshot: Snapshot, proje
       unhealthyCount: environment.unhealthyCount,
       urls: environment.urls,
     })
-    environments.set(adoption.workspaceId, list)
+    environments.set(adoption.projectId, list)
   }
 
   return { records, githubByProject, environments, projectsHome }

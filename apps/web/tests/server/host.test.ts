@@ -60,7 +60,7 @@ describe('GET /api/metrics/current', () => {
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, 'current.json'), '{broken\n')
     const { app } = makeApp({ containers: GATEWAY }, { metricsDir: dir })
-    const body = (await (await app.request('/api/host')).json()) as MetricsCurrent
+    const body = (await (await app.request('/api/metrics/current')).json()) as MetricsCurrent
     expect(body.collectedAt).toBeNull()
     expect(body.host).toBeNull()
   })

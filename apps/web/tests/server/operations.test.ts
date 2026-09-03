@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { makeApp, post, type FakeContainer } from './helpers.ts'
 import { PROJECT_A } from './fixtures.ts'
-import type { ProjectRemovalPreview, ProjectRemoveResult, ProjectRebuildResult } from '../../src/shared/types.ts'
+import type { EnvironmentRemovalPreview, ProjectRemoveResult, ProjectRebuildResult } from '../../src/shared/types.ts'
 
 const RUNNER: FakeContainer = {
   id: 'gw-runner',
@@ -44,7 +44,7 @@ describe('GET /api/environments/:project/removal-preview', () => {
     const { app } = makeApp({ containers: withVolume }, isolated())
     const response = await app.request('/api/environments/alpha/removal-preview')
     expect(response.status).toBe(200)
-    const body = (await response.json()) as ProjectRemovalPreview
+    const body = (await response.json()) as EnvironmentRemovalPreview
     expect(body.environment).toBe('alpha')
     expect(body.containers.map((container) => container.service)).toEqual(expect.arrayContaining(['web', 'api', 'postgres']))
     expect(body.volumes).toEqual([{ name: 'alpha_pgdata', sizeBytes: null }])

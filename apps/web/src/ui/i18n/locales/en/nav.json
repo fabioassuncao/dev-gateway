@@ -28,5 +28,9 @@
   "services": "Services",
   "settings": "Settings",
   "toggleTheme": "Toggle theme",
-  "workspaces": "Workspaces"
+  "groups": {
+    "development": "Development",
+    "infrastructure": "Infrastructure"
+  },
+  "environments": "Environments"
 }

@@ -212,9 +212,9 @@ function linkDatabase(rows = [storedIssue()], manual: { issueId: string; compose
   const store = { manual: [...manual] }
   const db = {
     status: () => ({ configured: true, available: true, reason: null, checkedAt: 0, migrations: [] }),
-    projects: { find: async () => null, upsertSeen: async () => ({}), list: async () => [] },
-    settings: { listAllProject: async () => [], listAllService: async () => [] },
-    workspaces: { find: async () => null, listRepositories: async () => [], listEnvironments: async () => [] },
+    environments: { find: async () => null, upsertSeen: async () => ({}), list: async () => [] },
+    settings: { listAllEnvironment: async () => [], listAllService: async () => [] },
+    projects: { find: async () => null, listRepositories: async () => [], listEnvironments: async () => [] },
     github: {
       listIssues: async () => rows,
       findIssue: async (id: string) => rows.find((row) => row.id === id) ?? null,

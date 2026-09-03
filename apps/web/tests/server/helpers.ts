@@ -270,8 +270,7 @@ export function fakeDatabase(options: { available?: boolean } = {}): Database & 
   const serviceValues = new Map<string, unknown>()
   const available = options.available ?? true
   const record = {
-    id: 'p1', composeProject: 'alpha', workingDir: null, repoUrl: null, repoSubpath: null,
-    slug: null, displayName: null, archived: false,
+    id: 'e1', composeProject: 'alpha', workingDir: null, repoUrl: null, repoSubpath: null,
     firstSeenAt: new Date(0), lastSeenAt: new Date(0), updatedAt: new Date(0),
   }
 
@@ -279,12 +278,18 @@ export function fakeDatabase(options: { available?: boolean } = {}): Database & 
     projectValues,
     serviceValues,
     status: () => ({ configured: true, available, reason: available ? null : 'connection refused', checkedAt: 0, migrations: [] }),
-    projects: {
+    environments: {
       find: async (composeProject: string) => ({ ...record, composeProject }),
       upsertSeen: async () => record,
       list: async () => [record],
-      recordCounts: async () => ({ overrides: 0, workspaceLinks: 0, issueLinks: 0 }),
-      forget: async () => ({ overrides: 0, workspaceLinks: 0, issueLinks: 0 }),
+      recordCounts: async () => ({ overrides: 0, projectLinks: 0, issueLinks: 0 }),
+      forget: async () => ({ overrides: 0, projectLinks: 0, issueLinks: 0 }),
+    },
+    projects: {
+      find: async () => null,
+      list: async () => [],
+      listRepositories: async () => [],
+      listEnvironments: async () => [],
     },
     // Empty by default: an override test is not a GitHub test, and every join
     // must degrade to nothing rather than throw.
@@ -296,15 +301,15 @@ export function fakeDatabase(options: { available?: boolean } = {}): Database & 
       listRepositories: async () => [],
     },
     settings: {
-      getProject: async (_id: string, key: string) => projectValues.get(key) ?? null,
-      setProject: async (_id: string, key: string, value: unknown) => void projectValues.set(key, value),
-      clearProject: async (_id: string, key: string) => void projectValues.delete(key),
+      getEnvironment: async (_id: string, key: string) => projectValues.get(key) ?? null,
+      setEnvironment: async (_id: string, key: string, value: unknown) => void projectValues.set(key, value),
+      clearEnvironment: async (_id: string, key: string) => void projectValues.delete(key),
       getService: async (_id: string, service: string, key: string) => serviceValues.get(`${service}:${key}`) ?? null,
       setService: async (_id: string, service: string, key: string, value: unknown) =>
         void serviceValues.set(`${service}:${key}`, value),
       clearService: async (_id: string, service: string, key: string) =>
         void serviceValues.delete(`${service}:${key}`),
-      listAllProject: async () =>
+      listAllEnvironment: async () =>
         [...projectValues].map(([key, value]) => ({ composeProject: 'alpha', key, value })),
       listAllService: async () =>
         [...serviceValues].map(([composite, value]) => {

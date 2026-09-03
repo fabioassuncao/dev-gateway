@@ -42,70 +42,7 @@
     "title": "Logs",
     "componentAria": "Gateway component"
   },
-  "project": {
-    "tabs": {
-      "overview": "Overview",
-      "services": "Services",
-      "git": "Git",
-      "logs": "Logs"
-    },
-    "notFound": "No project '{{name}}' is running",
-    "stats": {
-      "services": "Services",
-      "running": "running",
-      "unhealthy": "Unhealthy",
-      "routedUrls": "Routed URLs",
-      "uptime": "Uptime"
-    },
-    "environment": {
-      "title": "Environment",
-      "description": "What this Compose project is, and where it lives.",
-      "hostDirectory": "Host directory",
-      "integrated": "Integrated",
-      "worktree": "Worktree",
-      "logicalProject": "Logical project",
-      "gitRoot": "Git root",
-      "repository": "Repository",
-      "networks": "Networks"
-    },
-    "resources": {
-      "title": "Resources",
-      "description": "What this project's containers are using right now.",
-      "empty": "No running containers to measure.",
-      "cpu": "CPU",
-      "memory": "RAM"
-    },
-    "endpoints": {
-      "title": "Endpoints",
-      "description": "Every address this project answers on, grouped by service.",
-      "empty": "This project has no services"
-    },
-    "repository": {
-      "title": "Repository",
-      "description": "Collected on the host; see the Git tab for the whole snapshot."
-    },
-    "git": {
-      "reading": "Reading collected Git metadata",
-      "empty": "No Git metadata collected for this project"
-    },
-    "servicesEmpty": "This project has no services",
-    "servicesEmptyHint": "A project joins by adding the gateway overlay: see docs/adopting-projects.md."
-  },
   "settings": {
-    "overrides": {
-      "description": "Kept in the gateway's own database. Nothing is written inside the project.",
-      "displayName": "Display name",
-      "descriptionLabel": "Description",
-      "primaryService": "Primary service",
-      "pinned": "Pinned",
-      "archived": "Archived",
-      "save": "Save overrides"
-    },
-    "alias": {
-      "placeholder": "shop.localhost",
-      "update": "Update alias",
-      "add": "Add alias"
-    },
     "github": {
       "reading": "Reading the GitHub connection",
       "title": "GitHub App",
@@ -117,27 +54,6 @@
       "rateLimit": "Rate limit",
       "lastSync": "Last sync",
       "sync": "Sync"
-    }
-  },
-  "containerActions": {
-    "logs": "Logs",
-    "actionsFor": "Actions for {{name}}",
-    "details": "Details",
-    "start": "Start",
-    "stop": "Stop",
-    "restart": "Restart",
-    "removeContainer": "Remove container",
-    "error": "error",
-    "logsTitle": "Logs · {{name}}",
-    "remove": {
-      "title": "Remove this container?",
-      "description": "The container goes. Volumes, networks and images stay exactly where they are.",
-      "cancel": "Cancel",
-      "removing": "Removing…",
-      "removeContainer": "Remove container",
-      "namedVolumes": "This container has {{count}} named volume(s)",
-      "volumesKept": "They are kept. The panel never removes a volume, and never runs a prune.",
-      "notAllowed": "The panel does not remove its own infrastructure"
     }
   },
   "apply": {

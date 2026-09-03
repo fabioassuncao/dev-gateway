@@ -1,6 +1,6 @@
 // One snapshot of the host, built from Docker at request time.
 //
-// Everything the panel shows (projects, services, URLs, networks, ports,
+// Everything the panel shows (environments, services, URLs, networks, ports,
 // bridges) remains a view over this. Persistence records only that a project
 // was seen; a container that disappears still stops appearing in this view.
 
@@ -37,8 +37,6 @@ export interface Snapshot {
   reachable: boolean
   containers: ContainerSummary[]
   environments: Environment[]
-  /** @deprecated Use environments. Removed after the alias cycle. */
-  projects: Environment[]
   networks: NetworkSummary[]
   ports: PortUsage[]
   info: DockerInfo | null
@@ -332,8 +330,6 @@ export function groupEnvironments(containers: ContainerSummary[], now: number): 
   return environments
 }
 
-/** @deprecated Use groupEnvironments */
-export const groupProjects = groupEnvironments
 
 function networkRole(name: string, config: PanelConfig): NetworkSummary['role'] {
   if (name === config.network) return 'shared'
@@ -458,7 +454,6 @@ export async function buildSnapshot(client: DockerClient, config: PanelConfig): 
     reachable,
     containers,
     environments,
-    projects: environments,
     networks: summariseNetworks(networks, config, containers),
     ports: collectPorts(containers),
     info,

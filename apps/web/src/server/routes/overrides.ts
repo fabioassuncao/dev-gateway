@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from './deps.ts'
 import { requireDatabase } from '../db/index.ts'
-import { PROJECT_KEYS, type ProjectSettingKey } from '../db/keys.ts'
+import { ENVIRONMENT_KEYS, type EnvironmentSettingKey } from '../db/keys.ts'
 import {
   loadAliases,
   OverrideRefused,
@@ -11,7 +11,7 @@ import {
   saveAliases,
   sortAliases,
 } from '../core/overrides.ts'
-import { ProjectOverrides, ServiceOverrides } from '../../shared/types.ts'
+import { EnvironmentOverrides, ServiceOverrides } from '../../shared/types.ts'
 import { documentRoute, projectParameter } from '../openapi.ts'
 
 const serviceParameter = {
@@ -23,7 +23,7 @@ const serviceParameter = {
 }
 
 /** Every project override, and `null` for anything the user cleared. */
-const ProjectSettingsBody = z
+const EnvironmentSettingsBody = z
   .object({
     displayName: z.string().min(1).max(120).nullable(),
     description: z.string().max(2000).nullable(),
@@ -36,7 +36,7 @@ const ProjectSettingsBody = z
   })
   .partial()
   .strict()
-  .meta({ ref: 'ProjectSettingsBody' })
+  .meta({ ref: 'EnvironmentSettingsBody' })
 
 const AliasBody = z
   .object({ alias: z.string().min(1).max(253) })
@@ -83,40 +83,40 @@ export function overrideRoutes(deps: AppDeps): Hono {
     const db = requireDatabase(deps.db)
     // Identity is COMPOSE_PROJECT_NAME, so two worktrees are two environments
     // with two sets of overrides. A new worktree starts blank, deliberately.
-    const record = (await db.projects.find(name)) ?? (await db.projects.upsertSeen({ composeProject: name }))
+    const record = (await db.environments.find(name)) ?? (await db.environments.upsertSeen({ composeProject: name }))
     return { db, record, snapshot }
   }
 
   app.get('/environments/:project/settings', documentRoute({
-    tag: 'Projects', operationId: 'getProjectSettings', summary: 'Read a project\'s overrides',
-    response: ProjectOverrides, parameters: [projectParameter], errors: [404, 500, 503],
+    tag: 'Environments', operationId: 'getEnvironmentSettings', summary: 'Read an environment\'s overrides',
+    response: EnvironmentOverrides, parameters: [projectParameter], errors: [404, 500, 503],
   }), async (c) => {
     const { db, record } = await projectRecord(c.req.param('project'))
     const stored: Record<string, unknown> = {}
-    for (const key of Object.keys(PROJECT_KEYS) as ProjectSettingKey[]) {
-      const value = await db.settings.getProject(record.id, key)
+    for (const key of Object.keys(ENVIRONMENT_KEYS) as EnvironmentSettingKey[]) {
+      const value = await db.settings.getEnvironment(record.id, key)
       if (value !== null) stored[key] = value
     }
     return c.json(stored)
   })
 
   app.put('/environments/:project/settings', documentRoute({
-    tag: 'Projects', operationId: 'setProjectSettings', summary: 'Set or clear a project\'s overrides',
+    tag: 'Environments', operationId: 'setEnvironmentSettings', summary: 'Set or clear an environment\'s overrides',
     description: 'Presentation only: nothing here changes routing, and nothing is written inside the project.',
-    request: ProjectSettingsBody, response: ProjectOverrides,
+    request: EnvironmentSettingsBody, response: EnvironmentOverrides,
     parameters: [projectParameter], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
-    const body = ProjectSettingsBody.parse(await c.req.json())
+    const body = EnvironmentSettingsBody.parse(await c.req.json())
     const { db, record } = await projectRecord(c.req.param('project'))
 
-    for (const [key, value] of Object.entries(body) as [ProjectSettingKey, unknown][]) {
-      if (value === null) await db.settings.clearProject(record.id, key)
-      else await db.settings.setProject(record.id, key, value as never)
+    for (const [key, value] of Object.entries(body) as [EnvironmentSettingKey, unknown][]) {
+      if (value === null) await db.settings.clearEnvironment(record.id, key)
+      else await db.settings.setEnvironment(record.id, key, value as never)
     }
 
     const stored: Record<string, unknown> = {}
-    for (const key of Object.keys(PROJECT_KEYS) as ProjectSettingKey[]) {
-      const value = await db.settings.getProject(record.id, key)
+    for (const key of Object.keys(ENVIRONMENT_KEYS) as EnvironmentSettingKey[]) {
+      const value = await db.settings.getEnvironment(record.id, key)
       if (value !== null) stored[key] = value
     }
     announce(deps, c.req.param('project'))
@@ -124,15 +124,15 @@ export function overrideRoutes(deps: AppDeps): Hono {
   })
 
   app.delete('/environments/:project/settings', documentRoute({
-    tag: 'Projects', operationId: 'clearProjectSettings', summary: 'Remove every override on a project',
+    tag: 'Environments', operationId: 'clearEnvironmentSettings', summary: 'Remove every override on an environment',
     response: z.object({ ok: z.boolean(), cleared: z.array(z.string()) }).strict().meta({ ref: 'ClearedSettings' }),
     parameters: [projectParameter], errors: [403, 404, 500, 503],
   }), async (c) => {
     const { db, record } = await projectRecord(c.req.param('project'))
     const cleared: string[] = []
-    for (const key of Object.keys(PROJECT_KEYS) as ProjectSettingKey[]) {
-      if ((await db.settings.getProject(record.id, key)) === null) continue
-      await db.settings.clearProject(record.id, key)
+    for (const key of Object.keys(ENVIRONMENT_KEYS) as EnvironmentSettingKey[]) {
+      if ((await db.settings.getEnvironment(record.id, key)) === null) continue
+      await db.settings.clearEnvironment(record.id, key)
       cleared.push(key)
     }
     announce(deps, c.req.param('project'))
@@ -140,7 +140,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/environments/:project/services/:service/overrides', documentRoute({
-    tag: 'Projects', operationId: 'getServiceOverrides', summary: 'Read one service\'s overrides',
+    tag: 'Environments', operationId: 'getServiceOverrides', summary: 'Read one service\'s overrides',
     response: ServiceOverrides, parameters: [projectParameter, serviceParameter], errors: [404, 500, 503],
   }), async (c) => {
     const { db, record } = await projectRecord(c.req.param('project'))
@@ -154,7 +154,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
   })
 
   app.put('/environments/:project/services/:service/note', documentRoute({
-    tag: 'Projects', operationId: 'setServiceNote', summary: 'Set or clear a note on a service',
+    tag: 'Environments', operationId: 'setServiceNote', summary: 'Set or clear a note on a service',
     request: z.object({ note: z.string().max(2000).nullable() }).strict().meta({ ref: 'ServiceNoteBody' }),
     response: ServiceOverrides, parameters: [projectParameter, serviceParameter],
     errors: [400, 403, 404, 500, 503],
@@ -176,7 +176,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
    * database and Traefik cannot end up disagreeing about what answers.
    */
   app.put('/environments/:project/services/:service/alias', documentRoute({
-    tag: 'Projects', operationId: 'setServiceAlias', summary: 'Route an additional hostname to a service',
+    tag: 'Environments', operationId: 'setServiceAlias', summary: 'Route an additional hostname to a service',
     description:
       'Additive: the project\'s own hostname keeps working beside the alias. Refused before any write when the hostname collides, sits outside a served domain, or has no unambiguous HTTP port.',
     request: AliasBody, response: AliasResult,
@@ -222,7 +222,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
   })
 
   app.delete('/environments/:project/services/:service/alias', documentRoute({
-    tag: 'Projects', operationId: 'clearServiceAlias', summary: 'Remove a hostname alias',
+    tag: 'Environments', operationId: 'clearServiceAlias', summary: 'Remove a hostname alias',
     response: z.object({ ok: z.boolean(), removed: z.string().nullable() }).strict().meta({ ref: 'AliasRemoval' }),
     parameters: [projectParameter, serviceParameter], errors: [403, 404, 500, 503],
   }), async (c) => {

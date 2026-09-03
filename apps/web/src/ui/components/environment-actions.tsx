@@ -8,15 +8,15 @@ import { Button } from './ui/button.tsx'
 import { Dialog } from './ui/dialog.tsx'
 import { ErrorBox } from './shell-bits.tsx'
 
-export function ProjectActions({ project }: { project: Environment }) {
-  const { t } = useTranslation('projects', { keyPrefix: 'actions' })
+export function EnvironmentActions({ project }: { project: Environment }) {
+  const { t } = useTranslation('environments', { keyPrefix: 'actions' })
   const queryClient = useQueryClient()
   const [error, setError] = useState<unknown>(null)
   const [confirmStop, setConfirmStop] = useState(false)
   const [summary, setSummary] = useState<EnvironmentActionResult | null>(null)
 
   const act = useMutation({
-    mutationFn: (action: 'start' | 'stop' | 'restart') => api.projectAction(project.name, action),
+    mutationFn: (action: 'start' | 'stop' | 'restart') => api.environmentAction(project.name, action),
     onSuccess: (result) => {
       setSummary(result)
       setConfirmStop(false)

@@ -19,10 +19,11 @@ import {
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useRoute, segments, queryParam, navigate } from './lib/router.ts'
+import { legacyRedirect } from './lib/redirects.ts'
 import { useTheme } from './lib/theme.ts'
 import { useLive } from './lib/live.ts'
 import { useSidebarCollapsed } from './lib/sidebar.ts'
-import { api, ApiError } from './lib/api.ts'
+import { api } from './lib/api.ts'
 import { cn } from './lib/utils.ts'
 import { useLocale, type Locale } from './i18n/use-locale.ts'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from './components/ui/menu.tsx'
@@ -32,8 +33,8 @@ import { ApplyBar } from './components/apply-bar.tsx'
 import { Overview } from './pages/Overview.tsx'
 import { Projects } from './pages/Projects.tsx'
 import { ProjectPage } from './pages/Project.tsx'
-import { WorkspacePage } from './pages/Workspace.tsx'
-import { ErrorBox, Loading } from './components/shell-bits.tsx'
+import { EnvironmentPage } from './pages/Environment.tsx'
+import { Loading } from './components/shell-bits.tsx'
 import { BoardPage } from './pages/Board.tsx'
 import { Services } from './pages/Services.tsx'
 import { DockerPage } from './pages/Docker.tsx'
@@ -52,22 +53,53 @@ type NavLabelKey =
   | 'gateway'
   | 'settings'
 
+type NavGroupKey = 'groups.development' | 'groups.infrastructure'
+
 interface NavItem {
   path: string
   labelKey: NavLabelKey
   icon: ComponentType<{ className?: string }>
 }
 
-const NAV: NavItem[] = [
-  { path: '/overview', labelKey: 'overview', icon: LayoutDashboard },
-  { path: '/projects', labelKey: 'projects', icon: Boxes },
-  { path: '/services', labelKey: 'services', icon: Container },
-  { path: '/docker', labelKey: 'docker', icon: Activity },
-  { path: '/network', labelKey: 'network', icon: Network },
-  { path: '/access', labelKey: 'access', icon: PlugZap },
-  { path: '/gateway', labelKey: 'gateway', icon: Globe },
-  { path: '/settings', labelKey: 'settings', icon: SettingsIcon },
+interface NavGroup {
+  /** Null for the trailing items that belong to no group. */
+  labelKey: NavGroupKey | null
+  items: NavItem[]
+}
+
+/**
+ * Two groups and a tail. Development is where a day starts; infrastructure
+ * is the set of technical perspectives over the same host. Settings sits
+ * alone at the end because it is neither.
+ */
+const NAV_GROUPS: NavGroup[] = [
+  {
+    labelKey: 'groups.development',
+    items: [
+      { path: '/overview', labelKey: 'overview', icon: LayoutDashboard },
+      { path: '/projects', labelKey: 'projects', icon: Boxes },
+    ],
+  },
+  {
+    labelKey: 'groups.infrastructure',
+    items: [
+      { path: '/services', labelKey: 'services', icon: Container },
+      { path: '/docker', labelKey: 'docker', icon: Activity },
+      { path: '/network', labelKey: 'network', icon: Network },
+      { path: '/access', labelKey: 'access', icon: PlugZap },
+      { path: '/gateway', labelKey: 'gateway', icon: Globe },
+    ],
+  },
+  {
+    labelKey: null,
+    items: [{ path: '/settings', labelKey: 'settings', icon: SettingsIcon }],
+  },
 ]
+
+/** Which sidebar item a first path segment belongs to, when it is not its own. */
+const ROOT_OF: Record<string, string> = {
+  environments: '/projects',
+}
 
 export function App() {
   const { t } = useTranslation('nav')
@@ -80,7 +112,7 @@ export function App() {
   const status = useQuery({ queryKey: ['status'], queryFn: api.overview })
 
   const first = segments(path)[0] ?? 'overview'
-  const root = `/${first === 'board' || first === 'environments' || first === 'workspaces' ? 'projects' : first}`
+  const root = ROOT_OF[first] ?? `/${first}`
   const gateway = status.data?.gateway
 
   const gatewayTitle = gateway?.up ? t('gatewayUp') : t('gatewayDown')
@@ -121,28 +153,48 @@ export function App() {
           aria-label={t('sections')}
           className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:overflow-visible scroll-thin"
         >
-          {NAV.map((item) => {
-            const Icon = item.icon
-            const active = root === item.path
-            const label = t(item.labelKey)
-            return (
-              <button
-                key={item.path}
-                onClick={() => go(item.path)}
-                aria-label={label}
-                aria-current={active ? 'page' : undefined}
-                title={label}
-                className={cn(
-                  'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors',
-                  sidebarCollapsed && 'md:justify-center md:px-0',
-                  active ? 'bg-accent/12 font-medium text-accent' : 'text-muted hover:bg-surface-2 hover:text-ink',
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className={cn(sidebarCollapsed && 'md:sr-only')}>{label}</span>
-              </button>
-            )
-          })}
+          {NAV_GROUPS.map((group, index) => (
+            <div
+              key={group.labelKey ?? 'tail'}
+              className={cn('flex gap-1 md:flex-col', index > 0 && 'md:mt-2')}
+              role="group"
+              aria-label={group.labelKey ? t(group.labelKey) : undefined}
+            >
+              {group.labelKey ? (
+                <div
+                  aria-hidden="true"
+                  className={cn(
+                    'hidden px-2.5 pt-1 pb-0.5 text-[10px] font-semibold tracking-wider text-subtle uppercase md:block',
+                    sidebarCollapsed && 'md:hidden',
+                  )}
+                >
+                  {t(group.labelKey)}
+                </div>
+              ) : null}
+              {group.items.map((item) => {
+                const Icon = item.icon
+                const active = root === item.path
+                const label = t(item.labelKey)
+                return (
+                  <button
+                    key={item.path}
+                    onClick={() => go(item.path)}
+                    aria-label={label}
+                    aria-current={active ? 'page' : undefined}
+                    title={label}
+                    className={cn(
+                      'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors',
+                      sidebarCollapsed && 'md:justify-center md:px-0',
+                      active ? 'bg-accent/12 font-medium text-accent' : 'text-muted hover:bg-surface-2 hover:text-ink',
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className={cn(sidebarCollapsed && 'md:sr-only')}>{label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          ))}
         </nav>
 
         <div
@@ -232,29 +284,28 @@ function boardFilters(path: string): Record<string, string> {
 }
 
 function Page({ path, readOnly = false }: { path: string; readOnly?: boolean }) {
+  const legacy = legacyRedirect(path)
+  if (legacy) return <Redirect to={legacy} />
+
   const parts = segments(path)
   switch (parts[0]) {
     case 'projects':
-      return parts[1]
-        ? <ProjectOrEnvironmentPage slug={decode(parts[1])} tab={parts[2] ?? null} service={queryParam(path, 'service')} />
-        : <Projects />
+      if (!parts[1]) return <Projects />
+      if (parts[2] === 'board') {
+        return (
+          <BoardPage
+            slug={decode(parts[1])}
+            view={parts[3] ?? null}
+            filters={boardFilters(path)}
+            readOnly={readOnly}
+          />
+        )
+      }
+      return <ProjectPage slug={decode(parts[1])} tab={parts[2] ?? null} />
     case 'environments':
       return parts[1]
-        ? <ProjectPage project={decode(parts[1])} tab={parts[2] ?? null} service={queryParam(path, 'service')} />
+        ? <EnvironmentPage project={decode(parts[1])} tab={parts[2] ?? null} service={queryParam(path, 'service')} />
         : <Projects />
-    case 'workspaces':
-      return <LegacyWorkspaceRedirect slug={parts[1] ? decode(parts[1]) : null} />
-    case 'board':
-      return parts[1] ? (
-        <BoardPage
-          slug={decode(parts[1])}
-          view={parts[2] ?? null}
-          filters={boardFilters(path)}
-          readOnly={readOnly}
-        />
-      ) : (
-        <Projects />
-      )
     case 'services':
       return <Services />
     case 'docker':
@@ -272,36 +323,9 @@ function Page({ path, readOnly = false }: { path: string; readOnly?: boolean }) 
   }
 }
 
-function LegacyWorkspaceRedirect({ slug }: { slug: string | null }) {
+function Redirect({ to }: { to: string }) {
   useEffect(() => {
-    navigate(slug ? `/projects/${encodeURIComponent(slug)}` : '/projects')
-  }, [slug])
+    navigate(to)
+  }, [to])
   return <Loading />
-}
-
-function ProjectOrEnvironmentPage({
-  slug,
-  tab,
-  service,
-}: {
-  slug: string
-  tab: string | null
-  service: string | null
-}) {
-  const project = useQuery({
-    queryKey: ['project', slug],
-    queryFn: () => api.project(slug),
-    retry: false,
-  })
-
-  if (project.isPending) return <Loading />
-  if (project.data) return <WorkspacePage slug={slug} />
-
-  const fallback =
-    project.error instanceof ApiError &&
-    (project.error.status === 404 || project.error.status === 503)
-  if (fallback) {
-    return <ProjectPage project={slug} tab={tab} service={service} />
-  }
-  return <ErrorBox error={project.error} />
 }

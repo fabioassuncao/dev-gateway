@@ -49,7 +49,7 @@ export function resolveLinks(
   const manualByProject = new Map(manual.map((link) => [link.composeProject, link]))
   const known = new Set(issues.map((issue) => issue.id))
 
-  for (const project of snapshot.projects) {
+  for (const project of snapshot.environments) {
     const stored = manualByProject.get(project.name)
     if (stored && known.has(stored.issueId)) {
       resolved.set(project.name, {
@@ -97,7 +97,7 @@ export function environmentsFor(
   links: ReadonlyMap<string, ResolvedLink>,
 ): IssueEnvironment[] {
   const out: IssueEnvironment[] = []
-  for (const project of snapshot.projects) {
+  for (const project of snapshot.environments) {
     const link = links.get(project.name)
     if (!link || link.issueId !== issueId) continue
     out.push({

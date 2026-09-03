@@ -25,51 +25,54 @@
   "searchAria": "Buscar projetos",
   "empty": "Nenhum ambiente em execução",
   "emptyHint": "Um ambiente aparece quando o Compose está no ar neste host. Adote-o num Project com a label portta.project ou à mão.",
-  "pinned": "fixado",
   "archived": "arquivado",
   "running": "{{running}}/{{total}} em execução",
-  "unhealthy": "{{count}} não saudável(is)",
-  "worktree": "worktree: {{name}}",
-  "partOf": "parte de {{group}}",
-  "derivedName": "nome derivado: {{name}}",
-  "up": "ativo há {{time}}",
-  "restartServices": "Reiniciar",
-  "actions": {
-    "start": "Iniciar",
-    "stop": "Parar",
-    "restart": "Reiniciar",
-    "startDisabled": "Todo serviço já está em execução, ou os containers sumiram.",
-    "stopDisabled": "Nada está em execução.",
-    "stopConfirmTitle": "Parar este projeto?",
-    "stopConfirm": "{{name}} tem {{count}} serviço(s). Nada é removido; Iniciar os traz de volta.",
-    "cancel": "Cancelar",
-    "partial": "{{failed}} falhou(aram), {{succeeded}} ok."
+  "detail": {
+    "notFound": "Nenhum projeto '{{slug}}'",
+    "backToAll": "Voltar para todos os projetos",
+    "private": "privado",
+    "unhealthyCount": "{{count}} unhealthy",
+    "repositoriesFor": "Repositórios de {{name}}",
+    "sourceReason": {
+      "repoMatch": "seu repositório pertence a este projeto",
+      "label": "declarado pela label portta.project",
+      "manual": "vinculado manualmente"
+    }
   },
-  "operations": {
-    "rebuild": "Reconstruir",
-    "rebuildDisabled": "Este projeto não tem diretório Compose, então o runner não consegue reconstruí-lo.",
-    "rebuildTitle": "Reconstruir este projeto?",
-    "rebuildDescription": "{{name}} será reconstruído com docker compose up --build. Volumes nomeados permanecem.",
-    "noCache": "Reconstruir sem cache",
-    "noCacheCost": "Ignora o cache de build; isso vai demorar bem mais.",
-    "rebuildStarting": "Iniciando o runner…",
-    "rebuildRunning": "Reconstruindo…",
-    "rebuildOk": "Reconstrução concluída.",
-    "rebuildFailed": "A reconstrução falhou. O log está abaixo.",
-    "removeKeep": "Remover, manter dados",
-    "removeData": "Remover e dados locais",
-    "removeKeepTitle": "Remover este projeto, manter os dados?",
-    "removeDataTitle": "Remover este projeto e os dados locais?",
-    "removeFromHost": "Remover {{name}} deste host.",
-    "githubUntouched": "O repositório no GitHub, as issues, os branches e os pull requests não são tocados.",
-    "previewContainers": "{{count}} container(s) serão removidos.",
-    "previewVolumes": "Volumes nomeados: {{names}}. O tamanho é desconhecido: o painel não inspeciona volumes.",
-    "alsoDirectory": "Remover também o diretório de trabalho neste host.",
-    "directoryNeedsRunner": "Remover o diretório exige o runner. Sem ele o painel imprime o rm -rf exato.",
-    "dirtyOverride": "A árvore de trabalho está suja ({{staged}} staged, {{unstaged}} unstaged, {{untracked}} untracked). Sobrepor e remover o diretório mesmo assim.",
-    "typeName": "Digite {{name}} para confirmar.",
-    "copyCommand": "Copiar comando"
+  "environments": {
+    "title": "Ambientes",
+    "description": "Projetos Compose neste host que pertencem a este project, e por quê.",
+    "empty": "Nada está em execução para este project",
+    "emptyHint": "Inicie um ambiente, rotule-o com portta.project usando este slug, ou vincule um manualmente."
   },
-  "collapsedService": "{{count}} serviço recolhido",
-  "collapsedServices": "{{count}} serviços recolhidos"
+  "issues": {
+    "title": "Issues",
+    "description": "Projetadas do GitHub. Cada linha diz há quanto tempo a resposta foi obtida.",
+    "filterPlaceholder": "Filtrar por número ou título",
+    "filterAria": "Filtrar issues",
+    "status": "Status",
+    "state": "Estado da issue",
+    "reading": "Lendo a projeção de issues",
+    "needsDatabase": "Issues precisam do banco de dados do painel",
+    "needsDatabaseHint": "São uma projeção do GitHub, mantida localmente para responder enquanto o GitHub está inacessível.",
+    "anyStatus": "Qualquer status",
+    "stateOpen": "Abertas",
+    "stateClosed": "Fechadas",
+    "stateAll": "Todas"
+  },
+  "repositoriesCard": {
+    "title": "Repositórios",
+    "description": "Da instalação do GitHub App. Um repositório pode pertencer a mais de um project.",
+    "empty": "Nenhum repositório anexado",
+    "emptyHint": "Anexe um concedido ao GitHub App. Sem App configurado, um project ainda agrupa ambientes.",
+    "attach": {
+      "description": "Apenas repositórios concedidos pela instalação do GitHub App podem ser anexados.",
+      "reading": "Lendo a projeção",
+      "unavailable": "A projeção está indisponível",
+      "noList": "Sem lista de repositórios",
+      "hint": "Configure o GitHub App em Configurações → GitHub e pressione Sincronizar. Um project funciona sem ele; só não terá repositórios.",
+      "noneGranted": "Nenhum repositório foi concedido ainda",
+      "noneGrantedHint": "Instale o GitHub App nos repositórios deste project e pressione Sincronizar em Configurações → GitHub."
+    }
+  }
 }

@@ -1,13 +1,13 @@
 import type { JSONValue } from 'postgres'
-import type { DatabaseClient, ProjectSettingRow, ServiceSettingRow } from './client.ts'
+import type { DatabaseClient, EnvironmentSettingRow, ServiceSettingRow } from './client.ts'
 import {
   globalSchema,
-  projectSchema,
+  environmentSchema,
   serviceSchema,
   type GlobalSettingKey,
   type GlobalSettingValues,
-  type ProjectSettingKey,
-  type ProjectSettingValues,
+  type EnvironmentSettingKey,
+  type EnvironmentSettingValues,
   type ServiceSettingKey,
   type ServiceSettingValues,
 } from './keys.ts'
@@ -33,44 +33,44 @@ export class SettingsRepository {
     await this.client.setGlobalSetting(key, parsed)
   }
 
-  async getProject<K extends ProjectSettingKey>(projectId: string, key: K): Promise<ProjectSettingValues[K] | null> {
-    return validOrNull(projectSchema(key), await this.client.getProjectSetting(projectId, key))
+  async getEnvironment<K extends EnvironmentSettingKey>(environmentId: string, key: K): Promise<EnvironmentSettingValues[K] | null> {
+    return validOrNull(environmentSchema(key), await this.client.getEnvironmentSetting(environmentId, key))
   }
 
-  async setProject<K extends ProjectSettingKey>(projectId: string, key: K, value: ProjectSettingValues[K]): Promise<void> {
-    const parsed = projectSchema(key).parse(value) as JSONValue
-    await this.client.setProjectSetting(projectId, key, parsed)
+  async setEnvironment<K extends EnvironmentSettingKey>(environmentId: string, key: K, value: EnvironmentSettingValues[K]): Promise<void> {
+    const parsed = environmentSchema(key).parse(value) as JSONValue
+    await this.client.setEnvironmentSetting(environmentId, key, parsed)
   }
 
   async getService<K extends ServiceSettingKey>(
-    projectId: string,
+    environmentId: string,
     service: string,
     key: K,
   ): Promise<ServiceSettingValues[K] | null> {
-    return validOrNull(serviceSchema(key), await this.client.getServiceSetting(projectId, service, key))
+    return validOrNull(serviceSchema(key), await this.client.getServiceSetting(environmentId, service, key))
   }
 
   async setService<K extends ServiceSettingKey>(
-    projectId: string,
+    environmentId: string,
     service: string,
     key: K,
     value: ServiceSettingValues[K],
   ): Promise<void> {
     const parsed = serviceSchema(key).parse(value) as JSONValue
-    await this.client.setServiceSetting(projectId, service, key, parsed)
+    await this.client.setServiceSetting(environmentId, service, key, parsed)
   }
 
-  async clearProject(projectId: string, key: ProjectSettingKey): Promise<void> {
-    await this.client.deleteProjectSetting(projectId, key)
+  async clearEnvironment(environmentId: string, key: EnvironmentSettingKey): Promise<void> {
+    await this.client.deleteEnvironmentSetting(environmentId, key)
   }
 
-  async clearService(projectId: string, service: string, key: ServiceSettingKey): Promise<void> {
-    await this.client.deleteServiceSetting(projectId, service, key)
+  async clearService(environmentId: string, service: string, key: ServiceSettingKey): Promise<void> {
+    await this.client.deleteServiceSetting(environmentId, service, key)
   }
 
-  /** Every stored override, in two queries rather than two per project. */
-  listAllProject(): Promise<ProjectSettingRow[]> {
-    return this.client.listProjectSettings()
+  /** Every stored override, in two queries rather than two per environment. */
+  listAllEnvironment(): Promise<EnvironmentSettingRow[]> {
+    return this.client.listEnvironmentSettings()
   }
 
   listAllService(): Promise<ServiceSettingRow[]> {

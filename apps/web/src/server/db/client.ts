@@ -4,33 +4,29 @@ import type { InstallationRecord, RepositoryRecord } from '../integrations/githu
 import type { StoredInstallation, StoredIssue, StoredRepository, SyncState } from './github.ts'
 import type { IssueRecord } from '../integrations/github/issues.ts'
 
-export interface ProjectRecord {
+export interface EnvironmentRecord {
   id: string
   composeProject: string
   workingDir: string | null
   repoUrl: string | null
   repoSubpath: string | null
-  slug: string | null
-  displayName: string | null
-  archived: boolean
   firstSeenAt: Date
   lastSeenAt: Date
   updatedAt: Date
 }
 
-export interface SeenProject {
+export interface SeenEnvironment {
   composeProject: string
   workingDir?: string | null
   repoUrl?: string | null
   repoSubpath?: string | null
-  slug?: string | null
 }
 
 interface ValueRow {
   value: unknown
 }
 
-export interface WorkspaceRecord {
+export interface ProjectRecord {
   id: string
   slug: string
   name: string
@@ -42,8 +38,8 @@ export interface WorkspaceRecord {
   updatedAt: Date
 }
 
-export interface WorkspaceRepositoryRow {
-  workspaceId: string
+export interface ProjectRepositoryRow {
+  projectId: string
   repositoryId: string
   fullName: string
   htmlUrl: string
@@ -63,13 +59,13 @@ export interface IssueEnvironmentRow {
   linkedAt: Date
 }
 
-export interface WorkspaceEnvironmentRow {
-  workspaceId: string
+export interface ProjectEnvironmentRow {
+  projectId: string
   composeProject: string
   source: string
 }
 
-export interface ProjectSettingRow {
+export interface EnvironmentSettingRow {
   composeProject: string
   key: string
   value: unknown
@@ -128,106 +124,102 @@ export class DatabaseClient {
     `
   }
 
-  async getProjectSetting(projectId: string, key: string): Promise<unknown | null> {
+  async getEnvironmentSetting(environmentId: string, key: string): Promise<unknown | null> {
     const rows = await this.sql<ValueRow[]>`
-      SELECT value FROM project_settings WHERE project_id = ${projectId} AND key = ${key}
+      SELECT value FROM environment_settings WHERE environment_id = ${environmentId} AND key = ${key}
     `
     return rows[0]?.value ?? null
   }
 
-  async setProjectSetting(projectId: string, key: string, value: JSONValue): Promise<void> {
+  async setEnvironmentSetting(environmentId: string, key: string, value: JSONValue): Promise<void> {
     await this.sql`
-      INSERT INTO project_settings (project_id, key, value, updated_at)
-      VALUES (${projectId}, ${key}, ${this.sql.json(value)}, now())
-      ON CONFLICT (project_id, key)
+      INSERT INTO environment_settings (environment_id, key, value, updated_at)
+      VALUES (${environmentId}, ${key}, ${this.sql.json(value)}, now())
+      ON CONFLICT (environment_id, key)
       DO UPDATE SET value = EXCLUDED.value, updated_at = now()
     `
   }
 
-  async getServiceSetting(projectId: string, service: string, key: string): Promise<unknown | null> {
+  async getServiceSetting(environmentId: string, service: string, key: string): Promise<unknown | null> {
     const rows = await this.sql<ValueRow[]>`
       SELECT value FROM service_settings
-      WHERE project_id = ${projectId} AND service = ${service} AND key = ${key}
+      WHERE environment_id = ${environmentId} AND service = ${service} AND key = ${key}
     `
     return rows[0]?.value ?? null
   }
 
-  async setServiceSetting(projectId: string, service: string, key: string, value: JSONValue): Promise<void> {
+  async setServiceSetting(environmentId: string, service: string, key: string, value: JSONValue): Promise<void> {
     await this.sql`
-      INSERT INTO service_settings (project_id, service, key, value, updated_at)
-      VALUES (${projectId}, ${service}, ${key}, ${this.sql.json(value)}, now())
-      ON CONFLICT (project_id, service, key)
+      INSERT INTO service_settings (environment_id, service, key, value, updated_at)
+      VALUES (${environmentId}, ${service}, ${key}, ${this.sql.json(value)}, now())
+      ON CONFLICT (environment_id, service, key)
       DO UPDATE SET value = EXCLUDED.value, updated_at = now()
     `
   }
 
-  async deleteProjectSetting(projectId: string, key: string): Promise<void> {
-    await this.sql`DELETE FROM project_settings WHERE project_id = ${projectId} AND key = ${key}`
+  async deleteEnvironmentSetting(environmentId: string, key: string): Promise<void> {
+    await this.sql`DELETE FROM environment_settings WHERE environment_id = ${environmentId} AND key = ${key}`
   }
 
-  async deleteServiceSetting(projectId: string, service: string, key: string): Promise<void> {
+  async deleteServiceSetting(environmentId: string, service: string, key: string): Promise<void> {
     await this.sql`
       DELETE FROM service_settings
-      WHERE project_id = ${projectId} AND service = ${service} AND key = ${key}
+      WHERE environment_id = ${environmentId} AND service = ${service} AND key = ${key}
     `
   }
 
   /**
    * Every override in one round trip, keyed by Compose project name.
    *
-   * Decorating a snapshot must not cost one query per project: the panel
-   * rebuilds the snapshot on every Docker event, and a per-project fan-out
+   * Decorating a snapshot must not cost one query per environment: the panel
+   * rebuilds the snapshot on every Docker event, and a per-environment fan-out
    * would turn a quiet host into a busy database.
    */
-  async listProjectSettings(): Promise<ProjectSettingRow[]> {
-    return this.sql<ProjectSettingRow[]>`
-      SELECT p.compose_project AS "composeProject", s.key, s.value
-      FROM project_settings s
-      JOIN projects p ON p.id = s.project_id
+  async listEnvironmentSettings(): Promise<EnvironmentSettingRow[]> {
+    return this.sql<EnvironmentSettingRow[]>`
+      SELECT e.compose_project AS "composeProject", s.key, s.value
+      FROM environment_settings s
+      JOIN environments e ON e.id = s.environment_id
     `
   }
 
   async listServiceSettings(): Promise<ServiceSettingRow[]> {
     return this.sql<ServiceSettingRow[]>`
-      SELECT p.compose_project AS "composeProject", s.service, s.key, s.value
+      SELECT e.compose_project AS "composeProject", s.service, s.key, s.value
       FROM service_settings s
-      JOIN projects p ON p.id = s.project_id
+      JOIN environments e ON e.id = s.environment_id
     `
   }
 
-  async findProject(composeProject: string): Promise<ProjectRecord | null> {
-    const rows = await this.sql<ProjectRecord[]>`
+  async findEnvironment(composeProject: string): Promise<EnvironmentRecord | null> {
+    const rows = await this.sql<EnvironmentRecord[]>`
       SELECT
         id::text AS id,
         compose_project AS "composeProject",
         working_dir AS "workingDir",
         repo_url AS "repoUrl",
         repo_subpath AS "repoSubpath",
-        slug,
-        display_name AS "displayName",
-        archived,
         first_seen_at AS "firstSeenAt",
         last_seen_at AS "lastSeenAt",
         updated_at AS "updatedAt"
-      FROM projects WHERE compose_project = ${composeProject}
+      FROM environments WHERE compose_project = ${composeProject}
     `
     return rows[0] ?? null
   }
 
-  async upsertSeen(project: SeenProject): Promise<ProjectRecord> {
-    const rows = await this.sql<ProjectRecord[]>`
-      INSERT INTO projects (
-        compose_project, working_dir, repo_url, repo_subpath, slug,
+  async upsertSeen(environment: SeenEnvironment): Promise<EnvironmentRecord> {
+    const rows = await this.sql<EnvironmentRecord[]>`
+      INSERT INTO environments (
+        compose_project, working_dir, repo_url, repo_subpath,
         first_seen_at, last_seen_at, updated_at
       ) VALUES (
-        ${project.composeProject}, ${project.workingDir ?? null}, ${project.repoUrl ?? null},
-        ${project.repoSubpath ?? null}, ${project.slug ?? null}, now(), now(), now()
+        ${environment.composeProject}, ${environment.workingDir ?? null}, ${environment.repoUrl ?? null},
+        ${environment.repoSubpath ?? null}, now(), now(), now()
       )
       ON CONFLICT (compose_project) DO UPDATE SET
-        working_dir = COALESCE(EXCLUDED.working_dir, projects.working_dir),
-        repo_url = COALESCE(EXCLUDED.repo_url, projects.repo_url),
-        repo_subpath = COALESCE(EXCLUDED.repo_subpath, projects.repo_subpath),
-        slug = COALESCE(EXCLUDED.slug, projects.slug),
+        working_dir = COALESCE(EXCLUDED.working_dir, environments.working_dir),
+        repo_url = COALESCE(EXCLUDED.repo_url, environments.repo_url),
+        repo_subpath = COALESCE(EXCLUDED.repo_subpath, environments.repo_subpath),
         last_seen_at = now(),
         updated_at = now()
       RETURNING
@@ -236,15 +228,12 @@ export class DatabaseClient {
         working_dir AS "workingDir",
         repo_url AS "repoUrl",
         repo_subpath AS "repoSubpath",
-        slug,
-        display_name AS "displayName",
-        archived,
         first_seen_at AS "firstSeenAt",
         last_seen_at AS "lastSeenAt",
         updated_at AS "updatedAt"
     `
     const record = rows[0]
-    if (record === undefined) throw new Error(`database did not return project ${project.composeProject}`)
+    if (record === undefined) throw new Error(`database did not return environment ${environment.composeProject}`)
     return record
   }
 
@@ -525,18 +514,18 @@ export class DatabaseClient {
   // ---- the issue / environment link ---------------------------------------
   //
   // Linking writes one row. Nothing here starts, stops, creates or removes
-  // anything, and nothing here writes to `projects` beyond referencing it.
+  // anything, and nothing here writes to `environments` beyond referencing it.
 
   async listIssueEnvironments(): Promise<IssueEnvironmentRow[]> {
     return this.sql<IssueEnvironmentRow[]>`
       SELECT
         ie.issue_id::text AS "issueId",
-        p.compose_project AS "composeProject",
+        e.compose_project AS "composeProject",
         ie.source, ie.branch,
         ie.worktree_path AS "worktreePath",
         ie.linked_at AS "linkedAt"
       FROM issue_environments ie
-      JOIN projects p ON p.id = ie.project_id
+      JOIN environments e ON e.id = ie.environment_id
     `
   }
 
@@ -548,24 +537,24 @@ export class DatabaseClient {
       await transaction`DELETE FROM issue_environments WHERE issue_id = ${issueId}`
       for (const link of links) {
         await transaction`
-          INSERT INTO issue_environments (issue_id, project_id, source, branch)
-          SELECT ${issueId}, p.id, 'manual', ${link.branch}
-          FROM projects p WHERE p.compose_project = ${link.composeProject}
-          ON CONFLICT (project_id) DO UPDATE SET
+          INSERT INTO issue_environments (issue_id, environment_id, source, branch)
+          SELECT ${issueId}, e.id, 'manual', ${link.branch}
+          FROM environments e WHERE e.compose_project = ${link.composeProject}
+          ON CONFLICT (environment_id) DO UPDATE SET
             issue_id = EXCLUDED.issue_id, source = 'manual', branch = EXCLUDED.branch
         `
       }
     })
   }
 
-  // ---- workspaces ---------------------------------------------------------
+  // ---- projects -----------------------------------------------------------
   //
-  // A workspace is the user's decision, so nothing on the snapshot path ever
-  // writes here: `recordSeen()` touches `projects` and stops.
+  // A Project is the operator's decision, so nothing on the snapshot path ever
+  // writes here: `recordEnvironmentsSeen()` touches `environments` and stops.
 
-  async createWorkspace(input: { slug: string; name: string; description: string | null; relativePath?: string | null }): Promise<WorkspaceRecord> {
-    const rows = await this.sql<WorkspaceRecord[]>`
-      INSERT INTO workspaces (slug, name, description, relative_path)
+  async createProject(input: { slug: string; name: string; description: string | null; relativePath?: string | null }): Promise<ProjectRecord> {
+    const rows = await this.sql<ProjectRecord[]>`
+      INSERT INTO projects (slug, name, description, relative_path)
       VALUES (${input.slug}, ${input.name}, ${input.description}, ${input.relativePath ?? null})
       RETURNING
         id::text AS id, slug, name, description, archived,
@@ -573,7 +562,7 @@ export class DatabaseClient {
         created_at AS "createdAt", updated_at AS "updatedAt"
     `
     const record = rows[0]
-    if (record === undefined) throw new Error(`database did not return workspace ${input.slug}`)
+    if (record === undefined) throw new Error(`database did not return project ${input.slug}`)
     return record
   }
 
@@ -582,14 +571,14 @@ export class DatabaseClient {
    * absent key leaves it alone, `null` clears it, and a string sets it, so
    * "no change" and "clear this" stay distinguishable.
    */
-  async updateWorkspace(
+  async updateProject(
     slug: string,
     patch: { name?: string; description?: string | null; archived?: boolean; relativePath?: string | null },
-  ): Promise<WorkspaceRecord | null> {
+  ): Promise<ProjectRecord | null> {
     const clearDescription = Object.hasOwn(patch, 'description') && patch.description === null
     const clearPath = Object.hasOwn(patch, 'relativePath') && patch.relativePath === null
-    const rows = await this.sql<WorkspaceRecord[]>`
-      UPDATE workspaces SET
+    const rows = await this.sql<ProjectRecord[]>`
+      UPDATE projects SET
         name = COALESCE(${patch.name ?? null}, name),
         description = CASE
           WHEN ${clearDescription} THEN NULL
@@ -609,137 +598,134 @@ export class DatabaseClient {
     return rows[0] ?? null
   }
 
-  async listWorkspaces(): Promise<WorkspaceRecord[]> {
-    return this.sql<WorkspaceRecord[]>`
+  async listProjects(): Promise<ProjectRecord[]> {
+    return this.sql<ProjectRecord[]>`
       SELECT id::text AS id, slug, name, description, archived,
              relative_path AS "relativePath",
              created_at AS "createdAt", updated_at AS "updatedAt"
-      FROM workspaces ORDER BY archived, name
+      FROM projects ORDER BY archived, name
     `
   }
 
-  async findWorkspace(slug: string): Promise<WorkspaceRecord | null> {
-    const rows = await this.sql<WorkspaceRecord[]>`
+  async findProject(slug: string): Promise<ProjectRecord | null> {
+    const rows = await this.sql<ProjectRecord[]>`
       SELECT id::text AS id, slug, name, description, archived,
              relative_path AS "relativePath",
              created_at AS "createdAt", updated_at AS "updatedAt"
-      FROM workspaces WHERE slug = ${slug}
+      FROM projects WHERE slug = ${slug}
     `
     return rows[0] ?? null
   }
 
   /** Removes the grouping. It touches no container, no volume, no repository. */
-  async deleteWorkspace(slug: string): Promise<boolean> {
+  async deleteProject(slug: string): Promise<boolean> {
     const rows = await this.sql<{ id: string }[]>`
-      DELETE FROM workspaces WHERE slug = ${slug} RETURNING id::text AS id
+      DELETE FROM projects WHERE slug = ${slug} RETURNING id::text AS id
     `
     return rows.length > 0
   }
 
-  async listWorkspaceRepositories(): Promise<WorkspaceRepositoryRow[]> {
-    return this.sql<WorkspaceRepositoryRow[]>`
+  async listProjectRepositories(): Promise<ProjectRepositoryRow[]> {
+    return this.sql<ProjectRepositoryRow[]>`
       SELECT
-        wr.workspace_id::text AS "workspaceId",
+        pr.project_id::text AS "projectId",
         gr.id::text AS "repositoryId",
         gr.full_name AS "fullName",
         gr.html_url AS "htmlUrl",
         gr.default_branch AS "defaultBranch",
         gr.private,
         gr.archived,
-        wr.role,
-        wr.position
-      FROM workspace_repositories wr
-      JOIN github_repositories gr ON gr.id = wr.repository_id
-      ORDER BY wr.position, gr.full_name
+        pr.role,
+        pr.position
+      FROM project_repositories pr
+      JOIN github_repositories gr ON gr.id = pr.repository_id
+      ORDER BY pr.position, gr.full_name
     `
   }
 
-  async setWorkspaceRepositories(
-    workspaceId: string,
+  async setProjectRepositories(
+    projectId: string,
     repositories: { repositoryId: string; role: string | null }[],
   ): Promise<void> {
     await this.sql.begin(async (transaction) => {
-      await transaction`DELETE FROM workspace_repositories WHERE workspace_id = ${workspaceId}`
+      await transaction`DELETE FROM project_repositories WHERE project_id = ${projectId}`
       for (const [position, repository] of repositories.entries()) {
         await transaction`
-          INSERT INTO workspace_repositories (workspace_id, repository_id, role, position)
-          VALUES (${workspaceId}, ${repository.repositoryId}, ${repository.role}, ${position})
+          INSERT INTO project_repositories (project_id, repository_id, role, position)
+          VALUES (${projectId}, ${repository.repositoryId}, ${repository.role}, ${position})
         `
       }
     })
   }
 
-  async listWorkspaceEnvironments(): Promise<WorkspaceEnvironmentRow[]> {
-    return this.sql<WorkspaceEnvironmentRow[]>`
-      SELECT we.workspace_id::text AS "workspaceId", p.compose_project AS "composeProject", we.source
-      FROM workspace_environments we
-      JOIN projects p ON p.id = we.project_id
+  async listProjectEnvironments(): Promise<ProjectEnvironmentRow[]> {
+    return this.sql<ProjectEnvironmentRow[]>`
+      SELECT pe.project_id::text AS "projectId", e.compose_project AS "composeProject", pe.source
+      FROM project_environments pe
+      JOIN environments e ON e.id = pe.environment_id
     `
   }
 
-  async setWorkspaceEnvironments(workspaceId: string, composeProjects: string[]): Promise<void> {
+  async setProjectEnvironments(projectId: string, composeProjects: string[]): Promise<void> {
     await this.sql.begin(async (transaction) => {
-      await transaction`DELETE FROM workspace_environments WHERE workspace_id = ${workspaceId}`
+      await transaction`DELETE FROM project_environments WHERE project_id = ${projectId}`
       for (const composeProject of composeProjects) {
         await transaction`
-          INSERT INTO workspace_environments (workspace_id, project_id, source)
-          SELECT ${workspaceId}, p.id, 'manual' FROM projects p
-          WHERE p.compose_project = ${composeProject}
-          ON CONFLICT (project_id) DO UPDATE SET workspace_id = EXCLUDED.workspace_id, source = 'manual'
+          INSERT INTO project_environments (project_id, environment_id, source)
+          SELECT ${projectId}, e.id, 'manual' FROM environments e
+          WHERE e.compose_project = ${composeProject}
+          ON CONFLICT (environment_id) DO UPDATE SET project_id = EXCLUDED.project_id, source = 'manual'
         `
       }
     })
   }
 
-  async listProjects(): Promise<ProjectRecord[]> {
-    return this.sql<ProjectRecord[]>`
+  async listEnvironments(): Promise<EnvironmentRecord[]> {
+    return this.sql<EnvironmentRecord[]>`
       SELECT
         id::text AS id,
         compose_project AS "composeProject",
         working_dir AS "workingDir",
         repo_url AS "repoUrl",
         repo_subpath AS "repoSubpath",
-        slug,
-        display_name AS "displayName",
-        archived,
         first_seen_at AS "firstSeenAt",
         last_seen_at AS "lastSeenAt",
         updated_at AS "updatedAt"
-      FROM projects
+      FROM environments
       ORDER BY last_seen_at DESC, compose_project
     `
   }
 
   /**
-   * What Portta itself stored about a Compose project. Used by removal
-   * preview and by forgetProject. Nothing here talks to GitHub.
+   * What Portta itself stored about an environment. Used by removal preview
+   * and by forgetEnvironment. Nothing here talks to GitHub.
    */
-  async projectRecordCounts(composeProject: string): Promise<ProjectRecordCounts> {
-    const project = await this.findProject(composeProject)
-    if (!project) return { overrides: 0, workspaceLinks: 0, issueLinks: 0 }
-    const [settings, services, workspaces, issues] = await Promise.all([
-      this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM project_settings WHERE project_id = ${project.id}`,
-      this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM service_settings WHERE project_id = ${project.id}`,
-      this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM workspace_environments WHERE project_id = ${project.id}`,
-      this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM issue_environments WHERE project_id = ${project.id}`,
+  async environmentRecordCounts(composeProject: string): Promise<EnvironmentRecordCounts> {
+    const environment = await this.findEnvironment(composeProject)
+    if (!environment) return { overrides: 0, projectLinks: 0, issueLinks: 0 }
+    const [settings, services, projects, issues] = await Promise.all([
+      this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM environment_settings WHERE environment_id = ${environment.id}`,
+      this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM service_settings WHERE environment_id = ${environment.id}`,
+      this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM project_environments WHERE environment_id = ${environment.id}`,
+      this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM issue_environments WHERE environment_id = ${environment.id}`,
     ])
     return {
       overrides: (settings[0]?.n ?? 0) + (services[0]?.n ?? 0),
-      workspaceLinks: workspaces[0]?.n ?? 0,
+      projectLinks: projects[0]?.n ?? 0,
       issueLinks: issues[0]?.n ?? 0,
     }
   }
 
-  /** Drops the project row. Settings, workspace links and issue links cascade. */
-  async forgetProject(composeProject: string): Promise<ProjectRecordCounts> {
-    const counts = await this.projectRecordCounts(composeProject)
-    await this.sql`DELETE FROM projects WHERE compose_project = ${composeProject}`
+  /** Drops the environment row. Settings, project links and issue links cascade. */
+  async forgetEnvironment(composeProject: string): Promise<EnvironmentRecordCounts> {
+    const counts = await this.environmentRecordCounts(composeProject)
+    await this.sql`DELETE FROM environments WHERE compose_project = ${composeProject}`
     return counts
   }
 }
 
-export interface ProjectRecordCounts {
+export interface EnvironmentRecordCounts {
   overrides: number
-  workspaceLinks: number
+  projectLinks: number
   issueLinks: number
 }

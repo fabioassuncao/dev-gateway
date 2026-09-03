@@ -28,5 +28,9 @@
   "services": "Serviços",
   "settings": "Configurações",
   "toggleTheme": "Alternar tema",
-  "workspaces": "Workspaces"
+  "groups": {
+    "development": "Desenvolvimento",
+    "infrastructure": "Infraestrutura"
+  },
+  "environments": "Ambientes"
 }

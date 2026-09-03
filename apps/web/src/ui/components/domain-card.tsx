@@ -19,10 +19,10 @@ export function ProjectDomainCard({ domain }: { domain: ProjectDomain }) {
 
   const tone = domain.problem ? 'danger' : domain.advice ? 'warn' : 'ok'
   const state = domain.problem
-    ? t('stateBroken', { defaultValue: 'not resolvable' })
+    ? t('stateBroken')
     : domain.advice
-      ? t('stateLimited', { defaultValue: 'needs attention' })
-      : t('stateOk', { defaultValue: 'usable' })
+      ? t('stateLimited')
+      : t('stateOk')
 
   return (
     <Card>
@@ -30,33 +30,31 @@ export function ProjectDomainCard({ domain }: { domain: ProjectDomain }) {
         title={
           <span className="flex flex-wrap items-center gap-2">
             <Globe className="h-4 w-4" />
-            <span>{t('title', { defaultValue: 'Project hostnames' })}</span>
+            <span>{t('title')}</span>
             <Badge tone={tone}>{state}</Badge>
           </span>
         }
-        description={t('description', {
-          defaultValue: 'Every project gets <project>-<service>.<base>. This is the base in use right now.',
-        })}
+        description={t('description')}
       />
       <CardBody>
         <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-          <KeyValue label={t('mode', { defaultValue: 'Mode' })}>{domain.mode}</KeyValue>
-          <KeyValue label={t('base', { defaultValue: 'Base domain' })}>
+          <KeyValue label={t('mode')}>{domain.mode}</KeyValue>
+          <KeyValue label={t('base')}>
             <span className="font-mono">{domain.domain}</span>
           </KeyValue>
           {domain.mode === 'auto' ? (
             <>
-              <KeyValue label={t('publicIp', { defaultValue: 'Public address' })}>
+              <KeyValue label={t('publicIp')}>
                 <span className="font-mono">{domain.publicIp ?? '—'}</span>
               </KeyValue>
-              <KeyValue label={t('provider', { defaultValue: 'Wildcard DNS' })}>{domain.provider}</KeyValue>
+              <KeyValue label={t('provider')}>{domain.provider}</KeyValue>
             </>
           ) : null}
         </dl>
 
         <div className="mt-4">
           <p className="mb-1 text-xs text-subtle">
-            {t('examples', { defaultValue: 'A project called web, api or mail would answer on:' })}
+            {t('examples')}
           </p>
           <ul className="space-y-1">
             {domain.examples.map((example) => (
@@ -86,10 +84,7 @@ export function ProjectDomainCard({ domain }: { domain: ProjectDomain }) {
             deliberate setting, and saying so here stops the two being
             confused. See docs/adr/0022-project-domain-modes.md. */}
         <p className="mt-3 text-xs text-subtle">
-          {t('note', {
-            defaultValue:
-              'This chooses the name only. Which services are reachable, and from where, stays with public access and each project.',
-          })}
+          {t('note')}
         </p>
       </CardBody>
     </Card>

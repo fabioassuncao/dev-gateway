@@ -1,492 +1,359 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { SlidersHorizontal } from 'lucide-react'
-import { ProjectActions } from '../components/project-actions.tsx'
-import { ProjectOperations } from '../components/project-operations.tsx'
+import { ExternalLink, Plus } from 'lucide-react'
 import { api, ApiError } from '../lib/api.ts'
-import type { ContainerSummary, Environment } from '../../shared/types.ts'
-import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
+import type { Project, ProjectEnvironment } from '../../shared/types.ts'
 import { Badge } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
-import { Empty, ErrorBox, KeyValue, Loading, PageHeader, StatTile } from '../components/shell-bits.tsx'
-import { Tabs, TabPanel, type TabDefinition } from '../components/ui/tabs.tsx'
-import { ContainerDetails } from '../components/container-details.tsx'
-import { ServiceEndpoints } from '../components/project-services.tsx'
-import { ContainerActions } from '../components/container-actions.tsx'
-import { ServiceIcon } from '../components/service-icon.tsx'
-import { StateBadge } from '../components/status.tsx'
-import { TraefikVerdictRow } from '../components/traefik-verdict.tsx'
-import { SharePanel } from '../components/share-panel.tsx'
-import { GitDetails } from '../components/git-details.tsx'
-import { ProjectSettingsDialog } from '../components/project-settings.tsx'
-import { ServiceAlias } from '../components/service-alias.tsx'
-import { ProjectLogs } from '../components/project-logs.tsx'
-import { ProjectResources } from '../components/project-resources.tsx'
-import { Mono } from '../components/copy.tsx'
-import { useFormat } from '../lib/use-format.ts'
-import { useDocumentTitle } from '../lib/title.ts'
-import { navigate } from '../lib/router.ts'
+import { Card, CardHeader } from '../components/ui/card.tsx'
+import { Dialog } from '../components/ui/dialog.tsx'
+import { Input, Select } from '../components/ui/field.tsx'
+import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
+import { IssueRows } from '../components/issue-list.tsx'
 import { useIssueStatuses } from '../i18n/use-issue-statuses.ts'
+import { navigate } from '../lib/router.ts'
+import { useDocumentTitle } from '../lib/title.ts'
 
-const TABS = ['overview', 'services', 'git', 'logs'] as const
-export type ProjectTab = (typeof TABS)[number]
-
-export function resolveTab(requested: string | null): ProjectTab {
-  return TABS.includes(requested as ProjectTab) ? (requested as ProjectTab) : 'overview'
-}
-
-export function ProjectPage({ project: name, tab: requested, service }: {
-  project: string
-  tab: string | null
-  service: string | null
-}) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'project' })
-  const tab = resolveTab(requested)
-  useDocumentTitle(tab === 'overview' ? null : t(`tabs.${tab}`), name)
-
+/**
+ * The product: what the operator recognises, as opposed to what this host is
+ * running. `tab` is carried only so an old `#/projects/<compose-name>/logs`
+ * bookmark lands on the environment's Logs tab after the redirect below.
+ */
+export function ProjectPage({ slug, tab = null }: { slug: string; tab?: string | null }) {
+  const { t } = useTranslation('projects')
+  const { t: tc } = useTranslation('common')
+  const { t: ti } = useTranslation('issues')
+  const queryClient = useQueryClient()
+  const [attaching, setAttaching] = useState(false)
   const query = useQuery({
-    queryKey: ['environment', name],
-    queryFn: () => api.environment(name),
+    queryKey: ['project', slug],
+    queryFn: () => api.project(slug),
     retry: false,
+  })
+
+  useDocumentTitle(query.data?.name ?? slug, t('title'))
+
+  const remove = useMutation({
+    mutationFn: () => api.deleteProject(slug),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['projects'] })
+      navigate('/projects')
+    },
   })
 
   if (query.isPending) return <Loading />
 
   if (query.error) {
-    const missing = query.error instanceof ApiError && query.error.status === 404
-    if (!missing) return <ErrorBox error={query.error} />
-    return (
-      <>
-        <PageHeader title={name} />
-        <Card>
-          <Empty
-            title={t('notFound', { name })}
-            hint={
-              <a className="text-accent hover:underline" href="#/projects">
-                {t('backToAll', { defaultValue: 'Back to all projects' })}
-              </a>
-            }
-          />
-        </Card>
-      </>
-    )
+    const status = query.error instanceof ApiError ? query.error.status : null
+    // Before the rename, `#/projects/<name>` was the Compose stack. A slug that
+    // is not a Project is sent where that page lives now: one request, one
+    // redirect, never a second page rendered on a guess.
+    if (status === 404) return <LegacyEnvironmentRedirect name={slug} tab={tab} />
+    if (status === 503) {
+      return (
+        <>
+          <PageHeader title={slug} />
+          <Card>
+            <Empty title={t('needsDatabase')} hint={t('needsDatabaseHint')} />
+          </Card>
+        </>
+      )
+    }
+    return <ErrorBox error={query.error} />
   }
 
   const project = query.data!
-  const tabs: TabDefinition[] = TABS.map((id) => ({
-    id,
-    label: t(`tabs.${id}`),
-    href: `/environments/${encodeURIComponent(name)}/${id}`,
-  }))
-
-  return (
-    <>
-      <ProjectHeader project={project} />
-      <Tabs tabs={tabs} active={tab} label={`${name} sections`} />
-      <TabPanel id={tab}>
-        {tab === 'overview' ? <OverviewTab project={project} /> : null}
-        {tab === 'services' ? <ServicesTab project={project} /> : null}
-        {tab === 'git' ? <GitDetails project={project.name} /> : null}
-        {tab === 'logs' ? <ProjectLogs project={project} service={service} /> : null}
-      </TabPanel>
-    </>
-  )
-}
-
-function ProjectHeader({ project }: { project: Environment }) {
-  const { t: tp } = useTranslation('projects')
-  const { t: tn } = useTranslation('nav')
-  const { uptime } = useFormat()
-  const [settingsOpen, setSettingsOpen] = useState(false)
-
-  const shown = project.overrides?.displayName ?? project.name
 
   return (
     <>
       <PageHeader
-        title={shown}
+        title={project.name}
         description={
-          [
-            project.overrides?.displayName ? tp('derivedName', { name: project.name }) : null,
-            project.overrides?.description ?? null,
-            project.uptimeSeconds !== null ? tp('up', { time: uptime(project.uptimeSeconds) }) : null,
-            project.workingDir,
-          ]
-            .filter(Boolean)
-            .join(' · ') || undefined
+          [project.description, project.archived ? t('archived') : null].filter(Boolean).join(' · ') ||
+          undefined
         }
         actions={
           <>
             <Button size="sm" onClick={() => navigate('/projects')}>
-              {tp('allProjects', { defaultValue: 'All projects' })}
+              {t('allProjects')}
             </Button>
-            <Button size="sm" onClick={() => setSettingsOpen(true)}>
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              {tn('settings')}
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => navigate(`/projects/${encodeURIComponent(project.slug)}/board`)}
+            >
+              {ti('board')}
             </Button>
-            <ProjectActions project={project} />
-            <ProjectOperations project={project} />
+            <Button size="sm" onClick={() => setAttaching(true)}>
+              <Plus className="h-3.5 w-3.5" />
+              {t('repositoriesCard.title')}
+            </Button>
+            <Button size="sm" disabled={remove.isPending} onClick={() => remove.mutate()}>
+              {tc('delete')}
+            </Button>
           </>
         }
       />
-      {settingsOpen ? (
-        <ProjectSettingsDialog project={project} open={settingsOpen} onOpenChange={setSettingsOpen} />
-      ) : null}
-    </>
-  )
-}
 
-function OverviewTab({ project }: { project: Environment }) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'project' })
-  const { t: tc } = useTranslation('common')
-  const { uptime } = useFormat()
+      {remove.error ? <ErrorBox error={remove.error} /> : null}
 
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile
-          label={t('stats.services')}
-          value={`${project.runningCount}/${project.serviceCount}`}
-          tone={project.runningCount === project.serviceCount ? 'ok' : 'warn'}
-          hint={t('stats.running')}
-        />
-        <StatTile
-          label={t('stats.unhealthy')}
-          value={project.unhealthyCount}
-          tone={project.unhealthyCount > 0 ? 'danger' : undefined}
-        />
-        <StatTile label={t('stats.routedUrls')} value={project.urls.length} />
-        <StatTile
-          label={t('stats.uptime')}
-          value={project.uptimeSeconds === null ? '—' : uptime(project.uptimeSeconds)}
-        />
-      </div>
-
-      <ProjectResources project={project} />
-
-      {project.issue ? <IssueBlock issue={project.issue} /> : null}
-
-      <Card>
-        <CardHeader title={t('environment.title')} description={t('environment.description')} />
-        <CardBody>
-          <dl className="divide-y divide-line/60">
-            <KeyValue label={t('environment.hostDirectory')}>
-              {project.workingDir ? (
-                <Mono value={project.workingDir} />
-              ) : (
-                <span className="text-subtle">{t('unknown', { defaultValue: 'unknown' })}</span>
-              )}
-            </KeyValue>
-            <KeyValue label={t('environment.integrated')}>
-              {project.integrated ? (
-                <Badge tone="ok">{t('onGateway', { defaultValue: 'on the gateway' })}</Badge>
-              ) : (
-                <Badge tone="outline">{t('notRouted', { defaultValue: 'not routed by the gateway' })}</Badge>
-              )}
-            </KeyValue>
-            {project.namespace ? (
-              <KeyValue label={t('environment.worktree')}>{project.namespace}</KeyValue>
-            ) : null}
-            {project.group ? (
-              <KeyValue label={t('environment.logicalProject')}>{project.group}</KeyValue>
-            ) : null}
-            {project.gitRoot ? (
-              <KeyValue label={t('environment.gitRoot')}>
-                <Mono value={project.gitRoot} />
-              </KeyValue>
-            ) : null}
-            {project.repo ? (
-              <KeyValue label={t('environment.repository')}>
-                {project.repoUrl ? (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader
+            title={t('repositoriesCard.title')}
+            description={t('repositoriesCard.description')}
+          />
+          {project.githubRepositories.length === 0 ? (
+            <Empty title={t('repositoriesCard.empty')} hint={t('repositoriesCard.emptyHint')} />
+          ) : (
+            <div>
+              {project.githubRepositories.map((repository) => (
+                <div
+                  key={repository.repositoryId}
+                  className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2 text-sm last:border-b-0"
+                >
                   <a
-                    className="underline-offset-2 hover:text-accent hover:underline"
-                    href={project.repoUrl}
+                    className="font-medium underline-offset-2 hover:text-accent hover:underline"
+                    href={repository.htmlUrl}
                     target="_blank"
                     rel="noreferrer noopener"
                   >
-                    {project.repo}
+                    {repository.fullName}
+                    <ExternalLink className="ml-1 inline h-3 w-3" />
                   </a>
-                ) : (
-                  project.repo
-                )}
-              </KeyValue>
-            ) : null}
-            <KeyValue label={t('environment.networks')}>
-              <span className="font-mono text-xs text-muted">
-                {project.networks.length > 0 ? project.networks.join(', ') : tc('none', { defaultValue: 'none' })}
-              </span>
-            </KeyValue>
-          </dl>
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader title={t('endpoints.title')} description={t('endpoints.description')} />
-        {project.services.length === 0 ? (
-          <Empty title={t('endpoints.empty')} />
-        ) : (
-          <div>
-            {project.services.map((service) => (
-              <div
-                key={service.id}
-                className="grid gap-2 border-b border-line px-4 py-2 last:border-b-0 lg:grid-cols-[minmax(10rem,0.6fr)_1fr] lg:items-start"
-              >
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <ServiceIcon tech={service.tech} />
-                  <span className="truncate text-sm font-medium">{service.service ?? service.name}</span>
-                  <StateBadge state={service.state} health={service.health} />
+                  {repository.role ? <Badge tone="outline">{repository.role}</Badge> : null}
+                  {repository.private ? <Badge tone="neutral">{t('detail.private')}</Badge> : null}
+                  {repository.archived ? <Badge tone="warn">{t('archived')}</Badge> : null}
+                  {repository.defaultBranch ? (
+                    <span className="font-mono text-[11px] text-subtle">{repository.defaultBranch}</span>
+                  ) : null}
                 </div>
-                <ServiceEndpoints service={service} />
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
+              ))}
+            </div>
+          )}
+        </Card>
 
-      <Card>
-        <CardHeader
-          title={t('repository.title')}
-          description={t('repository.description')}
-          actions={
-            <a
-              className="text-xs text-accent hover:underline"
-              href={`#/environments/${encodeURIComponent(project.name)}/git`}
-            >
-              {t('openGitTab', { defaultValue: 'Open Git tab' })}
-            </a>
-          }
-        />
-        <GitSummary project={project.name} />
-      </Card>
-    </div>
-  )
-}
+        <Card>
+          <CardHeader title={t('environments.title')} description={t('environments.description')} />
+          {project.environments.length === 0 ? (
+            <Empty title={t('environments.empty')} hint={t('environments.emptyHint')} />
+          ) : (
+            <div>
+              {project.environments.map((environment) => (
+                <EnvironmentRow key={environment.environment} environment={environment} />
+              ))}
+            </div>
+          )}
+        </Card>
 
-function GitSummary({ project }: { project: string }) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'project' })
-  const query = useQuery({
-    queryKey: ['project-git', project],
-    queryFn: () => api.projectGit(project),
-    staleTime: 30_000,
-  })
-
-  const data = query.data
-  if (!data) return <Empty title={t('git.reading')} />
-  if (!data.collected || !data.git) {
-    return (
-      <Empty
-        title={t('git.empty')}
-        hint={<code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono">{data.refreshCommand}</code>}
-      />
-    )
-  }
-
-  const git = data.git
-  const changed = git.staged + git.unstaged + git.untracked + git.unmerged
-  return (
-    <div className="flex flex-wrap items-center gap-2 px-4 py-3 text-xs">
-      <Badge tone="outline">
-        {git.detached ? t('detachedHead', { defaultValue: 'detached HEAD' }) : git.branch}
-      </Badge>
-      <span className="font-mono text-subtle">{git.head.shortSha}</span>
-      <Badge tone={changed > 0 ? 'warn' : 'ok'}>
-        {changed > 0
-          ? t('uncommitted', { defaultValue: '{{count}} uncommitted', count: changed })
-          : t('clean', { defaultValue: 'clean' })}
-      </Badge>
-      {git.ahead > 0 ? (
-        <Badge tone="outline">{t('ahead', { defaultValue: '{{count}} ahead', count: git.ahead })}</Badge>
-      ) : null}
-      {git.behind > 0 ? (
-        <Badge tone="outline">{t('behind', { defaultValue: '{{count}} behind', count: git.behind })}</Badge>
-      ) : null}
-      {data.forge?.authenticated ? (
-        <Badge tone="outline">
-          {t('openPullRequests', {
-            defaultValue: '{{count}} open pull requests',
-            count: data.forge.pulls.length,
-          })}
-        </Badge>
-      ) : null}
-    </div>
-  )
-}
-
-function ServicesTab({ project }: { project: Environment }) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'project' })
-  const [details, setDetails] = useState<ContainerSummary | null>(null)
-
-  if (project.services.length === 0) {
-    return (
-      <Card>
-        <Empty title={t('servicesEmpty')} hint={t('servicesEmptyHint')} />
-      </Card>
-    )
-  }
-
-  return (
-    <>
-      <div className="space-y-4">
-        {project.services.map((service) => (
-          <ServiceDetailCard
-            key={service.id}
-            project={project}
-            service={service}
-            onShowDetails={() => setDetails(service)}
-          />
-        ))}
+        <IssuesCard slug={project.slug} />
       </div>
-      {details ? (
-        <ContainerDetails
-          container={details}
-          open={details !== null}
-          onOpenChange={(open) => !open && setDetails(null)}
-        />
+
+      {attaching ? (
+        <RepositoriesDialog project={project} open onOpenChange={setAttaching} />
       ) : null}
     </>
   )
 }
 
-function ServiceDetailCard({
-  project,
-  service,
-  onShowDetails,
-}: {
-  project: Environment
-  service: ContainerSummary
-  onShowDetails: () => void
-}) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'project' })
-  const { t: tc } = useTranslation('common')
-  const { shortImage } = useFormat()
-  const name = service.service ?? service.name
-  const primary = project.overrides?.primaryService === name
-  const collapsed = project.overrides?.hiddenServices?.includes(name) ?? false
+/** Sends an old environment bookmark to the environment page. */
+export function LegacyEnvironmentRedirect({ name, tab }: { name: string; tab: string | null }) {
+  useEffect(() => {
+    navigate(`/environments/${encodeURIComponent(name)}${tab ? `/${encodeURIComponent(tab)}` : ''}`)
+  }, [name, tab])
+  return <Loading />
+}
+
+function EnvironmentRow({ environment }: { environment: ProjectEnvironment }) {
+  const { t } = useTranslation('projects')
+
+  const sourceReason =
+    environment.source === 'repo-match'
+      ? t('detail.sourceReason.repoMatch')
+      : environment.source === 'label'
+        ? t('detail.sourceReason.label')
+        : t('detail.sourceReason.manual')
 
   return (
-    <Card>
-      <CardHeader
-        title={
-          <span className="flex flex-wrap items-center gap-2">
-            <ServiceIcon tech={service.tech} />
-            <span>{name}</span>
-            <StateBadge state={service.state} health={service.health} />
-            {service.restartCount > 0 ? (
-              <Badge tone={service.restartCount > 3 ? 'danger' : 'warn'}>
-                {t('restarts', { defaultValue: '{{count}} restarts', count: service.restartCount })}
-              </Badge>
-            ) : null}
-            {service.state !== 'running' && service.exitCode !== null ? (
-              <Badge tone="danger">
-                {t('exitCode', { defaultValue: 'exit {{code}}', code: service.exitCode })}
-              </Badge>
-            ) : null}
-            {primary ? <Badge tone="accent">{t('primary', { defaultValue: 'primary' })}</Badge> : null}
-            {collapsed ? (
-              <Badge tone="outline">{t('collapsedInList', { defaultValue: 'collapsed in the list' })}</Badge>
-            ) : null}
-          </span>
-        }
-        description={
-          [service.overrides?.note, `${shortImage(service.image)} · ${service.name}`]
-            .filter(Boolean)
-            .join(' · ')
-        }
-        actions={<ContainerActions container={service} onShowDetails={onShowDetails} />}
-      />
-      <CardBody>
-        <dl className="divide-y divide-line/60">
-          <KeyValue label={tc('container.endpoints')}>
-            <ServiceEndpoints service={service} />
-          </KeyValue>
-          <KeyValue label={tc('container.containerPorts')}>
-            <span className="font-mono text-xs text-muted">
-              {service.exposedPorts.length > 0
-                ? service.exposedPorts.join(', ')
-                : t('noneExposed', { defaultValue: 'none exposed' })}
-            </span>
-          </KeyValue>
-          {service.ports.length > 0 ? (
-            <KeyValue label={tc('container.publishedPorts')}>
-              <div className="space-y-0.5 font-mono text-xs text-muted">
-                {service.ports.map((port) => (
-                  <div key={`${port.ip}:${port.hostPort}`}>
-                    {port.ip}:{port.hostPort} → {port.containerPort}/{port.protocol}
-                  </div>
-                ))}
-              </div>
-            </KeyValue>
-          ) : null}
-          <KeyValue label={tc('container.networks')}>
-            <span className="font-mono text-xs text-muted">
-              {service.networks.length > 0 ? service.networks.join(', ') : tc('none', { defaultValue: 'none' })}
-            </span>
-          </KeyValue>
-          {service.mounts.length > 0 ? (
-            <KeyValue label={tc('container.mounts')}>
-              <div className="space-y-0.5 font-mono text-xs text-muted">
-                {service.mounts.map((mount) => (
-                  <div key={mount.destination}>
-                    {mount.type}: {mount.name ?? mount.source} → {mount.destination}
-                    {mount.rw ? '' : ' (ro)'}
-                  </div>
-                ))}
-              </div>
-            </KeyValue>
-          ) : null}
-          {service.urls.length > 0 ? (
-            <KeyValue label={tc('container.traefik')}>
-              <TraefikVerdictRow container={service} enabled />
-            </KeyValue>
-          ) : null}
-          {service.urls.length > 0 ? (
-            <KeyValue label={tc('container.exposure')}>
-              <SharePanel container={service} />
-            </KeyValue>
-          ) : null}
-          {service.kind === 'http' ? (
-            <KeyValue label={tc('container.hostnameAlias')}>
-              <ServiceAlias project={project.name} service={service} />
-            </KeyValue>
-          ) : null}
-        </dl>
-      </CardBody>
-    </Card>
+    <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2 text-sm last:border-b-0">
+      <a
+        className="font-medium underline-offset-2 hover:text-accent hover:underline"
+        href={`#/environments/${encodeURIComponent(environment.environment)}`}
+      >
+        {environment.environment}
+      </a>
+      <Badge tone={environment.runningCount === environment.serviceCount ? 'ok' : 'warn'}>
+        {t('running', {
+          running: environment.runningCount,
+          total: environment.serviceCount,
+        })}
+      </Badge>
+      {environment.unhealthyCount > 0 ? (
+        <Badge tone="danger">{t('detail.unhealthyCount', { count: environment.unhealthyCount })}</Badge>
+      ) : null}
+      <span className="text-xs text-subtle">{sourceReason}</span>
+    </div>
   )
 }
 
-function IssueBlock({ issue }: { issue: NonNullable<Environment['issue']> }) {
-  const { statusLabel, priorityLabel } = useIssueStatuses()
-  const { t: ti } = useTranslation('issues')
+function RepositoriesDialog({
+  project,
+  open,
+  onOpenChange,
+}: {
+  project: Project
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const { t } = useTranslation('projects')
+  const { t: tc } = useTranslation('common')
+  const queryClient = useQueryClient()
+  const [selected, setSelected] = useState<string[]>(
+    project.githubRepositories.map((repository) => repository.fullName),
+  )
+  const available = useQuery({
+    queryKey: ['github-repositories'],
+    queryFn: api.githubRepositories,
+    retry: false,
+  })
+
+  const save = useMutation({
+    mutationFn: () =>
+      api.setProjectRepositories(
+        project.slug,
+        selected.map((fullName) => ({ fullName })),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries()
+      onOpenChange(false)
+    },
+  })
+
+  const unavailable = available.error instanceof ApiError && available.error.status === 503
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('detail.repositoriesFor', { name: project.name })}
+      description={t('repositoriesCard.attach.description')}
+      footer={
+        <Button variant="primary" size="sm" disabled={save.isPending} onClick={() => save.mutate()}>
+          {tc('save')}
+        </Button>
+      }
+    >
+      {save.error ? <ErrorBox error={save.error} /> : null}
+      {available.isPending ? <Loading label={t('repositoriesCard.attach.reading')} /> : null}
+      {available.error ? (
+        <Empty
+          title={unavailable ? t('repositoriesCard.attach.unavailable') : t('repositoriesCard.attach.noList')}
+          hint={t('repositoriesCard.attach.hint')}
+        />
+      ) : (available.data ?? []).length === 0 ? (
+        <Empty
+          title={t('repositoriesCard.attach.noneGranted')}
+          hint={t('repositoriesCard.attach.noneGrantedHint')}
+        />
+      ) : (
+        <div className="space-y-1">
+          {(available.data ?? []).map((repository) => (
+            <label key={repository.githubId} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={selected.includes(repository.fullName)}
+                onChange={(event) =>
+                  setSelected((current) =>
+                    event.target.checked
+                      ? [...current, repository.fullName]
+                      : current.filter((entry) => entry !== repository.fullName),
+                  )
+                }
+              />
+              {repository.fullName}
+              {repository.private ? <Badge tone="neutral">{t('detail.private')}</Badge> : null}
+            </label>
+          ))}
+        </div>
+      )}
+    </Dialog>
+  )
+}
+
+function IssuesCard({ slug }: { slug: string }) {
+  const { t } = useTranslation('projects', { keyPrefix: 'issues' })
+  const { statusOptions } = useIssueStatuses()
+  const [state, setState] = useState('open')
+  const [status, setStatus] = useState('')
+  const [text, setText] = useState('')
+
+  const query = useQuery({
+    queryKey: ['project-issues', slug, state, status, text],
+    queryFn: () =>
+      api.projectIssues(slug, {
+        ...(state === '' ? {} : { state }),
+        ...(status === '' ? {} : { status }),
+        ...(text.trim() === '' ? {} : { q: text.trim() }),
+      }),
+    retry: false,
+  })
+
+  const unavailable = query.error instanceof ApiError && query.error.status === 503
 
   return (
     <Card>
       <CardHeader
-        title={
-          <span className="flex flex-wrap items-center gap-2">
-            <Badge tone="outline">{issue.repository}</Badge>
-            <a
-              className="underline-offset-2 hover:text-accent hover:underline"
-              href={issue.htmlUrl}
-              target="_blank"
-              rel="noreferrer noopener"
+        title={t('title')}
+        description={t('description')}
+        actions={
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Input
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              placeholder={t('filterPlaceholder')}
+              className="h-7 w-52"
+              aria-label={t('filterAria')}
+            />
+            <Select
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              className="h-7 w-36"
+              aria-label={t('status')}
             >
-              #{issue.number}
-            </a>
-            <span className="min-w-0 truncate">{issue.title}</span>
-            {issue.issueType ? <Badge tone="neutral">{issue.issueType}</Badge> : null}
-            {issue.status ? <Badge tone="accent">{statusLabel(issue.status)}</Badge> : null}
-            {issue.priority ? (
-              <Badge tone="warn">{priorityLabel(issue.priority)}</Badge>
-            ) : null}
-            {issue.state === 'closed' ? (
-              <Badge tone="ok">{ti('state.closed')}</Badge>
-            ) : null}
-          </span>
+              <option value="">{t('anyStatus')}</option>
+              {statusOptions
+                .filter((entry) => entry.value !== '')
+                .map((entry) => (
+                  <option key={entry.value} value={entry.value}>
+                    {entry.label}
+                  </option>
+                ))}
+            </Select>
+            <Select
+              value={state}
+              onChange={(event) => setState(event.target.value)}
+              className="h-7 w-28"
+              aria-label={t('state')}
+            >
+              <option value="open">{t('stateOpen')}</option>
+              <option value="closed">{t('stateClosed')}</option>
+              <option value="">{t('stateAll')}</option>
+            </Select>
+          </div>
         }
-        description={issue.reason}
       />
+      {query.isPending ? <Loading label={t('reading')} /> : null}
+      {query.error ? (
+        unavailable ? (
+          <Empty title={t('needsDatabase')} hint={t('needsDatabaseHint')} />
+        ) : (
+          <div className="p-3">
+            <ErrorBox error={query.error} />
+          </div>
+        )
+      ) : null}
+      {query.data ? <IssueRows issues={query.data} /> : null}
     </Card>
   )
 }

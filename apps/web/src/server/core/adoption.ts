@@ -1,4 +1,4 @@
-// Which workspace a running environment belongs to, and why.
+// Which Project a running environment belongs to, and why.
 //
 // Three sources with a stated precedence, each a pure function over data the
 // panel already has. The reason is recorded so the UI can say *"adopted because
@@ -10,15 +10,15 @@ import type { Environment } from '../../shared/types.ts'
 
 export type AdoptionSource = 'manual' | 'label' | 'repo-match'
 
-export interface WorkspaceCoordinates {
+export interface ProjectCoordinates {
   id: string
   slug: string
-  /** Repository full names this workspace owns, lowercased. */
+  /** Repository full names this Project owns, lowercased. */
   repositories: string[]
 }
 
 export interface Adoption {
-  workspaceId: string
+  projectId: string
   source: AdoptionSource
 }
 
@@ -42,39 +42,39 @@ export function repositoryCoordinate(repoUrl: string | null): string | null {
  * Manual always wins, because the user said so. A `portta.project` label
  * matching a slug is honoured next, because the project declared it (ADR 0001).
  * A repository match is a suggestion, and is applied **only when exactly one
- * workspace owns that coordinate** — an automatic adoption that is wrong is
+ * Project owns that coordinate** — an automatic adoption that is wrong is
  * worse than none, so an ambiguous match adopts nothing and lets the user say.
  */
 export function resolveAdoption(
   project: Pick<Environment, 'name' | 'group' | 'repo' | 'repoUrl'>,
-  workspaces: WorkspaceCoordinates[],
+  projects: ProjectCoordinates[],
   manual: Map<string, string>,
 ): Adoption | null {
   const manualId = manual.get(project.name)
-  if (manualId !== undefined) return { workspaceId: manualId, source: 'manual' }
+  if (manualId !== undefined) return { projectId: manualId, source: 'manual' }
 
   if (project.group) {
-    const declared = workspaces.find((workspace) => workspace.slug === project.group)
-    if (declared) return { workspaceId: declared.id, source: 'label' }
+    const declared = projects.find((candidate) => candidate.slug === project.group)
+    if (declared) return { projectId: declared.id, source: 'label' }
   }
 
   const coordinate = repositoryCoordinate(project.repoUrl) ?? project.repo?.toLowerCase() ?? null
   if (coordinate === null) return null
 
-  const owners = workspaces.filter((workspace) => workspace.repositories.includes(coordinate))
+  const owners = projects.filter((candidate) => candidate.repositories.includes(coordinate))
   if (owners.length !== 1) return null
-  return { workspaceId: owners[0]!.id, source: 'repo-match' }
+  return { projectId: owners[0]!.id, source: 'repo-match' }
 }
 
 export function resolveAdoptions(
-  projects: ReadonlyArray<Pick<Environment, 'name' | 'group' | 'repo' | 'repoUrl'>>,
-  workspaces: WorkspaceCoordinates[],
+  environments: ReadonlyArray<Pick<Environment, 'name' | 'group' | 'repo' | 'repoUrl'>>,
+  projects: ProjectCoordinates[],
   manual: Map<string, string>,
 ): Map<string, Adoption> {
   const resolved = new Map<string, Adoption>()
-  for (const project of projects) {
-    const adoption = resolveAdoption(project, workspaces, manual)
-    if (adoption) resolved.set(project.name, adoption)
+  for (const environment of environments) {
+    const adoption = resolveAdoption(environment, projects, manual)
+    if (adoption) resolved.set(environment.name, adoption)
   }
   return resolved
 }

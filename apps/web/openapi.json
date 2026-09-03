@@ -30,10 +30,6 @@
       "description": "Compose environments running on this host."
     },
     {
-      "name": "Workspaces",
-      "description": "Deprecated alias of Projects."
-    },
-    {
       "name": "Issues",
       "description": "The GitHub issue projection, and writes that go back to GitHub."
     },
@@ -2637,8 +2633,9 @@
         "enum": [
           "managed",
           "external",
-          "unmanaged",
-          "candidate"
+          "escaped",
+          "missing",
+          "inaccessible"
         ],
         "description": "Where this Project sits relative to Projects Home"
       },
@@ -2714,21 +2711,6 @@
         },
         "required": [
           "projects"
-        ],
-        "additionalProperties": false
-      },
-      "WorkspacesResponse": {
-        "type": "object",
-        "properties": {
-          "workspaces": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ProjectSummary"
-            }
-          }
-        },
-        "required": [
-          "workspaces"
         ],
         "additionalProperties": false
       },
@@ -2971,7 +2953,7 @@
         ],
         "additionalProperties": false
       },
-      "WorkspaceRemoval": {
+      "ProjectRemoval": {
         "type": "object",
         "properties": {
           "ok": {
@@ -7621,7 +7603,7 @@
       "get": {
         "operationId": "getRunnerStatus",
         "tags": [
-          "Projects"
+          "Environments"
         ],
         "summary": "Get the project-runner state",
         "description": "Reads the prepared runner container back. A host that has not opted in gets a reason, never an error.",
@@ -7686,11 +7668,11 @@
     },
     "/environments/{project}/settings": {
       "get": {
-        "operationId": "getProjectSettings",
+        "operationId": "getEnvironmentSettings",
         "tags": [
-          "Projects"
+          "Environments"
         ],
-        "summary": "Read a project's overrides",
+        "summary": "Read an environment's overrides",
         "parameters": [
           {
             "name": "project",
@@ -7755,11 +7737,11 @@
         ]
       },
       "put": {
-        "operationId": "setProjectSettings",
+        "operationId": "setEnvironmentSettings",
         "tags": [
-          "Projects"
+          "Environments"
         ],
-        "summary": "Set or clear a project's overrides",
+        "summary": "Set or clear an environment's overrides",
         "description": "Presentation only: nothing here changes routing, and nothing is written inside the project.",
         "parameters": [
           {
@@ -7942,18 +7924,18 @@
                   }
                 },
                 "additionalProperties": false,
-                "ref": "ProjectSettingsBody"
+                "ref": "EnvironmentSettingsBody"
               }
             }
           }
         }
       },
       "delete": {
-        "operationId": "clearProjectSettings",
+        "operationId": "clearEnvironmentSettings",
         "tags": [
-          "Projects"
+          "Environments"
         ],
-        "summary": "Remove every override on a project",
+        "summary": "Remove every override on an environment",
         "parameters": [
           {
             "name": "project",
@@ -8032,7 +8014,7 @@
       "get": {
         "operationId": "getServiceOverrides",
         "tags": [
-          "Projects"
+          "Environments"
         ],
         "summary": "Read one service's overrides",
         "parameters": [
@@ -8112,7 +8094,7 @@
       "put": {
         "operationId": "setServiceNote",
         "tags": [
-          "Projects"
+          "Environments"
         ],
         "summary": "Set or clear a note on a service",
         "parameters": [
@@ -8240,7 +8222,7 @@
       "put": {
         "operationId": "setServiceAlias",
         "tags": [
-          "Projects"
+          "Environments"
         ],
         "summary": "Route an additional hostname to a service",
         "description": "Additive: the project's own hostname keeps working beside the alias. Refused before any write when the hostname collides, sits outside a served domain, or has no unambiguous HTTP port.",
@@ -8361,7 +8343,7 @@
       "delete": {
         "operationId": "clearServiceAlias",
         "tags": [
-          "Projects"
+          "Environments"
         ],
         "summary": "Remove a hostname alias",
         "parameters": [
@@ -8503,7 +8485,7 @@
           "Projects"
         ],
         "summary": "Create a Project",
-        "description": "Persists the product. Nothing on this host is started or stopped.",
+        "description": "Persists the product. Nothing on this host is started or stopped. relativePath places it under Projects Home; files are never moved.",
         "responses": {
           "201": {
             "description": "Successful response.",
@@ -8603,170 +8585,14 @@
                         "type": "null"
                       }
                     ]
-                  }
-                },
-                "required": [
-                  "slug",
-                  "name"
-                ],
-                "additionalProperties": false,
-                "ref": "CreateWorkspaceBody"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/workspaces": {
-      "get": {
-        "operationId": "listWorkspaces",
-        "tags": [
-          "Workspaces"
-        ],
-        "summary": "List workspaces (deprecated alias of listProjects)",
-        "description": "Deprecated. Use GET /projects. Same payload under the `workspaces` key for one cycle.",
-        "responses": {
-          "200": {
-            "description": "Successful response.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WorkspacesResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The panel encountered an unexpected failure.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "A required local dependency is unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {},
-          {
-            "cookieAuth": []
-          },
-          {
-            "basicAuth": []
-          }
-        ]
-      },
-      "post": {
-        "operationId": "createWorkspace",
-        "tags": [
-          "Workspaces"
-        ],
-        "summary": "Create a workspace",
-        "responses": {
-          "201": {
-            "description": "Successful response.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Project"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request is invalid or the requested action was refused.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The requested operation conflicts with the current runtime state.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The panel encountered an unexpected failure.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "A required local dependency is unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {},
-          {
-            "cookieAuth": []
-          },
-          {
-            "basicAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "slug": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 64,
-                    "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
                   },
-                  "name": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 120
-                  },
-                  "description": {
+                  "relativePath": {
                     "anyOf": [
                       {
                         "type": "string",
-                        "maxLength": 2000
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "description": "First-level directory under Projects Home. Never an absolute path."
                       },
                       {
                         "type": "null"
@@ -8779,284 +8605,11 @@
                   "name"
                 ],
                 "additionalProperties": false,
-                "ref": "CreateWorkspaceBody"
+                "ref": "CreateProjectBody"
               }
             }
           }
         }
-      }
-    },
-    "/workspaces/{slug}": {
-      "get": {
-        "operationId": "getWorkspace",
-        "tags": [
-          "Workspaces"
-        ],
-        "summary": "Get one workspace",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "description": "The workspace slug, as created.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Project"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The requested project, service, container, share or endpoint does not exist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The panel encountered an unexpected failure.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "A required local dependency is unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {},
-          {
-            "cookieAuth": []
-          },
-          {
-            "basicAuth": []
-          }
-        ]
-      },
-      "patch": {
-        "operationId": "patchWorkspace",
-        "tags": [
-          "Workspaces"
-        ],
-        "summary": "Rename, describe or archive a workspace",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "description": "The workspace slug, as created.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProjectSummary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request is invalid or the requested action was refused.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The requested project, service, container, share or endpoint does not exist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The panel encountered an unexpected failure.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "A required local dependency is unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {},
-          {
-            "cookieAuth": []
-          },
-          {
-            "basicAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 120
-                  },
-                  "description": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "maxLength": 2000
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "archived": {
-                    "type": "boolean"
-                  }
-                },
-                "additionalProperties": false,
-                "ref": "PatchWorkspaceBody"
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "operationId": "deleteWorkspace",
-        "tags": [
-          "Workspaces"
-        ],
-        "summary": "Remove a workspace grouping",
-        "description": "Deletes the grouping only. No container, volume, environment or repository is touched.",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "description": "The workspace slug, as created.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WorkspaceRemoval"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The requested project, service, container, share or endpoint does not exist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The panel encountered an unexpected failure.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "A required local dependency is unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {},
-          {
-            "cookieAuth": []
-          },
-          {
-            "basicAuth": []
-          }
-        ]
       }
     },
     "/projects/{slug}": {
@@ -9071,7 +8624,7 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "description": "The workspace slug, as created.",
+            "description": "The Project slug, as created.",
             "schema": {
               "type": "string"
             }
@@ -9134,13 +8687,13 @@
         "tags": [
           "Projects"
         ],
-        "summary": "Rename, describe or archive a Project",
+        "summary": "Rename, describe, place or archive a Project",
         "parameters": [
           {
             "name": "slug",
             "in": "path",
             "required": true,
-            "description": "The workspace slug, as created.",
+            "description": "The Project slug, as created.",
             "schema": {
               "type": "string"
             }
@@ -9242,10 +8795,23 @@
                   },
                   "archived": {
                     "type": "boolean"
+                  },
+                  "relativePath": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "description": "First-level directory under Projects Home. Never an absolute path."
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "additionalProperties": false,
-                "ref": "PatchWorkspaceBody"
+                "ref": "PatchProjectBody"
               }
             }
           }
@@ -9263,7 +8829,7 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "description": "The workspace slug, as created.",
+            "description": "The Project slug, as created.",
             "schema": {
               "type": "string"
             }
@@ -9275,7 +8841,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceRemoval"
+                  "$ref": "#/components/schemas/ProjectRemoval"
                 }
               }
             }
@@ -9345,7 +8911,7 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "description": "The workspace slug, as created.",
+            "description": "The Project slug, as created.",
             "schema": {
               "type": "string"
             }
@@ -9462,7 +9028,7 @@
                   "repositories"
                 ],
                 "additionalProperties": false,
-                "ref": "WorkspaceRepositoriesBody"
+                "ref": "ProjectRepositoriesBody"
               }
             }
           }
@@ -9482,7 +9048,7 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "description": "The workspace slug, as created.",
+            "description": "The Project slug, as created.",
             "schema": {
               "type": "string"
             }
@@ -9580,262 +9146,7 @@
                   "environments"
                 ],
                 "additionalProperties": false,
-                "ref": "WorkspaceEnvironmentsBody"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/workspaces/{slug}/repositories": {
-      "put": {
-        "operationId": "setWorkspaceRepositories",
-        "tags": [
-          "Workspaces"
-        ],
-        "summary": "Set the repositories a workspace owns",
-        "description": "A repository the GitHub App installation did not grant is refused; the projection is the authorisation boundary.",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "description": "The workspace slug, as created.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Project"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request is invalid or the requested action was refused.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The requested project, service, container, share or endpoint does not exist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The panel encountered an unexpected failure.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "A required local dependency is unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {},
-          {
-            "cookieAuth": []
-          },
-          {
-            "basicAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "repositories": {
-                    "maxItems": 64,
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "fullName": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "role": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "maxLength": 32
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        }
-                      },
-                      "required": [
-                        "fullName"
-                      ],
-                      "additionalProperties": false
-                    }
-                  }
-                },
-                "required": [
-                  "repositories"
-                ],
-                "additionalProperties": false,
-                "ref": "WorkspaceRepositoriesBody"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/workspaces/{slug}/environments": {
-      "put": {
-        "operationId": "setWorkspaceEnvironments",
-        "tags": [
-          "Workspaces"
-        ],
-        "summary": "Set the environments a workspace adopts by hand",
-        "description": "A manual mapping always wins over portta.project and over a repository match.",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "description": "The workspace slug, as created.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Project"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request is invalid or the requested action was refused.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The requested project, service, container, share or endpoint does not exist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The panel encountered an unexpected failure.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "A required local dependency is unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {},
-          {
-            "cookieAuth": []
-          },
-          {
-            "basicAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "environments": {
-                    "maxItems": 128,
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 255
-                    }
-                  }
-                },
-                "required": [
-                  "environments"
-                ],
-                "additionalProperties": false,
-                "ref": "WorkspaceEnvironmentsBody"
+                "ref": "ProjectEnvironmentsBody"
               }
             }
           }
@@ -12598,47 +11909,6 @@
         ]
       }
     },
-    "/host": {
-      "get": {
-        "operationId": "getHostResources",
-        "tags": [
-          "Status"
-        ],
-        "summary": "Get this host's capacity right now",
-        "description": "Alias of GET /metrics/current.",
-        "responses": {
-          "200": {
-            "description": "Successful response.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MetricsCurrent"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The panel encountered an unexpected failure.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {},
-          {
-            "cookieAuth": []
-          },
-          {
-            "basicAuth": []
-          }
-        ]
-      }
-    },
     "/config": {
       "get": {
         "operationId": "getConfig",
@@ -13111,159 +12381,6 @@
             "in": "path",
             "required": true,
             "description": "The Project slug.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "repository",
-            "in": "query",
-            "required": false,
-            "description": "Filter by owner/name.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "state",
-            "in": "query",
-            "required": false,
-            "description": "open or closed.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "description": "backlog, ready, in_progress, review, blocked or done.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "priority",
-            "in": "query",
-            "required": false,
-            "description": "low, medium, high or urgent.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "type",
-            "in": "query",
-            "required": false,
-            "description": "GitHub's issue type, where the repository has them.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "assignee",
-            "in": "query",
-            "required": false,
-            "description": "GitHub login.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "milestone",
-            "in": "query",
-            "required": false,
-            "description": "Milestone title.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "label",
-            "in": "query",
-            "required": false,
-            "description": "Exact label name.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "q",
-            "in": "query",
-            "required": false,
-            "description": "Substring of the number or title.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IssuesResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The requested project, service, container, share or endpoint does not exist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The panel encountered an unexpected failure.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "A required local dependency is unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {},
-          {
-            "cookieAuth": []
-          },
-          {
-            "basicAuth": []
-          }
-        ]
-      }
-    },
-    "/workspaces/{slug}/issues": {
-      "get": {
-        "operationId": "listWorkspaceIssues",
-        "tags": [
-          "Issues"
-        ],
-        "summary": "List issues across a Project's repositories (deprecated alias)",
-        "description": "Served from the projection, so it answers while GitHub is unreachable; every row carries syncedAt and a staleness flag.",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "description": "The workspace slug.",
             "schema": {
               "type": "string"
             }
@@ -14048,20 +13165,20 @@
         }
       }
     },
-    "/workspaces/{slug}/tasks": {
+    "/projects/{slug}/tasks": {
       "get": {
-        "operationId": "listWorkspaceTasks",
+        "operationId": "listProjectTasks",
         "tags": [
           "Tasks"
         ],
-        "summary": "List a workspace's tasks",
+        "summary": "List a Project's tasks",
         "description": "A view over the projection. Answers while GitHub is unreachable; every row carries syncedAt and a staleness flag.",
         "parameters": [
           {
             "name": "slug",
             "in": "path",
             "required": true,
-            "description": "The workspace slug.",
+            "description": "The Project slug.",
             "schema": {
               "type": "string"
             }
@@ -14120,7 +13237,7 @@
         ]
       }
     },
-    "/workspaces/{slug}/tasks/next": {
+    "/projects/{slug}/tasks/next": {
       "get": {
         "operationId": "nextTask",
         "tags": [
@@ -14133,7 +13250,7 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "description": "The workspace slug.",
+            "description": "The Project slug.",
             "schema": {
               "type": "string"
             }

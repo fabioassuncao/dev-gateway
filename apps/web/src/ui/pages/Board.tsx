@@ -35,7 +35,7 @@ function hashFor(slug: string, view: BoardView, filters: Partial<Record<FilterKe
     if (value) query.set(key, value)
   }
   const suffix = query.toString()
-  return `/board/${encodeURIComponent(slug)}/${view}${suffix ? `?${suffix}` : ''}`
+  return `/projects/${encodeURIComponent(slug)}/board/${view}${suffix ? `?${suffix}` : ''}`
 }
 
 export function BoardPage({
@@ -66,7 +66,7 @@ export function BoardPage({
   const queryKey = ['board-issues', slug, view, JSON.stringify(query)]
   const issues = useQuery({
     queryKey,
-    queryFn: () => api.workspaceIssues(slug, query),
+    queryFn: () => api.projectIssues(slug, query),
     retry: false,
   })
 
@@ -79,8 +79,8 @@ export function BoardPage({
   })
 
   const workspace = useQuery({
-    queryKey: ['workspace', slug],
-    queryFn: () => api.workspace(slug),
+    queryKey: ['project', slug],
+    queryFn: () => api.project(slug),
     retry: false,
   })
 
@@ -102,7 +102,7 @@ export function BoardPage({
         actions={
           <>
             <Button size="sm" onClick={() => navigate(`/projects/${encodeURIComponent(slug)}`)}>
-              {t('workspace')}
+              {t('project')}
             </Button>
             <Button
               size="sm"
@@ -152,7 +152,7 @@ export function BoardPage({
             value={filters.priority ?? ''}
             onChange={(event) => setFilter('priority', event.target.value)}
             className="h-8 w-36"
-            aria-label={t('priorityFilter', { defaultValue: 'Priority' })}
+            aria-label={t('priorityFilter')}
           >
             <option value="">{t('anyPriority')}</option>
             <option value="urgent">{t('priority.urgent')}</option>

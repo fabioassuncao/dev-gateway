@@ -22,12 +22,12 @@ export const BoardColumn = z.object({
 
 export const GLOBAL_KEYS = {
   theme: z.enum(['system', 'light', 'dark']),
-  defaultPage: z.enum(['overview', 'workspaces', 'projects', 'docker', 'access', 'network', 'gateway', 'settings']),
+  defaultPage: z.enum(['overview', 'projects', 'docker', 'access', 'network', 'gateway', 'settings']),
   tableDensity: z.enum(['comfortable', 'compact']),
   boardColumns: z.array(BoardColumn).min(1).max(12),
 } as const
 
-export const PROJECT_KEYS = {
+export const ENVIRONMENT_KEYS = {
   displayName: z.string().min(1).max(120),
   description: z.string().max(2000),
   color: z.string().regex(/^#[0-9a-f]{6}$/i),
@@ -55,14 +55,14 @@ export const SERVICE_KEYS = {
 } as const
 
 export type GlobalSettingKey = keyof typeof GLOBAL_KEYS
-export type ProjectSettingKey = keyof typeof PROJECT_KEYS
+export type EnvironmentSettingKey = keyof typeof ENVIRONMENT_KEYS
 export type ServiceSettingKey = keyof typeof SERVICE_KEYS
 
 export type GlobalSettingValues = {
   [K in GlobalSettingKey]: z.output<(typeof GLOBAL_KEYS)[K]>
 }
-export type ProjectSettingValues = {
-  [K in ProjectSettingKey]: z.output<(typeof PROJECT_KEYS)[K]>
+export type EnvironmentSettingValues = {
+  [K in EnvironmentSettingKey]: z.output<(typeof ENVIRONMENT_KEYS)[K]>
 }
 export type ServiceSettingValues = {
   [K in ServiceSettingKey]: z.output<(typeof SERVICE_KEYS)[K]>
@@ -78,8 +78,8 @@ export function globalSchema(key: string): z.ZodType {
   return schemaFor('global', GLOBAL_KEYS, key)
 }
 
-export function projectSchema(key: string): z.ZodType {
-  return schemaFor('project', PROJECT_KEYS, key)
+export function environmentSchema(key: string): z.ZodType {
+  return schemaFor('environment', ENVIRONMENT_KEYS, key)
 }
 
 export function serviceSchema(key: string): z.ZodType {

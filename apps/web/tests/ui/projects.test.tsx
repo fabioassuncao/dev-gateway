@@ -7,7 +7,7 @@ import type { Environment } from '../../src/shared/types.ts'
 
 const projects = vi.fn()
 const containerAction = vi.fn()
-const projectAction = vi.fn()
+const environmentAction = vi.fn()
 
 vi.mock('../../src/ui/lib/api.ts', () => ({
   ApiError: class ApiError extends Error {},
@@ -15,7 +15,7 @@ vi.mock('../../src/ui/lib/api.ts', () => ({
     projects: () => Promise.resolve([]),
     environments: () => projects(),
     containerAction: (...args: unknown[]) => containerAction(...args),
-    projectAction: (...args: unknown[]) => projectAction(...args),
+    environmentAction: (...args: unknown[]) => environmentAction(...args),
     logs: vi.fn().mockResolvedValue({ lines: [] }),
     removalPreview: vi.fn().mockResolvedValue({ allowed: true, warnings: [], namedVolumes: [] }),
     stats: vi.fn().mockResolvedValue({ cpuPercent: null }),
@@ -23,12 +23,12 @@ vi.mock('../../src/ui/lib/api.ts', () => ({
     serviceTraefik: vi.fn().mockResolvedValue({ available: false, reason: 'not configured' }),
     // Nothing collected: the card renders one subtle line and the page is
     // unchanged, which is what a project without a scan should look like.
-    projectGit: vi.fn().mockResolvedValue({ collected: false, git: null, refreshCommand: 'git scan' }),
+    environmentGit: vi.fn().mockResolvedValue({ collected: false, git: null, refreshCommand: 'git scan' }),
   },
 }))
 
 const { Projects } = await import('../../src/ui/pages/Projects.tsx')
-const { orderedEndpoints } = await import('../../src/ui/components/project-services.tsx')
+const { orderedEndpoints } = await import('../../src/ui/components/environment-services.tsx')
 
 const WEB_URL = {
   url: 'http://alpha-web.localhost',
@@ -100,7 +100,7 @@ const beta: Environment = {
 beforeEach(() => {
   projects.mockReset().mockResolvedValue([alpha, beta])
   containerAction.mockReset().mockResolvedValue({ ok: true })
-  projectAction.mockReset()
+  environmentAction.mockReset()
 })
 
 describe('the Projects page', () => {
@@ -287,12 +287,12 @@ describe('the Projects page', () => {
   })
 
   it('restarts a project as one action, not a loop over services', async () => {
-    projectAction.mockResolvedValue({ ok: true, project: 'alpha', action: 'restart', requested: 4, succeeded: 4, failed: 0, skipped: 0, results: [] })
+    environmentAction.mockResolvedValue({ ok: true, project: 'alpha', action: 'restart', requested: 4, succeeded: 4, failed: 0, skipped: 0, results: [] })
     renderWithQuery(<Projects />)
     await screen.findByText('alpha')
 
     await userEvent.click(screen.getAllByRole('button', { name: 'Restart' })[0] as HTMLElement)
-    await waitFor(() => expect(projectAction).toHaveBeenCalledWith('alpha', 'restart'))
+    await waitFor(() => expect(environmentAction).toHaveBeenCalledWith('alpha', 'restart'))
     expect(containerAction).not.toHaveBeenCalled()
   })
 

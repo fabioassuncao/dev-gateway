@@ -5,21 +5,21 @@ import { renderWithQuery } from './render.tsx'
 import { makeContainer, makeOperable, makeStartable } from './fixtures.ts'
 import type { Environment, EnvironmentRemovalPreview } from '../../src/shared/types.ts'
 
-const rebuildProject = vi.fn()
-const removeProject = vi.fn()
-const projectRemovalPreview = vi.fn()
+const rebuildEnvironment = vi.fn()
+const removeEnvironment = vi.fn()
+const environmentRemovalPreview = vi.fn()
 
 vi.mock('../../src/ui/lib/api.ts', () => ({
   ApiError: class ApiError extends Error {},
   api: {
-    rebuildProject: (...args: unknown[]) => rebuildProject(...args),
-    removeProject: (...args: unknown[]) => removeProject(...args),
-    projectRemovalPreview: (...args: unknown[]) => projectRemovalPreview(...args),
+    rebuildEnvironment: (...args: unknown[]) => rebuildEnvironment(...args),
+    removeEnvironment: (...args: unknown[]) => removeEnvironment(...args),
+    environmentRemovalPreview: (...args: unknown[]) => environmentRemovalPreview(...args),
     runnerProbe: async () => ({ state: 'idle', available: true, logTail: [] }),
   },
 }))
 
-const { ProjectOperations } = await import('../../src/ui/components/project-operations.tsx')
+const { EnvironmentOperations } = await import('../../src/ui/components/environment-operations.tsx')
 
 function project(overrides: Partial<Environment> = {}): Environment {
   const services = overrides.services ?? [
@@ -68,7 +68,7 @@ const preview: EnvironmentRemovalPreview = {
 describe('project operations', () => {
   it('disables Rebuild when the project is not operable', () => {
     renderWithQuery(
-      <ProjectOperations
+      <EnvironmentOperations
         project={project({ operable: makeOperable(null) })}
       />,
     )
@@ -77,8 +77,8 @@ describe('project operations', () => {
 
   it('keeps Remove disabled until the project name is typed', async () => {
     const user = userEvent.setup()
-    projectRemovalPreview.mockResolvedValue(preview)
-    renderWithQuery(<ProjectOperations project={project()} />)
+    environmentRemovalPreview.mockResolvedValue(preview)
+    renderWithQuery(<EnvironmentOperations project={project()} />)
     await user.click(screen.getByRole('button', { name: 'Remove, keep data' }))
     expect(await screen.findByText(/GitHub repository/)).toBeInTheDocument()
     const submit = screen.getAllByRole('button', { name: 'Remove, keep data' }).at(-1)!

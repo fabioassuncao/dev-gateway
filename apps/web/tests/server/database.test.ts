@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import type { DatabaseClient } from '../../src/server/db/client.ts'
-import { GLOBAL_KEYS, UnknownSettingKey, globalSchema, projectSchema, serviceSchema } from '../../src/server/db/keys.ts'
+import { GLOBAL_KEYS, UnknownSettingKey, globalSchema, environmentSchema, serviceSchema } from '../../src/server/db/keys.ts'
 import { SettingsRepository } from '../../src/server/db/settings.ts'
 import { Database, requireDatabase, unavailableDatabaseStatus } from '../../src/server/db/index.ts'
 import { diagnose } from '../../src/server/core/diagnostics.ts'
@@ -36,7 +36,7 @@ describe('the persistence schema', () => {
 describe('the closed setting catalogue', () => {
   it('accepts only declared, validated values', () => {
     expect(globalSchema('theme').parse('dark')).toBe('dark')
-    expect(projectSchema('hiddenServices').parse(['mailpit'])).toEqual(['mailpit'])
+    expect(environmentSchema('hiddenServices').parse(['mailpit'])).toEqual(['mailpit'])
     expect(serviceSchema('alias').parse('storefront-api')).toBe('storefront-api')
     expect(() => serviceSchema('alias').parse('Not A Host')).toThrow()
   })
@@ -122,7 +122,7 @@ describe('degraded operation', () => {
     expect(database.status().available).toBe(false)
 
     unavailable = false
-    await database.recordSeen([{ name: 'demo-a', workingDir: null, repoUrl: null, gitRoot: null }])
+    await database.recordEnvironmentsSeen([{ name: 'demo-a', workingDir: null, repoUrl: null, gitRoot: null }])
 
     expect(database.status()).toMatchObject({ available: true, migrations: ['0001_initial.sql'] })
     expect(client.upsertSeen).toHaveBeenCalledOnce()

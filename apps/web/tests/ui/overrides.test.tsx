@@ -16,9 +16,9 @@ class ApiError extends Error {
   }
 }
 
-const projectSettings = vi.fn()
-const setProjectSettings = vi.fn()
-const clearProjectSettings = vi.fn()
+const environmentSettings = vi.fn()
+const setEnvironmentSettings = vi.fn()
+const clearEnvironmentSettings = vi.fn()
 const serviceAlias = vi.fn()
 const clearServiceAlias = vi.fn()
 const projects = vi.fn()
@@ -28,23 +28,23 @@ vi.mock('../../src/ui/lib/api.ts', () => ({
   api: {
     projects: () => Promise.resolve([]),
     environments: () => projects(),
-    projectSettings: (name: string) => projectSettings(name),
-    setProjectSettings: (name: string, body: unknown) => setProjectSettings(name, body),
-    clearProjectSettings: (name: string) => clearProjectSettings(name),
+    environmentSettings: (name: string) => environmentSettings(name),
+    setEnvironmentSettings: (name: string, body: unknown) => setEnvironmentSettings(name, body),
+    clearEnvironmentSettings: (name: string) => clearEnvironmentSettings(name),
     serviceAlias: (...args: unknown[]) => serviceAlias(...args),
     clearServiceAlias: (...args: unknown[]) => clearServiceAlias(...args),
     containerAction: vi.fn().mockResolvedValue({ ok: true }),
-    projectAction: vi.fn().mockResolvedValue({ ok: true, project: 'alpha', action: 'restart', requested: 0, succeeded: 0, failed: 0, skipped: 0, results: [] }),
+    environmentAction: vi.fn().mockResolvedValue({ ok: true, project: 'alpha', action: 'restart', requested: 0, succeeded: 0, failed: 0, skipped: 0, results: [] }),
     logs: vi.fn().mockResolvedValue({ lines: [] }),
     removalPreview: vi.fn().mockResolvedValue({ allowed: true, warnings: [], namedVolumes: [] }),
     stats: vi.fn().mockResolvedValue({ cpuPercent: null }),
     shares: vi.fn().mockResolvedValue({ shares: [] }),
     serviceTraefik: vi.fn().mockResolvedValue({ available: false, reason: 'not configured' }),
-    projectGit: vi.fn().mockResolvedValue({ collected: false, git: null, refreshCommand: 'git scan' }),
+    environmentGit: vi.fn().mockResolvedValue({ collected: false, git: null, refreshCommand: 'git scan' }),
   },
 }))
 
-const { ProjectSettingsDialog } = await import('../../src/ui/components/project-settings.tsx')
+const { EnvironmentSettingsDialog } = await import('../../src/ui/components/environment-settings.tsx')
 const { ServiceAlias } = await import('../../src/ui/components/service-alias.tsx')
 const { Projects } = await import('../../src/ui/pages/Projects.tsx')
 
@@ -92,9 +92,9 @@ function project(overrides: Partial<Environment> = {}): Environment {
 }
 
 beforeEach(() => {
-  projectSettings.mockReset().mockResolvedValue({})
-  setProjectSettings.mockReset().mockResolvedValue({})
-  clearProjectSettings.mockReset().mockResolvedValue({ ok: true, cleared: [] })
+  environmentSettings.mockReset().mockResolvedValue({})
+  setEnvironmentSettings.mockReset().mockResolvedValue({})
+  clearEnvironmentSettings.mockReset().mockResolvedValue({ ok: true, cleared: [] })
   serviceAlias.mockReset().mockResolvedValue({ host: 'shop.localhost', derivedHosts: [], port: 80 })
   clearServiceAlias.mockReset().mockResolvedValue({ ok: true, removed: 'shop.localhost' })
   projects.mockReset().mockResolvedValue([project()])
@@ -102,29 +102,29 @@ beforeEach(() => {
 
 describe('the project settings dialog', () => {
   it('says plainly that the derived name is kept', async () => {
-    renderWithQuery(<ProjectSettingsDialog project={project()} open onOpenChange={() => {}} />)
+    renderWithQuery(<EnvironmentSettingsDialog project={project()} open onOpenChange={() => {}} />)
     expect(await screen.findByText(/Derived name stays alpha/)).toBeInTheDocument()
     expect(screen.getByText(/Nothing is written inside the project/)).toBeInTheDocument()
   })
 
   it('sends only what the user set, and null for what they cleared', async () => {
-    projectSettings.mockResolvedValue({ description: 'old' })
-    renderWithQuery(<ProjectSettingsDialog project={project()} open onOpenChange={() => {}} />)
+    environmentSettings.mockResolvedValue({ description: 'old' })
+    renderWithQuery(<EnvironmentSettingsDialog project={project()} open onOpenChange={() => {}} />)
     await waitFor(() => expect(screen.getByLabelText('Description')).toHaveValue('old'))
 
     await userEvent.clear(screen.getByLabelText('Description'))
     await userEvent.type(screen.getByLabelText('Display name'), 'Awesome Thing')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    await waitFor(() => expect(setProjectSettings).toHaveBeenCalled())
-    expect(setProjectSettings.mock.calls[0]![1]).toMatchObject({
+    await waitFor(() => expect(setEnvironmentSettings).toHaveBeenCalled())
+    expect(setEnvironmentSettings.mock.calls[0]![1]).toMatchObject({
       displayName: 'Awesome Thing',
       description: null,
     })
   })
 
   it('offers only the project\'s own services as the primary one', async () => {
-    renderWithQuery(<ProjectSettingsDialog project={project()} open onOpenChange={() => {}} />)
+    renderWithQuery(<EnvironmentSettingsDialog project={project()} open onOpenChange={() => {}} />)
     const select = await screen.findByLabelText('Primary service')
     expect([...select.querySelectorAll('option')].map((option) => option.textContent)).toEqual([
       'None',
@@ -134,8 +134,8 @@ describe('the project settings dialog', () => {
   })
 
   it('reports an unavailable database instead of pretending to save', async () => {
-    projectSettings.mockRejectedValue(new ApiError(503, 'panel persistence is unavailable'))
-    renderWithQuery(<ProjectSettingsDialog project={project()} open onOpenChange={() => {}} />)
+    environmentSettings.mockRejectedValue(new ApiError(503, 'panel persistence is unavailable'))
+    renderWithQuery(<EnvironmentSettingsDialog project={project()} open onOpenChange={() => {}} />)
     expect(await screen.findByText('panel persistence is unavailable')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
   })

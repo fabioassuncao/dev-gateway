@@ -1,8 +1,8 @@
 import { DatabaseClient } from './client.ts'
 import { GitHubRepository } from './github.ts'
+import { EnvironmentsRepository } from './environments.ts'
 import { ProjectsRepository } from './projects.ts'
 import { SettingsRepository } from './settings.ts'
-import { WorkspacesRepository } from './workspaces.ts'
 
 export interface DatabaseStatus {
   configured: boolean
@@ -22,10 +22,10 @@ export class DatabaseUnavailable extends Error {
 }
 
 export class Database {
+  readonly environments: EnvironmentsRepository
   readonly projects: ProjectsRepository
   readonly settings: SettingsRepository
   readonly github: GitHubRepository
-  readonly workspaces: WorkspacesRepository
   private readonly client: DatabaseClient
   private initializing: Promise<void> | null = null
   private state: DatabaseStatus = {
@@ -38,10 +38,10 @@ export class Database {
 
   private constructor(client: DatabaseClient) {
     this.client = client
+    this.environments = new EnvironmentsRepository(client)
     this.projects = new ProjectsRepository(client)
     this.settings = new SettingsRepository(client)
     this.github = new GitHubRepository(client)
-    this.workspaces = new WorkspacesRepository(client)
   }
 
   static open(url: string): Database {
@@ -86,8 +86,8 @@ export class Database {
     }
   }
 
-  async recordSeen(
-    projects: ReadonlyArray<{
+  async recordEnvironmentsSeen(
+    environments: ReadonlyArray<{
       name: string
       workingDir: string | null
       repoUrl: string | null
@@ -100,12 +100,12 @@ export class Database {
       // then records identity once persistence has recovered.
       if (!this.state.available) await this.initialize()
       await Promise.all(
-        projects.map((project) =>
-          this.projects.upsertSeen({
-            composeProject: project.name,
-            workingDir: project.workingDir,
-            repoUrl: project.repoUrl,
-            repoSubpath: project.gitRoot,
+        environments.map((environment) =>
+          this.environments.upsertSeen({
+            composeProject: environment.name,
+            workingDir: environment.workingDir,
+            repoUrl: environment.repoUrl,
+            repoSubpath: environment.gitRoot,
           }),
         ),
       )
@@ -152,4 +152,4 @@ export function requireDatabase(database: Database | null): Database {
   return database
 }
 
-export type { ProjectRecord, ProjectRecordCounts, SeenProject } from './client.ts'
+export type { EnvironmentRecord, EnvironmentRecordCounts, SeenEnvironment, ProjectRecord } from './client.ts'

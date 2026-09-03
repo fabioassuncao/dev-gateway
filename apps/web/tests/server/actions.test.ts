@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { makeApp, post, type FakeContainer } from './helpers.ts'
 import { PROJECT_A } from './fixtures.ts'
-import type { ProjectActionResult, Environment } from '../../src/shared/types.ts'
+import type { EnvironmentActionResult, Environment } from '../../src/shared/types.ts'
 
 const ordered: FakeContainer[] = [
   {
@@ -43,7 +43,7 @@ const ordered: FakeContainer[] = [
 describe('project actions', () => {
   it('stops dependents before dependencies', async () => {
     const { app, docker } = makeApp({ containers: ordered })
-    const body = (await (await post(app, '/api/environments/alpha/actions/stop')).json()) as ProjectActionResult
+    const body = (await (await post(app, '/api/environments/alpha/actions/stop')).json()) as EnvironmentActionResult
     expect(body.ok).toBe(true)
     expect(body.failed).toBe(0)
     expect(docker.calls.filter((call) => call.method === 'stop').map((call) => call.args[0])).toEqual([
@@ -76,7 +76,7 @@ describe('project actions', () => {
 
   it('continues after one failure and names it', async () => {
     const { app } = makeApp({ containers: ordered, fail: { stop: ['a-api'] } })
-    const body = (await (await post(app, '/api/environments/alpha/actions/stop')).json()) as ProjectActionResult
+    const body = (await (await post(app, '/api/environments/alpha/actions/stop')).json()) as EnvironmentActionResult
     expect(body.ok).toBe(false)
     expect(body.failed).toBe(1)
     expect(body.succeeded).toBe(2)

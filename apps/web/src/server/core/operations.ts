@@ -68,7 +68,7 @@ function assertRemovableProject(snapshot: Snapshot, config: PanelConfig, name: s
 }
 
 function projectOrThrow(snapshot: Snapshot, name: string) {
-  const project = snapshot.projects.find((item) => item.name === name)
+  const project = snapshot.environments.find((item) => item.name === name)
   if (!project) {
     throw new ActionRefused(`no project '${name}' is running`, 'it may have been removed already', 404)
   }
@@ -77,9 +77,9 @@ function projectOrThrow(snapshot: Snapshot, name: string) {
 
 async function dbRecords(db: Database | null, name: string) {
   if (db === null || !db.status().available) {
-    return { overrides: 0, workspaceLinks: 0, issueLinks: 0 }
+    return { overrides: 0, projectLinks: 0, issueLinks: 0 }
   }
-  return db.projects.recordCounts(name)
+  return db.environments.recordCounts(name)
 }
 
 function accessFilesFor(accessDir: string, project: string): string[] {
@@ -185,7 +185,7 @@ async function collectRecords(
   return {
     overrides: counts.overrides,
     aliases: aliases.length,
-    projectLinks: counts.workspaceLinks,
+    projectLinks: counts.projectLinks,
     issueLinks: counts.issueLinks,
     accessBridges: listBridges(snapshot).filter((bridge) => bridge.project === name).map((bridge) => bridge.id),
     accessForwarders: listForwarders(snapshot).filter((forwarder) => forwarder.project === name).map((forwarder) => forwarder.alias),
@@ -415,7 +415,7 @@ async function cleanupPorttaRecords(
   deleteAccessFiles(accessFilesFor(config.accessDir, name), config.accessDir)
 
   if (db !== null && db.status().available) {
-    await db.projects.forget(name)
+    await db.environments.forget(name)
   }
 
   return before

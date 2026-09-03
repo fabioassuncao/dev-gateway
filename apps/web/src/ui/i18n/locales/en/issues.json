@@ -3,7 +3,6 @@
   "backlog": "Backlog",
   "boardDescription": "Every open issue of this workspace, by status.",
   "backlogDescription": "Work with no status yet, ordered by priority and last change.",
-  "workspace": "Workspace",
   "newIssue": "New issue",
   "viewsLabel": "{{slug}} views",
   "filterPlaceholder": "Filter by number or title",
@@ -72,5 +71,7 @@
     "label": "From portta.project label",
     "branch": "From branch name",
     "namespace": "From Compose namespace"
-  }
+  },
+  "priorityFilter": "Priority",
+  "project": "Project"
 }

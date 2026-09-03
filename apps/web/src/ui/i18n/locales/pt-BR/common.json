@@ -143,5 +143,6 @@
     "title": "Veredito do Traefik",
     "available": "Disponível",
     "unavailable": "Indisponível"
-  }
+  },
+  "none": "nenhum"
 }

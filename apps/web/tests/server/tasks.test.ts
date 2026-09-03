@@ -234,11 +234,11 @@ function row(overrides: Record<string, unknown> = {}) {
 function taskDatabase(rows = [row()], relationships: { parentId: string; childId: string; position: number }[] = [], repository: unknown = { id: 'r1', fullName: 'acme/api', installationId: 99 }) {
   return {
     status: () => ({ configured: true, available: true, reason: null, checkedAt: 0, migrations: [] }),
-    projects: { find: async () => null, upsertSeen: async () => ({}), list: async () => [] },
-    settings: { listAllProject: async () => [], listAllService: async () => [] },
-    workspaces: {
+    environments: { find: async () => null, upsertSeen: async () => ({}), list: async () => [] },
+    settings: { listAllEnvironment: async () => [], listAllService: async () => [] },
+    projects: {
       find: async (slug: string) => (slug === 'produto' ? { id: 'w1', slug, name: 'Produto' } : null),
-      listRepositories: async () => [{ workspaceId: 'w1', repositoryId: 'r1', fullName: 'acme/api' }],
+      listRepositories: async () => [{ projectId: 'w1', repositoryId: 'r1', fullName: 'acme/api' }],
       list: async () => [], listEnvironments: async () => [],
     },
     github: {
@@ -275,20 +275,20 @@ function fakeGitHub(sent: Record<string, unknown>[] = []) {
 }
 
 describe('the task endpoints', () => {
-  it('lists a workspace’s tasks', async () => {
+  it('lists a Project’s tasks', async () => {
     const { app } = makeApp({ containers: GATEWAY }, {}, taskDatabase(), fakeGitHub())
-    const body = await (await app.request('/api/workspaces/produto/tasks')).json()
+    const body = await (await app.request('/api/projects/produto/tasks')).json()
     expect(body.tasks).toHaveLength(1)
     expect(body.tasks[0]).toMatchObject({ repository: 'acme/api', number: 123, status: 'ready' })
   })
 
   it('offers the next task, and null when there is none', async () => {
     const { app } = makeApp({ containers: GATEWAY }, {}, taskDatabase(), fakeGitHub())
-    const body = await (await app.request('/api/workspaces/produto/tasks/next')).json()
+    const body = await (await app.request('/api/projects/produto/tasks/next')).json()
     expect(body.task).toMatchObject({ number: 123 })
 
     const { app: empty } = makeApp({ containers: GATEWAY }, {}, taskDatabase([row({ workflowStatus: 'backlog' })]), fakeGitHub())
-    expect((await (await empty.request('/api/workspaces/produto/tasks/next')).json()).task).toBeNull()
+    expect((await (await empty.request('/api/projects/produto/tasks/next')).json()).task).toBeNull()
   })
 
   // The coordinate is the point of the ref: something that read a branch name

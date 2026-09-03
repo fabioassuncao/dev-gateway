@@ -15,12 +15,12 @@ import type { Snapshot } from './inventory.ts'
 import { hostsFromRules, isTcpOnly } from './inventory.ts'
 import { GENERATED_FILES, readGenerated, writeGenerated } from './dynamic.ts'
 import { LABELS } from './labels.ts'
-import { PROJECT_KEYS, SERVICE_KEYS } from '../db/keys.ts'
+import { ENVIRONMENT_KEYS, SERVICE_KEYS } from '../db/keys.ts'
 import type { Database } from '../db/index.ts'
 import type {
   ContainerSummary,
   Environment,
-  ProjectOverrides,
+  EnvironmentOverrides,
   ServiceOverrides,
 } from '../../shared/types.ts'
 
@@ -37,11 +37,11 @@ export class OverrideRefused extends Error {
 }
 
 export interface OverrideMap {
-  projects: Map<string, ProjectOverrides>
+  environments: Map<string, EnvironmentOverrides>
   services: Map<string, Map<string, ServiceOverrides>>
 }
 
-export const EMPTY_OVERRIDES: OverrideMap = { projects: new Map(), services: new Map() }
+export const EMPTY_OVERRIDES: OverrideMap = { environments: new Map(), services: new Map() }
 
 /**
  * Reads every override in two queries.
@@ -53,18 +53,18 @@ export async function loadOverrides(db: Database | null): Promise<OverrideMap> {
   if (db === null || !db.status().available) return EMPTY_OVERRIDES
 
   const [projectRows, serviceRows] = await Promise.all([
-    db.settings.listAllProject(),
+    db.settings.listAllEnvironment(),
     db.settings.listAllService(),
   ])
 
-  const projects = new Map<string, ProjectOverrides>()
+  const environments = new Map<string, EnvironmentOverrides>()
   for (const row of projectRows) {
-    const schema = PROJECT_KEYS[row.key as keyof typeof PROJECT_KEYS]
+    const schema = ENVIRONMENT_KEYS[row.key as keyof typeof ENVIRONMENT_KEYS]
     if (schema === undefined) continue
     const parsed = schema.safeParse(row.value)
     if (!parsed.success) continue
-    const current = projects.get(row.composeProject) ?? {}
-    projects.set(row.composeProject, { ...current, [row.key]: parsed.data })
+    const current = environments.get(row.composeProject) ?? {}
+    environments.set(row.composeProject, { ...current, [row.key]: parsed.data })
   }
 
   const services = new Map<string, Map<string, ServiceOverrides>>()
@@ -79,7 +79,7 @@ export async function loadOverrides(db: Database | null): Promise<OverrideMap> {
     services.set(row.composeProject, perProject)
   }
 
-  return { projects, services }
+  return { environments, services }
 }
 
 /**
@@ -91,10 +91,10 @@ export async function loadOverrides(db: Database | null): Promise<OverrideMap> {
  * panel with no database byte-identical to today's.
  */
 export function applyOverrides<T extends Environment>(projects: T[], overrides: OverrideMap): T[] {
-  if (overrides.projects.size === 0 && overrides.services.size === 0) return projects
+  if (overrides.environments.size === 0 && overrides.services.size === 0) return projects
 
   return projects.map((project) => {
-    const projectOverrides = overrides.projects.get(project.name)
+    const projectOverrides = overrides.environments.get(project.name)
     const perService = overrides.services.get(project.name)
     if (projectOverrides === undefined && perService === undefined) return project
 
@@ -121,7 +121,7 @@ function decorateService(
 /** An explicit order wins; anything unnamed keeps its derived position after it. */
 function orderServices(
   services: ContainerSummary[],
-  overrides: ProjectOverrides | undefined,
+  overrides: EnvironmentOverrides | undefined,
 ): ContainerSummary[] {
   const order = overrides?.serviceOrder
   if (!order || order.length === 0) return services
@@ -212,7 +212,7 @@ export function planAlias(
   existing: StoredAlias[],
   config: PanelConfig,
 ): StoredAlias {
-  const project = snapshot.projects.find((item) => item.name === request.project)
+  const project = snapshot.environments.find((item) => item.name === request.project)
   if (!project) throw new OverrideRefused(`no project '${request.project}' is running`)
 
   const service = project.services.find(

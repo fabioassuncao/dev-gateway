@@ -42,70 +42,7 @@
     "title": "Logs",
     "componentAria": "Componente do gateway"
   },
-  "project": {
-    "tabs": {
-      "overview": "Visão geral",
-      "services": "Serviços",
-      "git": "Git",
-      "logs": "Logs"
-    },
-    "notFound": "Nenhum projeto '{{name}}' está em execução",
-    "stats": {
-      "services": "Serviços",
-      "running": "em execução",
-      "unhealthy": "Não saudáveis",
-      "routedUrls": "URLs roteadas",
-      "uptime": "Tempo ativo"
-    },
-    "environment": {
-      "title": "Ambiente",
-      "description": "O que é este projeto Compose e onde ele está.",
-      "hostDirectory": "Diretório no host",
-      "integrated": "Integrado",
-      "worktree": "Worktree",
-      "logicalProject": "Projeto lógico",
-      "gitRoot": "Raiz Git",
-      "repository": "Repositório",
-      "networks": "Redes"
-    },
-    "resources": {
-      "title": "Recursos",
-      "description": "O que os containers deste projeto estão usando agora.",
-      "empty": "Nenhum container em execução para medir.",
-      "cpu": "CPU",
-      "memory": "RAM"
-    },
-    "endpoints": {
-      "title": "Endpoints",
-      "description": "Todos os endereços em que este projeto responde, agrupados por serviço.",
-      "empty": "Este projeto não tem serviços"
-    },
-    "repository": {
-      "title": "Repositório",
-      "description": "Coletado no host; veja a aba Git para o snapshot completo."
-    },
-    "git": {
-      "reading": "Lendo metadados Git coletados",
-      "empty": "Nenhum metadado Git coletado para este projeto"
-    },
-    "servicesEmpty": "Este projeto não tem serviços",
-    "servicesEmptyHint": "Um projeto entra adicionando o overlay do gateway: veja docs/adopting-projects.md."
-  },
   "settings": {
-    "overrides": {
-      "description": "Mantidos no banco de dados próprio do gateway. Nada é gravado dentro do projeto.",
-      "displayName": "Nome de exibição",
-      "descriptionLabel": "Descrição",
-      "primaryService": "Serviço principal",
-      "pinned": "Fixado",
-      "archived": "Arquivado",
-      "save": "Salvar substituições"
-    },
-    "alias": {
-      "placeholder": "shop.localhost",
-      "update": "Atualizar alias",
-      "add": "Adicionar alias"
-    },
     "github": {
       "reading": "Lendo a conexão com o GitHub",
       "title": "GitHub App",
@@ -117,27 +54,6 @@
       "rateLimit": "Limite de taxa",
       "lastSync": "Última sincronização",
       "sync": "Sincronizar"
-    }
-  },
-  "containerActions": {
-    "logs": "Logs",
-    "actionsFor": "Ações para {{name}}",
-    "details": "Detalhes",
-    "start": "Iniciar",
-    "stop": "Parar",
-    "restart": "Reiniciar",
-    "removeContainer": "Remover container",
-    "error": "erro",
-    "logsTitle": "Logs · {{name}}",
-    "remove": {
-      "title": "Remover este container?",
-      "description": "O container será removido. Volumes, redes e imagens permanecem exatamente onde estão.",
-      "cancel": "Cancelar",
-      "removing": "Removendo…",
-      "removeContainer": "Remover container",
-      "namedVolumes": "Este container tem {{count}} volume(s) nomeado(s)",
-      "volumesKept": "Eles são mantidos. O painel nunca remove um volume e nunca executa prune.",
-      "notAllowed": "O painel não remove sua própria infraestrutura"
     }
   },
   "apply": {

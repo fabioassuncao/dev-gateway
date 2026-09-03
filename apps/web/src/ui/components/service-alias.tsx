@@ -15,7 +15,7 @@ export function ServiceAlias({
   project: string
   service: ContainerSummary
 }) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'settings.alias' })
+  const { t } = useTranslation('environments', { keyPrefix: 'alias' })
   const { t: tc } = useTranslation('common')
   const name = service.service ?? service.name
   const queryClient = useQueryClient()
@@ -46,7 +46,7 @@ export function ServiceAlias({
         ))}
         {current ? (
           <Badge tone="accent">
-            {t('aliasBadge', { defaultValue: 'alias: {{alias}}', alias: current })}
+            {t('aliasBadge', { alias: current })}
           </Badge>
         ) : null}
       </div>
@@ -57,7 +57,7 @@ export function ServiceAlias({
           onChange={(event) => setValue(event.target.value)}
           placeholder={t('placeholder')}
           className="h-7 w-56"
-          aria-label={t('aliasFor', { defaultValue: 'Hostname alias for {{name}}', name })}
+          aria-label={t('aliasFor', { name })}
         />
         <Button size="sm" disabled={save.isPending || value.trim() === ''} onClick={() => save.mutate()}>
           {current ? t('update') : t('add')}
@@ -73,9 +73,7 @@ export function ServiceAlias({
       {clear.error ? <ErrorBox error={clear.error} /> : null}
 
       <p className="text-[11px] text-subtle">
-        {t('hint', {
-          defaultValue: 'An alias is additional: the project keeps answering on the hostname it derives.',
-        })}
+        {t('hint')}
       </p>
     </div>
   )

@@ -13,7 +13,7 @@ import { SettingsGroup } from '../components/settings/settings-group.tsx'
 import { SettingsNav } from '../components/settings/settings-nav.tsx'
 import { GitHubStatusCard } from '../components/github-status.tsx'
 import { DashboardCard } from '../components/dashboard-card.tsx'
-import { ProjectDomainCard } from '../components/project-domain.tsx'
+import { ProjectDomainCard } from '../components/domain-card.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 
 export function Settings({ group }: { group: string | null }) {

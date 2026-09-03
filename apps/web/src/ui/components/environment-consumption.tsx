@@ -5,11 +5,11 @@ import { bytes } from '../lib/format.ts'
 import { navigate } from '../lib/router.ts'
 import { Button } from './ui/button.tsx'
 import { Card, CardBody, CardHeader } from './ui/card.tsx'
-import { ProjectActions } from './project-actions.tsx'
+import { EnvironmentActions } from './environment-actions.tsx'
 import { percentLabel } from './host-resources-lib.ts'
 import type { Environment, ProjectResourceMetrics } from '../../shared/types.ts'
 
-export function ProjectConsumption({ projects }: { projects: ProjectResourceMetrics[] }) {
+export function EnvironmentConsumption({ projects }: { projects: ProjectResourceMetrics[] }) {
   const { t, i18n } = useTranslation('overview', { keyPrefix: 'consumption' })
   const list = useQuery({ queryKey: ['environments'], queryFn: () => api.environments() })
   const known = new Map((list.data ?? []).map((project) => [project.name, project]))
@@ -59,5 +59,5 @@ export function ProjectConsumption({ projects }: { projects: ProjectResourceMetr
 
 function CompactStop({ project }: { project: Environment }) {
   if (project.runningCount === 0) return null
-  return <ProjectActions project={project} />
+  return <EnvironmentActions project={project} />
 }

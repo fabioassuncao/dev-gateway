@@ -21,14 +21,13 @@ export function orderedEndpoints(urls: RouteUrl[]): RouteUrl[] {
 }
 
 export function ServiceEndpoints({ service }: { service: ContainerSummary }) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'project.endpoints' })
+  const { t } = useTranslation('environments', { keyPrefix: 'endpoints' })
   const name = service.service ?? service.name
 
   if (service.state !== 'running') {
     return (
       <span className="text-xs text-subtle">
         {t('notRunning', {
-          defaultValue: 'No live endpoint while {{name}} is {{state}}.',
           name,
           state: service.state,
         })}
@@ -55,7 +54,7 @@ export function ServiceEndpoints({ service }: { service: ContainerSummary }) {
       return (
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-subtle">
           <Badge tone="neutral">{service.kind}</Badge>
-          <span>{t('noTcpPort', { defaultValue: 'No exposed TCP port; this service is not available through Access.' })}</span>
+          <span>{t('noTcpPort')}</span>
         </div>
       )
     }
@@ -63,9 +62,9 @@ export function ServiceEndpoints({ service }: { service: ContainerSummary }) {
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
           <Badge tone="neutral">{service.kind}</Badge>
-          <span>{t('tcpService', { defaultValue: 'TCP service · reachable through the' })}</span>
+          <span>{t('tcpService')}</span>
           <a className="font-medium text-accent hover:underline" href="#/access">
-            {t('accessPage', { defaultValue: 'Access page' })}
+            {t('accessPage')}
           </a>
         </div>
         {service.environment && service.service ? (
@@ -78,15 +77,15 @@ export function ServiceEndpoints({ service }: { service: ContainerSummary }) {
   if (!service.traefikEnabled) {
     return (
       <span className="text-xs text-subtle">
-        {t('httpNotRouted', { defaultValue: 'HTTP service · not routed through the gateway.' })}
+        {t('httpNotRouted')}
       </span>
     )
   }
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-xs text-warn">
-      <Badge tone="warn">{t('routingProblem', { defaultValue: 'routing problem' })}</Badge>
-      <span>{t('noEndpointDiscovered', { defaultValue: 'Traefik is enabled, but no endpoint was discovered.' })}</span>
+      <Badge tone="warn">{t('routingProblem')}</Badge>
+      <span>{t('noEndpointDiscovered')}</span>
     </div>
   )
 }
@@ -98,24 +97,24 @@ export function ServiceRow({
   service: ContainerSummary
   onShowDetails: () => void
 }) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'project' })
+  const { t } = useTranslation('environments')
   const { shortImage, uptime } = useFormat()
   const name = service.service ?? service.name
-  const ports = service.exposedPorts.length > 0 ? service.exposedPorts.join(', ') : t('noneExposed', { defaultValue: 'none exposed' })
+  const ports = service.exposedPorts.length > 0 ? service.exposedPorts.join(', ') : t('noneExposed')
   const metadata = [
     service.kind,
     shortImage(service.image),
-    t('portsMeta', { defaultValue: 'ports {{ports}}', ports }),
+    t('portsMeta', { ports }),
     service.uptimeSeconds === null
-      ? t('noUptime', { defaultValue: 'no current uptime' })
-      : t('upMeta', { defaultValue: 'up {{time}}', time: uptime(service.uptimeSeconds) }),
+      ? t('noUptime')
+      : t('upMeta', { time: uptime(service.uptimeSeconds) }),
     service.name,
   ].join(' · ')
 
   return (
     <div
       role="group"
-      aria-label={t('serviceRowLabel', { defaultValue: '{{name}} service', name })}
+      aria-label={t('serviceRowLabel', { name })}
       className="grid min-w-0 gap-2 border-b border-line px-4 py-2 last:border-b-0 lg:grid-cols-[minmax(12rem,0.8fr)_minmax(16rem,1.4fr)_auto] lg:items-start"
     >
       <div className="min-w-0">

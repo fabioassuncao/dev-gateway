@@ -4,14 +4,14 @@ import { renderWithQuery } from './render.tsx'
 import { makeContainer, makeOperable, makeStartable } from './fixtures.ts'
 import type { Environment } from '../../src/shared/types.ts'
 
-const projectAction = vi.fn()
+const environmentAction = vi.fn()
 
 vi.mock('../../src/ui/lib/api.ts', () => ({
   ApiError: class ApiError extends Error {},
-  api: { projectAction: (...args: unknown[]) => projectAction(...args) },
+  api: { environmentAction: (...args: unknown[]) => environmentAction(...args) },
 }))
 
-const { ProjectActions } = await import('../../src/ui/components/project-actions.tsx')
+const { EnvironmentActions } = await import('../../src/ui/components/environment-actions.tsx')
 
 function project(overrides: Partial<Environment> = {}): Environment {
   const services = overrides.services ?? [
@@ -45,7 +45,7 @@ function project(overrides: Partial<Environment> = {}): Environment {
 describe('project actions', () => {
   it('disables Start when the containers are gone', () => {
     renderWithQuery(
-      <ProjectActions
+      <EnvironmentActions
         project={project({
           services: [],
           serviceCount: 0,
@@ -65,7 +65,7 @@ describe('project actions', () => {
 
   it('disables Start when every service is already running', () => {
     renderWithQuery(
-      <ProjectActions
+      <EnvironmentActions
         project={project({
           services: [makeContainer({ state: 'running', service: 'web', environment: 'alpha' })],
           runningCount: 1,

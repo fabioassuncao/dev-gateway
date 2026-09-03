@@ -50,12 +50,12 @@ const issueIdParameter = {
   schema: { type: 'string' as const },
 }
 
-/** Repositories one workspace owns, as projection ids. */
-async function workspaceRepositoryIds(db: Database, slug: string): Promise<string[]> {
-  const workspace = await db.workspaces.find(slug)
-  if (!workspace) throw new HTTPException(404, { message: `no workspace '${slug}'` })
-  const links = await db.workspaces.listRepositories()
-  return links.filter((link) => link.workspaceId === workspace.id).map((link) => link.repositoryId)
+/** Repositories one Project owns, as projection ids. */
+async function projectRepositoryIds(db: Database, slug: string): Promise<string[]> {
+  const project = await db.projects.find(slug)
+  if (!project) throw new HTTPException(404, { message: `no project '${slug}'` })
+  const links = await db.projects.listRepositories()
+  return links.filter((link) => link.projectId === project.id).map((link) => link.repositoryId)
 }
 
 function matches(issue: StoredIssue, query: URLSearchParams): boolean {
@@ -136,23 +136,7 @@ export function issueRoutes(deps: AppDeps): Hono {
     errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const repositoryIds = await workspaceRepositoryIds(db, c.req.param('slug'))
-    const query = new URL(c.req.url).searchParams
-    return c.json({ issues: repositoryIds.length === 0 ? [] : await listing(db, repositoryIds, query) })
-  })
-
-  app.get('/workspaces/:slug/issues', documentRoute({
-    tag: 'Issues', operationId: 'listWorkspaceIssues',
-    summary: "List issues across a Project's repositories (deprecated alias)", response: IssuesResponse,
-    description: 'Served from the projection, so it answers while GitHub is unreachable; every row carries syncedAt and a staleness flag.',
-    parameters: [
-      { name: 'slug', in: 'path', required: true, description: 'The workspace slug.', schema: { type: 'string' } },
-      ...filterParameters,
-    ],
-    errors: [404, 500, 503],
-  }), async (c) => {
-    const db = requireDatabase(deps.db)
-    const repositoryIds = await workspaceRepositoryIds(db, c.req.param('slug'))
+    const repositoryIds = await projectRepositoryIds(db, c.req.param('slug'))
     const query = new URL(c.req.url).searchParams
     return c.json({ issues: repositoryIds.length === 0 ? [] : await listing(db, repositoryIds, query) })
   })
@@ -206,8 +190,8 @@ export function issueRoutes(deps: AppDeps): Hono {
 
     const snapshot = await deps.cache.get()
     for (const name of body.environments) {
-      if (!snapshot.projects.some((project) => project.name === name)) {
-        throw new OverrideRefused(`no project '${name}' is running`)
+      if (!snapshot.environments.some((environment) => environment.name === name)) {
+        throw new OverrideRefused(`no environment '${name}' is running`)
       }
     }
 

@@ -16,8 +16,8 @@ import { CopyButton } from './copy.tsx'
 
 type RemoveMode = 'keep-data' | 'and-local-data'
 
-export function ProjectOperations({ project }: { project: Environment }) {
-  const { t } = useTranslation('projects', { keyPrefix: 'operations' })
+export function EnvironmentOperations({ project }: { project: Environment }) {
+  const { t } = useTranslation('environments', { keyPrefix: 'operations' })
   const [rebuildOpen, setRebuildOpen] = useState(false)
   const [removeMode, setRemoveMode] = useState<RemoveMode | null>(null)
 
@@ -61,7 +61,7 @@ export function ProjectOperations({ project }: { project: Environment }) {
 }
 
 function RebuildDialog({ project, onClose }: { project: Environment; onClose: () => void }) {
-  const { t } = useTranslation('projects', { keyPrefix: 'operations' })
+  const { t } = useTranslation('environments', { keyPrefix: 'operations' })
   const { t: tc } = useTranslation('common')
   const queryClient = useQueryClient()
   const [noCache, setNoCache] = useState(false)
@@ -69,7 +69,7 @@ function RebuildDialog({ project, onClose }: { project: Environment; onClose: ()
   const [started, setStarted] = useState(false)
 
   const rebuild = useMutation({
-    mutationFn: () => api.rebuildProject(project.name, { noCache }),
+    mutationFn: () => api.rebuildEnvironment(project.name, { noCache }),
     onSuccess: () => {
       setStarted(true)
       void queryClient.invalidateQueries()
@@ -138,7 +138,7 @@ function RemoveDialog({
   mode: RemoveMode
   onClose: () => void
 }) {
-  const { t } = useTranslation('projects', { keyPrefix: 'operations' })
+  const { t } = useTranslation('environments', { keyPrefix: 'operations' })
   const { t: tc } = useTranslation('common')
   const queryClient = useQueryClient()
   const [confirmation, setConfirmation] = useState('')
@@ -149,12 +149,12 @@ function RemoveDialog({
 
   const preview = useQuery({
     queryKey: ['project-removal-preview', project.name],
-    queryFn: () => api.projectRemovalPreview(project.name),
+    queryFn: () => api.environmentRemovalPreview(project.name),
   })
 
   const remove = useMutation({
     mutationFn: () =>
-      api.removeProject(project.name, {
+      api.removeEnvironment(project.name, {
         confirmation,
         volumes: mode === 'and-local-data',
         directory: mode === 'and-local-data' && directory,
@@ -259,7 +259,7 @@ function RemoveDialog({
 }
 
 function PreviewBody({ preview }: { preview: EnvironmentRemovalPreview }) {
-  const { t } = useTranslation('projects', { keyPrefix: 'operations' })
+  const { t } = useTranslation('environments', { keyPrefix: 'operations' })
   return (
     <div className="mt-3 space-y-2 text-sm">
       <p className="text-muted">{t('previewContainers', { count: preview.containers.length })}</p>
@@ -281,7 +281,7 @@ function PreviewBody({ preview }: { preview: EnvironmentRemovalPreview }) {
 }
 
 function RunnerLog({ status, failed }: { status: RunnerStatus | null; failed: boolean }) {
-  const { t } = useTranslation('projects', { keyPrefix: 'operations' })
+  const { t } = useTranslation('environments', { keyPrefix: 'operations' })
   if (!status) return <p className="text-sm text-muted">{t('rebuildStarting')}</p>
   return (
     <div className="mt-2">

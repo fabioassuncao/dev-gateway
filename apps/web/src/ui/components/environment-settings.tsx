@@ -9,7 +9,7 @@ import { Input, Select } from './ui/field.tsx'
 import { ErrorBox } from './shell-bits.tsx'
 import { Switch } from './ui/switch.tsx'
 
-export function ProjectSettingsDialog({
+export function EnvironmentSettingsDialog({
   project,
   open,
   onOpenChange,
@@ -18,12 +18,12 @@ export function ProjectSettingsDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const { t } = useTranslation('gateway', { keyPrefix: 'settings.overrides' })
+  const { t } = useTranslation('environments', { keyPrefix: 'overrides' })
   const { t: tc } = useTranslation('common')
   const queryClient = useQueryClient()
   const query = useQuery({
-    queryKey: ['project-settings', project.name],
-    queryFn: () => api.projectSettings(project.name),
+    queryKey: ['environment-settings', project.name],
+    queryFn: () => api.environmentSettings(project.name),
     enabled: open,
     retry: false,
   })
@@ -47,7 +47,7 @@ export function ProjectSettingsDialog({
 
   const save = useMutation({
     mutationFn: () =>
-      api.setProjectSettings(project.name, {
+      api.setEnvironmentSettings(project.name, {
         displayName: displayName.trim() === '' ? null : displayName.trim(),
         description: description.trim() === '' ? null : description.trim(),
         primaryService: primaryService === '' ? null : primaryService,
@@ -62,7 +62,7 @@ export function ProjectSettingsDialog({
   })
 
   const reset = useMutation({
-    mutationFn: () => api.clearProjectSettings(project.name),
+    mutationFn: () => api.clearEnvironmentSettings(project.name),
     onSuccess: () => {
       void queryClient.invalidateQueries()
       onOpenChange(false)
@@ -76,12 +76,12 @@ export function ProjectSettingsDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={t('title', { defaultValue: 'Settings for {{name}}', name: project.name })}
+      title={t('title', { name: project.name })}
       description={t('description')}
       footer={
         <>
           <Button size="sm" disabled={reset.isPending || unavailable} onClick={() => reset.mutate()}>
-            {t('reset', { defaultValue: 'Reset' })}
+            {t('reset')}
           </Button>
           <Button
             size="sm"
@@ -107,7 +107,6 @@ export function ProjectSettingsDialog({
           />
           <span className="mt-0.5 block text-[11px] text-subtle">
             {t('derivedNameHint', {
-              defaultValue: 'Derived name stays {{name}}, and is always shown beside this.',
               name: project.name,
             })}
           </span>
@@ -129,7 +128,7 @@ export function ProjectSettingsDialog({
             onChange={(event) => setPrimaryService(event.target.value)}
             aria-label={t('primaryService')}
           >
-            <option value="">{t('none', { defaultValue: 'None' })}</option>
+            <option value="">{t('none')}</option>
             {names.map((name) => (
               <option key={name} value={name}>
                 {name}
@@ -139,9 +138,9 @@ export function ProjectSettingsDialog({
         </label>
 
         <fieldset className="space-y-1">
-          <legend className="text-xs text-subtle">{t('collapsedServices', { defaultValue: 'Collapsed services' })}</legend>
+          <legend className="text-xs text-subtle">{t('collapsedServices')}</legend>
           <p className="text-[11px] text-subtle">
-            {t('collapsedServicesHint', { defaultValue: 'Collapsed by default, never removed.' })}
+            {t('collapsedServicesHint')}
           </p>
           {names.map((name) => (
             <label key={name} className="flex items-center gap-2 text-sm">

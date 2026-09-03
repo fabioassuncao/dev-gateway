@@ -67,7 +67,7 @@ const slugParameter = {
   name: 'slug',
   in: 'path' as const,
   required: true,
-  description: 'The workspace slug.',
+  description: 'The Project slug.',
   schema: { type: 'string' as const },
 }
 
@@ -82,12 +82,12 @@ const actorHeader = {
 export function taskRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
-  /** Repositories one workspace owns, as projection ids. */
-  async function workspaceRepositoryIds(db: Database, slug: string): Promise<string[]> {
-    const workspace = await db.workspaces.find(slug)
-    if (!workspace) throw new HTTPException(404, { message: `no workspace '${slug}'` })
-    const links = await db.workspaces.listRepositories()
-    return links.filter((link) => link.workspaceId === workspace.id).map((link) => link.repositoryId)
+  /** Repositories one Project owns, as projection ids. */
+  async function projectRepositoryIds(db: Database, slug: string): Promise<string[]> {
+    const project = await db.projects.find(slug)
+    if (!project) throw new HTTPException(404, { message: `no project '${slug}'` })
+    const links = await db.projects.listRepositories()
+    return links.filter((link) => link.projectId === project.id).map((link) => link.repositoryId)
   }
 
   /**
@@ -188,19 +188,19 @@ export function taskRoutes(deps: AppDeps): Hono {
 
   // --- reads: projection only, no network ----------------------------------
 
-  app.get('/workspaces/:slug/tasks', documentRoute({
-    tag: 'Tasks', operationId: 'listWorkspaceTasks',
-    summary: "List a workspace's tasks",
+  app.get('/projects/:slug/tasks', documentRoute({
+    tag: 'Tasks', operationId: 'listProjectTasks',
+    summary: "List a Project's tasks",
     description: 'A view over the projection. Answers while GitHub is unreachable; every row carries syncedAt and a staleness flag.',
     response: TasksResponse, parameters: [slugParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const repositoryIds = await workspaceRepositoryIds(db, c.req.param('slug'))
+    const repositoryIds = await projectRepositoryIds(db, c.req.param('slug'))
     if (repositoryIds.length === 0) return c.json({ tasks: [] })
     return c.json({ tasks: await presentAll(db, await db.github.listIssues({ repositoryIds })) })
   })
 
-  app.get('/workspaces/:slug/tasks/next', documentRoute({
+  app.get('/projects/:slug/tasks/next', documentRoute({
     tag: 'Tasks', operationId: 'nextTask',
     summary: 'The task to do next, or null',
     description:
@@ -208,7 +208,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     response: NextTaskResponse, parameters: [slugParameter, actorHeader], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const repositoryIds = await workspaceRepositoryIds(db, c.req.param('slug'))
+    const repositoryIds = await projectRepositoryIds(db, c.req.param('slug'))
     if (repositoryIds.length === 0) return c.json({ task: null })
     const issues = await db.github.listIssues({ repositoryIds })
     const links = await db.github.listRelationships()

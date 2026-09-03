@@ -143,5 +143,6 @@
     "title": "Traefik verdict",
     "available": "Available",
     "unavailable": "Not available"
-  }
+  },
+  "none": "none"
 }

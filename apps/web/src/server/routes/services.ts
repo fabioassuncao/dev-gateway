@@ -23,7 +23,7 @@ export function serviceRoutes(deps: AppDeps): Hono {
     const snapshot = await deps.cache.get()
     const project = c.req.query('project')
     const integrated = new Set(
-      snapshot.projects.filter((item) => item.integrated).map((item) => item.name),
+      snapshot.environments.filter((item) => item.integrated).map((item) => item.name),
     )
     const services = snapshot.containers.filter(
       (container) =>
