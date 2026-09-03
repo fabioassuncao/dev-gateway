@@ -11,8 +11,9 @@ request to github.com and behaves exactly as it did before this existed.
 
 ## What stays on the host
 
-`portta git scan` still collects branch, HEAD, dirty counts and
-ahead/behind from local `git`, and writes `state/git/<project>.json`.
+`portta repos scan` still collects branch, HEAD, dirty counts and
+ahead/behind from local `git`, and writes one `state/git/<key>.json` per
+repository plus an index that maps each environment to its repository.
 The panel only reads that snapshot. No project directory is mounted into
 the panel. See [ADR 0010](adr/0010-git-collected-on-the-host.md).
 

@@ -132,8 +132,9 @@ file or stdin.
 | `public status|enable|disable` | Enable needs confirmation; TCP services are never published. |
 | `dns check|status` | Read-only. |
 | `dns setup` | `--target <ip>`, `--dry-run`; Cloudflare needs a scoped token. |
-| `git scan` | `--project`, `--with-prs`, `--forge-ttl <seconds>` |
-| `git status`, `git clear` | Inspect or remove only `state/git/*.json`. |
+| `repos scan` | `--environment <name>`, `--path <dir>`, `--with-prs`, `--forge-ttl <seconds>`. Collects every repository (git state, the last twenty commits, the instruction files on the allowlist) into `state/git/<key>.json` plus `state/git/index.json`, which maps each environment to the repository it runs from. The metrics watcher runs it once a minute. |
+| `repos status`, `repos clear` | Inspect or remove only `state/git/*.json`. |
+| `git scan`, `git status`, `git clear` | Deprecated aliases of `repos …`; `--project` is `--environment`. |
 | `host collect` | Write one host and project metrics snapshot into `state/metrics/current.json`. |
 | `host watch` | Start the detached collector, or run it in the foreground with `--loop`. |
 | `host status` | Whether the collector is running, and how old the last snapshot is. |
@@ -187,7 +188,8 @@ Every read command accepts the global `--json`. Stable top-level fields are:
 | `public status` | `enabled`, `profile`, `domain`, `bindAddress` |
 | `dns check` | `domain`, `hostname`, `addresses`, `resolves` |
 | `dns status` | `enabled`, `zone`, `domain`, `tokenSet` |
-| `git status` | `projects[]`, each with collected metadata plus `ageSeconds` |
+| `repos status` | `collectedAt`, `home`, `repositories[]` (`key`, `path`, `name`, `remote`, `location`, `relativePath`, `branch`, `dirty`, `environments[]`, `ageSeconds`) |
+| `repos scan` | `index` (the written index) and `repositories[]` (each collected file) |
 | `share list` | `shares[]` |
 | `db status` | `state`, `container`, `network` |
 | `db migrate` | `applied[]`, `migrations[]` |

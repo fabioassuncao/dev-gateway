@@ -99,7 +99,7 @@ See [Database access](database-access.md), [TCP access](tcp-access.md), and
 | `portta init <path>` | Generate an adoption overlay after confirmation. |
 | `portta namespace` | Derive a collision-free Compose project name for a worktree. |
 | `portta project start\|stop\|restart <name>` | Act on every container in a project, in dependency order. |
-| `portta git scan` | Collect branch, HEAD and dirty state on the host. |
+| `portta repos scan` | Collect every repository's git state, recent commits and instruction files on the host. |
 | `portta git status` | Report collected Git metadata and its age. |
 | `portta host collect` | Write one host and project metrics snapshot. |
 | `portta host watch` | Keep collecting (started by `up`); `--loop` runs in the foreground. |

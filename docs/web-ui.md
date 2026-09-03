@@ -534,13 +534,13 @@ cannot read a working tree: it has no project directory mounted, no `git`, and
 no way to run a command. What it reads is a file the host wrote:
 
 ```bash
-./bin/portta git scan          # every running project
-./bin/portta git scan --project storefront-issue59
-./bin/portta git status        # what was collected, and when
+./bin/portta repos scan                          # every repository
+./bin/portta repos scan --environment storefront-issue59
+./bin/portta repos status                        # what was collected, and when
 ```
 
-`portta up` and `portta web up` run a scan for you. For anything more
-frequent, a cron entry is the honest answer; the panel never polls, and a scan
+`portta up` and `portta web up` run a scan for you, and the metrics watcher
+they start runs it again once a minute; the panel never polls, and a scan
 that is too old to trust is marked rather than quietly shown as current.
 
 Four absences all render as fewer things rather than an error: a project
@@ -557,7 +557,7 @@ checkout, merge or rebase anywhere in the panel or the CLI. See
 #### Open pull requests
 
 ```bash
-./bin/portta git scan --with-prs
+./bin/portta repos scan --with-prs
 ```
 
 adds the open pull requests, with their review decision and whether checks are
