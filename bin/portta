@@ -676,7 +676,7 @@ main() {
     # one stops being: a spelling only this list knows is a command that does
     # not exist on any host with Node, which is every host the installer
     # touched. `analyse` and `adapt` were exactly that.
-    tls|tunnel|remote|backup|restore|repair|network|public|dns|analyze|init|namespace|ns|access|services|git|repos|host|share|auth|web|db|redis|service|project|setup|config|dev|tasks|sessions|activity)
+    tls|tunnel|remote|backup|restore|repair|network|public|dns|analyze|init|namespace|ns|access|services|git|repos|host|share|auth|web|db|redis|service|setup|config|dev|tasks|sessions|activity|projects|envs|env|overview)
       err "'$cmd' requires Node 22.12 or newer and the full CLI"
       hint "npm install -g portta   (or run it inside a built checkout)"
       exit 3

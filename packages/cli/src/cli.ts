@@ -16,6 +16,7 @@ import { shareGc, shareList, shareRevoke } from './commands/share.js'
 import { tlsInit, tlsStatus, tlsTrust, tlsUntrust } from './commands/tls.js'
 import { backupCommand, repairCommand, restoreCommand } from './commands/maintenance.js'
 import { mcpCommand } from './commands/mcp.js'
+import { envLogs, overviewCommand, projectsActivity, projectsContext, projectsCreate, projectsList, projectsResources, projectsShow } from './commands/products.js'
 import { tasksComment, tasksCreate, tasksEdit, tasksFinish, tasksLink, tasksList, tasksNext, tasksNote, tasksPublish, tasksShow, tasksStart, tasksStatus, tasksSubtasks, tasksSync, tasksUnlink } from './commands/tasks.js'
 import { sessionsEnd, sessionsHeartbeat, sessionsList, sessionsStart } from './commands/sessions.js'
 import { activityCommand } from './commands/activity.js'
@@ -75,7 +76,7 @@ describe(program.command('logs [service]'), 'Follow gateway component logs').opt
 describe(program.command('inspect'), 'Print resolved configuration without secrets').action((_options, command) => inspectCommand(command))
 describe(program.command('update'), 'Pull pinned images and recreate after confirmation').action((_options, command) => updateCommand(command))
 
-const project = describe(program.command('project'), 'Inspect and adopt Compose environments').alias('environment')
+const project = describe(program.command('envs'), 'Inspect and operate Compose environments on this host').alias('env').alias('environment').alias('project')
 describe(project.command('list'), 'List running Compose environments').action((options, command) => projectList(options, command))
 describe(project.command('show <name>'), 'Show one environment, its services and URLs').action((name, _options, command) => projectShow(name, command))
 describe(project.command('services'), 'List services across running environments').option('--project <name>').action(servicesCommand)
@@ -88,6 +89,17 @@ describe(project.command('namespace'), 'Derive a collision-safe COMPOSE_PROJECT_
 describe(project.command('start <name>'), 'Start every container in a project, dependencies first').action((name, _options, command) => projectAction(name, 'start', command))
 describe(project.command('stop <name>'), 'Stop every container in a project, dependents first').action((name, _options, command) => projectAction(name, 'stop', command))
 describe(project.command('restart <name>'), 'Stop then start a project in dependency order').action((name, _options, command) => projectAction(name, 'restart', command))
+describe(panelOptions(project.command('logs <name>')), "An environment's logs, every service interleaved").option('--service <name>').option('--tail <lines>', 'line count', '200').action(envLogs)
+describe(project.command('endpoints <name>'), 'The routed hostnames of one environment').action((name, _options, command) => urlsCommand({ project: name }, command))
+
+const projects = describe(program.command('projects'), 'The products being developed: list, context, resources, activity')
+describe(panelOptions(projects.command('list')), 'List Projects').action(projectsList)
+describe(panelOptions(projects.command('show <slug>')), 'One Project with its repositories and environments').action((slug, _options, command) => projectsShow(slug, command))
+describe(panelOptions(projects.command('create')), 'Create a Project').option('--slug <slug>').option('--name <name>').option('--description <text>').option('--path <dir>', 'first-level directory under Projects Home').action(projectsCreate)
+describe(panelOptions(projects.command('context <slug>')), 'The Development Context: what to read before working').option('--task <ref>', 'include one task in full').action(projectsContext)
+describe(panelOptions(projects.command('resources <slug>')), "A Project's resource usage, attributed through its environments").action((slug, _options, command) => projectsResources(slug, command))
+describe(panelOptions(projects.command('activity <slug>')), 'What happened in a Project').option('--kind <a,b>').option('--limit <n>').action(projectsActivity)
+describe(panelOptions(program.command('overview')), 'The Development Dashboard: what is happening on this host').action(overviewCommand)
 
 describe(program.command('services'), 'Compatibility alias for project services').option('--project <name>').action(servicesCommand)
 describe(program.command('analyze <path>'), 'Compatibility alias for project analyze').action((path, _options, command) => analyzeCommand(path, command))
