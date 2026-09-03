@@ -81,20 +81,43 @@ executable plus an argument array with shell expansion disabled.
 | `logs [service]` | `--no-follow`, `--tail <lines>` |
 | `urls` | `--project <name>` |
 
-### Projects
+### Projects, environments and work
+
+Two nouns. A **Project** is the product being developed: a decision the panel
+persists, so these verbs call the panel API. An **environment** is a Compose
+project Docker is running: an observation, read locally.
 
 | Command | Command-specific flags |
 |---|---|
-| `project list` (`environment` is an alias) | Global flags only |
-| `project show <name>` | Global flags only |
-| `project start\|stop\|restart <name>` | Dependency order; nothing is removed. |
-| `project services` | `--project <name>` |
-| `project analyze <path>` | Read-only. |
-| `project init <path>` | `--dry-run`, repeatable `--service <name:port>`, `--output`, `--force`; writing needs confirmation. |
-| `project namespace` | `--path`, `--base`, `--suffix`, `--no-check` |
+| `projects list` | Global flags only |
+| `projects show <slug>` | Repositories with git state, adopted environments |
+| `projects create` | `--slug`, `--name`, `--description`, `--path <dir>` (first-level directory under Projects Home) |
+| `projects context <slug>` | `--task <ref>`. The Development Context an agent reads before working; `--json` carries the instruction files in full |
+| `projects resources <slug>` | Usage attributed through the adopted environments |
+| `projects activity <slug>` | `--kind <a,b>`, `--limit <n>` |
+| `overview` | The Development Dashboard |
+| `envs list` (`env`, `environment` and `project` are aliases) | Global flags only |
+| `envs show <name>` | Global flags only |
+| `envs start\|stop\|restart <name>` | Dependency order; nothing is removed. |
+| `envs logs <name>` | `--service <name>`, `--tail <lines>` |
+| `envs endpoints <name>` | The routed hostnames |
+| `envs services` | `--project <name>` |
+| `envs analyze <path>` | Read-only. |
+| `envs init <path>` | `--dry-run`, repeatable `--service <name:port>`, `--output`, `--force`; writing needs confirmation. |
+| `envs namespace` | `--path`, `--base`, `--suffix`, `--no-check` |
+| `tasks list` | `--project <slug>`, `--status <a,b>`, `--open`, `--mine`, `--assignee`, `--repository <id>`, `-q <text>` |
+| `tasks next` | `--project <slug>`. The task to take, or nothing |
+| `tasks show\|subtasks <ref>` | `<ref>` is an id, `#id`, or `owner/repo#n` for a bound task |
+| `tasks create` | `--project`, `--title`, `--description`, `--priority`, `--status`, `--parent`, `--repository`, `--environment`, `--labels`, `--assignee` |
+| `tasks start\|status\|finish\|edit\|note <ref> …` | `start --no-assign`; `finish --close` closes the bound issue too |
+| `tasks link\|unlink\|publish\|sync <ref>` | The GitHub binding; `sync --resolve local\|remote` settles a conflict |
+| `sessions start\|end\|heartbeat\|list` | `start --project --task --repository --environment --summary`; `end --summary --abandon` |
+| `activity` | `--project`, `--kind`, `--task`, `--repository`, `--environment`, `--limit` |
 
-`services`, `analyze`, `init` and `namespace` are compatibility aliases for
-one minor release.
+Every verb that calls the panel accepts `--url`, `--allow-remote` and
+`--actor` (`PORTTA_ACTOR`), exactly as `portta mcp` does. `services`,
+`analyze`, `init` and `namespace` remain compatibility aliases at the top
+level.
 
 ### Private access
 
@@ -175,11 +198,20 @@ Every read command accepts the global `--json`. Stable top-level fields are:
 | `doctor` | `ok`, `instance`, `checks[]` (`id`, `status`, `message`, optional `fix`) |
 | `urls` | `instance`, `routes[]`, and the compatibility alias `urls[]` (`project`, `service`, `container`, `hostname`, `url`, `port`, `state`) |
 | `inspect` | `profile`, redacted `configuration`, `composeFiles` |
-| `project list` | `instance`, `projects[]` (`name`, `state`, `serviceCount`, `urls`) |
-| `project show` | `instance`, `name`, `state`, `services`, `urls` |
-| `project services` | `instance`, `services[]` |
-| `project analyze` | `path`, `compose_file`, `gateway_overlay`, `project`, `domain`, `services`, `findings` |
-| `project namespace` | `namespace`, `base`, `suffix` |
+| `envs list` | `instance`, `projects[]` (`name`, `state`, `serviceCount`, `urls`) |
+| `envs show` | `instance`, `name`, `state`, `services`, `urls` |
+| `envs services` | `instance`, `services[]` |
+| `envs logs` | `lines[]` (`service`, `line`, `stream`) |
+| `envs analyze` | `path`, `compose_file`, `gateway_overlay`, `project`, `domain`, `services`, `findings` |
+| `envs namespace` | `namespace`, `base`, `suffix` |
+| `projects list` | `projects[]` (`ProjectSummary` of the API) |
+| `projects show` | the API's `Project` |
+| `projects context` | the API's `DevelopmentContext` |
+| `projects resources` | the API's `ProjectResources` |
+| `overview` | the API's `DevelopmentOverview` |
+| `tasks list` | `tasks[]` (`TaskSummary`); `tasks show` is a `Task` |
+| `sessions list` | `sessions[]` (`Session`) |
+| `activity` | `events[]` (`ActivityEvent`) |
 | `access list` | `bridges[]` (`id`, `project`, `service`, `target_port`, `local_port`, `kind`, `expires`, `bind`, `network`, `state`) |
 | `service list` | `forwarders[]` |
 | `web status` | `enabled`, `devMode`, `readOnly`, `expose`, `url`, `panel`, `socketProxy` |

@@ -7,30 +7,50 @@ observations as a source of truth.
 
 ## What is persisted
 
-- one stable gateway instance identity;
-- project identity and portable repository coordinates;
-- the closed catalogue of global, project and service preferences;
-- integration configuration.
+Decisions, and a bounded history of the development flow:
 
-Container state, health, ports, networks, URLs, logs, Git scans and Traefik
-status still come from their live owners. A stopped container disappears from
-the next Docker snapshot; PostgreSQL is not a stale inventory cache.
+- one stable gateway instance identity;
+- **Projects** (`projects`): the product the operator recognises, its slug,
+  description and its place under Projects Home; which environments it
+  adopted (`project_environments`), and why;
+- **Repositories** (`repositories`): a Project's git repositories, local
+  first — a path, a remote, a role — with a GitHub repository as an optional
+  binding;
+- **Tasks** (`tasks`, `task_notes`, `task_environments`): Portta's own unit
+  of work, with subtasks, notes and the environments a task is worked in;
+  `task_github_links` binds a task to a projected issue and remembers
+  whether the last local edit reached GitHub;
+- **Development sessions** (`dev_sessions`): who worked on what, since when,
+  and what came out;
+- **Activity** (`activity_events`): what happened — a task moved, a session
+  started, an environment rebuilt, a commit landed — pruned in code after
+  ninety days or five thousand rows per Project;
+- environment identity (`environments`, one row per `COMPOSE_PROJECT_NAME`
+  ever seen) and the closed catalogue of global, environment and service
+  preferences (`settings`, `environment_settings`, `service_settings`);
+- the GitHub projection (`github_installations`, `github_repositories`,
+  `github_issues`, `github_issue_relationships`, `github_sync_state`): a
+  cache of a remote source of truth, every row with its age.
+
+Container state, health, ports, networks, URLs, logs, the repository scans
+and Traefik status still come from their live owners. A stopped container
+disappears from the next Docker snapshot; PostgreSQL is not a stale inventory
+cache.
 
 Most of that state is true only of this machine. [ADR 0016](adr/0016-state-that-could-be-shared.md)
 classifies what could ever be shared between two gateways (project and user
 decisions) and what must never be (runtime observations and instance
 configuration). No synchronisation is implemented.
 
-The first migration creates `instance`, `projects`, `settings`,
-`project_settings`, `service_settings` and `integrations`. Applied migration
-filenames are recorded in `schema_migrations`. Startup takes a transaction
-scoped advisory lock and runs every pending migration in filename order, so
-concurrent starts cannot partially apply one.
-
-A later GitHub issue cache, if it is added, is a third category: not a
-decision and not a Docker observation. [ADR 0018](adr/0018-github-access-lives-in-the-panel.md)
-requires every projected row to record origin and age, and forbids treating
-the cache as the only copy.
+Migrations `0001` to `0010` build that schema; `0007` renamed the tables to
+the words [ADR 0031](adr/0031-projects-home-and-project.md) chose, and
+`0008` to `0010` added repositories, tasks, sessions and activity
+([ADR 0032](adr/0032-portta-development-model.md)), turning every existing
+issue of an owned repository into a bound task. Applied migration filenames
+are recorded in `schema_migrations`. Startup takes a transaction scoped
+advisory lock and runs every pending migration in filename order, so
+concurrent starts cannot partially apply one; `portta db migrate` applies
+what is pending without a restart.
 
 ## Isolation and lifecycle
 

@@ -441,18 +441,20 @@ write-through endpoint that posts straight to GitHub and returns what GitHub
 returned creates no cache to keep in step. ADR 0018's 2026-09-02 amendment
 allows it; it is not built yet.
 
-### The same issues, for an agent
+### Issues and tasks
 
-`GET /api/workspaces/:slug/tasks`, `.../tasks/next`, `GET /api/tasks/:ref` and
-its `subtasks`, and the write verbs `start`, `status`, `finish` and `comments`
-are the same projection and the same adapter, asked the way an agent asks. A
-task is addressed as `owner/repo#number` — the coordinate already in the branch
-name — or by its projected id.
+A **Task** is Portta's own unit of work; it exists without GitHub. An issue
+on a repository a Project owns becomes a task bound to it — every existing
+issue did so in the migration that introduced tasks, and a new one does on
+the next reconciliation. The board, `portta tasks` and `portta mcp` all work
+on tasks; `owner/repo#number` still addresses a bound one.
 
-`portta mcp` serves exactly those eight verbs to an agent over stdio, and the
-agent holds **no GitHub credential**: the private key stays a file the panel
-mounts, and installation tokens live for an hour in the panel's memory. See
-[MCP](mcp.md).
+A write to a bound task reaches GitHub first and the row second. When the
+App is unavailable the row is written anyway and the binding is marked
+`pending` until `POST /api/tasks/:ref/github/sync` pushes it. A remote
+change that lands on a pending local edit is a `conflict`, kept and shown
+with both sides; `sync` with `resolve: local | remote` settles it. See
+[ADR 0032](adr/0032-portta-development-model.md).
 
 ### Status and priority: fields where they exist, labels where they do not
 
