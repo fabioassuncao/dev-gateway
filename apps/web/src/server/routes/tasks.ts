@@ -256,6 +256,10 @@ export function taskRoutes(deps: AppDeps): Hono {
       const parent = await db.tasks.find(rest.parentId)
       if (!parent || parent.projectId !== task.projectId) throw new OverrideRefused('a subtask belongs to the same Project as its parent')
     }
+    if (rest.repositoryId) {
+      const repository = await db.repositories.find(rest.repositoryId)
+      if (!repository || repository.projectId !== task.projectId) throw new OverrideRefused('that repository does not belong to this Project')
+    }
     const environmentId = await environmentIdOf(db, environment)
     const patch = { ...rest, ...(environmentId !== undefined ? { environmentId } : {}) }
     const change: TaskChange = {
@@ -362,8 +366,14 @@ export function taskRoutes(deps: AppDeps): Hono {
     const task = await resolveTask(db, c.req.param('ref'))
     const body = EnvironmentsBody.parse(await c.req.json())
     const snapshot = await deps.cache.get()
+    // An environment adopted by another Project is that Project's: linking a
+    // task across that line would make "what is this running for" answer
+    // with somebody else's work.
+    const adopted = new Map((await db.projects.listEnvironments()).map((row) => [row.composeProject, row.projectId]))
     for (const name of body.environments) {
       if (!snapshot.environments.some((environment) => environment.name === name)) throw new OverrideRefused(`no environment '${name}' is running`)
+      const owner = adopted.get(name)
+      if (owner !== undefined && owner !== task.projectId) throw new OverrideRefused(`environment '${name}' belongs to another Project`)
     }
     await db.tasks.setEnvironments(task.id, body.environments)
     const principal = principalOf(c)

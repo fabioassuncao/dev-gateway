@@ -122,6 +122,11 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
       fullName = repository?.github?.fullName ?? null
     }
     if (fullName === null) throw new OverrideRefused('no GitHub repository to publish to', 'give repository: owner/name, or bind the task repository to GitHub')
+    // The projection is the authorisation boundary with GitHub; the Project is
+    // the boundary inside Portta. A task is published only to a repository its
+    // own Project owns, never to one another Project bound.
+    const owned = (await db.repositories.list(task.projectId)).some((entry) => entry.github?.fullName === fullName)
+    if (!owned) throw new OverrideRefused(`${fullName} is not a GitHub repository of this task's Project`, 'bind it to the Project first')
     const repository = await db.github.findRepository(fullName)
     if (!repository) throw new OverrideRefused(`${fullName} is not a repository this gateway was granted`)
     const labels = labelsAfter(task.labels, { status: task.status as WorkflowStatus, priority: task.priority as Priority | null })
