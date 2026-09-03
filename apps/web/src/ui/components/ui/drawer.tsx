@@ -34,7 +34,7 @@ export function Drawer({
         <Primitive.Content
           data-side="right"
           className={cn(
-            'fixed inset-y-0 right-0 z-50 flex h-full flex-col border-l border-line bg-surface shadow-xl',
+            'fixed inset-y-0 right-0 z-50 flex h-full flex-col border-l border-line bg-surface shadow-modal',
             width === 'lg' ? 'w-[min(96vw,56rem)]' : 'w-[min(94vw,40rem)]',
             className,
           )}

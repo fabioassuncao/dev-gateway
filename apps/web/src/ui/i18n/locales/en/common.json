@@ -183,5 +183,18 @@
   },
   "breadcrumb": "Breadcrumb",
   "notifications": "Notifications",
-  "dismiss": "Dismiss"
+  "dismiss": "Dismiss",
+  "typeToConfirm": "Type {{value}} to confirm",
+  "table": {
+    "columns": "Columns",
+    "columnsHint": "Visible columns",
+    "empty": "Nothing to show",
+    "selectAll": "Select every row",
+    "selectRow": "Select {{name}}",
+    "selected": "{{count}} selected",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
+    "selectionActions": "Actions for the selection",
+    "clearSelection": "Clear"
+  }
 }

@@ -2,46 +2,78 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* A graphite base with one accent. The panel is read far more often than it is
-   clicked, so contrast and density matter more than colour. */
+/* Portta's surface language.
+ *
+ * A graphite base with one accent, because the panel is read far more often
+ * than it is clicked. What makes it Portta rather than another admin theme is
+ * narrow and deliberate: a cool indigo accent that never appears except on
+ * something actionable or current, one violet reserved for agent work, and a
+ * three-step surface ramp so a card inside a card is still legible.
+ *
+ * Colour carries meaning here. Before adding a shade, check it is not one of:
+ *   neutral  structure, labels, anything the eye should skip
+ *   accent   the current thing, the primary action, a live link
+ *   ok       healthy, running, done
+ *   warn     needs a look, degraded, stale
+ *   danger   failed, blocked, destructive
+ *   info     informational state that is neither good nor bad
+ *   agent    an agent is doing this (violet; the one product-specific tone)
+ */
 :root {
-  --portta-bg: oklch(0.985 0.002 250);
+  --portta-bg: oklch(0.975 0.003 260);
   --portta-surface: oklch(1 0 0);
-  --portta-surface-2: oklch(0.972 0.003 250);
-  --portta-border: oklch(0.905 0.005 250);
-  --portta-border-strong: oklch(0.83 0.008 250);
-  --portta-text: oklch(0.24 0.012 260);
-  --portta-muted: oklch(0.52 0.012 260);
-  --portta-subtle: oklch(0.64 0.01 260);
-  --portta-accent: oklch(0.55 0.16 264);
+  --portta-surface-2: oklch(0.968 0.004 260);
+  --portta-surface-3: oklch(0.945 0.006 260);
+  --portta-border: oklch(0.905 0.005 260);
+  --portta-border-strong: oklch(0.83 0.008 260);
+  --portta-text: oklch(0.24 0.012 265);
+  --portta-muted: oklch(0.5 0.013 265);
+  --portta-subtle: oklch(0.62 0.011 265);
+  --portta-accent: oklch(0.53 0.17 268);
   --portta-accent-fg: oklch(0.99 0 0);
-  --portta-ok: oklch(0.6 0.13 155);
-  --portta-warn: oklch(0.68 0.14 75);
-  --portta-danger: oklch(0.57 0.2 22);
-  --portta-info: oklch(0.6 0.12 232);
+  --portta-ok: oklch(0.56 0.13 155);
+  --portta-warn: oklch(0.63 0.14 70);
+  --portta-danger: oklch(0.55 0.2 22);
+  --portta-info: oklch(0.56 0.12 232);
+  --portta-agent: oklch(0.55 0.17 300);
+
+  /* Elevation. Three steps and no more: the panel is flat by default, a
+     popover floats, a dialog owns the screen. */
+  --portta-shadow-raised: 0 1px 2px oklch(0.24 0.012 265 / 0.06);
+  --portta-shadow-overlay:
+    0 4px 12px oklch(0.24 0.012 265 / 0.1), 0 1px 3px oklch(0.24 0.012 265 / 0.06);
+  --portta-shadow-modal:
+    0 16px 48px oklch(0.24 0.012 265 / 0.18), 0 2px 8px oklch(0.24 0.012 265 / 0.08);
 }
 
 .dark {
-  --portta-bg: oklch(0.19 0.008 260);
-  --portta-surface: oklch(0.225 0.009 260);
-  --portta-surface-2: oklch(0.26 0.01 260);
-  --portta-border: oklch(0.31 0.011 260);
-  --portta-border-strong: oklch(0.4 0.013 260);
-  --portta-text: oklch(0.94 0.004 260);
-  --portta-muted: oklch(0.71 0.01 260);
-  --portta-subtle: oklch(0.58 0.011 260);
-  --portta-accent: oklch(0.68 0.15 264);
-  --portta-accent-fg: oklch(0.17 0.01 260);
+  --portta-bg: oklch(0.175 0.008 265);
+  --portta-surface: oklch(0.215 0.009 265);
+  --portta-surface-2: oklch(0.25 0.011 265);
+  --portta-surface-3: oklch(0.285 0.012 265);
+  --portta-border: oklch(0.305 0.012 265);
+  --portta-border-strong: oklch(0.4 0.014 265);
+  --portta-text: oklch(0.945 0.004 265);
+  --portta-muted: oklch(0.7 0.011 265);
+  --portta-subtle: oklch(0.57 0.012 265);
+  --portta-accent: oklch(0.7 0.15 268);
+  --portta-accent-fg: oklch(0.16 0.01 265);
   --portta-ok: oklch(0.72 0.15 155);
-  --portta-warn: oklch(0.78 0.15 75);
+  --portta-warn: oklch(0.78 0.15 70);
   --portta-danger: oklch(0.68 0.19 22);
   --portta-info: oklch(0.72 0.13 232);
+  --portta-agent: oklch(0.72 0.15 300);
+
+  --portta-shadow-raised: 0 1px 2px oklch(0 0 0 / 0.3);
+  --portta-shadow-overlay: 0 4px 14px oklch(0 0 0 / 0.45), 0 1px 3px oklch(0 0 0 / 0.3);
+  --portta-shadow-modal: 0 18px 52px oklch(0 0 0 / 0.6), 0 2px 8px oklch(0 0 0 / 0.4);
 }
 
 @theme inline {
   --color-bg: var(--portta-bg);
   --color-surface: var(--portta-surface);
   --color-surface-2: var(--portta-surface-2);
+  --color-surface-3: var(--portta-surface-3);
   --color-line: var(--portta-border);
   --color-line-strong: var(--portta-border-strong);
   --color-ink: var(--portta-text);
@@ -53,6 +85,11 @@
   --color-warn: var(--portta-warn);
   --color-danger: var(--portta-danger);
   --color-info: var(--portta-info);
+  --color-agent: var(--portta-agent);
+
+  --shadow-raised: var(--portta-shadow-raised);
+  --shadow-overlay: var(--portta-shadow-overlay);
+  --shadow-modal: var(--portta-shadow-modal);
 
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -71,6 +108,12 @@
     color: var(--portta-text);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+  }
+  /* Numbers that change in place — metrics, counts, durations — must not make
+     the layout twitch while they update. */
+  [data-numeric],
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
   ::selection {
     background: color-mix(in oklch, var(--portta-accent) 30%, transparent);
@@ -94,5 +137,42 @@
   }
   .scroll-thin::-webkit-scrollbar-track {
     background: transparent;
+  }
+
+  /* A row that reveals its actions on hover still has to reveal them on
+     keyboard focus, and on a touch screen that has no hover at all. */
+  .row-actions {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+  .group:hover .row-actions,
+  .group:focus-within .row-actions,
+  .row-actions:focus-within {
+    opacity: 1;
+  }
+  @media (hover: none) {
+    .row-actions {
+      opacity: 1;
+    }
+  }
+
+  /* A table whose first column stays put while the rest scrolls sideways.
+     The only way a wide table stays usable on a tablet. */
+  .table-sticky-first th:first-child,
+  .table-sticky-first td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--portta-surface);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

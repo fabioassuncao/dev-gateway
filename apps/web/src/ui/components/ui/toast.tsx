@@ -69,7 +69,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={toast.id}
             role={toast.tone === 'danger' ? 'alert' : 'status'}
             className={cn(
-              'pointer-events-auto flex items-start gap-2 rounded-md border bg-surface px-3 py-2 text-sm shadow-lg',
+              'pointer-events-auto flex items-start gap-2 rounded-md border bg-surface px-3 py-2 text-sm shadow-overlay',
               toast.tone === 'danger'
                 ? 'border-danger/50'
                 : toast.tone === 'warn'

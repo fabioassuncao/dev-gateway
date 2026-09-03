@@ -10,7 +10,7 @@ import { cn } from '../../lib/utils.ts'
 import { Badge } from '../ui/badge.tsx'
 import { Button } from '../ui/button.tsx'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../ui/menu.tsx'
-import { Td, Tr } from '../ui/table.tsx'
+import { Td, Th, Tr } from '../ui/table.tsx'
 import { useToast } from '../ui/toast.tsx'
 import { AddressLine } from '../copy.tsx'
 import { ServiceIcon } from '../service-icon.tsx'
@@ -119,18 +119,18 @@ export function ServiceRow({
           ) : null}
         </div>
       </Td>
-      <Td>
+      <Td className="hidden lg:table-cell">
         {service.resources ? (
           <ResourceUsage cpu={service.resources.cpuUtilisation} memoryBytes={service.resources.memoryUsedBytes} memoryLimitBytes={service.resources.memoryLimitBytes} diskBytes={service.resources.diskBytes} stale={service.resources.stale} />
         ) : (
           <span className="text-xs text-subtle">—</span>
         )}
       </Td>
-      <Td className="font-mono text-xs text-muted">
+      <Td className="hidden font-mono text-xs text-muted xl:table-cell">
         <span title={service.image}>{shortImage(service.image)}</span>
         <span className="text-subtle"> · {shortId(service.containerId)}</span>
       </Td>
-      <Td className="text-xs text-muted tabular-nums">{uptime(service.uptimeSeconds)}</Td>
+      <Td className="hidden text-xs text-muted tabular-nums lg:table-cell">{uptime(service.uptimeSeconds)}</Td>
       <Td className="text-right">
         <div className="flex items-center justify-end gap-0.5">
           <Button variant="ghost" size="icon" title={t('menu.logs')} aria-label={t('menu.logs')} onClick={() => onOpen('logs')}>
@@ -182,14 +182,14 @@ export function ServiceTableHead({ showEnvironment = false }: { showEnvironment?
   return (
     <thead>
       <tr>
-        {showEnvironment ? <th className="border-b border-line px-3 py-2 text-left text-[11px] font-semibold tracking-wide text-subtle uppercase">{t('environment')}</th> : null}
-        <th className="border-b border-line px-3 py-2 text-left text-[11px] font-semibold tracking-wide text-subtle uppercase">{t('service')}</th>
-        <th className="border-b border-line px-3 py-2 text-left text-[11px] font-semibold tracking-wide text-subtle uppercase">{t('state')}</th>
-        <th className="border-b border-line px-3 py-2 text-left text-[11px] font-semibold tracking-wide text-subtle uppercase">{t('access')}</th>
-        <th className="border-b border-line px-3 py-2 text-left text-[11px] font-semibold tracking-wide text-subtle uppercase">{t('resources')}</th>
-        <th className="border-b border-line px-3 py-2 text-left text-[11px] font-semibold tracking-wide text-subtle uppercase">{t('runtime')}</th>
-        <th className="border-b border-line px-3 py-2 text-left text-[11px] font-semibold tracking-wide text-subtle uppercase">{t('uptime')}</th>
-        <th className="border-b border-line px-3 py-2 text-right text-[11px] font-semibold tracking-wide text-subtle uppercase">{t('actions')}</th>
+        {showEnvironment ? <Th>{t('environment')}</Th> : null}
+        <Th>{t('service')}</Th>
+        <Th>{t('state')}</Th>
+        <Th>{t('access')}</Th>
+        <Th className="hidden lg:table-cell">{t('resources')}</Th>
+        <Th className="hidden xl:table-cell">{t('runtime')}</Th>
+        <Th className="hidden lg:table-cell">{t('uptime')}</Th>
+        <Th className="text-right">{t('actions')}</Th>
       </tr>
     </thead>
   )

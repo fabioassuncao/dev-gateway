@@ -183,5 +183,18 @@
   },
   "breadcrumb": "Trilha de navegação",
   "notifications": "Notificações",
-  "dismiss": "Dispensar"
+  "dismiss": "Dispensar",
+  "typeToConfirm": "Digite {{value}} para confirmar",
+  "table": {
+    "columns": "Colunas",
+    "columnsHint": "Colunas visíveis",
+    "empty": "Nada a exibir",
+    "selectAll": "Selecionar todas as linhas",
+    "selectRow": "Selecionar {{name}}",
+    "selected": "{{count}} selecionados",
+    "selected_one": "{{count}} selecionado",
+    "selected_other": "{{count}} selecionados",
+    "selectionActions": "Ações para a seleção",
+    "clearSelection": "Limpar"
+  }
 }

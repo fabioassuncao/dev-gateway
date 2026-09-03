@@ -36,7 +36,7 @@ export function Dialog({
           onPointerDownOutside={(event) => { if (!dismissible) event.preventDefault() }}
           className={cn(
             'fixed top-1/2 left-1/2 z-50 w-[min(92vw,34rem)] -translate-x-1/2 -translate-y-1/2',
-            'rounded-lg border border-line bg-surface shadow-xl',
+            'rounded-lg border border-line bg-surface shadow-modal',
             className,
           )}
         >
