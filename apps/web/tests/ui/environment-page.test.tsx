@@ -235,7 +235,7 @@ describe('Environment page', () => {
   it('reports an environment that stopped existing with a way back to the list', async () => {
     project.mockRejectedValue(new ApiError(404, "no project 'ghost' is running"))
     renderWithQuery(<EnvironmentPage project="ghost" tab={null} service={null} />)
-    expect(await screen.findByText("No project 'ghost' is running")).toBeInTheDocument()
+    expect(await screen.findByText("No environment 'ghost' is running")).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to all projects' })).toHaveAttribute('href', '#/environments')
   })
 

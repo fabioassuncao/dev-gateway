@@ -1,10 +1,14 @@
 # The web panel
 
-A small administration panel for the gateway: what is routed, what is running,
-where to reach it, and what is in the way. It complements the CLI rather than
-replacing it. Both read Docker and Traefik for live routing facts; the panel
-additionally keeps gateway-owned preferences and metadata that the CLI does
-not display. See [ADR 0013](adr/0013-what-the-panel-persists.md).
+The panel is where a development project is opened: what needs doing, who is
+on it, which repositories make it up, what changed, which environments are
+running, how to reach and test them, what the logs say and how much of the
+host they use. It complements the CLI and `portta mcp` rather than replacing
+them: all three work on the same API and the same model
+([ADR 0032](adr/0032-portta-development-model.md)). Docker and Traefik remain
+the live sources of runtime facts; the panel persists the decisions — Projects,
+repositories, tasks, sessions — and a bounded history of what happened
+([ADR 0013](adr/0013-what-the-panel-persists.md)).
 
 It is off by default.
 
@@ -13,7 +17,7 @@ It is off by default.
 ./bin/portta web open      # http://127.0.0.1:8081
 ```
 
-![The Overview page: counts for projects, services, routed URLs and containers, the problems the panel detected, the gateway's own configuration, and the available URLs](images/panel-overview.png)
+![The Overview page: the work in progress, the active sessions, what needs attention, each project at a glance, recent code and the host's room](images/panel-overview.png)
 
 Every screenshot on this page comes from the same host, described in
 `apps/web/e2e/demo-host.mjs` and rendered by the real panel. Regenerate them with
@@ -23,19 +27,21 @@ Every screenshot on this page comes from the same host, described in
 
 ## What it is for
 
-Switching between several environments in a day is mostly a lookup problem:
-which URL does this project have today, which port is that other stack already
-holding, is the container I forgot last week still running, and how do I point
-a GUI client at this project's database without publishing 5432.
+The reference scenario is being away from the machine while an agent works on
+a project on it. Open the panel: there is a task in progress, the agent that
+took it, the repository it is in, the commits it produced, the branch and its
+state, the environment running for it. Open the application through the
+domain, the VPN or a protected address, test it, read the logs if something
+is off, add a note or a subtask, and the agent reads the context again and
+carries on. The same flow, with a person instead of an agent, is a normal day.
 
-The panel answers those, and offers the few operations that go with them:
-restart, stop, start, remove, read logs, open and close a TCP bridge.
+The second scenario is a host with several projects and several agents on it:
+when it starts to run out of room, the Overview says which projects and
+environments are using it, and one of them can be stopped from there.
 
 It is not a Docker management tool. There is no image management, no volume
 management, no `docker compose` editor, no terminal, no prune, and no way to
 create an arbitrary container. See [Out of scope](#out-of-scope).
-
----
 
 ## Architecture
 
@@ -81,8 +87,11 @@ newer daemon cannot silently change the response contract. See
 
 ### Shell and navigation
 
-Each of the eight sections sets a contextual browser title ending in
-`Portta`; a project route can refine it with the Compose project name.
+The sidebar has two groups. **Development** — Overview and Projects — is the
+daily flow; **Infrastructure** — Services, Docker, Network, Access, Gateway —
+is the technical perspective over the same host; Settings sits alone at the
+end. Each section sets a contextual browser title ending in `Portta`; a
+project, task, repository or environment route refines it with its name.
 Every new page must call `useDocumentTitle` so tabs, bookmarks and history do
 not inherit the previous page's title. The built UI also serves its SVG favicon
 locally, with no browser request to a third-party asset.
@@ -342,247 +351,118 @@ panel and you want it to be able to look but not touch.
 
 ### Overview
 
-Whether the gateway is up, how many projects and services are running, how many
-are healthy, which URLs exist, whether Tailscale and public access are on, how
-many containers are on the host, and how many of them the gateway knows
-nothing about. Plus anything the panel detected as a problem.
+The Development Dashboard, in the order the questions come:
 
-Below the counters, a compact block shows this machine: model, OS, CPU,
-memory, the filesystem that holds Portta, and a GPU when one is present.
-Sparklines cover the last 30 minutes. A second card lists each project's
-share of CPU and memory. The numbers come from `portta host collect` on the
-host, which writes `state/metrics` the same way `git scan` writes
-`state/git`. The panel never collects. A snapshot older than 30 seconds is
-marked stale; with no collection the block is absent. See
-[Host metrics](host-metrics.md).
+- **Work** — the tasks in progress, in review and blocked across every
+  project, with the person or agent on each;
+- **Sessions** — who is working, on what, since when, with how many commits;
+- **Needs attention** — unhealthy services, degraded environments, tasks whose
+  local edit conflicts with GitHub, a host under pressure, and what the
+  gateway's own diagnostics failed;
+- **Projects** — each product at a glance: open and in-progress tasks, active
+  sessions, running environments, health, last commit, last activity;
+- **Code** — the most recent commits across every repository, and the
+  repositories with uncommitted or unpushed work;
+- **This host** and **Using this host** — the machine's CPU, memory and
+  storage from `portta host collect`, and the environments using the most of
+  it, each with a Stop.
 
-The tiles are the questions people actually ask on a busy host, and the
-problems card is the panel saying what it noticed rather than waiting to be
-asked: see the [Overview screenshot above](#the-web-panel).
-
-### Projects
-
-The page for the product you recognise, as opposed to what this host happens to
-be running. A Project has a name, a slug, a description, the repositories it
-owns, and the environments that belong to it — and it stays visible with
-nothing up, because it is a decision rather than an observation.
-
-`#/workspaces` redirects here. The Compose stacks that used to live at
-`#/projects` are now Environments, listed on the same page and opened at
-`#/environments/<name>`.
-
-Each environment row says **why** it was adopted: linked by hand, declared by
-its `portta.project` label, or matched through a repository the Project
-owns. Deleting a Project removes the grouping and nothing else; the response
-says as much.
-
-Repositories come from the GitHub App projection, so only what the installation
-granted can be attached — and the dialog says that rather than offering a list
-that would be refused. With no App configured, a Project still groups
-environments; it simply has no repositories.
-
-A Project page also lists the **issues** of the repositories it owns, read
-from the panel's projection: filter by state, status or text, sub-issues nested
-under their parent, the repository badged on every row, and each number linking
-to GitHub. A status that came from the label convention rather than a native
-field is marked, because it changes what a write will do. Every row says how old
-its answer is, and the list keeps answering while GitHub is unreachable.
-
-Projects need the panel's database. With PostgreSQL stopped the catalog
-explains that instead of failing, and every Docker-backed page — including
-the Environments list — keeps working.
-
-See [github.md](github.md#workspaces-repositories-and-the-environments-that-belong-to-them).
-
-### The board and the backlog
-
-`#/board/<workspace>/board` puts the workspace's open issues in six columns —
-Backlog, Ready, In Progress, Review, Blocked, Done — with the repository badged
-on every card, so a multi-repository product reads as one board.
-
-The columns are **data, not code**: a `boardColumns` setting with a schema and a
-default. Configuring them is not in scope; being able to is, and that cost one
-key rather than a later refactor.
-
-**Moving a card.** Drag it, or use the card's actions menu — the same mutation,
-reachable from the keyboard, and the honest path on a touch screen where
-dragging is awkward. Either way the card moves immediately, the write goes to
-GitHub, and a refusal rolls it back **visibly** with the reason on screen. A
-move announces its result in a live region.
-
-A status that came from the `status:` label convention rather than a native
-field carries a discreet marker, because changing it adds one label and removes
-another and that shows in the issue's timeline.
-
-**The backlog** is a list rather than a board: work with no status yet, with
-sub-issues nested under their parent, each row opening the same edit dialog. A
-persisted manual order is deliberately not offered — it would be Portta
-state GitHub cannot see.
-
-**Filters** — repository, priority, assignee, label and free text — live in the
-hash, so a filtered board is a link somebody can paste.
-
-**Creating and editing** writes to GitHub and shows what GitHub confirmed. The
-panel never displays an issue GitHub did not acknowledge, so there is no
-optimistic row here — only on the move, where the rollback is visible.
-
-Read-only mode disables the affordances rather than failing on use; an
-unavailable database and an unreachable GitHub each say so and leave the
-projection readable.
+The gateway's own state is one badge in the corner, and its configuration
+moved to the Gateway page. Without PostgreSQL the work and project sections
+are empty and say so; the runtime, the host and the diagnostics still answer.
+It is served by `GET /api/overview`, which `portta overview` and an agent read
+too.
 
 ### Projects
 
-Compose projects with **at least one** service on the gateway, grouped by
-`COMPOSE_PROJECT_NAME`:
+The products you recognise, as cards or as rows: repositories, open tasks,
+who is working, running environments, health, last commit and last activity.
+**New project** creates one; a Project needs the panel's database and the page
+says so when it is down. `Environments on this host` opens the list of every
+Compose project Docker is running, adopted or not.
 
-```text
-base-empresarial
-├── web        routed   http://base-empresarial-web.localhost
-├── api        routed   http://base-empresarial-api.localhost
-├── postgres   tcp      5432
-└── redis      tcp      6379
-```
+Opening a Project is the cockpit. The header carries its health, its tasks and
+sessions, an **Open / Test** menu for its primary environment and **New task**;
+below it, tabs that are URLs:
 
-A project's database belongs to the project even though it never joins the
-shared network. The worktree is shown when the Compose working directory
-disagrees with the project name, which is what
-[`portta namespace`](monorepos.md) produces.
+| Tab | What it holds |
+|---|---|
+| **Overview** | Development status (in progress, blocked, next, active sessions), the repositories with their git state, the environments with their services and an Open / Test each, the recent activity, and the resources the project uses |
+| **Tasks** | The board and the list, below |
+| **Repositories** | Each repository as a row; **Add repository** offers what the host scan discovered, what the GitHub App was granted, or a path typed by hand |
+| **Environments** | The environments adopted, why each was adopted, and **Adopt** for one that was not |
+| **Activity** | The timeline: tasks moved, notes, sessions, environments started and stopped, commits the scan noticed |
+| **Settings** | Name, description, place under Projects Home, archive, and delete — which removes what only Portta holds and names it |
 
-Each service row owns its endpoints, so several local, VPN or public addresses
-remain grouped with the container that serves them. The row also keeps image,
-kind, ports, uptime, state, logs, details and lifecycle actions. A database or
-cache points to the Access page instead of leaving an empty URL cell; a stopped
-service hides stale endpoints, and an HTTP service with routing enabled but no
-discovered URL is called out as a routing problem. The rows wrap rather than
-turning the project card into a horizontally scrolling table.
+### Tasks
 
-The project page and each card have Start, Stop and Restart for the whole
-project. Stop asks for confirmation and lists the services; nothing is
-removed. Start iterates containers that still exist. If they are gone, Start
-is disabled and the reason names the runner.
+A task is Portta's own: it exists without GitHub. `#/projects/<slug>/tasks` is
+the board — six columns, `Backlog`, `To do`, `In progress`, `Review`,
+`Blocked`, `Done` — or the list, nested by parent; the choice and the filters
+(status, assignee, repository, text) live in the hash, so a filtered view is
+a link somebody can paste. A card moves by dragging or from its menu; the
+write happens at once and a refusal rolls it back visibly.
 
-The project page also has Rebuild and two named removals: **Remove, keep
-data** and **Remove and local data**. Rebuild asks the runner for
-`compose up --build` and shows the log; rebuild without cache is a
-secondary option with its cost stated. Both removals require the Compose
-project name typed back, checked on the server. The dialog says in its own
-sentence that GitHub is not touched. Without the runner the panel removes
-the containers it can and prints the exact `compose down` / `rm -rf` that
-finish the rest. Directory removal is opt-in on the data-removing mode, and
-only when the runner is present.
+A task page, `#/projects/<slug>/tasks/<id>`, carries the description, the
+subtasks, the notes, the sessions working on it and their commits, the
+environments it runs in (linked by the `portta.task` label, the branch name,
+the namespace, or by hand) and the GitHub binding: which issue, whether the
+last local edit reached GitHub (`synced`, `pending`, `conflict`), and the
+actions — bind to an existing issue, publish as a new one, sync, settle a
+conflict either way, unbind, comment on the issue. See
+[github.md](github.md#issues-and-tasks).
 
-![The Projects page: checkout with an unhealthy worker, storefront with four healthy services, and a second worktree of storefront running beside it, each with its own URLs](images/panel-projects.png)
+`portta tasks` and the MCP tools read and write the same rows
+([cli.md](cli.md), [mcp.md](mcp.md)).
 
-#### One project, one page
+### Repositories
 
-Clicking an environment name opens `#/environments/<name>`, a page of its own
-rather than the list filtered down to one card. It is organised in tabs, and
-each tab is a URL. An old `#/projects/<compose-name>` bookmark still opens
-this page when that slug is not a registered Project.
+`#/projects/<slug>/repositories/<id>` is one repository: branch, HEAD, the
+working tree spelled out, ahead/behind, the remote, the directory on the host,
+and three tabs — the overview with open pull requests and the environments
+running from it, the last twenty commits, and the **instruction files** the
+host collected (`AGENTS.md`, `CLAUDE.md`, `.cursor/rules/*.mdc`, …) with their
+content and whether they differ from HEAD.
 
-```text
-#/environments/storefront            Overview
-#/environments/storefront/services   Services
-#/environments/storefront/git        Git
-#/environments/storefront/logs       Logs
-```
+None of it is live. `portta repos scan` collects it on the host and the
+metrics watcher repeats it once a minute; every block says how old it is and
+carries the command that refreshes it. See
+[ADR 0010](adr/0010-git-collected-on-the-host.md) and the amendment in
+[ADR 0032](adr/0032-portta-development-model.md).
 
-When the panel can tell which issue an environment is running for, Overview
-opens with a compact issue block — repository, number, title, type, priority,
-status — and says **why** it was linked: the `portta.issue` label, the
-branch, the namespace, or by hand. See
-[github.md](github.md#the-issue-and-the-environment-it-is-worked-in).
+### Environments
 
-**Overview** answers "what is this and where does it live": services running,
-unhealthy count, routed URLs and uptime as tiles; the host directory, worktree,
-logical project, Git root, repository and networks as rows; every endpoint
-grouped by service; CPU and memory per container from the host collector; and
-a one-line Git summary linking to the Git tab.
+![The Environments page: every Compose project on this host, each as a table of its services with state, access, resources, runtime and actions](images/panel-environments.png)
 
-**Services** gives each service the room the list cannot: endpoints, container
-and published ports, networks, mounts, restart count, exit code, what Traefik
-says about it, and its Exposure controls. The full container dialog is still one
-click away.
+`#/environments` lists every Compose project on this host, adopted or not,
+each as a table of its services. `#/environments/<name>` is one environment:
 
-**Git** shows the whole of what the host collected — branch, HEAD, the working
-tree spelled out, ahead/behind against the upstream, the remote, and **every**
-open pull request rather than the first few the card had room for.
+![One environment: its services as one table, with an Open / Test menu, resources and actions per row](images/panel-environment.png)
 
-**Logs** reads the project's services together; see
-[Logs across a project](#logs-across-a-project).
+The header says how many services run, which Project adopted it and why,
+which repository and branch it runs from, and the task it is working on when
+the panel can tell; then **Open / Test**, Start, Stop, Restart, Rebuild and
+the two named removals. Three tabs:
 
-Tabs are links, so the browser's back button moves between them, a tab survives
-a reload, and a filtered view is something you can paste to someone. They are
-operable from the keyboard with the arrow keys, `Home` and `End`. A project that
-stopped between the list and the page renders an empty state with a route back
-to the list, never an error.
+| Tab | What it holds |
+|---|---|
+| **Overview** | One row per service: state and health, the primary address with copy and open, **Open / Test**, CPU and memory from the host collector, image and container, uptime, and the actions that apply. A row opens a drawer with every endpoint, the connection details of a datastore, ports, networks, mounts, what Traefik says, the temporary share, the hostname alias, and the logs inline |
+| **Logs** | Every service at once, interleaved, or one of them; see [Logs across an environment](#logs-across-an-environment) |
+| **Settings** | Display name, description, primary service, collapsed services, pinned and archived, service notes and the hostname alias — nothing is written inside the project |
 
-#### What the environment is running
+**Open / Test** is the one menu that answers "how do I reach this": every
+address by scope — local, LAN, VPN, public — with open and copy, and for a
+datastore the loopback bridge to open or close, the host, the port and a
+connection string. It is the same model the Access page manages
+([ADR 0024](adr/0024-capabilities-providers-endpoints.md)).
 
-Each project carries a line of Git: the branch, HEAD with its subject, how much
-is uncommitted, and how far it has drifted from the remote. The branch, the
-commit and the repository are links when the remote is one whose shape is
-known.
+An old `#/environments/<name>/services` opens the overview; `#/…/git` opens
+the repository the environment runs from.
 
-```text
-Git   feature/59-invoices · 9f2c1ab "Add invoice totals"
-      7 uncommitted changes · 3 ahead        owner/repo · collected 4 min ago
-```
+#### Logs across an environment
 
-**None of it is live, and the line always says how old it is.** The panel
-cannot read a working tree: it has no project directory mounted, no `git`, and
-no way to run a command. What it reads is a file the host wrote:
-
-```bash
-./bin/portta repos scan                          # every repository
-./bin/portta repos scan --environment storefront-issue59
-./bin/portta repos status                        # what was collected, and when
-```
-
-`portta up` and `portta web up` run a scan for you, and the metrics watcher
-they start runs it again once a minute; the panel never polls, and a scan
-that is too old to trust is marked rather than quietly shown as current.
-
-Four absences all render as fewer things rather than an error: a project
-without Git gets no line, a repository without a remote keeps its branch and
-loses the links, a remote on a forge nobody recognises keeps the repository
-link and loses the commit one, and a project nobody has scanned shows the
-command that would fix that.
-
-Nothing beyond metadata is collected: no diffs, no file contents, no commit
-list beyond HEAD. Nothing is ever written to a repository, and there is no
-checkout, merge or rebase anywhere in the panel or the CLI. See
-[ADR 0010](adr/0010-git-collected-on-the-host.md).
-
-#### Open pull requests
-
-```bash
-./bin/portta repos scan --with-prs
-```
-
-adds the open pull requests, with their review decision and whether checks are
-passing, through `gh`:
-
-```text
-2 open pull requests   #61 Add invoice totals  review requested  checks passing
-                       #62 WIP  draft  checks failing
-```
-
-It reuses the authentication `gh` already has, so **there is no token to put in
-`.env`**, nothing for a routed panel to leak, and no rate limit of ours to
-account for. It is opt-in because it is a network call per project, and the
-result is cached for `--forge-ttl` seconds (five minutes by default) so a scan
-across ten projects does not make ten requests a minute apart.
-
-Three cases render nothing at all rather than an error: `gh` is not installed,
-`gh` is installed but signed out, or the remote is on a forge `gh` cannot talk
-to. In the last case the Git line keeps its repository link, since that is
-derived from the remote and needs nobody's permission.
-
-#### Logs across a project
-
-The Logs tab reads **every** service of the project at once, interleaved by the
-timestamp Docker already puts on each line, with the service name in front:
+The Logs tab reads **every** service of the environment at once, interleaved by
+the timestamp Docker already puts on each line, with the service name in front:
 
 ```text
 web      | 10:00:01  listening on 3000
@@ -593,37 +473,37 @@ postgres | 10:00:03  ready to accept connections
 A selector narrows the view to one service, and the choice is in the URL
 (`#/environments/alpha/logs?service=api`), so a link opens on exactly what you were
 reading. Tail size, the text filter, follow, timestamps and copy are the same
-controls the container dialog has, because it is the same component; copying an
+controls the service drawer has, because it is the same component; copying an
 aggregated view prefixes each line with its service.
 
 Services are read concurrently on the server, and a source that could not be
 read is reported **beside** the ones that answered rather than replacing them: a
 stopped container is marked with its state, an unreadable one carries the
-reason, and four working services stay on screen. An unknown project is a 404; a
-known project whose sources all failed is a 200 that says why.
+reason, and four working services stay on screen. An unknown environment is a
+404; a known one whose sources all failed is a 200 that says why.
 
 The aggregated default is 100 lines per service (200 when reading one), clamped
-to 2000 overall, so a ten-service project cannot ask for twenty thousand lines.
-If a container logs through a driver that omits timestamps, the view says
-ordering between services is approximate rather than pretending otherwise.
+to 2000 overall, so a ten-service environment cannot ask for twenty thousand
+lines. If a container logs through a driver that omits timestamps, the view
+says ordering between services is approximate rather than pretending otherwise.
 
 **Out of scope, deliberately:** streaming over SSE or WebSocket, retention,
 indexing, structured-log parsing, level filtering and download-as-file. This is
 a bounded tail on a three-second poll, and it is meant to stay one.
 
-#### Naming a project without touching it
+#### Naming an environment without touching it
 
 A cloned third-party repository arrives as `awesome-thing-svc-1` on
-`awesome-thing-svc-1.localhost`, with five services listed flat. **Settings** on
-the project page adjusts all of that from the panel, and writes nothing inside
-the project — no file, no label, no dependency, no commit. `git status` in the
-clone stays clean after using every control here.
+`awesome-thing-svc-1.localhost`, with five services listed flat. The
+environment's **Settings** tab adjusts all of that from the panel, and writes
+nothing inside the project — no file, no label, no dependency, no commit.
+`git status` in the clone stays clean after using every control here.
 
 | Override | Effect |
 |---|---|
 | Display name | The heading and the sort key. The derived name is still shown beside it |
 | Description | A line under the heading |
-| Primary service | The service the project's Open button targets |
+| Primary service | The service the environment's Open / Test targets first |
 | Collapsed services | Folded away by default, never removed |
 | Pinned / archived | Ordering and default filtering in the list |
 | Service note | A line on the service row |
@@ -639,9 +519,9 @@ Overrides key on `COMPOSE_PROJECT_NAME`, so `storefront` and
 worktree starts blank. That is deliberate: two worktrees must never contend for
 one hostname.
 
-With PostgreSQL stopped, every project renders exactly as it does without any
-persistence at all, and the override endpoints answer `503` with a hint. The
-feature disappears; nothing else notices.
+With PostgreSQL stopped, every environment renders exactly as it does without
+any persistence at all, and the override endpoints answer `503` with a hint.
+The feature disappears; nothing else notices.
 
 #### A hostname alias is a nickname, not a rename
 
@@ -1100,23 +980,13 @@ volume management, network management, arbitrary container creation, arbitrary
 Traefik configuration, an embedded Traefik dashboard, a tunnel service, or
 being a replacement for Portainer or Docker Desktop.
 
-GitHub issues, a board and write-back **shipped**: the Board and Workspaces
-pages, `GET /api/issues`, `PATCH /api/issues/:id` and
-`POST /api/repositories/:owner/:repo/issues`. This paragraph said they were not
-in the panel yet, which #25 found to be the opposite of what the code does.
-[github.md](github.md) describes what exists;
-[ADR 0018](adr/0018-github-access-lives-in-the-panel.md) records the decisions
-and, in its 2026-09-02 amendment, what is deliberately still absent.
-
-The same issues are also reachable as **tasks** — `next`, `start`, `status`,
-`finish`, `comment` — which is what `portta mcp` serves to an agent over stdio.
-See [mcp.md](mcp.md).
-
-What remains out of scope there: comments are never projected (reading one is a
-link to GitHub), and GitHub Projects v2 fields are not read — a repository whose
-board lives in a Project is invisible to Portta, and Portta's `status:*` labels
-will not move its cards. Local Git stays host-collected
-([ADR 0010](adr/0010-git-collected-on-the-host.md)).
+Tasks, the board, sessions, activity and the GitHub binding **shipped**;
+[github.md](github.md) and [mcp.md](mcp.md) describe them. What remains out
+of scope there: GitHub comments are never projected (reading one is a link to
+GitHub), GitHub Projects v2 fields are not read, and a web editor or a file
+browser beyond the instruction files is a later step. Local Git stays
+host-collected ([ADR 0010](adr/0010-git-collected-on-the-host.md), amended by
+[ADR 0032](adr/0032-portta-development-model.md)).
 
 Sharing is deliberately narrow: one additional hostname per service, with an
 expiry, on a network the gateway already answers. It is not authentication for

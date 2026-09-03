@@ -154,7 +154,7 @@ test.describe('the panel end to end', () => {
 
   test('an unknown environment says so instead of failing', async ({ page }) => {
     await page.goto('/#/environments/ghost')
-    await expect(page.getByText("No project 'ghost' is running")).toBeVisible()
+    await expect(page.getByText("No environment 'ghost' is running")).toBeVisible()
   })
 
   test('the project page never makes the page scroll sideways', async ({ page }) => {

@@ -30,7 +30,7 @@ That creates a different set of problems: port conflicts, ports nobody remembers
 
 **Reachable from where you are.** The base domain is a mode rather than a fixed value: `*.localhost` on a workstation, a name derived from the machine's address through sslip.io when there is no domain, or a wildcard you own. Beyond that, a host can be reached over Tailscale, or through a Cloudflare Tunnel that needs no open port and works behind CGNAT. A single service can also be shared on a temporary hostname with a mandatory expiry.
 
-**The work around the code.** Branches and worktrees become parallel environments with their own namespaces and URLs. Existing Compose projects are adopted with a small overlay rather than moved. The optional panel shows projects, routes, logs and problems, manages the permitted container lifecycle, and connects to GitHub for issues, a backlog and a board that writes back.
+**The work around the code.** Branches and worktrees become parallel environments with their own namespaces and URLs. Existing Compose projects are adopted with a small overlay rather than moved. The optional panel opens the project: its tasks and board, the repositories with their commits and instruction files, the environments with one table of services and every way to reach them, the logs, who is working on what, and what the host has room for. Humans and agents share it through the same API, the CLI and `portta mcp`; GitHub issues bind to tasks and write back.
 
 **This is for development, not deployment.** It exists so you can see and test what you are building, from wherever you happen to be. It is not a hosting platform, has no release or rollback story, and should not be what stands between your users and your application.
 
@@ -40,7 +40,7 @@ It is host infrastructure installed once, not a parent Compose project. It does 
 
 <table>
   <tr>
-    <td width="50%"><a href="docs/images/panel-overview.png"><img src="docs/images/panel-overview.png" alt="Overview showing projects, services, routed URLs and detected problems"></a><br><sub><b>Overview</b> — what is running and what is wrong</sub></td>
+    <td width="50%"><a href="docs/images/panel-overview.png"><img src="docs/images/panel-overview.png" alt="Overview showing the work in progress, sessions, what needs attention, projects, recent code and the host"></a><br><sub><b>Overview</b> — what is being worked on, and whether the host has room</sub></td>
     <td width="50%"><a href="docs/images/panel-projects.png"><img src="docs/images/panel-projects.png" alt="Projects grouped with their services, health, uptime and endpoints"></a><br><sub><b>Projects</b> — Compose projects, databases included</sub></td>
   </tr>
   <tr>

@@ -29,6 +29,8 @@ const WIDTH = 1440
 const SHOTS = [
   { name: 'panel-overview', route: '/#/overview', height: 820 },
   { name: 'panel-projects', route: '/#/projects', height: 1000 },
+  { name: 'panel-environments', route: '/#/environments', height: 1000 },
+  { name: 'panel-environment', route: '/#/environments/storefront', height: 900 },
   { name: 'panel-services', route: '/#/services', height: 700 },
   { name: 'panel-docker', route: '/#/docker', height: 940 },
   // The sections below the fold are the point of the page: what the gateway

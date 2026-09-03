@@ -53,7 +53,7 @@
     "logs": "Logs",
     "settings": "Configurações"
   },
-  "notFound": "Nenhum projeto '{{name}}' está em execução",
+  "notFound": "Nenhum environment '{{name}}' está em execução",
   "stats": {
     "services": "Serviços",
     "running": "em execução",
