@@ -1,11 +1,8 @@
 // One issue, as the API returns it.
 //
-// Extracted so `routes/issues.ts` and `routes/tasks.ts` cannot answer
-// differently about the same row: the board and an agent look at one issue and
-// must see one staleness flag, one metadata source and one set of environments.
-//
-// The assembly reads rows and the Docker snapshot. It makes no network call:
-// branches come from the host Git scan the panel already reads.
+// Extracted so the issue routes and the task binding cannot answer differently
+// about the same row: one staleness flag, one metadata source and one set of
+// environments, the last of which comes from the task the issue is bound to.
 
 import type { StoredIssue } from '../db/github.ts'
 import type { Database } from '../db/index.ts'
@@ -13,8 +10,8 @@ import type { PanelConfig } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import type { Issue } from '../../shared/types.ts'
 import type { Priority, WorkflowStatus } from '../integrations/github/metadata.ts'
-import { environmentsFor, resolveLinks, type ResolvedLink } from './issue-environments.ts'
-import { readProjectGit } from './git.ts'
+import { environmentsFor, issueLinksFrom, type ResolvedLink } from './issue-environments.ts'
+import { loadTaskLinks } from './task-environments.ts'
 
 /** Past this age the projection is marked stale. It is still shown. */
 export const STALE_AFTER_SECONDS = 900
@@ -56,44 +53,27 @@ export function issueView(
 }
 
 /**
- * Where each running environment belongs, resolved once per request.
- *
- * Branches come from the host Git scan the panel already reads, so nothing here
- * runs a command or makes a network call.
+ * Where each running environment belongs, resolved once per request, through
+ * the tasks and their bindings. Nothing here runs a command or a network call.
  */
 export async function resolvedLinks(
   config: PanelConfig,
   db: Database,
   snapshot: Snapshot,
-  issues: StoredIssue[],
 ): Promise<Map<string, ResolvedLink>> {
-  const branches = new Map<string, string | null>(
-    snapshot.environments.map((project) => [project.name, readProjectGit(config, project.name).git?.branch ?? null]),
-  )
-  const manual = (await db.github.listIssueEnvironments()).map((row) => ({
-    issueId: row.issueId,
-    composeProject: row.composeProject,
-    branch: row.branch,
-  }))
-  return resolveLinks(snapshot, issues, manual, branches)
+  const resolved = await loadTaskLinks(config, db, snapshot)
+  return issueLinksFrom(resolved, await db.tasks.listLinks())
 }
 
-/**
- * Assemble several issues in one pass.
- *
- * The links and the snapshot are read once for the whole set: doing it per
- * issue turned a board of forty cards into forty Git reads.
- */
+/** Assemble several issues in one pass: links and snapshot read once for the set. */
 export async function issueViews(
   config: PanelConfig,
   db: Database,
   snapshot: Snapshot,
   issues: StoredIssue[],
-  all?: StoredIssue[],
 ): Promise<Issue[]> {
-  const corpus = all ?? issues
   const relationships = await db.github.listRelationships()
-  const links = await resolvedLinks(config, db, snapshot, corpus)
+  const links = await resolvedLinks(config, db, snapshot)
   const now = Math.floor(Date.now() / 1000)
   return issues.map((issue) => issueView(issue, relationships, now, environmentsFor(issue.id, snapshot, links)))
 }

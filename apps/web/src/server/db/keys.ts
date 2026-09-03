@@ -25,6 +25,8 @@ export const GLOBAL_KEYS = {
   defaultPage: z.enum(['overview', 'projects', 'docker', 'access', 'network', 'gateway', 'settings']),
   tableDensity: z.enum(['comfortable', 'compact']),
   boardColumns: z.array(BoardColumn).min(1).max(12),
+  /** What an agent that announces itself with X-Portta-Actor may do. See principal.ts. */
+  agentCapabilities: z.array(z.string().min(1).max(64)).max(64),
 } as const
 
 export const ENVIRONMENT_KEYS = {

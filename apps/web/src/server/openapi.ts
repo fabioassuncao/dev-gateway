@@ -1,5 +1,7 @@
 import type { MiddlewareHandler } from 'hono'
 import { Hono } from 'hono'
+import type { ApiCapability } from 'portta-core'
+import { requireCapability } from './principal.ts'
 import { HTTPException } from 'hono/http-exception'
 import { describeRoute, generateSpecs, resolver } from 'hono-openapi'
 import type { DescribeRouteOptions, GenerateSpecOptions } from 'hono-openapi'
@@ -11,9 +13,12 @@ import type { PanelConfig } from './config.ts'
 export type ApiTag =
   | 'Status'
   | 'Projects'
+  | 'Repositories'
   | 'Environments'
   | 'Issues'
   | 'Tasks'
+  | 'Sessions'
+  | 'Activity'
   | 'Services'
   | 'Docker'
   | 'Network'
@@ -30,6 +35,8 @@ export type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 500 | 502 | 503
 export interface RouteDocumentation {
   tag: ApiTag
   operationId: string
+  /** What a caller must hold. Published as x-portta-capability and checked before the handler runs. */
+  capability: ApiCapability
   summary: string
   description?: string
   response: z.ZodType
@@ -99,7 +106,37 @@ export function documentRoute(doc: RouteDocumentation): MiddlewareHandler {
       content: { 'application/json': { schema: requestSchema(doc.request) } },
     }
   }
-  return describeRoute(spec)
+  CAPABILITY_BY_OPERATION.set(doc.operationId, doc.capability)
+  // hono-openapi finds a documented route by a marker it puts on the
+  // middleware it returns, so the capability check wraps that middleware and
+  // carries the marker across rather than hiding it behind a combinator.
+  const described = describeRoute(spec)
+  const guarded: MiddlewareHandler = async (c, next) => {
+    requireCapability(c, doc.capability)
+    return described(c, next)
+  }
+  for (const key of Reflect.ownKeys(described)) {
+    const descriptor = Object.getOwnPropertyDescriptor(described, key)
+    if (descriptor && key !== 'length' && key !== 'name' && key !== 'prototype') Object.defineProperty(guarded, key, descriptor)
+  }
+  return guarded
+}
+
+/** Every documented operation and the capability it declared, for the contract. */
+export const CAPABILITY_BY_OPERATION = new Map<string, ApiCapability>()
+
+/** Stamp x-portta-capability on each operation, from what documentRoute recorded. */
+function withCapabilities<T extends { paths?: Record<string, unknown> }>(document: T): T {
+  for (const path of Object.values(document.paths ?? {})) {
+    if (!path || typeof path !== 'object') continue
+    for (const operation of Object.values(path as Record<string, unknown>)) {
+      if (!operation || typeof operation !== 'object') continue
+      const op = operation as Record<string, unknown>
+      const capability = typeof op['operationId'] === 'string' ? CAPABILITY_BY_OPERATION.get(op['operationId']) : undefined
+      if (capability) op['x-portta-capability'] = capability
+    }
+  }
+  return document
 }
 
 export const containerIdParameter: OpenAPIV3_1.ParameterObject = {
@@ -158,7 +195,7 @@ export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
       version,
       summary: 'Runtime inventory and bounded control for Portta.',
       description:
-        'The API used by the panel UI and by local agents. Writes can be refused by read-only mode or the same-origin guard. Authentication, when enabled, is enforced by Traefik before a request reaches this application.',
+        'The API used by the panel UI, the CLI and local agents. Every operation declares the capability it needs (x-portta-capability); read-only mode holds every read, and an agent that announces itself with X-Portta-Actor holds what the agentCapabilities setting grants. Writes can also be refused by the same-origin guard. Authentication, when enabled, is enforced by Traefik before a request reaches this application.',
       license: { name: 'MIT' },
     },
     jsonSchemaDialect: 'https://json-schema.org/draft/2020-12/schema',
@@ -166,9 +203,12 @@ export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
     tags: [
       { name: 'Status', description: 'Liveness and overview.' },
       { name: 'Projects', description: 'The product the operator recognises. Persisted. See ADR 0031.' },
+      { name: 'Repositories', description: "A Project's code: registered here, observed by the host scan. GitHub is optional metadata on it." },
       { name: 'Environments', description: 'Compose environments running on this host.' },
       { name: 'Issues', description: 'The GitHub issue projection, and writes that go back to GitHub.' },
-      { name: 'Tasks', description: 'The same issues, asked the way an agent asks: what is next, take it, comment, finish. No GitHub credential is needed to call these.' },
+      { name: 'Tasks', description: "Portta's own unit of work. Local-first; a GitHub issue is an optional binding. What is next, take it, note, finish." },
+      { name: 'Sessions', description: 'Who is working on what, since when, and what came out. A person or an agent.' },
+      { name: 'Activity', description: 'What happened in the development flow: tasks, sessions, commits, environments. Not a log.' },
       { name: 'Services', description: 'Containers belonging to adopted projects.' },
       { name: 'Docker', description: 'Bounded host inventory and lifecycle operations.' },
       { name: 'Network', description: 'Routes, networks, DNS, TLS and VPN state.' },
@@ -201,7 +241,7 @@ export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
 }
 
 export async function generateOpenApi(api: Hono, version: string) {
-  return generateSpecs(api, openApiOptions(version))
+  return withCapabilities(await generateSpecs(api, openApiOptions(version)))
 }
 
 export function registerOpenApiRoutes(api: Hono, config: PanelConfig): void {
@@ -210,6 +250,7 @@ export function registerOpenApiRoutes(api: Hono, config: PanelConfig): void {
     documentRoute({
       tag: 'Documentation',
       operationId: 'getOpenApiDocument',
+      capability: 'gateway:read',
       summary: 'Return the OpenAPI 3.1 contract',
       response: OpenApiDocument,
       responseDescription: 'The contract generated from the registered routes.',
@@ -228,6 +269,7 @@ export function registerOpenApiRoutes(api: Hono, config: PanelConfig): void {
     documentRoute({
       tag: 'Documentation',
       operationId: 'browseApiDocumentation',
+      capability: 'gateway:read',
       summary: 'Redirect to the API reference',
       description: 'The reference lives at /docs/api, inside the documentation site. Available by default on loopback and opt-in when the panel is routed.',
       response: HtmlDocument,

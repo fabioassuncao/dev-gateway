@@ -2,7 +2,11 @@ import { DatabaseClient } from './client.ts'
 import { GitHubRepository } from './github.ts'
 import { EnvironmentsRepository } from './environments.ts'
 import { ProjectsRepository } from './projects.ts'
+import { RepositoriesRepository } from './repositories.ts'
 import { SettingsRepository } from './settings.ts'
+import { TasksRepository } from './tasks.ts'
+import { SessionsRepository } from './sessions.ts'
+import { ActivityRepository } from './activity.ts'
 
 export interface DatabaseStatus {
   configured: boolean
@@ -24,8 +28,12 @@ export class DatabaseUnavailable extends Error {
 export class Database {
   readonly environments: EnvironmentsRepository
   readonly projects: ProjectsRepository
+  readonly repositories: RepositoriesRepository
   readonly settings: SettingsRepository
   readonly github: GitHubRepository
+  readonly tasks: TasksRepository
+  readonly sessions: SessionsRepository
+  readonly activity: ActivityRepository
   private readonly client: DatabaseClient
   private initializing: Promise<void> | null = null
   private state: DatabaseStatus = {
@@ -40,8 +48,12 @@ export class Database {
     this.client = client
     this.environments = new EnvironmentsRepository(client)
     this.projects = new ProjectsRepository(client)
+    this.repositories = new RepositoriesRepository(client)
     this.settings = new SettingsRepository(client)
     this.github = new GitHubRepository(client)
+    this.tasks = new TasksRepository(client)
+    this.sessions = new SessionsRepository(client)
+    this.activity = new ActivityRepository(client)
   }
 
   static open(url: string): Database {

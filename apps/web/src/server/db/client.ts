@@ -38,27 +38,6 @@ export interface ProjectRecord {
   updatedAt: Date
 }
 
-export interface ProjectRepositoryRow {
-  projectId: string
-  repositoryId: string
-  fullName: string
-  htmlUrl: string
-  defaultBranch: string | null
-  private: boolean
-  archived: boolean
-  role: string | null
-  position: number
-}
-
-export interface IssueEnvironmentRow {
-  issueId: string
-  composeProject: string
-  source: string
-  branch: string | null
-  worktreePath: string | null
-  linkedAt: Date
-}
-
 export interface ProjectEnvironmentRow {
   projectId: string
   composeProject: string
@@ -83,6 +62,16 @@ export class DatabaseClient {
 
   constructor(sql: Sql) {
     this.sql = sql
+  }
+
+  /**
+   * The handle, for repositories that own their own SQL (`db/repositories.ts`
+   * and what follows it). This file keeps the environment and project core;
+   * every later table gets its own module rather than another hundred lines
+   * here.
+   */
+  get handle(): Sql {
+    return this.sql
   }
 
   static open(url: string): DatabaseClient {
@@ -511,42 +500,6 @@ export class DatabaseClient {
     `
   }
 
-  // ---- the issue / environment link ---------------------------------------
-  //
-  // Linking writes one row. Nothing here starts, stops, creates or removes
-  // anything, and nothing here writes to `environments` beyond referencing it.
-
-  async listIssueEnvironments(): Promise<IssueEnvironmentRow[]> {
-    return this.sql<IssueEnvironmentRow[]>`
-      SELECT
-        ie.issue_id::text AS "issueId",
-        e.compose_project AS "composeProject",
-        ie.source, ie.branch,
-        ie.worktree_path AS "worktreePath",
-        ie.linked_at AS "linkedAt"
-      FROM issue_environments ie
-      JOIN environments e ON e.id = ie.environment_id
-    `
-  }
-
-  async setIssueEnvironments(
-    issueId: string,
-    links: { composeProject: string; branch: string | null }[],
-  ): Promise<void> {
-    await this.sql.begin(async (transaction) => {
-      await transaction`DELETE FROM issue_environments WHERE issue_id = ${issueId}`
-      for (const link of links) {
-        await transaction`
-          INSERT INTO issue_environments (issue_id, environment_id, source, branch)
-          SELECT ${issueId}, e.id, 'manual', ${link.branch}
-          FROM environments e WHERE e.compose_project = ${link.composeProject}
-          ON CONFLICT (environment_id) DO UPDATE SET
-            issue_id = EXCLUDED.issue_id, source = 'manual', branch = EXCLUDED.branch
-        `
-      }
-    })
-  }
-
   // ---- projects -----------------------------------------------------------
   //
   // A Project is the operator's decision, so nothing on the snapshot path ever
@@ -625,39 +578,6 @@ export class DatabaseClient {
     return rows.length > 0
   }
 
-  async listProjectRepositories(): Promise<ProjectRepositoryRow[]> {
-    return this.sql<ProjectRepositoryRow[]>`
-      SELECT
-        pr.project_id::text AS "projectId",
-        gr.id::text AS "repositoryId",
-        gr.full_name AS "fullName",
-        gr.html_url AS "htmlUrl",
-        gr.default_branch AS "defaultBranch",
-        gr.private,
-        gr.archived,
-        pr.role,
-        pr.position
-      FROM project_repositories pr
-      JOIN github_repositories gr ON gr.id = pr.repository_id
-      ORDER BY pr.position, gr.full_name
-    `
-  }
-
-  async setProjectRepositories(
-    projectId: string,
-    repositories: { repositoryId: string; role: string | null }[],
-  ): Promise<void> {
-    await this.sql.begin(async (transaction) => {
-      await transaction`DELETE FROM project_repositories WHERE project_id = ${projectId}`
-      for (const [position, repository] of repositories.entries()) {
-        await transaction`
-          INSERT INTO project_repositories (project_id, repository_id, role, position)
-          VALUES (${projectId}, ${repository.repositoryId}, ${repository.role}, ${position})
-        `
-      }
-    })
-  }
-
   async listProjectEnvironments(): Promise<ProjectEnvironmentRow[]> {
     return this.sql<ProjectEnvironmentRow[]>`
       SELECT pe.project_id::text AS "projectId", e.compose_project AS "composeProject", pe.source
@@ -707,7 +627,7 @@ export class DatabaseClient {
       this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM environment_settings WHERE environment_id = ${environment.id}`,
       this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM service_settings WHERE environment_id = ${environment.id}`,
       this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM project_environments WHERE environment_id = ${environment.id}`,
-      this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM issue_environments WHERE environment_id = ${environment.id}`,
+      this.sql<{ n: number }[]>`SELECT count(*)::int AS n FROM task_environments WHERE environment_id = ${environment.id}`,
     ])
     return {
       overrides: (settings[0]?.n ?? 0) + (services[0]?.n ?? 0),

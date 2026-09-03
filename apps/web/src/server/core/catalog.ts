@@ -1,17 +1,20 @@
 // Assemble a Project from the persisted grouping plus the live Environment
-// snapshot. See docs/adr/0031-projects-home-and-project.md.
+// snapshot and the host scan. See docs/adr/0031-projects-home-and-project.md.
 
 import { relativePathFromWorkingDir, resolveProjectPath } from 'portta-core'
+import type { PanelConfig } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import { resolveAdoptions, type ProjectCoordinates } from './adoption.ts'
+import { coordinateOf, loadScans, toRepository, type RepositoryScans } from './repositories.ts'
 import type { Database } from '../db/index.ts'
-import type { ProjectRecord, ProjectRepositoryRow } from '../db/client.ts'
+import type { ProjectRecord } from '../db/client.ts'
+import type { RepositoryRow } from '../db/repositories.ts'
 import type {
   Project,
   ProjectEnvironment,
-  ProjectGitHubRepository,
   ProjectLocation,
   ProjectSummary,
+  Repository,
 } from '../../shared/types.ts'
 
 /** The panel cannot stat the host: with a stored path it is managed, without one it is external. */
@@ -28,22 +31,9 @@ export function resolvedPathOf(projectsHome: string | null, relativePath: string
   }
 }
 
-export function toGitHubRepository(row: ProjectRepositoryRow): ProjectGitHubRepository {
-  return {
-    repositoryId: row.repositoryId,
-    fullName: row.fullName,
-    htmlUrl: row.htmlUrl,
-    defaultBranch: row.defaultBranch,
-    private: row.private,
-    archived: row.archived,
-    role: row.role,
-    position: row.position,
-  }
-}
-
 export function toProjectSummary(
   record: ProjectRecord,
-  githubCount: number,
+  repositoryCount: number,
   adopted: ProjectEnvironment[],
 ): ProjectSummary {
   return {
@@ -54,7 +44,7 @@ export function toProjectSummary(
     archived: record.archived,
     relativePath: record.relativePath,
     location: projectLocationOf(record.relativePath),
-    repositoryCount: githubCount,
+    repositoryCount,
     environmentCount: adopted.length,
     runningEnvironmentCount: adopted.filter((environment) => environment.running).length,
   }
@@ -62,7 +52,7 @@ export function toProjectSummary(
 
 export function toProject(
   record: ProjectRecord,
-  github: ProjectGitHubRepository[],
+  repositories: Repository[],
   adopted: ProjectEnvironment[],
   projectsHome: string | null,
 ): Project {
@@ -75,34 +65,61 @@ export function toProject(
     relativePath: record.relativePath,
     resolvedPath: resolvedPathOf(projectsHome, record.relativePath),
     location: projectLocationOf(record.relativePath),
-    repositories: [],
-    githubRepositories: github,
+    repositories,
+    githubRepositories: repositories.flatMap((repository) => (repository.github ? [repository.github] : [])),
     environments: adopted,
   }
 }
 
-export async function loadProjectCatalog(db: Database, snapshot: Snapshot, projectsHome: string | null) {
-  const [records, repositoryRows, manualLinks] = await Promise.all([
-    db.projects.list(),
-    db.projects.listRepositories(),
-    db.projects.listEnvironments(),
-  ])
+export interface ProjectCatalog {
+  records: ProjectRecord[]
+  repositoriesByProject: Map<string, Repository[]>
+  environments: Map<string, ProjectEnvironment[]>
+  projectsHome: string | null
+  scans: RepositoryScans
+}
 
-  const githubByProject = new Map<string, ProjectGitHubRepository[]>()
-  for (const row of repositoryRows) {
-    const list = githubByProject.get(row.projectId) ?? []
-    list.push(toGitHubRepository(row))
-    githubByProject.set(row.projectId, list)
-  }
-
-  const coordinates: ProjectCoordinates[] = records.map((record) => ({
+/** The coordinates adoption resolves against: names, remotes, paths and scan keys. */
+export function coordinatesOf(
+  record: ProjectRecord,
+  rows: readonly RepositoryRow[],
+  repositories: readonly Repository[],
+  projectsHome: string | null,
+): ProjectCoordinates {
+  const resolved = resolvedPathOf(projectsHome, record.relativePath)
+  return {
     id: record.id,
     slug: record.slug,
-    repositories: (githubByProject.get(record.id) ?? []).map((repository) => repository.fullName.toLowerCase()),
-  }))
+    repositories: rows.map(coordinateOf).filter((coordinate): coordinate is string => coordinate !== null),
+    paths: [resolved, ...repositories.map((repository) => repository.scanPath ?? repository.localPath)]
+      .filter((path): path is string => typeof path === 'string' && path !== ''),
+    scanKeys: repositories.map((repository) => repository.scanKey).filter((key): key is string => key !== null),
+  }
+}
+
+export async function loadProjectCatalog(db: Database, snapshot: Snapshot, config: Pick<PanelConfig, 'projectsHome' | 'gitDir' | 'gitStaleSeconds'>): Promise<ProjectCatalog> {
+  const [records, rows, manualLinks] = await Promise.all([
+    db.projects.list(),
+    db.repositories.list(),
+    db.projects.listEnvironments(),
+  ])
+  const projectsHome = config.projectsHome
+  const scans = loadScans(config as PanelConfig)
+
+  const rowsByProject = new Map<string, RepositoryRow[]>()
+  for (const row of rows) rowsByProject.set(row.projectId, [...(rowsByProject.get(row.projectId) ?? []), row])
+
+  const repositoriesByProject = new Map<string, Repository[]>()
+  for (const record of records) {
+    repositoriesByProject.set(record.id, (rowsByProject.get(record.id) ?? []).map((row) => toRepository(config as PanelConfig, row, scans)))
+  }
+
+  const coordinates = records.map((record) =>
+    coordinatesOf(record, rowsByProject.get(record.id) ?? [], repositoriesByProject.get(record.id) ?? [], projectsHome),
+  )
 
   const manual = new Map(manualLinks.map((row) => [row.composeProject, row.projectId]))
-  const adoptions = resolveAdoptions(snapshot.environments, coordinates, manual)
+  const adoptions = resolveAdoptions(snapshot.environments, coordinates, manual, { environmentKeys: scans.index?.environments ?? {} })
 
   const environments = new Map<string, ProjectEnvironment[]>()
   for (const environment of snapshot.environments) {
@@ -122,7 +139,7 @@ export async function loadProjectCatalog(db: Database, snapshot: Snapshot, proje
     environments.set(adoption.projectId, list)
   }
 
-  return { records, githubByProject, environments, projectsHome }
+  return { records, repositoriesByProject, environments, projectsHome, scans }
 }
 
 /** Safe backfill: only when working_dir is an unambiguous child of Projects Home. */

@@ -16,7 +16,7 @@ export function serviceRoutes(deps: AppDeps): Hono {
   // A "service" is a container that belongs to an integrated project. It is the
   // same object the Docker page shows, filtered to what the gateway manages.
   app.get('/services', documentRoute({
-    tag: 'Services', operationId: 'listServices', summary: 'List services in adopted projects', response: ServicesResponse,
+    tag: 'Services', operationId: 'listServices', capability: 'service:read', summary: 'List services in adopted projects', response: ServicesResponse,
     parameters: [{ name: 'project', in: 'query', required: false, description: 'Filter by COMPOSE_PROJECT_NAME.', schema: { type: 'string' } }],
     errors: [500, 502],
   }), async (c) => {
@@ -35,7 +35,7 @@ export function serviceRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/services/:id', documentRoute({
-    tag: 'Services', operationId: 'getService', summary: 'Get one service container', response: ContainerSummary,
+    tag: 'Services', operationId: 'getService', capability: 'service:read', summary: 'Get one service container', response: ContainerSummary,
     parameters: [containerIdParameter], errors: [404, 500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get()
@@ -44,7 +44,7 @@ export function serviceRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/services/:id/logs', documentRoute({
-    tag: 'Services', operationId: 'getServiceLogs', summary: 'Read recent service logs', response: LogsResponse,
+    tag: 'Services', operationId: 'getServiceLogs', capability: 'logs:read', summary: 'Read recent service logs', response: LogsResponse,
     parameters: [containerIdParameter, tailParameter], errors: [404, 500, 502],
   }), async (c) => c.json(await readLogs(deps, c.req.param('id'), c.req.query('tail'))))
 
@@ -54,7 +54,7 @@ export function serviceRoutes(deps: AppDeps): Hono {
    * `available: false` with the reason, and the rest of the panel is unaffected.
    */
   app.get('/services/:id/traefik', documentRoute({
-    tag: 'Services', operationId: 'getServiceTraefik', summary: "Get Traefik's verdict for a service", response: ServiceTraefik,
+    tag: 'Services', operationId: 'getServiceTraefik', capability: 'service:read', summary: "Get Traefik's verdict for a service", response: ServiceTraefik,
     parameters: [containerIdParameter], errors: [404, 500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get()

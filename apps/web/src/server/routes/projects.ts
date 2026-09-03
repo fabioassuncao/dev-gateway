@@ -6,9 +6,11 @@ import type { AppDeps } from './deps.ts'
 import { requireDatabase, type Database } from '../db/index.ts'
 import { OverrideRefused } from '../core/overrides.ts'
 import type { Snapshot } from '../core/inventory.ts'
-import { loadProjectCatalog, toProject, toProjectSummary } from '../core/catalog.ts'
+import { loadProjectCatalog, toProject, toProjectSummary, type ProjectCatalog } from '../core/catalog.ts'
 import { Project, ProjectSummary } from '../../shared/types.ts'
 import { documentRoute } from '../openapi.ts'
+import { recordActivity } from '../core/activity.ts'
+import { principalOf } from '../principal.ts'
 
 const slugParameter = {
   name: 'slug',
@@ -63,17 +65,6 @@ const PatchBody = z
   .strict()
   .meta({ ref: 'PatchProjectBody' })
 
-const RepositoriesBody = z
-  .object({
-    repositories: z
-      .array(
-        z.object({ fullName: z.string().min(1), role: z.string().max(32).nullable().optional() }).strict(),
-      )
-      .max(64),
-  })
-  .strict()
-  .meta({ ref: 'ProjectRepositoriesBody' })
-
 const EnvironmentsBody = z
   .object({ environments: z.array(z.string().min(1).max(255)).max(128) })
   .strict()
@@ -95,15 +86,15 @@ const Removal = z
  * half comes from the snapshot the panel already has, so a Project with
  * nothing up is a full answer rather than an empty one.
  */
-async function assemble(db: Database, snapshot: Snapshot, projectsHome: string | null) {
-  return loadProjectCatalog(db, snapshot, projectsHome)
+async function assemble(db: Database, snapshot: Snapshot, config: AppDeps['config']) {
+  return loadProjectCatalog(db, snapshot, config)
 }
 
-function summariesFrom(catalog: Awaited<ReturnType<typeof loadProjectCatalog>>) {
+function summariesFrom(catalog: ProjectCatalog) {
   return catalog.records.map((record) =>
     toProjectSummary(
       record,
-      (catalog.githubByProject.get(record.id) ?? []).length,
+      (catalog.repositoriesByProject.get(record.id) ?? []).length,
       catalog.environments.get(record.id) ?? [],
     ),
   )
@@ -124,18 +115,18 @@ export function projectRoutes(deps: AppDeps): Hono {
   const home = () => deps.config.projectsHome
 
   app.get('/projects', documentRoute({
-    tag: 'Projects', operationId: 'listProjects', summary: 'List Projects',
+    tag: 'Projects', operationId: 'listProjects', capability: 'project:read', summary: 'List Projects',
     response: ProjectsResponse,
     description: 'A Project is the product the operator recognises. It stays visible with nothing running. See ADR 0031.',
     errors: [500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const catalog = await assemble(db, await deps.cache.get(), home())
+    const catalog = await assemble(db, await deps.cache.get(), deps.config)
     return c.json({ projects: summariesFrom(catalog) })
   })
 
   app.post('/projects', documentRoute({
-    tag: 'Projects', operationId: 'createProject', summary: 'Create a Project',
+    tag: 'Projects', operationId: 'createProject', capability: 'project:write', summary: 'Create a Project',
     request: CreateBody, response: Project, status: 201,
     description: 'Persists the product. Nothing on this host is started or stopped. relativePath places it under Projects Home; files are never moved.',
     errors: [400, 403, 409, 500, 503],
@@ -148,28 +139,30 @@ export function projectRoutes(deps: AppDeps): Hono {
     const created = await refusedOnValidation(() =>
       db.projects.create({ ...body, description: body.description ?? null, relativePath: body.relativePath ?? null }),
     )
+    const principal = principalOf(c)
+    await recordActivity({ db, hub: deps.hub }, { kind: 'project.created', actor: principal.actor, actorKind: principal.actorKind, project: created.slug, projectId: created.id, summary: `Project ${created.name} created` })
     return c.json(toProject(created, [], [], home()), 201)
   })
 
   app.get('/projects/:slug', documentRoute({
-    tag: 'Projects', operationId: 'getProject', summary: 'Get one Project',
+    tag: 'Projects', operationId: 'getProject', capability: 'project:read', summary: 'Get one Project',
     response: Project, parameters: [slugParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
     const slug = c.req.param('slug')
     const record = await db.projects.find(slug)
     if (!record) throw new HTTPException(404, { message: `no project '${slug}'` })
-    const catalog = await assemble(db, await deps.cache.get(), home())
+    const catalog = await assemble(db, await deps.cache.get(), deps.config)
     return c.json(toProject(
       record,
-      catalog.githubByProject.get(record.id) ?? [],
+      catalog.repositoriesByProject.get(record.id) ?? [],
       catalog.environments.get(record.id) ?? [],
       home(),
     ))
   })
 
   app.patch('/projects/:slug', documentRoute({
-    tag: 'Projects', operationId: 'patchProject', summary: 'Rename, describe, place or archive a Project',
+    tag: 'Projects', operationId: 'patchProject', capability: 'project:write', summary: 'Rename, describe, place or archive a Project',
     request: PatchBody, response: ProjectSummary,
     parameters: [slugParameter], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -178,6 +171,8 @@ export function projectRoutes(deps: AppDeps): Hono {
     const patch = PatchBody.parse(await c.req.json())
     const updated = await refusedOnValidation(() => db.projects.update(slug, patch))
     if (!updated) throw new HTTPException(404, { message: `no project '${slug}'` })
+    const principal = principalOf(c)
+    await recordActivity({ db, hub: deps.hub }, { kind: 'project.updated', actor: principal.actor, actorKind: principal.actorKind, project: updated.slug, projectId: updated.id, summary: `Project ${updated.name} updated`, data: { fields: Object.keys(patch) } })
     return c.json(toProjectSummary(updated, 0, []))
   })
 
@@ -189,15 +184,18 @@ export function projectRoutes(deps: AppDeps): Hono {
    * changed and no repository is unlinked from GitHub.
    */
   app.delete('/projects/:slug', documentRoute({
-    tag: 'Projects', operationId: 'deleteProject', summary: 'Remove a Project grouping',
+    tag: 'Projects', operationId: 'deleteProject', capability: 'project:write', summary: 'Remove a Project grouping',
     description: 'Deletes the grouping only. No container, volume, environment or repository is touched.',
     response: Removal, parameters: [slugParameter], errors: [403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
     const slug = c.req.param('slug')
-    if (!(await db.projects.remove(slug))) {
+    const existing = await db.projects.find(slug)
+    if (!existing || !(await db.projects.remove(slug))) {
       throw new HTTPException(404, { message: `no project '${slug}'` })
     }
+    const principal = principalOf(c)
+    await recordActivity({ db, hub: deps.hub }, { kind: 'project.deleted', actor: principal.actor, actorKind: principal.actorKind, project: slug, summary: `Project ${existing.name} removed from the panel`, data: { slug } })
     return c.json({
       ok: true,
       removed: slug,
@@ -205,43 +203,8 @@ export function projectRoutes(deps: AppDeps): Hono {
     })
   })
 
-  app.put('/projects/:slug/repositories', documentRoute({
-    tag: 'Projects', operationId: 'setProjectRepositories',
-    summary: 'Set the GitHub repositories a Project owns',
-    description: 'A repository the GitHub App installation did not grant is refused; the projection is the authorisation boundary.',
-    request: RepositoriesBody, response: Project,
-    parameters: [slugParameter], errors: [400, 403, 404, 500, 503],
-  }), async (c) => {
-    const db = requireDatabase(deps.db)
-    const slug = c.req.param('slug')
-    const record = await db.projects.find(slug)
-    if (!record) throw new HTTPException(404, { message: `no project '${slug}'` })
-
-    const body = RepositoriesBody.parse(await c.req.json())
-    const links: { repositoryId: string; role: string | null }[] = []
-    for (const wanted of body.repositories) {
-      const known = await db.github.findRepository(wanted.fullName)
-      if (!known) {
-        throw new OverrideRefused(
-          `${wanted.fullName} is not a repository this gateway was granted`,
-          'install the GitHub App on it, then run a sync; see docs/github.md',
-        )
-      }
-      links.push({ repositoryId: known.id, role: wanted.role ?? null })
-    }
-    await db.projects.setRepositories(record.id, links)
-
-    const catalog = await assemble(db, await deps.cache.get(), home())
-    return c.json(toProject(
-      record,
-      catalog.githubByProject.get(record.id) ?? [],
-      catalog.environments.get(record.id) ?? [],
-      home(),
-    ))
-  })
-
   app.put('/projects/:slug/environments', documentRoute({
-    tag: 'Projects', operationId: 'setProjectEnvironments',
+    tag: 'Projects', operationId: 'setProjectEnvironments', capability: 'project:write',
     summary: 'Set the environments a Project adopts by hand',
     description: 'A manual mapping always wins over portta.project and over a repository match.',
     request: EnvironmentsBody, response: Project,
@@ -260,11 +223,13 @@ export function projectRoutes(deps: AppDeps): Hono {
       }
     }
     await db.projects.setEnvironments(record.id, body.environments)
+    const principal = principalOf(c)
+    await recordActivity({ db, hub: deps.hub }, { kind: 'environment.adopted', actor: principal.actor, actorKind: principal.actorKind, project: record.slug, projectId: record.id, summary: `${record.name} adopts ${body.environments.join(', ') || 'no environment'} by hand`, data: { environments: body.environments } })
 
-    const catalog = await assemble(db, await deps.cache.get(true), home())
+    const catalog = await assemble(db, await deps.cache.get(true), deps.config)
     return c.json(toProject(
       record,
-      catalog.githubByProject.get(record.id) ?? [],
+      catalog.repositoriesByProject.get(record.id) ?? [],
       catalog.environments.get(record.id) ?? [],
       home(),
     ))

@@ -43,7 +43,7 @@ type SdkToolResult = Awaited<ReturnType<Parameters<McpServer['registerTool']>[2]
 const asSdkResult = (result: Promise<ToolResult>) => result as Promise<SdkToolResult>
 
 export interface ApiCaller {
-  (method: 'GET' | 'POST', path: string, body?: unknown): Promise<ToolResult>
+  (method: 'GET' | 'POST' | 'PATCH', path: string, body?: unknown): Promise<ToolResult>
 }
 
 export function createCaller(url: string, headers: Record<string, string>, timeoutMs = 15_000): ApiCaller {
@@ -62,73 +62,196 @@ export function createCaller(url: string, headers: Record<string, string>, timeo
   }
 }
 
-/** `owner/repo#number` has to survive a path segment. */
+/** `owner/repo#number` and a slug both have to survive a path segment. */
 function ref(value: string): string {
   return encodeURIComponent(value)
 }
 
-const REF = z.string().min(1).describe('The task, as `owner/repo#number` or as its projected id.')
-const WORKSPACE = z.string().min(1).describe('The workspace slug.')
+function search(params: Record<string, string | number | boolean | undefined>): string {
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') query.set(key, String(value))
+  const text = query.toString()
+  return text === '' ? '' : `?${text}`
+}
+
+const REF = z.string().min(1).describe('The task: its id, `#id`, or `owner/repo#number` through its GitHub binding.')
+const PROJECT = z.string().min(1).describe('The Project slug.')
+const STATUS = z.enum(['backlog', 'ready', 'in_progress', 'review', 'blocked', 'done'])
 
 /**
- * One tool per verb, named for what an agent asks. Registered here so the list
- * can be asserted without starting a transport.
+ * One tool per endpoint, named for what an agent asks. Registered here so the
+ * list can be asserted without starting a transport.
  */
 export function registerTools(server: McpServer, call: ApiCaller): void {
+  // --- read: projects, repositories, environments, services, logs, resources
+  server.registerTool('list_projects', {
+    title: 'List Projects',
+    description: 'Every Project on this Node with its repositories, tasks, environments and health, in one answer.',
+    inputSchema: {},
+  }, async () => asSdkResult(call('GET', '/projects')))
+
+  server.registerTool('get_project', {
+    title: 'Get one Project',
+    description: 'Repositories with their git state, environments with their services, and the counts that matter.',
+    inputSchema: { project: PROJECT },
+  }, async ({ project }) => asSdkResult(call('GET', `/projects/${ref(project)}`)))
+
+  server.registerTool('get_context', {
+    title: 'The Development Context of a Project',
+    description: 'What to read before working: the Project, its repositories and branches, the task (when given), the environments and how to reach them, and the instruction files that apply.',
+    inputSchema: { project: PROJECT, task: REF.optional() },
+  }, async ({ project, task }) => asSdkResult(call('GET', `/projects/${ref(project)}/context${search({ task })}`)))
+
+  server.registerTool('list_repositories', {
+    title: "A Project's repositories",
+    inputSchema: { project: PROJECT },
+  }, async ({ project }) => asSdkResult(call('GET', `/projects/${ref(project)}/repositories`)))
+
+  server.registerTool('get_repository_git', {
+    title: 'Git state of a repository',
+    description: 'Branch, HEAD, dirty counts, ahead/behind, the last commits and the instruction files, as the host collected them.',
+    inputSchema: { repository: z.string().min(1).describe('The repository id.') },
+  }, async ({ repository }) => asSdkResult(call('GET', `/repositories/${ref(repository)}/git`)))
+
+  server.registerTool('list_environments', {
+    title: 'Environments running on this Node',
+    inputSchema: { all: z.boolean().optional().describe('Include environments with nothing on the gateway.') },
+  }, async ({ all }) => asSdkResult(call('GET', `/environments${search({ all })}`)))
+
+  server.registerTool('get_environment', {
+    title: 'One environment',
+    description: 'Its services, URLs, health, the task it runs for, and whether it can be operated.',
+    inputSchema: { environment: z.string().min(1).describe('COMPOSE_PROJECT_NAME') },
+  }, async ({ environment }) => asSdkResult(call('GET', `/environments/${ref(environment)}`)))
+
+  server.registerTool('list_services', {
+    title: "An environment's services",
+    description: 'State, health, endpoints, resources and container per service.',
+    inputSchema: { environment: z.string().min(1) },
+  }, async ({ environment }) => asSdkResult(call('GET', `/environments/${ref(environment)}/services`)))
+
+  server.registerTool('get_logs', {
+    title: 'Logs of an environment, or of one service in it',
+    inputSchema: { environment: z.string().min(1), service: z.string().optional(), tail: z.number().int().min(1).max(2000).optional() },
+  }, async ({ environment, service, tail }) => asSdkResult(call('GET', `/environments/${ref(environment)}/logs${search({ service, tail })}`)))
+
+  server.registerTool('get_resources', {
+    title: 'Host resources, by Project',
+    description: 'CPU, memory and storage of this machine, and which Project consumes what.',
+    inputSchema: { project: PROJECT.optional() },
+  }, async ({ project }) => asSdkResult(call('GET', project ? `/projects/${ref(project)}/resources` : '/metrics/current')))
+
+  server.registerTool('list_activity', {
+    title: 'What happened',
+    description: 'Tasks moved, sessions started and ended, commits landed, environments started and stopped. Newest first.',
+    inputSchema: { project: PROJECT.optional(), kind: z.string().optional().describe('Comma-separated event kinds.'), limit: z.number().int().min(1).max(500).optional() },
+  }, async ({ project, kind, limit }) => asSdkResult(call('GET', `${project ? `/projects/${ref(project)}/activity` : '/activity'}${search({ kind, limit })}`)))
+
+  // --- tasks
   server.registerTool('list_tasks', {
     title: 'List tasks',
-    description: "Every task in a workspace, from the projection. Answers while GitHub is unreachable; each row carries syncedAt and a staleness flag.",
-    inputSchema: { workspace: WORKSPACE },
-  }, async ({ workspace }) => asSdkResult(call('GET', `/workspaces/${ref(workspace)}/tasks`)))
+    description: "A Project's tasks. Local-first: they exist with or without GitHub; a bound issue is shown on the task.",
+    inputSchema: { project: PROJECT, status: z.string().optional().describe('Comma-separated statuses.'), open: z.boolean().optional() },
+  }, async ({ project, status, open }) => asSdkResult(call('GET', `/projects/${ref(project)}/tasks${search({ status, open })}`)))
 
   server.registerTool('next_task', {
     title: 'The task to do next',
-    description: 'The highest-priority ready task that is unblocked by its sub-issues and not assigned to somebody else. Returns null when there is nothing to do, which is an answer rather than an error.',
-    inputSchema: { workspace: WORKSPACE },
-  }, async ({ workspace }) => asSdkResult(call('GET', `/workspaces/${ref(workspace)}/tasks/next`)))
+    description: 'The highest-priority ready task that is unblocked by its subtasks and not assigned to somebody else. Returns null when there is nothing to do, which is an answer rather than an error.',
+    inputSchema: { project: PROJECT },
+  }, async ({ project }) => asSdkResult(call('GET', `/projects/${ref(project)}/tasks/next`)))
 
   server.registerTool('get_task', {
     title: 'Get one task',
-    description: 'One task with its sub-issue links and the environments it is being worked in.',
+    description: 'With its description, notes, subtasks, environments and GitHub binding.',
     inputSchema: { task: REF },
   }, async ({ task }) => asSdkResult(call('GET', `/tasks/${ref(task)}`)))
 
   server.registerTool('get_subtasks', {
-    title: 'The sub-issue graph under a task',
+    title: 'The subtask tree under a task',
     inputSchema: { task: REF },
   }, async ({ task }) => asSdkResult(call('GET', `/tasks/${ref(task)}/subtasks`)))
 
+  server.registerTool('create_task', {
+    title: 'Create a task',
+    description: 'Local, immediately. Give parentId to make it a subtask.',
+    inputSchema: {
+      project: PROJECT, title: z.string().min(1), description: z.string().optional(), status: STATUS.optional(),
+      priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(), parentId: z.string().optional(), repositoryId: z.string().optional(),
+      environment: z.string().optional(), labels: z.array(z.string()).optional(),
+    },
+  }, async ({ project, ...body }) => asSdkResult(call('POST', `/projects/${ref(project)}/tasks`, body)))
+
   server.registerTool('start_task', {
     title: 'Take a task',
-    description: 'Moves it to in_progress and assigns you, in one confirmed write, so a task is never half-taken.',
+    description: 'Moves it to in_progress and assigns you, in one write, so a task is never half-taken.',
     inputSchema: { task: REF, assign: z.boolean().optional().describe('Assign the actor. Default true.') },
   }, async ({ task, assign }) => asSdkResult(call('POST', `/tasks/${ref(task)}/start`, assign === undefined ? {} : { assign })))
 
   server.registerTool('set_task_status', {
-    title: 'Move a task to one workflow status',
-    inputSchema: {
-      task: REF,
-      status: z.enum(['backlog', 'ready', 'in_progress', 'review', 'blocked', 'done']),
-    },
+    title: 'Move a task to one status',
+    inputSchema: { task: REF, status: STATUS },
   }, async ({ task, status }) => asSdkResult(call('POST', `/tasks/${ref(task)}/status`, { status })))
 
+  server.registerTool('add_task_note', {
+    title: 'Add a note to a task',
+    description: 'Local; never reaches GitHub. Use it to leave what you found, what you did, and what is left.',
+    inputSchema: { task: REF, body: z.string().min(1) },
+  }, async ({ task, body }) => asSdkResult(call('POST', `/tasks/${ref(task)}/notes`, { body })))
+
   server.registerTool('comment_task', {
-    title: 'Comment on a task',
-    description: 'Posts straight to GitHub and returns what GitHub returned. Comments are never projected, so reading a discussion is a link to GitHub.',
+    title: 'Comment on the bound GitHub issue',
+    description: 'Posts straight to GitHub and returns what GitHub returned. Only for a task bound to an issue.',
     inputSchema: { task: REF, body: z.string().min(1).describe('Markdown, as GitHub renders it.') },
   }, async ({ task, body }) => asSdkResult(call('POST', `/tasks/${ref(task)}/comments`, { body })))
 
   server.registerTool('finish_task', {
     title: 'Finish a task',
-    description: 'Moves it to done and, when close is true, closes the issue.',
+    description: 'Moves it to done and, when close is true, closes the bound issue.',
     inputSchema: { task: REF, close: z.boolean().optional().describe('Close the issue as well. Default false.') },
   }, async ({ task, close }) => asSdkResult(call('POST', `/tasks/${ref(task)}/finish`, close === undefined ? {} : { close })))
+
+  server.registerTool('link_task', {
+    title: 'Bind a task to a projected GitHub issue',
+    inputSchema: { task: REF, issue: z.string().min(3).describe('owner/repo#number') },
+  }, async ({ task, issue }) => asSdkResult(call('POST', `/tasks/${ref(task)}/github/link`, { issue })))
+
+  // --- sessions
+  server.registerTool('start_session', {
+    title: 'Say that you are working',
+    description: 'Start a development session on a Project, optionally on a task, a repository and an environment. End it with end_session.',
+    inputSchema: { project: PROJECT, taskId: z.string().optional(), repositoryId: z.string().optional(), environment: z.string().optional(), summary: z.string().optional() },
+  }, async ({ project, ...body }) => asSdkResult(call('POST', `/projects/${ref(project)}/sessions`, body)))
+
+  server.registerTool('end_session', {
+    title: 'Say that you are done',
+    inputSchema: { session: z.string().min(1), summary: z.string().optional() },
+  }, async ({ session, summary }) => asSdkResult(call('PATCH', `/sessions/${ref(session)}`, { status: 'ended', ...(summary === undefined ? {} : { summary }) })))
+
+  // --- operate (gated by capability on the panel, not here)
+  server.registerTool('start_environment', {
+    title: 'Start an environment',
+    inputSchema: { environment: z.string().min(1) },
+  }, async ({ environment }) => asSdkResult(call('POST', `/environments/${ref(environment)}/actions/start`)))
+
+  server.registerTool('stop_environment', {
+    title: 'Stop an environment',
+    inputSchema: { environment: z.string().min(1) },
+  }, async ({ environment }) => asSdkResult(call('POST', `/environments/${ref(environment)}/actions/stop`)))
+
+  server.registerTool('restart_service', {
+    title: 'Restart one service of an environment',
+    inputSchema: { environment: z.string().min(1), service: z.string().min(1) },
+  }, async ({ environment, service }) => asSdkResult(call('POST', `/environments/${ref(environment)}/services/${ref(service)}/actions/restart`)))
 }
 
 /** The tool names, in the order they are registered. Asserted by a test. */
 export const TOOL_NAMES = [
-  'list_tasks', 'next_task', 'get_task', 'get_subtasks',
-  'start_task', 'set_task_status', 'comment_task', 'finish_task',
+  'list_projects', 'get_project', 'get_context', 'list_repositories', 'get_repository_git',
+  'list_environments', 'get_environment', 'list_services', 'get_logs', 'get_resources', 'list_activity',
+  'list_tasks', 'next_task', 'get_task', 'get_subtasks', 'create_task', 'start_task', 'set_task_status',
+  'add_task_note', 'comment_task', 'finish_task', 'link_task',
+  'start_session', 'end_session',
+  'start_environment', 'stop_environment', 'restart_service',
 ] as const
 
 export interface McpOptions {

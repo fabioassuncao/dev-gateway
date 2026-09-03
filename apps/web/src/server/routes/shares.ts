@@ -36,7 +36,7 @@ export function shareRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
   app.get('/shares', documentRoute({
-    tag: 'Shares', operationId: 'listShares', summary: 'List temporary service shares', response: ShareView,
+    tag: 'Shares', operationId: 'listShares', capability: 'service:read', summary: 'List temporary service shares', response: ShareView,
     errors: [500],
   }), async (c) => {
     const snapshot = await deps.cache.get()
@@ -55,7 +55,7 @@ export function shareRoutes(deps: AppDeps): Hono {
    * response and nowhere else, ever.
    */
   app.post('/services/:id/share', documentRoute({
-    tag: 'Shares', operationId: 'createShare', summary: 'Create an expiring route for one service',
+    tag: 'Shares', operationId: 'createShare', capability: 'access:write', summary: 'Create an expiring route for one service',
     description: 'The generated password appears in this response once; only its hash is stored.',
     response: CreatedShareResponse, status: 201, request: createBody, parameters: [containerIdParameter],
     errors: [400, 403, 404, 409, 500],
@@ -84,7 +84,7 @@ export function shareRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/shares/:id/regenerate', documentRoute({
-    tag: 'Shares', operationId: 'regenerateShare', summary: 'Replace a protected share password',
+    tag: 'Shares', operationId: 'regenerateShare', capability: 'access:write', summary: 'Replace a protected share password',
     response: CreatedShareResponse, parameters: [shareIdParameter], errors: [400, 403, 404, 500],
   }), async (c) => {
     const snapshot = await deps.cache.get()
@@ -98,7 +98,7 @@ export function shareRoutes(deps: AppDeps): Hono {
   })
 
   app.delete('/shares/:id', documentRoute({
-    tag: 'Shares', operationId: 'revokeShare', summary: 'Revoke a temporary share',
+    tag: 'Shares', operationId: 'revokeShare', capability: 'access:write', summary: 'Revoke a temporary share',
     response: RevokeShareResponse, parameters: [shareIdParameter], errors: [400, 403, 404, 500],
   }), (c) => {
     revokeShare(deps.config, c.req.param('id'))

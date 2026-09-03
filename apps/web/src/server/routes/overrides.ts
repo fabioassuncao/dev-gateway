@@ -88,7 +88,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
   }
 
   app.get('/environments/:project/settings', documentRoute({
-    tag: 'Environments', operationId: 'getEnvironmentSettings', summary: 'Read an environment\'s overrides',
+    tag: 'Environments', operationId: 'getEnvironmentSettings', capability: 'environment:read', summary: 'Read an environment\'s overrides',
     response: EnvironmentOverrides, parameters: [projectParameter], errors: [404, 500, 503],
   }), async (c) => {
     const { db, record } = await projectRecord(c.req.param('project'))
@@ -101,7 +101,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
   })
 
   app.put('/environments/:project/settings', documentRoute({
-    tag: 'Environments', operationId: 'setEnvironmentSettings', summary: 'Set or clear an environment\'s overrides',
+    tag: 'Environments', operationId: 'setEnvironmentSettings', capability: 'environment:operate', summary: 'Set or clear an environment\'s overrides',
     description: 'Presentation only: nothing here changes routing, and nothing is written inside the project.',
     request: EnvironmentSettingsBody, response: EnvironmentOverrides,
     parameters: [projectParameter], errors: [400, 403, 404, 500, 503],
@@ -124,7 +124,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
   })
 
   app.delete('/environments/:project/settings', documentRoute({
-    tag: 'Environments', operationId: 'clearEnvironmentSettings', summary: 'Remove every override on an environment',
+    tag: 'Environments', operationId: 'clearEnvironmentSettings', capability: 'environment:operate', summary: 'Remove every override on an environment',
     response: z.object({ ok: z.boolean(), cleared: z.array(z.string()) }).strict().meta({ ref: 'ClearedSettings' }),
     parameters: [projectParameter], errors: [403, 404, 500, 503],
   }), async (c) => {
@@ -140,7 +140,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/environments/:project/services/:service/overrides', documentRoute({
-    tag: 'Environments', operationId: 'getServiceOverrides', summary: 'Read one service\'s overrides',
+    tag: 'Environments', operationId: 'getServiceOverrides', capability: 'environment:read', summary: 'Read one service\'s overrides',
     response: ServiceOverrides, parameters: [projectParameter, serviceParameter], errors: [404, 500, 503],
   }), async (c) => {
     const { db, record } = await projectRecord(c.req.param('project'))
@@ -154,7 +154,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
   })
 
   app.put('/environments/:project/services/:service/note', documentRoute({
-    tag: 'Environments', operationId: 'setServiceNote', summary: 'Set or clear a note on a service',
+    tag: 'Environments', operationId: 'setServiceNote', capability: 'environment:operate', summary: 'Set or clear a note on a service',
     request: z.object({ note: z.string().max(2000).nullable() }).strict().meta({ ref: 'ServiceNoteBody' }),
     response: ServiceOverrides, parameters: [projectParameter, serviceParameter],
     errors: [400, 403, 404, 500, 503],
@@ -176,7 +176,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
    * database and Traefik cannot end up disagreeing about what answers.
    */
   app.put('/environments/:project/services/:service/alias', documentRoute({
-    tag: 'Environments', operationId: 'setServiceAlias', summary: 'Route an additional hostname to a service',
+    tag: 'Environments', operationId: 'setServiceAlias', capability: 'environment:operate', summary: 'Route an additional hostname to a service',
     description:
       'Additive: the project\'s own hostname keeps working beside the alias. Refused before any write when the hostname collides, sits outside a served domain, or has no unambiguous HTTP port.',
     request: AliasBody, response: AliasResult,
@@ -222,7 +222,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
   })
 
   app.delete('/environments/:project/services/:service/alias', documentRoute({
-    tag: 'Environments', operationId: 'clearServiceAlias', summary: 'Remove a hostname alias',
+    tag: 'Environments', operationId: 'clearServiceAlias', capability: 'environment:operate', summary: 'Remove a hostname alias',
     response: z.object({ ok: z.boolean(), removed: z.string().nullable() }).strict().meta({ ref: 'AliasRemoval' }),
     parameters: [projectParameter, serviceParameter], errors: [403, 404, 500, 503],
   }), async (c) => {

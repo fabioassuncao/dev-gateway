@@ -31,7 +31,7 @@ export function accessRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
   app.get('/access', documentRoute({
-    tag: 'Access', operationId: 'getAccess', summary: 'List private TCP services and temporary bridges',
+    tag: 'Access', operationId: 'getAccess', capability: 'service:read', summary: 'List private TCP services and temporary bridges',
     response: AccessView, errors: [500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get()
@@ -47,7 +47,7 @@ export function accessRoutes(deps: AppDeps): Hono {
 
   app.get('/access/services/:project/:service/connection', documentRoute({
     tag: 'Access',
-    operationId: 'getServiceConnection',
+    operationId: 'getServiceConnection', capability: 'access:open',
     summary: 'Get every address a datastore has, and a connection string with credentials when they can be discovered',
     description:
       'The only route that returns a discovered password. The value is read from the container environment for this request, is not cached, and must not appear in an example, a log or a database row.',
@@ -73,7 +73,7 @@ export function accessRoutes(deps: AppDeps): Hono {
   // Opens the same loopback bridge `portta access open` creates. The
   // panel offers no way to bind it anywhere but 127.0.0.1.
   app.post('/access', documentRoute({
-    tag: 'Access', operationId: 'openAccess', summary: 'Open a loopback bridge to a TCP service',
+    tag: 'Access', operationId: 'openAccess', capability: 'access:open', summary: 'Open a loopback bridge to a TCP service',
     description: 'The panel always binds the bridge to 127.0.0.1.', response: OpenBridgeResponse,
     status: 201, request: openBody, errors: [400, 403, 404, 409, 500, 502],
   }), async (c) => {
@@ -95,7 +95,7 @@ export function accessRoutes(deps: AppDeps): Hono {
   })
 
   app.delete('/access/:id', documentRoute({
-    tag: 'Access', operationId: 'closeAccess', summary: 'Close a gateway-owned bridge',
+    tag: 'Access', operationId: 'closeAccess', capability: 'access:open', summary: 'Close a gateway-owned bridge',
     response: CloseBridgeResponse, parameters: [bridgeIdParameter], errors: [400, 403, 404, 500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get(true)

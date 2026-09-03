@@ -12,7 +12,7 @@ export function networkRoutes(deps: AppDeps): Hono {
   // read from Docker labels and the resolved configuration, so it matches what
   // Traefik is actually serving.
   app.get('/network', documentRoute({
-    tag: 'Network', operationId: 'getNetwork', summary: 'Get routes, networks, DNS, TLS and VPN state',
+    tag: 'Network', operationId: 'getNetwork', capability: 'gateway:read', summary: 'Get routes, networks, DNS, TLS and VPN state',
     response: NetworkView, errors: [500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get()

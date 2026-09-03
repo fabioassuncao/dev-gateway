@@ -27,7 +27,7 @@ export function dockerRoutes(deps: AppDeps): Hono {
   // Every container on the host, gateway-owned or not. The classification
   // travels with each row so the UI never has to guess.
   app.get('/docker/containers', documentRoute({
-    tag: 'Docker', operationId: 'listContainers', summary: 'List every container on the host',
+    tag: 'Docker', operationId: 'listContainers', capability: 'docker:read', summary: 'List every container on the host',
     response: ContainersResponse,
     parameters: [
       { name: 'ownership', in: 'query', required: false, description: 'Filter by gateway ownership class.', schema: { type: 'string', enum: ownershipFilter.options, default: 'all' } },
@@ -64,7 +64,7 @@ export function dockerRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/docker/containers/:id', documentRoute({
-    tag: 'Docker', operationId: 'getContainer', summary: 'Get one container', response: ContainerSummary,
+    tag: 'Docker', operationId: 'getContainer', capability: 'docker:read', summary: 'Get one container', response: ContainerSummary,
     parameters: [containerIdParameter], errors: [404, 500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get()
@@ -72,7 +72,7 @@ export function dockerRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/docker/containers/:id/logs', documentRoute({
-    tag: 'Docker', operationId: 'getContainerLogs', summary: 'Read recent container logs', response: LogsResponse,
+    tag: 'Docker', operationId: 'getContainerLogs', capability: 'logs:read', summary: 'Read recent container logs', response: LogsResponse,
     parameters: [containerIdParameter, tailParameter], errors: [404, 500, 502],
   }), async (c) =>
     c.json(await readLogs(deps, c.req.param('id'), c.req.query('tail'))),
@@ -80,7 +80,7 @@ export function dockerRoutes(deps: AppDeps): Hono {
 
   // Optional and cheap: one shot, never a stream. Nothing else depends on it.
   app.get('/docker/containers/:id/stats', documentRoute({
-    tag: 'Docker', operationId: 'getContainerStats', summary: 'Get a one-shot resource sample', response: StatsResponse,
+    tag: 'Docker', operationId: 'getContainerStats', capability: 'docker:read', summary: 'Get a one-shot resource sample', response: StatsResponse,
     parameters: [containerIdParameter], errors: [404, 500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get()
@@ -108,7 +108,7 @@ export function dockerRoutes(deps: AppDeps): Hono {
 
   // What a removal would take with it, so the confirmation can be specific.
   app.get('/docker/containers/:id/removal-preview', documentRoute({
-    tag: 'Docker', operationId: 'previewContainerRemoval', summary: 'Preview a bounded container removal',
+    tag: 'Docker', operationId: 'previewContainerRemoval', capability: 'docker:read', summary: 'Preview a bounded container removal',
     response: RemovalPreview, parameters: [containerIdParameter], errors: [400, 404, 500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get()
@@ -117,7 +117,7 @@ export function dockerRoutes(deps: AppDeps): Hono {
 
   for (const action of ['start', 'stop', 'restart'] as const) {
     app.post(`/docker/containers/:id/${action}`, documentRoute({
-      tag: 'Docker', operationId: `${action}Container`, summary: `${action[0]?.toUpperCase()}${action.slice(1)} a container`,
+      tag: 'Docker', operationId: `${action}Container`, capability: 'docker:operate', summary: `${action[0]?.toUpperCase()}${action.slice(1)} a container`,
       response: ActionResult, parameters: [containerIdParameter], errors: [400, 403, 404, 409, 500, 502],
     }), async (c) => {
       const snapshot = await deps.cache.get()
@@ -133,7 +133,7 @@ export function dockerRoutes(deps: AppDeps): Hono {
   }
 
   app.delete('/docker/containers/:id', documentRoute({
-    tag: 'Docker', operationId: 'removeContainer', summary: 'Remove a gateway-allowed container only',
+    tag: 'Docker', operationId: 'removeContainer', capability: 'docker:destroy', summary: 'Remove a gateway-allowed container only',
     description: 'Volumes, networks, links and images are always kept.', response: ActionResult,
     request: removeBody, parameters: [containerIdParameter], errors: [400, 403, 404, 409, 500, 502],
   }), async (c) => {
@@ -159,7 +159,7 @@ export function dockerRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/docker/host', documentRoute({
-    tag: 'Docker', operationId: 'getDockerHost', summary: 'Get Docker Engine and host summary', response: DockerHost,
+    tag: 'Docker', operationId: 'getDockerHost', capability: 'docker:read', summary: 'Get Docker Engine and host summary', response: DockerHost,
     errors: [500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get()

@@ -5,7 +5,8 @@ import { HTTPException } from 'hono/http-exception'
 import { readProjectGit } from '../core/git.ts'
 import { mergeLogSources, type LogSourceLines } from '../core/projectlogs.ts'
 import { applyOverrides, loadOverrides } from '../core/overrides.ts'
-import { issueForEnvironment, resolveLinks } from '../core/issue-environments.ts'
+import { issueForEnvironment, issueLinksFrom, taskForEnvironment } from '../core/issue-environments.ts'
+import { loadTaskLinks } from '../core/task-environments.ts'
 import type { Snapshot } from '../core/inventory.ts'
 import {
   Environment,
@@ -21,6 +22,9 @@ import {
 import { runProjectAction } from '../core/actions.ts'
 import { projectRemovalPreview, rebuildProject, removeProject } from '../core/operations.ts'
 import { documentRoute, projectParameter, tailParameter } from '../openapi.ts'
+import { recordActivity } from '../core/activity.ts'
+import { principalOf, type Principal } from '../principal.ts'
+import type { ActivityKind } from 'portta-core'
 
 export const EnvironmentsResponse = z.object({ environments: z.array(Environment) }).strict().meta({ ref: 'EnvironmentsResponse' })
 
@@ -76,26 +80,39 @@ async function withForgeFromApp(deps: AppDeps, git: ProjectGitView): Promise<Pro
 }
 
 /**
- * The issue this environment is running for, when the panel can tell.
+ * The task this environment is running for, when the panel can tell, and the
+ * GitHub issue that task is bound to, for callers that still read `issue`.
  *
- * Every step degrades to `null`: no database, no projection, no match. Nothing
- * here is required for a project page to render.
+ * Every step degrades to `null`: no database, no tasks, no match. Nothing
+ * here is required for an environment page to render.
  */
-async function issueOf(deps: AppDeps, snapshot: Snapshot, project: Environment) {
-  if (!deps.db?.status().available) return null
-  const issues = await deps.db.github.listIssues({})
-  if (issues.length === 0) return null
+async function taskOf(deps: AppDeps, snapshot: Snapshot, project: Environment) {
+  if (!deps.db?.status().available) return { task: null, issue: null }
+  const db = deps.db
+  const tasks = await db.tasks.list({ limit: 2000 })
+  if (tasks.length === 0) return { task: null, issue: null }
+  const links = await loadTaskLinks(deps.config, db, snapshot, tasks)
+  const bindings = await db.tasks.listLinks()
+  const issues = bindings.length > 0 ? await db.github.listIssues({}) : []
+  const issueLinks = issueLinksFrom(links, bindings)
+  const slugById = new Map((await db.projects.list()).map((record) => [record.id, record.slug]))
+  return {
+    task: taskForEnvironment(project, tasks, slugById, links, issueLinks, issues),
+    issue: issueForEnvironment(project, issues, issueLinks),
+  }
+}
 
-  const branches = new Map<string, string | null>(
-    snapshot.environments.map((item) => [item.name, readProjectGit(deps.config, item.name).git?.branch ?? null]),
-  )
-  const manual = (await deps.db.github.listIssueEnvironments()).map((row) => ({
-    issueId: row.issueId,
-    composeProject: row.composeProject,
-    branch: row.branch,
-  }))
-  const links = resolveLinks(snapshot, issues, manual, branches)
-  return issueForEnvironment(project, issues, links)
+/** One activity line per lifecycle operation, attributed to the Project that adopted the environment when one did. */
+async function recordEnvironmentActivity(deps: AppDeps, name: string, principal: Principal, kind: ActivityKind, summary: string): Promise<void> {
+  const db = deps.db
+  if (!db?.status().available) return
+  const environment = await db.environments.find(name).catch(() => null)
+  const adoption = environment ? (await db.projects.listEnvironments().catch(() => [])).find((row) => row.composeProject === environment.composeProject) : undefined
+  const slug = adoption ? (await db.projects.list().catch(() => [])).find((project) => project.id === adoption.projectId)?.slug ?? null : null
+  await recordActivity({ db, hub: deps.hub }, {
+    kind, actor: principal.actor, actorKind: principal.actorKind, project: slug,
+    projectId: adoption?.projectId ?? null, environmentId: environment?.id ?? null, summary, data: { environment: name },
+  })
 }
 
 export function environmentRoutes(deps: AppDeps): Hono {
@@ -105,7 +122,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
   // gateway. Everything else lives on the Docker page, where it
   // is clearly labelled as being outside the gateway.
   app.get('/environments', documentRoute({
-    tag: 'Environments', operationId: 'listEnvironments', summary: 'List Compose environments', response: EnvironmentsResponse,
+    tag: 'Environments', operationId: 'listEnvironments', capability: 'environment:read', summary: 'List Compose environments', response: EnvironmentsResponse,
     parameters: [{
       name: 'all', in: 'query', required: false,
       description: 'Include environments that have not adopted the gateway.',
@@ -122,7 +139,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/environments/:project', documentRoute({
-    tag: 'Environments', operationId: 'getEnvironment', summary: 'Get one running environment', response: Environment,
+    tag: 'Environments', operationId: 'getEnvironment', capability: 'environment:read', summary: 'Get one running environment', response: Environment,
     parameters: [projectParameter], errors: [404, 500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get()
@@ -132,8 +149,8 @@ export function environmentRoutes(deps: AppDeps): Hono {
     const decorated = applyOverrides([project], await loadOverrides(deps.db))[0]!
     // Additive, and nullable: a panel with no App, no database or no link gets
     // exactly the object it got before.
-    const issue = await issueOf(deps, snapshot, decorated)
-    return c.json(issue === null ? decorated : { ...decorated, issue })
+    const { task, issue } = await taskOf(deps, snapshot, decorated)
+    return c.json({ ...decorated, ...(issue === null ? {} : { issue }), ...(task === null ? {} : { task }) })
   })
 
   /**
@@ -143,7 +160,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
    * gets a 200 with fewer fields, never an error.
    */
   app.get('/environments/:project/git', documentRoute({
-    tag: 'Environments', operationId: 'getProjectGit', summary: 'Get collected Git metadata', response: ProjectGit,
+    tag: 'Environments', operationId: 'getProjectGit', capability: 'environment:read', summary: 'Get collected Git metadata', response: ProjectGit,
     description: 'Reads a host-collected snapshot. No scan, repository or remote is represented as a smaller 200 response.',
     parameters: [projectParameter], errors: [404, 500],
   }), async (c) => {
@@ -164,7 +181,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
    * sources all failed is a 200 carrying the reasons.
    */
   app.get('/environments/:project/logs', documentRoute({
-    tag: 'Environments', operationId: 'getProjectLogs', summary: "Read every service's recent logs",
+    tag: 'Environments', operationId: 'getProjectLogs', capability: 'logs:read', summary: "Read every service's recent logs",
     response: ProjectLogsResponse,
     description: 'Reads each service concurrently. A source that could not be read is reported beside the sources that answered.',
     parameters: [
@@ -226,7 +243,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/environments/:project/removal-preview', documentRoute({
-    tag: 'Environments', operationId: 'previewEnvironmentRemoval',
+    tag: 'Environments', operationId: 'previewEnvironmentRemoval', capability: 'environment:read',
     summary: 'Preview what removing this environment from this host would touch',
     description: 'Advisory. Nothing is removed. Volume sizes are null: the panel has no volume inspect.',
     response: EnvironmentRemovalPreview,
@@ -238,7 +255,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/environments/:project/operations/rebuild', documentRoute({
-    tag: 'Environments', operationId: 'rebuildProject',
+    tag: 'Environments', operationId: 'rebuildProject', capability: 'environment:operate',
     summary: 'Rebuild this project through the runner',
     description: 'Writes a closed runner request and starts the prepared container. Volumes are preserved.',
     response: ProjectRebuildResult,
@@ -248,15 +265,16 @@ export function environmentRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const snapshot = await deps.cache.get()
     const body = await c.req.json().catch(() => ({})) as { noCache?: boolean }
-    const result = await rebuildProject(deps.client, snapshot, deps.config, c.req.param('project'), {
+    const rebuildResult = await rebuildProject(deps.client, snapshot, deps.config, c.req.param('project'), {
       noCache: body.noCache === true,
     })
     deps.cache.invalidate()
-    return c.json(result)
+    await recordEnvironmentActivity(deps, c.req.param('project'), principalOf(c), 'environment.rebuilt', `${c.req.param('project')} rebuild requested${body.noCache ? ' without cache' : ''}`)
+    return c.json(rebuildResult)
   })
 
   app.post('/environments/:project/operations/remove', documentRoute({
-    tag: 'Environments', operationId: 'removeProject',
+    tag: 'Environments', operationId: 'removeProject', capability: 'environment:destroy',
     summary: 'Remove this project from this host',
     description: 'Confirmation is the exact Compose project name, checked on the server. GitHub is never touched.',
     response: ProjectRemoveResult,
@@ -280,13 +298,14 @@ export function environmentRoutes(deps: AppDeps): Hono {
       deps.client, snapshot, deps.config, deps.db, c.req.param('project'), body,
     )
     deps.cache.invalidate()
+    await recordEnvironmentActivity(deps, c.req.param('project'), principalOf(c), 'environment.removed', `${c.req.param('project')} removed from this host${body.volumes ? ', with its volumes' : ''}${body.directory ? ' and its directory' : ''}`)
     return c.json(result)
   })
 
   for (const action of ['start', 'stop', 'restart'] as const) {
     app.post(`/environments/:project/actions/${action}`, documentRoute({
       tag: 'Environments',
-      operationId: `${action}Environment`,
+      operationId: `${action}Environment`, capability: 'environment:operate',
       summary: `${action[0]?.toUpperCase()}${action.slice(1)} every container in an environment`,
       description: 'Iterates the environment\'s existing containers in Compose dependency order. Nothing is removed.',
       response: EnvironmentActionResult,
@@ -296,6 +315,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
       const snapshot = await deps.cache.get()
       const result = await runProjectAction(deps.client, snapshot, c.req.param('project'), action)
       deps.cache.invalidate()
+      await recordEnvironmentActivity(deps, c.req.param('project'), principalOf(c), action === 'start' ? 'environment.started' : action === 'stop' ? 'environment.stopped' : 'environment.restarted', `${c.req.param('project')} ${action === 'stop' ? 'stopped' : `${action}ed`}${result.ok ? '' : ' with failures'}`)
       return c.json(result)
     })
   }

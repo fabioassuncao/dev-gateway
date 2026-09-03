@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { makeApp } from './helpers.ts'
+import { fakeActivity, fakeSessions, fakeTasks } from './fake-work.ts'
 import { GATEWAY, PROJECT_A } from './fixtures.ts'
 import {
   labelsAfter,
@@ -209,9 +210,13 @@ function issueDatabase(rows = [issueRow()], relationships: { parentId: string; c
     status: () => ({ configured: true, available: true, reason: null, checkedAt: 0, migrations: [] }),
     environments: { find: async () => null, upsertSeen: async () => ({}), list: async () => [] },
     settings: { listAllEnvironment: async () => [], listAllService: async () => [] },
+    repositories: {
+      list: async (projectId?: string) => (projectId === undefined || projectId === 'w1' ? [{ id: '1', projectId: 'w1', name: 'api', githubRepositoryId: 'r1', github: { repositoryId: 'r1', fullName: 'acme/api' } }] : []),
+      find: async () => null,
+      findByGitHub: async () => null,
+    },
     projects: {
       find: async (slug: string) => (slug === 'produto' ? { id: 'w1', slug, name: 'Produto' } : null),
-      listRepositories: async () => [{ projectId: 'w1', repositoryId: 'r1', fullName: 'acme/api' }],
       list: async () => [],
       listEnvironments: async () => [],
     },
@@ -226,9 +231,11 @@ function issueDatabase(rows = [issueRow()], relationships: { parentId: string; c
       listRelationships: async () => relationships,
       findRepository: async () => null,
       listRepositories: async () => [],
-      listIssueEnvironments: async () => [],
-      setIssueEnvironments: async () => undefined,
+      findIssueByNumber: async (repositoryId: string, number: number) => rows.find((row) => row.repositoryId === repositoryId && row.number === number) ?? null,
     },
+    tasks: fakeTasks(),
+    sessions: fakeSessions(),
+    activity: fakeActivity(),
   }
   return db as unknown as Database
 }
@@ -254,7 +261,7 @@ describe('the issue endpoints', () => {
   it('answers empty for a Project that owns no repository', async () => {
     const db = issueDatabase()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(db as any).projects.listRepositories = async () => []
+    ;(db as any).repositories.list = async () => []
     const { app: server } = app(db)
     const body = await (await server.request('/api/projects/produto/issues')).json()
     expect(body.issues).toEqual([])

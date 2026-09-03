@@ -8,6 +8,7 @@ import { environmentRoutes } from './routes/environments.ts'
 import { runnerRoutes } from './routes/runner.ts'
 import { overrideRoutes } from './routes/overrides.ts'
 import { projectRoutes } from './routes/projects.ts'
+import { repositoryRoutes } from './routes/repositories.ts'
 import { serviceRoutes } from './routes/services.ts'
 import { dockerRoutes } from './routes/docker.ts'
 import { networkRoutes } from './routes/network.ts'
@@ -21,6 +22,11 @@ import { eventRoutes } from './routes/events.ts'
 import { integrationRoutes } from './routes/integrations.ts'
 import { issueRoutes } from './routes/issues.ts'
 import { taskRoutes } from './routes/tasks.ts'
+import { taskGitHubRoutes } from './routes/task-github.ts'
+import { sessionRoutes } from './routes/sessions.ts'
+import { activityRoutes } from './routes/activity.ts'
+import { principalMiddleware } from './principal.ts'
+import { DEFAULT_AGENT_CAPABILITIES, parseApiCapabilities } from 'portta-core'
 import { shareRoutes } from './routes/shares.ts'
 import { ActionRefused } from './core/actions.ts'
 import { AccessError } from './core/access.ts'
@@ -58,6 +64,18 @@ function originAllowed(origin: string, host: string): boolean {
 export function createApi(deps: AppDeps): Hono {
   const api = new Hono()
 
+  // Who is asking, before any route: the operator, read-only mode, or an
+  // agent holding what the agentCapabilities setting grants it.
+  api.use('*', principalMiddleware({
+    readOnly: deps.config.readOnly,
+    agentCapabilities: async () => {
+      const db = deps.db
+      if (db === null || !db.status().available) return DEFAULT_AGENT_CAPABILITIES
+      const stored = await db.settings.getGlobal('agentCapabilities').catch(() => null)
+      return stored === null ? DEFAULT_AGENT_CAPABILITIES : parseApiCapabilities(stored)
+    },
+  }))
+
   api.use('*', async (c, next) => {
     c.header('cache-control', 'no-store')
     c.header('x-content-type-options', 'nosniff')
@@ -88,6 +106,7 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', runnerRoutes(deps))
   api.route('/', overrideRoutes(deps))
   api.route('/', projectRoutes(deps))
+  api.route('/', repositoryRoutes(deps))
   api.route('/', serviceRoutes(deps))
   api.route('/', dockerRoutes(deps))
   api.route('/', networkRoutes(deps))
@@ -102,6 +121,9 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', integrationRoutes(deps))
   api.route('/', issueRoutes(deps))
   api.route('/', taskRoutes(deps))
+  api.route('/', taskGitHubRoutes(deps))
+  api.route('/', sessionRoutes(deps))
+  api.route('/', activityRoutes(deps))
   registerOpenApiRoutes(api, deps.config)
 
   api.all('*', (c) => c.json({ error: `no such endpoint: ${c.req.path}` }, 404))

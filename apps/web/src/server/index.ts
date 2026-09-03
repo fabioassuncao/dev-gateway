@@ -15,6 +15,7 @@ import { GENERATED_FILES, reconcilePanelProtection } from './core/dynamic.ts'
 import { Database } from './db/index.ts'
 import { GitHubIntegration } from './integrations/github/index.ts'
 import { createReconciliationSchedule, intervalMinutes } from './integrations/github/sync/schedule.ts'
+import { createCommitWatch, createMaintenance } from './core/commit-watch.ts'
 
 const config = loadConfig()
 
@@ -92,6 +93,11 @@ const verdict = createVerdictCache(config)
 
 const app = createApp({ config, client, cache, hub, verdict, db, github })
 
+// What the repositories produced, noticed from the host scan once a minute,
+// and the hourly housekeeping: quiet sessions abandoned, old activity pruned.
+const commitWatch = db ? createCommitWatch(config, db, hub) : null
+const maintenance = db ? createMaintenance(db, hub) : null
+
 const indexHtml = join(config.uiDir, 'index.html')
 if (existsSync(indexHtml)) {
   app.use('/*', serveStatic({ root: config.uiDir }))
@@ -109,6 +115,8 @@ if (existsSync(indexHtml)) {
 }
 
 hub.start()
+commitWatch?.start()
+maintenance?.start()
 
 const server = serve({ fetch: app.fetch, hostname: config.host, port: config.port }, (info) => {
   process.stdout.write(
@@ -121,6 +129,8 @@ function shutdown(signal: string): void {
   process.stdout.write(`\n${signal}: shutting the panel down\n`)
   hub.stop()
   schedule?.stop()
+  commitWatch?.stop()
+  maintenance?.stop()
   server.close(() => {
     if (db) void db.close().finally(() => process.exit(0))
     else process.exit(0)

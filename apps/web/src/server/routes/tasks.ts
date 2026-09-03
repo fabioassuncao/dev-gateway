@@ -1,340 +1,381 @@
-// The task verbs: the same projection and the same adapter, asked the way an
-// agent asks.
+// The task verbs, over Portta's own tasks.
 //
-// Nothing here reaches GitHub in a way `PATCH /api/issues/:id` does not already:
-// a write goes to GitHub first and the projection is updated from what GitHub
-// returned, the repository projection is still the authorisation boundary, and
-// read-only mode still refuses. What is new is the vocabulary — next, start,
-// status, finish, comment — and one behaviour: a comment, written through and
-// never projected.
+// A task is local. It exists without GitHub; a GitHub issue is an optional
+// binding on it (routes/task-github.ts). Every write here lands locally first
+// and, when the task is bound and the App can be used, on GitHub second, with
+// the binding saying which of the two it managed. An agent and the board see
+// the same rows through the same views (core/task-view.ts).
 
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
+import { TASK_PRIORITIES, TASK_STATUSES, finishPlan, nextTask, startPlan, subtaskTree, type SchedulableTask } from 'portta-core'
 import type { AppDeps } from './deps.ts'
 import { requireDatabase, type Database } from '../db/index.ts'
-import type { StoredIssue } from '../db/github.ts'
+import type { TaskRow } from '../db/tasks.ts'
 import { OverrideRefused } from '../core/overrides.ts'
-import { labelsAfter, WORKFLOW_STATUSES, type WorkflowStatus } from '../integrations/github/metadata.ts'
-import { normaliseIssue, type RawIssue } from '../integrations/github/issues.ts'
-import {
-  finishPlan,
-  nextTask,
-  parseTaskRef,
-  readActor,
-  startPlan,
-  subtaskTree,
-  type SubtaskNode,
-  type TransitionPlan,
-} from '../core/tasks.ts'
-import { issueViews } from '../core/issue-view.ts'
-import { Issue } from '../../shared/types.ts'
+import { loadTaskContext, taskSummaries, taskSummary, taskView, noteView, type TaskContext } from '../core/task-view.ts'
+import { pushToGitHub, resolveTask, type TaskChange } from '../core/task-write.ts'
+import { recordActivity } from '../core/activity.ts'
+import { principalOf, type Principal } from '../principal.ts'
+import { Task, TaskNote, TaskSummary } from '../../shared/task-types.ts'
 import { documentRoute } from '../openapi.ts'
 
-const TasksResponse = z.object({ tasks: z.array(Issue) }).strict().meta({ ref: 'TasksResponse' })
-
+const TasksResponse = z.object({ tasks: z.array(TaskSummary) }).strict().meta({ ref: 'TasksResponse' })
 /** `null` rather than 404: "nothing to do" is an answer, not a missing thing. */
-const NextTaskResponse = z.object({ task: Issue.nullable() }).strict().meta({ ref: 'NextTaskResponse' })
-
-const SubtaskNode: z.ZodType = z.lazy(() =>
-  z.object({ task: Issue, children: z.array(SubtaskNode) }).strict(),
-)
+const NextTaskResponse = z.object({ task: Task.nullable() }).strict().meta({ ref: 'NextTaskResponse' })
+const SubtaskNode: z.ZodType = z.lazy(() => z.object({ task: TaskSummary, children: z.array(SubtaskNode) }).strict())
 const SubtasksResponse = z.object({ subtasks: z.array(SubtaskNode) }).strict().meta({ ref: 'SubtasksResponse' })
+const NotesResponse = z.object({ notes: z.array(TaskNote) }).strict().meta({ ref: 'TaskNotesResponse' })
+
+const LocalId = z.string().regex(/^\d+$/)
+const CreateTaskBody = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().max(65536).nullable().optional(),
+  status: z.enum(TASK_STATUSES).optional(),
+  priority: z.enum(TASK_PRIORITIES).nullable().optional(),
+  type: z.string().max(32).nullable().optional(),
+  labels: z.array(z.string().min(1).max(64)).max(32).optional(),
+  assignee: z.string().max(64).nullable().optional(),
+  agent: z.string().max(64).nullable().optional(),
+  parentId: LocalId.nullable().optional(),
+  repositoryId: LocalId.nullable().optional(),
+  environment: z.string().max(255).nullable().optional().describe('COMPOSE_PROJECT_NAME the task is scoped to'),
+  service: z.string().max(64).nullable().optional(),
+}).strict().meta({ ref: 'CreateTaskBody' })
+
+const PatchTaskBody = CreateTaskBody.partial().extend({
+  title: z.string().min(1).max(200).optional(),
+  position: z.number().int().min(0).optional(),
+}).strict().meta({ ref: 'PatchTaskBody' })
 
 const StartBody = z.object({ assign: z.boolean().optional() }).strict().meta({ ref: 'StartTaskBody' })
-const StatusBody = z.object({ status: z.enum(WORKFLOW_STATUSES) }).strict().meta({ ref: 'TaskStatusBody' })
+const StatusBody = z.object({ status: z.enum(TASK_STATUSES) }).strict().meta({ ref: 'TaskStatusBody' })
 const FinishBody = z.object({ close: z.boolean().optional() }).strict().meta({ ref: 'FinishTaskBody' })
-const CommentBody = z.object({ body: z.string().min(1).max(65536) }).strict().meta({ ref: 'TaskCommentBody' })
+const NoteBody = z.object({ body: z.string().min(1).max(65536) }).strict().meta({ ref: 'TaskNoteBody' })
+const EnvironmentsBody = z.object({ environments: z.array(z.string().min(1).max(255)).max(32) }).strict().meta({ ref: 'TaskEnvironmentsBody' })
+const Removal = z.object({ ok: z.boolean(), removed: z.string(), note: z.string() }).strict().meta({ ref: 'TaskRemoval' })
 
-/**
- * A comment is returned as GitHub returned it, because nothing stores it.
- * Normalising would imply a shape Portta owns, and Portta owns no comment.
- */
-const CommentResponse = z
-  .object({ id: z.number(), htmlUrl: z.string(), body: z.string(), createdAt: z.string() })
-  .strict()
-  .meta({ ref: 'TaskCommentResponse' })
-
-const refParameter = {
-  name: 'ref',
-  in: 'path' as const,
-  required: true,
-  description: 'Either `owner/repo#number` (URL-encoded) or the projected task id.',
+export const refParameter = {
+  name: 'ref', in: 'path' as const, required: true,
+  description: 'The task id, `#id`, or `owner/repo#number` through its GitHub binding.',
   schema: { type: 'string' as const },
 }
-
-const slugParameter = {
-  name: 'slug',
-  in: 'path' as const,
-  required: true,
-  description: 'The Project slug.',
+const slugParameter = { name: 'slug', in: 'path' as const, required: true, description: 'The Project slug.', schema: { type: 'string' as const } }
+export const actorHeader = {
+  name: 'X-Portta-Actor', in: 'header' as const, required: false,
+  description: 'Who asked. Recorded on the task, its notes and the activity; never forwarded to GitHub.',
   schema: { type: 'string' as const },
 }
+const FILTERS = [
+  ['status', 'Comma-separated statuses.'], ['open', 'true for anything not done, false for done only.'],
+  ['assignee', 'Exact assignee.'], ['repository', 'Repository id.'], ['parent', 'Parent task id, or "none" for top-level tasks.'],
+  ['q', 'Substring of the title or description.'],
+] as const
+const filterParameters = FILTERS.map(([name, description]) => ({ name, in: 'query' as const, required: false, description, schema: { type: 'string' as const } }))
 
-const actorHeader = {
-  name: 'X-Portta-Actor',
-  in: 'header' as const,
-  required: false,
-  description: 'Who asked. Recorded in the panel log and never forwarded to GitHub.',
-  schema: { type: 'string' as const },
+function seconds(date: Date): number {
+  return Math.floor(date.getTime() / 1000)
+}
+
+function schedulable(rows: readonly TaskRow[]): SchedulableTask[] {
+  return rows.map((row) => ({ id: row.id, parentId: row.parentId, status: row.status, priority: row.priority, assignee: row.assignee, waitingSince: seconds(row.updatedAt) }))
 }
 
 export function taskRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
-  /** Repositories one Project owns, as projection ids. */
-  async function projectRepositoryIds(db: Database, slug: string): Promise<string[]> {
+  async function requireProject(db: Database, slug: string) {
     const project = await db.projects.find(slug)
     if (!project) throw new HTTPException(404, { message: `no project '${slug}'` })
-    const links = await db.projects.listRepositories()
-    return links.filter((link) => link.projectId === project.id).map((link) => link.repositoryId)
+    return project
+  }
+
+  async function context(db: Database, tasks?: TaskRow[]): Promise<TaskContext> {
+    return loadTaskContext(deps.config, db, await deps.cache.get(), tasks)
+  }
+
+  async function present(db: Database, task: TaskRow): Promise<Task> {
+    const fresh = (await db.tasks.find(task.id)) ?? task
+    const ctx = await context(db)
+    const [notes, sessions] = await Promise.all([db.tasks.listNotes(fresh.id), db.sessions.list({ taskId: fresh.id, status: ['active'] })])
+    return taskView(ctx, fresh, notes, sessions)
+  }
+
+  function announce(task: TaskRow, action: string, slug: string | null): void {
+    deps.hub.publish({ kind: 'task', action, id: task.id, name: task.title, project: slug, ownership: null, at: Math.floor(Date.now() / 1000) })
+  }
+
+  async function slugOf(db: Database, task: TaskRow): Promise<string> {
+    return (await db.projects.list()).find((project) => project.id === task.projectId)?.slug ?? task.projectId
+  }
+
+  async function environmentIdOf(db: Database, name: string | null | undefined): Promise<string | null | undefined> {
+    if (name === undefined) return undefined
+    if (name === null) return null
+    const record = await db.environments.find(name)
+    if (!record) throw new OverrideRefused(`no environment '${name}' is known to this panel`)
+    return record.id
   }
 
   /**
-   * Resolve a ref through the projection.
-   *
-   * This is the authorisation boundary: a coordinate for a repository the
-   * installation never granted is not in the projection, so it is refused here
-   * — before any request leaves the host.
+   * One local write, then GitHub when the task is bound. The activity line and
+   * the live event carry the actor, so "did a person do that or an agent" has
+   * an answer without inventing an identity system.
    */
-  async function resolve(db: Database, raw: string): Promise<StoredIssue> {
-    const ref = parseTaskRef(raw)
-    if (!ref) throw new HTTPException(400, { message: `'${raw}' is not a task reference` })
-    if (ref.kind === 'id') {
-      const issue = await db.github.findIssue(ref.id)
-      if (!issue) throw new HTTPException(404, { message: `no task '${raw}'` })
-      return issue
-    }
-    const issues = await db.github.listIssues({})
-    const found = issues.find((issue) => issue.repository === ref.repository && issue.number === ref.number)
-    if (!found) {
-      throw new HTTPException(404, {
-        message: `no task '${ref.repository}#${ref.number}' in the projection`,
-      })
-    }
-    return found
-  }
-
-  /**
-   * One task, assembled the way the board assembles an issue.
-   *
-   * Through the shared `issueViews`, so an agent and the board cannot see
-   * different staleness, metadata sources or environments for the same row.
-   */
-  async function present(db: Database, issue: StoredIssue): Promise<Issue> {
-    const fresh = (await db.github.findIssue(issue.id)) ?? issue
-    const snapshot = await deps.cache.get()
-    const [view] = await issueViews(deps.config, db, snapshot, [fresh], await db.github.listIssues({}))
-    if (!view) throw new HTTPException(404, { message: `no task '${issue.id}'` })
-    return view
-  }
-
-  async function presentAll(db: Database, issues: StoredIssue[]): Promise<Issue[]> {
-    if (issues.length === 0) return []
-    const snapshot = await deps.cache.get()
-    return issueViews(deps.config, db, snapshot, issues, await db.github.listIssues({}))
-  }
-
-  function requireGitHub() {
-    const github = deps.github
-    if (github === null || !github.status().configured) {
-      throw new OverrideRefused(
-        'the GitHub App is not configured, so nothing can be written back',
-        'see docs/github.md',
-      )
-    }
-    return github
-  }
-
-  /**
-   * One confirmed write, then the projection from GitHub's answer.
-   *
-   * Every task verb that changes something goes through here, so `start`,
-   * `status` and `finish` cannot drift from `PATCH /api/issues/:id` in what
-   * they refuse or in where the truth comes from.
-   */
-  async function transition(db: Database, issue: StoredIssue, plan: TransitionPlan, actor: string | null) {
-    const github = requireGitHub()
-    const repository = await db.github.findRepository(issue.repository)
-    if (!repository) {
-      throw new OverrideRefused(`${issue.repository} is not a repository this gateway was granted`)
-    }
-
-    const patch: Record<string, unknown> = {
-      labels: labelsAfter(issue.labels, { status: plan.status }),
-    }
-    if (plan.state) patch['state'] = plan.state
-    if (plan.assignees) patch['assignees'] = plan.assignees
-
-    const updated = await github.require().patchAsInstallation<RawIssue>(
-      repository.installationId,
-      `/repos/${issue.repository}/issues/${issue.number}`,
-      patch,
-    )
-    await db.github.upsertIssue(normaliseIssue(updated.data, issue.repositoryId))
-
-    // Recorded here and nowhere else: GitHub sees the App, so this is the only
-    // place that can answer "did a person do that, or an agent".
-    process.stdout.write(
-      `task ${issue.repository}#${issue.number} -> ${plan.status}${actor ? ` by ${actor}` : ''}\n`,
-    )
-    deps.hub.publish({
-      kind: 'config', action: 'issue', id: issue.id,
-      name: `${issue.repository}#${issue.number}`,
-      project: null, ownership: null, at: Math.floor(Date.now() / 1000),
+  async function write(db: Database, task: TaskRow, patch: Record<string, unknown>, change: TaskChange, principal: Principal, kind: 'task.updated' | 'task.status' | 'task.assigned', summary: string): Promise<Task> {
+    const updated = await db.tasks.update(task.id, patch)
+    if (!updated) throw new HTTPException(404, { message: `no task '${task.id}'` })
+    const link = await db.tasks.findLink(task.id)
+    const pushed = await pushToGitHub(db, deps.github, updated, link, change)
+    const slug = await slugOf(db, updated)
+    await recordActivity({ db, hub: deps.hub }, {
+      kind, actor: principal.actor, actorKind: principal.actorKind, project: slug,
+      projectId: updated.projectId, taskId: updated.id, repositoryId: updated.repositoryId, environmentId: updated.environmentId,
+      summary, data: { github: pushed, ...change },
     })
-    return present(db, issue)
+    announce(updated, kind.split('.')[1] ?? 'updated', slug)
+    return present(db, updated)
   }
 
-  // --- reads: projection only, no network ----------------------------------
+  // --- reads ----------------------------------------------------------------
 
   app.get('/projects/:slug/tasks', documentRoute({
-    tag: 'Tasks', operationId: 'listProjectTasks',
+    tag: 'Tasks', operationId: 'listProjectTasks', capability: 'task:read',
     summary: "List a Project's tasks",
-    description: 'A view over the projection. Answers while GitHub is unreachable; every row carries syncedAt and a staleness flag.',
-    response: TasksResponse, parameters: [slugParameter], errors: [404, 500, 503],
+    description: 'Local tasks, with their GitHub binding where one exists. Answers without GitHub and without the App.',
+    response: TasksResponse, parameters: [slugParameter, ...filterParameters], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const repositoryIds = await projectRepositoryIds(db, c.req.param('slug'))
-    if (repositoryIds.length === 0) return c.json({ tasks: [] })
-    return c.json({ tasks: await presentAll(db, await db.github.listIssues({ repositoryIds })) })
+    const project = await requireProject(db, c.req.param('slug'))
+    const query = new URL(c.req.url).searchParams
+    const status = query.get('status')?.split(',').filter((value): value is typeof TASK_STATUSES[number] => (TASK_STATUSES as readonly string[]).includes(value))
+    const parent = query.get('parent')
+    const rows = await db.tasks.list({
+      projectId: project.id,
+      ...(status && status.length > 0 ? { status } : {}),
+      ...(query.get('open') === 'true' ? { open: true } : query.get('open') === 'false' ? { open: false } : {}),
+      ...(query.get('assignee') ? { assignee: query.get('assignee')! } : {}),
+      ...(query.get('repository') ? { repositoryId: query.get('repository')! } : {}),
+      ...(parent === 'none' ? { parentId: null } : parent ? { parentId: parent } : {}),
+      ...(query.get('q') ? { q: query.get('q')! } : {}),
+    })
+    const ctx = await context(db)
+    return c.json({ tasks: taskSummaries(ctx, rows) })
   })
 
   app.get('/projects/:slug/tasks/next', documentRoute({
-    tag: 'Tasks', operationId: 'nextTask',
+    tag: 'Tasks', operationId: 'nextTask', capability: 'task:read',
     summary: 'The task to do next, or null',
-    description:
-      'Ready, open, unblocked by its sub-issues, unassigned or assigned to the caller; then by priority, then by how long it has waited. A pure projection query: no request leaves the host.',
+    description: 'Ready, unblocked by its subtasks, unassigned or assigned to the caller; then by priority, then by how long it has waited.',
     response: NextTaskResponse, parameters: [slugParameter, actorHeader], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const repositoryIds = await projectRepositoryIds(db, c.req.param('slug'))
-    if (repositoryIds.length === 0) return c.json({ task: null })
-    const issues = await db.github.listIssues({ repositoryIds })
-    const links = await db.github.listRelationships()
-    const chosen = nextTask(issues, links, { actor: readActor(c.req.header('X-Portta-Actor')) })
-    return c.json({ task: chosen ? await present(db, chosen) : null })
+    const project = await requireProject(db, c.req.param('slug'))
+    const rows = await db.tasks.list({ projectId: project.id, open: true })
+    const chosen = nextTask(schedulable(rows), { actor: principalOf(c).actor })
+    const row = chosen ? rows.find((task) => task.id === chosen.id) ?? null : null
+    return c.json({ task: row ? await present(db, row) : null })
   })
 
   app.get('/tasks/:ref', documentRoute({
-    tag: 'Tasks', operationId: 'getTask', summary: 'Get one task',
-    description: 'Addressable by `owner/repo#number` or by projected id. A coordinate outside the repository projection is refused before any GitHub request.',
-    response: Issue, parameters: [refParameter], errors: [400, 404, 500, 503],
+    tag: 'Tasks', operationId: 'getTask', capability: 'task:read', summary: 'Get one task',
+    description: 'With its binding, environments, notes and subtasks. Addressable by id, `#id`, or `owner/repo#number`.',
+    response: Task, parameters: [refParameter], errors: [400, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    return c.json(await present(db, await resolve(db, c.req.param('ref'))))
+    return c.json(await present(db, await resolveTask(db, c.req.param('ref'))))
   })
 
   app.get('/tasks/:ref/subtasks', documentRoute({
-    tag: 'Tasks', operationId: 'getSubtasks', summary: 'The sub-issue graph under one task, as a tree',
+    tag: 'Tasks', operationId: 'getSubtasks', capability: 'task:read', summary: 'The subtask tree under one task',
     response: SubtasksResponse, parameters: [refParameter], errors: [400, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolve(db, c.req.param('ref'))
-    const issues = await db.github.listIssues({})
-    const links = await db.github.listRelationships()
-    const tree = subtaskTree(task.id, issues, links)
-
-    // One pass over the whole graph, then the tree is rebuilt from the views:
-    // assembling per node would read the Git scan once per subtask.
-    const flat = new Map((await presentAll(db, collect(tree))).map((view) => [view.id, view]))
-    const render = (nodes: typeof tree): unknown[] =>
-      nodes.flatMap((node) => {
-        const view = flat.get(node.task.id)
-        return view ? [{ task: view, children: render(node.children) }] : []
-      })
+    const task = await resolveTask(db, c.req.param('ref'))
+    const rows = await db.tasks.list({ projectId: task.projectId })
+    const ctx = await context(db, rows)
+    const tree = subtaskTree(task.id, rows)
+    const render = (nodes: typeof tree): unknown[] => nodes.map((node) => ({ task: taskSummary(ctx, node.task), children: render(node.children) }))
     return c.json({ subtasks: render(tree) })
   })
 
-  // --- writes: GitHub first, projection from the response ------------------
+  app.get('/tasks/:ref/notes', documentRoute({
+    tag: 'Tasks', operationId: 'listTaskNotes', capability: 'task:read', summary: 'The notes on a task, oldest first',
+    response: NotesResponse, parameters: [refParameter], errors: [400, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const task = await resolveTask(db, c.req.param('ref'))
+    return c.json({ notes: (await db.tasks.listNotes(task.id)).map(noteView) })
+  })
 
-  app.post('/tasks/:ref/start', documentRoute({
-    tag: 'Tasks', operationId: 'startTask', summary: 'Take a task',
-    description: 'Sets the status to in_progress and, unless assign is false, assigns the actor — in one confirmed write, so a task is never half-taken.',
-    request: StartBody, response: Issue, parameters: [refParameter, actorHeader],
+  // --- writes ---------------------------------------------------------------
+
+  app.post('/projects/:slug/tasks', documentRoute({
+    tag: 'Tasks', operationId: 'createTask', capability: 'task:write', summary: 'Create a task',
+    description: 'Local, immediately. Bind it to a GitHub issue afterwards with /github/link or /github/publish.',
+    request: CreateTaskBody, response: Task, status: 201, parameters: [slugParameter, actorHeader],
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    // Before the body: "there is no App" is the answer to give, not "your body
-    // has an extra key".
-    requireGitHub()
-    const task = await resolve(db, c.req.param('ref'))
+    const project = await requireProject(db, c.req.param('slug'))
+    const body = CreateTaskBody.parse(await c.req.json())
+    const principal = principalOf(c)
+    const { environment, ...rest } = body
+    if (rest.parentId) {
+      const parent = await db.tasks.find(rest.parentId)
+      if (!parent || parent.projectId !== project.id) throw new OverrideRefused('a subtask belongs to the same Project as its parent')
+    }
+    if (rest.repositoryId) {
+      const repository = await db.repositories.find(rest.repositoryId)
+      if (!repository || repository.projectId !== project.id) throw new OverrideRefused('that repository does not belong to this Project')
+    }
+    const environmentId = await environmentIdOf(db, environment)
+    const created = await db.tasks.create(project.id, { ...rest, ...(environmentId !== undefined ? { environmentId } : {}) }, principal.actor)
+    await recordActivity({ db, hub: deps.hub }, {
+      kind: 'task.created', actor: principal.actor, actorKind: principal.actorKind, project: project.slug,
+      projectId: project.id, taskId: created.id, repositoryId: created.repositoryId, environmentId: created.environmentId,
+      summary: `${principal.actor ?? 'somebody'} created "${created.title}"`,
+    })
+    announce(created, 'created', project.slug)
+    return c.json(await present(db, created), 201)
+  })
+
+  app.patch('/tasks/:ref', documentRoute({
+    tag: 'Tasks', operationId: 'patchTask', capability: 'task:write', summary: 'Change a task',
+    description: 'Written locally first. On a bound task, title, description, status, priority and assignee are also written to GitHub; the binding says whether that reached it.',
+    request: PatchTaskBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const task = await resolveTask(db, c.req.param('ref'))
+    const body = PatchTaskBody.parse(await c.req.json())
+    if (Object.keys(body).length === 0) throw new OverrideRefused('nothing to change')
+    const { environment, ...rest } = body
+    if (rest.parentId) {
+      if (rest.parentId === task.id) throw new OverrideRefused('a task cannot be its own parent')
+      const parent = await db.tasks.find(rest.parentId)
+      if (!parent || parent.projectId !== task.projectId) throw new OverrideRefused('a subtask belongs to the same Project as its parent')
+    }
+    const environmentId = await environmentIdOf(db, environment)
+    const patch = { ...rest, ...(environmentId !== undefined ? { environmentId } : {}) }
+    const change: TaskChange = {
+      ...(rest.title !== undefined ? { title: rest.title } : {}),
+      ...(rest.description !== undefined ? { description: rest.description } : {}),
+      ...(rest.status !== undefined ? { status: rest.status } : {}),
+      ...(rest.priority !== undefined ? { priority: rest.priority } : {}),
+      ...(rest.assignee !== undefined ? { assignee: rest.assignee } : {}),
+      ...(rest.status === 'done' ? { close: true } : {}),
+    }
+    const principal = principalOf(c)
+    const kind = rest.status !== undefined && rest.status !== task.status ? 'task.status' : rest.assignee !== undefined ? 'task.assigned' : 'task.updated'
+    const summary = kind === 'task.status' ? `"${task.title}" moved to ${rest.status}` : kind === 'task.assigned' ? `"${task.title}" assigned to ${rest.assignee ?? 'nobody'}` : `"${task.title}" was edited`
+    return c.json(await write(db, task, patch, change, principal, kind, summary))
+  })
+
+  app.delete('/tasks/:ref', documentRoute({
+    tag: 'Tasks', operationId: 'deleteTask', capability: 'task:write', summary: 'Delete a task and its subtasks',
+    description: 'Local only: a bound GitHub issue is left as it is, unbound.',
+    response: Removal, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const task = await resolveTask(db, c.req.param('ref'))
+    const slug = await slugOf(db, task)
+    const principal = principalOf(c)
+    await db.tasks.remove(task.id)
+    await recordActivity({ db, hub: deps.hub }, {
+      kind: 'task.deleted', actor: principal.actor, actorKind: principal.actorKind, project: slug,
+      projectId: task.projectId, repositoryId: task.repositoryId, summary: `"${task.title}" was deleted`, data: { taskId: task.id },
+    })
+    announce(task, 'deleted', slug)
+    return c.json({ ok: true, removed: task.id, note: 'the task and its subtasks; a bound GitHub issue is untouched' })
+  })
+
+  app.post('/tasks/:ref/start', documentRoute({
+    tag: 'Tasks', operationId: 'startTask', capability: 'task:write', summary: 'Take a task',
+    description: 'Sets the status to in_progress and, unless assign is false, assigns the actor — in one write, so a task is never half-taken.',
+    request: StartBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const task = await resolveTask(db, c.req.param('ref'))
     const body = StartBody.parse(await c.req.json().catch(() => ({})))
-    const actor = readActor(c.req.header('X-Portta-Actor'))
-    return c.json(await transition(db, task, startPlan(task, body.assign === false ? null : actor), actor))
+    const principal = principalOf(c)
+    const plan = startPlan(task, body.assign === false ? null : principal.actor)
+    const patch: Record<string, unknown> = { status: plan.status, ...(plan.assignee ? { assignee: plan.assignee } : {}), ...(principal.kind === 'agent' && plan.assignee ? { agent: principal.actor } : {}) }
+    return c.json(await write(db, task, patch, { status: plan.status, ...(plan.assignee ? { assignee: plan.assignee } : {}) }, principal, 'task.status', `${principal.actor ?? 'somebody'} started "${task.title}"`))
   })
 
   app.post('/tasks/:ref/status', documentRoute({
-    tag: 'Tasks', operationId: 'setTaskStatus', summary: 'Move a task to one workflow status',
-    request: StatusBody, response: Issue, parameters: [refParameter, actorHeader],
-    errors: [400, 403, 404, 500, 503],
+    tag: 'Tasks', operationId: 'setTaskStatus', capability: 'task:write', summary: 'Move a task to one status',
+    request: StatusBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    requireGitHub()
-    const task = await resolve(db, c.req.param('ref'))
+    const task = await resolveTask(db, c.req.param('ref'))
     const body = StatusBody.parse(await c.req.json())
-    const actor = readActor(c.req.header('X-Portta-Actor'))
-    return c.json(await transition(db, task, { status: body.status as WorkflowStatus, state: null, assignees: null }, actor))
+    const principal = principalOf(c)
+    return c.json(await write(db, task, { status: body.status }, { status: body.status, ...(body.status === 'done' ? { close: true } : {}) }, principal, 'task.status', `"${task.title}" moved to ${body.status}`))
   })
 
   app.post('/tasks/:ref/finish', documentRoute({
-    tag: 'Tasks', operationId: 'finishTask', summary: 'Finish a task',
-    description: 'Sets the status to done and, when close is true, closes the issue — in one confirmed write.',
-    request: FinishBody, response: Issue, parameters: [refParameter, actorHeader],
-    errors: [400, 403, 404, 500, 503],
+    tag: 'Tasks', operationId: 'finishTask', capability: 'task:write', summary: 'Finish a task',
+    description: 'Sets the status to done. On a bound task, close: true also closes the issue on GitHub.',
+    request: FinishBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    requireGitHub()
-    const task = await resolve(db, c.req.param('ref'))
+    const task = await resolveTask(db, c.req.param('ref'))
     const body = FinishBody.parse(await c.req.json().catch(() => ({})))
-    const actor = readActor(c.req.header('X-Portta-Actor'))
-    return c.json(await transition(db, task, finishPlan(body.close === true), actor))
+    const plan = finishPlan(body.close === true)
+    const principal = principalOf(c)
+    return c.json(await write(db, task, { status: plan.status }, { status: plan.status, close: plan.close }, principal, 'task.status', `${principal.actor ?? 'somebody'} finished "${task.title}"`))
+  })
+
+  app.post('/tasks/:ref/notes', documentRoute({
+    tag: 'Tasks', operationId: 'addTaskNote', capability: 'task:write', summary: 'Add a note to a task',
+    description: 'Local. A note never reaches GitHub; a comment on the bound issue is /comments.',
+    request: NoteBody, response: TaskNote, status: 201, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const task = await resolveTask(db, c.req.param('ref'))
+    const body = NoteBody.parse(await c.req.json())
+    const principal = principalOf(c)
+    const note = await db.tasks.addNote(task.id, body.body, principal.actor, principal.actorKind)
+    const slug = await slugOf(db, task)
+    await recordActivity({ db, hub: deps.hub }, {
+      kind: 'task.note', actor: principal.actor, actorKind: principal.actorKind, project: slug,
+      projectId: task.projectId, taskId: task.id, repositoryId: task.repositoryId,
+      summary: `${principal.actor ?? 'somebody'} noted on "${task.title}"`, data: { noteId: note.id },
+    })
+    announce(task, 'note', slug)
+    return c.json(noteView(note), 201)
   })
 
   /**
-   * Write-through, and deliberately asymmetric.
-   *
-   * It posts to GitHub and returns the response. Nothing is projected: there is
-   * no comment table, no sync path and therefore no cache to keep in step, so
-   * reading a discussion stays a link to GitHub. See ADR 0018's 2026-09-02
-   * amendment, which is what allows this endpoint at all.
+   * Links a task to the environments it is being worked in, by hand. Writes
+   * one row per link; nothing is started, stopped, created or removed, and a
+   * manual link always wins over an inferred one.
    */
-  app.post('/tasks/:ref/comments', documentRoute({
-    tag: 'Tasks', operationId: 'commentOnTask', summary: 'Comment on a task',
-    description: 'Posts straight to GitHub and returns what GitHub returned. Comments are never projected.',
-    request: CommentBody, response: CommentResponse, status: 201,
-    parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
+  app.put('/tasks/:ref/environments', documentRoute({
+    tag: 'Tasks', operationId: 'setTaskEnvironments', capability: 'task:write',
+    summary: 'Link a task to the environments it is worked in',
+    request: EnvironmentsBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const github = requireGitHub()
-    const task = await resolve(db, c.req.param('ref'))
-    const repository = await db.github.findRepository(task.repository)
-    if (!repository) {
-      throw new OverrideRefused(`${task.repository} is not a repository this gateway was granted`)
+    const task = await resolveTask(db, c.req.param('ref'))
+    const body = EnvironmentsBody.parse(await c.req.json())
+    const snapshot = await deps.cache.get()
+    for (const name of body.environments) {
+      if (!snapshot.environments.some((environment) => environment.name === name)) throw new OverrideRefused(`no environment '${name}' is running`)
     }
-    const body = CommentBody.parse(await c.req.json())
-    const actor = readActor(c.req.header('X-Portta-Actor'))
-
-    const created = await github.require().postAsInstallation<{ id: number; html_url: string; body: string; created_at: string }>(
-      repository.installationId,
-      `/repos/${task.repository}/issues/${task.number}/comments`,
-      { body: body.body },
-    )
-    process.stdout.write(
-      `task ${task.repository}#${task.number} commented${actor ? ` by ${actor}` : ''}\n`,
-    )
-    return c.json({
-      id: created.data.id,
-      htmlUrl: created.data.html_url,
-      body: created.data.body,
-      createdAt: created.data.created_at,
-    }, 201)
+    await db.tasks.setEnvironments(task.id, body.environments)
+    const principal = principalOf(c)
+    const slug = await slugOf(db, task)
+    await recordActivity({ db, hub: deps.hub }, {
+      kind: 'task.linked', actor: principal.actor, actorKind: principal.actorKind, project: slug,
+      projectId: task.projectId, taskId: task.id, summary: `"${task.title}" linked to ${body.environments.join(', ') || 'no environment'}`,
+      data: { environments: body.environments },
+    })
+    announce(task, 'linked', slug)
+    return c.json(await present(db, task))
   })
 
   return app
-}
-
-/** Every node in a subtask tree, flattened, so the views are read in one pass. */
-function collect(nodes: SubtaskNode<StoredIssue>[]): StoredIssue[] {
-  return nodes.flatMap((node) => [node.task, ...collect(node.children)])
 }

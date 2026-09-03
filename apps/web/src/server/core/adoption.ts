@@ -8,13 +8,17 @@
 
 import type { Environment } from '../../shared/types.ts'
 
-export type AdoptionSource = 'manual' | 'label' | 'repo-match'
+export type AdoptionSource = 'manual' | 'label' | 'repo-match' | 'path'
 
 export interface ProjectCoordinates {
   id: string
   slug: string
-  /** Repository full names this Project owns, lowercased. */
+  /** Repository coordinates (`owner/name`, lowercased) this Project owns: GitHub names and remote URLs alike. */
   repositories: string[]
+  /** Absolute host paths this Project owns: its resolved Projects Home directory and its repositories' paths. */
+  paths?: string[]
+  /** Host scan keys of this Project's repositories. */
+  scanKeys?: string[]
 }
 
 export interface Adoption {
@@ -45,10 +49,20 @@ export function repositoryCoordinate(repoUrl: string | null): string | null {
  * Project owns that coordinate** — an automatic adoption that is wrong is
  * worse than none, so an ambiguous match adopts nothing and lets the user say.
  */
+export interface AdoptionFacts {
+  /** COMPOSE_PROJECT_NAME → repository scan key, from the host scan index. */
+  environmentKeys?: Record<string, string>
+}
+
+function underOneOf(path: string, roots: readonly string[]): boolean {
+  return roots.some((root) => root !== '' && (path === root || path.startsWith(`${root.replace(/\/+$/, '')}/`)))
+}
+
 export function resolveAdoption(
-  project: Pick<Environment, 'name' | 'group' | 'repo' | 'repoUrl'>,
+  project: Pick<Environment, 'name' | 'group' | 'repo' | 'repoUrl'> & { workingDir?: string | null },
   projects: ProjectCoordinates[],
   manual: Map<string, string>,
+  facts: AdoptionFacts = {},
 ): Adoption | null {
   const manualId = manual.get(project.name)
   if (manualId !== undefined) return { projectId: manualId, source: 'manual' }
@@ -59,21 +73,37 @@ export function resolveAdoption(
   }
 
   const coordinate = repositoryCoordinate(project.repoUrl) ?? project.repo?.toLowerCase() ?? null
-  if (coordinate === null) return null
+  if (coordinate !== null) {
+    const owners = projects.filter((candidate) => candidate.repositories.includes(coordinate))
+    if (owners.length === 1) return { projectId: owners[0]!.id, source: 'repo-match' }
+    if (owners.length > 1) return null
+  }
 
-  const owners = projects.filter((candidate) => candidate.repositories.includes(coordinate))
-  if (owners.length !== 1) return null
-  return { projectId: owners[0]!.id, source: 'repo-match' }
+  // Path: the environment runs from a repository the host scan attributed to
+  // exactly one Project, or its working directory sits under one Project's
+  // directory. A directory two Projects claim adopts nothing.
+  const key = facts.environmentKeys?.[project.name]
+  const byKey = key ? projects.filter((candidate) => candidate.scanKeys?.includes(key)) : []
+  if (byKey.length === 1) return { projectId: byKey[0]!.id, source: 'path' }
+  if (byKey.length > 1) return null
+
+  const workingDir = project.workingDir ?? null
+  if (workingDir) {
+    const byPath = projects.filter((candidate) => underOneOf(workingDir, candidate.paths ?? []))
+    if (byPath.length === 1) return { projectId: byPath[0]!.id, source: 'path' }
+  }
+  return null
 }
 
 export function resolveAdoptions(
-  environments: ReadonlyArray<Pick<Environment, 'name' | 'group' | 'repo' | 'repoUrl'>>,
+  environments: ReadonlyArray<Pick<Environment, 'name' | 'group' | 'repo' | 'repoUrl'> & { workingDir?: string | null }>,
   projects: ProjectCoordinates[],
   manual: Map<string, string>,
+  facts: AdoptionFacts = {},
 ): Map<string, Adoption> {
   const resolved = new Map<string, Adoption>()
   for (const environment of environments) {
-    const adoption = resolveAdoption(environment, projects, manual)
+    const adoption = resolveAdoption(environment, projects, manual, facts)
     if (adoption) resolved.set(environment.name, adoption)
   }
   return resolved

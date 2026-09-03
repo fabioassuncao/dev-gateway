@@ -9,6 +9,7 @@ import { createSnapshotCache } from '../../src/server/core/inventory.ts'
 import { LiveHub } from '../../src/server/core/events.ts'
 import { createVerdictCache } from '../../src/server/core/traefik.ts'
 import type { Database } from '../../src/server/db/index.ts'
+import { fakeActivity, fakeSessions, fakeTasks } from './fake-work.ts'
 import type { GitHubIntegration } from '../../src/server/integrations/github/index.ts'
 import type { DockerClient, LogLine } from '../../src/server/docker/client.ts'
 import type {
@@ -288,19 +289,28 @@ export function fakeDatabase(options: { available?: boolean } = {}): Database & 
     projects: {
       find: async () => null,
       list: async () => [],
-      listRepositories: async () => [],
       listEnvironments: async () => [],
+    },
+    repositories: {
+      list: async () => [],
+      find: async () => null,
+      findByGitHub: async () => null,
     },
     // Empty by default: an override test is not a GitHub test, and every join
     // must degrade to nothing rather than throw.
     github: {
       listIssues: async () => [],
-      listIssueEnvironments: async () => [],
       listRelationships: async () => [],
       findRepository: async () => null,
+      findIssue: async () => null,
+      findIssueByNumber: async () => null,
       listRepositories: async () => [],
     },
+    tasks: fakeTasks(),
+    sessions: fakeSessions(),
+    activity: fakeActivity(),
     settings: {
+      getGlobal: async () => null,
       getEnvironment: async (_id: string, key: string) => projectValues.get(key) ?? null,
       setEnvironment: async (_id: string, key: string, value: unknown) => void projectValues.set(key, value),
       clearEnvironment: async (_id: string, key: string) => void projectValues.delete(key),

@@ -4,7 +4,6 @@ import type {
   DatabaseClient,
   ProjectEnvironmentRow,
   ProjectRecord,
-  ProjectRepositoryRow,
 } from './client.ts'
 
 const Slug = z.string().min(1).max(64).regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/, 'must be a lowercase slug')
@@ -34,14 +33,6 @@ const UpdateProject = z.object({
   description: z.string().max(2000).nullable().optional(),
   archived: z.boolean().optional(),
   relativePath: RelativePath.nullable().optional(),
-}).strict()
-
-/** Documented vocabulary, not an enum: adding one later is not a migration. */
-export const REPOSITORY_ROLES = ['api', 'web', 'mobile', 'services', 'infra', 'docs', 'other'] as const
-
-const RepositoryLink = z.object({
-  repositoryId: z.string().min(1),
-  role: z.string().max(32).nullable().default(null),
 }).strict()
 
 /**
@@ -76,15 +67,6 @@ export class ProjectsRepository {
     return this.client.deleteProject(slug)
   }
 
-  listRepositories(): Promise<ProjectRepositoryRow[]> {
-    return this.client.listProjectRepositories()
-  }
-
-  setRepositories(projectId: string, repositories: unknown): Promise<void> {
-    const parsed = z.array(RepositoryLink).max(64).parse(repositories)
-    return this.client.setProjectRepositories(projectId, parsed)
-  }
-
   listEnvironments(): Promise<ProjectEnvironmentRow[]> {
     return this.client.listProjectEnvironments()
   }
@@ -95,4 +77,5 @@ export class ProjectsRepository {
   }
 }
 
-export type { ProjectRecord, ProjectRepositoryRow, ProjectEnvironmentRow }
+export type { ProjectRecord, ProjectEnvironmentRow }
+export { REPOSITORY_ROLES } from './repositories.ts'

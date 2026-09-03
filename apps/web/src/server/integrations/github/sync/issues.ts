@@ -11,6 +11,7 @@ import type { GitHubClient } from '../client.ts'
 import { fetchIssues, fetchSubIssues, normaliseIssue, visibleLinks, type SubIssueLink } from '../issues.ts'
 import type { Database } from '../../../db/index.ts'
 import type { StoredRepository } from '../../../db/github.ts'
+import { applyIssueToTask } from '../tasks.ts'
 
 export interface RepositorySyncResult {
   repository: string
@@ -46,9 +47,17 @@ export async function syncRepositoryIssues(
   let cursor: string | null = options.since?.toISOString() ?? null
   const numbers = new Set<number>()
 
+  const ownerFor = async (githubRepositoryId: string) => {
+    const owner = await db.repositories.findByGitHub(githubRepositoryId)
+    return owner ? { projectId: owner.projectId, repositoryId: owner.id } : null
+  }
   for (const entry of raw) {
     const record = normaliseIssue(entry, repository.id)
-    await db.github.upsertIssue(record)
+    const id = await db.github.upsertIssue(record)
+    // The bound task follows the projection; a new issue on a repository a
+    // Project owns becomes a task. A local edit that is pending is kept.
+    const stored = await db.github.findIssue(id)
+    if (stored) await applyIssueToTask(db.tasks, stored, ownerFor)
     numbers.add(record.number)
     const updated = record.githubUpdatedAt.toISOString()
     if (cursor === null || updated > cursor) cursor = updated

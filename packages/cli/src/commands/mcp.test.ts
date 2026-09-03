@@ -94,11 +94,11 @@ describe('the API caller', () => {
     const fetchMock = vi.fn(async () => new Response('{"tasks":[]}', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
     const call = createCaller('http://127.0.0.1:8081', { 'X-Portta-Actor': 'agent' })
-    const result = await call('GET', '/workspaces/produto/tasks')
+    const result = await call('GET', '/projects/produto/tasks')
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
-    expect(url).toBe('http://127.0.0.1:8081/api/workspaces/produto/tasks')
+    expect(url).toBe('http://127.0.0.1:8081/api/projects/produto/tasks')
     expect((init.headers as Record<string, string>)['X-Portta-Actor']).toBe('agent')
     expect(result.isError).toBeUndefined()
     expect(result.content[0]?.text).toBe('{"tasks":[]}')
@@ -149,7 +149,7 @@ describe('the tools', () => {
     return { server, calls }
   }
 
-  it('registers exactly the eight verbs', () => {
+  it('registers exactly the documented tools', () => {
     const { server } = harness()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const registered = Object.keys((server as any)._registeredTools ?? {})
@@ -163,14 +163,17 @@ describe('the tools', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tools = (server as any)._registeredTools as Record<string, { handler: (args: unknown) => Promise<unknown> }>
     const args: Record<string, unknown> = {
-      list_tasks: { workspace: 'produto' },
-      next_task: { workspace: 'produto' },
-      get_task: { task: 'acme/api#1' },
-      get_subtasks: { task: 'acme/api#1' },
-      start_task: { task: 'acme/api#1' },
-      set_task_status: { task: 'acme/api#1', status: 'review' },
-      comment_task: { task: 'acme/api#1', body: 'on it' },
-      finish_task: { task: 'acme/api#1' },
+      list_projects: {}, get_project: { project: 'produto' }, get_context: { project: 'produto', task: '7' },
+      list_repositories: { project: 'produto' }, get_repository_git: { repository: '10' },
+      list_environments: { all: true }, get_environment: { environment: 'alpha' }, list_services: { environment: 'alpha' },
+      get_logs: { environment: 'alpha', service: 'api', tail: 50 }, get_resources: { project: 'produto' }, list_activity: { project: 'produto' },
+      list_tasks: { project: 'produto' }, next_task: { project: 'produto' },
+      get_task: { task: 'acme/api#1' }, get_subtasks: { task: 'acme/api#1' },
+      create_task: { project: 'produto', title: 'x' }, start_task: { task: 'acme/api#1' },
+      set_task_status: { task: 'acme/api#1', status: 'review' }, add_task_note: { task: '1', body: 'found it' },
+      comment_task: { task: 'acme/api#1', body: 'on it' }, finish_task: { task: 'acme/api#1' }, link_task: { task: '1', issue: 'acme/api#1' },
+      start_session: { project: 'produto', taskId: '1' }, end_session: { session: '9' },
+      start_environment: { environment: 'alpha' }, stop_environment: { environment: 'alpha' }, restart_service: { environment: 'alpha', service: 'api' },
     }
     for (const name of TOOL_NAMES) {
       calls.length = 0

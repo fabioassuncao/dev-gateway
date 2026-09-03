@@ -12,7 +12,7 @@ export function eventRoutes(deps: AppDeps): Hono {
   // Server-sent events, not a WebSocket: the traffic is one-way and the
   // browser reconnects on its own.
   app.get('/events', documentRoute({
-    tag: 'Events', operationId: 'streamEvents', summary: 'Stream runtime events',
+    tag: 'Events', operationId: 'streamEvents', capability: 'gateway:read', summary: 'Stream runtime events',
     description: 'Server-sent events. Each non-ping data frame is a JSON LiveEvent; clients reconnect normally.',
     response: eventStreamResponse, mediaType: 'text/event-stream', responseDescription: 'An open SSE stream.',
     errors: [500, 502],

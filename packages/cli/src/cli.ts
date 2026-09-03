@@ -16,6 +16,9 @@ import { shareGc, shareList, shareRevoke } from './commands/share.js'
 import { tlsInit, tlsStatus, tlsTrust, tlsUntrust } from './commands/tls.js'
 import { backupCommand, repairCommand, restoreCommand } from './commands/maintenance.js'
 import { mcpCommand } from './commands/mcp.js'
+import { tasksComment, tasksCreate, tasksEdit, tasksFinish, tasksLink, tasksList, tasksNext, tasksNote, tasksPublish, tasksShow, tasksStart, tasksStatus, tasksSubtasks, tasksSync, tasksUnlink } from './commands/tasks.js'
+import { sessionsEnd, sessionsHeartbeat, sessionsList, sessionsStart } from './commands/sessions.js'
+import { activityCommand } from './commands/activity.js'
 import { remoteAccessClose, remoteAccessList, remoteAccessOpen, remoteBootstrap, remoteExec, remoteGateway } from './commands/remote.js'
 import { tunnelDisable, tunnelEnable, tunnelLogs, tunnelSetup, tunnelStatus, tunnelTest } from './commands/tunnel.js'
 import { legacy, webAuthApply, webAuthClear, webAuthSet, webAuthStatus, webBuild, webDisable, webDown, webLogs, webOpen, webRestart, webStatus, webUp } from './commands/web.js'
@@ -192,6 +195,39 @@ describe(program.command('restore [file]'), 'Put a backup back, keeping what it 
 describe(program.command('repair'), 'Recreate what is missing and fix what is provably wrong')
   .option('--dry-run', 'print the plan without changing anything')
   .action(repairCommand)
+
+/** Every work command talks to the panel API, as the UI and `portta mcp` do. */
+function panelOptions(command: Command): Command {
+  return command
+    .option('--url <url>', 'the panel API base URL; defaults to the local panel')
+    .option('--allow-remote', 'permit a non-loopback panel URL, which is where a credential would be sent')
+    .option('--actor <name>', 'who is asking; recorded as X-Portta-Actor (PORTTA_ACTOR)')
+}
+
+const tasks = describe(program.command('tasks'), "A Project's tasks: what is next, take one, note, finish")
+describe(panelOptions(tasks.command('list')), 'List tasks').option('--project <slug>').option('--status <a,b>', 'comma-separated statuses').option('--open', 'only what is not done').option('--mine', 'only tasks assigned to the actor').option('--assignee <name>').option('--repository <id>').option('-q, --q <text>', 'substring of the title').action(tasksList)
+describe(panelOptions(tasks.command('next')), 'The task to do next, or nothing').option('--project <slug>').action(tasksNext)
+describe(panelOptions(tasks.command('show <ref>')), 'One task, with its notes, subtasks and environments').action((ref, _options, command) => tasksShow(ref, command))
+describe(panelOptions(tasks.command('create')), 'Create a task').option('--project <slug>').option('--title <text>').option('--description <text>').option('--priority <level>', 'low, medium, high or urgent').option('--status <status>').option('--parent <ref>').option('--repository <id>').option('--environment <name>').option('--labels <a,b>').option('--assignee <name>').action(tasksCreate)
+describe(panelOptions(tasks.command('start <ref>')), 'Take a task: in_progress, assigned to the actor').option('--no-assign', 'move it without assigning').action(tasksStart)
+describe(panelOptions(tasks.command('status <ref> <status>')), 'Move a task to one status').action(tasksStatus)
+describe(panelOptions(tasks.command('finish <ref>')), 'Finish a task').option('--close', 'close the bound GitHub issue as well').action(tasksFinish)
+describe(panelOptions(tasks.command('edit <ref>')), 'Change a task').option('--title <text>').option('--description <text>').option('--priority <level>', 'a level, or none').option('--assignee <name>', 'a name, or none').option('--parent <ref>', 'a task, or none').option('--environment <name>', 'an environment, or none').option('--labels <a,b>').action(tasksEdit)
+describe(panelOptions(tasks.command('note <ref> <text>')), 'Add a local note').action(tasksNote)
+describe(panelOptions(tasks.command('subtasks <ref>')), 'The subtask tree').action((ref, _options, command) => tasksSubtasks(ref, command))
+describe(panelOptions(tasks.command('link <ref> <issue>')), 'Bind a task to a projected GitHub issue (owner/repo#n)').action(tasksLink)
+describe(panelOptions(tasks.command('unlink <ref>')), 'Remove the GitHub binding').action((ref, _options, command) => tasksUnlink(ref, command))
+describe(panelOptions(tasks.command('publish <ref>')), 'Open a GitHub issue for a task and bind them').option('--repository <owner/name>').action(tasksPublish)
+describe(panelOptions(tasks.command('sync <ref>')), 'Push a pending edit to GitHub, or settle a conflict').option('--resolve <side>', 'local or remote').action(tasksSync)
+describe(panelOptions(tasks.command('comment <ref> <text>')), 'Comment on the bound GitHub issue').action(tasksComment)
+
+const sessions = describe(program.command('sessions'), 'Say who is working on what, since when')
+describe(panelOptions(sessions.command('list')), 'List sessions').option('--project <slug>').option('--active', 'only active sessions').action(sessionsList)
+describe(panelOptions(sessions.command('start')), 'Start a session').option('--project <slug>').option('--task <ref>').option('--repository <id>').option('--environment <name>').option('--summary <text>').option('--head <sha>', 'HEAD before the work started').action(sessionsStart)
+describe(panelOptions(sessions.command('end <id>')), 'End a session').option('--summary <text>').option('--abandon', 'mark it abandoned rather than ended').option('--head <sha>', 'HEAD after the work').action(sessionsEnd)
+describe(panelOptions(sessions.command('heartbeat <id>')), 'Say a session is still alive').action((id, _options, command) => sessionsHeartbeat(id, command))
+
+describe(panelOptions(program.command('activity')), 'What happened, newest first').option('--project <slug>').option('--kind <a,b>', 'comma-separated event kinds').option('--task <ref>').option('--repository <id>').option('--environment <name>').option('--limit <n>').action(activityCommand)
 
 describe(program.command('mcp'), 'Serve the task verbs to an agent over stdio (MCP)')
   .option('--url <url>', 'the panel API base URL; defaults to the local panel')

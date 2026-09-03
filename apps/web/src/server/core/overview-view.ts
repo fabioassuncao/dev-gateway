@@ -1,0 +1,225 @@
+// The Development Dashboard, assembled from pieces the routes already have.
+//
+// Pure over its inputs: the route reads the catalog, the tasks, the sessions,
+// the scans, the metrics and the diagnostics, and this decides what deserves
+// attention and how a project is summarised. Tested without a database.
+
+import type { Diagnostic, Environment, MetricsCurrent, Project, RepositoryGit } from '../../shared/types.ts'
+import type { Session, TaskSummary } from '../../shared/task-types.ts'
+import type { AttentionItem, DevelopmentOverview, DirtyRepository, ProjectPulse, RecentCommit } from '../../shared/overview-types.ts'
+import { commitUrl, parseRemote } from './forge.ts'
+
+export const CPU_PRESSURE = 0.85
+export const MEMORY_PRESSURE = 0.9
+export const STORAGE_PRESSURE = 0.9
+export const RECENT_COMMIT_LIMIT = 12
+export const WORK_LIMIT = 20
+
+export interface OverviewInput {
+  now: number
+  projects: Project[]
+  environments: Environment[]
+  tasks: TaskSummary[]
+  /** task id → project slug is on the summary already; counts per project come from here */
+  sessions: Session[]
+  scans: Map<string, RepositoryGit>
+  metrics: MetricsCurrent
+  problems: Diagnostic[]
+  gatewayUp: boolean
+  lastActivity: Map<string, { at: number; summary: string }>
+}
+
+function environmentHealth(env: Environment): 'ok' | 'partial' | 'unhealthy' | 'idle' {
+  if (env.runningCount === 0) return 'idle'
+  if (env.unhealthyCount > 0) return 'unhealthy'
+  if (env.runningCount < env.serviceCount) return 'partial'
+  return 'ok'
+}
+
+function worst(a: ProjectPulse['health'], b: ProjectPulse['health']): ProjectPulse['health'] {
+  const rank = { unhealthy: 3, partial: 2, ok: 1, idle: 0 }
+  return rank[a] >= rank[b] ? a : b
+}
+
+export function attentionFor(input: OverviewInput): AttentionItem[] {
+  const items: AttentionItem[] = []
+  const slugOf = new Map<string, string>()
+  for (const project of input.projects) for (const env of project.environments) slugOf.set(env.environment, project.slug)
+
+  for (const env of input.environments) {
+    for (const service of env.services) {
+      if (service.state === 'running' && service.health === 'unhealthy') {
+        items.push({
+          kind: 'service-unhealthy', severity: 'fail',
+          summary: `${env.name}/${service.service ?? service.name} is unhealthy`,
+          project: slugOf.get(env.name) ?? null, environment: env.name, service: service.service ?? service.name, taskId: null,
+          href: `#/environments/${encodeURIComponent(env.name)}?service=${encodeURIComponent(service.service ?? service.name)}`,
+        })
+      }
+    }
+    if (env.runningCount > 0 && env.runningCount < env.serviceCount) {
+      items.push({
+        kind: 'environment-degraded', severity: 'warn',
+        summary: `${env.name}: ${env.runningCount} of ${env.serviceCount} services running`,
+        project: slugOf.get(env.name) ?? null, environment: env.name, service: null, taskId: null,
+        href: `#/environments/${encodeURIComponent(env.name)}`,
+      })
+    }
+  }
+
+  for (const task of input.tasks) {
+    if (task.github?.syncState === 'conflict') {
+      items.push({ kind: 'task-conflict', severity: 'warn', summary: `#${task.id} ${task.title}: local and GitHub disagree`, project: task.project, environment: null, service: null, taskId: task.id, href: task.panelUrl })
+    }
+  }
+
+  const host = input.metrics.host
+  if (host && !input.metrics.stale) {
+    const cpu = host.cpuUtilisation ?? null
+    const mem = host.memoryUsedPercent ?? null
+    const storage = host.storage?.usedPercent ?? null
+    const pressure: string[] = []
+    if (cpu !== null && cpu >= CPU_PRESSURE * 100) pressure.push(`CPU ${Math.round(cpu)}%`)
+    if (mem !== null && mem >= MEMORY_PRESSURE * 100) pressure.push(`RAM ${Math.round(mem)}%`)
+    if (storage !== null && storage >= STORAGE_PRESSURE * 100) pressure.push(`disk ${Math.round(storage)}%`)
+    if (pressure.length > 0) {
+      items.push({ kind: 'host-pressure', severity: mem !== null && mem >= 0.95 * 100 ? 'fail' : 'warn', summary: `this host is under pressure: ${pressure.join(', ')}`, project: null, environment: null, service: null, taskId: null, href: '#/overview' })
+    }
+  }
+
+  for (const problem of input.problems) {
+    if (problem.status === 'fail') {
+      items.push({ kind: 'diagnostic', severity: 'fail', summary: problem.title, project: null, environment: null, service: null, taskId: null, href: '#/gateway' })
+    }
+  }
+
+  const rank = { fail: 0, warn: 1 }
+  return items.sort((a, b) => rank[a.severity] - rank[b.severity])
+}
+
+export function projectPulses(input: OverviewInput): ProjectPulse[] {
+  const byEnvironment = new Map(input.environments.map((env) => [env.name, env]))
+  const metricsByEnvironment = new Map(input.metrics.projects.map((p) => [p.composeProject, p]))
+  return input.projects.map((project) => {
+    const tasks = input.tasks.filter((task) => task.project === project.slug)
+    const envs = project.environments.map((link) => byEnvironment.get(link.environment)).filter((env): env is Environment => env !== undefined)
+    let health: ProjectPulse['health'] = 'idle'
+    for (const env of envs) health = worst(health, environmentHealth(env))
+    let lastCommit: ProjectPulse['lastCommit'] = null
+    for (const repository of project.repositories) {
+      const scan = repository.scanKey ? input.scans.get(repository.scanKey) : undefined
+      const head = scan?.commits[0]
+      if (head && (lastCommit === null || head.date > lastCommit.date)) {
+        lastCommit = { sha: head.sha, shortSha: head.shortSha, subject: head.subject, repository: repository.name, date: head.date }
+      }
+    }
+    let cpu: number | null = null
+    let memory: number | null = null
+    for (const env of envs) {
+      const measured = metricsByEnvironment.get(env.name)
+      if (!measured) continue
+      if (measured.cpuUtilisation !== null) cpu = (cpu ?? 0) + measured.cpuUtilisation
+      if (measured.memoryUsedBytes !== null) memory = (memory ?? 0) + measured.memoryUsedBytes
+    }
+    const activity = input.lastActivity.get(project.slug) ?? null
+    return {
+      slug: project.slug,
+      name: project.name,
+      archived: project.archived,
+      openTasks: tasks.filter((task) => task.status !== 'done').length,
+      inProgressTasks: tasks.filter((task) => task.status === 'in_progress').length,
+      blockedTasks: tasks.filter((task) => task.status === 'blocked').length,
+      activeSessions: input.sessions.filter((session) => session.project === project.slug && session.status === 'active').length,
+      repositoryCount: project.repositories.length,
+      environmentCount: envs.length,
+      runningEnvironments: envs.filter((env) => env.runningCount > 0).length,
+      unhealthyServices: envs.reduce((sum, env) => sum + env.unhealthyCount, 0),
+      health,
+      lastCommit,
+      lastActivityAt: activity?.at ?? null,
+      lastActivity: activity?.summary ?? null,
+      resources: cpu === null && memory === null ? null : { cpuUtilisation: cpu, memoryUsedBytes: memory },
+    }
+  }).sort((a, b) => Number(a.archived) - Number(b.archived) || (b.lastActivityAt ?? 0) - (a.lastActivityAt ?? 0) || a.name.localeCompare(b.name))
+}
+
+export function codeSection(input: OverviewInput): DevelopmentOverview['code'] {
+  const commits: RecentCommit[] = []
+  const dirty: DirtyRepository[] = []
+  for (const project of input.projects) {
+    for (const repository of project.repositories) {
+      const scan = repository.scanKey ? input.scans.get(repository.scanKey) : undefined
+      if (!scan) continue
+      const remote = scan.git?.remote ? parseRemote(scan.git.remote) : null
+      for (const commit of scan.commits.slice(0, 5)) {
+        commits.push({
+          sha: commit.sha, shortSha: commit.shortSha, subject: commit.subject, author: commit.author, date: commit.date,
+          url: remote ? commitUrl(remote, commit.sha) : null,
+          repository: { id: repository.id, name: repository.name }, project: project.slug,
+        })
+      }
+      const git = scan.git
+      if (git && (git.dirty || git.ahead > 0 || git.behind > 0)) {
+        dirty.push({ id: repository.id, name: repository.name, project: project.slug, branch: git.branch, changed: git.staged + git.unstaged + git.untracked + git.unmerged, ahead: git.ahead, behind: git.behind })
+      }
+    }
+  }
+  return {
+    recentCommits: commits.sort((a, b) => b.date - a.date).slice(0, RECENT_COMMIT_LIMIT),
+    dirtyRepositories: dirty.sort((a, b) => b.changed - a.changed),
+  }
+}
+
+export function buildOverview(input: OverviewInput): DevelopmentOverview {
+  const open = input.tasks.filter((task) => task.status !== 'done')
+  const byRecent = (a: TaskSummary, b: TaskSummary) => b.updatedAt - a.updatedAt
+  const slugOf = new Map<string, { slug: string; name: string }>()
+  for (const project of input.projects) for (const env of project.environments) slugOf.set(env.environment, { slug: project.slug, name: project.name })
+  const host = input.metrics.host
+  return {
+    generatedAt: Math.floor(input.now / 1000),
+    work: {
+      inProgress: open.filter((task) => task.status === 'in_progress').sort(byRecent).slice(0, WORK_LIMIT),
+      review: open.filter((task) => task.status === 'review').sort(byRecent).slice(0, WORK_LIMIT),
+      blocked: open.filter((task) => task.status === 'blocked').sort(byRecent).slice(0, WORK_LIMIT),
+      counts: {
+        open: open.length,
+        inProgress: open.filter((task) => task.status === 'in_progress').length,
+        review: open.filter((task) => task.status === 'review').length,
+        blocked: open.filter((task) => task.status === 'blocked').length,
+        done: input.tasks.length - open.length,
+      },
+    },
+    sessions: input.sessions.filter((session) => session.status === 'active').sort((a, b) => b.lastActivityAt - a.lastActivityAt),
+    attention: attentionFor(input),
+    projects: projectPulses(input),
+    code: codeSection(input),
+    runtime: {
+      environmentsRunning: input.environments.filter((env) => env.runningCount > 0).length,
+      environmentsTotal: input.environments.length,
+      servicesRunning: input.environments.reduce((sum, env) => sum + env.runningCount, 0),
+      servicesUnhealthy: input.environments.reduce((sum, env) => sum + env.unhealthyCount, 0),
+      routedUrls: input.environments.reduce((sum, env) => sum + env.urls.length, 0),
+    },
+    resources: {
+      host: host ? {
+        cpuUtilisation: host.cpuUtilisation ?? null,
+        memoryUsedPercent: host.memoryUsedPercent ?? null,
+        storageUsedPercent: host.storage?.usedPercent ?? null,
+        stale: input.metrics.stale,
+        collectorActive: input.metrics.collectorActive,
+      } : null,
+      topProjects: [...input.metrics.projects]
+        .sort((a, b) => (b.memoryUsedBytes ?? 0) - (a.memoryUsedBytes ?? 0))
+        .slice(0, 5)
+        .map((measured) => ({
+          slug: slugOf.get(measured.composeProject)?.slug ?? null,
+          name: slugOf.get(measured.composeProject)?.name ?? measured.name,
+          environment: measured.composeProject,
+          cpuUtilisation: measured.cpuUtilisation,
+          memoryUsedBytes: measured.memoryUsedBytes,
+        })),
+    },
+    gateway: { up: input.gatewayUp, problems: input.problems },
+  }
+}

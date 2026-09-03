@@ -45,6 +45,20 @@ describe('the development-model schema', () => {
   })
 })
 
+describe('the repositories schema', () => {
+  const migration = readFileSync(new URL('../../migrations/0008_repositories.sql', import.meta.url), 'utf8')
+
+  it('keeps one GitHub repository on one Project, and backfills the oldest claim', () => {
+    expect(migration).toContain('github_repository_id BIGINT UNIQUE REFERENCES github_repositories(id) ON DELETE SET NULL')
+    expect(migration).toContain('DISTINCT ON (pr.repository_id)')
+    expect(migration.indexOf('INSERT INTO repositories')).toBeLessThan(migration.indexOf('DROP TABLE project_repositories'))
+  })
+
+  it('never points a repository at an environment: that association is observed, not stored', () => {
+    expect(migration).not.toContain('environment_id')
+  })
+})
+
 describe('repository coordinates', () => {
   it('reads the same slug out of every remote shape', () => {
     expect(repositoryCoordinate('git@github.com:Acme/Alpha.git')).toBe('acme/alpha')
@@ -89,6 +103,16 @@ describe('adoption precedence', () => {
     ).toEqual({ projectId: '1', source: 'repo-match' })
   })
 
+  it('adopts by path: the scan says which repository the environment runs from', () => {
+    const projects: ProjectCoordinates[] = [
+      { id: '1', slug: 'one', repositories: [], scanKeys: ['abcdef012345'], paths: ['/srv/projects/one'] },
+      { id: '2', slug: 'two', repositories: [], scanKeys: [], paths: ['/srv/projects/two'] },
+    ]
+    expect(resolveAdoption(project, projects, new Map(), { environmentKeys: { alpha: 'abcdef012345' } })).toEqual({ projectId: '1', source: 'path' })
+    expect(resolveAdoption({ ...project, workingDir: '/srv/projects/two/deploy' }, projects, new Map())).toEqual({ projectId: '2', source: 'path' })
+    expect(resolveAdoption({ ...project, workingDir: '/srv/projects/twofold' }, projects, new Map())).toBeNull()
+  })
+
   it('adopts nothing when two Projects own the same repository', () => {
     const ambiguous: ProjectCoordinates[] = [
       { id: '1', slug: 'one', repositories: ['acme/alpha'] },
@@ -106,7 +130,7 @@ describe('adoption precedence', () => {
 
 interface Store {
   projects: Map<string, { id: string; slug: string; name: string; description: string | null; archived: boolean; relativePath: string | null }>
-  repositories: Map<string, { projectId: string; repositoryId: string; role: string | null }[]>
+  repositories: Map<string, Record<string, unknown>>
   environments: Map<string, string[]>
   granted: Set<string>
   /** Set by the test to prove nothing else was touched. */
@@ -123,14 +147,43 @@ function projectDatabase(granted: string[] = ['acme/alpha', 'acme/api']): { db: 
   }
   let nextId = 1
 
+  let nextRepositoryId = 1
+  const grantedRepo = (fullName: string) => ({ id: `repo-${fullName}`, fullName, name: fullName.split('/')[1], htmlUrl: `https://github.com/${fullName}`, defaultBranch: 'main', private: true, archived: false })
+  const withGitHub = (row: Record<string, unknown>) => {
+    const id = row['githubRepositoryId'] as string | null
+    const fullName = id ? id.replace('repo-', '') : null
+    return { ...row, github: fullName ? { repositoryId: id, fullName, htmlUrl: `https://github.com/${fullName}`, defaultBranch: 'main', private: true, archived: false } : null }
+  }
   const db = {
     status: () => ({ configured: true, available: true, reason: null, checkedAt: 0, migrations: [] }),
     environments: { find: async () => null, upsertSeen: async () => ({}), list: async () => [] },
     settings: { listAllEnvironment: async () => [], listAllService: async () => [] },
+    repositories: {
+      list: async (projectId?: string) =>
+        [...store.repositories.values()].filter((row) => projectId === undefined || row['projectId'] === projectId).map(withGitHub),
+      find: async (id: string) => (store.repositories.has(id) ? withGitHub(store.repositories.get(id)!) : null),
+      findByGitHub: async (githubId: string) => {
+        const row = [...store.repositories.values()].find((entry) => entry['githubRepositoryId'] === githubId)
+        return row ? withGitHub(row) : null
+      },
+      create: async (projectId: string, input: Record<string, unknown>) => {
+        const id = String(nextRepositoryId++)
+        const row = { id, projectId, role: null, localPath: null, relativePath: null, remoteUrl: null, provider: input['githubRepositoryId'] ? 'github' : 'local', position: 0, ...input }
+        store.repositories.set(id, row)
+        return withGitHub(row)
+      },
+      update: async (id: string, patch: Record<string, unknown>) => {
+        const row = store.repositories.get(id)
+        if (!row) return null
+        const updated = { ...row, ...patch }
+        store.repositories.set(id, updated)
+        return withGitHub(updated)
+      },
+      remove: async (id: string) => store.repositories.delete(id),
+    },
     github: {
-      findRepository: async (fullName: string) =>
-        store.granted.has(fullName) ? { id: `repo-${fullName}`, fullName } : null,
-      listRepositories: async () => [],
+      findRepository: async (fullName: string) => (store.granted.has(fullName) ? grantedRepo(fullName) : null),
+      listRepositories: async () => [...store.granted].map(grantedRepo),
       listIssues: async () => [],
       listIssueEnvironments: async () => [],
       listRelationships: async () => [],
@@ -154,23 +207,6 @@ function projectDatabase(granted: string[] = ['acme/alpha', 'acme/api']): { db: 
         store.destructiveCalls.push(`project:${slug}`)
         return store.projects.delete(slug)
       },
-      listRepositories: async () =>
-        [...store.repositories.values()].flat().map((link) => ({
-          projectId: link.projectId,
-          repositoryId: link.repositoryId,
-          fullName: link.repositoryId.replace('repo-', ''),
-          htmlUrl: `https://github.com/${link.repositoryId.replace('repo-', '')}`,
-          defaultBranch: 'main',
-          private: true,
-          archived: false,
-          role: link.role,
-          position: 0,
-        })),
-      setRepositories: async (projectId: string, links: { repositoryId: string; role: string | null }[]) =>
-        void store.repositories.set(
-          projectId,
-          links.map((link) => ({ ...link, projectId })),
-        ),
       listEnvironments: async () =>
         [...store.environments.entries()].flatMap(([projectId, environments]) =>
           environments.map((composeProject) => ({ projectId, composeProject, source: 'manual' })),
@@ -258,49 +294,52 @@ describe('the deprecated aliases', () => {
 })
 
 describe('repositories', () => {
-  it('accepts one repository, which is the monorepo case', async () => {
+  it('registers a GitHub repository by name, which is the monorepo case', async () => {
     const instance = app()
     await post(instance.app, '/api/projects', { slug: 'mono', name: 'Mono' })
-    const response = await put(instance, '/api/projects/mono/repositories', {
-      repositories: [{ fullName: 'acme/alpha', role: 'other' }],
-    })
-    expect(response.status).toBe(200)
-    expect(((await response.json()) as Project).githubRepositories).toHaveLength(1)
+    const response = await post(instance.app, '/api/projects/mono/repositories', { githubFullName: 'acme/alpha', role: 'other' })
+    expect(response.status).toBe(201)
+    const project = (await (await instance.app.request('/api/projects/mono')).json()) as Project
+    expect(project.repositories).toHaveLength(1)
+    expect(project.repositories[0]).toMatchObject({ name: 'alpha', provider: 'github', role: 'other' })
+    expect(project.githubRepositories.map((entry) => entry.fullName)).toEqual(['acme/alpha'])
   })
 
-  it('accepts several, which is the multi-repository product', async () => {
+  it('registers a local repository with no GitHub at all', async () => {
     const instance = app()
-    await post(instance.app, '/api/projects', { slug: 'produto', name: 'Produto' })
-    const response = await put(instance, '/api/projects/produto/repositories', {
-      repositories: [{ fullName: 'acme/alpha', role: 'web' }, { fullName: 'acme/api', role: 'api' }],
-    })
-    expect(((await response.json()) as Project).githubRepositories.map((entry) => entry.fullName)).toEqual([
-      'acme/alpha',
-      'acme/api',
-    ])
+    await post(instance.app, '/api/projects', { slug: 'local', name: 'Local' })
+    const response = await post(instance.app, '/api/projects/local/repositories', { name: 'api', localPath: '/srv/projects/local/api' })
+    expect(response.status).toBe(201)
+    const body = await response.json()
+    expect(body).toMatchObject({ name: 'api', provider: 'local', localPath: '/srv/projects/local/api', github: null, git: null })
+    const list = await (await instance.app.request('/api/projects')).json()
+    expect(list.projects[0].repositoryCount).toBe(1)
   })
 
-  it('lets one repository belong to two Projects, until the tightening lands', async () => {
+  it('gives one GitHub repository to one Project', async () => {
     const instance = app()
     await post(instance.app, '/api/projects', { slug: 'one', name: 'One' })
     await post(instance.app, '/api/projects', { slug: 'two', name: 'Two' })
-    await put(instance, '/api/projects/one/repositories', { repositories: [{ fullName: 'acme/alpha' }] })
-    const second = await put(instance, '/api/projects/two/repositories', {
-      repositories: [{ fullName: 'acme/alpha' }],
-    })
-    expect(second.status).toBe(200)
+    expect((await post(instance.app, '/api/projects/one/repositories', { githubFullName: 'acme/alpha' })).status).toBe(201)
+    const second = await post(instance.app, '/api/projects/two/repositories', { githubFullName: 'acme/alpha' })
+    expect(second.status).toBe(400)
+    expect((await second.json()).hint).toContain('belongs to one Project')
   })
 
   it('refuses a repository outside the installation, and says why', async () => {
     const instance = app()
     await post(instance.app, '/api/projects', { slug: 'produto', name: 'Produto' })
-    const response = await put(instance, '/api/projects/produto/repositories', {
-      repositories: [{ fullName: 'someone/else' }],
-    })
+    const response = await post(instance.app, '/api/projects/produto/repositories', { githubFullName: 'someone/else' })
     expect(response.status).toBe(400)
     const body = await response.json()
     expect(body.error).toContain('not a repository this gateway was granted')
     expect(body.hint).toContain('docs/github.md')
+  })
+
+  it('the old PUT is gone', async () => {
+    const instance = app()
+    await post(instance.app, '/api/projects', { slug: 'produto', name: 'Produto' })
+    expect((await put(instance, '/api/projects/produto/repositories', { repositories: [] })).status).toBe(404)
   })
 })
 

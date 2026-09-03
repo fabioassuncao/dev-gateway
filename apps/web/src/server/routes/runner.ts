@@ -8,7 +8,7 @@ export function runnerRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
   app.get('/runner', documentRoute({
-    tag: 'Environments', operationId: 'getRunnerStatus', summary: 'Get the project-runner state',
+    tag: 'Environments', operationId: 'getRunnerStatus', capability: 'environment:read', summary: 'Get the project-runner state',
     response: RunnerStatus,
     description: 'Reads the prepared runner container back. A host that has not opted in gets a reason, never an error.',
     parameters: [{

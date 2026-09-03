@@ -11,9 +11,11 @@ import {
   labelsAfter,
 } from '../integrations/github/metadata.ts'
 import { normaliseIssue, type RawIssue } from '../integrations/github/issues.ts'
+import { applyIssueToTask } from '../integrations/github/tasks.ts'
 import { environmentsFor } from '../core/issue-environments.ts'
-import { readProjectGit } from '../core/git.ts'
 import { issueView as view, resolvedLinks as linksFor } from '../core/issue-view.ts'
+import { recordActivity } from '../core/activity.ts'
+import { principalOf } from '../principal.ts'
 import { Issue } from '../../shared/types.ts'
 import { documentRoute } from '../openapi.ts'
 
@@ -30,18 +32,6 @@ const PatchIssueBody = z
   .strict()
   .meta({ ref: 'PatchIssueBody' })
 
-const CreateIssueBody = z
-  .object({
-    title: z.string().min(1).max(256),
-    body: z.string().max(65536).optional(),
-    status: z.enum(['backlog', 'ready', 'in_progress', 'review', 'blocked', 'done']).optional(),
-    priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
-    labels: z.array(z.string().min(1)).max(100).optional(),
-    assignees: z.array(z.string().min(1)).max(10).optional(),
-  })
-  .strict()
-  .meta({ ref: 'CreateIssueBody' })
-
 const issueIdParameter = {
   name: 'id',
   in: 'path' as const,
@@ -54,8 +44,8 @@ const issueIdParameter = {
 async function projectRepositoryIds(db: Database, slug: string): Promise<string[]> {
   const project = await db.projects.find(slug)
   if (!project) throw new HTTPException(404, { message: `no project '${slug}'` })
-  const links = await db.projects.listRepositories()
-  return links.filter((link) => link.projectId === project.id).map((link) => link.repositoryId)
+  const rows = await db.repositories.list(project.id)
+  return rows.flatMap((row) => (row.githubRepositoryId ? [row.githubRepositoryId] : []))
 }
 
 function matches(issue: StoredIssue, query: URLSearchParams): boolean {
@@ -118,7 +108,7 @@ export function issueRoutes(deps: AppDeps): Hono {
       db.github.listRelationships(),
       deps.cache.get(),
     ])
-    const links = await linksFor(deps.config, db, snapshot, issues)
+    const links = await linksFor(deps.config, db, snapshot)
     const now = Math.floor(Date.now() / 1000)
     return issues
       .filter((issue) => matches(issue, query))
@@ -126,7 +116,7 @@ export function issueRoutes(deps: AppDeps): Hono {
   }
 
   app.get('/projects/:slug/issues', documentRoute({
-    tag: 'Issues', operationId: 'listProjectIssues',
+    tag: 'Issues', operationId: 'listProjectIssues', capability: 'github:read',
     summary: "List issues across a Project's repositories", response: IssuesResponse,
     description: 'Served from the projection, so it answers while GitHub is unreachable; every row carries syncedAt and a staleness flag.',
     parameters: [
@@ -142,7 +132,7 @@ export function issueRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/issues', documentRoute({
-    tag: 'Issues', operationId: 'listIssues', summary: 'List projected issues',
+    tag: 'Issues', operationId: 'listIssues', capability: 'github:read', summary: 'List projected issues',
     response: IssuesResponse, parameters: filterParameters, errors: [500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -150,7 +140,7 @@ export function issueRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/issues/:id', documentRoute({
-    tag: 'Issues', operationId: 'getIssue', summary: 'Get one issue with its sub-issue links',
+    tag: 'Issues', operationId: 'getIssue', capability: 'github:read', summary: 'Get one issue with its sub-issue links',
     response: Issue, parameters: [issueIdParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -158,54 +148,7 @@ export function issueRoutes(deps: AppDeps): Hono {
     if (!issue) throw new HTTPException(404, { message: `no issue '${c.req.param('id')}'` })
     const relationships = await db.github.listRelationships()
     const snapshot = await deps.cache.get()
-    const issues = await db.github.listIssues({})
-    const links = await linksFor(deps.config, db, snapshot, issues)
-    return c.json(
-      view(issue, relationships, Math.floor(Date.now() / 1000), environmentsFor(issue.id, snapshot, links)),
-    )
-  })
-
-  /**
-   * Links an issue to the environments it is being worked in, by hand.
-   *
-   * It writes one row. It never starts, stops, creates or removes anything, and
-   * a manual link always wins over every inferred one.
-   */
-  app.put('/issues/:id/environments', documentRoute({
-    tag: 'Issues', operationId: 'setIssueEnvironments',
-    summary: 'Link an issue to the environments it is worked in',
-    description: 'Writes one row per link. No container, volume or environment is touched.',
-    request: z.object({ environments: z.array(z.string().min(1).max(255)).max(32) }).strict()
-      .meta({ ref: 'IssueEnvironmentsBody' }),
-    response: Issue, parameters: [issueIdParameter], errors: [400, 403, 404, 500, 503],
-  }), async (c) => {
-    const db = requireDatabase(deps.db)
-    const issue = await db.github.findIssue(c.req.param('id'))
-    if (!issue) throw new HTTPException(404, { message: `no issue '${c.req.param('id')}'` })
-
-    const body = z
-      .object({ environments: z.array(z.string().min(1).max(255)).max(32) })
-      .strict()
-      .parse(await c.req.json())
-
-    const snapshot = await deps.cache.get()
-    for (const name of body.environments) {
-      if (!snapshot.environments.some((environment) => environment.name === name)) {
-        throw new OverrideRefused(`no environment '${name}' is running`)
-      }
-    }
-
-    await db.github.setIssueEnvironments(
-      issue.id,
-      body.environments.map((name) => ({
-        composeProject: name,
-        branch: readProjectGit(deps.config, name).git?.branch ?? null,
-      })),
-    )
-
-    const relationships = await db.github.listRelationships()
-    const issues = await db.github.listIssues({})
-    const links = await linksFor(deps.config, db, snapshot, issues)
+    const links = await linksFor(deps.config, db, snapshot)
     return c.json(
       view(issue, relationships, Math.floor(Date.now() / 1000), environmentsFor(issue.id, snapshot, links)),
     )
@@ -220,7 +163,7 @@ export function issueRoutes(deps: AppDeps): Hono {
    * because writing a status through labels shows in the issue's timeline.
    */
   app.patch('/issues/:id', documentRoute({
-    tag: 'Issues', operationId: 'patchIssue', summary: 'Change an issue on GitHub',
+    tag: 'Issues', operationId: 'patchIssue', capability: 'task:sync', summary: 'Change an issue on GitHub',
     description: 'Writes to GitHub and updates the projection from the response. Refused in read-only mode and for a repository outside the installation.',
     request: PatchIssueBody, response: Issue,
     parameters: [issueIdParameter], errors: [400, 403, 404, 500, 503],
@@ -275,9 +218,25 @@ export function issueRoutes(deps: AppDeps): Hono {
     await db.github.upsertIssue(record)
 
     const fresh = await db.github.findIssue(issue.id)
+    // The bound task, if there is one, follows what GitHub confirmed.
+    if (fresh) {
+      const applied = await applyIssueToTask(db.tasks, fresh, async (githubRepositoryId) => {
+        const owner = await db.repositories.findByGitHub(githubRepositoryId)
+        return owner ? { projectId: owner.projectId, repositoryId: owner.id } : null
+      })
+      if (applied.task) {
+        const principal = principalOf(c)
+        await recordActivity({ db, hub: deps.hub }, {
+          kind: 'task.synced', actor: principal.actor, actorKind: principal.actorKind,
+          projectId: applied.task.projectId, taskId: applied.task.id, repositoryId: applied.task.repositoryId,
+          summary: `${issue.repository}#${issue.number} changed on GitHub and the task followed`,
+          data: { outcome: applied.outcome },
+        })
+      }
+    }
     const relationships = await db.github.listRelationships()
     const snapshot = await deps.cache.get()
-    const links = await linksFor(deps.config, db, snapshot, await db.github.listIssues({}))
+    const links = await linksFor(deps.config, db, snapshot)
     deps.hub.publish({
       kind: 'config',
       action: 'issue',
@@ -295,68 +254,6 @@ export function issueRoutes(deps: AppDeps): Hono {
         environmentsFor(issue.id, snapshot, links),
       ),
     )
-  })
-
-  /**
-   * Creates an issue on GitHub, then projects what GitHub returned.
-   *
-   * The panel never shows an issue GitHub did not confirm, so there is no
-   * optimistic row here: the response is the projection.
-   */
-  app.post('/repositories/:owner/:repo/issues', documentRoute({
-    tag: 'Issues', operationId: 'createIssue', summary: 'Open an issue on GitHub',
-    request: CreateIssueBody, response: Issue, status: 201,
-    parameters: [
-      {
-        name: 'owner', in: 'path', required: true,
-        description: 'Repository owner; it must be one the installation granted.',
-        schema: { type: 'string' },
-      },
-      {
-        name: 'repo', in: 'path', required: true,
-        description: 'Repository name.',
-        schema: { type: 'string' },
-      },
-    ],
-    errors: [400, 403, 404, 500, 503],
-  }), async (c) => {
-    const db = requireDatabase(deps.db)
-    const github = deps.github
-    if (github === null || !github.status().configured) {
-      throw new OverrideRefused(
-        'the GitHub App is not configured, so nothing can be created',
-        'see docs/github.md',
-      )
-    }
-
-    const fullName = `${c.req.param('owner')}/${c.req.param('repo')}`
-    const repository = await db.github.findRepository(fullName)
-    if (!repository) {
-      throw new OverrideRefused(`${fullName} is not a repository this gateway was granted`)
-    }
-
-    const body = CreateIssueBody.parse(await c.req.json())
-    const labels = labelsAfter(body.labels ?? [], {
-      ...(body.status === undefined ? {} : { status: body.status }),
-      ...(body.priority === undefined ? {} : { priority: body.priority }),
-    })
-
-    const created = await github.require().postAsInstallation<RawIssue>(
-      repository.installationId,
-      `/repos/${fullName}/issues`,
-      {
-        title: body.title,
-        ...(body.body === undefined ? {} : { body: body.body }),
-        ...(labels.length === 0 ? {} : { labels }),
-        ...(body.assignees === undefined ? {} : { assignees: body.assignees }),
-      },
-    )
-
-    const record = normaliseIssue(created.data, repository.id)
-    const id = await db.github.upsertIssue(record)
-    const fresh = await db.github.findIssue(id)
-    const relationships = await db.github.listRelationships()
-    return c.json(view(fresh!, relationships, Math.floor(Date.now() / 1000)), 201)
   })
 
   return app

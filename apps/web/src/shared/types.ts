@@ -143,6 +143,25 @@ export const EnvironmentIssue = named(
 )
 export type EnvironmentIssue = z.infer<typeof EnvironmentIssue>
 
+/** The task an environment is being worked in, when the panel can tell. Local-first: a GitHub binding is optional. */
+export const EnvironmentTask = named(
+  z.object({
+    id: z.string(),
+    project: z.string().describe('Project slug'),
+    title: z.string(),
+    status: z.enum(['backlog', 'ready', 'in_progress', 'review', 'blocked', 'done']),
+    priority: z.enum(['low', 'medium', 'high', 'urgent']).nullable(),
+    assignee: z.string().nullable(),
+    agent: z.string().nullable(),
+    source: IssueLinkSource,
+    reason: z.string(),
+    panelUrl: z.string(),
+    github: z.object({ repository: z.string(), number: z.number().int(), htmlUrl: z.string() }).strict().nullable(),
+  }).strict(),
+  'EnvironmentTask',
+)
+export type EnvironmentTask = z.infer<typeof EnvironmentTask>
+
 export const EnvironmentOverrides = named(
   z.object({
     displayName: z.string().optional(),
@@ -327,7 +346,8 @@ export const Environment = named(
     startedAt: unixSeconds.nullable(),
     uptimeSeconds: z.number().nullable(),
     overrides: EnvironmentOverrides.optional().describe('Absent when nothing was overridden'),
-    issue: EnvironmentIssue.nullable().optional().describe('The issue this environment is running for, when the panel can tell'),
+    issue: EnvironmentIssue.nullable().optional().describe('Deprecated: the GitHub issue of the task this environment runs for. Use task.'),
+    task: EnvironmentTask.nullable().optional().describe('The task this environment is running for, when the panel can tell'),
     location: z.enum(['managed', 'external', 'escaped', 'missing', 'inaccessible']).optional(),
   }).strict(),
   'Environment',
@@ -346,6 +366,20 @@ export const AttributionState = named(
 )
 export type AttributionState = z.infer<typeof AttributionState>
 
+/**
+ * Where a Project sits relative to Projects Home. The vocabulary is the core's
+ * (`classifyProjectLocation` in portta-core); the panel, which cannot see the
+ * filesystem, only ever answers `managed` or `external` from what is stored.
+ */
+export const ProjectLocation = named(
+  z.enum(['managed', 'external', 'escaped', 'missing', 'inaccessible']).describe('Where this Project sits relative to Projects Home'),
+  'ProjectLocation',
+)
+export type ProjectLocation = z.infer<typeof ProjectLocation>
+// Compile-time check that the panel's enum is exactly the core's.
+const _projectLocations: readonly CoreProjectLocation[] = ProjectLocation.options
+void _projectLocations
+
 /** Optional GitHub metadata on a Repository. Does not define the Repository. */
 export const ProjectGitHubRepository = named(
   z.object({
@@ -362,20 +396,110 @@ export const ProjectGitHubRepository = named(
 )
 export type ProjectGitHubRepository = z.infer<typeof ProjectGitHubRepository>
 
-/** A local Git repository that belongs to a Project. A remote is optional. */
+export const GitHead = named(
+  z.object({
+    sha: z.string(),
+    shortSha: z.string(),
+    subject: z.string(),
+    author: z.string(),
+    date: unixSeconds,
+  }).strict(),
+  'GitHead',
+)
+export type GitHead = z.infer<typeof GitHead>
+
+export const RepositoryProvider = named(
+  z.enum(['local', 'github', 'gitlab', 'bitbucket', 'other']).describe('Where the remote lives, if there is one'),
+  'RepositoryProvider',
+)
+export type RepositoryProvider = z.infer<typeof RepositoryProvider>
+
+export const Commit = named(
+  z.object({
+    sha: z.string(),
+    shortSha: z.string(),
+    subject: z.string(),
+    author: z.string(),
+    date: unixSeconds,
+    url: z.string().nullable().describe('The commit on the forge, when the remote is one whose shape is known'),
+  }).strict(),
+  'Commit',
+)
+export type Commit = z.infer<typeof Commit>
+
+/** One file an agent reads before it works, as the host scan found it. */
+export const InstructionFile = named(
+  z.object({
+    path: z.string().describe('Relative to the repository root'),
+    audience: z.string().describe('any, claude, cursor, copilot, gemini, cline or windsurf'),
+    sizeBytes: z.number().int(),
+    modifiedAt: unixSeconds,
+    sha256: z.string(),
+    dirty: z.boolean().describe('True when the working tree differs from HEAD for this file'),
+    content: z.string().nullable().describe('Null when the file is over the collection bound'),
+    truncated: z.boolean(),
+  }).strict(),
+  'InstructionFile',
+)
+export type InstructionFile = z.infer<typeof InstructionFile>
+
+/** The compact Git line a list shows for a repository. */
+export const RepositoryGitSummary = named(
+  z.object({
+    branch: z.string().nullable(),
+    detached: z.boolean(),
+    head: GitHead,
+    dirty: z.boolean(),
+    changed: z.number().int().describe('staged + unstaged + untracked + unmerged'),
+    ahead: z.number().int(),
+    behind: z.number().int(),
+    collectedAt: unixSeconds,
+    stale: z.boolean(),
+  }).strict(),
+  'RepositoryGitSummary',
+)
+export type RepositoryGitSummary = z.infer<typeof RepositoryGitSummary>
+
+/**
+ * A repository of a Project: a decision (name, path, remote, role), joined with
+ * what the host scan observed about it. GitHub is optional metadata on top.
+ */
 export const Repository = named(
   z.object({
     id: z.string(),
-    localPath: z.string(),
-    gitRoot: z.string(),
-    relativePath: z.string().nullable(),
-    branch: z.string().nullable(),
-    remote: z.string().nullable(),
-    github: ProjectGitHubRepository.nullable().optional(),
+    projectId: z.string(),
+    name: z.string(),
+    role: z.string().nullable().describe('api | web | mobile | services | infra | docs | other'),
+    provider: RepositoryProvider,
+    localPath: z.string().nullable().describe('Where it lives on the host, as registered'),
+    relativePath: z.string().nullable().describe('Inside the Project, when the Project is managed'),
+    remoteUrl: z.string().nullable(),
+    position: z.number().int(),
+    scanKey: z.string().nullable().describe('The host scan this repository matched, when one did'),
+    scanPath: z.string().nullable().describe('The git root the host scanned, when one matched'),
+    git: RepositoryGitSummary.nullable(),
+    github: ProjectGitHubRepository.nullable(),
+    environments: z.array(z.string()).describe('Compose projects running from this repository, per the scan'),
+    instructionCount: z.number().int(),
   }).strict(),
   'Repository',
 )
 export type Repository = z.infer<typeof Repository>
+
+/** A git root the host scanned that no Project has registered yet. */
+export const DiscoveredRepository = named(
+  z.object({
+    key: z.string(),
+    path: z.string(),
+    name: z.string(),
+    remote: z.string().nullable(),
+    location: ProjectLocation.nullable(),
+    relativePath: z.string().nullable().describe('First-level directory under Projects Home, when managed'),
+    environments: z.array(z.string()),
+  }).strict(),
+  'DiscoveredRepository',
+)
+export type DiscoveredRepository = z.infer<typeof DiscoveredRepository>
 
 export const ProjectEnvironment = named(
   z.object({
@@ -391,20 +515,6 @@ export const ProjectEnvironment = named(
   'ProjectEnvironment',
 )
 export type ProjectEnvironment = z.infer<typeof ProjectEnvironment>
-
-/**
- * Where a Project sits relative to Projects Home. The vocabulary is the core's
- * (`classifyProjectLocation` in portta-core); the panel, which cannot see the
- * filesystem, only ever answers `managed` or `external` from what is stored.
- */
-export const ProjectLocation = named(
-  z.enum(['managed', 'external', 'escaped', 'missing', 'inaccessible']).describe('Where this Project sits relative to Projects Home'),
-  'ProjectLocation',
-)
-export type ProjectLocation = z.infer<typeof ProjectLocation>
-// Compile-time check that the panel's enum is exactly the core's.
-const _projectLocations: readonly CoreProjectLocation[] = ProjectLocation.options
-void _projectLocations
 
 export const ProjectSummary = named(
   z.object({
@@ -435,7 +545,7 @@ export const Project = named(
     resolvedPath: z.string().nullable(),
     location: ProjectLocation,
     repositories: z.array(Repository),
-    githubRepositories: z.array(ProjectGitHubRepository),
+    githubRepositories: z.array(ProjectGitHubRepository).describe('Deprecated: the GitHub-backed subset of repositories, kept for one cycle'),
     environments: z.array(ProjectEnvironment),
   }).strict(),
   'Project',
@@ -492,18 +602,6 @@ export const Issue = named(
   'Issue',
 )
 export type Issue = z.infer<typeof Issue>
-
-export const GitHead = named(
-  z.object({
-    sha: z.string(),
-    shortSha: z.string(),
-    subject: z.string(),
-    author: z.string(),
-    date: unixSeconds,
-  }).strict(),
-  'GitHead',
-)
-export type GitHead = z.infer<typeof GitHead>
 
 export const GitInfo = named(
   z.object({
@@ -584,6 +682,31 @@ export const ProjectGit = named(
   'ProjectGit',
 )
 export type ProjectGit = z.infer<typeof ProjectGit>
+
+/** Everything the host scan collected about one repository. */
+export const RepositoryGit = named(
+  z.object({
+    key: z.string(),
+    collected: z.boolean().describe('False when no scan file exists for this repository'),
+    collectedAt: unixSeconds.nullable(),
+    ageSeconds: z.number().nullable(),
+    stale: z.boolean(),
+    staleAfterSeconds: z.number(),
+    path: z.string().nullable().describe('The git root on the host'),
+    name: z.string().nullable(),
+    git: GitInfo.nullable(),
+    remote: ProjectRemote.nullable(),
+    links: ProjectGitLinks,
+    commits: z.array(Commit).describe('Most recent first, metadata only'),
+    instructions: z.array(InstructionFile),
+    environments: z.array(z.string()).describe('Compose projects whose working directory sits under this root'),
+    forge: Forge.nullable(),
+    reason: z.string().nullable(),
+    refreshCommand: z.string(),
+  }).strict().describe('Collected by portta repos scan for one repository'),
+  'RepositoryGit',
+)
+export type RepositoryGit = z.infer<typeof RepositoryGit>
 
 export const TraefikRouter = named(
   z.object({
@@ -1581,7 +1704,7 @@ export const RemovalPreview = named(
 export type RemovalPreview = z.infer<typeof RemovalPreview>
 
 export const LiveEventKind = named(
-  z.enum(['container', 'network', 'bridge', 'health', 'project', 'config', 'hello']),
+  z.enum(['container', 'network', 'bridge', 'health', 'project', 'config', 'hello', 'task', 'session', 'activity', 'repository']),
   'LiveEventKind',
 )
 export type LiveEventKind = z.infer<typeof LiveEventKind>

@@ -1,23 +1,20 @@
 // Joining the projection with what is actually running.
 //
-// The runtime half comes from the snapshot the panel already has, so it is
-// current; the GitHub half comes from the projection and carries its age. The
-// join itself is one table plus the inference in `issue-link.ts`.
+// An issue reaches an environment through the task it is bound to: the task
+// is what environments are linked to (task-environments.ts), and the binding
+// says which issue that task is. So `Issue.environments` and the deprecated
+// `Environment.issue` are both views over one resolution, never a second one.
 
 import type { Snapshot } from './inventory.ts'
-import { inferIssueLink, LINK_REASON, type IssueLinkSource } from './issue-link.ts'
-import { repositoryCoordinate } from './adoption.ts'
+import type { IssueLinkSource } from './issue-link.ts'
+import type { ResolvedTaskLink } from './task-environments.ts'
 import type { StoredIssue } from '../db/github.ts'
-import type { Environment, EnvironmentIssue, IssueEnvironment } from '../../shared/types.ts'
-
-export interface StoredIssueLink {
-  issueId: string
-  composeProject: string
-  branch: string | null
-}
+import type { Environment, EnvironmentIssue, EnvironmentTask, IssueEnvironment } from '../../shared/types.ts'
+import type { TaskRow } from '../db/tasks.ts'
 
 export interface ResolvedLink {
   issueId: string
+  taskId: string
   source: IssueLinkSource
   reason: string
   branch: string | null
@@ -31,64 +28,18 @@ export function logsUrlFor(project: string): string {
   return `${panelUrlFor(project)}/logs`
 }
 
-/**
- * Which issue each running environment belongs to.
- *
- * Manual links win outright. Everything else is inferred from data the panel
- * already has, and only kept when the inferred coordinate resolves to exactly
- * one projected issue — an ambiguous match links nothing and lets the user say.
- */
-export function resolveLinks(
-  snapshot: Snapshot,
-  issues: ReadonlyArray<StoredIssue>,
-  manual: ReadonlyArray<StoredIssueLink>,
-  branches: ReadonlyMap<string, string | null> = new Map(),
+/** The task links, keyed by environment, narrowed to the tasks that are bound to an issue. */
+export function issueLinksFrom(
+  resolved: ReadonlyMap<string, ResolvedTaskLink>,
+  bindings: ReadonlyArray<{ taskId: string; githubIssueId: string }>,
 ): Map<string, ResolvedLink> {
-  const resolved = new Map<string, ResolvedLink>()
-
-  const manualByProject = new Map(manual.map((link) => [link.composeProject, link]))
-  const known = new Set(issues.map((issue) => issue.id))
-
-  for (const project of snapshot.environments) {
-    const stored = manualByProject.get(project.name)
-    if (stored && known.has(stored.issueId)) {
-      resolved.set(project.name, {
-        issueId: stored.issueId,
-        source: 'manual',
-        reason: LINK_REASON.manual(
-          { issue: { repository: null, number: 0 }, source: 'manual', branch: stored.branch },
-          project.name,
-        ),
-        branch: stored.branch,
-      })
-      continue
-    }
-
-    const link = inferIssueLink({
-      name: project.name,
-      namespace: project.namespace,
-      issueLabel: project.issueRef ?? null,
-      branch: branches.get(project.name) ?? null,
-      repository: repositoryCoordinate(project.repoUrl) ?? project.repo?.toLowerCase() ?? null,
-    })
-    if (link === null) continue
-
-    const candidates = issues.filter(
-      (issue) =>
-        issue.number === link.issue.number &&
-        (link.issue.repository === null || issue.repository.toLowerCase() === link.issue.repository),
-    )
-    if (candidates.length !== 1) continue
-
-    resolved.set(project.name, {
-      issueId: candidates[0]!.id,
-      source: link.source,
-      reason: LINK_REASON[link.source](link, project.name),
-      branch: link.branch,
-    })
+  const issueByTask = new Map(bindings.map((binding) => [binding.taskId, binding.githubIssueId]))
+  const out = new Map<string, ResolvedLink>()
+  for (const [environment, link] of resolved) {
+    const issueId = issueByTask.get(link.taskId)
+    if (issueId) out.set(environment, { ...link, issueId })
   }
-
-  return resolved
+  return out
 }
 
 export function environmentsFor(
@@ -141,5 +92,35 @@ export function issueForEnvironment(
     htmlUrl: issue.htmlUrl,
     panelUrl: `#/issues/${encodeURIComponent(issue.id)}`,
     syncedAt: Math.floor(issue.syncedAt.getTime() / 1000),
+  }
+}
+
+export function taskForEnvironment(
+  project: Environment,
+  tasks: ReadonlyArray<TaskRow>,
+  slugById: ReadonlyMap<string, string>,
+  links: ReadonlyMap<string, ResolvedTaskLink>,
+  issueLinks: ReadonlyMap<string, ResolvedLink>,
+  issues: ReadonlyArray<StoredIssue>,
+): EnvironmentTask | null {
+  const link = links.get(project.name)
+  if (!link) return null
+  const task = tasks.find((entry) => entry.id === link.taskId)
+  if (!task) return null
+  const slug = slugById.get(task.projectId) ?? task.projectId
+  const issueId = issueLinks.get(project.name)?.issueId
+  const issue = issueId ? issues.find((entry) => entry.id === issueId) : undefined
+  return {
+    id: task.id,
+    project: slug,
+    title: task.title,
+    status: task.status,
+    priority: task.priority,
+    assignee: task.assignee,
+    agent: task.agent,
+    source: link.source,
+    reason: link.reason,
+    panelUrl: `#/projects/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(task.id)}`,
+    github: issue ? { repository: issue.repository, number: issue.number, htmlUrl: issue.htmlUrl } : null,
   }
 }

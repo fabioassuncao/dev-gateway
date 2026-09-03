@@ -9,7 +9,7 @@ export function databaseRoutes(deps: AppDeps): Hono {
 
   app.post('/database/migrate', documentRoute({
     tag: 'Configuration',
-    operationId: 'postDatabaseMigrate',
+    operationId: 'postDatabaseMigrate', capability: 'gateway:read',
     summary: 'Apply pending panel SQL migrations',
     description:
       'Idempotent. The same work the process does at start, so a file that appeared after boot can be applied without a restart. The CLI never opens PostgreSQL.',
