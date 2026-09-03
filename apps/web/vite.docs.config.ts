@@ -28,7 +28,7 @@ function porttaDocs(): Plugin {
     // In development the screenshots live on the host bind-mount; the built
     // image copies them next to the bundle instead.
     configureServer(server) {
-      const from = resolve(REPOSITORY_ROOT, '.github/images')
+      const from = resolve(REPOSITORY_ROOT, 'docs/images')
       const types: Record<string, string> = {
         '.png': 'image/png',
         '.jpg': 'image/jpeg',
@@ -48,10 +48,10 @@ function porttaDocs(): Plugin {
         createReadStream(file).pipe(res)
       })
     },
-    // The screenshots `docs/web-ui.md` references. Copied rather than imported
-    // so the Markdown keeps working on GitHub with the paths it already has.
+    // The screenshots next to the Markdown. Copied rather than imported so
+    // GitHub and the site keep the same files.
     closeBundle() {
-      const from = resolve(REPOSITORY_ROOT, '.github/images')
+      const from = resolve(REPOSITORY_ROOT, 'docs/images')
       const to = resolve(import.meta.dirname, 'dist/docs/images')
       if (!existsSync(from)) return
       mkdirSync(to, { recursive: true })

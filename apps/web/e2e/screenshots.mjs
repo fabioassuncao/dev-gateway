@@ -18,7 +18,7 @@ import { chromium } from '@playwright/test'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
-const outDir = join(root, '..', '..', '.github', 'images')
+const outDir = join(root, '..', '..', 'docs', 'images')
 
 const DOCKER_PORT = 9931
 const PANEL_PORT = 9932

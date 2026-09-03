@@ -30,7 +30,6 @@ COPY apps/web/src ./apps/web/src
 # what ships is the HTML it produced, which is what makes /docs offline.
 COPY docs ./docs
 COPY README.md CHANGELOG.md ./
-COPY .github/images ./.github/images
 COPY apps/auth/tsconfig.json apps/auth/tsconfig.build.json ./apps/auth/
 COPY apps/auth/src ./apps/auth/src
 # Both configs: the package builds through tsconfig.build.json, which extends

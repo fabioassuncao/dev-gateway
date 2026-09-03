@@ -63,7 +63,6 @@ services:
       - ./docs:/app/docs:ro
       - ./README.md:/app/README.md:ro
       - ./CHANGELOG.md:/app/CHANGELOG.md:ro
-      - ./.github/images:/app/.github/images:ro
     networks:
       # The shared network, not the panel's control network: a container
       # attached only to an `internal` network cannot publish a host port, and

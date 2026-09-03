@@ -40,16 +40,16 @@ It is host infrastructure installed once, not a parent Compose project. It does 
 
 <table>
   <tr>
-    <td width="50%"><a href=".github/images/panel-overview.png"><img src=".github/images/panel-overview.png" alt="Overview showing projects, services, routed URLs and detected problems"></a><br><sub><b>Overview</b> — what is running and what is wrong</sub></td>
-    <td width="50%"><a href=".github/images/panel-projects.png"><img src=".github/images/panel-projects.png" alt="Projects grouped with their services, health, uptime and endpoints"></a><br><sub><b>Projects</b> — Compose projects, databases included</sub></td>
+    <td width="50%"><a href="docs/images/panel-overview.png"><img src="docs/images/panel-overview.png" alt="Overview showing projects, services, routed URLs and detected problems"></a><br><sub><b>Overview</b> — what is running and what is wrong</sub></td>
+    <td width="50%"><a href="docs/images/panel-projects.png"><img src="docs/images/panel-projects.png" alt="Projects grouped with their services, health, uptime and endpoints"></a><br><sub><b>Projects</b> — Compose projects, databases included</sub></td>
   </tr>
   <tr>
-    <td width="50%"><a href=".github/images/panel-services.png"><img src=".github/images/panel-services.png" alt="Services with state, technology, addresses and lifecycle actions"></a><br><sub><b>Services</b> — every routed and private service</sub></td>
-    <td width="50%"><a href=".github/images/panel-docker.png"><img src=".github/images/panel-docker.png" alt="Docker inventory separating integrated, gateway-owned and external containers"></a><br><sub><b>Docker</b> — the whole host, ownership made explicit</sub></td>
+    <td width="50%"><a href="docs/images/panel-services.png"><img src="docs/images/panel-services.png" alt="Services with state, technology, addresses and lifecycle actions"></a><br><sub><b>Services</b> — every routed and private service</sub></td>
+    <td width="50%"><a href="docs/images/panel-docker.png"><img src="docs/images/panel-docker.png" alt="Docker inventory separating integrated, gateway-owned and external containers"></a><br><sub><b>Docker</b> — the whole host, ownership made explicit</sub></td>
   </tr>
   <tr>
-    <td width="50%"><a href=".github/images/panel-access.png"><img src=".github/images/panel-access.png" alt="Private TCP services and a temporary loopback database bridge"></a><br><sub><b>Access</b> — databases without published ports</sub></td>
-    <td width="50%"><a href=".github/images/panel-overview-dark.png"><img src=".github/images/panel-overview-dark.png" alt="Overview page using the dark colour theme"></a><br><sub><b>Dark theme</b> — the same live overview</sub></td>
+    <td width="50%"><a href="docs/images/panel-access.png"><img src="docs/images/panel-access.png" alt="Private TCP services and a temporary loopback database bridge"></a><br><sub><b>Access</b> — databases without published ports</sub></td>
+    <td width="50%"><a href="docs/images/panel-overview-dark.png"><img src="docs/images/panel-overview-dark.png" alt="Overview page using the dark colour theme"></a><br><sub><b>Dark theme</b> — the same live overview</sub></td>
   </tr>
 </table>
 

@@ -97,6 +97,10 @@ While the version is `0.x`, minor releases may contain breaking changes.
   screenshot grid share the same light outline and internal dividers, with
   rounded corners.
 
+- **Panel screenshots live in `docs/images/`.** The README, the web-ui guide
+  and the documentation site read them from the same directory as the
+  corpus, not from `.github/images/`.
+
 ### Fixed
 
 - **The documentation site opened the panel Overview in development.** Vite on

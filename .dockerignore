@@ -4,9 +4,6 @@
 
 .git
 .github
-# The screenshots docs/web-ui.md references. The workflows, the issue templates
-# and everything else under .github stay out.
-!.github/images
 .env
 .env.*
 !.env.example
