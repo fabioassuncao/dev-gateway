@@ -1,11 +1,12 @@
 // The host the documentation screenshots describe.
 //
-// It is a plausible workstation rather than any particular machine: three
-// projects on the gateway (one of them a second worktree of the first), a
-// legacy stack that never adopted it, containers somebody started by hand and
-// forgot, an open TCP bridge, one unhealthy service and one port claimed
-// twice. Everything the panel is for is visible at once, the images are
-// reproducible, and no real environment ends up in a public README.
+// It is a plausible workstation rather than any particular machine: the
+// docker/examples products (demo-shop, demo-a, demo-monorepo), a second
+// worktree of the shop, a legacy stack that never adopted the gateway,
+// containers somebody started by hand and forgot, an open TCP bridge, one
+// unhealthy service and one port claimed twice. Everything the panel is for
+// is visible at once, the images are reproducible, and no real environment
+// ends up in a public README.
 //
 // Regenerate the images with: npm run screenshots
 
@@ -64,38 +65,40 @@ export function initialState() {
       upSeconds: 4 * HOUR,
     }),
 
-    // ---- storefront: the project being worked on ----------------------
+    // ---- demo-shop: the project being worked on ----------------------
     makeContainer({
       id: 'sfweb',
-      name: 'storefront-web-1',
+      name: 'demo-shop-web-1',
       image: NGINX,
       health: 'healthy',
-      networks: ['portta', 'storefront_default'],
+      networks: ['portta', 'demo-shop_default'],
       exposed: [3000],
       labels: {
         ...composeLabels({
-          project: 'storefront',
+          project: 'demo-shop',
+          logicalProject: 'demo-shop',
           service: 'web',
-          workingDir: '/Projects/storefront',
+          workingDir: '/Projects/demo-shop',
           routed: true,
           port: 3000,
         }),
-        'traefik.http.routers.storefront-web.rule':
-          'Host(`storefront-web.localhost`) || Host(`storefront-preview.localhost`)',
+        'traefik.http.routers.demo-shop-web.rule':
+          'Host(`demo-shop-web.localhost`) || Host(`demo-shop-preview.localhost`)',
       },
       upSeconds: 3 * HOUR,
     }),
     makeContainer({
       id: 'sfapi',
-      name: 'storefront-api-1',
+      name: 'demo-shop-api-1',
       image: WHOAMI,
       health: 'healthy',
-      networks: ['portta', 'storefront_default'],
+      networks: ['portta', 'demo-shop_default'],
       exposed: [8000],
       labels: composeLabels({
-        project: 'storefront',
+        project: 'demo-shop',
+          logicalProject: 'demo-shop',
         service: 'api',
-        workingDir: '/Projects/storefront',
+        workingDir: '/Projects/demo-shop',
         routed: true,
         port: 8000,
       }),
@@ -103,46 +106,48 @@ export function initialState() {
     }),
     makeContainer({
       id: 'sfpg',
-      name: 'storefront-postgres-1',
+      name: 'demo-shop-postgres-1',
       image: POSTGRES,
       health: 'healthy',
-      networks: ['storefront_default', 'portta-access'],
+      networks: ['demo-shop_default', 'portta-access'],
       exposed: [5432],
       labels: {
         ...composeLabels({
-          project: 'storefront',
+          project: 'demo-shop',
+          logicalProject: 'demo-shop',
           service: 'postgres',
-          workingDir: '/Projects/storefront',
+          workingDir: '/Projects/demo-shop',
         }),
         // Opted into hostname routing: reachable at
-        // storefront-postgres.localhost:5432 without publishing a port.
+        // demo-shop-postgres.localhost:5432 without publishing a port.
         'traefik.enable': 'true',
         'traefik.docker.network': 'portta-access',
-        'traefik.tcp.routers.storefront-postgres.rule':
-          'HostSNIRegexp(`^storefront-postgres\\..+$`)',
-        'traefik.tcp.routers.storefront-postgres.tls': 'true',
-        'traefik.tcp.routers.storefront-postgres.tls.options': 'postgres@file',
+        'traefik.tcp.routers.demo-shop-postgres.rule':
+          'HostSNIRegexp(`^demo-shop-postgres\\..+$`)',
+        'traefik.tcp.routers.demo-shop-postgres.tls': 'true',
+        'traefik.tcp.routers.demo-shop-postgres.tls.options': 'postgres@file',
       },
-      mounts: [volume('storefront_pgdata', '/var/lib/postgresql')],
+      mounts: [volume('demo-shop_pgdata', '/var/lib/postgresql')],
       upSeconds: 3 * HOUR,
     }),
     makeContainer({
       id: 'sfredis',
-      name: 'storefront-redis-1',
+      name: 'demo-shop-redis-1',
       image: REDIS,
       health: 'healthy',
-      networks: ['storefront_default', 'portta-access'],
+      networks: ['demo-shop_default', 'portta-access'],
       exposed: [6379],
       labels: {
         ...composeLabels({
-          project: 'storefront',
+          project: 'demo-shop',
+          logicalProject: 'demo-shop',
           service: 'redis',
-          workingDir: '/Projects/storefront',
+          workingDir: '/Projects/demo-shop',
         }),
         'traefik.enable': 'true',
         'traefik.docker.network': 'portta-access',
-        'traefik.tcp.routers.storefront-redis.rule': 'HostSNIRegexp(`^storefront-redis\\..+$`)',
-        'traefik.tcp.routers.storefront-redis.tls': 'true',
+        'traefik.tcp.routers.demo-shop-redis.rule': 'HostSNIRegexp(`^demo-shop-redis\\..+$`)',
+        'traefik.tcp.routers.demo-shop-redis.tls': 'true',
       },
       upSeconds: 3 * HOUR,
     }),
@@ -150,13 +155,14 @@ export function initialState() {
     // ---- the same project, a second worktree, running side by side ----
     makeContainer({
       id: 'sf312web',
-      name: 'storefront-issue312-web-1',
+      name: 'demo-shop-issue312-web-1',
       image: WHOAMI,
       health: 'healthy',
-      networks: ['portta', 'storefront-issue312_default'],
+      networks: ['portta', 'demo-shop-issue312_default'],
       exposed: [3000],
       labels: composeLabels({
-        project: 'storefront-issue312',
+        project: 'demo-shop-issue312',
+        logicalProject: 'demo-shop',
         service: 'web',
         workingDir: '/Projects/worktrees/issue-312',
         routed: true,
@@ -166,12 +172,13 @@ export function initialState() {
     }),
     makeContainer({
       id: 'sf312api',
-      name: 'storefront-issue312-api-1',
+      name: 'demo-shop-issue312-api-1',
       image: WHOAMI,
-      networks: ['portta', 'storefront-issue312_default'],
+      networks: ['portta', 'demo-shop-issue312_default'],
       exposed: [8000],
       labels: composeLabels({
-        project: 'storefront-issue312',
+        project: 'demo-shop-issue312',
+        logicalProject: 'demo-shop',
         service: 'api',
         workingDir: '/Projects/worktrees/issue-312',
         routed: true,
@@ -181,32 +188,70 @@ export function initialState() {
     }),
     makeContainer({
       id: 'sf312pg',
-      name: 'storefront-issue312-postgres-1',
+      name: 'demo-shop-issue312-postgres-1',
       image: POSTGRES,
       health: 'healthy',
-      networks: ['storefront-issue312_default'],
+      networks: ['demo-shop-issue312_default'],
       exposed: [5432],
       labels: composeLabels({
-        project: 'storefront-issue312',
+        project: 'demo-shop-issue312',
+        logicalProject: 'demo-shop',
         service: 'postgres',
         workingDir: '/Projects/worktrees/issue-312',
       }),
-      mounts: [volume('storefront-issue312_pgdata', '/var/lib/postgresql')],
+      mounts: [volume('demo-shop-issue312_pgdata', '/var/lib/postgresql')],
       upSeconds: 40 * 60,
     }),
 
-    // ---- checkout: another project, with something wrong with it ------
+    // ---- demo-a: the short stack used in gateway tests -------------------
     makeContainer({
-      id: 'ckweb',
-      name: 'checkout-web-1',
+      id: 'daweb',
+      name: 'demo-a-web-1',
       image: WHOAMI,
       health: 'healthy',
-      networks: ['portta', 'checkout_default'],
+      networks: ['portta', 'demo-a_default'],
+      exposed: [80],
+      labels: composeLabels({
+        project: 'demo-a',
+        logicalProject: 'demo-a',
+        service: 'web',
+        workingDir: '/Projects/demo-a',
+        routed: true,
+        port: 80,
+      }),
+      upSeconds: 12 * HOUR,
+    }),
+    makeContainer({
+      id: 'daapi',
+      name: 'demo-a-api-1',
+      image: WHOAMI,
+      health: 'healthy',
+      networks: ['portta', 'demo-a_default'],
+      exposed: [8000],
+      labels: composeLabels({
+        project: 'demo-a',
+        logicalProject: 'demo-a',
+        service: 'api',
+        workingDir: '/Projects/demo-a',
+        routed: true,
+        port: 8000,
+      }),
+      upSeconds: 12 * HOUR,
+    }),
+
+    // ---- demo-monorepo: another project, with something wrong with it ------
+    makeContainer({
+      id: 'ckweb',
+      name: 'demo-monorepo-web-1',
+      image: WHOAMI,
+      health: 'healthy',
+      networks: ['portta', 'demo-monorepo_default'],
       exposed: [3000],
       labels: composeLabels({
-        project: 'checkout',
+        project: 'demo-monorepo',
+        logicalProject: 'demo-monorepo',
         service: 'web',
-        workingDir: '/Projects/checkout',
+        workingDir: '/Projects/demo-monorepo',
         routed: true,
         port: 3000,
       }),
@@ -214,84 +259,89 @@ export function initialState() {
     }),
     makeContainer({
       id: 'ckworker',
-      name: 'checkout-worker-1',
+      name: 'demo-monorepo-worker-1',
       image: 'python:3.13-alpine',
       health: 'unhealthy',
-      networks: ['checkout_default'],
+      networks: ['demo-monorepo_default'],
       labels: composeLabels({
-        project: 'checkout',
+        project: 'demo-monorepo',
+        logicalProject: 'demo-monorepo',
         service: 'worker',
-        workingDir: '/Projects/checkout',
+        workingDir: '/Projects/demo-monorepo',
       }),
       upSeconds: 26 * HOUR,
     }),
     makeContainer({
       id: 'ckpg',
-      name: 'checkout-postgres-1',
+      name: 'demo-monorepo-postgres-1',
       image: POSTGRES,
       health: 'healthy',
-      networks: ['checkout_default'],
+      networks: ['demo-monorepo_default'],
       exposed: [5432],
       labels: composeLabels({
-        project: 'checkout',
+        project: 'demo-monorepo',
+        logicalProject: 'demo-monorepo',
         service: 'postgres',
-        workingDir: '/Projects/checkout',
+        workingDir: '/Projects/demo-monorepo',
       }),
-      mounts: [volume('checkout_pgdata', '/var/lib/postgresql')],
+      mounts: [volume('demo-monorepo_pgdata', '/var/lib/postgresql')],
       upSeconds: 26 * HOUR,
     }),
 
     makeContainer({
       id: 'cklegacy',
-      name: 'checkout-mysql-1',
+      name: 'demo-monorepo-mysql-1',
       image: 'mariadb:11.4.9',
       health: 'healthy',
-      networks: ['checkout_default'],
+      networks: ['demo-monorepo_default'],
       exposed: [3306],
       labels: composeLabels({
-        project: 'checkout',
+        project: 'demo-monorepo',
+        logicalProject: 'demo-monorepo',
         service: 'mysql',
-        workingDir: '/Projects/checkout',
+        workingDir: '/Projects/demo-monorepo',
       }),
-      mounts: [volume('checkout_mysqldata', '/var/lib/mysql')],
+      mounts: [volume('demo-monorepo_mysqldata', '/var/lib/mysql')],
       upSeconds: 26 * HOUR,
     }),
 
     makeContainer({
       id: 'ckmail',
-      name: 'checkout-mailpit-1',
+      name: 'demo-monorepo-mailpit-1',
       image: 'axllent/mailpit:v1.31.0',
       health: 'healthy',
-      networks: ['portta', 'checkout_default'],
+      networks: ['portta', 'demo-monorepo_default'],
       exposed: [8025, 1025],
       labels: {
         ...composeLabels({
-          project: 'checkout',
+          project: 'demo-monorepo',
+        logicalProject: 'demo-monorepo',
           service: 'mailpit',
-          workingDir: '/Projects/checkout',
+          workingDir: '/Projects/demo-monorepo',
           routed: true,
           port: 8025,
         }),
-        'traefik.http.routers.checkout-mailpit.rule':
-          'Host(`checkout-mailpit.localhost`) || Host(`mail.checkout.localhost`)',
+        'traefik.http.routers.demo-monorepo-mailpit.rule':
+          'Host(`demo-monorepo-mailpit.localhost`) || Host(`mail.demo-monorepo.localhost`)',
       },
       upSeconds: 26 * HOUR,
     }),
     makeContainer({
       id: 'ckrustfs',
-      name: 'checkout-rustfs-1',
+      name: 'demo-monorepo-rustfs-1',
       image: 'rustfs/rustfs:1.0.0-rc.4',
       health: 'healthy',
-      networks: ['portta', 'checkout_default'],
+      networks: ['portta', 'demo-monorepo_default'],
       exposed: [9000, 9001],
       labels: composeLabels({
-        project: 'checkout',
+        project: 'demo-monorepo',
+        logicalProject: 'demo-monorepo',
         service: 'rustfs',
-        workingDir: '/Projects/checkout',
+        workingDir: '/Projects/demo-monorepo',
         routed: true,
         port: 9001,
       }),
-      mounts: [volume('checkout_rustfsdata', '/data')],
+      mounts: [volume('demo-monorepo_rustfsdata', '/data')],
       upSeconds: 26 * HOUR,
     }),
 
@@ -362,18 +412,18 @@ export function initialState() {
     // ---- an access bridge somebody opened this morning ----------------
     makeBridge({
       id: 'bridge1',
-      name: 'portta-access-storefront-postgres-a41f2c',
+      name: 'portta-access-demo-shop-postgres-a41f2c',
       targetPort: 5432,
       hostPort: 55431,
-      network: 'storefront_default',
+      network: 'demo-shop_default',
       labels: {
         'portta.managed': 'true',
         'portta.component': 'access-bridge',
         'portta.access.id': 'a41f2c',
-        'portta.access.project': 'storefront',
+        'portta.access.project': 'demo-shop',
         'portta.access.service': 'postgres',
         'portta.access.port': '5432',
-        'portta.access.network': 'storefront_default',
+        'portta.access.network': 'demo-shop_default',
         'portta.access.kind': 'postgres',
         'portta.access.created': String(Math.floor(Date.now() / 1000) - 900),
         'traefik.enable': 'false',
@@ -410,9 +460,10 @@ export const NETWORKS = [
   network('portta-control', { internal: true, managed: true }),
   network('portta-web', { internal: true, managed: true }),
   network('portta-access', { managed: true }),
-  network('storefront_default'),
-  network('storefront-issue312_default'),
-  network('checkout_default'),
+  network('demo-shop_default'),
+  network('demo-shop-issue312_default'),
+  network('demo-a_default'),
+  network('demo-monorepo_default'),
   network('legacy-billing_default'),
   network('bridge'),
 ]

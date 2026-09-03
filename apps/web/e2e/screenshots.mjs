@@ -3,53 +3,89 @@
 //
 //   npm run screenshots
 //
-// It boots the real panel against the documentation host in demo-host.mjs, so
-// the images are reproducible, always show the same thing, and never contain
-// whatever happens to be running on the machine that generated them.
+// It boots the real panel against the documentation host in demo-host.mjs and
+// a disposable PostgreSQL that receives docker/examples, so the images are
+// reproducible, always show the same thing, and never contain whatever happens
+// to be running on the machine that generated them.
 //
-// The panel's main column scrolls rather than the page, so each shot picks its
-// own viewport height instead of using fullPage.
+// Every shot uses the same viewport. The main column scrolls; long pages set
+// scrollTo rather than growing the frame.
 
+import { execFileSync } from 'node:child_process'
 import { spawn } from 'node:child_process'
-import { mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
-const outDir = join(root, '..', '..', 'docs', 'images')
+const repo = join(root, '..', '..')
+const outDir = join(repo, 'docs', 'images')
+const examplesDir = join(repo, 'docker', 'examples')
 
 const DOCKER_PORT = 9931
 const PANEL_PORT = 9932
+const PG_PORT = 55433
+const PG_NAME = 'portta-screenshots-pg'
+const DATABASE_URL = `postgres://postgres:screenshots@127.0.0.1:${PG_PORT}/portta`
 const BASE = `http://127.0.0.1:${PANEL_PORT}`
 
-const WIDTH = 1440
+const VIEWPORT = { width: 1440, height: 900 }
 
 const SHOTS = [
-  { name: 'panel-overview', route: '/#/overview', height: 820 },
-  { name: 'panel-projects', route: '/#/projects', height: 1000 },
-  { name: 'panel-environments', route: '/#/environments', height: 1000 },
-  { name: 'panel-environment', route: '/#/environments/storefront', height: 900 },
-  { name: 'panel-services', route: '/#/services', height: 700 },
-  { name: 'panel-docker', route: '/#/docker', height: 940 },
-  // The sections below the fold are the point of the page: what the gateway
-  // does not manage, and which container is holding the port you need.
-  { name: 'panel-docker-external', route: '/#/docker', height: 940, scrollTo: 1500 },
-  { name: 'panel-access', route: '/#/access', height: 980 },
-  { name: 'panel-network', route: '/#/network', height: 920 },
+  { name: 'panel-overview', route: '/#/overview', ready: 'Demo Shop' },
+  { name: 'panel-projects', route: '/#/projects', ready: 'Demo Shop' },
+  { name: 'panel-tasks', route: '/#/projects/demo-shop/tasks', ready: 'Configurar autenticação' },
+  { name: 'panel-environments', route: '/#/environments', ready: 'demo-shop' },
+  { name: 'panel-environment', route: '/#/environments/demo-shop', ready: 'Open / Test' },
+  { name: 'panel-services', route: '/#/services', ready: 'demo-shop' },
+  { name: 'panel-docker', route: '/#/docker' },
+  { name: 'panel-docker-external', route: '/#/docker', scrollTo: 1500 },
+  { name: 'panel-access', route: '/#/access', ready: '55431' },
+  { name: 'panel-network', route: '/#/network' },
   {
     name: 'panel-gateway',
     route: '/#/gateway',
-    height: 900,
     async before(page) {
       await page.getByRole('button', { name: 'Run diagnostics' }).click()
       await page.getByText('Traefik', { exact: true }).first().waitFor()
     },
   },
-  { name: 'panel-settings', route: '/#/settings/gateway', height: 880 },
-  { name: 'panel-overview-dark', route: '/#/overview', height: 820, theme: 'dark' },
+  { name: 'panel-settings', route: '/#/settings/gateway' },
+  { name: 'panel-overview-dark', route: '/#/overview', theme: 'dark', ready: 'Demo Shop' },
 ]
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function startPostgres() {
+  try { execFileSync('docker', ['rm', '-f', PG_NAME], { stdio: 'ignore' }) } catch { /* absent */ }
+  execFileSync('docker', [
+    'run', '-d', '--rm', '--name', PG_NAME,
+    '-e', 'POSTGRES_PASSWORD=screenshots',
+    '-e', 'POSTGRES_DB=portta',
+    '-p', `${PG_PORT}:5432`,
+    'postgres:18.6-alpine',
+  ], { stdio: 'inherit' })
+}
+
+function stopPostgres() {
+  try { execFileSync('docker', ['rm', '-f', PG_NAME], { stdio: 'ignore' }) } catch { /* already gone */ }
+}
+
+async function waitForPostgres() {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    try {
+      execFileSync('docker', ['exec', PG_NAME, 'pg_isready', '-U', 'postgres'], { stdio: 'ignore' })
+      return
+    } catch {
+      await sleep(500)
+    }
+  }
+  throw new Error('screenshot postgres did not become ready')
+}
 
 async function waitForPanel() {
   for (let attempt = 0; attempt < 60; attempt += 1) {
@@ -59,12 +95,59 @@ async function waitForPanel() {
     } catch {
       /* not up yet */
     }
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    await sleep(500)
   }
   throw new Error('the panel did not come up')
 }
 
+async function waitForDatabase() {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    try {
+      const response = await fetch(`${BASE}/api/projects`)
+      if (response.ok) return
+    } catch {
+      /* not ready */
+    }
+    await sleep(500)
+  }
+  throw new Error('the panel database did not become ready')
+}
+
+async function seedExamples() {
+  const directories = readdirSync(examplesDir, { withFileTypes: true }).filter((entry) => entry.isDirectory())
+  for (const directory of directories) {
+    const path = join(examplesDir, directory.name, 'portta.example.json')
+    if (!existsSync(path)) continue
+    const document = JSON.parse(readFileSync(path, 'utf8'))
+    const slug = document.project.slug
+    const existing = await fetch(`${BASE}/api/projects/${encodeURIComponent(slug)}`)
+    if (existing.status === 404) {
+      const created = await fetch(`${BASE}/api/projects`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          slug,
+          name: document.project.name,
+          description: document.project.description ?? null,
+        }),
+      })
+      if (!created.ok) throw new Error(`create ${slug}: ${created.status} ${await created.text()}`)
+    } else if (!existing.ok) {
+      throw new Error(`get ${slug}: ${existing.status} ${await existing.text()}`)
+    }
+    const imported = await fetch(`${BASE}/api/projects/${encodeURIComponent(slug)}/tasks/import`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(document),
+    })
+    if (!imported.ok) throw new Error(`import ${slug}: ${imported.status} ${await imported.text()}`)
+    process.stdout.write(`seeded ${slug}\n`)
+  }
+}
+
 mkdirSync(outDir, { recursive: true })
+startPostgres()
+await waitForPostgres()
 
 const harness = spawn(process.execPath, [join(here, 'harness.mjs')], {
   cwd: root,
@@ -72,21 +155,22 @@ const harness = spawn(process.execPath, [join(here, 'harness.mjs')], {
   env: {
     ...process.env,
     PORTTA_E2E_FIXTURE: './demo-host.mjs',
-    // The documentation host has hostname routing switched on, so the Access
-    // page shows both what it offers and where it cannot.
     PORTTA_TCP: 'true',
     PORTTA_E2E_DOCKER_PORT: String(DOCKER_PORT),
     PORTTA_E2E_PANEL_PORT: String(PANEL_PORT),
+    PORTTA_RUNTIME_DATABASE_URL: DATABASE_URL,
   },
 })
 
 try {
   await waitForPanel()
+  await waitForDatabase()
+  await seedExamples()
 
   const browser = await chromium.launch()
   for (const shot of SHOTS) {
     const context = await browser.newContext({
-      viewport: { width: WIDTH, height: shot.height },
+      viewport: VIEWPORT,
       deviceScaleFactor: 2,
       colorScheme: shot.theme === 'dark' ? 'dark' : 'light',
       reducedMotion: 'reduce',
@@ -94,11 +178,10 @@ try {
     const page = await context.newPage()
     await page.goto(BASE + shot.route)
     await page.waitForLoadState('networkidle')
-    // The live indicator settles a beat after the first render.
     await page.waitForTimeout(900)
+    if (shot.ready) await page.getByText(shot.ready).first().waitFor({ timeout: 10_000 })
     if (shot.before) await shot.before(page)
     if (shot.scrollTo) {
-      // The main column scrolls, not the window.
       await page.evaluate((top) => document.querySelector('main')?.scrollTo({ top }), shot.scrollTo)
       await page.waitForTimeout(400)
     }
@@ -112,4 +195,5 @@ try {
   await browser.close()
 } finally {
   harness.kill('SIGTERM')
+  stopPostgres()
 }

@@ -20,8 +20,9 @@ It is off by default.
 ![The Overview page: the work in progress, the active sessions, what needs attention, each project at a glance, recent code and the host's room](images/panel-overview.png)
 
 Every screenshot on this page comes from the same host, described in
-`apps/web/e2e/demo-host.mjs` and rendered by the real panel. Regenerate them with
-`npm run screenshots` (see [Development](#development-with-hot-reloading)).
+`apps/web/e2e/demo-host.mjs`, seeded with `docker/examples`, and rendered by
+the real panel at 1440×900. Regenerate them with `npm run screenshots` (see
+[Development](#development-with-hot-reloading)).
 
 ---
 
@@ -242,7 +243,9 @@ ForwardAuth service runs before either path is reached
 ### Regenerating the screenshots
 
 The images on this page and in the README are produced by the real panel, run
-against a fixed host described in `apps/web/e2e/demo-host.mjs`:
+against a fixed host described in `apps/web/e2e/demo-host.mjs` and a disposable
+PostgreSQL that imports `docker/examples/*/portta.example.json`. Every frame is
+1440×900 (`deviceScaleFactor` 2, so the files are 2880×1800):
 
 ```bash
 npm run screenshots --workspace=portta-web
@@ -398,6 +401,8 @@ below it, tabs that are URLs:
 | **Settings** | Name, description, place under Projects Home, archive, and delete — which removes what only Portta holds and names it |
 
 ### Tasks
+
+![The Demo Shop task board: backlog, to do, in progress and blocked, seeded from docker/examples](images/panel-tasks.png)
 
 A task is Portta's own: it exists without GitHub. `#/projects/<slug>/tasks` is
 the board — six columns, `Backlog`, `To do`, `In progress`, `Review`,
@@ -708,7 +713,7 @@ The **Gateway address** column is the other way in, when
 protocol cannot do it the column says so rather than leaving a blank, and where
 a project has not opted in it says that too.
 
-![The Access page: an open bridge to storefront/postgres on 127.0.0.1:55431 with its connection string, and the other TCP services each with an Open local access button](images/panel-access.png)
+![The Access page: an open bridge to demo-shop/postgres on 127.0.0.1:55431 with its connection string, and the other TCP services each with an Open local access button](images/panel-access.png)
 
 This page also lists persistent forwarders created with
 [`portta service publish --private`](tailscale-services.md).

@@ -40,20 +40,20 @@ It is host infrastructure installed once, not a parent Compose project. It does 
 
 <table>
   <tr>
-    <td width="50%"><a href="docs/images/panel-overview.png"><img src="docs/images/panel-overview.png" alt="Overview showing the work in progress, sessions, what needs attention, projects, recent code and the host"></a><br><sub><b>Overview</b> — what is being worked on, and whether the host has room</sub></td>
-    <td width="50%"><a href="docs/images/panel-projects.png"><img src="docs/images/panel-projects.png" alt="Projects grouped with their services, health, uptime and endpoints"></a><br><sub><b>Projects</b> — Compose projects, databases included</sub></td>
+    <td width="50%"><a href="docs/images/panel-overview.png"><img src="docs/images/panel-overview.png" alt="Overview showing the work in progress, sessions, what needs attention and the example projects"></a><br><sub><b>Overview</b> — what is being worked on, and whether the host has room</sub></td>
+    <td width="50%"><a href="docs/images/panel-projects.png"><img src="docs/images/panel-projects.png" alt="Projects as products: Demo Shop, Demo A and Demo Monorepo with their tasks and environments"></a><br><sub><b>Projects</b> — the product, not the Compose stack</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><a href="docs/images/panel-tasks.png"><img src="docs/images/panel-tasks.png" alt="Demo Shop task board with backlog, to do, in progress and blocked columns"></a><br><sub><b>Tasks</b> — the local board for Demo Shop</sub></td>
+    <td width="50%"><a href="docs/images/panel-environments.png"><img src="docs/images/panel-environments.png" alt="Environments as Compose stacks running for those projects"></a><br><sub><b>Environments</b> — one Compose stack per namespace</sub></td>
   </tr>
   <tr>
     <td width="50%"><a href="docs/images/panel-services.png"><img src="docs/images/panel-services.png" alt="Services with state, technology, addresses and lifecycle actions"></a><br><sub><b>Services</b> — every routed and private service</sub></td>
-    <td width="50%"><a href="docs/images/panel-docker.png"><img src="docs/images/panel-docker.png" alt="Docker inventory separating integrated, gateway-owned and external containers"></a><br><sub><b>Docker</b> — the whole host, ownership made explicit</sub></td>
-  </tr>
-  <tr>
-    <td width="50%"><a href="docs/images/panel-access.png"><img src="docs/images/panel-access.png" alt="Private TCP services and a temporary loopback database bridge"></a><br><sub><b>Access</b> — databases without published ports</sub></td>
     <td width="50%"><a href="docs/images/panel-overview-dark.png"><img src="docs/images/panel-overview-dark.png" alt="Overview page using the dark colour theme"></a><br><sub><b>Dark theme</b> — the same live overview</sub></td>
   </tr>
 </table>
 
-The panel is optional and loopback-only by default. Run `portta web up`, then open <http://127.0.0.1:8081>. The complete walkthrough and all ten images are in [the panel documentation](docs/web-ui.md).
+The panel is optional and loopback-only by default. Run `portta web up`, then open <http://127.0.0.1:8081>. The complete walkthrough and every screenshot are in [the panel documentation](docs/web-ui.md).
 
 ## How it works
 

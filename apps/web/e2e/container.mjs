@@ -91,7 +91,7 @@ export function volume(name, destination) {
 }
 
 /** What `portta access open`, and the panel, create. */
-export function makeBridge({ id, name, labels, targetPort, hostPort, network = 'storefront_default' }) {
+export function makeBridge({ id, name, labels, targetPort, hostPort, network = 'demo-shop_default' }) {
   return makeContainer({
     id,
     name,
@@ -113,12 +113,13 @@ export function gatewayLabels(component) {
 }
 
 /** The labels Compose injects, plus the opt-in a routed service adds. */
-export function composeLabels({ project, service, workingDir, routed = false, port }) {
+export function composeLabels({ project, service, workingDir, routed = false, port, logicalProject }) {
   const labels = {
     'com.docker.compose.project': project,
     'com.docker.compose.service': service,
   }
   if (workingDir) labels['com.docker.compose.project.working_dir'] = workingDir
+  if (logicalProject) labels['portta.project'] = logicalProject
   if (routed) {
     labels['traefik.enable'] = 'true'
     labels['traefik.docker.network'] = 'portta'
