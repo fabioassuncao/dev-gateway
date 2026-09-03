@@ -32,7 +32,7 @@ import { SessionRow } from '../components/entities/session-row.tsx'
 import { ActivityTimeline } from '../components/entities/activity-timeline.tsx'
 import { TaskRow } from '../components/entities/task-row.tsx'
 import { TasksTab } from '../components/tasks/tasks-tab.tsx'
-import { TaskDialog } from '../components/tasks/task-dialog.tsx'
+import { useKickCreate } from '../lib/kick-create.ts'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
 import { environmentHealth, healthTone } from '../lib/health.ts'
 import { navigate } from '../lib/router.ts'
@@ -54,7 +54,7 @@ export function ProjectPage({ slug, tab: requested = null, query = '', readOnly 
   const { t } = useTranslation('projects')
   const project = useProject(slug)
   const tab = resolveTab(requested)
-  const [creatingTask, setCreatingTask] = useState(false)
+  const kickCreate = useKickCreate(slug)
 
   useDocumentTitle(project.data?.name ?? slug, t('title'))
 
@@ -93,7 +93,7 @@ export function ProjectPage({ slug, tab: requested = null, query = '', readOnly 
 
   return (
     <>
-      <ProjectHeader project={data} readOnly={readOnly} onNewTask={() => setCreatingTask(true)} />
+      <ProjectHeader project={data} readOnly={readOnly} onNewTask={() => kickCreate.mutate()} creating={kickCreate.isPending} />
       <Tabs label={t('tabs.label', { name: data.name })} active={tab} tabs={tabs} />
       <TabPanel id={tab}>
         {tab === 'overview' ? <OverviewTab project={data} readOnly={readOnly} /> : null}
@@ -103,7 +103,6 @@ export function ProjectPage({ slug, tab: requested = null, query = '', readOnly 
         {tab === 'activity' ? <ActivityTab slug={slug} /> : null}
         {tab === 'settings' ? <SettingsTab project={data} readOnly={readOnly} /> : null}
       </TabPanel>
-      {creatingTask ? <TaskDialog mode="create" slug={slug} project={data} open onOpenChange={setCreatingTask} onSaved={(task) => navigate(taskHref(slug, task.id).replace(/^#/, ''))} /> : null}
     </>
   )
 }
@@ -116,7 +115,7 @@ export function LegacyEnvironmentRedirect({ name, tab }: { name: string; tab: st
   return <Loading />
 }
 
-function ProjectHeader({ project, readOnly, onNewTask }: { project: Project; readOnly: boolean; onNewTask: () => void }) {
+function ProjectHeader({ project, readOnly, onNewTask, creating = false }: { project: Project; readOnly: boolean; onNewTask: () => void; creating?: boolean }) {
   const { t } = useTranslation('projects')
   const { t: tk } = useTranslation('tasks')
   const { t: tn } = useTranslation('nav')
@@ -150,7 +149,7 @@ function ProjectHeader({ project, readOnly, onNewTask }: { project: Project; rea
       actions={
         <>
           {primary ? <EnvironmentOpenMenu environment={primary} /> : null}
-          <Button size="sm" variant="primary" disabled={readOnly} onClick={onNewTask}>
+          <Button size="sm" variant="primary" disabled={readOnly || creating} onClick={onNewTask}>
             <Plus className="h-3.5 w-3.5" />
             {tk('newTask')}
           </Button>

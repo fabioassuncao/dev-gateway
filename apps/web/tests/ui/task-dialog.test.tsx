@@ -5,51 +5,42 @@ import { renderWithQuery } from './render.tsx'
 import { makeTask } from './fixtures.ts'
 
 const createTask = vi.fn()
-const patchTask = vi.fn()
+const navigate = vi.fn()
 
 vi.mock('../../src/ui/lib/api/index.ts', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     createTask: (slug: string, body: unknown) => createTask(slug, body),
-    patchTask: (id: string, body: unknown) => patchTask(id, body),
   },
 }))
 
-const { TaskDialog } = await import('../../src/ui/components/tasks/task-dialog.tsx')
+vi.mock('../../src/ui/lib/router.ts', () => ({
+  navigate: (path: string) => navigate(path),
+}))
+
+const { useKickCreate } = await import('../../src/ui/lib/kick-create.ts')
+
+function Probe({ parentId }: { parentId?: string }) {
+  const kick = useKickCreate('produto')
+  return <button type="button" onClick={() => kick.mutate(parentId ? { parentId } : {})}>New task</button>
+}
 
 beforeEach(() => {
-  createTask.mockReset().mockResolvedValue(makeTask({ id: '9' }))
-  patchTask.mockReset().mockResolvedValue(makeTask())
+  createTask.mockReset().mockResolvedValue(makeTask({ id: '9', draft: true, title: 'New task' }))
+  navigate.mockReset()
 })
 
-describe('the task dialog', () => {
-  it('creates a local task with what was typed, and nothing GitHub', async () => {
-    const onSaved = vi.fn()
-    renderWithQuery(<TaskDialog mode="create" slug="produto" open onOpenChange={() => {}} onSaved={onSaved} />)
-    await userEvent.type(screen.getByLabelText('Title'), 'Corrigir autenticação')
-    await userEvent.selectOptions(screen.getByLabelText('Priority'), 'high')
-    await userEvent.type(screen.getByLabelText('Labels'), 'area:api, auth')
-    await userEvent.click(screen.getByRole('button', { name: 'Create' }))
-    await waitFor(() => expect(createTask).toHaveBeenCalled())
-    expect(createTask.mock.calls[0]![0]).toBe('produto')
-    expect(createTask.mock.calls[0]![1]).toMatchObject({ title: 'Corrigir autenticação', priority: 'high', labels: ['area:api', 'auth'], status: 'backlog', parentId: null })
-    expect(onSaved).toHaveBeenCalled()
+describe('kick-create', () => {
+  it('creates a draft and opens its page', async () => {
+    renderWithQuery(<Probe />)
+    await userEvent.click(screen.getByRole('button', { name: 'New task' }))
+    await waitFor(() => expect(createTask).toHaveBeenCalledWith('produto', expect.objectContaining({ title: 'New task', draft: true })))
+    expect(navigate).toHaveBeenCalledWith('/projects/produto/tasks/9')
   })
 
-  it('creates a subtask under its parent', async () => {
-    renderWithQuery(<TaskDialog mode="create" slug="produto" parent={makeTask({ id: '42' })} open onOpenChange={() => {}} />)
-    expect(screen.getByText('New subtask of #42')).toBeInTheDocument()
-    await userEvent.type(screen.getByLabelText('Title'), 'Backend')
-    await userEvent.click(screen.getByRole('button', { name: 'Create' }))
-    await waitFor(() => expect(createTask.mock.calls[0]![1]).toMatchObject({ title: 'Backend', parentId: '42' }))
-  })
-
-  it('edits and says the change goes to GitHub first when the task is bound', async () => {
-    const task = makeTask({ github: { repository: 'acme/api', number: 3, htmlUrl: 'u', state: 'open', syncState: 'synced', lastSyncedAt: null, lastError: null, remoteUpdatedAt: null, metadataSource: 'labels', remote: null } })
-    renderWithQuery(<TaskDialog mode="edit" slug="produto" task={task} open onOpenChange={() => {}} />)
-    expect(screen.getByText(/written there first/)).toBeInTheDocument()
-    await userEvent.selectOptions(screen.getByLabelText('Status'), 'review')
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(patchTask).toHaveBeenCalledWith('42', expect.objectContaining({ status: 'review' })))
+  it('creates a draft under its parent', async () => {
+    renderWithQuery(<Probe parentId="42" />)
+    await userEvent.click(screen.getByRole('button', { name: 'New task' }))
+    await waitFor(() => expect(createTask.mock.calls[0]![1]).toMatchObject({ parentId: '42', draft: true }))
   })
 })

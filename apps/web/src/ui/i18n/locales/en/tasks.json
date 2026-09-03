@@ -1,6 +1,26 @@
 {
   "title": "Tasks",
   "newTask": "New task",
+  "draft": {
+    "badge": "Draft",
+    "placeholder": "New task",
+    "discard": "Discard",
+    "confirmDiscard": "Discard draft #{{id}}?"
+  },
+  "save": {
+    "saving": "Saving…",
+    "saved": "Saved",
+    "failed": "Did not save"
+  },
+  "markdown": {
+    "edit": "Edit",
+    "preview": "Preview",
+    "bold": "Bold",
+    "italic": "Italic",
+    "code": "Code",
+    "list": "List",
+    "check": "Checklist"
+  },
   "views": {
     "board": "Board",
     "list": "List"
@@ -81,7 +101,9 @@
     "wholeProject": "Whole project",
     "environment": "Environment",
     "noEnvironment": "No environment",
-    "service": "Service"
+    "service": "Service",
+    "due": "Due",
+    "parent": "Parent"
   },
   "detail": {
     "status": "Status",
@@ -93,8 +115,20 @@
     "edit": "Edit",
     "description": "Description",
     "noDescription": "No description.",
+    "addDescription": "Add a description…",
+    "addType": "Add type",
+    "addLabels": "Add labels",
+    "addAssignee": "Add assignee",
+    "addAgent": "Add agent",
+    "addDue": "Add due date",
+    "addService": "Add service",
+    "noParent": "Top-level task",
     "subtasks": "Subtasks {{done}}/{{total}}",
     "newSubtask": "New subtask",
+    "linkExisting": "Link existing",
+    "unlinkSubtask": "Unlink",
+    "searchTasks": "Search tasks",
+    "noLinkable": "No task to link",
     "noSubtasks": "No subtask",
     "noSubtasksHint": "Split the work by repository when several are involved; each subtask can point at its own.",
     "sessions": "Sessions ({{count}} active)",
@@ -112,10 +146,15 @@
     "notes": "Notes ({{count}})",
     "noNotes": "No note yet",
     "notePlaceholder": "Leave a note a person or an agent will read",
-    "addNote": "Add note",
+    "addNote": "Add comment",
+    "editNote": "Edit",
+    "deleteNote": "Delete",
+    "edited": "edited",
+    "cancel": "Cancel",
     "someone": "someone",
     "activity": "Activity",
-    "noActivity": "Nothing happened yet"
+    "noActivity": "Nothing happened yet",
+    "noActivityYet": "No activity yet."
   },
   "github": {
     "section": "GitHub",
@@ -137,6 +176,7 @@
     "issueRef": "owner/repo#number",
     "link": "Bind an issue",
     "publish": "Publish on GitHub",
-    "publishNeedsRepository": "Point the task at a repository with a GitHub remote first"
+    "publishNeedsRepository": "Point the task at a repository with a GitHub remote first",
+    "publishNeedsTitle": "Give the task a real title before publishing it to GitHub"
   }
 }

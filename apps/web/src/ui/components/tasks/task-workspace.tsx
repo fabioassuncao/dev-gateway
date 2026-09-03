@@ -1,0 +1,172 @@
+import { Bot, GitCommitHorizontal, User } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import type { ActivityEvent, Session, Task, TaskNote, TaskSummary } from '../../../shared/task-types.ts'
+import type { Project } from '../../../shared/types.ts'
+import type { TaskBody } from '../../lib/api/index.ts'
+import { Badge } from '../ui/badge.tsx'
+import { Button } from '../ui/button.tsx'
+import { useFormat } from '../../lib/use-format.ts'
+import { SessionRow } from '../entities/session-row.tsx'
+import { EditableTitle } from './editable-title.tsx'
+import { TaskDescription } from './task-description.tsx'
+import { TaskProperties } from './task-properties.tsx'
+import { TaskSubtasks } from './task-subtasks.tsx'
+import { TaskActivity } from './task-activity.tsx'
+
+export interface TaskWorkspaceActions {
+  patch: (body: TaskBody) => Promise<unknown>
+  start: () => void
+  finish: (close: boolean) => void
+  setStatus: (status: Task['status']) => void
+  addNote: (body: string) => Promise<unknown>
+  editNote: (note: TaskNote, body: string) => Promise<unknown>
+  deleteNote: (note: TaskNote) => void
+  createSubtask: () => void
+  linkSubtask: (id: string) => void
+  unlinkSubtask: (id: string) => void
+  discard: () => void
+  github: {
+    configured: boolean
+    link: (issue: string) => Promise<unknown>
+    unlink: () => void
+    publish: () => void
+    sync: (resolve?: 'local' | 'remote') => void
+  }
+}
+
+export function TaskWorkspace({
+  task,
+  project,
+  sessions,
+  events,
+  candidates,
+  parentTitle,
+  actions,
+  readOnly = false,
+  saveState,
+}: {
+  task: Task
+  project: Project | null
+  sessions: Session[]
+  events: ActivityEvent[]
+  candidates: TaskSummary[]
+  parentTitle?: string | null
+  actions: TaskWorkspaceActions
+  readOnly?: boolean
+  saveState?: 'idle' | 'saving' | 'saved' | 'error'
+}) {
+  const { t } = useTranslation('tasks')
+  const { t: tc } = useTranslation('common')
+  const { relativeTime } = useFormat()
+  const commits = sessions.flatMap((session) => session.commits.map((commit) => ({ ...commit, session })))
+  const activeSessions = sessions.filter((session) => session.status === 'active')
+
+  return (
+    <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className="min-w-0 space-y-8">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs text-subtle">#{task.id}</span>
+              {task.draft ? <Badge tone="outline">{t('draft.badge')}</Badge> : null}
+              {saveState === 'saving' ? <span className="text-[11px] text-subtle">{t('save.saving')}</span> : null}
+              {saveState === 'saved' ? <span className="text-[11px] text-subtle">{t('save.saved')}</span> : null}
+              {saveState === 'error' ? <span className="text-[11px] text-danger">{t('save.failed')}</span> : null}
+            </div>
+            <EditableTitle
+              value={task.title}
+              draft={task.draft}
+              autoFocus={task.draft}
+              disabled={readOnly}
+              onSave={(title) => actions.patch({ title })}
+            />
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {task.status !== 'in_progress' && task.status !== 'done' ? (
+              <Button size="sm" variant="primary" disabled={readOnly} onClick={actions.start}>{t('detail.start')}</Button>
+            ) : null}
+            {task.status === 'in_progress' ? (
+              <Button size="sm" variant="primary" disabled={readOnly} onClick={() => actions.setStatus('review')}>{t('detail.sendToReview')}</Button>
+            ) : null}
+            {task.status !== 'done' ? (
+              <Button size="sm" disabled={readOnly} onClick={() => actions.finish(Boolean(task.github))}>{t('detail.finish')}</Button>
+            ) : null}
+            {task.draft ? (
+              <Button size="sm" variant="ghost" disabled={readOnly} onClick={actions.discard}>{t('draft.discard')}</Button>
+            ) : (
+              <Button size="sm" variant="ghost" disabled={readOnly} onClick={actions.discard}>{tc('delete')}</Button>
+            )}
+          </div>
+        </div>
+
+        <TaskDescription value={task.description} disabled={readOnly} onSave={(description) => actions.patch({ description })} />
+        <TaskSubtasks
+          task={task}
+          candidates={candidates}
+          readOnly={readOnly}
+          onCreate={actions.createSubtask}
+          onLink={actions.linkSubtask}
+          onUnlink={actions.unlinkSubtask}
+        />
+
+        {activeSessions.length > 0 || sessions.length > 0 ? (
+          <section className="space-y-2">
+            <h2 className="text-sm font-medium text-ink">{t('detail.sessions', { count: activeSessions.length })}</h2>
+            {sessions.map((session) => <SessionRow key={session.id} session={session} />)}
+          </section>
+        ) : null}
+
+        {task.environments.length > 0 ? (
+          <section className="space-y-2">
+            <h2 className="text-sm font-medium text-ink">{t('detail.environments', { count: task.environments.length })}</h2>
+            <ul className="space-y-1 text-sm">
+              {task.environments.map((link) => (
+                <li key={link.environment}>
+                  <a className="text-accent hover:underline" href={link.panelUrl}>{link.environment}</a>
+                  <span className="ml-2 text-[11px] text-subtle">{link.reason}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {commits.length > 0 ? (
+          <section className="space-y-2">
+            <h2 className="text-sm font-medium text-ink">{t('detail.commits', { count: commits.length })}</h2>
+            <ul className="divide-y divide-line/70 rounded-md border border-line">
+              {commits.map((commit) => (
+                <li key={`${commit.session.id}-${commit.sha}`} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+                  <GitCommitHorizontal className="h-3.5 w-3.5 text-subtle" aria-hidden />
+                  <span className="font-mono text-xs text-subtle">{commit.sha.slice(0, 7)}</span>
+                  <span className="min-w-0 truncate">{commit.subject}</span>
+                  <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-subtle">
+                    {commit.session.actorKind === 'agent' ? <Bot className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                    {commit.session.agent ?? commit.session.actor} · {relativeTime(commit.at)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        <TaskActivity
+          task={task}
+          events={events}
+          readOnly={readOnly}
+          onAdd={actions.addNote}
+          onEdit={actions.editNote}
+          onDelete={actions.deleteNote}
+        />
+      </div>
+
+      <TaskProperties
+        task={task}
+        project={project}
+        readOnly={readOnly}
+        parentTitle={parentTitle}
+        onPatch={(body) => { void actions.patch(body) }}
+        github={actions.github}
+      />
+    </div>
+  )
+}

@@ -16,7 +16,7 @@ import { matchesFilters, tasksHref, type TaskFilterValues, type TaskView } from 
 import { useTaskStatuses } from '../../i18n/use-task-statuses.ts'
 import { BoardEmpty, TaskBoard } from './task-board.tsx'
 import { TaskList } from './task-list.tsx'
-import { TaskDialog } from './task-dialog.tsx'
+import { useKickCreate } from '../../lib/kick-create.ts'
 
 /**
  * The Tasks tab of a project: one board or one list over the same rows, the
@@ -35,9 +35,9 @@ export function TasksTab({
 }) {
   const { t } = useTranslation('tasks')
   const { statusOptions } = useTaskStatuses()
-  const [creating, setCreating] = useState(false)
   const [failure, setFailure] = useState<unknown>(null)
   const slug = project.slug
+  const kickCreate = useKickCreate(slug)
 
   // The server takes every filter but the board wants every open task, so
   // the request asks for the whole open set and the narrowing happens here.
@@ -84,7 +84,7 @@ export function TasksTab({
         </Select>
         <Input value={filters.assignee ?? ''} onChange={(event) => setFilter('assignee', event.target.value)} placeholder={t('assigneeFilter')} className="h-8 w-36" aria-label={t('assigneeFilter')} />
         {readOnly ? <Badge tone="outline">{t('readOnly')}</Badge> : null}
-        <Button size="sm" variant="primary" className="ml-auto" disabled={readOnly} onClick={() => setCreating(true)}>
+        <Button size="sm" variant="primary" className="ml-auto" disabled={readOnly || kickCreate.isPending} onClick={() => kickCreate.mutate()}>
           <Plus className="h-3.5 w-3.5" />
           {t('newTask')}
         </Button>
@@ -122,7 +122,11 @@ export function TasksTab({
         />
       )}
 
-      {creating ? <TaskDialog mode="create" slug={slug} project={project} open onOpenChange={setCreating} /> : null}
+      {kickCreate.error ? (
+        <div className="mt-3">
+          <ErrorBox error={kickCreate.error} />
+        </div>
+      ) : null}
     </>
   )
 }

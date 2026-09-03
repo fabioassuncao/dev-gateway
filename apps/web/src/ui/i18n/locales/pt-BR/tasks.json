@@ -1,6 +1,26 @@
 {
   "title": "Tarefas",
   "newTask": "Nova tarefa",
+  "draft": {
+    "badge": "Rascunho",
+    "placeholder": "Nova tarefa",
+    "discard": "Descartar",
+    "confirmDiscard": "Descartar o rascunho #{{id}}?"
+  },
+  "save": {
+    "saving": "Salvando…",
+    "saved": "Salvo",
+    "failed": "Não salvou"
+  },
+  "markdown": {
+    "edit": "Editar",
+    "preview": "Preview",
+    "bold": "Negrito",
+    "italic": "Itálico",
+    "code": "Código",
+    "list": "Lista",
+    "check": "Checklist"
+  },
   "views": {
     "board": "Quadro",
     "list": "Lista"
@@ -81,7 +101,9 @@
     "wholeProject": "Projeto inteiro",
     "environment": "Environment",
     "noEnvironment": "Sem environment",
-    "service": "Serviço"
+    "service": "Serviço",
+    "due": "Prazo",
+    "parent": "Tarefa pai"
   },
   "detail": {
     "status": "Status",
@@ -93,8 +115,20 @@
     "edit": "Editar",
     "description": "Descrição",
     "noDescription": "Sem descrição.",
+    "addDescription": "Adicionar descrição…",
+    "addType": "Adicionar tipo",
+    "addLabels": "Adicionar labels",
+    "addAssignee": "Adicionar responsável",
+    "addAgent": "Adicionar agente",
+    "addDue": "Adicionar prazo",
+    "addService": "Adicionar serviço",
+    "noParent": "Tarefa de nível superior",
     "subtasks": "Subtarefas {{done}}/{{total}}",
     "newSubtask": "Nova subtarefa",
+    "linkExisting": "Vincular existente",
+    "unlinkSubtask": "Desvincular",
+    "searchTasks": "Buscar tarefa",
+    "noLinkable": "Nenhuma tarefa para vincular",
     "noSubtasks": "Nenhuma subtarefa",
     "noSubtasksHint": "Divida o trabalho por repositório quando houver vários; cada subtarefa pode apontar para o seu.",
     "sessions": "Sessões ({{count}} ativa(s))",
@@ -112,10 +146,15 @@
     "notes": "Notas ({{count}})",
     "noNotes": "Nenhuma nota ainda",
     "notePlaceholder": "Deixe uma nota que uma pessoa ou um agente vai ler",
-    "addNote": "Adicionar nota",
+    "addNote": "Adicionar comentário",
+    "editNote": "Editar",
+    "deleteNote": "Excluir",
+    "edited": "editado",
+    "cancel": "Cancelar",
     "someone": "alguém",
     "activity": "Atividade",
-    "noActivity": "Nada aconteceu ainda"
+    "noActivity": "Nada aconteceu ainda",
+    "noActivityYet": "Nenhuma atividade ainda."
   },
   "github": {
     "section": "GitHub",
@@ -137,6 +176,7 @@
     "issueRef": "owner/repo#número",
     "link": "Vincular issue",
     "publish": "Publicar no GitHub",
-    "publishNeedsRepository": "Aponte a tarefa para um repositório com remote no GitHub primeiro"
+    "publishNeedsRepository": "Aponte a tarefa para um repositório com remote no GitHub primeiro",
+    "publishNeedsTitle": "Dê um título real à tarefa antes de publicar no GitHub"
   }
 }
