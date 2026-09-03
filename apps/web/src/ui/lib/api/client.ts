@@ -16,6 +16,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       ...(init?.body ? { 'content-type': 'application/json' } : {}),
+      'X-Portta-Source': 'web',
       ...(init?.headers ?? {}),
     },
   })
@@ -23,8 +24,9 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const payload = text ? (JSON.parse(text) as unknown) : null
 
   if (!response.ok) {
-    const body = (payload ?? {}) as { error?: string; hint?: string }
-    throw new ApiError(response.status, body.error ?? response.statusText, body.hint ?? '')
+    const body = (payload ?? {}) as { error?: string | { message?: string }; message?: string; hint?: string }
+    const message = typeof body.error === 'string' ? body.error : body.error?.message ?? body.message ?? response.statusText
+    throw new ApiError(response.status, message, body.hint ?? '')
   }
   return payload as T
 }

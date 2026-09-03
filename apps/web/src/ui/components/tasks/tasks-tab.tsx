@@ -45,10 +45,20 @@ export function TasksTab({
   const query = useTasks(slug, serverFilters)
   const queryKey = keys.tasks(slug, serverFilters)
 
-  const move = useOptimisticMutation<unknown, { task: TaskSummary; status: TaskStatus }, TaskSummary[]>({
+  const move = useOptimisticMutation<unknown, { task: TaskSummary; status: TaskStatus; beforeId: string | null; afterId: string | null }, TaskSummary[]>({
     queryKey,
-    mutationFn: ({ task, status }) => api.setTaskStatus(task.id, status),
-    update: (current, { task, status }) => current?.map((entry) => (entry.id === task.id ? { ...entry, status } : entry)),
+    mutationFn: ({ task, status, beforeId, afterId }) => api.moveTask(task.id, { status, beforeId, afterId }),
+    update: (current, { task, status, beforeId, afterId }) => {
+      if (!current) return current
+      const without = current.filter((entry) => entry.id !== task.id)
+      const destination = without.filter((entry) => entry.status === status).sort((a, b) => a.position - b.position || a.id.localeCompare(b.id))
+      const afterIndex = afterId ? destination.findIndex((entry) => entry.id === afterId) : -1
+      const beforeIndex = beforeId ? destination.findIndex((entry) => entry.id === beforeId) : -1
+      const index = afterIndex >= 0 ? afterIndex : beforeIndex >= 0 ? beforeIndex + 1 : destination.length
+      destination.splice(index, 0, { ...task, status })
+      const ranks = new Map(destination.map((entry, rank) => [entry.id, (rank + 1) * 1024]))
+      return [...without, { ...task, status }].map((entry) => ranks.has(entry.id) ? { ...entry, status, position: ranks.get(entry.id)! } : entry)
+    },
     onFailure: (error) => setFailure(error),
   })
 
@@ -115,9 +125,9 @@ export function TasksTab({
           slug={slug}
           tasks={shown}
           readOnly={readOnly}
-          onMove={(task, status) => {
+          onMove={(task, status, beforeId, afterId) => {
             setFailure(null)
-            move.mutate({ task, status })
+            move.mutate({ task, status, beforeId, afterId })
           }}
         />
       )}

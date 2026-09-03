@@ -1,77 +1,102 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Bold, Braces, CheckSquare, Code2, Heading1, Heading2, Heading3, Italic, Link, List, ListOrdered, Quote, Strikethrough } from 'lucide-react'
 import { cn } from '../../lib/utils.ts'
-import { Button } from '../ui/button.tsx'
 import { MarkdownView } from './markdown-view.tsx'
+
+type Command = { before: string; after?: string; fallback?: string; line?: boolean }
 
 export function MarkdownEditor({
   value,
   onChange,
-  onBlur,
+  onEscape,
+  onSubmit,
   placeholder,
   disabled,
+  autoFocus = false,
+  compact = false,
 }: {
   value: string
   onChange: (value: string) => void
-  onBlur?: () => void
+  onEscape?: () => void
+  onSubmit?: () => void
   placeholder?: string
   disabled?: boolean
+  autoFocus?: boolean
+  compact?: boolean
 }) {
   const { t } = useTranslation('tasks')
   const [mode, setMode] = useState<'edit' | 'preview'>('edit')
+  const area = useRef<HTMLTextAreaElement>(null)
 
-  const wrap = (before: string, after = before) => {
-    const area = document.querySelector<HTMLTextAreaElement>('[data-task-markdown]')
-    if (!area) {
-      onChange(`${value}${before}${after}`)
-      return
+  const apply = ({ before, after = '', fallback = '', line = false }: Command) => {
+    const node = area.current
+    const start = node?.selectionStart ?? value.length
+    const end = node?.selectionEnd ?? value.length
+    let selected = value.slice(start, end) || fallback
+    let from = start
+    let to = end
+    if (line) {
+      from = value.lastIndexOf('\n', Math.max(0, start - 1)) + 1
+      const newline = value.indexOf('\n', end)
+      to = newline < 0 ? value.length : newline
+      selected = value.slice(from, to) || fallback
+      selected = selected.split('\n').map((entry) => `${before}${entry}`).join('\n')
+      before = ''
     }
-    const start = area.selectionStart
-    const end = area.selectionEnd
-    const selected = value.slice(start, end)
-    const next = `${value.slice(0, start)}${before}${selected}${after}${value.slice(end)}`
+    const next = `${value.slice(0, from)}${before}${selected}${after}${value.slice(to)}`
     onChange(next)
+    requestAnimationFrame(() => {
+      node?.focus()
+      const selectionStart = from + before.length
+      node?.setSelectionRange(selectionStart, selectionStart + selected.length)
+    })
   }
 
+  const controls: Array<{ title: string; icon: typeof Bold; command: Command }> = [
+    { title: t('markdown.heading1'), icon: Heading1, command: { before: '# ', line: true, fallback: t('markdown.heading') } },
+    { title: t('markdown.heading2'), icon: Heading2, command: { before: '## ', line: true, fallback: t('markdown.heading') } },
+    { title: t('markdown.heading3'), icon: Heading3, command: { before: '### ', line: true, fallback: t('markdown.heading') } },
+    { title: t('markdown.bold'), icon: Bold, command: { before: '**', after: '**', fallback: t('markdown.bold') } },
+    { title: t('markdown.italic'), icon: Italic, command: { before: '_', after: '_', fallback: t('markdown.italic') } },
+    { title: t('markdown.strike'), icon: Strikethrough, command: { before: '~~', after: '~~' } },
+    { title: t('markdown.code'), icon: Code2, command: { before: '`', after: '`', fallback: 'code' } },
+    { title: t('markdown.codeBlock'), icon: Braces, command: { before: '```\n', after: '\n```', fallback: 'code' } },
+    { title: t('markdown.link'), icon: Link, command: { before: '[', after: '](https://)', fallback: t('markdown.linkText') } },
+    { title: t('markdown.quote'), icon: Quote, command: { before: '> ', line: true } },
+    { title: t('markdown.list'), icon: List, command: { before: '- ', line: true } },
+    { title: t('markdown.orderedList'), icon: ListOrdered, command: { before: '1. ', line: true } },
+    { title: t('markdown.check'), icon: CheckSquare, command: { before: '- [ ] ', line: true } },
+  ]
+
   return (
-    <div className="rounded-md border border-line">
-      <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1">
-        <Button size="sm" variant={mode === 'edit' ? 'default' : 'ghost'} disabled={disabled} onClick={() => setMode('edit')}>{t('markdown.edit')}</Button>
-        <Button size="sm" variant={mode === 'preview' ? 'default' : 'ghost'} disabled={disabled} onClick={() => setMode('preview')}>{t('markdown.preview')}</Button>
-        {mode === 'edit' ? (
-          <span className="ml-2 flex gap-0.5">
-            <ToolbarButton disabled={disabled} onClick={() => wrap('**')} label="B" title={t('markdown.bold')} className="font-bold" />
-            <ToolbarButton disabled={disabled} onClick={() => wrap('_')} label="I" title={t('markdown.italic')} className="italic" />
-            <ToolbarButton disabled={disabled} onClick={() => wrap('`')} label="<>" title={t('markdown.code')} />
-            <ToolbarButton disabled={disabled} onClick={() => wrap('\n- ', '')} label="•" title={t('markdown.list')} />
-            <ToolbarButton disabled={disabled} onClick={() => wrap('\n- [ ] ', '')} label="☑" title={t('markdown.check')} />
-          </span>
-        ) : null}
+    <div className="overflow-hidden rounded-md border border-line bg-surface">
+      <div className="flex min-h-8 flex-wrap items-center gap-0.5 border-b border-line bg-surface-2/40 px-1.5">
+        <button type="button" className={tab(mode === 'edit')} onClick={() => setMode('edit')}>{t('markdown.edit')}</button>
+        <button type="button" className={tab(mode === 'preview')} onClick={() => setMode('preview')}>{t('markdown.preview')}</button>
+        {mode === 'edit' ? <span className="mx-1 h-4 w-px bg-line" /> : null}
+        {mode === 'edit' ? controls.map(({ title, icon: Icon, command }) => (
+          <button key={title} type="button" title={title} aria-label={title} disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => apply(command)} className="rounded p-1 text-muted hover:bg-surface-2 hover:text-ink disabled:opacity-40">
+            <Icon className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        )) : null}
       </div>
       {mode === 'preview' ? (
-        <div className="min-h-32 px-3 py-2">
-          {value.trim() === '' ? <p className="text-sm text-subtle">{placeholder}</p> : <MarkdownView source={value} />}
-        </div>
+        <div className={compact ? 'min-h-20 px-3 py-2' : 'min-h-36 px-4 py-3'}>{value.trim() ? <MarkdownView source={value} /> : <p className="text-sm text-subtle">{placeholder}</p>}</div>
       ) : (
-        <textarea
-          data-task-markdown
-          value={value}
-          disabled={disabled}
+        <textarea ref={area} data-task-markdown value={value} disabled={disabled} autoFocus={autoFocus}
           onChange={(event) => onChange(event.target.value)}
-          onBlur={onBlur}
-          placeholder={placeholder}
-          rows={10}
-          className="block min-h-32 w-full resize-y bg-transparent px-3 py-2 font-mono text-sm text-ink outline-none placeholder:text-subtle"
-        />
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && onEscape) { event.preventDefault(); event.stopPropagation(); onEscape() }
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && onSubmit) { event.preventDefault(); onSubmit() }
+          }}
+          placeholder={placeholder} rows={compact ? 4 : 9}
+          className={cn('block w-full resize-y bg-transparent font-mono text-sm leading-relaxed text-ink outline-none placeholder:text-subtle', compact ? 'min-h-20 px-3 py-2' : 'min-h-36 px-4 py-3')} />
       )}
     </div>
   )
 }
 
-function ToolbarButton({ label, title, onClick, disabled, className }: { label: string; title: string; onClick: () => void; disabled?: boolean; className?: string }) {
-  return (
-    <button type="button" title={title} disabled={disabled} onClick={onClick} className={cn('rounded px-1.5 py-0.5 text-[11px] text-muted hover:bg-surface-2 hover:text-ink disabled:opacity-40', className)}>
-      {label}
-    </button>
-  )
+function tab(active: boolean): string {
+  return cn('border-b-2 px-2 py-1.5 text-xs font-medium', active ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink')
 }

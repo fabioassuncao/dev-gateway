@@ -684,4 +684,3 @@ function RepositoriesDialog({ project, open, onOpenChange }: { project: Project;
     </Dialog>
   )
 }
-

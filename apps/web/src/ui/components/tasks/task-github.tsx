@@ -4,8 +4,9 @@ import { ExternalLink } from 'lucide-react'
 import type { Task } from '../../../shared/task-types.ts'
 import { Badge } from '../ui/badge.tsx'
 import { Button } from '../ui/button.tsx'
-import { Input } from '../ui/field.tsx'
+import { Input, Select } from '../ui/field.tsx'
 import { syncTone } from '../../lib/task-presentation.ts'
+import { useFormat } from '../../lib/use-format.ts'
 
 export function TaskGitHubCard({
   task,
@@ -19,13 +20,15 @@ export function TaskGitHubCard({
   task: Task
   readOnly?: boolean
   configured: boolean
-  link: (issue: string) => Promise<unknown>
+  link: (issue: string, initialSync: 'pull' | 'push') => Promise<unknown>
   unlink: () => void
   publish: () => void
   sync: (resolve?: 'local' | 'remote') => void
 }) {
   const { t } = useTranslation('tasks')
+  const { relativeTime } = useFormat()
   const [issueRef, setIssueRef] = useState('')
+  const [initialSync, setInitialSync] = useState<'pull' | 'push'>('pull')
   const github = task.github
 
   return (
@@ -40,6 +43,7 @@ export function TaskGitHubCard({
             <Badge tone={github.state === 'open' ? 'ok' : 'neutral'}>{t(`github.state.${github.state}`)}</Badge>
             <Badge tone={syncTone(github.syncState)}>{t(`sync.${github.syncState}`)}</Badge>
           </div>
+          {github.lastSyncedAt ? <p className="text-[11px] text-subtle">{t('github.lastSynced', { time: relativeTime(github.lastSyncedAt) })}</p> : null}
           {github.lastError ? <p className="text-[11px] text-danger">{github.lastError}</p> : null}
           {github.syncState === 'conflict' && github.remote ? (
             <p className="text-xs text-muted">{t('github.conflictExplained', { title: github.remote.title, status: github.remote.status ?? '—', assignee: github.remote.assignee ?? '—' })}</p>
@@ -59,8 +63,12 @@ export function TaskGitHubCard({
       ) : (
         <div className="space-y-2">
           <p className="text-xs text-subtle">{t('github.notBound')}</p>
-          <form className="flex gap-1" onSubmit={(event) => { event.preventDefault(); if (issueRef.trim()) void link(issueRef.trim()).then(() => setIssueRef('')) }}>
+          <form className="space-y-1.5" onSubmit={(event) => { event.preventDefault(); if (issueRef.trim()) void link(issueRef.trim(), initialSync).then(() => setIssueRef('')) }}>
             <Input value={issueRef} onChange={(event) => setIssueRef(event.target.value)} placeholder="owner/repo#42" className="h-7" disabled={readOnly || !configured} />
+            <Select value={initialSync} onChange={(event) => setInitialSync(event.target.value as 'pull' | 'push')} className="h-7 text-xs" disabled={readOnly || !configured} aria-label={t('github.initialSync')}>
+              <option value="pull">{t('github.pullFirst')}</option>
+              <option value="push">{t('github.pushFirst')}</option>
+            </Select>
             <Button size="sm" type="submit" disabled={readOnly || !configured || issueRef.trim() === ''}>{t('github.link')}</Button>
           </form>
           <Button size="sm" disabled={readOnly || !configured || !task.repository || task.draft} title={task.draft ? t('github.publishNeedsTitle') : !task.repository ? t('github.publishNeedsRepository') : undefined} onClick={publish}>

@@ -50,6 +50,7 @@ vi.mock('../../src/ui/lib/api/index.ts', () => ({
     projectActivity: (slug: string, filters: unknown) => projectActivity(slug, filters),
     metricsCurrent: () => metricsCurrent(),
     setTaskStatus: (id: string, status: string) => setTaskStatus(id, status),
+    moveTask: (id: string, body: { status: string }) => setTaskStatus(id, body.status),
     setProjectEnvironments: (slug: string, list: string[]) => setProjectEnvironments(slug, list),
   },
 }))

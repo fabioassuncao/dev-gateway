@@ -1,10 +1,11 @@
-import { Bot, GitCommitHorizontal, User } from 'lucide-react'
+import { Bot, GitCommitHorizontal, MoreHorizontal, Trash2, User } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ActivityEvent, Session, Task, TaskNote, TaskSummary } from '../../../shared/task-types.ts'
 import type { Project } from '../../../shared/types.ts'
 import type { TaskBody } from '../../lib/api/index.ts'
 import { Badge } from '../ui/badge.tsx'
 import { Button } from '../ui/button.tsx'
+import { Menu, MenuContent, MenuItem, MenuTrigger } from '../ui/menu.tsx'
 import { useFormat } from '../../lib/use-format.ts'
 import { SessionRow } from '../entities/session-row.tsx'
 import { EditableTitle } from './editable-title.tsx'
@@ -21,13 +22,15 @@ export interface TaskWorkspaceActions {
   addNote: (body: string) => Promise<unknown>
   editNote: (note: TaskNote, body: string) => Promise<unknown>
   deleteNote: (note: TaskNote) => void
+  publishNote: (note: TaskNote) => Promise<unknown>
   createSubtask: () => void
   linkSubtask: (id: string) => void
   unlinkSubtask: (id: string) => void
+  setSubtaskStatus: (id: string, status: Task['status']) => void
   discard: () => void
   github: {
     configured: boolean
-    link: (issue: string) => Promise<unknown>
+    link: (issue: string, initialSync: 'pull' | 'push') => Promise<unknown>
     unlink: () => void
     publish: () => void
     sync: (resolve?: 'local' | 'remote') => void
@@ -62,11 +65,11 @@ export function TaskWorkspace({
   const activeSessions = sessions.filter((session) => session.status === 'active')
 
   return (
-    <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
-      <div className="min-w-0 space-y-8">
+    <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_19rem]">
+      <div className="min-w-0 space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
+            <div className="mb-1 flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs text-subtle">#{task.id}</span>
               {task.draft ? <Badge tone="outline">{t('draft.badge')}</Badge> : null}
               {saveState === 'saving' ? <span className="text-[11px] text-subtle">{t('save.saving')}</span> : null}
@@ -81,21 +84,24 @@ export function TaskWorkspace({
               onSave={(title) => actions.patch({ title })}
             />
           </div>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             {task.status !== 'in_progress' && task.status !== 'done' ? (
               <Button size="sm" variant="primary" disabled={readOnly} onClick={actions.start}>{t('detail.start')}</Button>
             ) : null}
             {task.status === 'in_progress' ? (
-              <Button size="sm" variant="primary" disabled={readOnly} onClick={() => actions.setStatus('review')}>{t('detail.sendToReview')}</Button>
+              <Button size="sm" disabled={readOnly} onClick={() => actions.setStatus('review')}>{t('detail.sendToReview')}</Button>
             ) : null}
-            {task.status !== 'done' ? (
-              <Button size="sm" disabled={readOnly} onClick={() => actions.finish(Boolean(task.github))}>{t('detail.finish')}</Button>
-            ) : null}
-            {task.draft ? (
-              <Button size="sm" variant="ghost" disabled={readOnly} onClick={actions.discard}>{t('draft.discard')}</Button>
+            {task.status === 'done' ? (
+              <Button size="sm" disabled={readOnly} onClick={() => actions.setStatus('in_progress')}>{t('detail.reopen')}</Button>
             ) : (
-              <Button size="sm" variant="ghost" disabled={readOnly} onClick={actions.discard}>{tc('delete')}</Button>
+              <Button size="sm" variant="ghost" disabled={readOnly} onClick={() => actions.finish(Boolean(task.github))}>{t('detail.finish')}</Button>
             )}
+            <Menu>
+              <MenuTrigger disabled={readOnly} aria-label={tc('actions')} className="rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-ink"><MoreHorizontal className="h-4 w-4" /></MenuTrigger>
+              <MenuContent>
+                <MenuItem onSelect={actions.discard}><Trash2 className="mr-2 h-3.5 w-3.5 text-danger" />{task.draft ? t('draft.discard') : tc('delete')}</MenuItem>
+              </MenuContent>
+            </Menu>
           </div>
         </div>
 
@@ -107,6 +113,7 @@ export function TaskWorkspace({
           onCreate={actions.createSubtask}
           onLink={actions.linkSubtask}
           onUnlink={actions.unlinkSubtask}
+          onStatus={actions.setSubtaskStatus}
         />
 
         {activeSessions.length > 0 || sessions.length > 0 ? (
@@ -156,6 +163,7 @@ export function TaskWorkspace({
           onAdd={actions.addNote}
           onEdit={actions.editNote}
           onDelete={actions.deleteNote}
+          onPublish={task.github ? actions.publishNote : undefined}
         />
       </div>
 

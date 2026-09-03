@@ -66,7 +66,7 @@ export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: str
   const start = useMutation({ mutationFn: () => api.startTask(id), onSuccess: refresh, onError: failed })
   const finish = useMutation({ mutationFn: (close: boolean) => api.finishTask(id, close), onSuccess: refresh, onError: failed })
   const setStatus = useMutation({ mutationFn: (status: TaskStatus) => api.setTaskStatus(id, status), onSuccess: refresh, onError: failed })
-  const link = useMutation({ mutationFn: (issue: string) => api.linkTaskGitHub(id, issue), onSuccess: refresh, onError: failed })
+  const link = useMutation({ mutationFn: ({ issue, initialSync }: { issue: string; initialSync: 'pull' | 'push' }) => api.linkTaskGitHub(id, issue, initialSync), onSuccess: refresh, onError: failed })
   const unlink = useMutation({ mutationFn: () => api.unlinkTaskGitHub(id), onSuccess: refresh, onError: failed })
   const publish = useMutation({ mutationFn: () => api.publishTaskGitHub(id), onSuccess: refresh, onError: failed })
   const sync = useMutation({ mutationFn: (resolve: 'local' | 'remote' | undefined) => api.syncTaskGitHub(id, resolve), onSuccess: refresh, onError: failed })
@@ -119,18 +119,20 @@ export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: str
           start: () => start.mutate(),
           finish: (close) => finish.mutate(close),
           setStatus: (status) => setStatus.mutate(status),
-          addNote: (body) => api.addTaskNote(id, body).then(() => refresh()).catch((error: unknown) => { failed(error); throw error }),
-          editNote: (note: TaskNote, body: string) => api.updateTaskNote(id, note.id, body).then(() => refresh()).catch((error: unknown) => { failed(error); throw error }),
-          deleteNote: (note) => { void api.deleteTaskNote(id, note.id).then(() => refresh()).catch(failed) },
+          addNote: (body) => api.addTaskComment(id, body).then(() => refresh()).catch((error: unknown) => { failed(error); throw error }),
+          editNote: (note: TaskNote, body: string) => api.updateTaskComment(id, note.id, body).then(() => refresh()).catch((error: unknown) => { failed(error); throw error }),
+          deleteNote: (note) => { void api.deleteTaskComment(id, note.id).then(() => refresh()).catch(failed) },
+          publishNote: (note) => api.publishTaskCommentGitHub(id, note.id).then(() => refresh()).catch((error: unknown) => { failed(error); throw error }),
           createSubtask: () => kickCreate.mutate({ parentId: data.id, repositoryId: data.repository?.id ?? null }),
-          linkSubtask: (childId) => { void api.patchTask(childId, { parentId: data.id }).then(() => refresh()).catch(failed) },
-          unlinkSubtask: (childId) => { void api.patchTask(childId, { parentId: null }).then(() => refresh()).catch(failed) },
+          linkSubtask: (childId) => { void api.linkTaskSubtask(id, childId).then(() => refresh()).catch(failed) },
+          unlinkSubtask: (childId) => { void api.unlinkTaskSubtask(id, childId).then(() => refresh()).catch(failed) },
+          setSubtaskStatus: (childId, status) => { void api.setTaskStatus(childId, status).then(() => refresh()).catch(failed) },
           discard: () => {
             if (window.confirm(data.draft ? t('draft.confirmDiscard', { id: data.id }) : t('confirmDelete', { id: data.id }))) remove.mutate()
           },
           github: {
             configured: github.data?.status.configured ?? false,
-            link: (issue) => link.mutateAsync(issue),
+            link: (issue, initialSync) => link.mutateAsync({ issue, initialSync }),
             unlink: () => unlink.mutate(),
             publish: () => publish.mutate(),
             sync: (resolve) => sync.mutate(resolve),

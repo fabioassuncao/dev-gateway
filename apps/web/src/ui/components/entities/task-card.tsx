@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
+import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
+import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { AlertTriangle, MoreHorizontal } from 'lucide-react'
 import type { TaskStatus, TaskSummary } from '../../../shared/task-types.ts'
 import { Badge } from '../ui/badge.tsx'
@@ -21,7 +22,7 @@ export function TaskCard({
   task: TaskSummary
   columns: BoardColumn[]
   href: string
-  onMove: (task: TaskSummary, status: TaskStatus) => void
+  onMove: (task: TaskSummary, status: TaskStatus, targetId?: string, edge?: 'before' | 'after') => void
   onOpen?: (task: TaskSummary) => void
   readOnly?: boolean
 }) {
@@ -29,17 +30,35 @@ export function TaskCard({
   const { t: tc } = useTranslation('common')
   const element = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
+  const [closestEdge, setClosestEdge] = useState<'before' | 'after' | null>(null)
 
   useEffect(() => {
     const node = element.current
     if (node === null || readOnly) return
-    return draggable({
-      element: node,
-      getInitialData: () => ({ task }),
-      onDragStart: () => setDragging(true),
-      onDrop: () => setDragging(false),
-    })
-  }, [task, readOnly])
+    return combine(
+      draggable({
+        element: node,
+        getInitialData: () => ({ task }),
+        onDragStart: () => setDragging(true),
+        onDrop: () => setDragging(false),
+      }),
+      dropTargetForElements({
+        element: node,
+        canDrop: ({ source }) => (source.data['task'] as TaskSummary | undefined)?.id !== task.id,
+        getData: ({ input, element }) => ({
+          type: 'task-card', taskId: task.id,
+          edge: input.clientY < element.getBoundingClientRect().top + element.getBoundingClientRect().height / 2 ? 'before' : 'after',
+        }),
+        onDrag: ({ self }) => setClosestEdge(self.data['edge'] as 'before' | 'after'),
+        onDragLeave: () => setClosestEdge(null),
+        onDrop: ({ source, self }) => {
+          setClosestEdge(null)
+          const dragged = source.data['task'] as TaskSummary | undefined
+          if (dragged) onMove(dragged, task.status, task.id, self.data['edge'] as 'before' | 'after')
+        },
+      }),
+    )
+  }, [task, readOnly, onMove])
 
   return (
     <div
@@ -50,7 +69,10 @@ export function TaskCard({
       className={cn(
         'rounded-md border border-line bg-surface-2/40 px-2.5 py-2 text-sm outline-none',
         'focus-visible:border-accent',
-        dragging && 'opacity-50',
+        'relative',
+        dragging && 'opacity-60 ring-1 ring-accent/40 shadow-md',
+        closestEdge === 'before' && 'before:pointer-events-none before:absolute before:inset-x-0 before:-top-1 before:h-0.5 before:bg-accent',
+        closestEdge === 'after' && 'after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-1 after:h-0.5 after:bg-accent',
       )}
     >
       <div className="flex min-w-0 items-start gap-1.5">

@@ -24,6 +24,7 @@ export function EditableTitle({
   const [editing, setEditing] = useState(Boolean(autoFocus && draft))
   const [draftTitle, setDraftTitle] = useState(value)
   const input = useRef<HTMLInputElement>(null)
+  const saving = useRef(false)
 
   useEffect(() => { setDraftTitle(value) }, [value])
   useEffect(() => {
@@ -33,16 +34,22 @@ export function EditableTitle({
   const display = draft && isDefaultDraftTitle(value) ? t('draft.placeholder') : value
 
   const confirm = async () => {
+    if (saving.current) return
     const next = draftTitle.trim()
-    setEditing(false)
     if (next === '' || next === value) {
       setDraftTitle(value)
+      setEditing(false)
       return
     }
+    saving.current = true
     try {
       await onSave(next)
+      setEditing(false)
     } catch {
-      setDraftTitle(value)
+      // The parent owns the visible error state. Keep this editor and draft
+      // open so a rejected save never turns into an unhandled event or loss.
+    } finally {
+      saving.current = false
     }
   }
 
@@ -61,6 +68,7 @@ export function EditableTitle({
               void confirm()
             }
             if (event.key === 'Escape') {
+              event.preventDefault()
               setDraftTitle(value)
               setEditing(false)
             }

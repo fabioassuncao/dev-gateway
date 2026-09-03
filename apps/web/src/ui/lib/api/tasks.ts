@@ -3,7 +3,7 @@
 import type { Task, TaskSummary } from '../../../shared/task-types.ts'
 import { request } from './client.ts'
 
-export type TaskFilters = Partial<Record<'status' | 'open' | 'assignee' | 'repository' | 'parent' | 'q', string>>
+export type TaskFilters = Partial<Record<'status' | 'open' | 'priority' | 'type' | 'label' | 'assignee' | 'agent' | 'repository' | 'environment' | 'service' | 'parent' | 'q', string>>
 
 export interface TaskBody {
   title?: string
@@ -48,16 +48,27 @@ export const tasksApi = {
   task: (id: string) => request<Task>(`/tasks/${ref(id)}`),
   patchTask: (id: string, body: TaskBody) =>
     request<Task>(`/tasks/${ref(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  moveTask: (id: string, body: { status: string; beforeId?: string | null; afterId?: string | null }) =>
+    request<Task>(`/tasks/${ref(id)}/move`, { method: 'POST', body: JSON.stringify(body) }),
   deleteTask: (id: string) => request<{ ok: boolean }>(`/tasks/${ref(id)}`, { method: 'DELETE', body: '{}' }),
   taskSubtasks: (id: string) =>
     request<{ subtasks: SubtaskNode[] }>(`/tasks/${ref(id)}/subtasks`).then((data) => data.subtasks),
   taskNotes: (id: string) => request<{ notes: Task['notes'] }>(`/tasks/${ref(id)}/notes`).then((data) => data.notes),
+  taskComments: (id: string) => request<{ comments: Task['notes'] }>(`/tasks/${ref(id)}/comments`).then((data) => data.comments),
   addTaskNote: (id: string, body: string) =>
     request<Task['notes'][number]>(`/tasks/${ref(id)}/notes`, { method: 'POST', body: JSON.stringify({ body }) }),
   updateTaskNote: (id: string, noteId: string, body: string) =>
     request<Task['notes'][number]>(`/tasks/${ref(id)}/notes/${ref(noteId)}`, { method: 'PATCH', body: JSON.stringify({ body }) }),
   deleteTaskNote: (id: string, noteId: string) =>
     request<{ ok: boolean }>(`/tasks/${ref(id)}/notes/${ref(noteId)}`, { method: 'DELETE', body: '{}' }),
+  addTaskComment: (id: string, body: string) =>
+    request<Task['notes'][number]>(`/tasks/${ref(id)}/comments`, { method: 'POST', body: JSON.stringify({ body }) }),
+  updateTaskComment: (id: string, commentId: string, body: string) =>
+    request<Task['notes'][number]>(`/tasks/${ref(id)}/comments/${ref(commentId)}`, { method: 'PATCH', body: JSON.stringify({ body }) }),
+  deleteTaskComment: (id: string, commentId: string) =>
+    request<{ ok: boolean }>(`/tasks/${ref(id)}/comments/${ref(commentId)}`, { method: 'DELETE', body: '{}' }),
+  publishTaskCommentGitHub: (id: string, commentId: string) =>
+    request<Task['notes'][number]>(`/tasks/${ref(id)}/comments/${ref(commentId)}/github/publish`, { method: 'POST', body: '{}' }),
   importProjectTasks: (slug: string, document: unknown) =>
     request<{ project: string; created: number; updated: number; tasks: Task[] }>(`/projects/${slugOf(slug)}/tasks/import`, { method: 'POST', body: JSON.stringify(document) }),
   exportProjectTasks: (slug: string) =>
@@ -70,8 +81,14 @@ export const tasksApi = {
     request<Task>(`/tasks/${ref(id)}/finish`, { method: 'POST', body: JSON.stringify(close === undefined ? {} : { close }) }),
   setTaskEnvironments: (id: string, environments: string[]) =>
     request<Task>(`/tasks/${ref(id)}/environments`, { method: 'PUT', body: JSON.stringify({ environments }) }),
-  linkTaskGitHub: (id: string, issue: string) =>
-    request<Task>(`/tasks/${ref(id)}/github/link`, { method: 'POST', body: JSON.stringify({ issue }) }),
+  createTaskSubtask: (id: string, body: TaskBody & { title: string }) =>
+    request<Task>(`/tasks/${ref(id)}/subtasks`, { method: 'POST', body: JSON.stringify(body) }),
+  linkTaskSubtask: (id: string, childId: string) =>
+    request<Task>(`/tasks/${ref(id)}/subtasks/${ref(childId)}`, { method: 'PUT', body: '{}' }),
+  unlinkTaskSubtask: (id: string, childId: string) =>
+    request<Task>(`/tasks/${ref(id)}/subtasks/${ref(childId)}`, { method: 'DELETE', body: '{}' }),
+  linkTaskGitHub: (id: string, issue: string, initialSync: 'pull' | 'push') =>
+    request<Task>(`/tasks/${ref(id)}/github/link`, { method: 'POST', body: JSON.stringify({ issue, initialSync }) }),
   unlinkTaskGitHub: (id: string) =>
     request<Task>(`/tasks/${ref(id)}/github/unlink`, { method: 'POST', body: '{}' }),
   publishTaskGitHub: (id: string, body: { repository?: string } = {}) =>
@@ -79,5 +96,5 @@ export const tasksApi = {
   syncTaskGitHub: (id: string, resolve?: 'local' | 'remote') =>
     request<Task>(`/tasks/${ref(id)}/github/sync`, { method: 'POST', body: JSON.stringify(resolve ? { resolve } : {}) }),
   commentTaskGitHub: (id: string, body: string) =>
-    request<{ id: number; htmlUrl: string }>(`/tasks/${ref(id)}/comments`, { method: 'POST', body: JSON.stringify({ body }) }),
+    request<{ id: number; htmlUrl: string }>(`/tasks/${ref(id)}/github/comments`, { method: 'POST', body: JSON.stringify({ body }) }),
 }

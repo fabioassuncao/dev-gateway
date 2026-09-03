@@ -9,7 +9,7 @@ import { taskHref } from './tasks.ts'
 export function useKickCreate(slug: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (body: TaskBody = {}) => api.createTask(slug, { title: TASK_DRAFT_TITLE, draft: true, ...body }),
+    mutationFn: (body: TaskBody | void) => api.createTask(slug, { title: TASK_DRAFT_TITLE, draft: true, ...(body ?? {}) }),
     onSuccess: (task) => {
       queryClient.setQueryData(keys.task(task.id), task)
       void queryClient.invalidateQueries({ queryKey: ['tasks'] })

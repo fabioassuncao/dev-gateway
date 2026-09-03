@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { CheckCircle2, Circle } from 'lucide-react'
 import type { Task, TaskSummary } from '../../../shared/task-types.ts'
 import { Button } from '../ui/button.tsx'
 import { Input } from '../ui/field.tsx'
@@ -14,6 +15,7 @@ export function TaskSubtasks({
   onCreate,
   onLink,
   onUnlink,
+  onStatus,
 }: {
   task: Task
   candidates: TaskSummary[]
@@ -21,6 +23,7 @@ export function TaskSubtasks({
   onCreate: () => void
   onLink: (id: string) => void
   onUnlink: (id: string) => void
+  onStatus: (id: string, status: TaskSummary['status']) => void
 }) {
   const { t } = useTranslation('tasks')
   const [query, setQuery] = useState('')
@@ -68,7 +71,17 @@ export function TaskSubtasks({
                 href={taskHref(task.project, subtask.id)}
                 compact
                 actions={readOnly ? undefined : (
-                  <Button size="sm" variant="ghost" onClick={() => onUnlink(subtask.id)}>{t('detail.unlinkSubtask')}</Button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onStatus(subtask.id, subtask.status === 'done' ? 'ready' : 'done')}
+                      aria-label={subtask.status === 'done' ? t('detail.reopenSubtask', { id: subtask.id }) : t('detail.completeSubtask', { id: subtask.id })}
+                      className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"
+                    >
+                      {subtask.status === 'done' ? <CheckCircle2 className="h-4 w-4 text-ok" /> : <Circle className="h-4 w-4" />}
+                    </button>
+                    <Button size="sm" variant="ghost" onClick={() => onUnlink(subtask.id)}>{t('detail.unlinkSubtask')}</Button>
+                  </div>
                 )}
               />
             </li>

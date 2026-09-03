@@ -24,6 +24,7 @@ const setTaskStatus = vi.fn()
 const startTask = vi.fn()
 const finishTask = vi.fn()
 const addTaskNote = vi.fn()
+const patchTask = vi.fn()
 const syncTaskGitHub = vi.fn()
 const linkTaskGitHub = vi.fn()
 const setTaskEnvironments = vi.fn()
@@ -40,9 +41,15 @@ vi.mock('../../src/ui/lib/api/index.ts', () => ({
     setTaskStatus: (id: string, status: string) => setTaskStatus(id, status),
     startTask: (id: string) => startTask(id),
     finishTask: (id: string, close?: boolean) => finishTask(id, close),
-    addTaskNote: (id: string, body: string) => addTaskNote(id, body),
+    patchTask: (id: string, body: unknown) => patchTask(id, body),
+    addTaskComment: (id: string, body: string) => addTaskNote(id, body),
+    updateTaskComment: vi.fn(),
+    deleteTaskComment: vi.fn(),
+    publishTaskCommentGitHub: vi.fn(),
+    linkTaskSubtask: vi.fn(),
+    unlinkTaskSubtask: vi.fn(),
     syncTaskGitHub: (id: string, resolve?: string) => syncTaskGitHub(id, resolve),
-    linkTaskGitHub: (id: string, issue: string) => linkTaskGitHub(id, issue),
+    linkTaskGitHub: (id: string, issue: string, initialSync: string) => linkTaskGitHub(id, issue, initialSync),
     setTaskEnvironments: (id: string, environments: string[]) => setTaskEnvironments(id, environments),
   },
 }))
@@ -53,7 +60,7 @@ const detail = makeTask({
   subtasks: [makeTaskSummary({ id: '43', title: 'Backend', parentId: '42', status: 'done' }), makeTaskSummary({ id: '44', title: 'Frontend', parentId: '42', repository: { id: 'r2', name: 'web' } })],
   subtaskCount: 2,
   openSubtaskCount: 1,
-  notes: [{ id: 'n1', actor: 'claude', actorKind: 'agent', body: 'Tests pass locally.', createdAt: 1_700_000_100, updatedAt: null }],
+  notes: [{ id: 'n1', actor: 'claude', actorKind: 'agent', body: 'Tests pass locally.', createdAt: 1_700_000_100, updatedAt: null, publishState: 'local', githubCommentId: null, githubHtmlUrl: null, publishError: null }],
   environments: [{ environment: 'produto-task42', source: 'branch', reason: 'linked because this environment is on branch task-42-auth', running: true, serviceCount: 2, runningCount: 2, unhealthyCount: 0, branch: 'task-42-auth', urls: [{ url: 'http://produto-web.localhost', scope: 'local' }], panelUrl: '#/environments/produto-task42' }],
 })
 
@@ -68,6 +75,7 @@ beforeEach(() => {
   startTask.mockReset().mockResolvedValue(detail)
   finishTask.mockReset().mockResolvedValue(detail)
   addTaskNote.mockReset().mockResolvedValue(detail.notes[0])
+  patchTask.mockReset().mockResolvedValue(detail)
   syncTaskGitHub.mockReset().mockResolvedValue(detail)
   linkTaskGitHub.mockReset().mockResolvedValue(detail)
   setTaskEnvironments.mockReset().mockResolvedValue(detail)
@@ -119,12 +127,27 @@ describe('one task', () => {
     await waitFor(() => expect(addTaskNote).toHaveBeenCalledWith('42', 'Please retry the flaky test'))
   })
 
+  it('edits status from the quiet properties sidebar', async () => {
+    renderWithQuery(<TaskPage slug="produto" id="42" />)
+    await screen.findByRole('heading', { name: 'Implementar refresh token' })
+    await userEvent.click(screen.getByRole('button', { name: 'In progress' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Blocked' }))
+    await waitFor(() => expect(patchTask).toHaveBeenCalledWith('42', { status: 'blocked' }))
+  })
+
+  it('completes a subtask directly from its progress list', async () => {
+    renderWithQuery(<TaskPage slug="produto" id="42" />)
+    await screen.findByRole('heading', { name: 'Implementar refresh token' })
+    await userEvent.click(screen.getByRole('button', { name: 'Complete subtask #44' }))
+    await waitFor(() => expect(setTaskStatus).toHaveBeenCalledWith('44', 'done'))
+  })
+
   it('binds an issue by its coordinate', async () => {
     renderWithQuery(<TaskPage slug="produto" id="42" />)
     await screen.findByRole('heading', { name: 'Implementar refresh token' })
     await userEvent.type(screen.getByPlaceholderText('owner/repo#42'), 'acme/api#7')
     await userEvent.click(screen.getByRole('button', { name: 'Bind an issue' }))
-    await waitFor(() => expect(linkTaskGitHub).toHaveBeenCalledWith('42', 'acme/api#7'))
+    await waitFor(() => expect(linkTaskGitHub).toHaveBeenCalledWith('42', 'acme/api#7', 'pull'))
   })
 
   it('shows a conflict with both sides and lets a person choose', async () => {
