@@ -38,23 +38,27 @@ The panel never treats PostgreSQL as a second GitHub. A board action that
 means "close" closes the issue on GitHub; the local row is a cache with
 an age, not the original.
 
-## Workspaces: repositories and the environments that belong to them
+## Projects: repositories and the environments that belong to them
 
-A **workspace** is the grouping a person creates. It owns repositories, adopts
-environments, and — unlike an environment — does not disappear when nothing is
-running. That is why it is persisted rather than derived.
+A **Project** is the grouping a person creates. It owns repositories, adopts
+environments, carries the board and — unlike an environment — does not
+disappear when nothing is running. That is why it is persisted rather than
+derived.
 
 ```
-Workspace  "Meu Produto"
-├── repositories   acme/produto-api (api) · acme/produto-web (web)
-└── environments   produto            (label)
+Project  "Meu Produto"
+├── repositories   api  (local clone, bound to acme/produto-api) · web (acme/produto-web)
+└── environments   produto            (path)
                    produto-issue182   (repo-match)
 ```
 
-One repository may belong to several workspaces, and a monorepo is one
-repository in one workspace. `role` is free text with a documented vocabulary —
+A repository belongs to exactly one Project, and a monorepo is one
+repository in one Project. `role` is free text with a documented vocabulary —
 `api`, `web`, `mobile`, `services`, `infra`, `docs`, `other` — so adding one
-later is not a migration.
+later is not a migration. A repository exists without GitHub: a path under
+Projects Home, or a remote, is enough. Binding it to a GitHub repository the
+App was granted is what makes issues, pull-request state and the write-back
+available for it.
 
 ### How an environment is adopted, and why
 
@@ -64,27 +68,27 @@ In order, first match wins:
 |---|---|
 | `manual` | You linked them in the panel. Always wins |
 | `label` | The environment carries `portta.project: <slug>`. The project declared it, per ADR 0001 |
-| `repo-match` | The environment's remote matches a repository this workspace owns — applied **only when exactly one workspace owns that coordinate** |
+| `repo-match` | The environment's remote matches a repository this Project owns — applied **only when exactly one Project owns that coordinate** |
+| `path` | The environment's working directory sits under the Project's directory, or under one of its repositories, and no other Project claims it |
 
 The source is stored and shown, so the panel says *"adopted because it carries
 `portta.project: meu-produto`"* rather than presenting a mapping with no
-explanation. An ambiguous repository match adopts nothing and leaves the choice
-to you: an automatic adoption that is wrong is worse than none.
+explanation. An ambiguous match adopts nothing and leaves the choice to you:
+an automatic adoption that is wrong is worse than none.
 
-An environment belongs to at most one workspace; a workspace may have any
-number, including none.
+An environment belongs to at most one Project; a Project may have any number,
+including none.
 
 ### What the API keeps separate
 
 `GET /api/projects` lists the product (the grouping). `GET /api/environments`
-lists Compose stacks observed on this host — what `/api/projects` used to
-return. `/api/workspaces` is a deprecated alias of `/api/projects`.
+lists Compose stacks observed on this host.
 
-`DELETE /api/projects/:slug` (and the deprecated `DELETE /api/workspaces/:slug`)
-removes **the grouping and nothing else**: no container is stopped, no volume
-is removed, no environment is changed, and no repository is unlinked from
-GitHub. The response says so, because it is the endpoint most likely to be
-misread.
+`DELETE /api/projects/:slug` removes **the grouping and what only Portta
+holds about it** — its repositories, tasks, sessions and activity rows: no
+container is stopped, no volume is removed, no environment is changed, and no
+repository is unlinked from GitHub. The response says so, because it is the
+endpoint most likely to be misread.
 
 Every Project endpoint needs the panel's database and answers `503` with a
 hint when it is unavailable; writes are refused in read-only mode.
@@ -385,7 +389,7 @@ Stored, in the panel's own PostgreSQL:
   error, so a failure is visible rather than silent.
 
 Every row carries `synced_at`, so the UI can always say how old an answer is —
-the same discipline `GitCard` already applies to a host Git scan.
+the same discipline the repository scan already applies.
 
 **Never stored:** the private key, the webhook secret, and any installation
 token. A token lives for an hour, is minted on demand, cached in memory with

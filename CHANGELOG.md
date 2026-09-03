@@ -9,7 +9,80 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+### Changed
+
+- **Portta is a development platform, organised around the Project.**
+  The centre of the panel, the API and the CLI is now the product being
+  developed and its cycle — demand, code, execution, test, analysis,
+  correction, completion — for a person and for an agent alike. Docker,
+  Traefik, Git, GitHub, Cloudflare, Tailscale and the metrics stay, as the
+  tools that serve it. [ADR 0032](docs/adr/0032-portta-development-model.md)
+  records the model: Project → Repositories, Tasks (with subtasks),
+  Environments → Services → Containers, Development Sessions, Activity,
+  Instructions.
+- **The schema says Project and Environment.** Migration `0007` renames
+  `workspaces → projects` and `projects → environments` with their settings
+  tables, drops the dead columns and the unused `integrations` table, and
+  makes a Project's `relativePath` writable. `/api/workspaces`, `#/workspaces`,
+  `#/board/<slug>` and `GET /api/host` are gone; the old hashes redirect.
+- **`portta repos scan` replaces `portta git scan`.** Collection is keyed by
+  repository (the realpath of the git root), writes an index that maps every
+  Compose project to the repository it runs from, and adds what ADR 0010
+  left out on purpose: the last twenty commits as metadata, and the content
+  of the instruction files an agent reads (`AGENTS.md`, `CLAUDE.md`,
+  `.cursor/rules/*.mdc`, …), from an allowlist, bounded at 64 KiB, never a
+  `.env`. The metrics watcher runs the scan once a minute. The old verbs
+  are aliases that say so.
+- **`portta envs` is what `portta project` was**, with `logs` and
+  `endpoints` added; `project`, `environment` and `env` remain aliases.
+
 ### Added
+
+- **Repository, local-first.** A Project's repositories are rows of their
+  own (`0008`): a path under Projects Home, a remote, a role; a GitHub
+  repository is an optional binding, and one GitHub repository belongs to
+  one Project. The panel lists the repositories the scan discovered and not
+  yet registered, and a repository page shows git state, recent commits,
+  pull requests, the environments running from it and its instruction files.
+- **Task, Portta's own unit of work** (`0009`). It exists without GitHub:
+  title, description, status (`backlog, ready, in_progress, review, blocked,
+  done`), priority, type, labels, assignee, agent, parent and subtasks, an
+  optional repository, environment and service, notes and history. Every
+  issue of a repository a Project owned became a bound task in the
+  migration, so no board was lost. A write to a bound task reaches GitHub
+  first; without the App it stays local and `pending`; a remote change over
+  a pending edit is a `conflict`, kept and shown. `#/projects/<slug>/tasks`
+  is the board and the list; `#/projects/<slug>/tasks/<id>` is the task.
+- **Development sessions and activity** (`0010`). Who is working on what,
+  since when, with which commits; and what happened — task moves, notes,
+  sessions, environments started, stopped, rebuilt and removed, commits the
+  scan noticed — as a timeline on the Project and on the dashboard. A
+  commit watch runs once a minute; maintenance prunes activity after ninety
+  days or five thousand rows per Project.
+- **Capabilities.** Every route declares the capability it needs, published
+  in the OpenAPI document as `x-portta-capability`. A request carries a
+  principal: the operator, read-only mode (every read), or an agent that
+  announced itself with `X-Portta-Actor`, which holds what the
+  `agentCapabilities` setting grants — by default everything but
+  destroying, reconfiguring the gateway and opening a network path. The
+  actor is recorded on tasks, notes, sessions and activity.
+- **The consolidated Service.** `GET /api/environments/:name/services`
+  answers one row per service — state, health, access with a primary
+  address, resources, runtime, uptime and the actions that apply — and
+  `POST …/services/:service/actions/{start,stop,restart}` operates one by
+  name. The environment page is that table, with a drawer per service and an
+  Open / Test menu that lists every way to reach it.
+- **The Development Context and the dashboard.** `GET
+  /api/projects/:slug/context` is what an agent reads before it works;
+  `GET /api/projects/:slug/resources` attributes usage Host → Project →
+  Environment → Container; `GET /api/overview` is the Development Dashboard
+  the Overview page renders: work, sessions, attention, projects, code,
+  runtime, resources.
+- **`portta projects`, `tasks`, `sessions`, `activity` and `overview`** over
+  the panel client, all with `--json`; `portta mcp` serves twenty-seven
+  tools, one endpoint each, addressed by project.
+
+### Added (earlier in this cycle)
 
 - **`portta db migrate` and `make db-migrate`.** Apply pending panel SQL
   without restarting the panel. `portta dev`, `portta web up` and
