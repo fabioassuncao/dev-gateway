@@ -76,6 +76,9 @@ describe('activity', () => {
     expect(events[0]).toMatchObject({ project: 'produto', environment: 'alpha', actor: 'fabio' })
     expect(events[1]).toMatchObject({ taskTitle: 'Fix auth', repositoryName: 'api' })
     expect((await json(await app.request('/api/projects/produto/activity?kind=task.created'))).events).toHaveLength(1)
+    expect((await json(await app.request(`/api/tasks/${task.id}/activity`))).events).toEqual([
+      expect.objectContaining({ kind: 'task.created', taskId: task.id }),
+    ])
     expect((await json(await app.request('/api/activity'))).events).toHaveLength(3)
   })
 

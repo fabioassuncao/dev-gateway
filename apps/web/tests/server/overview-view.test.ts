@@ -11,6 +11,7 @@ function task(overrides: Partial<TaskSummary> & { id: string }): TaskSummary {
   return {
     project: 'shop', parentId: null, title: `Task ${overrides.id}`, status: 'ready', priority: null, type: null, labels: [], assignee: null, agent: null,
     repository: null, environment: null, service: null, subtaskCount: 0, openSubtaskCount: 0, github: null,
+    dueAt: null, draft: false, position: 1024,
     createdAt: 1, updatedAt: Number(overrides.id), closedAt: null, panelUrl: `#/projects/shop/tasks/${overrides.id}`,
     ...overrides,
   }

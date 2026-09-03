@@ -5,9 +5,9 @@
 // projection is refreshed from GitHub's answer — the binding then says
 // `synced`. When the App cannot be used, the local write still happens and the
 // binding says `pending` (or `error`, with the reason) until the next sync.
-// Nothing here fails a local write because of GitHub: comments and publishing,
-// which exist only on GitHub, are the two verbs that do, and they live in the
-// routes.
+// Nothing here fails a local write because of GitHub. Publishing a task or an
+// explicit copy of a local comment is an integration verb and lives in the
+// GitHub routes.
 
 import { HTTPException } from 'hono/http-exception'
 import { parseTaskRef, type TaskStatus } from 'portta-core'
@@ -41,6 +41,7 @@ export interface TaskChange {
   status?: TaskStatus
   priority?: string | null
   assignee?: string | null
+  labels?: string[]
   close?: boolean
 }
 
@@ -106,6 +107,7 @@ export function wholeChange(task: TaskRow, issue: StoredIssue): TaskChange {
     status: task.status,
     priority: task.priority,
     assignee: task.assignee,
+    labels: task.labels,
     close: task.status === 'done' && issue.state !== 'closed',
   }
 }

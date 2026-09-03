@@ -88,6 +88,10 @@
     {
       "name": "Documentation",
       "description": "The machine contract and its offline browser."
+    },
+    {
+      "name": "Authentication",
+      "description": "Revocable Bearer credentials for remote CLI and coding agents."
     }
   ],
   "components": {
@@ -102,6 +106,11 @@
         "type": "http",
         "scheme": "basic",
         "description": "Compatibility path for API clients, health checks and webhooks. Traefik validates it through Portta ForwardAuth before forwarding the request."
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "A revocable Portta API token. The raw credential is shown only when it is created."
       }
     },
     "schemas": {
@@ -7469,6 +7478,11 @@
           "draft": {
             "type": "boolean"
           },
+          "position": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "createdAt": {
             "type": "number",
             "description": "Unix timestamp in seconds"
@@ -7511,6 +7525,7 @@
           "github",
           "dueAt",
           "draft",
+          "position",
           "createdAt",
           "updatedAt",
           "closedAt",
@@ -7778,6 +7793,39 @@
                 "type": "null"
               }
             ]
+          },
+          "publishState": {
+            "type": "string",
+            "enum": [
+              "local",
+              "pending",
+              "synced",
+              "error"
+            ]
+          },
+          "githubCommentId": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "githubHtmlUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publishError": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -7786,7 +7834,11 @@
           "actorKind",
           "body",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "publishState",
+          "githubCommentId",
+          "githubHtmlUrl",
+          "publishError"
         ],
         "additionalProperties": false
       },
@@ -7916,6 +7968,11 @@
           "draft": {
             "type": "boolean"
           },
+          "position": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "createdAt": {
             "type": "number",
             "description": "Unix timestamp in seconds"
@@ -7949,11 +8006,6 @@
               "string",
               "null"
             ]
-          },
-          "position": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
           },
           "environments": {
             "type": "array",
@@ -7998,13 +8050,13 @@
           "github",
           "dueAt",
           "draft",
+          "position",
           "createdAt",
           "updatedAt",
           "closedAt",
           "panelUrl",
           "description",
           "createdBy",
-          "position",
           "environments",
           "notes",
           "subtasks",
@@ -8079,6 +8131,21 @@
         },
         "required": [
           "notes"
+        ],
+        "additionalProperties": false
+      },
+      "TaskCommentsResponse": {
+        "type": "object",
+        "properties": {
+          "comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskNote"
+            }
+          }
+        },
+        "required": [
+          "comments"
         ],
         "additionalProperties": false
       },
@@ -8324,6 +8391,7 @@
           "task.status",
           "task.assigned",
           "task.note",
+          "task.comment",
           "task.linked",
           "task.synced",
           "task.conflict",
@@ -8349,6 +8417,17 @@
           "project.deleted"
         ]
       },
+      "ActivitySource": {
+        "type": "string",
+        "enum": [
+          "web",
+          "cli",
+          "mcp",
+          "api",
+          "github",
+          "system"
+        ]
+      },
       "ActivityEvent": {
         "type": "object",
         "properties": {
@@ -8372,6 +8451,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/ActorKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActivitySource"
               },
               {
                 "type": "null"
@@ -8439,6 +8528,7 @@
           "kind",
           "actor",
           "actorKind",
+          "source",
           "summary",
           "project",
           "taskId",
@@ -9887,6 +9977,111 @@
         ],
         "additionalProperties": false
       },
+      "ApiToken": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "actorKind": {
+            "type": "string",
+            "enum": [
+              "human",
+              "agent"
+            ]
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "project:read",
+                "project:write",
+                "repository:read",
+                "repository:write",
+                "task:read",
+                "task:write",
+                "task:sync",
+                "environment:read",
+                "environment:operate",
+                "environment:destroy",
+                "service:read",
+                "logs:read",
+                "access:open",
+                "access:write",
+                "metrics:read",
+                "activity:read",
+                "session:write",
+                "gateway:read",
+                "gateway:operate",
+                "config:read",
+                "config:write",
+                "docker:read",
+                "docker:operate",
+                "docker:destroy",
+                "github:read",
+                "github:sync"
+              ]
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "revokedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "actor",
+          "actorKind",
+          "capabilities",
+          "createdAt",
+          "revokedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ApiTokens": {
+        "type": "object",
+        "properties": {
+          "tokens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiToken"
+            }
+          }
+        },
+        "required": [
+          "tokens"
+        ],
+        "additionalProperties": false
+      },
+      "CreatedApiToken": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "credential": {
+            "$ref": "#/components/schemas/ApiToken"
+          }
+        },
+        "required": [
+          "token",
+          "credential"
+        ],
+        "additionalProperties": false
+      },
       "OpenApiDocument": {
         "type": "object",
         "properties": {
@@ -9976,6 +10171,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "gateway:read"
@@ -10027,6 +10225,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "gateway:read"
@@ -10091,6 +10292,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "environment:read"
@@ -10164,6 +10368,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "environment:read"
@@ -10255,6 +10462,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "environment:destroy"
@@ -10318,6 +10528,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "environment:read"
@@ -10412,6 +10625,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "logs:read"
@@ -10495,6 +10711,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "environment:read"
@@ -10598,6 +10817,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -10717,6 +10939,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -10847,6 +11072,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "environment:operate"
@@ -10940,6 +11168,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "environment:operate"
@@ -11033,6 +11264,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "environment:operate"
@@ -11101,6 +11335,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "environment:read"
@@ -11173,6 +11410,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "environment:read"
@@ -11264,6 +11504,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -11448,6 +11691,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "environment:operate"
@@ -11529,6 +11775,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "environment:read"
@@ -11630,6 +11879,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -11760,6 +12012,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -11871,6 +12126,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "environment:operate"
@@ -11923,6 +12181,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "project:read"
@@ -12003,6 +12264,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -12128,6 +12392,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "project:read"
@@ -12218,6 +12485,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -12345,6 +12615,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "project:write"
@@ -12438,6 +12711,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -12516,6 +12792,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "repository:read"
@@ -12589,6 +12868,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "repository:read"
@@ -12680,6 +12962,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -12843,6 +13128,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "repository:read"
@@ -12934,6 +13222,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -13106,6 +13397,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "repository:write"
@@ -13179,6 +13473,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "repository:read"
@@ -13251,6 +13548,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "repository:read"
@@ -13324,6 +13624,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "repository:read"
@@ -13396,6 +13699,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "repository:read"
@@ -13458,6 +13764,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "service:read"
@@ -13530,6 +13839,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "service:read"
@@ -13614,6 +13926,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "logs:read"
@@ -13686,6 +14001,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "service:read"
@@ -13781,6 +14099,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "docker:read"
@@ -13853,6 +14174,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "docker:read"
@@ -13954,6 +14278,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -14061,6 +14388,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "logs:read"
@@ -14133,6 +14463,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "docker:read"
@@ -14215,6 +14548,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "docker:read"
@@ -14317,6 +14653,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "docker:operate"
@@ -14419,6 +14758,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "docker:operate"
@@ -14521,6 +14863,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "docker:operate"
@@ -14572,6 +14917,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "docker:read"
@@ -14623,6 +14971,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "gateway:read"
@@ -14664,6 +15015,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "config:read"
@@ -14725,6 +15079,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -14814,6 +15171,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "config:write"
@@ -14865,6 +15225,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -14932,6 +15295,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "service:read"
@@ -15022,6 +15388,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -15148,6 +15517,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "access:open"
@@ -15240,6 +15612,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "access:open"
@@ -15281,6 +15656,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "service:read"
@@ -15374,6 +15752,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -15490,6 +15871,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "access:write"
@@ -15572,6 +15956,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "access:write"
@@ -15623,6 +16010,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "gateway:read"
@@ -15684,6 +16074,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "gateway:read"
@@ -15765,6 +16158,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -15858,6 +16254,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "gateway:read"
@@ -15937,6 +16336,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "gateway:operate"
@@ -15988,6 +16390,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "gateway:read"
@@ -16089,6 +16494,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "gateway:read"
@@ -16131,6 +16539,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "metrics:read"
@@ -16188,6 +16599,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "metrics:read"
@@ -16230,6 +16644,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "config:read"
@@ -16289,6 +16706,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -16374,6 +16794,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "gateway:read"
@@ -16426,6 +16849,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "gateway:read"
@@ -16468,6 +16894,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "github:read"
@@ -16520,6 +16949,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "github:read"
@@ -16582,6 +17014,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "github:sync"
@@ -16654,6 +17089,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "github:sync"
@@ -16808,6 +17246,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "github:read"
@@ -16942,6 +17383,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "github:read"
@@ -17014,6 +17458,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "github:read"
@@ -17105,6 +17552,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -17218,6 +17668,33 @@
             }
           },
           {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated priorities.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "description": "Exact task type.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "label",
+            "in": "query",
+            "required": false,
+            "description": "One exact label.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "assignee",
             "in": "query",
             "required": false,
@@ -17227,10 +17704,37 @@
             }
           },
           {
+            "name": "agent",
+            "in": "query",
+            "required": false,
+            "description": "Exact agent.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "repository",
             "in": "query",
             "required": false,
             "description": "Repository id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "description": "COMPOSE_PROJECT_NAME.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "service",
+            "in": "query",
+            "required": false,
+            "description": "Exact service.",
             "schema": {
               "type": "string"
             }
@@ -17249,6 +17753,15 @@
             "in": "query",
             "required": false,
             "description": "Substring of the title or description.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum rows, from 1 to 2000.",
             "schema": {
               "type": "string"
             }
@@ -17312,6 +17825,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "task:read"
@@ -17412,6 +17928,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -17657,6 +18176,211 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-capability": "task:read"
+      }
+    },
+    "/tasks": {
+      "get": {
+        "operationId": "listTasks",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "List tasks across Projects",
+        "description": "The canonical remote listing. Use project to scope by slug; every result remains a local Portta task.",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "query",
+            "required": false,
+            "description": "Project slug.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated statuses.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "open",
+            "in": "query",
+            "required": false,
+            "description": "true for anything not done, false for done only.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated priorities.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "description": "Exact task type.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "label",
+            "in": "query",
+            "required": false,
+            "description": "One exact label.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assignee",
+            "in": "query",
+            "required": false,
+            "description": "Exact assignee.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agent",
+            "in": "query",
+            "required": false,
+            "description": "Exact agent.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repository",
+            "in": "query",
+            "required": false,
+            "description": "Repository id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "description": "COMPOSE_PROJECT_NAME.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "service",
+            "in": "query",
+            "required": false,
+            "description": "Exact service.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "parent",
+            "in": "query",
+            "required": false,
+            "description": "Parent task id, or \"none\" for top-level tasks.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Substring of the title or description.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum rows, from 1 to 2000.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draft",
+            "in": "query",
+            "required": false,
+            "description": "true to list only drafts; omitted lists published tasks.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TasksResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "task:read"
@@ -17740,6 +18464,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "task:read"
@@ -17840,6 +18567,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -17994,11 +18724,6 @@
                   },
                   "draft": {
                     "type": "boolean"
-                  },
-                  "position": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 9007199254740991
                   }
                 },
                 "additionalProperties": false,
@@ -18105,6 +18830,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "task:write"
@@ -18187,9 +18915,484 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "task:read"
+      },
+      "post": {
+        "operationId": "createTaskSubtask",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Create a subtask",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Portta-Actor",
+            "in": "header",
+            "required": false,
+            "description": "Who asked. Recorded on the task, its notes and the activity; never forwarded to GitHub.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "description": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 65536
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "backlog",
+                      "ready",
+                      "in_progress",
+                      "review",
+                      "blocked",
+                      "done"
+                    ]
+                  },
+                  "priority": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "low",
+                          "medium",
+                          "high",
+                          "urgent"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 32
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "labels": {
+                    "maxItems": 32,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    }
+                  },
+                  "assignee": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 64
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "agent": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 64
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "repositoryId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\d+$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "environment": {
+                    "description": "COMPOSE_PROJECT_NAME the task is scoped to",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 255
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "service": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 64
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "dueAt": {
+                    "description": "Unix timestamp in seconds",
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "title"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-portta-capability": "task:write"
+      }
+    },
+    "/tasks/{ref}/subtasks/{childRef}": {
+      "put": {
+        "operationId": "linkTaskSubtask",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Link an existing task as a subtask",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "childRef",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Portta-Actor",
+            "in": "header",
+            "required": false,
+            "description": "Who asked. Recorded on the task, its notes and the activity; never forwarded to GitHub.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-capability": "task:write"
+      },
+      "delete": {
+        "operationId": "unlinkTaskSubtask",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Unlink a subtask",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "childRef",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Portta-Actor",
+            "in": "header",
+            "required": false,
+            "description": "Who asked. Recorded on the task, its notes and the activity; never forwarded to GitHub.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-capability": "task:write"
       }
     },
     "/tasks/{ref}/notes": {
@@ -18269,6 +19472,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "task:read"
@@ -18279,7 +19485,7 @@
           "Tasks"
         ],
         "summary": "Add a note to a task",
-        "description": "Local. A note never reaches GitHub; a comment on the bound issue is /comments.",
+        "description": "Legacy alias for a local comment. Prefer /comments.",
         "parameters": [
           {
             "name": "ref",
@@ -18369,6 +19575,219 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 65536
+                  }
+                },
+                "required": [
+                  "body"
+                ],
+                "additionalProperties": false,
+                "ref": "TaskNoteBody"
+              }
+            }
+          }
+        },
+        "x-portta-capability": "task:write"
+      }
+    },
+    "/tasks/{ref}/comments": {
+      "get": {
+        "operationId": "listTaskComments",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "The local comments on a task, oldest first",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCommentsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-capability": "task:read"
+      },
+      "post": {
+        "operationId": "addTaskComment",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Add a local comment to a task",
+        "description": "Always local. Publishing this comment to GitHub is a separate, explicit operation.",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Portta-Actor",
+            "in": "header",
+            "required": false,
+            "description": "Who asked. Recorded on the task, its notes and the activity; never forwarded to GitHub.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -18493,6 +19912,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -18611,6 +20033,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -18637,6 +20062,161 @@
                 ],
                 "additionalProperties": false,
                 "ref": "TaskStatusBody"
+              }
+            }
+          }
+        },
+        "x-portta-capability": "task:write"
+      }
+    },
+    "/tasks/{ref}/move": {
+      "post": {
+        "operationId": "moveTask",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Move and rank a task on the board",
+        "description": "Changes status and/or order atomically. beforeId and afterId name the adjacent tasks after the move; no neighbours appends.",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Portta-Actor",
+            "in": "header",
+            "required": false,
+            "description": "Who asked. Recorded on the task, its notes and the activity; never forwarded to GitHub.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "backlog",
+                      "ready",
+                      "in_progress",
+                      "review",
+                      "blocked",
+                      "done"
+                    ]
+                  },
+                  "beforeId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\d+$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "afterId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\d+$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false,
+                "ref": "MoveTaskBody"
               }
             }
           }
@@ -18741,6 +20321,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -18867,6 +20450,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -19009,6 +20595,266 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-capability": "task:write"
+      }
+    },
+    "/tasks/{ref}/comments/{noteId}": {
+      "patch": {
+        "operationId": "updateTaskComment",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Edit a local comment",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Portta-Actor",
+            "in": "header",
+            "required": false,
+            "description": "Who asked. Recorded on the task, its notes and the activity; never forwarded to GitHub.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 65536
+                  }
+                },
+                "required": [
+                  "body"
+                ],
+                "additionalProperties": false,
+                "ref": "TaskNoteBody"
+              }
+            }
+          }
+        },
+        "x-portta-capability": "task:write"
+      },
+      "delete": {
+        "operationId": "deleteTaskComment",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Delete a local comment",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Portta-Actor",
+            "in": "header",
+            "required": false,
+            "description": "Who asked. Recorded on the task, its notes and the activity; never forwarded to GitHub.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "removed": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "removed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "task:write"
@@ -19135,6 +20981,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -19807,6 +21656,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "task:read"
@@ -19908,6 +21760,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -19946,7 +21801,7 @@
           "Tasks"
         ],
         "summary": "Bind a task to a projected GitHub issue",
-        "description": "The issue must already be projected and bound to no other task. On linking, the remote wins: the task takes the issue’s title, status and priority.",
+        "description": "The issue must already be projected and bound to no other task. initialSync explicitly chooses which side initializes shared fields.",
         "parameters": [
           {
             "name": "ref",
@@ -20036,6 +21891,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -20050,10 +21908,19 @@
                     "minLength": 3,
                     "maxLength": 200,
                     "description": "`owner/repo#number`, already projected"
+                  },
+                  "initialSync": {
+                    "type": "string",
+                    "enum": [
+                      "pull",
+                      "push"
+                    ],
+                    "description": "Which side initializes the shared fields."
                   }
                 },
                 "required": [
-                  "issue"
+                  "issue",
+                  "initialSync"
                 ],
                 "additionalProperties": false,
                 "ref": "LinkTaskBody"
@@ -20161,6 +22028,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "task:sync"
@@ -20263,6 +22133,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -20394,6 +22267,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -20420,14 +22296,14 @@
         "x-portta-capability": "task:sync"
       }
     },
-    "/tasks/{ref}/comments": {
+    "/tasks/{ref}/github/comments": {
       "post": {
         "operationId": "commentOnTask",
         "tags": [
           "Tasks"
         ],
         "summary": "Comment on the bound GitHub issue",
-        "description": "Posts straight to GitHub and returns what GitHub returned. Comments are never projected. A local note is /notes.",
+        "description": "Posts straight to GitHub and returns what GitHub returned. Comments are never projected. A local comment is /comments.",
         "parameters": [
           {
             "name": "ref",
@@ -20517,6 +22393,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -20541,6 +22420,119 @@
             }
           }
         },
+        "x-portta-capability": "task:sync"
+      }
+    },
+    "/tasks/{ref}/comments/{noteId}/github/publish": {
+      "post": {
+        "operationId": "publishTaskComment",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Publish a local comment to the bound GitHub issue",
+        "description": "Explicit and one-way. The local comment remains saved if GitHub is unavailable.",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "The task id, `#id`, or `owner/repo#number` through its GitHub binding.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Portta-Actor",
+            "in": "header",
+            "required": false,
+            "description": "Who asked. Recorded on the task, its notes and the activity; never forwarded to GitHub.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-portta-capability": "task:sync"
       }
     },
@@ -20620,6 +22612,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "activity:read"
@@ -20720,6 +22715,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -20887,6 +22885,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "activity:read"
@@ -20987,6 +22988,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -21213,6 +23217,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "activity:read"
@@ -21338,6 +23345,157 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-capability": "activity:read"
+      }
+    },
+    "/tasks/{ref}/activity": {
+      "get": {
+        "operationId": "listTaskActivity",
+        "tags": [
+          "Activity"
+        ],
+        "summary": "One task's activity, newest first",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "description": "Task id, #id or a bound owner/repo#number.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated event kinds, for example task.status,session.started.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repository",
+            "in": "query",
+            "required": false,
+            "description": "Repository id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "description": "COMPOSE_PROJECT_NAME.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "session",
+            "in": "query",
+            "required": false,
+            "description": "Session id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "description": "Unix seconds; only events at or after this moment.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "description": "An event id; only events older than it, for paging.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Up to 500; default 50.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "activity:read"
@@ -21411,6 +23569,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "service:read"
@@ -21536,6 +23697,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "environment:operate"
@@ -21618,6 +23782,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "project:read"
@@ -21691,6 +23858,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "metrics:read"
@@ -21743,9 +23913,288 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "project:read"
+      }
+    },
+    "/auth/tokens": {
+      "get": {
+        "operationId": "listApiTokens",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "List API tokens without their secrets",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiTokens"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-capability": "config:read"
+      },
+      "post": {
+        "operationId": "createApiToken",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Create a revocable Bearer token",
+        "description": "The raw token appears once. It has no expiry and remains valid until revoked.",
+        "responses": {
+          "201": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedApiToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "actor": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[A-Za-z0-9._-]+$"
+                  },
+                  "actorKind": {
+                    "default": "agent",
+                    "type": "string",
+                    "enum": [
+                      "human",
+                      "agent"
+                    ]
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "project:read",
+                        "project:write",
+                        "repository:read",
+                        "repository:write",
+                        "task:read",
+                        "task:write",
+                        "task:sync",
+                        "environment:read",
+                        "environment:operate",
+                        "environment:destroy",
+                        "service:read",
+                        "logs:read",
+                        "access:open",
+                        "access:write",
+                        "metrics:read",
+                        "activity:read",
+                        "session:write",
+                        "gateway:read",
+                        "gateway:operate",
+                        "config:read",
+                        "config:write",
+                        "docker:read",
+                        "docker:operate",
+                        "docker:destroy",
+                        "github:read",
+                        "github:sync"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "name",
+                  "actor",
+                  "actorKind"
+                ],
+                "additionalProperties": false,
+                "ref": "CreateApiToken"
+              }
+            }
+          }
+        },
+        "x-portta-capability": "config:write"
+      }
+    },
+    "/auth/tokens/{id}": {
+      "delete": {
+        "operationId": "revokeApiToken",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Revoke an API token",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "revoked": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "revoked"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "cookieAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "x-portta-capability": "config:write"
       }
     },
     "/openapi.json": {
@@ -21784,6 +24233,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "gateway:read"
@@ -21827,6 +24279,9 @@
           },
           {
             "basicAuth": []
+          },
+          {
+            "bearerAuth": []
           }
         ],
         "x-portta-capability": "gateway:read"

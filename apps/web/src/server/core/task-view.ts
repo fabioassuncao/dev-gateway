@@ -86,6 +86,7 @@ export function taskSummary(context: TaskContext, row: TaskRow): TaskSummary {
     github: bindingSummary(context, row),
     dueAt: seconds(row.dueAt),
     draft: row.draft,
+    position: row.position,
     createdAt: seconds(row.createdAt) ?? 0,
     updatedAt: seconds(row.updatedAt) ?? 0,
     closedAt: seconds(row.closedAt),
@@ -147,7 +148,12 @@ export function environmentsOfTask(context: TaskContext, taskId: string): TaskEn
 }
 
 export function noteView(note: TaskNoteRow): TaskNote {
-  return { id: note.id, actor: note.actor, actorKind: note.actorKind, body: note.body, createdAt: seconds(note.createdAt) ?? 0, updatedAt: seconds(note.updatedAt) }
+  return {
+    id: note.id, actor: note.actor, actorKind: note.actorKind, body: note.body,
+    createdAt: seconds(note.createdAt) ?? 0, updatedAt: seconds(note.updatedAt),
+    publishState: note.publishState, githubCommentId: note.githubCommentId,
+    githubHtmlUrl: note.githubHtmlUrl, publishError: note.publishError,
+  }
 }
 
 export function taskView(context: TaskContext, row: TaskRow, notes: readonly TaskNoteRow[], sessions: readonly SessionRow[]): Task {
@@ -156,7 +162,6 @@ export function taskView(context: TaskContext, row: TaskRow, notes: readonly Tas
     ...summary,
     description: row.description,
     createdBy: row.createdBy,
-    position: row.position,
     github: binding(context, row),
     environments: environmentsOfTask(context, row.id),
     notes: notes.map(noteView),

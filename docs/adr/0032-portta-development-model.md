@@ -1,6 +1,6 @@
 # 0032. The Portta development model
 
-**Status:** Accepted, amends [0010](0010-git-collected-on-the-host.md),
+**Status:** Accepted, amended by [0033](0033-tasks-are-local-issues.md); amends [0010](0010-git-collected-on-the-host.md),
 [0013](0013-what-the-panel-persists.md), [0018](0018-github-access-lives-in-the-panel.md)
 and [0031](0031-projects-home-and-project.md)
 
@@ -81,9 +81,9 @@ issue and a local task read the same. The UI may call `ready` "To do".
 
 A projected issue is still a cache with an age (ADR 0018 §4). What changes
 is what it feeds: a `task_github_links` row ties one Task to one issue. A
-write to a bound Task goes to GitHub first and to the row second, as before;
-a write to an unbound Task, or to a bound one while the App is unavailable,
-is local and marked `pending` until the next sync. A remote change that
+write to every Task is committed locally first. A bound Task then attempts an
+explicitly defined push to GitHub; failure leaves the local write intact and
+marks the binding `pending` or `error` for retry. A remote change that
 lands on a pending local edit is a `conflict`, kept and shown, never silently
 resolved. Existing issues on a repository a Project owns became Tasks in the
 migration, so no board was lost.
@@ -123,9 +123,9 @@ as `x-portta-capability`. A request carries a principal: the operator
 (everything), read-only mode (every `*:read`), or an agent that announced
 itself with `X-Portta-Actor` (the `agentCapabilities` setting; by default
 everything except `*:destroy`, `config:write`, `access:write` and
-`gateway:operate`). This is a vocabulary and a seam, not RBAC: there is
-still one credential. API tokens for agents are the next step and attach to
-the same principal.
+`gateway:operate`). Revocable bearer tokens can carry an actor and a subset
+of those capabilities; HTTP Basic remains available for operators and older
+clients.
 
 ## Consequences
 
@@ -142,7 +142,7 @@ Two more tables persist decisions and two persist a bounded history.
 Activity is pruned in code (ninety days, five thousand rows per Project)
 rather than kept forever; it answers "what happened this week", not audit.
 
-What this record deliberately does not build: a web editor, a file browser
-beyond instruction files, GitHub Projects v2, API tokens, multiple hosts.
+What this record deliberately does not build: a file browser beyond
+instruction files, GitHub Projects v2 or multiple hosts.
 The model above is what makes each of them an addition rather than a
 rewrite.

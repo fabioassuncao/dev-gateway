@@ -26,6 +26,7 @@ import { taskGitHubRoutes } from './routes/task-github.ts'
 import { sessionRoutes } from './routes/sessions.ts'
 import { activityRoutes } from './routes/activity.ts'
 import { developmentRoutes } from './routes/development.ts'
+import { tokenRoutes } from './routes/tokens.ts'
 import { principalMiddleware } from './principal.ts'
 import { DEFAULT_AGENT_CAPABILITIES, parseApiCapabilities } from 'portta-core'
 import { shareRoutes } from './routes/shares.ts'
@@ -126,6 +127,7 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', sessionRoutes(deps))
   api.route('/', activityRoutes(deps))
   api.route('/', developmentRoutes(deps))
+  api.route('/', tokenRoutes(deps))
   registerOpenApiRoutes(api, deps.config)
 
   api.all('*', (c) => c.json({ error: `no such endpoint: ${c.req.path}` }, 404))

@@ -36,6 +36,7 @@ export function activityView(names: NameContext, row: ActivityRow): ActivityEven
     kind: row.kind,
     actor: row.actor,
     actorKind: row.actorKind,
+    source: row.source,
     summary: row.summary,
     project: row.projectId ? names.slugById.get(row.projectId) ?? null : null,
     taskId: row.taskId,

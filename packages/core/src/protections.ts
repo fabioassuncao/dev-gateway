@@ -11,7 +11,8 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import { API_CAPABILITIES, isApiCapability, type ApiCapability } from './capabilities-api.ts'
 
 export const PROTECTION_STORE_VERSION = 1 as const
 
@@ -36,6 +37,18 @@ export interface ProtectionRecord {
 export interface ProtectionStore {
   version: typeof PROTECTION_STORE_VERSION
   protections: ProtectionRecord[]
+  tokens: ApiTokenRecord[]
+}
+
+export interface ApiTokenRecord {
+  id: string
+  name: string
+  actor: string
+  actorKind: 'human' | 'agent'
+  hash: string
+  capabilities: ApiCapability[]
+  createdAt: string
+  revokedAt: string | null
 }
 
 export interface PanelProtectionInput {
@@ -111,7 +124,7 @@ export function dashboardProtectionRecord(input: {
 }
 
 export function emptyProtectionStore(): ProtectionStore {
-  return { version: PROTECTION_STORE_VERSION, protections: [] }
+  return { version: PROTECTION_STORE_VERSION, protections: [], tokens: [] }
 }
 
 export function normalizeProtectionHost(input: string): string {
@@ -166,6 +179,21 @@ function parseRecord(value: unknown): ProtectionRecord {
   return record
 }
 
+function parseToken(value: unknown): ApiTokenRecord {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new InvalidProtectionStore('invalid API token record')
+  const item = value as Record<string, unknown>
+  if (!Array.isArray(item['capabilities']) || !item['capabilities'].every((entry) => typeof entry === 'string' && isApiCapability(entry))) throw new InvalidProtectionStore('invalid token capabilities')
+  const actorKind = item['actorKind']
+  if (actorKind !== 'human' && actorKind !== 'agent') throw new InvalidProtectionStore('invalid token actorKind')
+  const revokedAt = item['revokedAt']
+  if (revokedAt !== null && typeof revokedAt !== 'string') throw new InvalidProtectionStore('invalid token revokedAt')
+  return {
+    id: nonEmpty(item['id'], 'token id'), name: nonEmpty(item['name'], 'token name'), actor: nonEmpty(item['actor'], 'token actor'), actorKind,
+    hash: nonEmpty(item['hash'], 'token hash'), capabilities: [...new Set(item['capabilities'] as ApiCapability[])].sort(),
+    createdAt: nonEmpty(item['createdAt'], 'token createdAt'), revokedAt,
+  }
+}
+
 export function parseProtectionStore(text: string): ProtectionStore {
   let value: unknown
   try {
@@ -179,6 +207,9 @@ export function parseProtectionStore(text: string): ProtectionStore {
     throw new InvalidProtectionStore('unsupported protection store version')
   }
   const protections = object['protections'].map(parseRecord)
+  const rawTokens = object['tokens'] ?? []
+  if (!Array.isArray(rawTokens)) throw new InvalidProtectionStore('invalid API tokens')
+  const tokens = rawTokens.map(parseToken)
   const scopes = new Set<string>()
   const hosts = new Set<string>()
   for (const protection of protections) {
@@ -187,7 +218,8 @@ export function parseProtectionStore(text: string): ProtectionStore {
     scopes.add(protection.scope)
     hosts.add(protection.host)
   }
-  return { version: PROTECTION_STORE_VERSION, protections: protections.sort((left, right) => left.scope.localeCompare(right.scope)) }
+  if (new Set(tokens.map((token) => token.id)).size !== tokens.length) throw new InvalidProtectionStore('duplicate API token id')
+  return { version: PROTECTION_STORE_VERSION, protections: protections.sort((left, right) => left.scope.localeCompare(right.scope)), tokens: tokens.sort((left, right) => left.id.localeCompare(right.id)) }
 }
 
 export function readProtectionStore(path: string): ProtectionStore {
@@ -221,14 +253,47 @@ export function setProtection(store: ProtectionStore, input: Omit<ProtectionReco
   const collision = store.protections.find((item) => item.host === host && item.scope !== input.scope)
   if (collision) throw new InvalidProtectionStore(`host ${host} is already protected by ${collision.scope}`)
   const next: ProtectionRecord = { ...input, host, entryPoints: [...new Set(input.entryPoints)].sort(), epoch: (previous?.epoch ?? 0) + 1 }
-  return parseProtectionStore(JSON.stringify({ version: PROTECTION_STORE_VERSION, protections: [...store.protections.filter((item) => item.scope !== input.scope), next] }))
+  return parseProtectionStore(JSON.stringify({ ...store, protections: [...store.protections.filter((item) => item.scope !== input.scope), next] }))
 }
 
 export function removeProtection(store: ProtectionStore, scope: string): ProtectionStore {
-  return { version: PROTECTION_STORE_VERSION, protections: store.protections.filter((item) => item.scope !== scope) }
+  return { ...store, protections: store.protections.filter((item) => item.scope !== scope) }
 }
 
 export function protectionForHost(store: ProtectionStore, host: string): ProtectionRecord | null {
   const normalized = normalizeProtectionHost(host)
   return store.protections.find((item) => item.host === normalized) ?? null
+}
+
+function tokenHash(secret: string): Buffer {
+  return createHash('sha256').update(secret, 'utf8').digest()
+}
+
+/** Create a bearer credential. The raw value is returned once; only its digest is stored. */
+export function createApiToken(store: ProtectionStore, input: { name: string; actor: string; actorKind?: 'human' | 'agent'; capabilities?: readonly ApiCapability[] }, now = new Date()): { store: ProtectionStore; token: string; record: ApiTokenRecord } {
+  const name = nonEmpty(input.name.trim(), 'token name')
+  const actor = nonEmpty(input.actor.trim(), 'token actor')
+  const token = `ptt_${randomBytes(32).toString('base64url')}`
+  const record: ApiTokenRecord = {
+    id: randomBytes(8).toString('hex'), name, actor, actorKind: input.actorKind ?? 'agent',
+    hash: tokenHash(token).toString('hex'), capabilities: [...new Set(input.capabilities ?? API_CAPABILITIES)].sort(),
+    createdAt: now.toISOString(), revokedAt: null,
+  }
+  return { store: parseProtectionStore(JSON.stringify({ ...store, tokens: [...store.tokens, record] })), token, record }
+}
+
+export function apiTokenFor(store: ProtectionStore, secret: string): ApiTokenRecord | null {
+  if (!secret.startsWith('ptt_')) return null
+  const candidate = tokenHash(secret)
+  for (const token of store.tokens) {
+    if (token.revokedAt || !/^[a-f0-9]{64}$/.test(token.hash)) continue
+    const stored = Buffer.from(token.hash, 'hex')
+    if (stored.length === candidate.length && timingSafeEqual(stored, candidate)) return token
+  }
+  return null
+}
+
+export function revokeApiToken(store: ProtectionStore, id: string, now = new Date()): ProtectionStore {
+  if (!store.tokens.some((token) => token.id === id)) throw new InvalidProtectionStore(`unknown API token: ${id}`)
+  return parseProtectionStore(JSON.stringify({ ...store, tokens: store.tokens.map((token) => token.id === id ? { ...token, revokedAt: token.revokedAt ?? now.toISOString() } : token) }))
 }

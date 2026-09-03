@@ -14,6 +14,9 @@ import {
   removeProtection,
   setProtection,
   writeProtectionStore,
+  createApiToken,
+  apiTokenFor,
+  revokeApiToken,
 } from './protections.ts'
 
 const record = {
@@ -51,6 +54,15 @@ describe('protection store', () => {
     expect(statSync(path).mode & 0o777).toBe(0o600)
     expect(readProtectionStore(path)).toEqual(store)
     expect(readFileSync(path, 'utf8').endsWith('\n')).toBe(true)
+  })
+
+  it('stores only a digest for revocable API tokens', () => {
+    const created = createApiToken(emptyProtectionStore(), { name: 'Codex', actor: 'codex', capabilities: ['task:read', 'task:write'] }, new Date('2026-01-01T00:00:00Z'))
+    expect(created.token).toMatch(/^ptt_/)
+    expect(JSON.stringify(created.store)).not.toContain(created.token)
+    expect(apiTokenFor(created.store, created.token)).toMatchObject({ actor: 'codex', capabilities: ['task:read', 'task:write'], revokedAt: null })
+    const revoked = revokeApiToken(created.store, created.record.id, new Date('2026-01-02T00:00:00Z'))
+    expect(apiTokenFor(revoked, created.token)).toBeNull()
   })
 
   it('refuses duplicate, malformed and future state', () => {

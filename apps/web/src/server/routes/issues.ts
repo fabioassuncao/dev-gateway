@@ -227,7 +227,7 @@ export function issueRoutes(deps: AppDeps): Hono {
       if (applied.task) {
         const principal = principalOf(c)
         await recordActivity({ db, hub: deps.hub }, {
-          kind: 'task.synced', actor: principal.actor, actorKind: principal.actorKind,
+          kind: 'task.synced', actor: principal.actor, actorKind: principal.actorKind, source: principal.source,
           projectId: applied.task.projectId, taskId: applied.task.id, repositoryId: applied.task.repositoryId,
           summary: `${issue.repository}#${issue.number} changed on GitHub and the task followed`,
           data: { outcome: applied.outcome },

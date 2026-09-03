@@ -113,13 +113,13 @@ export async function applyIssueToTask(
  */
 export function planIssuePatch(
   issue: StoredIssue,
-  change: { title?: string; description?: string | null; status?: TaskStatus; priority?: string | null; assignee?: string | null; close?: boolean },
+  change: { title?: string; description?: string | null; status?: TaskStatus; priority?: string | null; assignee?: string | null; labels?: string[]; close?: boolean },
 ): Record<string, unknown> {
   const patch: Record<string, unknown> = {}
   if (change.title !== undefined && change.title !== issue.title) patch['title'] = change.title
   if (change.description !== undefined && change.description !== issue.body) patch['body'] = change.description ?? ''
-  if (change.status !== undefined || change.priority !== undefined) {
-    patch['labels'] = labelsAfter(issue.labels, {
+  if (change.status !== undefined || change.priority !== undefined || change.labels !== undefined) {
+    patch['labels'] = labelsAfter(change.labels ?? issue.labels.filter((label) => !/^(status|priority):/i.test(label)), {
       ...(change.status !== undefined ? { status: change.status as WorkflowStatus } : {}),
       ...(change.priority !== undefined ? { priority: (change.priority ?? null) as Priority | null } : {}),
     })

@@ -15,7 +15,9 @@ import {
   DEFAULT_AGENT_CAPABILITIES,
   READ_CAPABILITIES,
   readActor,
+  parseApiCapabilities,
   type ApiCapability,
+  type ActivitySource,
 } from 'portta-core'
 
 export type PrincipalKind = 'operator' | 'agent'
@@ -27,6 +29,7 @@ export interface Principal {
   actorKind: 'human' | 'agent'
   capabilities: ReadonlySet<ApiCapability>
   readOnly: boolean
+  source: ActivitySource
 }
 
 export interface PrincipalSource {
@@ -37,19 +40,20 @@ export interface PrincipalSource {
 
 const PRINCIPAL_KEY = 'portta.principal'
 
-export function operatorPrincipal(readOnly: boolean, actor: string | null = null): Principal {
+export function operatorPrincipal(readOnly: boolean, actor: string | null = null, source: ActivitySource = 'api'): Principal {
   return {
     actor,
     kind: 'operator',
     actorKind: 'human',
     capabilities: new Set(readOnly ? READ_CAPABILITIES : ALL_CAPABILITIES),
     readOnly,
+    source,
   }
 }
 
-export function agentPrincipal(actor: string, granted: readonly ApiCapability[], readOnly: boolean): Principal {
+export function agentPrincipal(actor: string, granted: readonly ApiCapability[], readOnly: boolean, source: ActivitySource = 'api', actorKind: 'human' | 'agent' = 'agent'): Principal {
   const held = readOnly ? granted.filter((capability) => capability.endsWith(':read')) : granted
-  return { actor, kind: 'agent', actorKind: 'agent', capabilities: new Set(held), readOnly }
+  return { actor, kind: 'agent', actorKind, capabilities: new Set(held), readOnly, source }
 }
 
 /**
@@ -64,10 +68,17 @@ export function agentPrincipal(actor: string, granted: readonly ApiCapability[],
 export async function principalFor(headers: { get(name: string): string | null | undefined }, source: PrincipalSource): Promise<Principal> {
   const actor = readActor(headers.get('X-Portta-Actor'))
   const declaredKind = (headers.get('X-Portta-Actor-Kind') ?? '').trim().toLowerCase()
-  if (actor === null) return operatorPrincipal(source.readOnly)
-  if (declaredKind === 'human') return operatorPrincipal(source.readOnly, actor)
+  const declaredSource = (headers.get('X-Portta-Source') ?? '').trim().toLowerCase()
+  const activitySource: ActivitySource = ['web', 'cli', 'mcp', 'api', 'github', 'system'].includes(declaredSource)
+    ? declaredSource as ActivitySource : 'api'
+  if (headers.get('X-Portta-Token-Authenticated') === 'true' && actor !== null) {
+    const held = parseApiCapabilities((headers.get('X-Portta-Capabilities') ?? '').split(','))
+    return agentPrincipal(actor, held, source.readOnly, activitySource, declaredKind === 'human' ? 'human' : 'agent')
+  }
+  if (actor === null) return operatorPrincipal(source.readOnly, null, activitySource)
+  if (declaredKind === 'human') return operatorPrincipal(source.readOnly, actor, activitySource)
   const granted = await source.agentCapabilities().catch(() => DEFAULT_AGENT_CAPABILITIES)
-  return agentPrincipal(actor, granted, source.readOnly)
+  return agentPrincipal(actor, granted, source.readOnly, activitySource)
 }
 
 export function principalMiddleware(source: PrincipalSource): MiddlewareHandler {

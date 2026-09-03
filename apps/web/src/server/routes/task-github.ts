@@ -15,15 +15,18 @@ import { OverrideRefused } from '../core/overrides.ts'
 import { labelsAfter, type Priority, type WorkflowStatus } from '../integrations/github/metadata.ts'
 import { normaliseIssue, type RawIssue } from '../integrations/github/issues.ts'
 import { applyIssueToTask, fieldsFor } from '../integrations/github/tasks.ts'
-import { loadTaskContext, taskView } from '../core/task-view.ts'
+import { loadTaskContext, taskView, noteView } from '../core/task-view.ts'
 import { pushToGitHub, resolveTask, wholeChange } from '../core/task-write.ts'
 import { recordActivity } from '../core/activity.ts'
 import { principalOf } from '../principal.ts'
-import { Task } from '../../shared/task-types.ts'
+import { Task, TaskNote } from '../../shared/task-types.ts'
 import { documentRoute } from '../openapi.ts'
 import { actorHeader, refParameter } from './tasks.ts'
 
-const LinkBody = z.object({ issue: z.string().min(3).max(200).describe('`owner/repo#number`, already projected') }).strict().meta({ ref: 'LinkTaskBody' })
+const LinkBody = z.object({
+  issue: z.string().min(3).max(200).describe('`owner/repo#number`, already projected'),
+  initialSync: z.enum(['pull', 'push']).describe('Which side initializes the shared fields.'),
+}).strict().meta({ ref: 'LinkTaskBody' })
 const PublishBody = z.object({ repository: z.string().min(3).max(200).optional().describe('`owner/name`; defaults to the GitHub repository of the task repository') }).strict().meta({ ref: 'PublishTaskBody' })
 const SyncBody = z.object({ resolve: z.enum(['local', 'remote']).optional() }).strict().meta({ ref: 'SyncTaskBody' })
 const CommentBody = z.object({ body: z.string().min(1).max(65536) }).strict().meta({ ref: 'TaskCommentBody' })
@@ -60,7 +63,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
 
   app.post('/tasks/:ref/github/link', documentRoute({
     tag: 'Tasks', operationId: 'linkTaskToIssue', capability: 'task:sync', summary: 'Bind a task to a projected GitHub issue',
-    description: 'The issue must already be projected and bound to no other task. On linking, the remote wins: the task takes the issue’s title, status and priority.',
+    description: 'The issue must already be projected and bound to no other task. initialSync explicitly chooses which side initializes shared fields.',
     request: LinkBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -75,15 +78,20 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
     const taken = await db.tasks.findByIssue(issue.id)
     if (taken && taken.id !== task.id) throw new OverrideRefused(`${body.issue} is already bound to task ${taken.id}`)
     if (await db.tasks.findLink(task.id)) throw new OverrideRefused('this task is already bound; unlink it first')
-    await db.tasks.upsertLink({ taskId: task.id, githubIssueId: issue.id, syncState: 'synced', lastSyncedAt: new Date(), localUpdatedAt: issue.githubUpdatedAt, remoteUpdatedAt: issue.githubUpdatedAt })
-    const fields = fieldsFor(issue)
-    await db.tasks.update(task.id, { title: fields.title, description: fields.description, status: fields.status, priority: fields.priority, type: fields.type, labels: fields.labels, assignee: fields.assignee })
+    await db.tasks.upsertLink({ taskId: task.id, githubIssueId: issue.id, syncState: body.initialSync === 'push' ? 'pending' : 'synced', lastSyncedAt: new Date(), localUpdatedAt: body.initialSync === 'push' ? new Date() : issue.githubUpdatedAt, remoteUpdatedAt: issue.githubUpdatedAt })
+    if (body.initialSync === 'pull') {
+      const fields = fieldsFor(issue)
+      await db.tasks.update(task.id, { title: fields.title, description: fields.description, status: fields.status, priority: fields.priority, type: fields.type, labels: fields.labels, assignee: fields.assignee })
+    } else {
+      const freshLink = await db.tasks.findLink(task.id)
+      await pushToGitHub(db, deps.github, task, freshLink, wholeChange(task, issue))
+    }
     const principal = principalOf(c)
     const slug = await slugOf(db, task.projectId)
     await recordActivity({ db, hub: deps.hub }, {
-      kind: 'task.linked', actor: principal.actor, actorKind: principal.actorKind, project: slug,
+      kind: 'task.linked', actor: principal.actor, actorKind: principal.actorKind, source: principal.source, project: slug,
       projectId: task.projectId, taskId: task.id, repositoryId: task.repositoryId,
-      summary: `"${task.title}" bound to ${body.issue}`, data: { issue: body.issue },
+      summary: `"${task.title}" bound to ${body.issue}`, data: { issue: body.issue, initialSync: body.initialSync },
     })
     deps.hub.publish({ kind: 'task', action: 'linked', id: task.id, name: task.title, project: slug, ownership: null, at: Math.floor(Date.now() / 1000) })
     return c.json(await present(db, task.id))
@@ -100,7 +108,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
     const principal = principalOf(c)
     const slug = await slugOf(db, task.projectId)
     await recordActivity({ db, hub: deps.hub }, {
-      kind: 'task.linked', actor: principal.actor, actorKind: principal.actorKind, project: slug,
+      kind: 'task.linked', actor: principal.actor, actorKind: principal.actorKind, source: principal.source, project: slug,
       projectId: task.projectId, taskId: task.id, summary: `"${task.title}" unbound from GitHub`, data: { unlinked: true },
     })
     return c.json(await present(db, task.id))
@@ -143,7 +151,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
     const principal = principalOf(c)
     const slug = await slugOf(db, task.projectId)
     await recordActivity({ db, hub: deps.hub }, {
-      kind: 'task.linked', actor: principal.actor, actorKind: principal.actorKind, project: slug,
+      kind: 'task.linked', actor: principal.actor, actorKind: principal.actorKind, source: principal.source, project: slug,
       projectId: task.projectId, taskId: task.id, repositoryId: task.repositoryId,
       summary: `"${task.title}" published as ${fullName}#${record.number}`, data: { issue: `${fullName}#${record.number}` },
     })
@@ -174,12 +182,12 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
     if (body.resolve === 'remote') {
       await db.tasks.setLinkState(task.id, 'synced', { lastError: null })
       const applied = await applyIssueToTask(db.tasks, issue, ownerFor(db))
-      await recordActivity({ db, hub: deps.hub }, { kind: 'task.synced', actor: principal.actor, actorKind: principal.actorKind, project: slug, projectId: task.projectId, taskId: task.id, summary: `"${task.title}" took what GitHub has`, data: { outcome: applied.outcome } })
+      await recordActivity({ db, hub: deps.hub }, { kind: 'task.synced', actor: principal.actor, actorKind: principal.actorKind, source: principal.source, project: slug, projectId: task.projectId, taskId: task.id, summary: `"${task.title}" took what GitHub has`, data: { outcome: applied.outcome } })
       return c.json(await present(db, task.id))
     }
     requireGitHub()
     const outcome = await pushToGitHub(db, deps.github, task, link, wholeChange(task, issue))
-    await recordActivity({ db, hub: deps.hub }, { kind: outcome === 'synced' || outcome === 'nothing' ? 'task.synced' : 'task.conflict', actor: principal.actor, actorKind: principal.actorKind, project: slug, projectId: task.projectId, taskId: task.id, summary: outcome === 'synced' || outcome === 'nothing' ? `"${task.title}" pushed to GitHub` : `"${task.title}" could not be pushed to GitHub`, data: { outcome } })
+    await recordActivity({ db, hub: deps.hub }, { kind: outcome === 'synced' || outcome === 'nothing' ? 'task.synced' : 'task.conflict', actor: principal.actor, actorKind: principal.actorKind, source: principal.source, project: slug, projectId: task.projectId, taskId: task.id, summary: outcome === 'synced' || outcome === 'nothing' ? `"${task.title}" pushed to GitHub` : `"${task.title}" could not be pushed to GitHub`, data: { outcome } })
     return c.json(await present(db, task.id))
   })
 
@@ -188,9 +196,9 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
    * response. Nothing is projected, so reading a discussion stays a link to
    * GitHub. See ADR 0018's 2026-09-02 amendment.
    */
-  app.post('/tasks/:ref/comments', documentRoute({
+  app.post('/tasks/:ref/github/comments', documentRoute({
     tag: 'Tasks', operationId: 'commentOnTask', capability: 'task:sync', summary: 'Comment on the bound GitHub issue',
-    description: 'Posts straight to GitHub and returns what GitHub returned. Comments are never projected. A local note is /notes.',
+    description: 'Posts straight to GitHub and returns what GitHub returned. Comments are never projected. A local comment is /comments.',
     request: CommentBody, response: CommentResponse, status: 201, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -206,8 +214,41 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
       repository.installationId, `/repos/${issue.repository}/issues/${issue.number}/comments`, { body: body.body },
     )
     const principal = principalOf(c)
-    await recordActivity({ db, hub: deps.hub }, { kind: 'task.note', actor: principal.actor, actorKind: principal.actorKind, project: await slugOf(db, task.projectId), projectId: task.projectId, taskId: task.id, summary: `${principal.actor ?? 'somebody'} commented on ${issue.repository}#${issue.number}`, data: { commentId: created.data.id, htmlUrl: created.data.html_url } })
+    await recordActivity({ db, hub: deps.hub }, { kind: 'task.note', actor: principal.actor, actorKind: principal.actorKind, source: principal.source, project: await slugOf(db, task.projectId), projectId: task.projectId, taskId: task.id, summary: `${principal.actor ?? 'somebody'} commented on ${issue.repository}#${issue.number}`, data: { commentId: created.data.id, htmlUrl: created.data.html_url } })
     return c.json({ id: created.data.id, htmlUrl: created.data.html_url, body: created.data.body, createdAt: created.data.created_at }, 201)
+  })
+
+  app.post('/tasks/:ref/comments/:noteId/github/publish', documentRoute({
+    tag: 'Tasks', operationId: 'publishTaskComment', capability: 'task:sync', summary: 'Publish a local comment to the bound GitHub issue',
+    description: 'Explicit and one-way. The local comment remains saved if GitHub is unavailable.',
+    response: TaskNote, parameters: [refParameter, { name: 'noteId', in: 'path' as const, required: true, schema: { type: 'string' as const } }, actorHeader],
+    errors: [400, 403, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const task = await resolveTask(db, c.req.param('ref'))
+    const note = await db.tasks.findNote(task.id, c.req.param('noteId'))
+    if (!note) throw new HTTPException(404, { message: `no comment '${c.req.param('noteId')}'` })
+    if (note.publishState === 'synced') throw new OverrideRefused('this comment was already published to GitHub')
+    const link = await db.tasks.findLink(task.id)
+    const issue = link ? await db.github.findIssue(link.githubIssueId) : null
+    if (!issue) throw new OverrideRefused('this task is not bound to an issue')
+    await db.tasks.setNotePublication(task.id, note.id, { state: 'pending' })
+    try {
+      const github = requireGitHub()
+      const repository = await db.github.findRepository(issue.repository)
+      if (!repository) throw new OverrideRefused(`${issue.repository} is not a repository this gateway was granted`)
+      const created = await github.require().postAsInstallation<{ id: number; html_url: string; body: string; created_at: string }>(
+        repository.installationId, `/repos/${issue.repository}/issues/${issue.number}/comments`, { body: note.body },
+      )
+      const updated = await db.tasks.setNotePublication(task.id, note.id, {
+        state: 'synced', githubCommentId: created.data.id, githubHtmlUrl: created.data.html_url, error: null,
+      })
+      if (!updated) throw new HTTPException(404, { message: `no comment '${note.id}'` })
+      return c.json(noteView(updated))
+    } catch (error) {
+      await db.tasks.setNotePublication(task.id, note.id, { state: 'error', error: error instanceof Error ? error.message : String(error) })
+      throw error
+    }
   })
 
   return app

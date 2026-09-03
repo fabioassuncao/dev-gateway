@@ -61,12 +61,12 @@ export function renderAuthDynamic(store: ProtectionStore): string {
     '      forwardAuth:',
     `        address: ${quoteDynamicValue('http://portta-auth:4180/verify')}`,
     '        trustForwardHeader: true',
-    '        authResponseHeaders: [X-Forwarded-User]',
+    '        authResponseHeaders: [X-Forwarded-User, X-Portta-Actor, X-Portta-Actor-Kind, X-Portta-Capabilities, X-Portta-Token-Authenticated]',
     `    ${PANEL_AUTH_MIDDLEWARE}:`,
     '      forwardAuth:',
     `        address: ${quoteDynamicValue('http://portta-auth:4180/verify?scope=panel')}`,
     '        trustForwardHeader: true',
-    '        authResponseHeaders: [X-Forwarded-User]',
+    '        authResponseHeaders: [X-Forwarded-User, X-Portta-Actor, X-Portta-Actor-Kind, X-Portta-Capabilities, X-Portta-Token-Authenticated]',
     '',
   )
   return lines.join('\n')

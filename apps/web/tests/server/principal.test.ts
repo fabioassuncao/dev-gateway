@@ -36,6 +36,19 @@ describe('the principal', () => {
     expect(principal.capabilities.has('environment:destroy')).toBe(true)
   })
 
+  it('uses the actor and exact capabilities authenticated by a bearer token', async () => {
+    const principal = await principalFor(headers({
+      'X-Portta-Token-Authenticated': 'true',
+      'X-Portta-Actor': 'release-bot',
+      'X-Portta-Actor-Kind': 'human',
+      'X-Portta-Capabilities': 'task:read,task:write',
+      'X-Portta-Source': 'cli',
+    }), source())
+    expect(principal).toMatchObject({ kind: 'agent', actor: 'release-bot', actorKind: 'human', source: 'cli' })
+    expect([...principal.capabilities]).toEqual(['task:read', 'task:write'])
+    expect(principal.capabilities.has('environment:destroy')).toBe(false)
+  })
+
   it('narrows an agent further in read-only mode, and falls back to the default set when the setting cannot be read', async () => {
     const narrowed = await principalFor(headers({ 'X-Portta-Actor': 'bot' }), source(true))
     expect(narrowed.capabilities.has('task:write')).toBe(false)

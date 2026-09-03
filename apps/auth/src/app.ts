@@ -5,6 +5,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { serveStatic } from '@hono/node-server/serve-static'
 import {
   normalizeProtectionHost,
+  apiTokenFor,
   protectionForHost,
   readProtectionStore,
   verifyPassword,
@@ -90,6 +91,12 @@ function basicCredentials(value: string | undefined): { user: string; password: 
   } catch { return null }
 }
 
+function bearerCredential(value: string | undefined): string | null {
+  if (!value?.startsWith('Bearer ')) return null
+  const token = value.slice(7).trim()
+  return token ? token : null
+}
+
 function originAllowed(c: Context, host: string): boolean {
   const origin = c.req.header('origin')
   if (!origin) return false
@@ -152,9 +159,22 @@ export function createAuthApp(dependencies: AuthAppDependencies = {}): Hono {
     const host = forwardedHost(c)
     if (!protection || !host || protection.host !== host) return c.body(null, 401)
 
+    const bearer = bearerCredential(c.req.header('authorization'))
+    const apiToken = protection.scope === 'panel' && bearer ? apiTokenFor(readProtectionStore(config.storePath), bearer) : null
+    if (apiToken) {
+      c.header('X-Forwarded-User', apiToken.actor)
+      c.header('X-Portta-Actor', apiToken.actor)
+      c.header('X-Portta-Actor-Kind', apiToken.actorKind)
+      c.header('X-Portta-Capabilities', apiToken.capabilities.join(','))
+      c.header('X-Portta-Token-Authenticated', 'true')
+      return c.body(null, 200)
+    }
+
     const basic = basicCredentials(c.req.header('authorization'))
     if (basic && basic.user === protection.user && await verifyPassword(basic.password, protection.hash)) {
       c.header('X-Forwarded-User', protection.user)
+      c.header('X-Portta-Actor', protection.user)
+      c.header('X-Portta-Actor-Kind', 'human')
       return c.body(null, 200)
     }
 
@@ -165,6 +185,8 @@ export function createAuthApp(dependencies: AuthAppDependencies = {}): Hono {
       session.epoch === protection.epoch && session.expiresAt > second
     ) {
       c.header('X-Forwarded-User', session.user)
+      c.header('X-Portta-Actor', session.user)
+      c.header('X-Portta-Actor-Kind', 'human')
       return c.body(null, 200)
     }
 

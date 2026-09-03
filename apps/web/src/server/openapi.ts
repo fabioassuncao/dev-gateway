@@ -29,6 +29,7 @@ export type ApiTag =
   | 'Events'
   | 'Integrations'
   | 'Documentation'
+  | 'Authentication'
 
 export type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 500 | 502 | 503
 
@@ -97,7 +98,7 @@ export function documentRoute(doc: RouteDocumentation): MiddlewareHandler {
     description: doc.description,
     parameters: doc.parameters,
     responses,
-    security: [{}, { cookieAuth: [] }, { basicAuth: [] }],
+    security: [{}, { cookieAuth: [] }, { basicAuth: [] }, { bearerAuth: [] }],
   }
   if (doc.request) {
     spec.requestBody = {
@@ -219,6 +220,7 @@ export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
       { name: 'Events', description: 'Server-sent runtime events.' },
       { name: 'Integrations', description: 'Outbound integrations and their projections.' },
       { name: 'Documentation', description: 'The machine contract and its offline browser.' },
+      { name: 'Authentication', description: 'Revocable Bearer credentials for remote CLI and coding agents.' },
     ],
     components: {
       securitySchemes: {
@@ -234,6 +236,11 @@ export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
           scheme: 'basic',
           description:
             'Compatibility path for API clients, health checks and webhooks. Traefik validates it through Portta ForwardAuth before forwarding the request.',
+        },
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          description: 'A revocable Portta API token. The raw credential is shown only when it is created.',
         },
       },
     },

@@ -9,6 +9,7 @@ import { requireDatabase, type Database } from '../db/index.ts'
 import { activityView, loadNames } from '../core/activity-view.ts'
 import { ActivityEvent } from '../../shared/task-types.ts'
 import { documentRoute } from '../openapi.ts'
+import { resolveTask } from '../core/task-write.ts'
 
 const ActivityResponse = z.object({ events: z.array(ActivityEvent) }).strict().meta({ ref: 'ActivityResponse' })
 
@@ -61,6 +62,19 @@ export function activityRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const db = requireDatabase(deps.db)
     return c.json({ events: await listing(db, undefined, new URL(c.req.url).searchParams) })
+  })
+
+  app.get('/tasks/:ref/activity', documentRoute({
+    tag: 'Activity', operationId: 'listTaskActivity', capability: 'activity:read', summary: "One task's activity, newest first",
+    response: ActivityResponse,
+    parameters: [{ name: 'ref', in: 'path', required: true, description: 'Task id, #id or a bound owner/repo#number.', schema: { type: 'string' } }, ...filterParameters.filter((entry) => entry.name !== 'task')],
+    errors: [400, 404, 500, 503],
+  }), async (c) => {
+    const db = requireDatabase(deps.db)
+    const task = await resolveTask(db, c.req.param('ref'))
+    const query = new URL(c.req.url).searchParams
+    query.set('task', task.id)
+    return c.json({ events: await listing(db, task.projectId, query) })
   })
 
   return app

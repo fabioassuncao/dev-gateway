@@ -161,6 +161,43 @@ describe('local tasks', () => {
     expect(finished.closedAt).not.toBeNull()
   })
 
+  it('persists sparse ordering within and across board columns', async () => {
+    const { db, tasks, activity } = work()
+    const first = tasks.seed({ projectId: 'w1', title: 'First', status: 'ready', position: 1024 })
+    const second = tasks.seed({ projectId: 'w1', title: 'Second', status: 'ready', position: 2048 })
+    const blocked = tasks.seed({ projectId: 'w1', title: 'Blocked', status: 'blocked', position: 1024 })
+    const { app } = makeApp({ containers: GATEWAY }, {}, db)
+    const moved = await json(await post(app, `/api/tasks/${second.id}/move`, { status: 'ready', beforeId: null, afterId: first.id }, { 'X-Portta-Actor': 'codex', 'X-Portta-Source': 'cli' }))
+    expect(moved.position).toBeLessThan(first.position)
+    const listed = await json(await app.request('/api/projects/produto/tasks'))
+    expect(listed.tasks.filter((item: { status: string }) => item.status === 'ready').map((item: { id: string }) => item.id)).toEqual([second.id, first.id])
+    const crossed = await json(await post(app, `/api/tasks/${first.id}/move`, { status: 'blocked', beforeId: blocked.id, afterId: null }))
+    expect(crossed).toMatchObject({ status: 'blocked' })
+    expect(crossed.position).toBeGreaterThan(blocked.position)
+    expect(activity.rows.find((event) => event.source === 'cli')).toMatchObject({ source: 'cli', data: { position: { from: 2048 } } })
+  })
+
+  it('PATCH of status appends in the destination column and names the field that changed', async () => {
+    const { db, tasks, activity } = work()
+    const ready = tasks.seed({ projectId: 'w1', title: 'Stay', status: 'ready', position: 1024 })
+    const task = tasks.seed({ projectId: 'w1', title: 'Ship metrics', status: 'backlog', position: 1024, priority: 'low' })
+    const { app } = makeApp({ containers: GATEWAY }, {}, db)
+    const moved = await json(await app.request(`/api/tasks/${task.id}`, {
+      method: 'PATCH', body: JSON.stringify({ status: 'ready' }),
+      headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },
+    }))
+    expect(moved).toMatchObject({ status: 'ready' })
+    expect(moved.position).toBeGreaterThan(ready.position)
+    expect(activity.rows[0]).toMatchObject({ kind: 'task.status', summary: '"Ship metrics" moved to ready' })
+
+    const prioritised = await json(await app.request(`/api/tasks/${task.id}`, {
+      method: 'PATCH', body: JSON.stringify({ priority: 'high' }),
+      headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },
+    }))
+    expect(prioritised.priority).toBe('high')
+    expect(activity.rows[0]).toMatchObject({ kind: 'task.updated', summary: '"Ship metrics" priority changed from low to high' })
+  })
+
   it('keeps notes locally, with the actor', async () => {
     const { db, tasks } = work()
     const task = tasks.seed({ projectId: 'w1', title: 'Fix auth' })
@@ -269,10 +306,10 @@ describe('the GitHub binding', () => {
     const task = tasks.seed({ projectId: 'w1', title: 'Local' })
     const other = tasks.seed({ projectId: 'w1', title: 'Other' })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
-    expect((await post(app, `/api/tasks/${task.id}/github/link`, { issue: 'acme/api#124' })).status).toBe(400)
-    const linked = await json(await post(app, `/api/tasks/${task.id}/github/link`, { issue: 'acme/api#123' }))
+    expect((await post(app, `/api/tasks/${task.id}/github/link`, { issue: 'acme/api#124', initialSync: 'pull' })).status).toBe(400)
+    const linked = await json(await post(app, `/api/tasks/${task.id}/github/link`, { issue: 'acme/api#123', initialSync: 'pull' }))
     expect(linked).toMatchObject({ title: 'Implementar refresh token', status: 'ready', priority: 'high', github: { number: 123, syncState: 'synced' } })
-    expect((await post(app, `/api/tasks/${other.id}/github/link`, { issue: 'acme/api#123' })).status).toBe(400)
+    expect((await post(app, `/api/tasks/${other.id}/github/link`, { issue: 'acme/api#123', initialSync: 'pull' })).status).toBe(400)
     expect((await json(await post(app, `/api/tasks/${task.id}/github/unlink`, {}))).github).toBeNull()
   })
 
@@ -294,7 +331,7 @@ describe('the GitHub binding', () => {
     expect((await post(app, `/api/tasks/${task.id}/github/publish`, {})).status).toBe(400)
   })
 
-  it('comments straight through to GitHub, and refuses on an unbound task', async () => {
+  it('stores comments locally and only publishes an explicit copy to GitHub', async () => {
     const { db, tasks } = work([issueRow()])
     const bound = tasks.seed({ projectId: 'w1', title: 'Bound' })
     await tasks.upsertLink({ taskId: bound.id, githubIssueId: '1', syncState: 'synced' })
@@ -303,9 +340,14 @@ describe('the GitHub binding', () => {
     const { app } = makeApp({ containers: GATEWAY }, {}, db, fakeGitHub(sent))
     const comment = await post(app, `/api/tasks/${bound.id}/comments`, { body: 'done' }, { 'X-Portta-Actor': 'claude-code' })
     expect(comment.status).toBe(201)
-    expect(await json(comment)).toMatchObject({ id: 55, body: 'done' })
+    const local = await json(comment)
+    expect(local).toMatchObject({ body: 'done', publishState: 'local' })
+    expect(sent).toHaveLength(0)
+    const published = await post(app, `/api/tasks/${bound.id}/comments/${local.id}/github/publish`, {})
+    expect(await json(published)).toMatchObject({ body: 'done', publishState: 'synced', githubCommentId: 55 })
     expect(sent[0]).toEqual({ path: '/repos/acme/api/issues/123/comments', body: 'done' })
-    expect((await post(app, `/api/tasks/${unbound.id}/comments`, { body: 'x' })).status).toBe(400)
+    const unboundComment = await json(await post(app, `/api/tasks/${unbound.id}/comments`, { body: 'x' }))
+    expect((await post(app, `/api/tasks/${unbound.id}/comments/${unboundComment.id}/github/publish`, {})).status).toBe(400)
   })
 
   it('refuses a coordinate that is projected but bound to no task', async () => {

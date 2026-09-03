@@ -6,7 +6,7 @@
 // listed here so the panel, the CLI and an agent name them the same way.
 
 export const ACTIVITY_KINDS = [
-  'task.created', 'task.updated', 'task.status', 'task.assigned', 'task.note', 'task.linked', 'task.synced', 'task.conflict', 'task.deleted',
+  'task.created', 'task.updated', 'task.status', 'task.assigned', 'task.note', 'task.comment', 'task.linked', 'task.synced', 'task.conflict', 'task.deleted',
   'session.started', 'session.ended', 'session.abandoned',
   'repository.added', 'repository.removed', 'repository.commit', 'repository.branch',
   'environment.started', 'environment.stopped', 'environment.restarted', 'environment.rebuilt', 'environment.removed', 'environment.forgotten', 'environment.adopted',
@@ -14,6 +14,9 @@ export const ACTIVITY_KINDS = [
   'project.created', 'project.updated', 'project.deleted',
 ] as const
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number]
+
+export const ACTIVITY_SOURCES = ['web', 'cli', 'mcp', 'api', 'github', 'system'] as const
+export type ActivitySource = (typeof ACTIVITY_SOURCES)[number]
 
 export function isActivityKind(value: string): value is ActivityKind {
   return (ACTIVITY_KINDS as readonly string[]).includes(value)

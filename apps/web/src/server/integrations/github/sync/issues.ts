@@ -57,7 +57,23 @@ export async function syncRepositoryIssues(
     // The bound task follows the projection; a new issue on a repository a
     // Project owns becomes a task. A local edit that is pending is kept.
     const stored = await db.github.findIssue(id)
-    if (stored) await applyIssueToTask(db.tasks, stored, ownerFor)
+    if (stored) {
+      const applied = await applyIssueToTask(db.tasks, stored, ownerFor)
+      if (applied.task && applied.outcome !== 'kept' && applied.outcome !== 'unbound') {
+        await db.activity.append({
+          kind: applied.outcome === 'conflict' ? 'task.conflict' : 'task.synced',
+          actorKind: 'system',
+          source: 'github',
+          projectId: applied.task.projectId,
+          taskId: applied.task.id,
+          repositoryId: applied.task.repositoryId,
+          summary: applied.outcome === 'conflict'
+            ? `${repository.fullName}#${record.number} conflicts with local task changes`
+            : `${repository.fullName}#${record.number} updated the task from GitHub`,
+          data: { outcome: applied.outcome, issue: `${repository.fullName}#${record.number}` },
+        })
+      }
+    }
     numbers.add(record.number)
     const updated = record.githubUpdatedAt.toISOString()
     if (cursor === null || updated > cursor) cursor = updated

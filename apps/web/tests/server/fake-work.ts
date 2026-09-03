@@ -46,13 +46,19 @@ export function fakeTasks(): FakeTasks {
         (filter.projectId === undefined || row.projectId === filter.projectId) &&
         (filter.repositoryId === undefined || row.repositoryId === filter.repositoryId) &&
         (filter.status === undefined || filter.status.includes(row.status)) &&
+        (filter.priority === undefined || (row.priority !== null && filter.priority.includes(row.priority))) &&
         (filter.assignee === undefined || row.assignee === filter.assignee) &&
+        (filter.agent === undefined || row.agent === filter.agent) &&
+        (filter.type === undefined || row.type === filter.type) &&
+        (filter.label === undefined || row.labels.includes(filter.label)) &&
+        (filter.service === undefined || row.service === filter.service) &&
         (filter.parentId === undefined || row.parentId === filter.parentId) &&
         (filter.open === undefined || (filter.open ? row.status !== 'done' : row.status === 'done')) &&
         (filter.draft === undefined || row.draft === filter.draft) &&
         (filter.createdBy === undefined || row.createdBy === filter.createdBy) &&
         (filter.sourceKey === undefined || row.sourceKey === filter.sourceKey) &&
         (filter.q === undefined || row.title.toLowerCase().includes(filter.q.toLowerCase())))
+        .sort((left, right) => left.position - right.position || left.id.localeCompare(right.id))
     },
     async find(id: string) { return rows.find((row) => row.id === id) ?? null },
     async findByIssue(githubIssueId: string) {
@@ -74,6 +80,19 @@ export function fakeTasks(): FakeTasks {
       if (!row) return null
       Object.assign(row, patch, { updatedAt: new Date() })
       row.closedAt = row.status === 'done' ? (row.closedAt ?? new Date()) : null
+      return row
+    },
+    async move(id: string, status: TaskRow['status'], beforeId: string | null, afterId: string | null) {
+      const row = rows.find((entry) => entry.id === id)
+      if (!row) return null
+      const before = beforeId ? rows.find((entry) => entry.id === beforeId) : null
+      const after = afterId ? rows.find((entry) => entry.id === afterId) : null
+      row.status = status
+      const column = rows.filter((entry) => entry.status === status && entry.id !== id)
+      const append = Math.max(0, ...column.map((entry) => entry.position)) + 1024
+      row.position = before && after ? Math.floor((before.position + after.position) / 2) : before ? before.position + 1024 : after ? Math.max(0, after.position - 1024) : append
+      row.updatedAt = new Date()
+      row.closedAt = status === 'done' ? (row.closedAt ?? new Date()) : null
       return row
     },
     async remove(id: string) {
@@ -116,7 +135,10 @@ export function fakeTasks(): FakeTasks {
     async findNote(taskId: string, noteId: string) { return notes.find((note) => note.taskId === taskId && note.id === noteId) ?? null },
     async findNoteBySourceKey(taskId: string, sourceKey: string) { return notes.find((note) => note.taskId === taskId && note.sourceKey === sourceKey) ?? null },
     async addNote(taskId: string, body: string, actor: string | null, actorKind: 'human' | 'agent' | 'system', sourceKey: string | null = null) {
-      const note: TaskNoteRow = { id: nextId(), taskId, actor, actorKind, body, sourceKey, createdAt: new Date(), updatedAt: null }
+      const note: TaskNoteRow = {
+        id: nextId(), taskId, actor, actorKind, body, sourceKey, createdAt: new Date(), updatedAt: null,
+        publishState: 'local', githubCommentId: null, githubHtmlUrl: null, publishError: null,
+      }
       notes.push(note)
       return note
     },
@@ -132,6 +154,15 @@ export function fakeTasks(): FakeTasks {
       if (index < 0) return false
       notes.splice(index, 1)
       return true
+    },
+    async setNotePublication(taskId: string, noteId: string, detail: Parameters<TasksRepository['setNotePublication']>[2]) {
+      const note = notes.find((entry) => entry.taskId === taskId && entry.id === noteId)
+      if (!note) return null
+      note.publishState = detail.state
+      note.githubCommentId = detail.githubCommentId ?? null
+      note.githubHtmlUrl = detail.githubHtmlUrl ?? null
+      note.publishError = detail.error ?? null
+      return note
     },
     async findLink(taskId: string) { return links.find((link) => link.taskId === taskId) ?? null },
     async listLinks(taskIds?: string[]) { return taskIds ? links.filter((link) => taskIds.includes(link.taskId)) : links },
@@ -228,7 +259,7 @@ export function fakeActivity(): FakeActivity {
     rows,
     async append(input: ActivityInput) {
       const row: ActivityRow = {
-        id: nextId(), at: new Date(), kind: input.kind, actor: input.actor ?? null, actorKind: input.actorKind ?? null,
+        id: nextId(), at: new Date(), kind: input.kind, actor: input.actor ?? null, actorKind: input.actorKind ?? null, source: input.source ?? null,
         projectId: input.projectId ?? null, taskId: input.taskId ?? null, repositoryId: input.repositoryId ?? null,
         environmentId: input.environmentId ?? null, sessionId: input.sessionId ?? null, summary: input.summary, data: input.data ?? {},
       }

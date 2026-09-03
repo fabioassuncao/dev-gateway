@@ -3,7 +3,7 @@
 // the work model can grow without the infrastructure contract moving.
 
 import { z } from 'zod'
-import { ACTIVITY_KINDS, TASK_PRIORITIES, TASK_STATUSES, TASK_SYNC_STATES } from 'portta-core'
+import { ACTIVITY_KINDS, ACTIVITY_SOURCES, TASK_PRIORITIES, TASK_STATUSES, TASK_SYNC_STATES } from 'portta-core'
 
 const named = <T extends z.ZodType>(schema: T, ref: string): T => schema.meta({ ref }) as T
 const unixSeconds = z.number().describe('Unix timestamp in seconds')
@@ -81,6 +81,7 @@ export const TaskSummary = named(
     github: z.object({ repository: z.string(), number: z.number().int(), htmlUrl: z.string(), syncState: TaskSyncState }).strict().nullable(),
     dueAt: unixSeconds.nullable(),
     draft: z.boolean(),
+    position: z.number().int(),
     createdAt: unixSeconds,
     updatedAt: unixSeconds,
     closedAt: unixSeconds.nullable(),
@@ -98,16 +99,21 @@ export const TaskNote = named(
     body: z.string(),
     createdAt: unixSeconds,
     updatedAt: unixSeconds.nullable(),
+    publishState: z.enum(['local', 'pending', 'synced', 'error']),
+    githubCommentId: z.number().int().nullable(),
+    githubHtmlUrl: z.string().nullable(),
+    publishError: z.string().nullable(),
   }).strict(),
   'TaskNote',
 )
 export type TaskNote = z.infer<typeof TaskNote>
+export const TaskComment = TaskNote
+export type TaskComment = TaskNote
 
 export const Task = named(
   TaskSummary.extend({
     description: z.string().nullable(),
     createdBy: z.string().nullable(),
-    position: z.number().int(),
     github: TaskGitHubBinding.nullable(),
     environments: z.array(TaskEnvironmentLink),
     notes: z.array(TaskNote),
@@ -146,6 +152,8 @@ export type Session = z.infer<typeof Session>
 
 export const ActivityKind = named(z.enum(ACTIVITY_KINDS), 'ActivityKind')
 export type ActivityKind = z.infer<typeof ActivityKind>
+export const ActivitySource = named(z.enum(ACTIVITY_SOURCES), 'ActivitySource')
+export type ActivitySource = z.infer<typeof ActivitySource>
 
 export const ActivityEvent = named(
   z.object({
@@ -154,6 +162,7 @@ export const ActivityEvent = named(
     kind: ActivityKind,
     actor: z.string().nullable(),
     actorKind: ActorKind.nullable(),
+    source: ActivitySource.nullable(),
     summary: z.string(),
     project: z.string().nullable().describe('Project slug'),
     taskId: z.string().nullable(),

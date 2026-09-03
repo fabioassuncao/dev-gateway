@@ -1,7 +1,7 @@
 // Activity: what happened in the development flow, with references.
 
 import type { JSONValue, Sql } from 'postgres'
-import { ACTIVITY_KEEP_DAYS, ACTIVITY_KEEP_PER_PROJECT, type ActivityKind } from 'portta-core'
+import { ACTIVITY_KEEP_DAYS, ACTIVITY_KEEP_PER_PROJECT, type ActivityKind, type ActivitySource } from 'portta-core'
 import type { DatabaseClient } from './client.ts'
 
 export interface ActivityRow {
@@ -10,6 +10,7 @@ export interface ActivityRow {
   kind: ActivityKind
   actor: string | null
   actorKind: 'human' | 'agent' | 'system' | null
+  source: ActivitySource | null
   projectId: string | null
   taskId: string | null
   repositoryId: string | null
@@ -24,6 +25,7 @@ export interface ActivityInput {
   summary: string
   actor?: string | null
   actorKind?: 'human' | 'agent' | 'system' | null
+  source?: ActivitySource | null
   projectId?: string | null
   taskId?: string | null
   repositoryId?: string | null
@@ -33,7 +35,7 @@ export interface ActivityInput {
 }
 
 const COLUMNS = `
-  id::text AS "id", at AS "at", kind AS "kind", actor AS "actor", actor_kind AS "actorKind",
+  id::text AS "id", at AS "at", kind AS "kind", actor AS "actor", actor_kind AS "actorKind", source AS "source",
   project_id::text AS "projectId", task_id::text AS "taskId", repository_id::text AS "repositoryId",
   environment_id::text AS "environmentId", session_id::text AS "sessionId", summary AS "summary", data AS "data"
 `
@@ -48,8 +50,8 @@ export class ActivityRepository {
   async append(input: ActivityInput): Promise<ActivityRow> {
     const sql = this.sql
     const rows = await sql<ActivityRow[]>`
-      INSERT INTO activity_events (kind, actor, actor_kind, project_id, task_id, repository_id, environment_id, session_id, summary, data)
-      VALUES (${input.kind}, ${input.actor ?? null}, ${input.actorKind ?? null}, ${input.projectId ?? null}, ${input.taskId ?? null},
+      INSERT INTO activity_events (kind, actor, actor_kind, source, project_id, task_id, repository_id, environment_id, session_id, summary, data)
+      VALUES (${input.kind}, ${input.actor ?? null}, ${input.actorKind ?? null}, ${input.source ?? null}, ${input.projectId ?? null}, ${input.taskId ?? null},
               ${input.repositoryId ?? null}, ${input.environmentId ?? null}, ${input.sessionId ?? null}, ${input.summary}, ${sql.json((input.data ?? {}) as JSONValue)})
       RETURNING ${sql.unsafe(COLUMNS)}
     `

@@ -43,6 +43,10 @@ export interface TaskNoteRow {
   sourceKey: string | null
   createdAt: Date
   updatedAt: Date | null
+  githubCommentId: number | null
+  githubHtmlUrl: string | null
+  publishState: 'local' | 'pending' | 'synced' | 'error'
+  publishError: string | null
 }
 
 export interface TaskGitHubLinkRow {
@@ -112,6 +116,11 @@ export interface TaskFilter {
   environmentId?: string
   status?: TaskStatus[]
   assignee?: string
+  agent?: string
+  priority?: TaskPriority[]
+  type?: string
+  label?: string
+  service?: string
   parentId?: string | null
   open?: boolean
   q?: string
@@ -141,6 +150,7 @@ export class TasksRepository {
   async list(filter: TaskFilter = {}): Promise<TaskRow[]> {
     const sql = this.sql
     const statuses = filter.status && filter.status.length > 0 ? filter.status : null
+    const priorities = filter.priority && filter.priority.length > 0 ? filter.priority : null
     const rows = await sql<TaskRow[]>`
       SELECT ${sql.unsafe(TASK_COLUMNS)}
       FROM tasks t
@@ -149,7 +159,12 @@ export class TasksRepository {
         ${filter.repositoryId ? sql`AND t.repository_id = ${filter.repositoryId}` : sql``}
         ${filter.environmentId ? sql`AND t.environment_id = ${filter.environmentId}` : sql``}
         ${statuses ? sql`AND t.status = ANY(${statuses})` : sql``}
+        ${priorities ? sql`AND t.priority = ANY(${priorities})` : sql``}
         ${filter.assignee ? sql`AND t.assignee = ${filter.assignee}` : sql``}
+        ${filter.agent ? sql`AND t.agent = ${filter.agent}` : sql``}
+        ${filter.type ? sql`AND t.type = ${filter.type}` : sql``}
+        ${filter.label ? sql`AND t.labels @> ${sql.json([filter.label])}` : sql``}
+        ${filter.service ? sql`AND t.service = ${filter.service}` : sql``}
         ${filter.parentId === null ? sql`AND t.parent_id IS NULL` : filter.parentId ? sql`AND t.parent_id = ${filter.parentId}` : sql``}
         ${filter.open === true ? sql`AND t.status <> 'done'` : filter.open === false ? sql`AND t.status = 'done'` : sql``}
         ${filter.draft === false ? sql`AND t.draft = false` : filter.draft === true ? sql`AND t.draft = true` : sql``}
@@ -181,36 +196,115 @@ export class TasksRepository {
   async create(projectId: string, raw: unknown, createdBy: string | null): Promise<TaskRow> {
     const input = CreateTask.parse(raw)
     const sql = this.sql
-    const rows = await sql<TaskRow[]>`
-      INSERT INTO tasks (project_id, repository_id, environment_id, service, parent_id, title, description, status, priority, type, labels, assignee, agent, created_by, due_at, source_key, draft, closed_at)
-      VALUES (${projectId}, ${input.repositoryId}, ${input.environmentId}, ${input.service}, ${input.parentId}, ${input.title}, ${input.description},
-              ${input.status}, ${input.priority}, ${input.type}, ${sql.json(input.labels)}, ${input.assignee}, ${input.agent}, ${createdBy},
-              ${input.dueAt}, ${input.sourceKey}, ${input.draft},
-              ${input.status === 'done' ? sql`now()` : null})
-      RETURNING ${sql.unsafe(TASK_COLUMNS.replaceAll('t.', ''))}
-    `
-    return normalise(rows[0]!)
+    return sql.begin(async (tx) => {
+      await tx`SELECT pg_advisory_xact_lock(hashtextextended(${`task-board:${projectId}:${input.status}`}, 0))`
+      const rows = await tx<TaskRow[]>`
+        INSERT INTO tasks (project_id, repository_id, environment_id, service, parent_id, title, description, status, priority, type, labels, assignee, agent, created_by, position, due_at, source_key, draft, closed_at)
+        VALUES (${projectId}, ${input.repositoryId}, ${input.environmentId}, ${input.service}, ${input.parentId}, ${input.title}, ${input.description},
+                ${input.status}, ${input.priority}, ${input.type}, ${tx.json(input.labels)}, ${input.assignee}, ${input.agent}, ${createdBy},
+                COALESCE((SELECT max(position) + 1024 FROM tasks WHERE project_id = ${projectId} AND status = ${input.status}), 1024),
+                ${input.dueAt}, ${input.sourceKey}, ${input.draft},
+                ${input.status === 'done' ? tx`now()` : null})
+        RETURNING ${tx.unsafe(TASK_COLUMNS.replaceAll('t.', ''))}
+      `
+      return normalise(rows[0]!)
+    })
   }
 
   async update(id: string, raw: unknown): Promise<TaskRow | null> {
     const patch = UpdateTask.parse(raw)
-    const current = await this.find(id)
-    if (!current) return null
-    const next = { ...current, ...patch }
     const sql = this.sql
     const rows = await sql<TaskRow[]>`
       UPDATE tasks SET
-        title = ${next.title}, description = ${next.description}, status = ${next.status}, priority = ${next.priority},
-        type = ${next.type}, labels = ${sql.json(next.labels)}, assignee = ${next.assignee}, agent = ${next.agent},
-        parent_id = ${next.parentId}, repository_id = ${next.repositoryId}, environment_id = ${next.environmentId},
-        service = ${next.service}, position = ${next.position}, due_at = ${next.dueAt}, source_key = ${next.sourceKey},
-        draft = ${next.draft},
-        closed_at = ${next.status === 'done' ? (current.closedAt ?? sql`now()`) : null},
+        title = CASE WHEN ${patch.title !== undefined} THEN ${patch.title ?? ''} ELSE title END,
+        description = CASE WHEN ${patch.description !== undefined} THEN ${patch.description ?? null} ELSE description END,
+        status = CASE WHEN ${patch.status !== undefined} THEN ${patch.status ?? 'backlog'} ELSE status END,
+        priority = CASE WHEN ${patch.priority !== undefined} THEN ${patch.priority ?? null} ELSE priority END,
+        type = CASE WHEN ${patch.type !== undefined} THEN ${patch.type ?? null} ELSE type END,
+        labels = CASE WHEN ${patch.labels !== undefined} THEN ${sql.json(patch.labels ?? [])} ELSE labels END,
+        assignee = CASE WHEN ${patch.assignee !== undefined} THEN ${patch.assignee ?? null} ELSE assignee END,
+        agent = CASE WHEN ${patch.agent !== undefined} THEN ${patch.agent ?? null} ELSE agent END,
+        parent_id = CASE WHEN ${patch.parentId !== undefined} THEN ${patch.parentId ?? null} ELSE parent_id END,
+        repository_id = CASE WHEN ${patch.repositoryId !== undefined} THEN ${patch.repositoryId ?? null} ELSE repository_id END,
+        environment_id = CASE WHEN ${patch.environmentId !== undefined} THEN ${patch.environmentId ?? null} ELSE environment_id END,
+        service = CASE WHEN ${patch.service !== undefined} THEN ${patch.service ?? null} ELSE service END,
+        position = CASE WHEN ${patch.position !== undefined} THEN ${patch.position ?? 0} ELSE position END,
+        due_at = CASE WHEN ${patch.dueAt !== undefined} THEN ${patch.dueAt ?? null} ELSE due_at END,
+        source_key = CASE WHEN ${patch.sourceKey !== undefined} THEN ${patch.sourceKey ?? null} ELSE source_key END,
+        draft = CASE WHEN ${patch.draft !== undefined} THEN ${patch.draft ?? false} ELSE draft END,
+        closed_at = CASE
+          WHEN ${patch.status === 'done'} THEN COALESCE(closed_at, now())
+          WHEN ${patch.status !== undefined} THEN NULL
+          ELSE closed_at
+        END,
         updated_at = now()
       WHERE id = ${id}
       RETURNING ${sql.unsafe(TASK_COLUMNS.replaceAll('t.', ''))}
     `
     return rows[0] ? normalise(rows[0]) : null
+  }
+
+  /** Move a task and compute its sparse rank in one serialised transaction. */
+  async move(id: string, status: TaskStatus, beforeId: string | null, afterId: string | null): Promise<TaskRow | null> {
+    const sql = this.sql
+    return sql.begin(async (tx) => {
+      const currentRows = await tx<TaskRow[]>`SELECT ${tx.unsafe(TASK_COLUMNS)} FROM tasks t WHERE t.id = ${id} FOR UPDATE`
+      const current = currentRows[0] ? normalise(currentRows[0]) : null
+      if (!current) return null
+      await tx`SELECT pg_advisory_xact_lock(hashtextextended(${`task-board:${current.projectId}:${status}`}, 0))`
+
+      const neighbour = async (taskId: string | null): Promise<TaskRow | null> => {
+        if (!taskId) return null
+        const rows = await tx<TaskRow[]>`SELECT ${tx.unsafe(TASK_COLUMNS)} FROM tasks t WHERE t.id = ${taskId} FOR UPDATE`
+        const row = rows[0] ? normalise(rows[0]) : null
+        if (!row || row.projectId !== current.projectId || row.status !== status || row.id === id) {
+          throw new Error(`invalid move neighbour '${taskId}'`)
+        }
+        return row
+      }
+
+      let before = await neighbour(beforeId)
+      let after = await neighbour(afterId)
+      const appendRank = async () => {
+        const rows = await tx<Array<{ rank: string }>>`
+          SELECT COALESCE(max(position), 0)::text AS rank FROM tasks
+          WHERE project_id = ${current.projectId} AND status = ${status} AND id <> ${id}
+        `
+        return Number(rows[0]?.rank ?? 0) + 1024
+      }
+      let position = before && after
+        ? Math.floor((before.position + after.position) / 2)
+        : before ? before.position + 1024
+          : after ? Math.max(0, after.position - 1024)
+            : await appendRank()
+
+      if ((before && after && position <= before.position) || (after && position >= after.position)) {
+        const rows = await tx<Array<{ id: string }>>`
+          SELECT id::text AS id FROM tasks
+          WHERE project_id = ${current.projectId} AND status = ${status} AND id <> ${id}
+          ORDER BY position, id FOR UPDATE
+        `
+        for (let index = 0; index < rows.length; index += 1) {
+          await tx`UPDATE tasks SET position = ${(index + 1) * 1024} WHERE id = ${rows[index]!.id}`
+        }
+        before = beforeId ? await neighbour(beforeId) : null
+        after = afterId ? await neighbour(afterId) : null
+        position = before && after
+          ? Math.floor((before.position + after.position) / 2)
+          : before ? before.position + 1024
+            : after ? Math.max(0, after.position - 1024)
+              : 1024
+      }
+
+      const moved = await tx<TaskRow[]>`
+        UPDATE tasks SET status = ${status}, position = ${position},
+          closed_at = CASE WHEN ${status} = 'done' THEN COALESCE(closed_at, now()) ELSE NULL END,
+          updated_at = now()
+        WHERE id = ${id}
+        RETURNING ${tx.unsafe(TASK_COLUMNS.replaceAll('t.', ''))}
+      `
+      return moved[0] ? normalise(moved[0]) : null
+    })
   }
 
   async remove(id: string): Promise<boolean> {
@@ -275,7 +369,9 @@ export class TasksRepository {
   async listNotes(taskId: string): Promise<TaskNoteRow[]> {
     return this.sql<TaskNoteRow[]>`
       SELECT id::text AS "id", task_id::text AS "taskId", actor AS "actor", actor_kind AS "actorKind",
-             body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt"
+             body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt",
+             github_comment_id AS "githubCommentId", github_html_url AS "githubHtmlUrl",
+             publish_state AS "publishState", publish_error AS "publishError"
       FROM task_notes WHERE task_id = ${taskId} ORDER BY created_at, id
     `
   }
@@ -283,7 +379,9 @@ export class TasksRepository {
   async findNote(taskId: string, noteId: string): Promise<TaskNoteRow | null> {
     const rows = await this.sql<TaskNoteRow[]>`
       SELECT id::text AS "id", task_id::text AS "taskId", actor AS "actor", actor_kind AS "actorKind",
-             body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt"
+             body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt",
+             github_comment_id AS "githubCommentId", github_html_url AS "githubHtmlUrl",
+             publish_state AS "publishState", publish_error AS "publishError"
       FROM task_notes WHERE task_id = ${taskId} AND id = ${noteId}
     `
     return rows[0] ?? null
@@ -292,7 +390,9 @@ export class TasksRepository {
   async findNoteBySourceKey(taskId: string, sourceKey: string): Promise<TaskNoteRow | null> {
     const rows = await this.sql<TaskNoteRow[]>`
       SELECT id::text AS "id", task_id::text AS "taskId", actor AS "actor", actor_kind AS "actorKind",
-             body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt"
+             body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt",
+             github_comment_id AS "githubCommentId", github_html_url AS "githubHtmlUrl",
+             publish_state AS "publishState", publish_error AS "publishError"
       FROM task_notes WHERE task_id = ${taskId} AND source_key = ${sourceKey}
     `
     return rows[0] ?? null
@@ -303,7 +403,9 @@ export class TasksRepository {
     const rows = await this.sql<TaskNoteRow[]>`
       INSERT INTO task_notes (task_id, actor, actor_kind, body, source_key) VALUES (${taskId}, ${actor}, ${actorKind}, ${text}, ${sourceKey})
       RETURNING id::text AS "id", task_id::text AS "taskId", actor AS "actor", actor_kind AS "actorKind",
-                body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt"
+                body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt",
+                github_comment_id AS "githubCommentId", github_html_url AS "githubHtmlUrl",
+                publish_state AS "publishState", publish_error AS "publishError"
     `
     await this.sql`UPDATE tasks SET updated_at = now() WHERE id = ${taskId}`
     return rows[0]!
@@ -315,7 +417,9 @@ export class TasksRepository {
       UPDATE task_notes SET body = ${text}, updated_at = now()
       WHERE task_id = ${taskId} AND id = ${noteId}
       RETURNING id::text AS "id", task_id::text AS "taskId", actor AS "actor", actor_kind AS "actorKind",
-                body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt"
+             body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt",
+             github_comment_id AS "githubCommentId", github_html_url AS "githubHtmlUrl",
+             publish_state AS "publishState", publish_error AS "publishError"
     `
     if (rows[0]) await this.sql`UPDATE tasks SET updated_at = now() WHERE id = ${taskId}`
     return rows[0] ?? null
@@ -324,6 +428,25 @@ export class TasksRepository {
   async removeNote(taskId: string, noteId: string): Promise<boolean> {
     const rows = await this.sql`DELETE FROM task_notes WHERE task_id = ${taskId} AND id = ${noteId} RETURNING id`
     return rows.length > 0
+  }
+
+  async setNotePublication(taskId: string, noteId: string, detail: {
+    state: 'pending' | 'synced' | 'error'
+    githubCommentId?: number | null
+    githubHtmlUrl?: string | null
+    error?: string | null
+  }): Promise<TaskNoteRow | null> {
+    const rows = await this.sql<TaskNoteRow[]>`
+      UPDATE task_notes SET publish_state = ${detail.state},
+        github_comment_id = ${detail.githubCommentId ?? null}, github_html_url = ${detail.githubHtmlUrl ?? null},
+        publish_error = ${detail.error ?? null}
+      WHERE task_id = ${taskId} AND id = ${noteId}
+      RETURNING id::text AS "id", task_id::text AS "taskId", actor AS "actor", actor_kind AS "actorKind",
+        body AS "body", source_key AS "sourceKey", created_at AS "createdAt", updated_at AS "updatedAt",
+        github_comment_id AS "githubCommentId", github_html_url AS "githubHtmlUrl",
+        publish_state AS "publishState", publish_error AS "publishError"
+    `
+    return rows[0] ?? null
   }
 
   // --- GitHub binding ------------------------------------------------------
