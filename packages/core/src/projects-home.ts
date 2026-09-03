@@ -170,3 +170,21 @@ export function relativePathFromWorkingDir(home: string, workingDir: string): st
     return null
   }
 }
+
+/**
+ * Path of a repository root relative to Projects Home: one segment for a
+ * Project, two for a repository inside a workspace directory. Both sides
+ * should be realpaths. Null when the root is not a strict descendant of the
+ * Home, sits deeper than two levels, or crosses a hidden or ignored name.
+ */
+export function relativeRepositoryPath(homeRealpath: string, rootRealpath: string): string | null {
+  const home = posix.normalize(homeRealpath).replace(/\/+$/, '')
+  const root = posix.normalize(rootRealpath).replace(/\/+$/, '')
+  if (home === '' || home === '/' || !home.startsWith('/') || !root.startsWith('/')) return null
+  if (root.includes('\0') || !isDescendantPath(home, root) || root === home) return null
+  const parts = root.slice(home.length).replace(/^\/+/, '').split('/')
+  if (parts.length === 0 || parts.length > 2) return null
+  if (!firstLevelCandidateName(parts[0]!)) return null
+  if (parts.length === 2 && (parts[1] === '' || HIDDEN.test(parts[1]!))) return null
+  return parts.join('/')
+}

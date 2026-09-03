@@ -11,10 +11,22 @@ portta analyze /path/to/project
 
 It reads the project and reports what adoption would take: every service and
 what it looks like, the host ports it publishes and what already holds them,
-fixed container names, datastores that are published, and whether the namespace
-is implicit. It writes nothing.
+fixed container names and whether the host already holds them, datastores that
+are published, whether the namespace is implicit, and whether the namespace is
+already in use by another checkout. It writes nothing. When the Compose file is
+not `compose.yaml` in that directory, name it with `--file deploy/compose.yaml`
+(relative to the path, or absolute): the file's directory becomes the project
+directory, and `init --file` writes the overlay next to it.
 
 Then generate the overlay:
+
+```bash
+portta init /path/to/project --project my-project
+```
+
+`--project` is optional. When supplied it writes `portta.project` on the
+routed services, so several Compose namespaces (for example worktrees) can be
+adopted by one logical Project without changing their isolation.
 
 ```bash
 portta init /path/to/project --dry-run   # see the file first

@@ -102,8 +102,8 @@ project Docker is running: an observation, read locally.
 | `envs logs <name>` | `--service <name>`, `--tail <lines>` |
 | `envs endpoints <name>` | The routed hostnames |
 | `envs services` | `--project <name>` |
-| `envs analyze <path>` | Read-only. |
-| `envs init <path>` | `--dry-run`, repeatable `--service <name:port>`, `--output`, `--force`; writing needs confirmation. |
+| `envs analyze <path>` | Read-only. `--file <path>` names the Compose file (relative to `<path>` or absolute) when it is not `compose.yaml` in `<path>`; the project directory is then the file's. |
+| `envs init <path>` | `--dry-run`, repeatable `--service <name:port>`, `--file`, `--project <slug>`, `--output`, `--force`; writing needs confirmation. With `--file` the overlay is written next to that Compose file. `--project` emits `portta.project` on routed services so worktree namespaces adopt the logical Project. |
 | `envs namespace` | `--path`, `--base`, `--suffix`, `--no-check` |
 | `tasks list` | `--project <slug>`, `--status <a,b>`, `--open`, `--mine`, `--assignee`, `--repository <id>`, `-q <text>` |
 | `tasks next` | `--project <slug>`. The task to take, or nothing |

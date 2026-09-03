@@ -107,6 +107,7 @@ See [tcp-routing.md](tcp-routing.md).
 | `PORTTA_WEB_USER` | owner of `.env` | User the panel container runs as, so Settings can save |
 | `PORTTA_APPLY` | `false` | Prepare the applier the panel may start to run `portta up` ([ADR 0026](adr/0026-applying-settings-from-the-panel.md)) |
 | `PORTTA_RUNNER` | `false` | Prepare the project runner the panel may start to drive Compose for one project ([ADR 0030](adr/0030-the-panel-and-a-project-lifecycle.md)) |
+| `PORTTA_PROJECTS_HOME` | `~/projects` (`/srv/projects` as root) | Projects Home, the directory managed Projects live under. `portta repos scan` reads it on the host; the panel only receives the path as a string to classify locations, and never mounts it ([ADR 0031](adr/0031-projects-home-and-project.md)) |
 | `PORTTA_DB_NETWORK` | `portta-data` | Internal panel-to-PostgreSQL network |
 | `PORTTA_DB_VOLUME` | `portta-db` | Named volume holding panel data |
 | `PORTTA_RUNTIME_DB_PASSWORD` | generated | **Secret.** Panel PostgreSQL credential |

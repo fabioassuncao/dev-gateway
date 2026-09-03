@@ -160,7 +160,7 @@ export interface ScanIndexEntry {
   remote: string | null
   /** Where the root sits relative to Projects Home, when a Home is configured */
   location: 'managed' | 'external' | 'escaped' | 'missing' | 'inaccessible' | null
-  /** First-level directory under Projects Home, when managed */
+  /** Path relative to Projects Home, one or two segments (a workspace directory may hold repositories), null outside it */
   relativePath: string | null
 }
 

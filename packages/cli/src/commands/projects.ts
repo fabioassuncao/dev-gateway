@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { basename, join, resolve } from 'node:path'
+import { existsSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, resolve } from 'node:path'
 import {
   branchSuffix,
   COMPOSE_DEPENDS_ON,
@@ -8,6 +8,7 @@ import {
   parseDependsOn,
   parseEnv,
   projectsFor,
+  type ContainerRecord,
 } from 'portta-core'
 import type { Command } from 'commander'
 import { z } from 'zod'
@@ -86,17 +87,28 @@ const ComposeService = z.object({
 const ComposeSchema = z.object({ name: z.string().optional(), services: z.record(z.string(), ComposeService) }).passthrough()
 type ComposeService = z.infer<typeof ComposeService>
 
-const DATASTORE = /postgres|postgis|timescale|mysql|mariadb|percona|redis|valkey|keydb|mongo|memcached|elasticsearch|opensearch|rabbitmq|kafka|clickhouse|cassandra|neo4j|minio|rustfs|mailpit|mailhog/i
-const HTTP_IMAGE = /nginx|httpd|apache|caddy|traefik|node|php|python|ruby|golang|openresty|haproxy|whoami|frankenphp/i
+const DATASTORE = /postgres|postgis|timescale|mysql|mariadb|percona|redis|valkey|keydb|mongo|memcached|elasticsearch|opensearch|rabbitmq|kafka|clickhouse|cassandra|neo4j/i
+const HTTP_IMAGE = /nginx|httpd|apache|caddy|traefik|node|php|python|ruby|golang|openresty|haproxy|whoami|frankenphp|mailpit|mailhog|rustfs|minio/i
 const WORKER_NAME = /(^|[-_])(worker|queue|scheduler|cron|consumer|beat|migrator|migrate|init|seed|setup)([-_]|$)/i
 const HTTP_NAME = /(^|[-_])(web|app|api|frontend|backend|site|www|http|nginx|server|ui|admin|dashboard|gateway)([-_]|$)/i
 
 function classifyCompose(image: string, name: string): 'datastore' | 'http' | 'worker' | 'unknown' {
+  if (WORKER_NAME.test(name)) return 'worker'
+  // A PHP, Node or Python image can just as legitimately be a queue consumer.
+  // The service's explicit worker-shaped name is stronger evidence than the
+  // generic runtime image.
   if (DATASTORE.test(image)) return 'datastore'
   if (HTTP_IMAGE.test(image)) return 'http'
-  if (WORKER_NAME.test(name)) return 'worker'
   if (HTTP_NAME.test(name)) return 'http'
   return 'unknown'
+}
+
+/** Known web consoles whose first exposed port is a non-HTTP protocol/API. */
+function detectedHttpPort(service: { image: string | null; container_ports: string[]; expose: string[] }): number {
+  const image = service.image ?? ''
+  if (/mailpit|mailhog/i.test(image)) return 8025
+  if (/rustfs|(?:^|\/)minio(?::|\/|$)/i.test(image)) return 9001
+  return Number(service.container_ports[0] ?? service.expose[0] ?? 80)
 }
 
 function publishedPorts(service: ComposeService): Array<{ host: string; container: string }> {
@@ -128,16 +140,59 @@ function composeCandidates(path: string): string[] {
   return ['compose.yaml', 'compose.yml', 'docker-compose.yaml', 'docker-compose.yml'].map((file) => join(path, file)).filter(existsSync)
 }
 
-async function analyze(pathValue: string) {
-  const path = resolve(pathValue)
-  const candidates = composeCandidates(path)
-  if (!candidates[0]) throw new UsageError(`no Compose file found in ${path}`)
-  let result = await runProcess('docker', ['compose', '-f', candidates[0], 'config', '--format', 'json'], { cwd: path, reject: false })
-  if (result.exitCode !== 0) result = await runProcess('docker', ['compose', '-f', candidates[0], 'config', '--format', 'json', '--no-interpolate'], { cwd: path })
+/** The host's containers, or nothing when Docker cannot be asked: the report is read-only and still worth printing. */
+async function hostContainers(): Promise<ContainerRecord[]> {
+  try {
+    return await inspectContainers()
+  } catch {
+    return []
+  }
+}
+
+function safeRealpath(path: string): string {
+  try {
+    return realpathSync(path)
+  } catch {
+    return resolve(path)
+  }
+}
+
+/** A top-level `name:` written in the file itself. `docker compose config` always prints one, so it cannot tell. */
+function declaredComposeName(file: string): string | null {
+  try {
+    const match = /^name:[ \t]*["']?([^"'\s#]+)/m.exec(readFileSync(file, 'utf8'))
+    return match?.[1] ?? null
+  } catch {
+    return null
+  }
+}
+
+export interface AnalyzeOptions {
+  /** The Compose file, relative to the directory argument or absolute. Without it the usual names are tried. */
+  file?: string
+}
+
+async function analyze(pathValue: string, options: AnalyzeOptions = {}, containers?: ContainerRecord[]) {
+  const base = resolve(pathValue)
+  let composeFile: string
+  if (options.file) {
+    composeFile = resolve(base, options.file)
+    if (!existsSync(composeFile)) throw new UsageError(`no Compose file at ${composeFile}`)
+  } else {
+    const candidates = composeCandidates(base)
+    if (!candidates[0]) throw new UsageError(`no Compose file found in ${base}`)
+    composeFile = candidates[0]
+  }
+  // The project directory is the file's: that is where Compose reads .env and
+  // where the overlay goes, whether the file was named or found.
+  const path = dirname(composeFile)
+  let result = await runProcess('docker', ['compose', '-f', composeFile, 'config', '--format', 'json'], { cwd: path, reject: false })
+  if (result.exitCode !== 0) result = await runProcess('docker', ['compose', '-f', composeFile, 'config', '--format', 'json', '--no-interpolate'], { cwd: path })
   const model = ComposeSchema.parse(JSON.parse(result.stdout))
   const overlay = ['compose.portta.yaml', 'compose.portta.yml'].find((file) => existsSync(join(path, file))) ?? null
   const projectFromEnv = existsSync(join(path, '.env')) ? parseEnv(readFileSync(join(path, '.env'), 'utf8')).get('COMPOSE_PROJECT_NAME') : undefined
-  const project = projectFromEnv || composeNamespace(model.name ?? basename(path))
+  const declaredName = declaredComposeName(composeFile)
+  const project = projectFromEnv || composeNamespace(declaredName ?? model.name ?? basename(path))
   const services = Object.entries(model.services).map(([name, service]) => ({
     name,
     image: service.image ?? null,
@@ -150,22 +205,51 @@ async function analyze(pathValue: string) {
     volumes: (service.volumes ?? []).map((volume) => typeof volume === 'string' ? volume.split(':')[0]! : volume.source ?? volume.target ?? ''),
     labels: labelsOf(service),
   }))
+
+  // What the host already runs, so a name this project would claim is reported
+  // before Compose recreates somebody else's container under it.
+  const running = containers ?? await hostContainers()
+  const realPath = safeRealpath(path)
+  const workingDirOf = (container: ContainerRecord): string | null => container.labels['com.docker.compose.project.working_dir'] ?? null
+  const isThisProject = (container: ContainerRecord): boolean => {
+    const dir = workingDirOf(container)
+    return container.labels['com.docker.compose.project'] === project && dir !== null && safeRealpath(dir) === realPath
+  }
+  const container_name_collisions = services.flatMap((service) => {
+    if (!service.container_name) return []
+    const holder = running.find((container) => container.name === service.container_name)
+    if (!holder || isThisProject(holder)) return []
+    const owner = holder.labels['com.docker.compose.project']
+    return [{ service: service.name, container_name: service.container_name, used_by: owner ? `Compose project ${owner}` : 'a container outside Compose', state: holder.state }]
+  })
+  const otherDirs = [...new Set(running
+    .filter((container) => container.labels['com.docker.compose.project'] === project && !isThisProject(container))
+    .map(workingDirOf)
+    .filter((dir): dir is string => dir !== null))].sort()
+
   return {
-    path, compose_file: basename(candidates[0]), gateway_overlay: overlay,
-    project: { name: project, source: projectFromEnv ? '.env' : 'directory name (implicit)' },
+    path, compose_file: basename(composeFile), gateway_overlay: overlay,
+    project: { name: project, source: projectFromEnv ? '.env' : declaredName ? 'compose name:' : 'directory name (implicit)' },
     domain: gatewayContext({ required: false }).config.domain, services,
     findings: {
       published_host_ports: services.filter((service) => service.published_ports.length > 0).map((service) => service.name),
       fixed_container_names: services.filter((service) => service.container_name).map((service) => service.name),
       published_datastores: services.filter((service) => service.kind === 'datastore' && service.published_ports.length > 0).map((service) => service.name),
-      implicit_namespace: !projectFromEnv,
+      implicit_namespace: !projectFromEnv && !declaredName,
       already_adopted: overlay !== null,
+      /** Fixed container names the host already has, and who holds them */
+      container_name_collisions,
+      /** Containers under this COMPOSE_PROJECT_NAME that run from another directory */
+      namespace_in_use: otherDirs.length > 0 ? { project, working_dirs: otherDirs } : null,
+      /** A top-level `name:` in the file, but no COMPOSE_PROJECT_NAME in .env: the overlay can only fall back to the written name */
+      name_without_env: declaredName !== null && !projectFromEnv ? declaredName : null,
     },
   }
 }
 
-export async function analyzeCommand(path: string, command: Command): Promise<void> {
-  const report = await analyze(path)
+export async function analyzeCommand(path: string, options: AnalyzeOptions, command: Command): Promise<void> {
+  const containers = await hostContainers()
+  const report = await analyze(path, options, containers)
   const output = new Output(globals(command))
   if (output.json) output.data(report)
   else {
@@ -179,7 +263,6 @@ export async function analyzeCommand(path: string, command: Command): Promise<vo
     output.line('\nServices')
     for (const service of report.services) output.line(`  ${service.name}\t${service.image ?? '<built>'}\t${service.kind}\t${service.published_ports.map((port) => `${port.host}:${port.container}`).join(',') || '-'}`)
     output.line('\nFindings')
-    const containers = await inspectContainers()
     if (report.findings.published_host_ports.length) {
       output.line('\n  Published host ports')
       for (const service of report.services) for (const port of service.published_ports) {
@@ -187,9 +270,25 @@ export async function analyzeCommand(path: string, command: Command): Promise<vo
         output.line(`    ${service.name}\t${port.host} -> ${port.container}${holder ? `  already held by ${holder.name}` : ''}`)
       }
     } else output.line('\n  No published host ports, so nothing can collide.')
-    if (report.findings.fixed_container_names.length) output.line(`\n  Fixed container names\n    ${report.findings.fixed_container_names.join(', ')}`)
+    if (report.findings.fixed_container_names.length) {
+      output.line('\n  Fixed container names')
+      for (const service of report.services) {
+        if (!service.container_name) continue
+        const collision = report.findings.container_name_collisions.find((entry) => entry.service === service.name)
+        output.line(`    ${service.name}\t${service.container_name}${collision ? `  already used by ${collision.used_by} (${collision.state})` : ''}`)
+      }
+    }
     if (report.findings.published_datastores.length) output.line(`\n  Datastores published on the host\n    ${report.findings.published_datastores.join(', ')}`)
     if (report.findings.implicit_namespace) output.line('\n  Namespace is implicit\n    COMPOSE_PROJECT_NAME is not set, so Compose uses the directory name')
+    if (report.findings.namespace_in_use) {
+      output.line(`\n  Namespace already in use\n    containers of a Compose project named ${report.findings.namespace_in_use.project} run from ${report.findings.namespace_in_use.working_dirs.join(', ')}`)
+      output.line('    starting this directory under the same name would take them over; give one of the two another name: portta namespace')
+    }
+    if (report.findings.name_without_env) {
+      output.line(`\n  Project name comes from the Compose file\n    ${report.compose_file} sets name: ${report.findings.name_without_env}, and .env does not define COMPOSE_PROJECT_NAME`)
+      output.line(`    the overlay writes \${COMPOSE_PROJECT_NAME:-${report.findings.name_without_env}}, so the hostnames follow name: and nothing needs changing;`)
+      output.line(`    set COMPOSE_PROJECT_NAME=${report.findings.name_without_env} in .env only if you also run \`docker compose -p\` with another name`)
+    }
     output.line('\nAdoption plan')
     if (report.gateway_overlay) output.line(`  This project already has ${report.gateway_overlay}.`)
     else for (const service of report.services.filter((service) => service.kind === 'http')) output.line(`  ${service.name}\tport ${service.container_ports[0] ?? service.expose[0] ?? '?'} -> http://${report.project.name}-${service.name}.${report.domain}`)
@@ -197,22 +296,45 @@ export async function analyzeCommand(path: string, command: Command): Promise<vo
   }
 }
 
-function renderOverlay(project: string, services: Array<{ name: string; port: number }>, network: string, domain: string): string {
-  const blocks = services.map(({ name, port }) => `  ${name}:\n    networks:\n      - default\n      - portta\n    labels:\n      - "traefik.enable=true"\n      - "traefik.docker.network=\${PORTTA_NETWORK:-${network}}"\n      - "traefik.http.services.\${COMPOSE_PROJECT_NAME:-${project}}-${name}.loadbalancer.server.port=${port}"`).join('\n\n')
+interface OverlayService {
+  name: string
+  port: number
+  /** The networks the resolved model already gives the service; `default` when it names none */
+  networks: string[]
+}
+
+/**
+ * The networks a routed service ends up on: the ones it already declares plus
+ * `portta`. Writing `default` for a service that names its own networks would
+ * make Compose create an unused `<project>_default`.
+ */
+export function overlayNetworks(declared: readonly string[]): string[] {
+  const names = declared.filter((name) => name !== 'portta')
+  return [...(names.length > 0 ? names : ['default']), 'portta']
+}
+
+export function renderOverlay(project: string, services: OverlayService[], network: string, domain: string, logicalProject?: string): string {
+  const blocks = services.map(({ name, port, networks }) => `  ${name}:\n    networks:\n${overlayNetworks(networks).map((entry) => `      - ${entry}`).join('\n')}\n    labels:\n      - "traefik.enable=true"\n      - "traefik.docker.network=\${PORTTA_NETWORK:-${network}}"${logicalProject ? `\n      - "portta.project=${logicalProject}"` : ''}\n      - "traefik.http.services.\${COMPOSE_PROJECT_NAME:-${project}}-${name}.loadbalancer.server.port=${port}"`).join('\n\n')
   return `# ============================================================================\n# Portta integration\n# ============================================================================\n# Generated by \`portta init\`. This file is yours: edit it freely.\n# Hostnames follow <COMPOSE_PROJECT_NAME>-<service>.${domain}.\n# Databases and caches remain only on the project's private network.\n# ============================================================================\n\nservices:\n${blocks}\n\nnetworks:\n  portta:\n    external: true\n    name: \${PORTTA_NETWORK:-${network}}\n`
 }
 
-export async function initCommand(pathValue: string, options: { dryRun?: boolean; service?: string[]; output?: string; force?: boolean }, command: Command): Promise<void> {
-  const report = await analyze(pathValue)
+export async function initCommand(pathValue: string, options: { dryRun?: boolean; service?: string[]; output?: string; force?: boolean; file?: string; project?: string }, command: Command): Promise<void> {
+  const report = await analyze(pathValue, { file: options.file }, [])
   const context = gatewayContext({ required: false })
-  const requested = options.service?.map((entry) => {
-    const match = /^([a-zA-Z0-9_.-]+):(\d+)$/.exec(entry)
-    if (!match) throw new UsageError(`invalid --service value: ${entry}; expected name:port`)
-    if (!report.services.some((service) => service.name === match[1])) throw new UsageError(`no service named ${match[1]} in ${report.compose_file}`)
-    return { name: match[1]!, port: Number(match[2]) }
-  }) ?? report.services.filter((service) => service.kind === 'http').map((service) => ({ name: service.name, port: Number(service.container_ports[0] ?? service.expose[0] ?? 80) }))
+  const requested: OverlayService[] = options.service && options.service.length > 0
+    ? options.service.map((entry) => {
+        const match = /^([a-zA-Z0-9_.-]+):(\d+)$/.exec(entry)
+        if (!match) throw new UsageError(`invalid --service value: ${entry}; expected name:port`)
+        const service = report.services.find((candidate) => candidate.name === match[1])
+        if (!service) throw new UsageError(`no service named ${match[1]} in ${report.compose_file}`)
+        return { name: service.name, port: Number(match[2]), networks: service.networks }
+      })
+    : report.services.filter((service) => service.kind === 'http').map((service) => ({ name: service.name, port: detectedHttpPort(service), networks: service.networks }))
   if (!requested.length) throw new RefusedError('no HTTP service was detected', 'pass --service name:port explicitly')
-  const content = renderOverlay(report.project.name, requested, context.config.network, context.config.domain)
+  if (options.project !== undefined && !/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/.test(options.project)) {
+    throw new UsageError(`invalid --project value: ${options.project}; expected a lowercase Project slug`)
+  }
+  const content = renderOverlay(report.project.name, requested, context.config.network, context.config.domain, options.project)
   const destination = resolve(report.path, options.output ?? 'compose.portta.yaml')
   const output = new Output(globals(command))
   if (options.dryRun) { output.data(content); return }

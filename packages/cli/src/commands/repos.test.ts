@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { basename, join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { INSTRUCTION_MAX_BYTES, repositoryKey } from 'portta-core'
 import { Output } from '../output.js'
 
@@ -15,12 +15,26 @@ vi.mock('../context.js', () => ({
 import { collectInstructions, refreshRepositories, scanRepositories } from './repos.js'
 
 const dirs: string[] = []
+// No test here talks to a real panel: the default is a panel that does not answer.
+beforeEach(() => { vi.stubGlobal('fetch', async () => { throw new Error('connection refused') }) })
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
   mocks.inspectContainers.mockReset()
   mocks.env = {}
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
+
+/** A panel with one Project and the repositories it registered. */
+function stubPanel(repositories: Array<{ localPath: string | null }>, status = 200): { urls: string[] } {
+  const urls: string[] = []
+  vi.stubGlobal('fetch', async (url: string) => {
+    urls.push(url)
+    const body = url.endsWith('/api/projects') ? { projects: [{ slug: 'hub' }] } : { repositories }
+    return new Response(JSON.stringify(status === 200 ? body : { error: 'no database' }), { status, headers: { 'content-type': 'application/json' } })
+  })
+  return { urls }
+}
 
 function temp(prefix: string): string {
   const dir = mkdtempSync(join(tmpdir(), prefix))
@@ -109,6 +123,73 @@ describe('scanRepositories', () => {
     expect(result.repositories.map((scan) => scan.name)).toEqual(['alpha'])
     expect(result.index.repositories[0]).toMatchObject({ name: 'alpha', location: 'managed', relativePath: 'alpha' })
     expect(result.index.home).toBeTruthy()
+  })
+
+  it('descends one level into a workspace directory, and no further', async () => {
+    gateway()
+    const home = temp('portta-home-')
+    repository(join(home, 'alpha'))
+    mkdirSync(join(home, 'workspace'))
+    repository(join(home, 'workspace', 'one'))
+    repository(join(home, 'workspace', 'two'))
+    repository(join(home, 'workspace', '.hidden'))
+    mkdirSync(join(home, 'workspace', 'plain'))
+    mkdirSync(join(home, 'workspace', 'deeper'))
+    repository(join(home, 'workspace', 'deeper', 'three'))
+    writeFileSync(join(home, 'workspace', 'notes.txt'), 'not a directory\n')
+    mocks.env = { PORTTA_PROJECTS_HOME: home }
+    mocks.inspectContainers.mockRejectedValue(new Error('no docker'))
+
+    const result = await scanRepositories({})
+    expect(result.index.repositories.map((entry) => [entry.name, entry.location, entry.relativePath])).toEqual([
+      ['alpha', 'managed', 'alpha'],
+      ['one', 'managed', 'workspace/one'],
+      ['two', 'managed', 'workspace/two'],
+    ])
+  })
+
+  it('collects the paths the panel registered, even where the Home walk does not look', async () => {
+    gateway()
+    const home = temp('portta-home-')
+    repository(join(home, 'BrasilDataHub'))
+    repository(join(home, 'BrasilDataHub', '.github')) // its own clone, in a hidden directory
+    const outside = repository(temp('portta-outside-'))
+    const { urls } = stubPanel([
+      { localPath: join(home, 'BrasilDataHub', '.github') },
+      { localPath: outside },
+      { localPath: '/nowhere/at/all' },
+      { localPath: null },
+    ])
+    mocks.env = { PORTTA_PROJECTS_HOME: home, PORTTA_WEB_PORT: '8081' }
+    mocks.inspectContainers.mockRejectedValue(new Error('no docker'))
+
+    const result = await scanRepositories({})
+    expect(result.repositories.map((scan) => scan.name).sort()).toEqual(['.github', 'BrasilDataHub', basename(outside)].sort())
+    expect(result.index.repositories.find((entry) => entry.name === '.github')).toMatchObject({ location: 'managed', relativePath: null, path: realpathSync(join(home, 'BrasilDataHub', '.github')) })
+    expect(urls).toEqual(['http://127.0.0.1:8081/api/projects', 'http://127.0.0.1:8081/api/projects/hub/repositories'])
+  })
+
+  it('goes on without the panel, and says so only when asked', async () => {
+    gateway()
+    const home = temp('portta-home-')
+    repository(join(home, 'alpha'))
+    mocks.env = { PORTTA_PROJECTS_HOME: home }
+    mocks.inspectContainers.mockRejectedValue(new Error('no docker'))
+
+    let stderr = ''
+    vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => { stderr += String(chunk); return true })
+    const refused = await scanRepositories({}, undefined, new Output({ verbose: true }))
+    expect(refused.repositories.map((scan) => scan.name)).toEqual(['alpha'])
+    expect(stderr).toContain('registered repositories skipped')
+
+    stubPanel([], 503)
+    const down = await scanRepositories({})
+    expect(down.repositories.map((scan) => scan.name)).toEqual(['alpha'])
+
+    // A targeted scan never asks the panel at all.
+    const { urls } = stubPanel([])
+    await scanRepositories({ path: join(home, 'alpha') })
+    expect(urls).toEqual([])
   })
 
   it('a targeted scan keeps what the full scan knew', async () => {

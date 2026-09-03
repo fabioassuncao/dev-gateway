@@ -12,10 +12,16 @@
 
 import { slug } from './namespace.ts'
 
-/** Every way Portta can classify a service. `tcp` is the honest fallback. */
+/**
+ * Every way Portta can classify a service. `tcp` is the honest fallback for a
+ * container that exposes a port and matches no rule. `worker` is a container
+ * with no port at all (a queue consumer, a scheduler, a loop): never returned
+ * by `serviceKind`, which only sees the image, and assigned by whoever also
+ * sees the ports.
+ */
 export const SERVICE_KINDS = [
   'http', 'postgres', 'mysql', 'redis', 'mongodb', 'memcached',
-  'search', 'amqp', 'clickhouse', 'smtp', 'tcp',
+  'search', 'amqp', 'clickhouse', 'smtp', 'tcp', 'worker',
 ] as const
 export type ServiceKind = (typeof SERVICE_KINDS)[number]
 

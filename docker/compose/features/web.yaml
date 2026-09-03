@@ -120,6 +120,9 @@ services:
       # The resolved gateway configuration, so the panel and the CLI always
       # describe the same gateway.
       PORTTA_PROFILE: ${PORTTA_PROFILE:-local}
+      # Projects Home as a string, for location classification only: no
+      # project directory is ever mounted here (docs/adr/0031-projects-home-and-project.md).
+      PORTTA_PROJECTS_HOME: ${PORTTA_PROJECTS_HOME:-}
       PORTTA_PROJECT_NAME: ${PORTTA_PROJECT_NAME:-portta}
       PORTTA_NETWORK: ${PORTTA_NETWORK:-portta}
       PORTTA_CONTROL_NETWORK: ${PORTTA_CONTROL_NETWORK:-portta-control}

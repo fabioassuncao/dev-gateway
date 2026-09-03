@@ -30,7 +30,7 @@ import {
   isInstructionPath,
   normalizeProjectsHome,
   parseGitLog,
-  relativePathFromWorkingDir,
+  relativeRepositoryPath,
   repositoryKey,
   repositoryName,
   type InstructionFile,
@@ -38,7 +38,8 @@ import {
   type ScanIndex,
   type ScanIndexEntry,
 } from 'portta-core'
-import { gatewayContext } from '../context.js'
+import { panelClient, segment } from '../api.js'
+import { gatewayContext, type GatewayContext } from '../context.js'
 import { inspectContainers } from '../docker.js'
 import { CliError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
@@ -88,11 +89,49 @@ interface Candidate {
 }
 
 /**
- * Every repository this scan should look at, from three sources: the working
- * directories of running Compose projects, the first level of Projects Home,
- * and an explicit --path. Deduplicated by realpath of the git root.
+ * The local paths the panel has registered. A repository the operator named by
+ * hand is collected even where the Home walk would not look: a hidden
+ * directory, a path outside the Home. There is no list-all route, so this is
+ * one request per Project. Panel down, no database, no credential, a remote
+ * URL without --allow-remote: an empty list, and the scan goes on.
  */
-export async function findCandidates(options: ReposScanOptions, env: NodeJS.ProcessEnv): Promise<{ candidates: Map<string, Candidate>; home: string | null }> {
+export async function registeredRepositoryPaths(context: GatewayContext, detail: (line: string) => void = () => {}): Promise<string[]> {
+  const skipped = (why: string): string[] => {
+    detail(`registered repositories skipped: ${why}`)
+    return []
+  }
+  let client: ReturnType<typeof panelClient>
+  try {
+    client = panelClient(context)
+  } catch (error) {
+    return skipped(error instanceof Error ? error.message : String(error))
+  }
+  try {
+    const projects = await client.answer('GET', '/projects')
+    if (!projects.ok) return skipped(`the panel answered ${projects.status} to /api/projects`)
+    const slugs = ((JSON.parse(projects.text) as { projects?: Array<{ slug?: string }> }).projects ?? []).map((project) => project.slug).filter((slug): slug is string => typeof slug === 'string')
+    const paths: string[] = []
+    for (const slug of slugs) {
+      const answer = await client.answer('GET', `/projects/${segment(slug)}/repositories`)
+      if (!answer.ok) continue
+      for (const repository of (JSON.parse(answer.text) as { repositories?: Array<{ localPath?: string | null }> }).repositories ?? []) {
+        if (typeof repository.localPath === 'string' && repository.localPath !== '') paths.push(repository.localPath)
+      }
+    }
+    return paths
+  } catch (error) {
+    return skipped(error instanceof Error ? error.message : String(error))
+  }
+}
+
+/**
+ * Every repository this scan should look at, from four sources: the working
+ * directories of running Compose projects, the paths the panel has registered,
+ * the first level of Projects Home (and one level below it, for workspace
+ * directories that hold repositories), and an explicit --path. Deduplicated
+ * by realpath of the git root.
+ */
+export async function findCandidates(options: ReposScanOptions, env: NodeJS.ProcessEnv, registered: readonly string[] = []): Promise<{ candidates: Map<string, Candidate>; home: string | null }> {
   const candidates = new Map<string, Candidate>()
   const add = (root: string, environment?: string, declaredRemote = '') => {
     const existing = candidates.get(root) ?? { root, declaredRemote: '', environments: new Set<string>() }
@@ -123,6 +162,16 @@ export async function findCandidates(options: ReposScanOptions, env: NodeJS.Proc
     if (root) add(root, name, container.labels['portta.repo'] ?? '')
   }
 
+  // A registered path is the operator's explicit ask, so it is not subject to
+  // the hidden-name rule of the Home walk: only to existing and being a work tree.
+  if (!options.environment && !options.path) {
+    for (const path of registered) {
+      if (!existsSync(path)) continue
+      const root = await gitRootOf(path)
+      if (root) add(root)
+    }
+  }
+
   let home: string | null = null
   const rawHome = env['PORTTA_PROJECTS_HOME']
   if (rawHome) {
@@ -142,16 +191,39 @@ export async function findCandidates(options: ReposScanOptions, env: NodeJS.Proc
     for (const entry of entries) {
       if (!firstLevelCandidateName(entry)) continue
       const path = join(home, entry)
+      if (!isDirectory(path)) continue
+      if (existsSync(join(path, '.git'))) {
+        const root = await gitRootOf(path)
+        if (root) add(root)
+        continue
+      }
+      // A workspace directory: one level down, and no further. A repository
+      // three levels deep is not offered; that keeps the walk bounded and the
+      // relative path at most two segments.
+      let children: string[] = []
       try {
-        if (!statSync(path).isDirectory() || !existsSync(join(path, '.git'))) continue
+        children = readdirSync(path)
       } catch {
         continue
       }
-      const root = await gitRootOf(path)
-      if (root) add(root)
+      for (const child of children) {
+        if (!firstLevelCandidateName(child)) continue
+        const childPath = join(path, child)
+        if (!isDirectory(childPath) || !existsSync(join(childPath, '.git'))) continue
+        const root = await gitRootOf(childPath)
+        if (root) add(root)
+      }
     }
   }
   return { candidates, home }
+}
+
+function isDirectory(path: string): boolean {
+  try {
+    return statSync(path).isDirectory()
+  } catch {
+    return false
+  }
 }
 
 function sha256(content: Buffer): string {
@@ -247,13 +319,14 @@ export interface ScanResult {
  * files it touched and merges into the existing index, so a targeted refresh
  * never forgets the repositories it did not look at.
  */
-export async function scanRepositories(options: ReposScanOptions = {}, profile?: string): Promise<ScanResult> {
+export async function scanRepositories(options: ReposScanOptions = {}, profile?: string, output = new Output({ quiet: true })): Promise<ScanResult> {
   if (options.forgeTtl !== undefined && !/^\d+$/.test(options.forgeTtl)) throw new UsageError('--forge-ttl must be a number of seconds')
   const context = gatewayContext({ profile })
   const directory = join(context.root, 'state/git')
   mkdirSync(directory, { recursive: true, mode: 0o700 })
-  const { candidates, home } = await findCandidates(options, context.env)
   const partial = Boolean(options.environment || options.path)
+  const registered = partial ? [] : await registeredRepositoryPaths(context, (line) => output.detail(line))
+  const { candidates, home } = await findCandidates(options, context.env, registered)
   const forgeTtl = Number(options.forgeTtl ?? 300)
   const now = Math.floor(Date.now() / 1000)
   const homeReal = home ? safeRealpath(home) : null
@@ -289,7 +362,7 @@ export async function scanRepositories(options: ReposScanOptions = {}, profile?:
       name: scan.name,
       remote: scan.git?.remote ?? null,
       location: home ? classifyProjectLocation({ home, path: candidate.root, homeRealpath: homeReal, pathRealpath: candidate.root }) : null,
-      relativePath: home ? relativePathFromWorkingDir(homeReal ?? home, candidate.root) : null,
+      relativePath: home ? relativeRepositoryPath(homeReal ?? home, candidate.root) : null,
     })
     for (const environment of scan.environments) environments[environment] = key
   }
@@ -306,8 +379,8 @@ export async function scanRepositories(options: ReposScanOptions = {}, profile?:
 }
 
 export async function reposScan(options: ReposScanOptions, command: Command): Promise<void> {
-  const result = await scanRepositories(options, globals(command).profile)
   const output = new Output(globals(command))
+  const result = await scanRepositories(options, globals(command).profile, output)
   if (output.json) output.data(result)
   else output.progress(`scanned ${result.repositories.length} repositor${result.repositories.length === 1 ? 'y' : 'ies'}`)
 }
@@ -367,7 +440,7 @@ export async function reposClear(command: Command): Promise<void> {
 /** Called from `up` and `web up`: never fatal, always says why it failed. */
 export async function refreshRepositories(profile: string | undefined, output: Output): Promise<void> {
   try {
-    await scanRepositories({}, profile)
+    await scanRepositories({}, profile, output)
   } catch (error) {
     output.warning(`repository metadata could not be refreshed: ${error instanceof Error ? error.message : String(error)}`)
   }
