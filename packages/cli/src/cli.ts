@@ -11,13 +11,13 @@ import { reposClear, reposScan, reposStatus } from './commands/repos.js'
 import { hostCollect, hostStatus, hostWatch } from './commands/host.js'
 import { configGet, configList, configSet } from './commands/config.js'
 import { setupCommand } from './commands/setup.js'
-import { authProtect, authStatus, authUnprotect } from './commands/auth.js'
+import { authProtect, authStatus, authTokenCreate, authTokenList, authTokenRevoke, authUnprotect } from './commands/auth.js'
 import { shareGc, shareList, shareRevoke } from './commands/share.js'
 import { tlsInit, tlsStatus, tlsTrust, tlsUntrust } from './commands/tls.js'
 import { backupCommand, repairCommand, restoreCommand } from './commands/maintenance.js'
 import { mcpCommand } from './commands/mcp.js'
 import { envLogs, overviewCommand, projectsActivity, projectsContext, projectsCreate, projectsList, projectsResources, projectsShow } from './commands/products.js'
-import { tasksComment, tasksCreate, tasksEdit, tasksFinish, tasksLink, tasksList, tasksNext, tasksNote, tasksPublish, tasksShow, tasksStart, tasksStatus, tasksSubtasks, tasksSync, tasksUnlink } from './commands/tasks.js'
+import { tasksComment, tasksCreate, tasksDelete, tasksEdit, tasksFinish, tasksGitHubStatus, tasksLink, tasksList, tasksNext, tasksNote, tasksPublish, tasksShow, tasksStart, tasksStatus, tasksSubtaskCreate, tasksSubtaskLink, tasksSubtasks, tasksSync, tasksUnlink } from './commands/tasks.js'
 import { examplesApply, tasksImport } from './commands/examples.js'
 import { sessionsEnd, sessionsHeartbeat, sessionsList, sessionsStart } from './commands/sessions.js'
 import { activityCommand } from './commands/activity.js'
@@ -187,6 +187,10 @@ describe(auth.command('protect <host>'), 'Create or rotate a hostname credential
   .option('--label <text>').option('--project <name>').option('--service <name>')
   .action(authProtect)
 describe(auth.command('unprotect <host>'), 'Remove a hostname credential without changing project labels').action((host, _options, command) => authUnprotect(host, command))
+const authToken = describe(auth.command('token'), 'Manage revocable API Bearer tokens')
+describe(panelOptions(authToken.command('list')), 'List API token metadata').action(authTokenList)
+describe(panelOptions(authToken.command('create'), false), 'Create a token; its secret is shown once').requiredOption('--name <name>').requiredOption('--actor <name>', 'actor authenticated by the new token').option('--human').option('--capabilities <a,b>').action(authTokenCreate)
+describe(panelOptions(authToken.command('revoke <id>')), 'Revoke an API token').action(authTokenRevoke)
 
 const db = describe(program.command('db'), 'Panel database operations and project database clients')
 describe(db.command('status'), 'Show panel PostgreSQL state').action((_options, command) => dbStatus(command))
@@ -216,29 +220,43 @@ describe(program.command('repair'), 'Recreate what is missing and fix what is pr
   .action(repairCommand)
 
 /** Every work command talks to the panel API, as the UI and `portta mcp` do. */
-function panelOptions(command: Command): Command {
-  return command
+function panelOptions(command: Command, includeActor = true): Command {
+  const configured = command
     .option('--url <url>', 'the panel API base URL; defaults to the local panel')
     .option('--allow-remote', 'permit a non-loopback panel URL, which is where a credential would be sent')
-    .option('--actor <name>', 'who is asking; recorded as X-Portta-Actor (PORTTA_ACTOR)')
+  return includeActor ? configured.option('--actor <name>', 'who is asking; recorded as X-Portta-Actor (PORTTA_ACTOR)') : configured
 }
 
-const tasks = describe(program.command('tasks'), "A Project's tasks: what is next, take one, note, finish")
-describe(panelOptions(tasks.command('list')), 'List tasks').option('--project <slug>').option('--status <a,b>', 'comma-separated statuses').option('--open', 'only what is not done').option('--mine', 'only tasks assigned to the actor').option('--assignee <name>').option('--repository <id>').option('-q, --q <text>', 'substring of the title').action(tasksList)
+const tasks = describe(program.command('tasks').alias('task'), "A Project's tasks: what is next, take one, note, finish")
+describe(panelOptions(tasks.command('list')), 'List tasks').option('--project <slug>').option('--status <a,b>', 'comma-separated statuses').option('--priority <a,b>').option('--type <type>').option('--label <label>').option('--open', 'only what is not done').option('--mine', 'only tasks assigned to the actor').option('--assignee <name>').option('--agent <name>').option('--repository <id>').option('--environment <name>').option('--service <name>').option('--parent <id>').option('-q, --q <text>', 'substring of the title').action(tasksList)
 describe(panelOptions(tasks.command('next')), 'The task to do next, or nothing').option('--project <slug>').action(tasksNext)
-describe(panelOptions(tasks.command('show <ref>')), 'One task, with its notes, subtasks and environments').action((ref, _options, command) => tasksShow(ref, command))
-describe(panelOptions(tasks.command('create')), 'Create a task').option('--project <slug>').option('--title <text>').option('--description <text>').option('--priority <level>', 'low, medium, high or urgent').option('--status <status>').option('--parent <ref>').option('--repository <id>').option('--environment <name>').option('--labels <a,b>').option('--assignee <name>').action(tasksCreate)
+describe(panelOptions(tasks.command('show <ref>').alias('view')), 'One task, with comments, subtasks and environments').action((ref, _options, command) => tasksShow(ref, command))
+describe(panelOptions(tasks.command('create')), 'Create a task').option('--project <slug>').option('--title <text>').option('--description <text>').option('--priority <level>', 'low, medium, high or urgent').option('--status <status>').option('--type <type>').option('--parent <ref>').option('--repository <id>').option('--environment <name>').option('--service <name>').option('--labels <a,b>').option('--assignee <name>').option('--agent <name>').option('--deadline <date>', 'YYYY-MM-DD').action(tasksCreate)
 describe(panelOptions(tasks.command('start <ref>')), 'Take a task: in_progress, assigned to the actor').option('--no-assign', 'move it without assigning').action(tasksStart)
 describe(panelOptions(tasks.command('status <ref> <status>')), 'Move a task to one status').action(tasksStatus)
-describe(panelOptions(tasks.command('finish <ref>')), 'Finish a task').option('--close', 'close the bound GitHub issue as well').action(tasksFinish)
-describe(panelOptions(tasks.command('edit <ref>')), 'Change a task').option('--title <text>').option('--description <text>').option('--priority <level>', 'a level, or none').option('--assignee <name>', 'a name, or none').option('--parent <ref>', 'a task, or none').option('--environment <name>', 'an environment, or none').option('--labels <a,b>').action(tasksEdit)
+describe(panelOptions(tasks.command('move <ref> <status>')), 'Move a task to a status and append it to that column').action(tasksStatus)
+describe(panelOptions(tasks.command('finish <ref>').alias('complete')), 'Finish a task').option('--close', 'close the bound GitHub issue as well').action(tasksFinish)
+describe(panelOptions(tasks.command('delete <ref>')), 'Delete a task and its subtasks').action((ref, _options, command) => tasksDelete(ref, command))
+describe(panelOptions(tasks.command('edit <ref>').alias('update')), 'Change a task').option('--title <text>').option('--description <text>').option('--status <status>').option('--priority <level>', 'a level, or none').option('--type <type>').option('--assignee <name>', 'a name, or none').option('--agent <name>', 'a name, or none').option('--parent <ref>', 'a task, or none').option('--repository <id>', 'an id, or none').option('--environment <name>', 'an environment, or none').option('--service <name>', 'a service, or none').option('--deadline <date>', 'YYYY-MM-DD or none').option('--labels <a,b>').action(tasksEdit)
 describe(panelOptions(tasks.command('note <ref> <text>')), 'Add a local note').action(tasksNote)
 describe(panelOptions(tasks.command('subtasks <ref>')), 'The subtask tree').action((ref, _options, command) => tasksSubtasks(ref, command))
-describe(panelOptions(tasks.command('link <ref> <issue>')), 'Bind a task to a projected GitHub issue (owner/repo#n)').action(tasksLink)
+const taskSubtask = describe(tasks.command('subtask'), 'Create, link and list subtasks')
+describe(panelOptions(taskSubtask.command('list <ref>')), 'List a task’s subtask tree').action((ref, _options, command) => tasksSubtasks(ref, command))
+describe(panelOptions(taskSubtask.command('create <ref>')), 'Create a subtask').requiredOption('--title <text>').option('--status <status>').option('--repository <id>').action(tasksSubtaskCreate)
+describe(panelOptions(taskSubtask.command('link <ref> <child>')), 'Link an existing task as a subtask').action(tasksSubtaskLink)
+describe(panelOptions(tasks.command('link <ref> <issue>')), 'Bind a task to a projected GitHub issue (owner/repo#n)').option('--pull', 'start by importing GitHub fields').option('--push', 'start by publishing Portta fields').action(tasksLink)
 describe(panelOptions(tasks.command('unlink <ref>')), 'Remove the GitHub binding').action((ref, _options, command) => tasksUnlink(ref, command))
 describe(panelOptions(tasks.command('publish <ref>')), 'Open a GitHub issue for a task and bind them').option('--repository <owner/name>').action(tasksPublish)
 describe(panelOptions(tasks.command('sync <ref>')), 'Push a pending edit to GitHub, or settle a conflict').option('--resolve <side>', 'local or remote').action(tasksSync)
-describe(panelOptions(tasks.command('comment <ref> <text>')), 'Comment on the bound GitHub issue').action(tasksComment)
+describe(panelOptions(tasks.command('comment <ref> [text]')), 'Add a local Markdown comment').option('-m, --message <text>').option('--file <path>').option('--stdin').action(tasksComment)
+for (const [name, status] of [['block', 'blocked'], ['review', 'review'], ['reopen', 'in_progress']] as const) {
+  describe(panelOptions(tasks.command(`${name} <ref>`)), `${name} a task`).action((ref, _options, command) => tasksStatus(ref, status, {}, command))
+}
+const taskGitHub = describe(tasks.command('github'), 'Operate the optional GitHub issue binding')
+describe(panelOptions(taskGitHub.command('status <ref>')), 'Show GitHub binding state').action((ref, _options, command) => tasksGitHubStatus(ref, command))
+describe(panelOptions(taskGitHub.command('link <ref> <issue>')), 'Link an issue').option('--pull').option('--push').action(tasksLink)
+describe(panelOptions(taskGitHub.command('publish <ref>')), 'Publish as a new GitHub issue').option('--repository <owner/name>').action(tasksPublish)
+describe(panelOptions(taskGitHub.command('sync <ref>')), 'Synchronize the binding').option('--resolve <side>', 'local or remote').action(tasksSync)
 describe(panelOptions(tasks.command('import')), 'Import a versioned task document').option('--project <slug>').option('--file <path>').action(tasksImport)
 
 const examples = describe(program.command('examples'), 'Declarative example projects and their tasks')

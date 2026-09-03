@@ -31,7 +31,7 @@ export function resolvePanelUrl(
   options: { url?: string; allowRemote?: boolean },
   fallbackPort: string,
 ): string {
-  const raw = options.url ?? env['PORTTA_PANEL_URL'] ?? `http://127.0.0.1:${fallbackPort}`
+  const raw = options.url ?? env['PORTTA_URL'] ?? env['PORTTA_PANEL_URL'] ?? `http://127.0.0.1:${fallbackPort}`
   const url = raw.replace(/\/+$/, '')
   if (!isLoopbackUrl(url) && !options.allowRemote) {
     throw new RefusedError(
@@ -43,8 +43,14 @@ export function resolvePanelUrl(
 }
 
 /** The panel credential, when the panel is authenticated. Never logged. */
-export function panelHeaders(env: Record<string, string | undefined>, actor: string): Record<string, string> {
-  const headers: Record<string, string> = { 'content-type': 'application/json', 'X-Portta-Actor': actor }
+export function panelHeaders(env: Record<string, string | undefined>, actor: string, actorKind?: 'human' | 'agent'): Record<string, string> {
+  const headers: Record<string, string> = { 'content-type': 'application/json', 'X-Portta-Actor': actor, 'X-Portta-Source': 'cli' }
+  if (actorKind) headers['X-Portta-Actor-Kind'] = actorKind
+  const token = env['PORTTA_TOKEN']
+  if (token) {
+    headers['authorization'] = `Bearer ${token}`
+    return headers
+  }
   const user = env['PORTTA_WEB_AUTH_USER']
   const password = env['PORTTA_PANEL_PASSWORD']
   if (user && password) {
@@ -75,7 +81,7 @@ function extractMessage(body: string): string {
   if (trimmed === '') return '(no detail)'
   try {
     const parsed = JSON.parse(trimmed) as { error?: unknown; message?: unknown; hint?: unknown }
-    const message = typeof parsed.error === 'string' ? parsed.error : typeof parsed.message === 'string' ? parsed.message : null
+    const message = typeof parsed.error === 'string' ? parsed.error : typeof parsed.error === 'object' && parsed.error && 'message' in parsed.error && typeof (parsed.error as { message?: unknown }).message === 'string' ? (parsed.error as { message: string }).message : typeof parsed.message === 'string' ? parsed.message : null
     if (message) return typeof parsed.hint === 'string' ? `${message} (${parsed.hint})` : message
   } catch {
     // not JSON: the body is the message
@@ -139,13 +145,14 @@ export interface PanelOptions {
   url?: string
   allowRemote?: boolean
   actor?: string
+  actorKind?: 'human' | 'agent'
 }
 
 /** The client a command uses, from the gateway context it already has. */
 export function panelClient(context: GatewayContext, options: PanelOptions = {}): PanelClient {
   const url = resolvePanelUrl(context.env, options, context.env['PORTTA_WEB_PORT'] ?? '8081')
   const actor = options.actor ?? context.env['PORTTA_ACTOR'] ?? context.env['PORTTA_MCP_ACTOR'] ?? process.env['USER'] ?? 'operator'
-  return new PanelClient(url, panelHeaders(context.env, actor))
+  return new PanelClient(url, panelHeaders(context.env, actor, options.actorKind))
 }
 
 /** `owner/repo#number` and a slug both have to survive a path segment. */

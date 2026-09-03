@@ -58,6 +58,12 @@ describe('panelHeaders', () => {
       .toBe(`Basic ${Buffer.from('dev:x').toString('base64')}`)
   })
 
+  it('prefers an API Bearer token for remote agent authentication', () => {
+    const headers = panelHeaders({ PORTTA_TOKEN: 'ptt_secret', PORTTA_WEB_AUTH_USER: 'dev', PORTTA_PANEL_PASSWORD: 'x' }, 'codex')
+    expect(headers['authorization']).toBe('Bearer ptt_secret')
+    expect(headers['X-Portta-Source']).toBe('cli')
+  })
+
   // The agent talks to the panel. The panel talks to GitHub. Nothing about the
   // App ever reaches this process, and a header named for one would mean it had.
   it('carries nothing that could be a GitHub credential', () => {
@@ -171,7 +177,9 @@ describe('the tools', () => {
       get_task: { task: 'acme/api#1' }, get_subtasks: { task: 'acme/api#1' },
       create_task: { project: 'produto', title: 'x' }, start_task: { task: 'acme/api#1' },
       set_task_status: { task: 'acme/api#1', status: 'review' }, add_task_note: { task: '1', body: 'found it' },
-      comment_task: { task: 'acme/api#1', body: 'on it' }, finish_task: { task: 'acme/api#1' }, link_task: { task: '1', issue: 'acme/api#1' },
+      update_task: { task: '1', priority: 'high' }, comment_task: { task: 'acme/api#1', body: 'on it' },
+      create_subtask: { task: '1', title: 'child' }, link_subtask: { task: '1', child: '2' },
+      finish_task: { task: 'acme/api#1' }, link_task: { task: '1', issue: 'acme/api#1', initialSync: 'pull' },
       start_session: { project: 'produto', taskId: '1' }, end_session: { session: '9' },
       start_environment: { environment: 'alpha' }, stop_environment: { environment: 'alpha' }, restart_service: { environment: 'alpha', service: 'api' },
     }

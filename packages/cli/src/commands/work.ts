@@ -13,8 +13,8 @@ export function workGlobals(command: Command): WorkGlobals {
   return command.optsWithGlobals() as WorkGlobals
 }
 
-export function clientFor(command: Command): { client: PanelClient; output: Output; globals: WorkGlobals } {
-  const globals = workGlobals(command)
+export function clientFor(command: Command, overrides: Partial<PanelOptions> = {}): { client: PanelClient; output: Output; globals: WorkGlobals } {
+  const globals = { ...workGlobals(command), ...overrides }
   const context = gatewayContext({ profile: globals.profile, required: false })
   return { client: panelClient(context, globals), output: new Output(globals), globals }
 }

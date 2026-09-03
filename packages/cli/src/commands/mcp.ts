@@ -20,7 +20,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import type { Command } from 'commander'
-import { PanelClient, describeFailure, isLoopbackUrl, panelHeaders, resolvePanelUrl } from '../api.js'
+import { PanelClient, describeFailure, isLoopbackUrl, panelHeaders, resolvePanelUrl, type HttpMethod } from '../api.js'
 import { gatewayContext } from '../context.js'
 import { PreconditionError } from '../errors.js'
 import { CLI_VERSION } from '../version.js'
@@ -43,7 +43,7 @@ type SdkToolResult = Awaited<ReturnType<Parameters<McpServer['registerTool']>[2]
 const asSdkResult = (result: Promise<ToolResult>) => result as Promise<SdkToolResult>
 
 export interface ApiCaller {
-  (method: 'GET' | 'POST' | 'PATCH', path: string, body?: unknown): Promise<ToolResult>
+  (method: HttpMethod, path: string, body?: unknown): Promise<ToolResult>
 }
 
 export function createCaller(url: string, headers: Record<string, string>, timeoutMs = 15_000): ApiCaller {
@@ -190,7 +190,13 @@ export function registerTools(server: McpServer, call: ApiCaller): void {
   server.registerTool('set_task_status', {
     title: 'Move a task to one status',
     inputSchema: { task: REF, status: STATUS },
-  }, async ({ task, status }) => asSdkResult(call('POST', `/tasks/${ref(task)}/status`, { status })))
+  }, async ({ task, status }) => asSdkResult(call('POST', `/tasks/${ref(task)}/move`, { status })))
+
+  server.registerTool('update_task', {
+    title: 'Partially update one task',
+    description: 'Only supplied fields change; concurrent clients do not overwrite the rest of the task.',
+    inputSchema: { task: REF, title: z.string().min(1).optional(), description: z.string().nullable().optional(), status: STATUS.optional(), priority: z.enum(['low', 'medium', 'high', 'urgent']).nullable().optional(), assignee: z.string().nullable().optional(), agent: z.string().nullable().optional(), labels: z.array(z.string()).optional() },
+  }, async ({ task, ...patch }) => asSdkResult(call('PATCH', `/tasks/${ref(task)}`, patch)))
 
   server.registerTool('add_task_note', {
     title: 'Add a note to a task',
@@ -199,10 +205,20 @@ export function registerTools(server: McpServer, call: ApiCaller): void {
   }, async ({ task, body }) => asSdkResult(call('POST', `/tasks/${ref(task)}/notes`, { body })))
 
   server.registerTool('comment_task', {
-    title: 'Comment on the bound GitHub issue',
-    description: 'Posts straight to GitHub and returns what GitHub returned. Only for a task bound to an issue.',
-    inputSchema: { task: REF, body: z.string().min(1).describe('Markdown, as GitHub renders it.') },
+    title: 'Add a local Markdown comment',
+    description: 'Always persists in Portta. Publishing a copy to a bound GitHub issue is a separate explicit API operation.',
+    inputSchema: { task: REF, body: z.string().min(1).describe('GitHub Flavored Markdown.') },
   }, async ({ task, body }) => asSdkResult(call('POST', `/tasks/${ref(task)}/comments`, { body })))
+
+  server.registerTool('create_subtask', {
+    title: 'Create a subtask',
+    inputSchema: { task: REF, title: z.string().min(1), status: STATUS.optional(), repositoryId: z.string().optional() },
+  }, async ({ task, ...body }) => asSdkResult(call('POST', `/tasks/${ref(task)}/subtasks`, body)))
+
+  server.registerTool('link_subtask', {
+    title: 'Link an existing task as a subtask',
+    inputSchema: { task: REF, child: REF },
+  }, async ({ task, child }) => asSdkResult(call('PUT', `/tasks/${ref(task)}/subtasks/${ref(child)}`, {})))
 
   server.registerTool('finish_task', {
     title: 'Finish a task',
@@ -212,8 +228,8 @@ export function registerTools(server: McpServer, call: ApiCaller): void {
 
   server.registerTool('link_task', {
     title: 'Bind a task to a projected GitHub issue',
-    inputSchema: { task: REF, issue: z.string().min(3).describe('owner/repo#number') },
-  }, async ({ task, issue }) => asSdkResult(call('POST', `/tasks/${ref(task)}/github/link`, { issue })))
+    inputSchema: { task: REF, issue: z.string().min(3).describe('owner/repo#number'), initialSync: z.enum(['pull', 'push']).describe('Import GitHub fields, or publish Portta fields.') },
+  }, async ({ task, issue, initialSync }) => asSdkResult(call('POST', `/tasks/${ref(task)}/github/link`, { issue, initialSync })))
 
   // --- sessions
   server.registerTool('start_session', {
@@ -249,7 +265,7 @@ export const TOOL_NAMES = [
   'list_projects', 'get_project', 'get_context', 'list_repositories', 'get_repository_git',
   'list_environments', 'get_environment', 'list_services', 'get_logs', 'get_resources', 'list_activity',
   'list_tasks', 'next_task', 'get_task', 'get_subtasks', 'create_task', 'start_task', 'set_task_status',
-  'add_task_note', 'comment_task', 'finish_task', 'link_task',
+  'update_task', 'add_task_note', 'comment_task', 'create_subtask', 'link_subtask', 'finish_task', 'link_task',
   'start_session', 'end_session',
   'start_environment', 'stop_environment', 'restart_service',
 ] as const
