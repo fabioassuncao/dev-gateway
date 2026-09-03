@@ -40,9 +40,14 @@
     "DNS": "DNS",
     "Panel": "Panel",
     "GitHub": "GitHub",
-    "Project domain": "Project domain"
+    "Project domain": "Project domain",
+    "Projects": "Projects"
   },
   "fields": {
+    "PORTTA_PROJECTS_HOME": {
+      "label": "Projects Home",
+      "help": "The one directory this installation manages Projects in. Changing it changes the reference; files are not moved. Existing environments outside this path stay visible as unmanaged. See docs/adr/0031-projects-home-and-project.md."
+    },
     "PORTTA_PROFILE": {
       "label": "Profile",
       "help": "Which set of Compose overlays the gateway starts with."
@@ -153,7 +158,7 @@
     },
     "PORTTA_WEB_EXPOSE": {
       "label": "Reachable from",
-      "help": "local is loopback only. vpn adds a Traefik router, and requires panel authentication."
+      "help": "local is loopback only. vpn adds a Traefik router, and requires panel authentication. See docs/adr/0021-panel-access-modes.md."
     },
     "PORTTA_WEB_READ_ONLY": {
       "label": "Read-only",

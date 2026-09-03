@@ -1,5 +1,5 @@
-import { cpSync, existsSync, mkdirSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { createReadStream, cpSync, existsSync, mkdirSync } from 'node:fs'
+import { basename, extname, join, resolve } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -25,6 +25,29 @@ function porttaDocs(): Plugin {
     name: 'portta-docs',
     resolveId: (source) => (source === id ? resolved : null),
     load: (source) => (source === resolved ? `export default ${JSON.stringify(collectDocs(REPOSITORY_ROOT))}` : null),
+    // In development the screenshots live on the host bind-mount; the built
+    // image copies them next to the bundle instead.
+    configureServer(server) {
+      const from = resolve(REPOSITORY_ROOT, '.github/images')
+      const types: Record<string, string> = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.svg': 'image/svg+xml',
+      }
+      server.middlewares.use((req, res, next) => {
+        const path = (req.url ?? '').split('?')[0] ?? ''
+        if (!path.startsWith('/docs/images/')) return next()
+        const name = basename(path)
+        if (name !== path.slice('/docs/images/'.length)) return next()
+        const file = join(from, name)
+        if (!existsSync(file)) return next()
+        res.setHeader('Content-Type', types[extname(name)] ?? 'application/octet-stream')
+        createReadStream(file).pipe(res)
+      })
+    },
     // The screenshots `docs/web-ui.md` references. Copied rather than imported
     // so the Markdown keeps working on GitHub with the paths it already has.
     closeBundle() {
@@ -44,5 +67,13 @@ export default defineConfig({
   build: {
     outDir: '../../dist/docs',
     emptyOutDir: true,
+  },
+  // Bound to loopback inside the UI container. The panel Vite proxies /docs
+  // here; HMR is off so nothing has to publish this port on the host.
+  server: {
+    host: '127.0.0.1',
+    port: 5174,
+    strictPort: true,
+    hmr: false,
   },
 })

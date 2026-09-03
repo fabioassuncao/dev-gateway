@@ -43,7 +43,7 @@ export function registerDocsRoutes(app: Hono, config: PanelConfig): void {
     app.get('/docs/*', (c) =>
       c.text(
         'The documentation is not built in this image.\n' +
-          'In development it is served by Vite; run: npm run build:docs --workspace=portta-web\n',
+          'In development the UI Vite proxies /docs; run: npm run dev:ui --workspace=portta-web\n',
         200,
       ))
   }

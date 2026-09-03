@@ -80,6 +80,14 @@ While the version is `0.x`, minor releases may contain breaking changes.
   absent from the Settings catalogue. A project without a Compose working
   directory label is reported as not operable, with a reason.
 
+### Fixed
+
+- **The documentation site opened the panel Overview in development.** Vite on
+  :5173 only proxied `/api`, so `/docs/` fell through to the panel SPA. A
+  second Vite now serves the docs app and the UI proxies `/docs` to it.
+  Citations to `docs/*.md` and `/docs` in Settings, diagnostics and empty
+  states are deep links to that page.
+
 ## [0.7.2] — 2026-09-02
 
 ### Fixed

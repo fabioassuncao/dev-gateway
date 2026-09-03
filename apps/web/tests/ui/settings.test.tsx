@@ -20,7 +20,7 @@ const { Settings } = await import('../../src/ui/pages/Settings.tsx')
 const view: ConfigView = {
   applyCommand: './bin/portta up local',
   pendingRestart: false,
-  groups: ['Gateway', 'TLS', 'VPN'],
+  groups: ['Gateway', 'TLS', 'VPN', 'Projects'],
   projectDomain: {
     mode: 'local',
     domain: 'localhost',
@@ -71,6 +71,19 @@ const view: ConfigView = {
       label: 'Tailscale auth key',
       help: 'Never leaves the host.',
       restartRequired: true,
+    },
+    {
+      key: 'PORTTA_PROJECTS_HOME',
+      value: '/srv/projects',
+      runtimeValue: '/srv/projects',
+      secret: false,
+      isSet: true,
+      pending: false,
+      kind: 'string',
+      group: 'Projects',
+      label: 'Projects Home',
+      help: 'See docs/adr/0031-projects-home-and-project.md.',
+      restartRequired: false,
     },
   ],
 }
@@ -196,6 +209,14 @@ describe('Settings', () => {
     renderWithQuery(<Settings group={null} />)
     await screen.findByLabelText('Custom domain')
     await waitFor(() => expect(window.location.hash).toBe('#/settings/gateway'))
+  })
+
+  it('turns a documentation citation in help into a deep link', async () => {
+    renderWithQuery(<Settings group="projects" />)
+    const link = await screen.findByRole('link', { name: 'docs/adr/0031-projects-home-and-project.md' })
+    expect(link).toHaveAttribute('href', '/docs/#/adr/0031-projects-home-and-project')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noreferrer')
   })
 
   it('shows an empty state for an unknown group without hiding the navigation', async () => {

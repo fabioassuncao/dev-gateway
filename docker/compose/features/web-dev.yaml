@@ -48,12 +48,22 @@ services:
     command: ["npm", "run", "dev:ui"]
     environment:
       NODE_ENV: development
-      # Vite proxies /api to the API container beside it.
+      # Vite proxies /api to the API container beside it. /docs is the
+      # documentation Vite on loopback :5174, started by the same command.
       PORTTA_RUNTIME_API_TARGET: http://web:8081
     volumes:
       - ./apps/web/src:/app/apps/web/src
+      - ./apps/web/package.json:/app/apps/web/package.json:ro
+      - ./apps/web/scripts:/app/apps/web/scripts:ro
       - ./apps/web/vite.config.ts:/app/apps/web/vite.config.ts:ro
+      - ./apps/web/vite.docs.config.ts:/app/apps/web/vite.docs.config.ts:ro
       - ./apps/web/tsconfig.json:/app/apps/web/tsconfig.json:ro
+      # The documentation Vite reads these at request time, the same set the
+      # production image bakes in. Without them /docs would collect nothing.
+      - ./docs:/app/docs:ro
+      - ./README.md:/app/README.md:ro
+      - ./CHANGELOG.md:/app/CHANGELOG.md:ro
+      - ./.github/images:/app/.github/images:ro
     networks:
       # The shared network, not the panel's control network: a container
       # attached only to an `internal` network cannot publish a host port, and

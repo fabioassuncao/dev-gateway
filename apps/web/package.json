@@ -10,7 +10,8 @@
   },
   "scripts": {
     "dev": "node --conditions=development --watch src/server/index.ts",
-    "dev:ui": "vite",
+    "dev:ui": "node scripts/dev-frontends.mjs",
+    "dev:docs": "vite --config vite.docs.config.ts",
     "build": "npm run build:ui && npm run build:auth-ui && npm run build:docs && npm run build:server",
     "build:ui": "vite build",
     "build:auth-ui": "vite build --config vite.auth.config.ts",

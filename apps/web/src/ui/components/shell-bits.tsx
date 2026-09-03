@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { cn } from '../lib/utils.ts'
 import { translateApiError, translateApiHint } from '../i18n/translate-error.ts'
+import { DocText } from './doc-text.tsx'
 
 export function PageHeader({
   title,
@@ -47,7 +48,9 @@ export function ErrorBox({ error }: { error: unknown }) {
         {message}
       </div>
       {translatedHint && translatedHint !== message ? (
-        <p className="mt-1 pl-6 text-xs opacity-80">{translatedHint}</p>
+        <p className="mt-1 pl-6 text-xs opacity-80">
+          <DocText>{translatedHint}</DocText>
+        </p>
       ) : null}
     </div>
   )
@@ -57,7 +60,11 @@ export function Empty({ title, hint }: { title: string; hint?: ReactNode }) {
   return (
     <div className="px-4 py-10 text-center">
       <p className="text-sm text-muted">{title}</p>
-      {hint ? <p className="mx-auto mt-1 max-w-lg text-xs text-subtle">{hint}</p> : null}
+      {hint ? (
+        <p className="mx-auto mt-1 max-w-lg text-xs text-subtle">
+          {typeof hint === 'string' ? <DocText>{hint}</DocText> : hint}
+        </p>
+      ) : null}
     </div>
   )
 }

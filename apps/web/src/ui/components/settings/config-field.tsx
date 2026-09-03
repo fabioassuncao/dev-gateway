@@ -1,5 +1,6 @@
 import type { ConfigField as ConfigFieldView } from '../../../shared/types.ts'
 import { useTranslation } from 'react-i18next'
+import { DocText } from '../doc-text.tsx'
 import { Badge } from '../ui/badge.tsx'
 import { Button } from '../ui/button.tsx'
 import { Input, Select } from '../ui/field.tsx'
@@ -76,7 +77,7 @@ export function ConfigField({
       ) : null}
 
       <p className="text-xs text-muted">
-        {t(`fields.${field.key}.help`, { defaultValue: field.help })}
+        <DocText>{t(`fields.${field.key}.help`, { defaultValue: field.help })}</DocText>
       </p>
       <p className="font-mono text-[10px] text-subtle">{field.key}</p>
     </div>

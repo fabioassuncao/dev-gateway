@@ -142,6 +142,12 @@ their own. A new SQL file is visible to the next `portta db migrate` (or
 the next `make dev`) without rebuilding the image. `node --watch` does not
 reload `.sql`; apply it explicitly.
 
+The book icon and every `/docs/#/…` deep link stay on that same port. `dev:ui`
+starts a second Vite for the documentation site (loopback :5174, no HMR) and
+the UI Vite proxies `/docs` to it, so a click never falls through to the
+panel Overview. The Markdown under `docs/`, `README.md` and `CHANGELOG.md` is
+bind-mounted; production still serves the bundle baked into the image.
+
 `./bin/portta web up` goes back to the built image.
 
 If you do have Node on the host and prefer to work outside containers:
@@ -149,7 +155,7 @@ If you do have Node on the host and prefer to work outside containers:
 ```bash
 npm ci                 # from the repository root; installs every workspace
 npm run dev --workspace=portta-web        # API on :8081
-npm run dev:ui --workspace=portta-web     # Vite on :5173
+npm run dev:ui --workspace=portta-web     # Vite on :5173, docs proxied from :5174
 npm test --workspace=portta-web
 npm run test:e2e --workspace=portta-web
 npm run openapi --workspace=portta-web    # refresh apps/web/openapi.json

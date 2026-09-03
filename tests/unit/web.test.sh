@@ -380,6 +380,12 @@ assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./apps/web/migrat
 it "publishes the UI on its own port, which is where the panel answers"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "PORTTA_WEB_DEV_PORT:-5173"
 
+it "mounts the documentation so the docs Vite can collect it"
+assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./docs:/app/docs:ro"
+
+it "mounts the docs Vite config beside the UI one"
+assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./apps/web/vite.docs.config.ts:/app/apps/web/vite.docs.config.ts:ro"
+
 it "the checkout migrator builds the auth image before running"
 assert_contains "$(sed -n '/export function authMigrationRunArguments/,/^}/p' packages/cli/src/commands/lifecycle.ts)" "'--build'"
 

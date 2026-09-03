@@ -14,6 +14,9 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import MarkdownIt from 'markdown-it'
+import { slugFor } from '../shared/docs.ts'
+
+export { slugFor } from '../shared/docs.ts'
 
 export interface DocHeading {
   id: string
@@ -47,13 +50,6 @@ export interface DocsBundle {
 }
 
 const GITHUB_BLOB = 'https://github.com/fabioassuncao/portta/blob/main'
-
-/** `docs/install.md` -> `install`; `docs/adr/0007-x.md` -> `adr/0007-x`. */
-export function slugFor(repoPath: string): string {
-  if (repoPath === 'README.md') return 'overview'
-  if (repoPath === 'CHANGELOG.md') return 'changelog'
-  return repoPath.replace(/^docs\//, '').replace(/\.md$/, '').replace(/\/README$/, '')
-}
 
 export function headingId(text: string): string {
   return text
