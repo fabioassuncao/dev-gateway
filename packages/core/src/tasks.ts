@@ -84,6 +84,47 @@ export function shouldPromoteDraft(current: DraftLike, patch: Partial<DraftLike>
   return !isIntactDraft(next)
 }
 
+/**
+ * What kind of work a task is.
+ *
+ * Unlike status and priority this stays a free-text column, because the values
+ * arrive from elsewhere: a GitHub label, an imported plan, an agent writing
+ * whatever the repository calls it. Forcing an enum would mean a migration
+ * that throws away what those callers meant.
+ *
+ * What was missing was a vocabulary, so the same idea was spelled four ways
+ * and coloured four ways. This is the recommended set: the panel offers it,
+ * normalises the aliases that mean the same thing, and still renders a value
+ * that is none of them.
+ */
+export const TASK_TYPE_CATALOG = [
+  { id: 'feature', tone: 'accent', aliases: ['feat', 'features', 'enhancement-request', 'story'] },
+  { id: 'bug', tone: 'danger', aliases: ['fix', 'bugfix', 'defect', 'regression'] },
+  { id: 'improvement', tone: 'info', aliases: ['enhancement', 'refactor', 'perf', 'performance'] },
+  { id: 'chore', tone: 'neutral', aliases: ['task', 'maintenance', 'build', 'ci', 'deps'] },
+  { id: 'research', tone: 'agent', aliases: ['spike', 'investigation', 'discovery'] },
+  { id: 'documentation', tone: 'outline', aliases: ['docs', 'doc'] },
+] as const
+
+export type TaskType = (typeof TASK_TYPE_CATALOG)[number]['id']
+export const TASK_TYPES = TASK_TYPE_CATALOG.map((entry) => entry.id) as readonly TaskType[]
+
+/**
+ * The catalogued type a raw value means, or null when it means something this
+ * vocabulary does not cover. Never rewrites the stored value: a task typed
+ * "spike" keeps saying "spike" and is shown the way research is shown.
+ */
+export function taskTypeOf(raw: string | null | undefined): TaskType | null {
+  if (!raw) return null
+  const needle = raw.trim().toLowerCase().replace(/[\s_]+/g, '-')
+  if (needle === '') return null
+  for (const entry of TASK_TYPE_CATALOG) {
+    if (entry.id === needle) return entry.id
+    if ((entry.aliases as readonly string[]).includes(needle)) return entry.id
+  }
+  return null
+}
+
 export const TASK_SYNC_STATES = ['synced', 'pending', 'conflict', 'error'] as const
 export type TaskSyncState = (typeof TASK_SYNC_STATES)[number]
 

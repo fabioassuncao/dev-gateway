@@ -914,6 +914,19 @@ export const HostGpuInfo = named(
 )
 export type HostGpuInfo = z.infer<typeof HostGpuInfo>
 
+export const HostBatteryInfo = named(
+  z.object({
+    hasBattery: z.literal(true),
+    percent: nullableNumber.describe('0-1'),
+    charging: z.boolean(),
+    acConnected: z.boolean(),
+    minutesRemaining: z.number().int().nullable(),
+    cycleCount: z.number().int().nullable(),
+  }).strict(),
+  'HostBatteryInfo',
+)
+export type HostBatteryInfo = z.infer<typeof HostBatteryInfo>
+
 export const HostStorageInfo = named(
   z.object({
     path: z.string(),
@@ -953,6 +966,8 @@ export const HostMetrics = named(
     load: HostLoad.nullable(),
     storage: HostStorageInfo.nullable(),
     gpu: z.array(HostGpuInfo),
+    temperatureCelsius: nullableNumber.describe('CPU package temperature in Celsius, where the platform reports one'),
+    battery: HostBatteryInfo.nullable().describe('Absent on a host with no battery'),
   }).strict(),
   'HostMetrics',
 )
@@ -1037,6 +1052,7 @@ export const MetricsHistoryPoint = named(
       storageUsedPercent: nullableNumber,
       load: HostLoad.nullable(),
       gpuUtilisation: nullableNumber,
+      temperatureCelsius: nullableNumber,
     }).strict(),
     projects: z.array(z.object({
       id: z.string(),

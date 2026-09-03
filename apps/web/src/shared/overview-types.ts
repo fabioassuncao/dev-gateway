@@ -10,6 +10,25 @@ import { Service } from './service-types.ts'
 const named = <T extends z.ZodType>(schema: T, ref: string): T => schema.meta({ ref }) as T
 const unixSeconds = z.number().describe('Unix timestamp in seconds')
 
+/**
+ * The host's state in one word, and the readings behind it. Computed from the
+ * metrics the collector already writes; `measured: false` means the collector
+ * is off or the snapshot is old, and the level says nothing.
+ */
+export const HostPressure = named(
+  z.object({
+    level: z.enum(['normal', 'watch', 'pressured', 'critical']),
+    measured: z.boolean(),
+    reasons: z.array(z.object({
+      resource: z.enum(['cpu', 'memory', 'swap', 'storage', 'gpu', 'temperature', 'load', 'battery']),
+      level: z.enum(['watch', 'pressured', 'critical']),
+      value: z.number().describe('A ratio for anything measured 0-1, else the raw reading'),
+    }).strict()),
+  }).strict(),
+  'HostPressure',
+)
+export type HostPressure = z.infer<typeof HostPressure>
+
 export const AttentionItem = named(
   z.object({
     kind: z.enum(['service-unhealthy', 'environment-degraded', 'diagnostic', 'host-pressure', 'task-conflict', 'task-blocked', 'session-stale']),
@@ -107,6 +126,7 @@ export const DevelopmentOverview = named(
         storageUsedPercent: z.number().nullable(),
         stale: z.boolean(),
         collectorActive: z.boolean(),
+        pressure: HostPressure,
       }).strict().nullable(),
       topProjects: z.array(z.object({ slug: z.string().nullable(), name: z.string(), environment: z.string(), cpuUtilisation: z.number().nullable(), memoryUsedBytes: z.number().nullable() }).strict()),
     }).strict(),

@@ -12,16 +12,24 @@
     "description": "{{open}} abertas · {{inProgress}} em andamento · {{review}} em revisão · {{blocked}} bloqueadas",
     "empty": "Nenhuma tarefa aberta",
     "emptyHint": "Abra um projeto e crie uma, ou deixe um agente pegar a próxima com portta tasks next.",
-    "nothingInProgress": "Nada em andamento agora"
+    "nothingInProgress": "Nada em andamento agora",
+    "open": "abertas",
+    "goToBoard": "Abrir quadro"
   },
   "sessions": {
-    "description": "Quem está trabalhando, em quê, desde quando."
+    "description": "Quem está trabalhando, em quê, desde quando.",
+    "title": "Agentes e sessões",
+    "empty": "Nenhum agente trabalhando agora",
+    "emptyHint": "Uma sessão aparece aqui quando um agente ou uma pessoa inicia uma sobre uma tarefa."
   },
   "attention": {
     "title": "Precisa de atenção",
     "description": "Serviços unhealthy, environments degradados, conflitos, host sob pressão e o que o gateway verifica.",
     "diagnostics": "Diagnósticos",
-    "none": "Nada precisa de atenção."
+    "none": "Nada precisa de atenção.",
+    "count": "{{count}} para agir",
+    "count_one": "{{count}} para agir",
+    "count_other": "{{count}} para agir"
   },
   "projects": {
     "title": "Projetos",
@@ -34,12 +42,15 @@
     "description": "Commits recentes em todos os repositórios, e os repositórios com alterações locais.",
     "uncommitted": "{{count}} sem commit",
     "empty": "Nenhum commit coletado ainda",
-    "emptyHint": "O coletor do host varre cada repositório uma vez por minuto; portta repos scan faz isso agora."
+    "emptyHint": "O coletor do host varre cada repositório uma vez por minuto; portta repos scan faz isso agora.",
+    "dirty": "Alterações locais",
+    "recent": "Commits recentes"
   },
   "resources": {
     "top": "Usando este host",
     "topDescription": "Environments por memória. Pare um daqui quando o host estiver sob pressão.",
-    "none": "Nada medido"
+    "none": "Nada medido",
+    "environments": "Ambientes"
   },
   "reduced": {
     "needsDatabase": "O painel de desenvolvimento precisa do banco de dados do painel",
@@ -76,7 +87,28 @@
       "docker-desktop": "Docker Desktop",
       "docker-engine": "Docker Engine",
       "unknown": "Desconhecido"
-    }
+    },
+    "summary": "Host",
+    "details": "Detalhes do host",
+    "showDetails": "Mostrar detalhes do host",
+    "hideDetails": "Ocultar detalhes do host",
+    "temperature": "Temp",
+    "battery": "Bateria",
+    "loadLabel": "Carga",
+    "loadPerCore": "{{value}} por núcleo",
+    "charging": "carregando",
+    "onMains": "na tomada",
+    "onBattery": "na bateria",
+    "remaining": "restam {{time}}",
+    "cycles": "{{count}} ciclos",
+    "uptime": "Tempo ativo",
+    "gpuMemory": "Memória da GPU",
+    "kernel": "Kernel",
+    "architecture": "Arquitetura",
+    "virtual": "Máquina virtual",
+    "history": "{{label}} nos últimos {{minutes}} minutos",
+    "notMeasured": "não medido",
+    "openMetrics": "Abrir a visão de recursos"
   },
   "consumption": {
     "title": "Consumo por projeto",
@@ -85,5 +117,29 @@
     "memory": "RAM",
     "containers": "{{count}} containers",
     "open": "Abrir"
+  },
+  "pressure": {
+    "label": "Host",
+    "normal": "Normal",
+    "watch": "Atenção",
+    "pressured": "Sob pressão",
+    "critical": "Crítico",
+    "unmeasured": "Não medido",
+    "because": "Porque: {{reasons}}",
+    "normalHint": "Todos os recursos que este host reporta estão em faixa confortável.",
+    "unmeasuredHint": "Sem snapshot recente, então o estado do host é desconhecido.",
+    "reason": {
+      "cpu": "CPU em {{value}}",
+      "memory": "RAM em {{value}}",
+      "swap": "swap em {{value}}",
+      "storage": "disco em {{value}}",
+      "gpu": "GPU em {{value}}",
+      "temperature": "CPU a {{value}}",
+      "load": "carga {{value}} por núcleo",
+      "battery": "bateria em {{value}}"
+    }
+  },
+  "gateway": {
+    "label": "Gateway"
   }
 }

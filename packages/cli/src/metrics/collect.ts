@@ -85,12 +85,16 @@ async function collectProjects(): Promise<MetricsSnapshot['projects']> {
 export async function collectSnapshot(root: string, now = Date.now()): Promise<MetricsSnapshot> {
   const collectedAt = Math.floor(now / 1000)
   const facts = await loadStaticFacts()
-  const [mem, currentLoad, fsSize, operatingSystem, time] = await Promise.allSettled([
+  const [mem, currentLoad, fsSize, operatingSystem, time, cpuTemperature, battery] = await Promise.allSettled([
     si.mem(),
     si.currentLoad(),
     si.fsSize(),
     dockerOperatingSystem(),
     Promise.resolve(si.time()),
+    // Both are cheap and both are absent on most servers, where they settle
+    // to a rejected promise or an empty reading and contribute nothing.
+    si.cpuTemperature(),
+    si.battery(),
   ])
 
   const os = (facts?.os ?? {}) as { hostname?: string }
@@ -107,6 +111,8 @@ export async function collectSnapshot(root: string, now = Date.now()): Promise<M
     loadavg: loadavg(),
     graphics: facts?.graphics,
     time: value(time),
+    cpuTemperature: value(cpuTemperature),
+    battery: value(battery),
     storage: filesystemForPath(root, mounts),
   })
 

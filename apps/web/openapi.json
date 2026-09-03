@@ -5834,6 +5834,61 @@
         ],
         "additionalProperties": false
       },
+      "HostBatteryInfo": {
+        "type": "object",
+        "properties": {
+          "hasBattery": {
+            "type": "boolean",
+            "const": true
+          },
+          "percent": {
+            "description": "0-1",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "charging": {
+            "type": "boolean"
+          },
+          "acConnected": {
+            "type": "boolean"
+          },
+          "minutesRemaining": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cycleCount": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "hasBattery",
+          "percent",
+          "charging",
+          "acConnected",
+          "minutesRemaining",
+          "cycleCount"
+        ],
+        "additionalProperties": false
+      },
       "HostMetrics": {
         "type": "object",
         "properties": {
@@ -5996,6 +6051,24 @@
             "items": {
               "$ref": "#/components/schemas/HostGpuInfo"
             }
+          },
+          "temperatureCelsius": {
+            "description": "CPU package temperature in Celsius, where the platform reports one",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "battery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HostBatteryInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Absent on a host with no battery"
           }
         },
         "required": [
@@ -6021,7 +6094,9 @@
           "cpuIdle",
           "load",
           "storage",
-          "gpu"
+          "gpu",
+          "temperatureCelsius",
+          "battery"
         ],
         "additionalProperties": false
       },
@@ -6341,6 +6416,12 @@
                   "number",
                   "null"
                 ]
+              },
+              "temperatureCelsius": {
+                "type": [
+                  "number",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -6349,7 +6430,8 @@
               "memoryUsedPercent",
               "storageUsedPercent",
               "load",
-              "gpuUtilisation"
+              "gpuUtilisation",
+              "temperatureCelsius"
             ],
             "additionalProperties": false
           },
@@ -9696,6 +9778,68 @@
         ],
         "additionalProperties": false
       },
+      "HostPressure": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "watch",
+              "pressured",
+              "critical"
+            ]
+          },
+          "measured": {
+            "type": "boolean"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "resource": {
+                  "type": "string",
+                  "enum": [
+                    "cpu",
+                    "memory",
+                    "swap",
+                    "storage",
+                    "gpu",
+                    "temperature",
+                    "load",
+                    "battery"
+                  ]
+                },
+                "level": {
+                  "type": "string",
+                  "enum": [
+                    "watch",
+                    "pressured",
+                    "critical"
+                  ]
+                },
+                "value": {
+                  "type": "number",
+                  "description": "A ratio for anything measured 0-1, else the raw reading"
+                }
+              },
+              "required": [
+                "resource",
+                "level",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "level",
+          "measured",
+          "reasons"
+        ],
+        "additionalProperties": false
+      },
       "DevelopmentOverview": {
         "type": "object",
         "properties": {
@@ -9881,6 +10025,9 @@
                       },
                       "collectorActive": {
                         "type": "boolean"
+                      },
+                      "pressure": {
+                        "$ref": "#/components/schemas/HostPressure"
                       }
                     },
                     "required": [
@@ -9888,7 +10035,8 @@
                       "memoryUsedPercent",
                       "storageUsedPercent",
                       "stale",
-                      "collectorActive"
+                      "collectorActive",
+                      "pressure"
                     ],
                     "additionalProperties": false
                   },

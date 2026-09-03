@@ -12,16 +12,24 @@
     "description": "{{open}} open · {{inProgress}} in progress · {{review}} in review · {{blocked}} blocked",
     "empty": "No open task",
     "emptyHint": "Open a project and create one, or let an agent pick the next one from portta tasks next.",
-    "nothingInProgress": "Nothing in progress right now"
+    "nothingInProgress": "Nothing in progress right now",
+    "open": "open",
+    "goToBoard": "Open board"
   },
   "sessions": {
-    "description": "Who is working, on what, since when."
+    "description": "Who is working, on what, since when.",
+    "title": "Agents and sessions",
+    "empty": "No agent is working right now",
+    "emptyHint": "A session appears here when an agent or a person starts one against a task."
   },
   "attention": {
     "title": "Needs attention",
     "description": "Unhealthy services, degraded environments, conflicts, a host under pressure, and what the gateway checks.",
     "diagnostics": "Diagnostics",
-    "none": "Nothing needs attention."
+    "none": "Nothing needs attention.",
+    "count": "{{count}} to act on",
+    "count_one": "{{count}} to act on",
+    "count_other": "{{count}} to act on"
   },
   "projects": {
     "title": "Projects",
@@ -34,12 +42,15 @@
     "description": "Recent commits across every repository, and the repositories with local changes.",
     "uncommitted": "{{count}} uncommitted",
     "empty": "No commit collected yet",
-    "emptyHint": "The host collector scans every repository once a minute; portta repos scan does it now."
+    "emptyHint": "The host collector scans every repository once a minute; portta repos scan does it now.",
+    "dirty": "Local changes",
+    "recent": "Recent commits"
   },
   "resources": {
     "top": "Using this host",
     "topDescription": "Environments by memory. Stop one from here when the host is under pressure.",
-    "none": "Nothing measured"
+    "none": "Nothing measured",
+    "environments": "Environments"
   },
   "reduced": {
     "needsDatabase": "The development dashboard needs the panel's database",
@@ -76,7 +87,28 @@
       "docker-desktop": "Docker Desktop",
       "docker-engine": "Docker Engine",
       "unknown": "Unknown"
-    }
+    },
+    "summary": "Host",
+    "details": "Host details",
+    "showDetails": "Show host details",
+    "hideDetails": "Hide host details",
+    "temperature": "Temp",
+    "battery": "Battery",
+    "loadLabel": "Load",
+    "loadPerCore": "{{value}} per core",
+    "charging": "charging",
+    "onMains": "on mains",
+    "onBattery": "on battery",
+    "remaining": "{{time}} left",
+    "cycles": "{{count}} cycles",
+    "uptime": "Uptime",
+    "gpuMemory": "GPU memory",
+    "kernel": "Kernel",
+    "architecture": "Architecture",
+    "virtual": "Virtual machine",
+    "history": "{{label}} over the last {{minutes}} minutes",
+    "notMeasured": "not measured",
+    "openMetrics": "Open the resources view"
   },
   "consumption": {
     "title": "Project consumption",
@@ -85,5 +117,29 @@
     "memory": "RAM",
     "containers": "{{count}} containers",
     "open": "Open"
+  },
+  "pressure": {
+    "label": "Host",
+    "normal": "Normal",
+    "watch": "Watch",
+    "pressured": "Under pressure",
+    "critical": "Critical",
+    "unmeasured": "Not measured",
+    "because": "Because: {{reasons}}",
+    "normalHint": "Every resource this host reports is within its comfortable range.",
+    "unmeasuredHint": "No recent snapshot, so the host's state is unknown.",
+    "reason": {
+      "cpu": "CPU at {{value}}",
+      "memory": "RAM at {{value}}",
+      "swap": "swap at {{value}}",
+      "storage": "disk at {{value}}",
+      "gpu": "GPU at {{value}}",
+      "temperature": "CPU at {{value}}",
+      "load": "load {{value}} per core",
+      "battery": "battery at {{value}}"
+    }
+  },
+  "gateway": {
+    "label": "Gateway"
   }
 }

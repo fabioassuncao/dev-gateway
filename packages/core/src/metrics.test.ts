@@ -9,7 +9,9 @@ import {
   historyPointFrom,
   mergeHistoryLines,
   normalizeContainerStats,
+  normalizeBattery,
   normalizeGpus,
+  normalizeTemperature,
   normalizeHost,
   parseHistoryLines,
   percentToUnit,
@@ -199,5 +201,41 @@ describe('metrics helpers', () => {
     expect(point.host.gpuUtilisation).toBe(0.5)
     expect(point.projects[0]?.id).toBe('p')
     expect(JSON.stringify(point)).not.toContain('MacBook')
+  })
+})
+
+describe('battery and temperature', () => {
+  it('reports no battery object at all on a host without one', () => {
+    expect(normalizeBattery({ hasBattery: false, percent: 0 })).toBeNull()
+    expect(normalizeBattery(undefined)).toBeNull()
+  })
+
+  it('normalizes charge to a ratio like every other measurement here', () => {
+    const battery = normalizeBattery({ hasBattery: true, percent: 82, isCharging: false, acConnected: false, timeRemaining: 213, cycleCount: 154 })
+    expect(battery).toEqual({
+      hasBattery: true,
+      percent: 0.82,
+      charging: false,
+      acConnected: false,
+      minutesRemaining: 213,
+      cycleCount: 154,
+    })
+  })
+
+  it('treats charging as mains, for platforms that leave acConnected unset', () => {
+    expect(normalizeBattery({ hasBattery: true, percent: 50, isCharging: true })?.acConnected).toBe(true)
+  })
+
+  it('drops a sensor reading that cannot be a temperature', () => {
+    expect(normalizeTemperature({ main: 0 })).toBeNull()
+    expect(normalizeTemperature({ main: -40 })).toBeNull()
+    expect(normalizeTemperature({ main: 400 })).toBeNull()
+    expect(normalizeTemperature({ main: 61.5 })).toBe(61.5)
+  })
+
+  it('falls back to the hottest core, then to a GPU sensor', () => {
+    expect(normalizeTemperature({ main: 0, cores: [51, 63, 58] })).toBe(63)
+    expect(normalizeTemperature({}, [{ vendor: null, model: 'RTX', vramBytes: null, utilisation: null, temperature: 71 }])).toBe(71)
+    expect(normalizeTemperature({}, [])).toBeNull()
   })
 })

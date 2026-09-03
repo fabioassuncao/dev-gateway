@@ -3,7 +3,7 @@
 
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseHistoryLines, type MetricsHistoryPoint, type MetricsSnapshot } from 'portta-core'
+import { parseHistoryLines, type HostMetrics, type MetricsHistoryPoint, type MetricsSnapshot } from 'portta-core'
 import type { PanelConfig } from '../config.ts'
 import type { MetricsCurrent, MetricsHistory } from '../../shared/types.ts'
 
@@ -37,6 +37,20 @@ export function emptyMetrics(): MetricsCurrent {
   }
 }
 
+/**
+ * A snapshot written by an older collector is missing whatever a newer one
+ * added. The panel answers one shape whatever wrote the file, so a mixed
+ * install reports "not measured" rather than "undefined".
+ */
+function completeHost(host: HostMetrics): HostMetrics {
+  return {
+    ...host,
+    gpu: host.gpu ?? [],
+    temperatureCelsius: host.temperatureCelsius ?? null,
+    battery: host.battery ?? null,
+  }
+}
+
 export function readCurrentMetrics(config: PanelConfig, now = Date.now()): MetricsCurrent {
   const parsed = readJsonFile(join(config.metricsDir, 'current.json')) as MetricsSnapshot | null
   if (!parsed || parsed.version !== 1 || !parsed.host) return emptyMetrics()
@@ -51,7 +65,7 @@ export function readCurrentMetrics(config: PanelConfig, now = Date.now()): Metri
     ageSeconds,
     stale: ageSeconds === null || ageSeconds > config.metricsStaleSeconds,
     collectorActive: ageSeconds !== null && ageSeconds <= config.metricsStaleSeconds,
-    host: parsed.host,
+    host: completeHost(parsed.host),
     runtime: parsed.runtime ?? null,
     projects: parsed.projects ?? [],
   }

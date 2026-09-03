@@ -7,11 +7,9 @@
 import type { Diagnostic, Environment, MetricsCurrent, Project, RepositoryGit } from '../../shared/types.ts'
 import type { Session, TaskSummary } from '../../shared/task-types.ts'
 import type { AttentionItem, DevelopmentOverview, DirtyRepository, ProjectPulse, RecentCommit } from '../../shared/overview-types.ts'
+import { hostPressure, type PressureReason } from 'portta-core'
 import { commitUrl, parseRemote } from './forge.ts'
 
-export const CPU_PRESSURE = 0.85
-export const MEMORY_PRESSURE = 0.9
-export const STORAGE_PRESSURE = 0.9
 export const RECENT_COMMIT_LIMIT = 12
 export const WORK_LIMIT = 20
 
@@ -48,6 +46,14 @@ function worst(a: ProjectPulse['health'], b: ProjectPulse['health']): ProjectPul
   return rank[a] >= rank[b] ? a : b
 }
 
+/** A reason as an operator would read it: the resource, and the number behind it. */
+function readingOf(reason: PressureReason): string {
+  const label = reason.resource === 'memory' ? 'RAM' : reason.resource === 'storage' ? 'disk' : reason.resource
+  if (reason.resource === 'temperature') return `${label} ${Math.round(reason.value)}°C`
+  if (reason.resource === 'load') return `${label} ${reason.value.toFixed(1)} per core`
+  return `${label} ${Math.round(reason.value * 100)}%`
+}
+
 export function attentionFor(input: OverviewInput): AttentionItem[] {
   const items: AttentionItem[] = []
   const slugOf = new Map<string, string>()
@@ -80,18 +86,17 @@ export function attentionFor(input: OverviewInput): AttentionItem[] {
     }
   }
 
-  const host = input.metrics.host
-  if (host && !input.metrics.stale) {
-    const cpu = host.cpuUtilisation ?? null
-    const mem = host.memoryUsedPercent ?? null
-    const storage = host.storage?.usedPercent ?? null
-    const pressure: string[] = []
-    if (cpu !== null && cpu >= CPU_PRESSURE * 100) pressure.push(`CPU ${Math.round(cpu)}%`)
-    if (mem !== null && mem >= MEMORY_PRESSURE * 100) pressure.push(`RAM ${Math.round(mem)}%`)
-    if (storage !== null && storage >= STORAGE_PRESSURE * 100) pressure.push(`disk ${Math.round(storage)}%`)
-    if (pressure.length > 0) {
-      items.push({ kind: 'host-pressure', severity: mem !== null && mem >= 0.95 * 100 ? 'fail' : 'warn', summary: `this host is under pressure: ${pressure.join(', ')}`, project: null, environment: null, service: null, taskId: null, href: '#/overview' })
-    }
+  // Every ratio in the metrics is 0-1, so the thresholds are too; comparing
+  // them against percentages is what kept this item from ever appearing.
+  const pressure = hostPressure(input.metrics.host, { stale: input.metrics.stale, collectorActive: input.metrics.collectorActive })
+  if (pressure.level !== 'normal') {
+    items.push({
+      kind: 'host-pressure',
+      severity: pressure.level === 'critical' ? 'fail' : 'warn',
+      summary: `this host is under pressure: ${pressure.reasons.map(readingOf).join(', ')}`,
+      project: null, environment: null, service: null, taskId: null,
+      href: '#/overview',
+    })
   }
 
   for (const problem of input.problems) {
@@ -215,6 +220,7 @@ export function buildOverview(input: OverviewInput): DevelopmentOverview {
         storageUsedPercent: host.storage?.usedPercent ?? null,
         stale: input.metrics.stale,
         collectorActive: input.metrics.collectorActive,
+        pressure: hostPressure(host, { stale: input.metrics.stale, collectorActive: input.metrics.collectorActive }),
       } : null,
       topProjects: [...input.metrics.projects]
         .sort((a, b) => (b.memoryUsedBytes ?? 0) - (a.memoryUsedBytes ?? 0))

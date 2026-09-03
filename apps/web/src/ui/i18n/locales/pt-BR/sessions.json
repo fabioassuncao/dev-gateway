@@ -13,5 +13,7 @@
   "none": "Ninguém está trabalhando aqui agora",
   "noneHint": "Um agente se anuncia com portta sessions start --project {{slug}}.",
   "noneAnywhere": "Nenhuma sessão ativa",
-  "noneAnywhereHint": "Quando uma pessoa ou um agente inicia uma sessão, ela aparece aqui com tarefa, repositório e commits."
+  "noneAnywhereHint": "Quando uma pessoa ou um agente inicia uma sessão, ela aparece aqui com tarefa, repositório e commits.",
+  "lastActivity": "última {{time}}",
+  "duration": "Em execução há {{time}}"
 }

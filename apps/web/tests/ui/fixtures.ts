@@ -441,7 +441,14 @@ export function makeOverview(overrides: Partial<DevelopmentOverview> = {}): Deve
     },
     runtime: { environmentsRunning: 1, environmentsTotal: 2, servicesRunning: 4, servicesUnhealthy: 1, routedUrls: 2 },
     resources: {
-      host: { cpuUtilisation: 0.71, memoryUsedPercent: 0.92, storageUsedPercent: 0.4, stale: false, collectorActive: true },
+      host: {
+        cpuUtilisation: 0.71,
+        memoryUsedPercent: 0.92,
+        storageUsedPercent: 0.4,
+        stale: false,
+        collectorActive: true,
+        pressure: { level: 'pressured', measured: true, reasons: [{ resource: 'memory', level: 'pressured', value: 0.92 }] },
+      },
       topProjects: [{ slug: 'produto', name: 'Meu Produto', environment: 'produto', cpuUtilisation: 0.38, memoryUsedBytes: 1_200_000_000 }],
     },
     gateway: { up: true, problems: [] },

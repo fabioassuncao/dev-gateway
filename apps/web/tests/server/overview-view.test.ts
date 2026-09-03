@@ -111,3 +111,48 @@ describe('the development context', () => {
     expect(context.instructions.task).toBeNull()
   })
 })
+
+describe('the host verdict on the dashboard', () => {
+  function measured(host: Partial<NonNullable<ReturnType<typeof emptyMetrics>['host']>>) {
+    const metrics = emptyMetrics()
+    metrics.stale = false
+    metrics.collectorActive = true
+    metrics.collectedAt = Math.floor(NOW / 1000)
+    metrics.ageSeconds = 0
+    metrics.host = {
+      hostname: 'lab', manufacturer: null, model: null, architecture: 'arm64', virtual: false,
+      platform: 'darwin', distro: 'macOS', version: null, release: null, kernel: null, uptimeSeconds: 100,
+      cpu: { manufacturer: null, brand: 'M3', physicalCores: 8, logicalCores: 8, speed: null, speedMax: null },
+      memoryTotalBytes: 100, memoryUsedBytes: 10, memoryAvailableBytes: 90, memoryUsedPercent: 0.1,
+      swapTotalBytes: null, swapUsedBytes: null, cpuUtilisation: 0.1, cpuIdle: 0.9, load: null,
+      storage: null, gpu: [], temperatureCelsius: null, battery: null,
+      ...host,
+    }
+    return metrics
+  }
+
+  it('carries the verdict, so the panel does not compute one of its own', () => {
+    const overview = buildOverview(input({ metrics: measured({ memoryUsedPercent: 0.95 }) }))
+    expect(overview.resources.host?.pressure.level).toBe('pressured')
+    expect(overview.resources.host?.pressure.measured).toBe(true)
+  })
+
+  it('raises a host under pressure as something to act on', () => {
+    // The thresholds are ratios; the version this replaced compared them
+    // against percentages, so this item could never appear.
+    const items = attentionFor(input({ metrics: measured({ memoryUsedPercent: 0.95 }) }))
+    const pressure = items.find((item) => item.kind === 'host-pressure')
+    expect(pressure?.summary).toContain('RAM 95%')
+  })
+
+  it('says nothing about a host with room', () => {
+    const items = attentionFor(input({ metrics: measured({}) }))
+    expect(items.some((item) => item.kind === 'host-pressure')).toBe(false)
+  })
+
+  it('refuses to judge a host it has not measured', () => {
+    const overview = buildOverview(input())
+    expect(overview.resources.host).toBeNull()
+    expect(attentionFor(input()).some((item) => item.kind === 'host-pressure')).toBe(false)
+  })
+})

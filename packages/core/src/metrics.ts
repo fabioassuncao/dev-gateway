@@ -33,6 +33,23 @@ export interface HostGpuInfo {
   temperature: number | null
 }
 
+/**
+ * A laptop is a host too. When Portta runs on one, whether it is on mains and
+ * how much charge is left change what it is reasonable to start, so they are
+ * metrics rather than trivia. A server reports `hasBattery: false` and the
+ * panel shows nothing.
+ */
+export interface HostBatteryInfo {
+  /** Always true: a host with no battery reports `battery: null` instead. */
+  hasBattery: true
+  /** 0-1, like every other ratio here. */
+  percent: number | null
+  charging: boolean
+  acConnected: boolean
+  minutesRemaining: number | null
+  cycleCount: number | null
+}
+
 export interface HostStorageInfo {
   path: string
   mount: string | null
@@ -73,6 +90,9 @@ export interface HostMetrics {
   load: HostLoad | null
   storage: HostStorageInfo | null
   gpu: HostGpuInfo[]
+  /** CPU package temperature in Celsius, where the platform reports one. */
+  temperatureCelsius: number | null
+  battery: HostBatteryInfo | null
 }
 
 export interface ContainerResourceMetrics {
@@ -120,6 +140,7 @@ export interface MetricsHistoryPoint {
     storageUsedPercent: number | null
     load: HostLoad | null
     gpuUtilisation: number | null
+    temperatureCelsius: number | null
   }
   projects: Array<{
     id: string
@@ -192,6 +213,8 @@ export function emptyHost(): HostMetrics {
     load: null,
     storage: null,
     gpu: [],
+    temperatureCelsius: null,
+    battery: null,
   }
 }
 
@@ -311,6 +334,45 @@ export function normalizeGpus(graphics: unknown): HostGpuInfo[] {
   return gpus
 }
 
+/**
+ * A plausible temperature only. Sensors that are absent report 0, and a host
+ * whose CPU is at 0 °C or 200 °C is telling us it does not know.
+ */
+export function plausibleTemperature(value: unknown): number | null {
+  const raw = asFiniteNumber(value)
+  if (raw === null || raw <= 0 || raw > 150) return null
+  return Math.round(raw * 10) / 10
+}
+
+export function normalizeTemperature(cpuTemperature: unknown, gpus: readonly HostGpuInfo[] = []): number | null {
+  const sensor = record(cpuTemperature)
+  const main = plausibleTemperature(sensor?.main)
+  if (main !== null) return main
+  const cores = Array.isArray(sensor?.cores) ? sensor.cores.map(plausibleTemperature).filter((value): value is number => value !== null) : []
+  if (cores.length > 0) return Math.round(Math.max(...cores) * 10) / 10
+  // A discrete GPU often carries the only sensor a desktop exposes.
+  const fromGpu = gpus.map((gpu) => gpu.temperature).find((value) => value !== null)
+  return fromGpu ?? null
+}
+
+export function normalizeBattery(battery: unknown): HostBatteryInfo | null {
+  const raw = record(battery)
+  if (!raw) return null
+  if (raw.hasBattery !== true) return null
+  const percent = asFiniteNumber(raw.percent)
+  const minutes = asFiniteNumber(raw.timeRemaining)
+  const cycles = asFiniteNumber(raw.cycleCount)
+  return {
+    hasBattery: true,
+    percent: percent === null ? null : percentToUnit(percent),
+    charging: raw.isCharging === true,
+    // SI leaves acConnected undefined on some platforms; charging implies mains.
+    acConnected: raw.acConnected === true || raw.isCharging === true,
+    minutesRemaining: minutes !== null && minutes > 0 ? Math.round(minutes) : null,
+    cycleCount: cycles !== null && cycles > 0 ? Math.round(cycles) : null,
+  }
+}
+
 export function normalizeLoad(...candidates: unknown[]): HostLoad | null {
   for (const candidate of candidates) {
     const samples = Array.isArray(candidate) ? candidate : null
@@ -332,6 +394,8 @@ export function normalizeHost(input: {
   loadavg?: unknown
   graphics?: unknown
   time?: unknown
+  cpuTemperature?: unknown
+  battery?: unknown
   storage?: HostStorageInfo | null
 }): HostMetrics {
   const system = record(input.system)
@@ -351,6 +415,7 @@ export function normalizeHost(input: {
 
   const utilisation = percentToUnit(asFiniteNumber(currentLoad?.currentLoad))
   const idle = percentToUnit(asFiniteNumber(currentLoad?.currentLoadIdle))
+  const gpus = normalizeGpus(input.graphics)
 
   return {
     hostname: asNonEmptyString(os?.hostname) ?? asNonEmptyString(system?.hostname),
@@ -382,7 +447,9 @@ export function normalizeHost(input: {
     cpuIdle: idle,
     load: normalizeLoad(input.loadavg, input.currentLoad),
     storage: input.storage ?? null,
-    gpu: normalizeGpus(input.graphics),
+    gpu: gpus,
+    temperatureCelsius: normalizeTemperature(input.cpuTemperature, gpus),
+    battery: normalizeBattery(input.battery),
   }
 }
 
@@ -557,6 +624,7 @@ export function historyPointFrom(snapshot: MetricsSnapshot): MetricsHistoryPoint
       storageUsedPercent: snapshot.host.storage?.usedPercent ?? null,
       load: snapshot.host.load,
       gpuUtilisation: gpuUtil,
+      temperatureCelsius: snapshot.host.temperatureCelsius,
     },
     projects: snapshot.projects.map((project) => ({
       id: project.id,
@@ -594,13 +662,30 @@ export function mergeHistoryLines(
   return `${kept.join('\n')}\n`
 }
 
+/**
+ * History is append-only across upgrades, so a line written by an older
+ * collector is missing whatever the newer one added. Filling the gap with null
+ * here means every reader sees one shape, and a sparkline over a window that
+ * spans an upgrade simply starts where the measurement did.
+ */
+export function normalizeHistoryPoint(point: MetricsHistoryPoint): MetricsHistoryPoint {
+  return {
+    ...point,
+    host: {
+      ...point.host,
+      temperatureCelsius: point.host.temperatureCelsius ?? null,
+      gpuUtilisation: point.host.gpuUtilisation ?? null,
+    },
+  }
+}
+
 export function parseHistoryLines(text: string, since: number): MetricsHistoryPoint[] {
   const points: MetricsHistoryPoint[] = []
   for (const line of text.split('\n')) {
     if (line.trim() === '') continue
     try {
       const parsed = JSON.parse(line) as MetricsHistoryPoint
-      if (typeof parsed.timestamp === 'number' && parsed.timestamp >= since) points.push(parsed)
+      if (typeof parsed.timestamp === 'number' && parsed.timestamp >= since) points.push(normalizeHistoryPoint(parsed))
     } catch {
       // skip
     }
