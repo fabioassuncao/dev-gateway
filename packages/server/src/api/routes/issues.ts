@@ -18,6 +18,8 @@ import { recordActivity } from '../../services/activity.ts'
 import { principalOf } from 'portta-auth-core/hono'
 import { Issue } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
+import { authorizeScope } from 'portta-auth-core/hono'
+import { projectScope } from '../../services/access-control.ts'
 
 const IssuesResponse = z.object({ issues: z.array(Issue) }).strict().meta({ ref: 'IssuesResponse' })
 
@@ -46,6 +48,21 @@ async function projectRepositoryIds(db: Database, slug: string): Promise<string[
   if (!project) throw new HTTPException(404, { message: `no project '${slug}'` })
   const rows = await db.repositories.list(project.id)
   return rows.flatMap((row) => (row.githubRepositoryId ? [row.githubRepositoryId] : []))
+}
+
+/**
+ * Which Project a projected issue belongs to, through the repository somebody
+ * registered.
+ *
+ * `null` means the repository is in the projection but no Project registered
+ * it: the GitHub App was granted it and nobody claimed it here. Those are
+ * global — visible to whoever sees everything (03 §4.5).
+ */
+async function projectOfIssue(db: Database, repositoryFullName: string): Promise<number | null> {
+  const projected = await db.github.findRepository(repositoryFullName)
+  if (!projected) return null
+  const registered = (await db.repositories.list()).find((row) => row.githubRepositoryId === projected.id)
+  return registered ? projectScope(registered.projectId) : null
 }
 
 function matches(issue: StoredIssue, query: URLSearchParams): boolean {
@@ -126,6 +143,9 @@ export function issueRoutes(deps: AppDeps): Hono {
     errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
+    const project = await db.projects.find(c.req.param('slug'))
+    if (!project) throw new HTTPException(404, { message: `no project '${c.req.param('slug')}'` })
+    authorizeScope(c, projectScope(project.id))
     const repositoryIds = await projectRepositoryIds(db, c.req.param('slug'))
     const query = new URL(c.req.url).searchParams
     return c.json({ issues: repositoryIds.length === 0 ? [] : await listing(db, repositoryIds, query) })
@@ -136,7 +156,19 @@ export function issueRoutes(deps: AppDeps): Hono {
     response: IssuesResponse, parameters: filterParameters, errors: [500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    return c.json({ issues: await listing(db, undefined, new URL(c.req.url).searchParams) })
+    const principal = principalOf(c)
+    // Everything, or exactly the repositories the visible Projects registered.
+    // An issue whose repository nobody registered has no Project to belong to.
+    if (principal.scope === 'all') {
+      return c.json({ issues: await listing(db, undefined, new URL(c.req.url).searchParams) })
+    }
+    const rows = await db.repositories.list()
+    const reachable = rows.flatMap((row) =>
+      row.githubRepositoryId && principal.scope !== 'all' && principal.scope.has(projectScope(row.projectId)!)
+        ? [row.githubRepositoryId]
+        : [],
+    )
+    return c.json({ issues: reachable.length === 0 ? [] : await listing(db, reachable, new URL(c.req.url).searchParams) })
   })
 
   app.get('/issues/:id', documentRoute({
@@ -146,6 +178,7 @@ export function issueRoutes(deps: AppDeps): Hono {
     const db = requireDatabase(deps.db)
     const issue = await db.github.findIssue(c.req.param('id'))
     if (!issue) throw new HTTPException(404, { message: `no issue '${c.req.param('id')}'` })
+    authorizeScope(c, await projectOfIssue(db, issue.repository))
     const relationships = await db.github.listRelationships()
     const snapshot = await deps.cache.get()
     const links = await linksFor(deps.config, db, snapshot)
@@ -179,6 +212,7 @@ export function issueRoutes(deps: AppDeps): Hono {
 
     const issue = await db.github.findIssue(c.req.param('id'))
     if (!issue) throw new HTTPException(404, { message: `no issue '${c.req.param('id')}'` })
+    authorizeScope(c, await projectOfIssue(db, issue.repository))
 
     // The projection is the authorisation boundary: an issue whose repository
     // is no longer granted cannot be written.

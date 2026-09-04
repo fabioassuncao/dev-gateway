@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from '../../deps.ts'
@@ -13,6 +13,8 @@ import {
 } from '../../services/overrides.ts'
 import { EnvironmentOverrides, ServiceOverrides } from 'portta-contracts'
 import { documentRoute, projectParameter } from '../openapi.ts'
+import { authorizeScope } from 'portta-auth-core/hono'
+import { projectOfEnvironment } from '../../services/access-control.ts'
 
 const serviceParameter = {
   name: 'service',
@@ -75,11 +77,14 @@ function announce(deps: AppDeps, project: string): void {
 export function overrideRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
-  async function projectRecord(name: string) {
+  async function projectRecord(c: Context, name: string) {
     const snapshot = await deps.cache.get()
     if (!snapshot.environments.some((item) => item.name === name)) {
       throw new HTTPException(404, { message: `no project '${name}' is running` })
     }
+    // The environment belongs to whichever Project adopted it; one nothing
+    // adopted belongs to nobody, and is for `scope: 'all'` alone.
+    authorizeScope(c, await projectOfEnvironment(deps.db, name))
     const db = requireDatabase(deps.db)
     // Identity is COMPOSE_PROJECT_NAME, so two worktrees are two environments
     // with two sets of overrides. A new worktree starts blank, deliberately.
@@ -91,7 +96,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
     tag: 'Environments', operationId: 'getEnvironmentSettings', permission: 'environment:read', summary: 'Read an environment\'s overrides',
     response: EnvironmentOverrides, parameters: [projectParameter], errors: [404, 500, 503],
   }), async (c) => {
-    const { db, record } = await projectRecord(c.req.param('project'))
+    const { db, record } = await projectRecord(c, c.req.param('project'))
     const stored: Record<string, unknown> = {}
     for (const key of Object.keys(ENVIRONMENT_KEYS) as EnvironmentSettingKey[]) {
       const value = await db.settings.getEnvironment(record.id, key)
@@ -107,7 +112,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
     parameters: [projectParameter], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const body = EnvironmentSettingsBody.parse(await c.req.json())
-    const { db, record } = await projectRecord(c.req.param('project'))
+    const { db, record } = await projectRecord(c, c.req.param('project'))
 
     for (const [key, value] of Object.entries(body) as [EnvironmentSettingKey, unknown][]) {
       if (value === null) await db.settings.clearEnvironment(record.id, key)
@@ -128,7 +133,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
     response: z.object({ ok: z.boolean(), cleared: z.array(z.string()) }).strict().meta({ ref: 'ClearedSettings' }),
     parameters: [projectParameter], errors: [403, 404, 500, 503],
   }), async (c) => {
-    const { db, record } = await projectRecord(c.req.param('project'))
+    const { db, record } = await projectRecord(c, c.req.param('project'))
     const cleared: string[] = []
     for (const key of Object.keys(ENVIRONMENT_KEYS) as EnvironmentSettingKey[]) {
       if ((await db.settings.getEnvironment(record.id, key)) === null) continue
@@ -143,7 +148,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
     tag: 'Environments', operationId: 'getServiceOverrides', permission: 'environment:read', summary: 'Read one service\'s overrides',
     response: ServiceOverrides, parameters: [projectParameter, serviceParameter], errors: [404, 500, 503],
   }), async (c) => {
-    const { db, record } = await projectRecord(c.req.param('project'))
+    const { db, record } = await projectRecord(c, c.req.param('project'))
     const service = c.req.param('service')
     const stored: Record<string, unknown> = {}
     for (const key of ['alias', 'note', 'hidden'] as const) {
@@ -160,7 +165,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const body = z.object({ note: z.string().max(2000).nullable() }).strict().parse(await c.req.json())
-    const { db, record } = await projectRecord(c.req.param('project'))
+    const { db, record } = await projectRecord(c, c.req.param('project'))
     const service = c.req.param('service')
     if (body.note === null) await db.settings.clearService(record.id, service, 'note')
     else await db.settings.setService(record.id, service, 'note', body.note)
@@ -185,7 +190,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
     const body = AliasBody.parse(await c.req.json())
     const projectName = c.req.param('project')
     const service = c.req.param('service')
-    const { db, record, snapshot } = await projectRecord(projectName)
+    const { db, record, snapshot } = await projectRecord(c, projectName)
 
     const existing = loadAliases(deps.config)
     const planned = planAlias({ project: projectName, service, alias: body.alias }, snapshot, existing, deps.config)
@@ -228,7 +233,7 @@ export function overrideRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const projectName = c.req.param('project')
     const service = c.req.param('service')
-    const { db, record } = await projectRecord(projectName)
+    const { db, record } = await projectRecord(c, projectName)
 
     const existing = loadAliases(deps.config)
     const removed = existing.find((alias) => alias.project === projectName && alias.service === service) ?? null

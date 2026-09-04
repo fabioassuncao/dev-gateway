@@ -22,7 +22,7 @@ interface UserView {
   email: string
   role: string
   banned: boolean
-  projects: { slug: string }[]
+  projects: { id: string; slug: string }[]
 }
 
 /**
@@ -108,6 +108,43 @@ export async function usersSetPassword(
     output.line(`password: ${password}`)
     output.warning('this is the only time the generated password is shown')
   }
+}
+
+/**
+ * Which Projects somebody reaches.
+ *
+ * The API takes the whole list every time, because "these are the Projects" is
+ * the sentence a person means. Grant and revoke are that sentence with one
+ * entry added or removed, computed here so the terminal has the verb it wants
+ * and the panel keeps the shape that cannot race.
+ */
+async function reshape(
+  email: string,
+  slug: string,
+  command: Command,
+  change: (held: string[], id: string) => string[],
+): Promise<void> {
+  const { client, output } = clientFor(command)
+  const target = await find(client, email)
+  const projects = await client.request<{ projects: { id: string; slug: string }[] }>('GET', '/projects')
+  const wanted = projects.projects.find((project) => project.slug === slug)
+  if (!wanted) throw new UsageError(`no project '${slug}'`, 'list them with `portta projects list`')
+
+  const held = target.projects.map((project) => project.id)
+  const updated = await client.request<UserView>('PUT', `/users/${encodeURIComponent(target.id)}/projects`, {
+    projects: change(held, wanted.id).map(Number),
+  })
+  if (output.json) return output.data(updated)
+  const reached = updated.projects.map((project) => project.slug)
+  output.progress(`${updated.email} reaches ${reached.length ? reached.join(', ') : 'no project'}`)
+}
+
+export async function usersGrant(email: string, slug: string, _options: unknown, command: Command): Promise<void> {
+  await reshape(email, slug, command, (held, id) => [...new Set([...held, id])])
+}
+
+export async function usersRevoke(email: string, slug: string, _options: unknown, command: Command): Promise<void> {
+  await reshape(email, slug, command, (held, id) => held.filter((entry) => entry !== id))
 }
 
 export async function usersRemove(email: string, _options: unknown, command: Command): Promise<void> {

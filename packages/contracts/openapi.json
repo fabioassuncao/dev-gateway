@@ -10392,6 +10392,29 @@
               }
             ]
           },
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "slug",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
           "tokenId": {
             "type": [
               "string",
@@ -10409,6 +10432,7 @@
           "actorKind",
           "permissions",
           "scope",
+          "projects",
           "tokenId"
         ],
         "additionalProperties": false

@@ -102,6 +102,8 @@ See [Database access](database-access.md), [TCP access](tcp-access.md), and
 | `portta users create` | Create an account; a generated password is shown once. |
 | `portta users set-role <email> <role>` | Change a role. `owner` is transferred, not assigned. |
 | `portta users set-password <email>` | Set a password and end that account's sessions. |
+| `portta users grant <email> <project>` | Let an account reach one more Project. |
+| `portta users revoke <email> <project>` | Stop an account reaching a Project. |
 | `portta users remove <email>` | Remove an account, with its sessions, tokens and memberships. |
 
 See [Authentication](authentication.md) for the rules these obey.

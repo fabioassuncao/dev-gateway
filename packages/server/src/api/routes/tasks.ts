@@ -6,7 +6,7 @@
 // the binding saying which of the two it managed. An agent and the board see
 // the same rows through the same views (core/task-view.ts).
 
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import { ExampleDocument, TASK_DRAFT_MAX_AGE_MS, TASK_DRAFT_TITLE, TASK_PRIORITIES, TASK_STATUSES, finishPlan, nextTask, shouldPromoteDraft, startPlan, subtaskTree, type SchedulableTask } from 'portta-core'
@@ -19,7 +19,8 @@ import { ATTACHMENT_LIMITS, contentDisposition, normaliseContentType, rejectUplo
 import { pushToGitHub, resolveTask, type TaskChange } from '../../services/task-write.ts'
 import { recordActivity } from '../../services/activity.ts'
 import { applyExampleDocument, exportProjectTasks } from '../../services/task-example-apply.ts'
-import { principalOf } from 'portta-auth-core/hono'
+import { authorizeScope, principalOf } from 'portta-auth-core/hono'
+import { projectScope, visible } from '../../services/access-control.ts'
 import type { Principal } from 'portta-auth-core'
 import { Task, TaskAttachment, TaskNote, TaskSummary } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
@@ -99,10 +100,31 @@ function schedulable(rows: readonly TaskRow[]): SchedulableTask[] {
 export function taskRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
-  async function requireProject(db: Database, slug: string) {
+  /**
+   * The Project a route named, and whether this caller reaches it.
+   *
+   * Both halves together, deliberately: a lookup that returned the row without
+   * asking would be one `authorizeScope` away from a leak, and forgetting it is
+   * exactly the mistake nothing else catches.
+   */
+  async function requireProject(c: Context, db: Database, slug: string) {
     const project = await db.projects.find(slug)
     if (!project) throw new HTTPException(404, { message: `no project '${slug}'` })
+    authorizeScope(c, projectScope(project.id))
     return project
+  }
+
+
+  /**
+   * A task, and whether this caller reaches the Project it is in.
+   *
+   * Wrapping the resolver rather than calling it and checking afterwards: a
+   * task that came back before the check is a task somebody has already read.
+   */
+  async function requireTask(c: Context, db: Database, ref: string): Promise<TaskRow> {
+    const task = await resolveTask(db, ref)
+    authorizeScope(c, projectScope(task.projectId))
+    return task
   }
 
   async function context(db: Database, tasks?: TaskRow[]): Promise<TaskContext> {
@@ -221,7 +243,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     response: TasksResponse, parameters: [slugParameter, ...filterParameters], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const project = await requireProject(db, c.req.param('slug'))
+    const project = await requireProject(c, db, c.req.param('slug'))
     const query = new URL(c.req.url).searchParams
     const status = query.get('status')?.split(',').filter((value): value is typeof TASK_STATUSES[number] => (TASK_STATUSES as readonly string[]).includes(value))
     const parent = query.get('parent')
@@ -253,7 +275,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     response: NextTaskResponse, parameters: [slugParameter, actorHeader], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const project = await requireProject(db, c.req.param('slug'))
+    const project = await requireProject(c, db, c.req.param('slug'))
     const rows = await db.tasks.list({ projectId: project.id, open: true, draft: false })
     const chosen = nextTask(schedulable(rows), { actor: principalOf(c).actor })
     const row = chosen ? rows.find((task) => task.id === chosen.id) ?? null : null
@@ -270,7 +292,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     const db = requireDatabase(deps.db)
     const query = new URL(c.req.url).searchParams
     const projectSlug = query.get('project')
-    const project = projectSlug ? await requireProject(db, projectSlug) : null
+    const project = projectSlug ? await requireProject(c, db, projectSlug) : null
     const status = query.get('status')?.split(',').filter((value): value is typeof TASK_STATUSES[number] => (TASK_STATUSES as readonly string[]).includes(value))
     const priority = query.get('priority')?.split(',').filter((value): value is typeof TASK_PRIORITIES[number] => (TASK_PRIORITIES as readonly string[]).includes(value))
     const parent = query.get('parent')
@@ -287,7 +309,10 @@ export function taskRoutes(deps: AppDeps): Hono {
       ...(query.get('q') ? { q: query.get('q')! } : {}),
       ...(query.get('limit') && /^\d+$/.test(query.get('limit')!) ? { limit: Number(query.get('limit')) } : {}), draft: false,
     })
-    return c.json({ tasks: taskSummaries(await context(db, rows), rows) })
+    // Across Projects means across the visible ones. Naming a Project was
+    // already checked above; this is the unfiltered case.
+    const reachable = visible(principalOf(c), rows, (row) => projectScope(row.projectId))
+    return c.json({ tasks: taskSummaries(await context(db, reachable), reachable) })
   })
 
   app.get('/tasks/:ref', documentRoute({
@@ -296,7 +321,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     response: Task, parameters: [refParameter], errors: [400, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    return c.json(await present(db, await resolveTask(db, c.req.param('ref'))))
+    return c.json(await present(db, await requireTask(c, db, c.req.param('ref'))))
   })
 
   app.get('/tasks/:ref/subtasks', documentRoute({
@@ -304,7 +329,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     response: SubtasksResponse, parameters: [refParameter], errors: [400, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const rows = await db.tasks.list({ projectId: task.projectId })
     const ctx = await context(db, rows)
     const tree = subtaskTree(task.id, rows)
@@ -318,7 +343,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const parent = await resolveTask(db, c.req.param('ref'))
+    const parent = await requireTask(c, db, c.req.param('ref'))
     const body = CreateTaskBody.omit({ parentId: true, draft: true }).parse(await c.req.json())
     const principal = principalOf(c)
     const { environment, dueAt, ...rest } = body
@@ -344,8 +369,8 @@ export function taskRoutes(deps: AppDeps): Hono {
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const parent = await resolveTask(db, c.req.param('ref'))
-    const child = await resolveTask(db, c.req.param('childRef'))
+    const parent = await requireTask(c, db, c.req.param('ref'))
+    const child = await requireTask(c, db, c.req.param('childRef'))
     if (parent.projectId !== child.projectId) throw new OverrideRefused('a subtask belongs to the same Project as its parent')
     if (parent.id === child.id || await wouldCycle(db, child.id, parent.id)) throw new OverrideRefused('a task cannot become a descendant of itself')
     const updated = await db.tasks.update(child.id, { parentId: parent.id })
@@ -362,8 +387,8 @@ export function taskRoutes(deps: AppDeps): Hono {
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const parent = await resolveTask(db, c.req.param('ref'))
-    const child = await resolveTask(db, c.req.param('childRef'))
+    const parent = await requireTask(c, db, c.req.param('ref'))
+    const child = await requireTask(c, db, c.req.param('childRef'))
     if (child.parentId !== parent.id) throw new OverrideRefused(`task '${child.id}' is not a subtask of '${parent.id}'`)
     const updated = await db.tasks.update(child.id, { parentId: null })
     if (!updated) throw new HTTPException(404, { message: `no task '${child.id}'` })
@@ -378,7 +403,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     response: NotesResponse, parameters: [refParameter], errors: [400, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     return c.json({ notes: (await db.tasks.listNotes(task.id)).map(noteView) })
   })
 
@@ -387,7 +412,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     response: CommentsResponse, parameters: [refParameter], errors: [400, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     return c.json({ comments: (await db.tasks.listNotes(task.id)).map(noteView) })
   })
 
@@ -400,7 +425,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     response: AttachmentsResponse, parameters: [refParameter], errors: [400, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const rows = await db.tasks.listAttachments(task.id)
     return c.json({ attachments: rows.map((row) => attachmentView(task.id, row)) })
   })
@@ -413,7 +438,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     parameters: [refParameter, attachmentParameter], errors: [400, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const found = await db.tasks.readAttachment(task.id, c.req.param('attachmentId'))
     if (!found) throw new HTTPException(404, { message: 'no such attachment' })
     // Uploaded bytes are served from the panel's own origin, so the browser is
@@ -444,7 +469,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const project = await requireProject(db, c.req.param('slug'))
+    const project = await requireProject(c, db, c.req.param('slug'))
     const body = CreateTaskBody.parse(await c.req.json())
     const principal = principalOf(c)
     const { environment, dueAt, ...rest } = body
@@ -485,7 +510,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     request: PatchTaskBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const body = PatchTaskBody.parse(await c.req.json())
     if (Object.keys(body).length === 0) throw new OverrideRefused('nothing to change')
     const { environment, dueAt, ...rest } = body
@@ -550,7 +575,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     response: Removal, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const slug = await slugOf(db, task)
     const principal = principalOf(c)
     await db.tasks.remove(task.id)
@@ -568,7 +593,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     request: StartBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const body = StartBody.parse(await c.req.json().catch(() => ({})))
     const principal = principalOf(c)
     const plan = startPlan(task, body.assign === false ? null : principal.actor)
@@ -581,7 +606,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     request: StatusBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const body = StatusBody.parse(await c.req.json())
     const principal = principalOf(c)
     return c.json(await write(db, task, { status: body.status, ...(task.draft ? { draft: false } : {}) }, { status: body.status, ...(body.status === 'done' ? { close: true } : {}) }, principal, 'task.status', `"${task.title}" moved to ${body.status}`))
@@ -593,7 +618,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     request: MoveBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const body = MoveBody.parse(await c.req.json())
     const previousPosition = task.position
     const previousStatus = task.status
@@ -631,7 +656,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     request: FinishBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const body = FinishBody.parse(await c.req.json().catch(() => ({})))
     const plan = finishPlan(body.close === true)
     const principal = principalOf(c)
@@ -644,7 +669,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     request: NoteBody, response: TaskNote, status: 201, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const body = NoteBody.parse(await c.req.json())
     const principal = principalOf(c)
     const note = await db.tasks.addNote(task.id, body.body, principal.actor, principal.actorKind)
@@ -665,7 +690,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     request: NoteBody, response: TaskNote, status: 201, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const body = NoteBody.parse(await c.req.json())
     const principal = principalOf(c)
     const note = await db.tasks.addNote(task.id, body.body, principal.actor, principal.actorKind)
@@ -697,7 +722,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const form = await c.req.parseBody()
     const file = form['file']
     if (!(file instanceof File)) throw new OverrideRefused('send the file in a multipart field named file')
@@ -732,7 +757,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const attachmentId = c.req.param('attachmentId')
     const found = await db.tasks.findAttachment(task.id, attachmentId)
     if (!found) throw new HTTPException(404, { message: 'no such attachment' })
@@ -755,7 +780,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const existing = await db.tasks.findNote(task.id, c.req.param('noteId'))
     if (!existing) throw new HTTPException(404, { message: `no note '${c.req.param('noteId')}'` })
     const principal = principalOf(c)
@@ -774,7 +799,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const existing = await db.tasks.findNote(task.id, c.req.param('noteId'))
     if (!existing) throw new HTTPException(404, { message: `no comment '${c.req.param('noteId')}'` })
     const principal = principalOf(c)
@@ -791,7 +816,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const existing = await db.tasks.findNote(task.id, c.req.param('noteId'))
     if (!existing) throw new HTTPException(404, { message: `no note '${c.req.param('noteId')}'` })
     const principal = principalOf(c)
@@ -809,7 +834,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const existing = await db.tasks.findNote(task.id, c.req.param('noteId'))
     if (!existing) throw new HTTPException(404, { message: `no comment '${c.req.param('noteId')}'` })
     const principal = principalOf(c)
@@ -826,6 +851,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     parameters: [slugParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
+    await requireProject(c, db, c.req.param('slug'))
     const applied = await applyExampleDocument(db, deps.config, await deps.cache.get(), c.req.param('slug'), await c.req.json())
     return c.json(applied)
   })
@@ -836,6 +862,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     response: ExampleDocument, parameters: [slugParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
+    await requireProject(c, db, c.req.param('slug'))
     return c.json(await exportProjectTasks(db, deps.config, await deps.cache.get(), c.req.param('slug')))
   })
 
@@ -850,7 +877,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     request: EnvironmentsBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const body = EnvironmentsBody.parse(await c.req.json())
     const snapshot = await deps.cache.get()
     // An environment adopted by another Project is that Project's: linking a

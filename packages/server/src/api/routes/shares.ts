@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from '../../deps.ts'
@@ -13,6 +13,8 @@ import {
 } from '../../services/shares.ts'
 import { Share, ShareView } from 'portta-contracts'
 import { containerIdParameter, documentRoute, shareIdParameter } from '../openapi.ts'
+import { authorizeScope, principalOf } from 'portta-auth-core/hono'
+import { adoptions, projectOfEnvironment, visible } from '../../services/access-control.ts'
 
 const createBody = z
   .object({
@@ -35,13 +37,19 @@ export const RevokeShareResponse = z.object({ ok: z.literal(true), message: z.st
 export function shareRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
+  /** A share is an extra hostname for one environment's service. */
+  async function reach(c: Context, environment: string | null | undefined): Promise<void> {
+    authorizeScope(c, environment ? await projectOfEnvironment(deps.db, environment) : null)
+  }
+
   app.get('/shares', documentRoute({
     tag: 'Shares', operationId: 'listShares', permission: 'access:read', summary: 'List temporary service shares', response: ShareView,
     errors: [500],
   }), async (c) => {
     const snapshot = await deps.cache.get()
+    const owners = await adoptions(deps.db)
     const view: ShareView = {
-      shares: listShares(deps.config, snapshot),
+      shares: visible(principalOf(c), listShares(deps.config, snapshot), (share) => owners.get(share.project) ?? null),
       domain: `share.${deps.config.publicDomain ?? deps.config.domain}`,
       publicAllowed: deps.config.publicEnabled && deps.config.publicDomain !== null,
       maxTtlSeconds: MAX_TTL_SECONDS,
@@ -70,6 +78,7 @@ export function shareRoutes(deps: AppDeps): Hono {
 
     const snapshot = await deps.cache.get(true)
     const container = findContainer(snapshot, c.req.param('id'))
+    await reach(c, container.environment)
     const created = await createShare(deps.config, snapshot, container, parsed.data)
 
     return c.json(
@@ -88,6 +97,7 @@ export function shareRoutes(deps: AppDeps): Hono {
     response: CreatedShareResponse, parameters: [shareIdParameter], errors: [400, 403, 404, 500],
   }), async (c) => {
     const snapshot = await deps.cache.get()
+    await reach(c, listShares(deps.config, snapshot).find((share) => share.id === c.req.param('id'))?.project)
     const created = await regenerateShare(deps.config, snapshot, c.req.param('id'))
     return c.json({
       ok: true,
@@ -100,7 +110,9 @@ export function shareRoutes(deps: AppDeps): Hono {
   app.delete('/shares/:id', documentRoute({
     tag: 'Shares', operationId: 'revokeShare', permission: 'access:manage', summary: 'Revoke a temporary share',
     response: RevokeShareResponse, parameters: [shareIdParameter], errors: [400, 403, 404, 500],
-  }), (c) => {
+  }), async (c) => {
+    const snapshot = await deps.cache.get()
+    await reach(c, listShares(deps.config, snapshot).find((share) => share.id === c.req.param('id'))?.project)
     revokeShare(deps.config, c.req.param('id'))
     return c.json({ ok: true, message: 'share revoked; the project itself was not touched' })
   })

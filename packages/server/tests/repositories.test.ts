@@ -52,7 +52,7 @@ function scanDir(): string {
 
 function row(overrides: Partial<RepositoryRow> = {}): RepositoryRow {
   return {
-    id: '1', projectId: 'p1', name: 'alpha', role: 'web', localPath: null, relativePath: null, remoteUrl: null,
+    id: '1', projectId: '1', name: 'alpha', role: 'web', localPath: null, relativePath: null, remoteUrl: null,
     provider: 'local', githubRepositoryId: null, position: 0, createdAt: new Date(0), updatedAt: new Date(0), github: null,
     ...overrides,
   }
@@ -135,8 +135,8 @@ function repositoryDatabase() {
     environments: { find: async () => null, upsertSeen: async () => ({}), list: async () => [] },
     settings: { listAllEnvironment: async () => [], listAllService: async () => [] },
     projects: {
-      find: async (slug: string) => (slug === 'produto' ? { id: 'p1', slug, name: 'Produto', description: null, archived: false, relativePath: 'alpha' } : null),
-      list: async () => [{ id: 'p1', slug: 'produto', name: 'Produto', description: null, archived: false, relativePath: 'alpha' }],
+      find: async (slug: string) => (slug === 'produto' ? { id: '1', slug, name: 'Produto', description: null, archived: false, relativePath: 'alpha' } : null),
+      list: async () => [{ id: '1', slug: 'produto', name: 'Produto', description: null, archived: false, relativePath: 'alpha' }],
       listEnvironments: async () => [],
     },
     github: { findRepository: async () => null, listRepositories: async () => [], listIssues: async () => [], listIssueEnvironments: async () => [], listRelationships: async () => [] },

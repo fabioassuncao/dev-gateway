@@ -452,8 +452,12 @@ export async function del(app: Hono, path: string, body: unknown = {}): Promise<
  * The route suites use `makeApp`, which is open mode, because who the caller is
  * has its own suites. This is for the ones that are about exactly that.
  */
-export function makeProtectedApp(database: Database, configOverrides: Partial<PanelConfig> = {}) {
-  const docker = fakeDocker({})
+export function makeProtectedApp(
+  database: Database,
+  configOverrides: Partial<PanelConfig> = {},
+  dockerOptions: FakeDockerOptions = {},
+) {
+  const docker = fakeDocker(dockerOptions)
   const config = testConfig(configOverrides)
   const cache = createSnapshotCache(docker.client, config, 0)
   const hub = new LiveHub(docker.client, cache)

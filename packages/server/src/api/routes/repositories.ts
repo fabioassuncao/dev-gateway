@@ -5,7 +5,7 @@
 // a path and a name; whether the path is a repository, what branch it is on
 // and which files instruct an agent are what `portta repos scan` collected.
 
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from '../../deps.ts'
@@ -17,7 +17,8 @@ import { discoveredRepositories, environmentsOf, loadScans, toRepository } from 
 import { Commit, DiscoveredRepository, InstructionFile, Repository, RepositoryGit, RouteUrl } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 import { recordActivity } from '../../services/activity.ts'
-import { principalOf } from 'portta-auth-core/hono'
+import { authorizeScope, principalOf } from 'portta-auth-core/hono'
+import { projectScope } from '../../services/access-control.ts'
 
 const slugParameter = {
   name: 'slug', in: 'path' as const, required: true,
@@ -94,10 +95,20 @@ function refusedOnValidation<T>(work: () => Promise<T>): Promise<T> {
 export function repositoryRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
-  async function requireRepository(db: Database, id: string): Promise<RepositoryRow> {
+  /** A repository, and whether this caller reaches the Project that owns it. */
+  async function requireRepository(c: Context, db: Database, id: string): Promise<RepositoryRow> {
     const row = await db.repositories.find(id)
     if (!row) throw new HTTPException(404, { message: `no repository '${id}'` })
+    authorizeScope(c, projectScope(row.projectId))
     return row
+  }
+
+  /** The Project a route named, and whether this caller reaches it. */
+  async function requireProject(c: Context, db: Database, slug: string) {
+    const project = await db.projects.find(slug)
+    if (!project) throw new HTTPException(404, { message: `no project '${slug}'` })
+    authorizeScope(c, projectScope(project.id))
+    return project
   }
 
   /** The projection is the authorisation boundary: a GitHub repository outside it is refused before it is stored. */
@@ -137,6 +148,9 @@ export function repositoryRoutes(deps: AppDeps): Hono {
     response: DiscoveredResponse, errors: [500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
+    // Roots on the host that no Project registered. They belong to nothing, so
+    // there is no membership to check and they are for `scope: 'all'` alone.
+    if (principalOf(c).scope !== 'all') return c.json({ repositories: [] })
     const rows = await db.repositories.list()
     return c.json({ repositories: discoveredRepositories(rows, loadScans(deps.config)) })
   })
@@ -148,8 +162,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
     response: RepositoriesResponse, parameters: [slugParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const project = await db.projects.find(c.req.param('slug'))
-    if (!project) throw new HTTPException(404, { message: `no project '${c.req.param('slug')}'` })
+    const project = await requireProject(c, db, c.req.param('slug'))
     const scans = loadScans(deps.config)
     const rows = await db.repositories.list(project.id)
     return c.json({ repositories: rows.map((row) => toRepository(deps.config, row, scans)) })
@@ -163,8 +176,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
     parameters: [slugParameter], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const project = await db.projects.find(c.req.param('slug'))
-    if (!project) throw new HTTPException(404, { message: `no project '${c.req.param('slug')}'` })
+    const project = await requireProject(c, db, c.req.param('slug'))
     const body = CreateBody.parse(await c.req.json())
     const scans = loadScans(deps.config)
 
@@ -195,7 +207,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
     response: Repository, parameters: [idParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const row = await requireRepository(db, c.req.param('id'))
+    const row = await requireRepository(c, db, c.req.param('id'))
     return c.json(toRepository(deps.config, row, loadScans(deps.config)))
   })
 
@@ -205,7 +217,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
     request: PatchBody, response: Repository, parameters: [idParameter], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const row = await requireRepository(db, c.req.param('id'))
+    const row = await requireRepository(c, db, c.req.param('id'))
     const body = PatchBody.parse(await c.req.json())
     const { githubFullName, ...rest } = body
     const patch: Record<string, unknown> = { ...rest }
@@ -231,7 +243,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
     response: Removal, parameters: [idParameter], errors: [403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const row = await requireRepository(db, c.req.param('id'))
+    const row = await requireRepository(c, db, c.req.param('id'))
     await db.repositories.remove(row.id)
     const principal = principalOf(c)
     const slug = (await db.projects.list()).find((project) => project.id === row.projectId)?.slug ?? null
@@ -252,7 +264,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
     response: RepositoryGit, parameters: [idParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const { repository, scan } = scanFor(await requireRepository(db, c.req.param('id')))
+    const { repository, scan } = scanFor(await requireRepository(c, db, c.req.param('id')))
     return c.json(scan ?? readRepositoryScan(deps.config, repository.scanKey ?? '000000000000'))
   })
 
@@ -261,7 +273,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
     response: CommitsResponse, parameters: [idParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const { scan } = scanFor(await requireRepository(db, c.req.param('id')))
+    const { scan } = scanFor(await requireRepository(c, db, c.req.param('id')))
     return c.json({ commits: scan?.commits ?? [], collectedAt: scan?.collectedAt ?? null, stale: scan?.stale ?? false })
   })
 
@@ -272,7 +284,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
     response: InstructionsResponse, parameters: [idParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const { scan } = scanFor(await requireRepository(db, c.req.param('id')))
+    const { scan } = scanFor(await requireRepository(c, db, c.req.param('id')))
     return c.json({ instructions: scan?.instructions ?? [], collectedAt: scan?.collectedAt ?? null, stale: scan?.stale ?? false })
   })
 
@@ -282,7 +294,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
     response: EnvironmentsResponse, parameters: [idParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const { repository } = scanFor(await requireRepository(db, c.req.param('id')))
+    const { repository } = scanFor(await requireRepository(c, db, c.req.param('id')))
     return c.json({ environments: environmentsOf(repository, await deps.cache.get()) })
   })
 

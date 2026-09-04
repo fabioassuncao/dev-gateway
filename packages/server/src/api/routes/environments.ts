@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import type { AppDeps } from '../../deps.ts'
 import { HTTPException } from 'hono/http-exception'
@@ -26,7 +26,8 @@ import { composeUpCommand, findRememberedEnvironment, rememberedEnvironments } f
 import { runnerOf } from '../../services/runner.ts'
 import { documentRoute, projectParameter, tailParameter } from '../openapi.ts'
 import { recordActivity } from '../../services/activity.ts'
-import { principalOf } from 'portta-auth-core/hono'
+import { authorizeScope, principalOf } from 'portta-auth-core/hono'
+import { adoptions, projectOfEnvironment, visible } from '../../services/access-control.ts'
 import type { Principal } from 'portta-auth-core'
 import type { ActivityKind } from 'portta-core'
 import { requireDatabase } from '../../db/index.ts'
@@ -124,6 +125,16 @@ async function recordEnvironmentActivity(deps: AppDeps, name: string, principal:
 export function environmentRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
+  /**
+   * Whether this caller reaches the environment a route named.
+   *
+   * An environment belongs to whichever Project adopted it; one nothing adopted
+   * belongs to nobody, and is for `scope: 'all'` alone.
+   */
+  async function reach(c: Context, name: string): Promise<void> {
+    authorizeScope(c, await projectOfEnvironment(deps.db, name))
+  }
+
   // Integrated environments are the ones with at least one service on the
   // gateway. Everything else lives on the Docker page, where it
   // is clearly labelled as being outside the gateway.
@@ -150,9 +161,14 @@ export function environmentRoutes(deps: AppDeps): Hono {
     const environments = all
       ? [...snapshot.environments, ...remembered]
       : [...snapshot.environments.filter((environment) => environment.integrated), ...remembered.filter((environment) => adopted.has(environment.name))]
-    // With no database, or none reachable, this is the identity function and
-    // the response is byte-identical to a panel with no persistence at all.
-    return c.json({ environments: applyOverrides(environments, await loadOverrides(deps.db)) })
+    // With no database, or none reachable, `applyOverrides` is the identity
+    // function and the response is byte-identical to a panel with no
+    // persistence at all.
+    const decorated = applyOverrides(environments, await loadOverrides(deps.db))
+    // Then filtered: a developer sees the environments their Projects adopted,
+    // and an environment nobody adopted is for whoever sees everything.
+    const owners = await adoptions(deps.db)
+    return c.json({ environments: visible(principalOf(c), decorated, (environment) => owners.get(environment.name) ?? null) })
   })
 
   app.get('/environments/:project', documentRoute({
@@ -164,6 +180,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
     const name = c.req.param('project')
     const project = snapshot.environments.find((item) => item.name === name) ?? await findRememberedEnvironment(deps.db, snapshot, deps.config, name)
     if (!project) throw new HTTPException(404, { message: `no environment '${name}' is running` })
+    await reach(c, name)
     const decorated = applyOverrides([project], await loadOverrides(deps.db))[0]!
     // Additive, and nullable: a panel with no App, no database or no link gets
     // exactly the object it got before.
@@ -187,6 +204,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
     if (!snapshot.environments.some((item) => item.name === name) && await findRememberedEnvironment(deps.db, snapshot, deps.config, name) === null) {
       throw new HTTPException(404, { message: `no environment '${name}' is running` })
     }
+    await reach(c, name)
     return c.json(await withForgeFromApp(deps, readProjectGit(deps.config, name)))
   })
 
@@ -217,6 +235,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
     const name = c.req.param('project')
     const project = snapshot.environments.find((item) => item.name === name) ?? await findRememberedEnvironment(deps.db, snapshot, deps.config, name)
     if (!project) throw new HTTPException(404, { message: `no environment '${name}' is running` })
+    await reach(c, name)
 
     const wanted = c.req.query('service')
     const services = project.services.filter(
@@ -269,6 +288,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
     errors: [403, 404, 500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get()
+    await reach(c, c.req.param('project'))
     return c.json(await projectRemovalPreview(snapshot, deps.config, deps.db, c.req.param('project')))
   })
 
@@ -283,6 +303,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const snapshot = await deps.cache.get()
     const body = await c.req.json().catch(() => ({})) as { noCache?: boolean }
+    await reach(c, c.req.param('project'))
     const rebuildResult = await rebuildProject(deps.client, snapshot, deps.config, c.req.param('project'), {
       noCache: body.noCache === true,
     })
@@ -312,6 +333,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
       directory: boolean
       overrideDirty?: boolean
     }
+    await reach(c, c.req.param('project'))
     const result = await removeProject(
       deps.client, snapshot, deps.config, deps.db, c.req.param('project'), body,
     )
@@ -365,6 +387,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
       errors: [403, 404, 409, 500, 502],
     }), async (c) => {
       const snapshot = await deps.cache.get()
+      await reach(c, c.req.param('project'))
       if (action === 'start') {
         const viaRunner = await startRemembered(principalOf(c), snapshot, c.req.param('project'))
         if (viaRunner) return c.json(viaRunner)
@@ -392,6 +415,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
     const db = requireDatabase(deps.db)
     const remembered = await findRememberedEnvironment(db, snapshot, deps.config, name)
     if (!remembered) throw new HTTPException(404, { message: `no environment '${name}' is remembered` })
+    await reach(c, name)
     await recordEnvironmentActivity(deps, name, principalOf(c), 'environment.forgotten', `${name} forgotten`)
     await db.environments.forget(name)
     deps.cache.invalidate()

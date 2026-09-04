@@ -10,7 +10,8 @@ import { loadProjectCatalog, toProject, toProjectSummary, type ProjectCatalog } 
 import { Project, ProjectSummary } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 import { recordActivity } from '../../services/activity.ts'
-import { principalOf } from 'portta-auth-core/hono'
+import { authorizeScope, principalOf } from 'portta-auth-core/hono'
+import { projectScope, visible } from '../../services/access-control.ts'
 
 const slugParameter = {
   name: 'slug',
@@ -122,7 +123,9 @@ export function projectRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const db = requireDatabase(deps.db)
     const catalog = await assemble(db, await deps.cache.get(), deps.config)
-    return c.json({ projects: summariesFrom(catalog) })
+    // A listing filters rather than refuses: somebody asking for the Projects
+    // wants theirs, not a 403 about somebody else's.
+    return c.json({ projects: visible(principalOf(c), summariesFrom(catalog), (summary) => projectScope(summary.id)) })
   })
 
   app.post('/projects', documentRoute({
@@ -152,6 +155,7 @@ export function projectRoutes(deps: AppDeps): Hono {
     const slug = c.req.param('slug')
     const record = await db.projects.find(slug)
     if (!record) throw new HTTPException(404, { message: `no project '${slug}'` })
+    authorizeScope(c, projectScope(record.id))
     const catalog = await assemble(db, await deps.cache.get(), deps.config)
     return c.json(toProject(
       record,
@@ -169,6 +173,11 @@ export function projectRoutes(deps: AppDeps): Hono {
     const db = requireDatabase(deps.db)
     const slug = c.req.param('slug')
     const patch = PatchBody.parse(await c.req.json())
+    // Resolved before it is written: the scope check needs an id, and a write
+    // that happened before the refusal would be a refusal that changed things.
+    const existing = await db.projects.find(slug)
+    if (!existing) throw new HTTPException(404, { message: `no project '${slug}'` })
+    authorizeScope(c, projectScope(existing.id))
     const updated = await refusedOnValidation(() => db.projects.update(slug, patch))
     if (!updated) throw new HTTPException(404, { message: `no project '${slug}'` })
     const principal = principalOf(c)
@@ -191,7 +200,9 @@ export function projectRoutes(deps: AppDeps): Hono {
     const db = requireDatabase(deps.db)
     const slug = c.req.param('slug')
     const existing = await db.projects.find(slug)
-    if (!existing || !(await db.projects.remove(slug))) {
+    if (!existing) throw new HTTPException(404, { message: `no project '${slug}'` })
+    authorizeScope(c, projectScope(existing.id))
+    if (!(await db.projects.remove(slug))) {
       throw new HTTPException(404, { message: `no project '${slug}'` })
     }
     const principal = principalOf(c)
@@ -214,6 +225,7 @@ export function projectRoutes(deps: AppDeps): Hono {
     const slug = c.req.param('slug')
     const record = await db.projects.find(slug)
     if (!record) throw new HTTPException(404, { message: `no project '${slug}'` })
+    authorizeScope(c, projectScope(record.id))
 
     const body = EnvironmentsBody.parse(await c.req.json())
     const snapshot = await deps.cache.get()

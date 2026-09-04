@@ -1,10 +1,12 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from '../../deps.ts'
 import { closeBridge, listBridges, listForwarders, listTcpServices, openBridge, serviceConnection } from '../../services/access.ts'
 import { AccessView, Bridge, ServiceConnection } from 'portta-contracts'
 import { bridgeIdParameter, documentRoute, projectParameter } from '../openapi.ts'
+import { authorizeScope, principalOf } from 'portta-auth-core/hono'
+import { adoptions, projectOfEnvironment, visible } from '../../services/access-control.ts'
 
 const openBody = z
   .object({
@@ -30,15 +32,26 @@ const serviceParameter = {
 export function accessRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
+  /**
+   * A bridge, a forwarder and a share are all about one environment, so that is
+   * the Project they belong to. One nothing adopted belongs to nobody.
+   */
+  async function reach(c: Context, environment: string | null | undefined): Promise<void> {
+    authorizeScope(c, environment ? await projectOfEnvironment(deps.db, environment) : null)
+  }
+
   app.get('/access', documentRoute({
     tag: 'Access', operationId: 'getAccess', permission: 'access:read', summary: 'List private TCP services and temporary bridges',
     response: AccessView, errors: [500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get()
+    const principal = principalOf(c)
+    const owners = await adoptions(deps.db)
+    const of = (row: { project?: string | null }) => (row.project ? owners.get(row.project) ?? null : null)
     const view: AccessView = {
-      services: listTcpServices(snapshot, deps.config),
-      bridges: listBridges(snapshot),
-      forwarders: listForwarders(snapshot),
+      services: visible(principal, listTcpServices(snapshot, deps.config), of),
+      bridges: visible(principal, listBridges(snapshot), of),
+      forwarders: visible(principal, listForwarders(snapshot), of),
       bridgeImageHint: deps.config.bridgeImage,
       tcpRoutingEnabled: deps.config.tcpEnabled,
     }
@@ -64,6 +77,7 @@ export function accessRoutes(deps: AppDeps): Hono {
     if (!container) {
       throw new HTTPException(404, { message: `no service ${project}/${service}` })
     }
+    await reach(c, project)
     const inspect = await deps.client.inspect(container.id)
     const bridges = listBridges(snapshot)
     const bridge = bridges.find((item) => item.project === project && item.service === service) ?? null
@@ -86,6 +100,7 @@ export function accessRoutes(deps: AppDeps): Hono {
     }
 
     const snapshot = await deps.cache.get(true)
+    await reach(c, parsed.data.project)
     const opened = await openBridge(deps.client, snapshot, deps.config, parsed.data)
     deps.cache.invalidate()
 
@@ -99,6 +114,8 @@ export function accessRoutes(deps: AppDeps): Hono {
     response: CloseBridgeResponse, parameters: [bridgeIdParameter], errors: [400, 403, 404, 500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get(true)
+    // The bridge is closed by id, so the environment comes from the bridge.
+    await reach(c, listBridges(snapshot).find((bridge) => bridge.id === c.req.param('id'))?.project)
     await closeBridge(deps.client, snapshot, c.req.param('id'))
     deps.cache.invalidate()
     return c.json({ ok: true, message: 'bridge closed; the service itself was not touched' })

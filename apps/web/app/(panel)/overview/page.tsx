@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { developmentOverview, panelOverview } from 'portta-server'
 import { OverviewView } from '@/components/overview/overview-view'
 import { serverDeps } from '@/lib/server/deps'
+import { requirePrincipal } from '@/lib/server/principal'
 import { serverTranslation } from '@/lib/i18n/server'
 
 // The dashboard is a picture of a running host: it is read on every request,
@@ -28,6 +29,11 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function OverviewPage() {
   const deps = serverDeps()
-  const [overview, status] = await Promise.all([developmentOverview(deps), panelOverview(deps)])
+  // The layout above already redirected anybody without one, so this is the
+  // same principal the API would resolve for the same request — the dashboard
+  // sums what this person can see and nothing else.
+  const principal = await requirePrincipal()
+  if (!principal) throw new Error('the panel layout should have redirected before this page rendered')
+  const [overview, status] = await Promise.all([developmentOverview(deps, principal), panelOverview(deps)])
   return <OverviewView initialOverview={overview} initialStatus={status} />
 }

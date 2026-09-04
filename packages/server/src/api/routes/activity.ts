@@ -10,6 +10,9 @@ import { activityView, loadNames } from '../../services/activity-view.ts'
 import { ActivityEvent } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 import { resolveTask } from '../../services/task-write.ts'
+import { authorizeScope, principalOf } from 'portta-auth-core/hono'
+import type { Principal } from 'portta-auth-core'
+import { projectScope, visible } from '../../services/access-control.ts'
 
 const ActivityResponse = z.object({ events: z.array(ActivityEvent) }).strict().meta({ ref: 'ActivityResponse' })
 
@@ -24,7 +27,7 @@ const filterParameters = FILTERS.map(([name, description]) => ({ name, in: 'quer
 export function activityRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
-  async function listing(db: Database, projectId: string | undefined, query: URLSearchParams) {
+  async function listing(principal: Principal, db: Database, projectId: string | undefined, query: URLSearchParams) {
     const kinds = query.get('kind')?.split(',').filter(isActivityKind)
     const environment = query.get('environment')
     const environmentId = environment ? (await db.environments.find(environment))?.id ?? '0' : undefined
@@ -41,7 +44,10 @@ export function activityRoutes(deps: AppDeps): Hono {
       ...(query.get('limit') && /^\d+$/.test(query.get('limit')!) ? { limit: Number(query.get('limit')) } : {}),
     })
     const names = await loadNames(db)
-    return rows.map((row) => activityView(names, row))
+    // Filtered before it is rendered, and by the row's own `project_id`: an
+    // event with none is about the host — a setting, the gateway — and belongs
+    // to whoever sees everything (03 §4.5).
+    return visible(principal, rows, (row) => projectScope(row.projectId)).map((row) => activityView(names, row))
   }
 
   app.get('/projects/:slug/activity', documentRoute({
@@ -53,7 +59,8 @@ export function activityRoutes(deps: AppDeps): Hono {
     const db = requireDatabase(deps.db)
     const project = await db.projects.find(c.req.param('slug'))
     if (!project) throw new HTTPException(404, { message: `no project '${c.req.param('slug')}'` })
-    return c.json({ events: await listing(db, project.id, new URL(c.req.url).searchParams) })
+    const principal = authorizeScope(c, projectScope(project.id))
+    return c.json({ events: await listing(principal, db, project.id, new URL(c.req.url).searchParams) })
   })
 
   app.get('/activity', documentRoute({
@@ -61,7 +68,7 @@ export function activityRoutes(deps: AppDeps): Hono {
     response: ActivityResponse, parameters: filterParameters, errors: [500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    return c.json({ events: await listing(db, undefined, new URL(c.req.url).searchParams) })
+    return c.json({ events: await listing(principalOf(c), db, undefined, new URL(c.req.url).searchParams) })
   })
 
   app.get('/tasks/:ref/activity', documentRoute({
@@ -72,9 +79,10 @@ export function activityRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const db = requireDatabase(deps.db)
     const task = await resolveTask(db, c.req.param('ref'))
+    const principal = authorizeScope(c, projectScope(task.projectId))
     const query = new URL(c.req.url).searchParams
     query.set('task', task.id)
-    return c.json({ events: await listing(db, task.projectId, query) })
+    return c.json({ events: await listing(principal, db, task.projectId, query) })
   })
 
   return app

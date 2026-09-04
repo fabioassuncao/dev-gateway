@@ -6,13 +6,14 @@
 // already read — the snapshot, the catalog, the tasks, the scans, the metrics
 // — and hands it to a pure presenter in core/, where the shape is tested.
 
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import { nextTask, type SchedulableTask } from 'portta-core'
 import type { AppDeps } from '../../deps.ts'
 import { documentRoute, projectParameter } from '../openapi.ts'
-import { principalOf } from 'portta-auth-core/hono'
+import { authorizeScope, principalOf } from 'portta-auth-core/hono'
+import { projectOfEnvironment, projectScope } from '../../services/access-control.ts'
 import { requireDatabase, type Database } from '../../db/index.ts'
 import type { TaskRow } from '../../db/tasks.ts'
 import { applyOverrides, loadOverrides } from '../../services/overrides.ts'
@@ -56,10 +57,16 @@ export function developmentRoutes(deps: AppDeps): Hono {
 
   const projects = (db: Database): Promise<Project[]> => listProjects(deps, db)
 
-  async function projectNamed(db: Database, slug: string): Promise<Project> {
+  async function projectNamed(c: Context, db: Database, slug: string): Promise<Project> {
     const project = (await projects(db)).find((item) => item.slug === slug)
     if (!project) throw new HTTPException(404, { message: `no project '${slug}'` })
+    authorizeScope(c, projectScope(project.id))
     return project
+  }
+
+  /** Whether this caller reaches the environment a route named. */
+  async function reach(c: Context, name: string): Promise<void> {
+    authorizeScope(c, await projectOfEnvironment(deps.db, name))
   }
 
 
@@ -75,6 +82,7 @@ export function developmentRoutes(deps: AppDeps): Hono {
     description: 'Each service with its state, health, access (endpoints, bridge, primary address), resources from the host collector, runtime and the actions that apply. What used to be three views is one row.',
     response: EnvironmentServices, parameters: [projectParameter], errors: [404, 500, 502],
   }), async (c) => {
+    await reach(c, c.req.param('project'))
     const environment = await environmentNamed(c.req.param('project'))
     const snapshot = await deps.cache.get()
     const readOnly = !principalOf(c).permissions.has('environment:operate')
@@ -90,6 +98,7 @@ export function developmentRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const action = ServiceAction.safeParse(c.req.param('action'))
     if (!action.success) throw new HTTPException(400, { message: `'${c.req.param('action')}' is not start, stop or restart` })
+    await reach(c, c.req.param('project'))
     const environment = await environmentNamed(c.req.param('project'))
     const name = c.req.param('service')
     const target = environment.services.find((service) => (service.service ?? service.name) === name)
@@ -122,7 +131,7 @@ export function developmentRoutes(deps: AppDeps): Hono {
     errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const project = await projectNamed(db, c.req.param('slug'))
+    const project = await projectNamed(c, db, c.req.param('slug'))
     const snapshot = await deps.cache.get()
     const overrides = await loadOverrides(deps.db)
     const adopted = new Set(project.environments.map((link) => link.environment))
@@ -167,7 +176,7 @@ export function developmentRoutes(deps: AppDeps): Hono {
     response: ProjectResources, parameters: [slugParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const project = await projectNamed(db, c.req.param('slug'))
+    const project = await projectNamed(c, db, c.req.param('slug'))
     const metrics = readCurrentMetrics(deps.config)
     const adopted = new Set(project.environments.map((link) => link.environment))
     const environments = metrics.projects
@@ -206,7 +215,7 @@ export function developmentRoutes(deps: AppDeps): Hono {
     summary: 'The Development Dashboard: what is happening on this host',
     description: 'Work in progress, active sessions, what needs attention, each project at a glance, recent code, the runtime and the resources. Without a database the work, session and project sections are empty and everything else still answers.',
     response: DevelopmentOverview, errors: [500, 502],
-  }), async (c) => c.json(await developmentOverview(deps)))
+  }), async (c) => c.json(await developmentOverview(deps, principalOf(c))))
 
   return app
 }

@@ -186,6 +186,8 @@ file or stdin.
 | `users create` | `--name`, `--email`, `--role`, `--projects`, `--password-stdin`; a generated password is shown once. |
 | `users set-role <email> <role>` | Global flags only. The email is resolved to an id through the panel. |
 | `users set-password <email>` | `--password-stdin`; ends every session of that account. |
+| `users grant <email> <project>` | Global flags only. Sends the whole list, with this Project added. |
+| `users revoke <email> <project>` | Global flags only. Sends the whole list, with this Project removed. |
 | `users remove <email>` | Global flags only. |
 | `auth token list\|create\|revoke` | Manage revocable Bearer tokens. `create --name --actor [--human] [--capabilities <a,b>]` prints the secret once. |
 | `network status` | `--public-ip` explicitly permits one external lookup. |

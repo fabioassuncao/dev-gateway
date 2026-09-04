@@ -35,7 +35,7 @@ COMMAND_TREE=(
   "redis:open close cli"
   "web:up dev down disable restart status open logs build"
   "auth:bootstrap status protect unprotect reset-password"
-  "users:list create set-role set-password remove"
+  "users:list create set-role set-password grant revoke remove"
   "git:scan status clear"
   "repos:scan status clear"
   "tasks:list next show create start status finish edit note subtasks link unlink publish sync comment"

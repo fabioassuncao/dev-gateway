@@ -12,6 +12,8 @@
 
 import type { Project, RepositoryGit, DevelopmentOverview } from 'portta-contracts'
 import type { AppDeps } from '../deps.ts'
+import type { Principal } from 'portta-auth-core'
+import { adoptions, projectScope, visible } from './access-control.ts'
 import type { Database } from '../db/index.ts'
 import { loadProjectCatalog, toProject } from './catalog.ts'
 import { applyOverrides, loadAliases, loadOverrides } from './overrides.ts'
@@ -61,10 +63,22 @@ export function scansFor(deps: AppDeps, list: readonly Project[]): Map<string, R
  * changed. With persistence unreachable it still answers — the gateway's own
  * status and nothing invented.
  */
-export async function developmentOverview(deps: AppDeps): Promise<DevelopmentOverview> {
+/**
+ * The dashboard, for one principal.
+ *
+ * It sums what that person can see and nothing else: a developer's Overview is
+ * their Projects, their environments and their tasks. Totals that included a
+ * Project they cannot open would be a number they could not explain.
+ */
+export async function developmentOverview(deps: AppDeps, principal: Principal): Promise<DevelopmentOverview> {
   const snapshot = await deps.cache.get()
   const overrides = await loadOverrides(deps.db)
-  const environments = applyOverrides(snapshot.environments, overrides)
+  const owners = await adoptions(deps.db)
+  const environments = visible(
+    principal,
+    applyOverrides(snapshot.environments, overrides),
+    (environment) => owners.get(environment.name) ?? null,
+  )
   const metrics = readCurrentMetrics(deps.config)
   const shares = listShares(deps.config, snapshot)
   const gateway = gatewayStatus(snapshot, deps.config)
@@ -87,12 +101,13 @@ export async function developmentOverview(deps: AppDeps): Promise<DevelopmentOve
 
   if (deps.db.status().available) {
     const db = deps.db
-    list = await listProjects(deps, db)
-    const rows = await db.tasks.list({ limit: 2000 })
+    list = visible(principal, await listProjects(deps, db), (project) => projectScope(project.id))
+    const rows = visible(principal, await db.tasks.list({ limit: 2000 }), (row) => projectScope(row.projectId))
     tasks = taskSummaries(await loadTaskContext(deps.config, db, snapshot, rows), rows)
     const names = await loadNames(db)
-    sessions = (await db.sessions.list({ status: ['active'], limit: 100 })).map((row) => sessionView(names, row))
-    for (const event of await db.activity.list({ limit: 300 })) {
+    const active = await db.sessions.list({ status: ['active'], limit: 100 })
+    sessions = visible(principal, active, (row) => projectScope(row.projectId)).map((row) => sessionView(names, row))
+    for (const event of visible(principal, await db.activity.list({ limit: 300 }), (row) => projectScope(row.projectId))) {
       const slug = event.projectId ? names.slugById.get(event.projectId) : undefined
       if (slug && !lastActivity.has(slug)) lastActivity.set(slug, { at: seconds(event.at), summary: event.summary })
     }

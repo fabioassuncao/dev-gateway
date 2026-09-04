@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from '../../deps.ts'
@@ -6,12 +6,24 @@ import { findContainer } from '../../services/actions.ts'
 import { dashboardRouterUrl, routersFor } from '../../services/traefik.ts'
 import { ContainerSummary, LogsResponse, ServiceTraefik } from 'portta-contracts'
 import { containerIdParameter, documentRoute, tailParameter } from '../openapi.ts'
+import { authorizeScope, principalOf } from 'portta-auth-core/hono'
+import { adoptions, projectOfEnvironment, visible } from '../../services/access-control.ts'
 
 const MAX_TAIL = 2000
 export const ServicesResponse = z.object({ services: z.array(ContainerSummary) }).strict().meta({ ref: 'ServicesResponse' })
 
 export function serviceRoutes(deps: AppDeps): Hono {
   const app = new Hono()
+
+  /**
+   * A container, and whether this caller reaches the environment it runs in.
+   *
+   * A service is a container of an adopted environment, so its Project is the
+   * environment's. One in an environment nothing adopted belongs to nobody.
+   */
+  async function reach(c: Context, environment: string | null): Promise<void> {
+    authorizeScope(c, environment === null ? null : await projectOfEnvironment(deps.db, environment))
+  }
 
   // A "service" is a container that belongs to an integrated project. It is the
   // same object the Docker page shows, filtered to what the gateway manages.
@@ -32,7 +44,11 @@ export function serviceRoutes(deps: AppDeps): Hono {
         integrated.has(container.environment) &&
         (project === undefined || container.environment === project),
     )
-    return c.json({ services })
+    const owners = await adoptions(deps.db)
+    return c.json({
+      services: visible(principalOf(c), services, (container) =>
+        container.environment === null ? null : owners.get(container.environment) ?? null),
+    })
   })
 
   app.get('/services/:id', documentRoute({
@@ -41,13 +57,18 @@ export function serviceRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const snapshot = await deps.cache.get()
     const container = findContainer(snapshot, c.req.param('id'))
+    await reach(c, container.environment)
     return c.json(container)
   })
 
   app.get('/services/:id/logs', documentRoute({
     tag: 'Services', operationId: 'getServiceLogs', permission: 'logs:read', summary: 'Read recent service logs', response: LogsResponse,
     parameters: [containerIdParameter, tailParameter], errors: [404, 500, 502],
-  }), async (c) => c.json(await readLogs(deps, c.req.param('id'), c.req.query('tail'))))
+  }), async (c) => {
+    const container = findContainer(await deps.cache.get(), c.req.param('id'))
+    await reach(c, container.environment)
+    return c.json(await readLogs(deps, c.req.param('id'), c.req.query('tail')))
+  })
 
   /**
    * What Traefik says about this service, beside what its labels say. Off its
@@ -60,6 +81,7 @@ export function serviceRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const snapshot = await deps.cache.get()
     const container = findContainer(snapshot, c.req.param('id'))
+    await reach(c, container.environment)
     const verdict = await deps.verdict.get()
 
     const body: ServiceTraefik = {

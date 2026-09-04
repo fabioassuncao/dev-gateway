@@ -1,7 +1,7 @@
 // Development sessions: a person or an agent working on a task, in a
 // repository, in an environment, from a moment to a moment.
 
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from '../../deps.ts'
@@ -10,7 +10,8 @@ import { StartSession, UpdateSession } from '../../db/work-sessions.ts'
 import { OverrideRefused } from '../../services/overrides.ts'
 import { loadNames, sessionView } from '../../services/activity-view.ts'
 import { recordActivity } from '../../services/activity.ts'
-import { principalOf } from 'portta-auth-core/hono'
+import { authorizeScope, principalOf } from 'portta-auth-core/hono'
+import { projectScope } from '../../services/access-control.ts'
 import { Session } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 import { actorHeader } from './tasks.ts'
@@ -29,9 +30,17 @@ const idParameter = { name: 'id', in: 'path' as const, required: true, descripti
 export function sessionRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
-  async function requireProject(db: Database, slug: string) {
+  /**
+   * The Project a route named, and whether this caller reaches it.
+   *
+   * Both halves together, deliberately: a lookup that returned the row without
+   * asking would be one `authorizeScope` away from a leak, and forgetting it is
+   * exactly the mistake nothing else catches.
+   */
+  async function requireProject(c: Context, db: Database, slug: string) {
     const project = await db.projects.find(slug)
     if (!project) throw new HTTPException(404, { message: `no project '${slug}'` })
+    authorizeScope(c, projectScope(project.id))
     return project
   }
 
@@ -55,7 +64,7 @@ export function sessionRoutes(deps: AppDeps): Hono {
     errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const project = await requireProject(db, c.req.param('slug'))
+    const project = await requireProject(c, db, c.req.param('slug'))
     const active = new URL(c.req.url).searchParams.get('active') === 'true'
     const names = await loadNames(db)
     const rows = await db.sessions.list({ projectId: project.id, ...(active ? { status: ['active'] } : {}) })
@@ -68,7 +77,7 @@ export function sessionRoutes(deps: AppDeps): Hono {
     request: StartSessionBody, response: Session, status: 201, parameters: [slugParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const project = await requireProject(db, c.req.param('slug'))
+    const project = await requireProject(c, db, c.req.param('slug'))
     const body = StartSessionBody.parse(await c.req.json().catch(() => ({})))
     const principal = principalOf(c)
     const { environment, ...rest } = body

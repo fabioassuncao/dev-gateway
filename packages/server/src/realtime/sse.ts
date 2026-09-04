@@ -3,6 +3,8 @@ import { streamSSE } from 'hono/streaming'
 import type { AppDeps } from '../deps.ts'
 import type { LiveEvent } from 'portta-contracts'
 import { documentRoute, eventStreamResponse } from '../api/openapi.ts'
+import { principalOf } from 'portta-auth-core/hono'
+import { eventVisibility } from '../services/access-control.ts'
 
 const KEEPALIVE_MS = 20_000
 
@@ -16,8 +18,12 @@ export function eventRoutes(deps: AppDeps): Hono {
     description: 'Server-sent events. Each non-ping data frame is a JSON LiveEvent; clients reconnect normally.',
     response: eventStreamResponse, mediaType: 'text/event-stream', responseDescription: 'An open SSE stream.',
     errors: [500, 502],
-  }), (c) =>
-    streamSSE(c, async (stream) => {
+  }), (c) => {
+    // Resolved once, before the stream opens: a subscriber that outlived its
+    // own membership keeps the stream and stops seeing the Projects it left.
+    const principal = principalOf(c)
+    const visibility = eventVisibility(deps.db, principal)
+    return streamSSE(c, async (stream) => {
       const pending: LiveEvent[] = []
       let wake: (() => void) | null = null
       let active = true
@@ -37,7 +43,10 @@ export function eventRoutes(deps: AppDeps): Hono {
         kind: 'hello',
         action: 'connected',
         id: null,
-        name: null,
+        // Who this stream belongs to. A stream is filtered to one principal, so
+        // saying which one is what makes an unexpected filtering explicable
+        // rather than a bug somebody hunts in the client.
+        name: principal.actor,
         project: null,
         ownership: null,
         at: Math.floor(Date.now() / 1000),
@@ -47,9 +56,13 @@ export function eventRoutes(deps: AppDeps): Hono {
       let lastKeepalive = Date.now()
       try {
         while (active) {
+          if (pending.length > 0) await visibility.refresh()
           while (pending.length > 0 && active) {
             const event = pending.shift()
             if (!event) break
+            // An event about a Project this caller does not reach is not
+            // delivered late or redacted; it is not delivered.
+            if (!visibility.allows(event)) continue
             await stream.writeSSE({ event: event.kind, data: JSON.stringify(event) })
           }
           if (!active) break
@@ -72,8 +85,8 @@ export function eventRoutes(deps: AppDeps): Hono {
       } finally {
         unsubscribe()
       }
-    }),
-  )
+    })
+  })
 
   return app
 }

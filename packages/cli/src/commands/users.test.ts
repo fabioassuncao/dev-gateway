@@ -19,11 +19,11 @@ vi.mock('node:fs', async (original) => ({
   },
 }))
 
-import { usersCreate, usersList, usersRemove, usersSetPassword, usersSetRole } from './users.js'
+import { usersCreate, usersGrant, usersList, usersRemove, usersRevoke, usersSetPassword, usersSetRole } from './users.js'
 
 const PEOPLE = [
   { id: 'u1', name: 'Ada', email: 'ada@example.test', role: 'owner', banned: false, projects: [] },
-  { id: 'u2', name: 'Grace', email: 'grace@example.test', role: 'developer', banned: false, projects: [{ slug: 'shop' }] },
+  { id: 'u2', name: 'Grace', email: 'grace@example.test', role: 'developer', banned: false, projects: [{ id: '7', slug: 'shop' }] },
 ]
 
 function command(globals: Record<string, unknown> = {}): Command {
@@ -101,5 +101,33 @@ describe('portta users', () => {
     await usersSetPassword('grace@example.test', { passwordStdin: true }, command())
     expect(mocks.requests[1]!.body).toEqual({ password: 'a-password-typed-by-hand' })
     expect(JSON.parse(stdout).password).toBeUndefined()
+  })
+})
+
+describe('portta users grant and revoke', () => {
+  const PROJECTS = { projects: [{ id: '7', slug: 'shop' }, { id: '9', slug: 'store' }] }
+
+  // The API takes the whole list, so grant is "what they had, plus this one".
+  // Sending only the addition would silently take the rest away.
+  it('sends the whole list with the new Project in it', async () => {
+    stubFetch({ users: PEOPLE }, PROJECTS, { ...PEOPLE[1], projects: [{ id: '7', slug: 'shop' }, { id: '9', slug: 'store' }] })
+    await usersGrant('grace@example.test', 'store', {}, command())
+    expect(mocks.requests[2]).toMatchObject({
+      method: 'PUT',
+      url: 'http://127.0.0.1:8081/api/users/u2/projects',
+      body: { projects: [7, 9] },
+    })
+  })
+
+  it('sends the whole list without the removed one', async () => {
+    stubFetch({ users: PEOPLE }, PROJECTS, { ...PEOPLE[1], projects: [] })
+    await usersRevoke('grace@example.test', 'shop', {}, command())
+    expect(mocks.requests[2]!.body).toEqual({ projects: [] })
+  })
+
+  it('refuses a Project that does not exist, before writing anything', async () => {
+    stubFetch({ users: PEOPLE }, PROJECTS)
+    await expect(usersGrant('grace@example.test', 'nowhere', {}, command())).rejects.toThrow(/nowhere/)
+    expect(mocks.requests).toHaveLength(2)
   })
 })

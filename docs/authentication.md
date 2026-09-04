@@ -113,6 +113,40 @@ Owner and admin see every Project, so a membership list does not apply to them
 and setting one is refused. Promoting somebody to admin clears the memberships
 they had, because leaving them would suggest a boundary nothing enforces.
 
+### Access by Project
+
+A role says what somebody may do. A membership says where. `owner` and `admin`
+see every Project; a `developer` and a `viewer` see the ones somebody put them
+in, and nothing else — not the tasks, not the environments, not the activity,
+not the events.
+
+```bash
+portta users grant  ada@example.com shop
+portta users revoke ada@example.com shop
+```
+
+Every route that names a resource asks twice: the permission first, at the door,
+and the Project second, once the resource has been read and it is known which
+one it belongs to. Which Project a thing is in comes from where it actually
+lives:
+
+| Resource | Its Project |
+|---|---|
+| Project, repository, task, note, attachment, work session, activity | the row's own `project_id` |
+| Environment, service, container, logs, per-environment resources | the Project that adopted the environment; **none** if no Project did |
+| Bridge, forwarder, share | the environment it targets |
+| Docker's raw host inventory, gateway, network, tunnel, settings, users, audit | nothing: they are about the host, and the permission decides alone |
+
+An environment no Project adopted has no membership to check, so it is visible
+to `owner` and `admin` and to nobody else. The same is true of a repository the
+host scanned that nobody registered, and of an event with no Project in it.
+
+**Listings filter; named resources refuse.** Asking for the Projects returns
+yours, not a 403 about somebody else's. Asking for one by name that you are not
+in is a 403. The Overview sums only what you can see, and the event stream
+delivers only events about it — losing a membership closes the door on the next
+request, not the next sign-in.
+
 Read-only mode (`PORTTA_WEB_READ_ONLY=true`) intersects every principal with the
 reads, whoever signed in.
 

@@ -147,7 +147,12 @@ export function documentRoute(doc: RouteDocumentation): MiddlewareHandler {
     // `principalOf` throws 401 on its own when nothing resolved, which is what
     // an `authenticated` route needs and all a permission check would do first.
     if (doc.authenticated) principalOf(c)
-    if (permission) authorize(principalOf(c), permission)
+    if (permission) {
+      authorize(principalOf(c), permission)
+      // Left on the context so the handler can ask about the same permission
+      // once it knows which Project the resource belongs to.
+      c.set('permission', permission)
+    }
     return described(c, next)
   }
   for (const key of Reflect.ownKeys(described)) {

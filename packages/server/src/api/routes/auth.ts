@@ -45,6 +45,8 @@ const Me = z.object({
   permissions: z.array(z.string()),
   /** `all`, or the ids of the projects this principal is a member of. */
   scope: z.union([z.literal('all'), z.array(z.number())]),
+  /** The Projects this request can open, by slug. `all` means every one there is. */
+  projects: z.array(z.object({ id: z.string(), slug: z.string(), name: z.string() }).strict()),
   tokenId: z.string().nullable(),
 }).strict().meta({ ref: 'Me' })
 
@@ -88,8 +90,12 @@ export function authRoutes(deps: AppDeps): Hono {
     summary: 'Who this request is, and what it may do',
     description: 'What `portta auth status` prints and what the panel uses to decide which controls to show.',
     response: Me, errors: [401, 500],
-  }), (c) => {
+  }), async (c) => {
     const principal = principalOf(c)
+    // Named, not just numbered: `portta auth status` and the panel both want to
+    // print what somebody can open, and an id says nothing to a person.
+    const rows = await deps.db.projects.list().catch(() => [])
+    const reachable = rows.filter((row) => principal.scope === 'all' || principal.scope.has(Number(row.id)))
     return c.json({
       kind: principal.kind,
       userId: principal.userId,
@@ -100,6 +106,7 @@ export function authRoutes(deps: AppDeps): Hono {
       actorKind: principal.actorKind,
       permissions: [...principal.permissions].sort(),
       scope: principal.scope === 'all' ? 'all' as const : [...principal.scope].sort((a, b) => a - b),
+      projects: reachable.map((row) => ({ id: row.id, slug: row.slug, name: row.name })),
       tokenId: principal.tokenId,
     })
   })

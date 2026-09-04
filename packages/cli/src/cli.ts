@@ -13,7 +13,7 @@ import { hostCollect, hostStatus, hostWatch } from './commands/host.js'
 import { configGet, configList, configSet } from './commands/config.js'
 import { setupCommand } from './commands/setup.js'
 import { authBootstrap, authProtect, authStatus, authUnprotect } from './commands/auth.js'
-import { authResetPassword, usersCreate, usersList, usersRemove, usersSetPassword, usersSetRole } from './commands/users.js'
+import { authResetPassword, usersCreate, usersGrant, usersList, usersRemove, usersRevoke, usersSetPassword, usersSetRole } from './commands/users.js'
 import { shareGc, shareList, shareRevoke } from './commands/share.js'
 import { tlsInit, tlsStatus, tlsTrust, tlsUntrust } from './commands/tls.js'
 import { backupCommand, repairCommand, restoreCommand } from './commands/maintenance.js'
@@ -214,6 +214,8 @@ describe(panelOptions(users.command('create'), false), 'Create an account; a gen
 describe(panelOptions(users.command('set-role <email> <role>'), false), "Change an account's role").action(usersSetRole)
 describe(panelOptions(users.command('set-password <email>'), false), "Set an account's password and end its sessions")
   .option('--password-stdin').action(usersSetPassword)
+describe(panelOptions(users.command('grant <email> <project>'), false), 'Let an account reach one more Project').action(usersGrant)
+describe(panelOptions(users.command('revoke <email> <project>'), false), 'Stop an account reaching a Project').action(usersRevoke)
 describe(panelOptions(users.command('remove <email>'), false), 'Remove an account').action(usersRemove)
 
 const db = describe(program.command('db'), 'Panel database operations and project database clients')

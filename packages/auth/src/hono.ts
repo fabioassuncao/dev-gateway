@@ -12,6 +12,12 @@ import type { PrincipalResolver } from './principal.ts'
 declare module 'hono' {
   interface ContextVariableMap {
     principal: Principal
+    /**
+     * What the route declared it needs. Set by `documentRoute` so the scope
+     * check later in the handler asks about the same permission the door did,
+     * instead of naming it a second time and drifting from it.
+     */
+    permission: Permission
   }
 }
 
@@ -70,4 +76,23 @@ export function principalOf(c: Context): Principal {
   const principal = c.get('principal')
   if (!principal) throw new Unauthenticated()
   return principal
+}
+
+/**
+ * The other half of the decision, once the resource is known.
+ *
+ * The route said what it needs before the handler ran; this says which Project
+ * the thing it just read belongs to. A `developer` holding `task:write` still
+ * may not write a task in a Project nobody put them in.
+ *
+ * `null` means a resource no Project adopted — an environment running on the
+ * host that nothing claims. Those are visible only to somebody who sees
+ * everything, because there is no membership to check.
+ */
+export function authorizeScope(c: Context, projectId: number | null): Principal {
+  const permission = c.get('permission')
+  // A route with no declared permission is public, and a public route has no
+  // scope to narrow. Reaching here from one is a mistake worth saying out loud.
+  if (!permission) throw new Error('authorizeScope was called from a route that declares no permission')
+  return authorize(c.get('principal') ?? null, permission, { projectId })
 }

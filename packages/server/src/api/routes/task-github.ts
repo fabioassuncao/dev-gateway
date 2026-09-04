@@ -5,7 +5,7 @@
 // pending across it, and pass a comment straight through. Every verb that
 // reaches GitHub needs the App; the ones that only touch the row do not.
 
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import { parseTaskRef } from 'portta-core'
@@ -18,7 +18,8 @@ import { applyIssueToTask, fieldsFor } from '../../services/integrations/github/
 import { loadTaskContext, taskView, noteView } from '../../services/task-view.ts'
 import { pushToGitHub, resolveTask, wholeChange } from '../../services/task-write.ts'
 import { recordActivity } from '../../services/activity.ts'
-import { principalOf } from 'portta-auth-core/hono'
+import { authorizeScope, principalOf } from 'portta-auth-core/hono'
+import { projectScope } from '../../services/access-control.ts'
 import { Task, TaskNote } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 import { actorHeader, refParameter } from './tasks.ts'
@@ -35,6 +36,13 @@ const CommentResponse = z.object({ id: z.number(), htmlUrl: z.string(), body: z.
 
 export function taskGitHubRoutes(deps: AppDeps): Hono {
   const app = new Hono()
+
+  /** A task, and whether this caller reaches the Project it is in. */
+  async function requireTask(c: Context, db: Database, ref: string) {
+    const task = await resolveTask(db, ref)
+    authorizeScope(c, projectScope(task.projectId))
+    return task
+  }
 
   async function present(db: Database, id: string): Promise<Task> {
     const task = await db.tasks.find(id)
@@ -71,7 +79,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
     request: LinkBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const body = LinkBody.parse(await c.req.json())
     const ref = parseTaskRef(body.issue)
     if (!ref || ref.kind !== 'coordinate') throw new OverrideRefused(`'${body.issue}' is not owner/repo#number`)
@@ -107,7 +115,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
     response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     if (!(await db.tasks.removeLink(task.id))) throw new OverrideRefused('this task is not bound to an issue')
     const principal = principalOf(c)
     const slug = await slugOf(db, task.projectId)
@@ -125,7 +133,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const db = requireDatabase(deps.db)
     const github = requireGitHub()
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     if (task.draft) throw new OverrideRefused('give the task a real title before publishing it to GitHub')
     if (await db.tasks.findLink(task.id)) throw new OverrideRefused('this task is already bound to an issue')
     const body = PublishBody.parse(await c.req.json().catch(() => ({})))
@@ -172,7 +180,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
     request: SyncBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 409, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const link = await db.tasks.findLink(task.id)
     if (!link) throw new OverrideRefused('this task is not bound to an issue')
     const body = SyncBody.parse(await c.req.json().catch(() => ({})))
@@ -207,7 +215,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const db = requireDatabase(deps.db)
     const github = requireGitHub()
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const link = await db.tasks.findLink(task.id)
     const issue = link ? await db.github.findIssue(link.githubIssueId) : null
     if (!issue) throw new OverrideRefused('this task is not bound to an issue; add a local note instead')
@@ -229,7 +237,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
-    const task = await resolveTask(db, c.req.param('ref'))
+    const task = await requireTask(c, db, c.req.param('ref'))
     const note = await db.tasks.findNote(task.id, c.req.param('noteId'))
     if (!note) throw new HTTPException(404, { message: `no comment '${c.req.param('noteId')}'` })
     if (note.publishState === 'synced') throw new OverrideRefused('this comment was already published to GitHub')
