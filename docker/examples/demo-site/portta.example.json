@@ -19,6 +19,88 @@
       "repository": "site",
       "environment": "demo-site",
       "service": "web"
+    },
+    {
+      "key": "site-404",
+      "title": "Página 404 no próprio nginx",
+      "description": "Qualquer path desconhecido devolve o HTML do site, não o 404 do Traefik.",
+      "status": "done",
+      "priority": "low",
+      "type": "feature",
+      "repository": "site",
+      "environment": "demo-site",
+      "service": "web"
+    },
+    {
+      "key": "site-copy",
+      "title": "Reescrever o texto da home",
+      "description": "O `index.html` ainda fala em fixture. Precisa parecer um produto de uma página.",
+      "status": "in_progress",
+      "priority": "medium",
+      "type": "improvement",
+      "labels": ["content"],
+      "repository": "site",
+      "environment": "demo-site",
+      "service": "web",
+      "assignee": "fabio"
+    },
+    {
+      "key": "site-csp",
+      "title": "Colocar Content-Security-Policy no nginx",
+      "description": "Só `'self'`. Sem analytics de terceiros neste fixture.",
+      "status": "review",
+      "priority": "high",
+      "type": "chore",
+      "labels": ["security"],
+      "repository": "site",
+      "service": "web",
+      "comments": [
+        {
+          "key": "site-csp-1",
+          "actor": "fabio",
+          "body": "O HTML inline da home quebra um CSP estrito. Ou move o script, ou `unsafe-inline` só em `script-src`."
+        }
+      ]
+    },
+    {
+      "key": "site-compress",
+      "title": "Comprimir o HTML no nginx",
+      "description": "gzip no `text/html`. O arquivo é minúsculo; o ponto é o header.",
+      "status": "ready",
+      "priority": "low",
+      "type": "improvement",
+      "repository": "site",
+      "service": "web"
+    },
+    {
+      "key": "site-favicon",
+      "title": "O favicon 404 quebra o visual do print",
+      "description": "O browser pede `/favicon.ico` e o nginx responde 404 no meio do screenshot.",
+      "status": "blocked",
+      "priority": "urgent",
+      "type": "bug",
+      "repository": "site",
+      "environment": "demo-site",
+      "service": "web"
+    },
+    {
+      "key": "site-analytics",
+      "title": "Contador local de page views",
+      "description": "Nada sai da máquina. Um log do nginx basta; não é um pixel.",
+      "status": "backlog",
+      "priority": "low",
+      "type": "research",
+      "repository": "site",
+      "service": "web"
+    },
+    {
+      "key": "site-readme",
+      "title": "Explicar o contrato de um serviço só",
+      "description": "Este fixture existe para o painel mostrar um projeto com um hostname.",
+      "status": "backlog",
+      "priority": "low",
+      "type": "documentation",
+      "repository": "site"
     }
   ]
 }

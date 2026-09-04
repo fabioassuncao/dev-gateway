@@ -28,6 +28,88 @@
       "type": "chore",
       "repository": "demo-a",
       "service": "api"
+    },
+    {
+      "key": "a-postgres-private",
+      "title": "Manter o Postgres fora do gateway HTTP",
+      "description": "O banco fica na rede do projeto. Nenhum host port, nenhum router Traefik.",
+      "status": "done",
+      "priority": "high",
+      "type": "chore",
+      "labels": ["postgres"],
+      "repository": "demo-a",
+      "environment": "demo-a",
+      "service": "postgres"
+    },
+    {
+      "key": "a-structured-logs",
+      "title": "Passar os logs da API para JSON",
+      "description": "Uma linha por request, com `request_id`, para o painel não misturar com o whoami.",
+      "status": "in_progress",
+      "priority": "medium",
+      "type": "improvement",
+      "labels": ["api", "observability"],
+      "repository": "demo-a",
+      "environment": "demo-a",
+      "service": "api",
+      "assignee": "fabio",
+      "comments": [
+        {
+          "key": "a-structured-logs-1",
+          "actor": "fabio",
+          "body": "Começar pelo access log. O stack trace continua em texto."
+        }
+      ]
+    },
+    {
+      "key": "a-hostname-docs",
+      "title": "Documentar os hostnames deste fixture",
+      "description": "`demo-a-web.localhost` e `demo-a-api.localhost`. Sem `/etc/hosts`.",
+      "status": "review",
+      "priority": "low",
+      "type": "documentation",
+      "repository": "demo-a",
+      "environment": "demo-a"
+    },
+    {
+      "key": "a-rate-limit",
+      "title": "Limitar o whoami por IP",
+      "description": "O fixture é aberto demais para um print de abuso. Middleware Traefik, não na app.",
+      "status": "blocked",
+      "priority": "high",
+      "type": "feature",
+      "labels": ["gateway"],
+      "repository": "demo-a",
+      "environment": "demo-a",
+      "service": "web",
+      "comments": [
+        {
+          "key": "a-rate-limit-1",
+          "actor": "fabio",
+          "body": "O overlay de labels ainda não tem um middleware de rate limit compartilhado."
+        }
+      ]
+    },
+    {
+      "key": "a-cors",
+      "title": "Liberar CORS só para o web deste namespace",
+      "description": "A API não deve aceitar `*` só porque os testes batem nela pelo hostname.",
+      "status": "ready",
+      "priority": "medium",
+      "type": "feature",
+      "repository": "demo-a",
+      "service": "api"
+    },
+    {
+      "key": "a-smoke-e2e",
+      "title": "Smoke HTTP nos dois hostnames depois do up",
+      "description": "Um `curl` em web e api no script de fixture, não um suite Playwright.",
+      "status": "backlog",
+      "priority": "low",
+      "type": "chore",
+      "labels": ["ci"],
+      "repository": "demo-a",
+      "environment": "demo-a"
     }
   ]
 }

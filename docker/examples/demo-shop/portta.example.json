@@ -70,6 +70,97 @@
       "type": "chore",
       "repository": "shop",
       "environment": "demo-shop"
+    },
+    {
+      "key": "shop-mailpit",
+      "title": "Mandar o e-mail de pedido pelo Mailpit",
+      "description": "Nada sai da máquina. O worker publica; o Mailpit guarda.",
+      "status": "review",
+      "priority": "medium",
+      "type": "feature",
+      "labels": ["worker", "email"],
+      "repository": "shop",
+      "environment": "demo-shop",
+      "service": "worker",
+      "assignee": "fabio",
+      "comments": [
+        {
+          "key": "shop-mailpit-1",
+          "actor": "fabio",
+          "body": "O HTML do recibo ainda tem o logo em URL absoluta. Trocar por cid."
+        }
+      ]
+    },
+    {
+      "key": "shop-rustfs",
+      "title": "Subir imagens de produto no RustFS",
+      "description": "O console já está no gateway. Falta o prefixo `products/` e o CORS da API.",
+      "status": "in_progress",
+      "priority": "high",
+      "type": "feature",
+      "labels": ["storage"],
+      "repository": "shop",
+      "environment": "demo-shop",
+      "service": "api",
+      "dueAt": "2026-10-10"
+    },
+    {
+      "key": "shop-mysql-charset",
+      "title": "MySQL em utf8mb4 de verdade",
+      "description": "Pedido com emoji no comentário quebrou o insert. O server charset ainda é latin1 no volume antigo.",
+      "status": "blocked",
+      "priority": "urgent",
+      "type": "bug",
+      "labels": ["mysql"],
+      "repository": "shop",
+      "environment": "demo-shop",
+      "service": "mysql",
+      "comments": [
+        {
+          "key": "shop-mysql-charset-1",
+          "actor": "fabio",
+          "body": "Recriar o volume perde os pedidos de demo. Decidir se o fixture pode nascer vazio."
+        }
+      ]
+    },
+    {
+      "key": "shop-checkout",
+      "title": "Fluxo de checkout sem pagamento real",
+      "description": "Pedido vai para `paid` com um stub. Sem Stripe neste host.",
+      "status": "ready",
+      "priority": "high",
+      "type": "feature",
+      "labels": ["frontend", "backend"],
+      "repository": "shop",
+      "environment": "demo-shop",
+      "service": "web",
+      "subtasks": [
+        { "key": "shop-checkout-api", "title": "POST /orders com o stub de pagamento", "status": "ready", "type": "feature", "repository": "shop", "service": "api" },
+        { "key": "shop-checkout-ui", "title": "Tela de confirmação", "status": "backlog", "type": "feature", "repository": "shop", "service": "web" }
+      ]
+    },
+    {
+      "key": "shop-catalog-done",
+      "title": "Listar produtos na home",
+      "description": "Grid estático alimentado pela API. Sem busca ainda.",
+      "status": "done",
+      "priority": "medium",
+      "type": "feature",
+      "labels": ["frontend"],
+      "repository": "shop",
+      "environment": "demo-shop",
+      "service": "web"
+    },
+    {
+      "key": "shop-queue-research",
+      "title": "Escolher a fila do worker",
+      "description": "Redis lista ou um broker. O fixture já tem Redis; o ponto é não inventar outro serviço.",
+      "status": "backlog",
+      "priority": "low",
+      "type": "research",
+      "repository": "shop",
+      "service": "worker",
+      "agent": "claude-code"
     }
   ]
 }

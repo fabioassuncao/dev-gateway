@@ -40,8 +40,84 @@
       "title": "Documentar os três frontends",
       "status": "backlog",
       "priority": "low",
-      "type": "docs",
+      "type": "documentation",
       "repository": "monorepo"
+    },
+    {
+      "key": "mono-web-nav",
+      "title": "Navegação do web com o admin no mesmo cookie",
+      "description": "O link para o admin só aparece para quem já é operador. O web não conhece papéis; pergunta à API.",
+      "status": "ready",
+      "priority": "medium",
+      "type": "feature",
+      "labels": ["frontend"],
+      "repository": "monorepo",
+      "environment": "demo-monorepo",
+      "service": "web",
+      "assignee": "fabio"
+    },
+    {
+      "key": "mono-api-health",
+      "title": "Health da API com o worker atrás",
+      "description": "`GET /health` já existe. Falta o worker reportar a profundidade da fila.",
+      "status": "in_progress",
+      "priority": "medium",
+      "type": "improvement",
+      "labels": ["api"],
+      "repository": "monorepo",
+      "environment": "demo-monorepo",
+      "service": "api"
+    },
+    {
+      "key": "mono-worker-retry",
+      "title": "O worker descarta o job no primeiro 500",
+      "description": "Mailpit fora por dois segundos durante o boot. Precisa de retry com jitter, não de uma fila morta.",
+      "status": "blocked",
+      "priority": "urgent",
+      "type": "bug",
+      "labels": ["worker"],
+      "repository": "monorepo",
+      "service": "worker",
+      "comments": [
+        {
+          "key": "mono-worker-retry-1",
+          "actor": "fabio",
+          "body": "O compose sobe o worker junto com o Mailpit. Sem `depends_on` com condition."
+        }
+      ]
+    },
+    {
+      "key": "mono-admin-users",
+      "title": "Lista de operadores no admin",
+      "description": "CRUD mínimo. Sem convite por e-mail neste fixture.",
+      "status": "done",
+      "priority": "high",
+      "type": "feature",
+      "labels": ["admin"],
+      "repository": "monorepo",
+      "environment": "demo-monorepo",
+      "service": "admin"
+    },
+    {
+      "key": "mono-postgres-backup",
+      "title": "Dump local do Postgres no Makefile do monorepo",
+      "description": "Não é o backup do Portta. É o volume deste compose, para resetar o fixture.",
+      "status": "backlog",
+      "priority": "low",
+      "type": "chore",
+      "repository": "monorepo",
+      "environment": "demo-monorepo",
+      "service": "postgres"
+    },
+    {
+      "key": "mono-spa-split",
+      "title": "O web e o admin devem continuar dois bundles",
+      "description": "Um único Vite quebraria o recorte de papéis. Research: o que o overlay já isola.",
+      "status": "ready",
+      "priority": "low",
+      "type": "research",
+      "repository": "monorepo",
+      "agent": "claude-code"
     }
   ]
 }

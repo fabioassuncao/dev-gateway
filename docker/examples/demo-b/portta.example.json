@@ -28,6 +28,78 @@
       "type": "chore",
       "repository": "demo-b",
       "service": "api"
+    },
+    {
+      "key": "b-gzip",
+      "title": "Ligar gzip no nginx",
+      "description": "O index.html é pequeno; o ponto é provar que o overlay não come o `gzip on`.",
+      "status": "done",
+      "priority": "low",
+      "type": "improvement",
+      "repository": "demo-b",
+      "environment": "demo-b",
+      "service": "web"
+    },
+    {
+      "key": "b-cache-static",
+      "title": "Cachear assets com `Cache-Control` imutável",
+      "description": "Só o que vive em `/assets/`. O HTML continua `no-store`.",
+      "status": "in_progress",
+      "priority": "medium",
+      "type": "feature",
+      "labels": ["nginx"],
+      "repository": "demo-b",
+      "environment": "demo-b",
+      "service": "web",
+      "assignee": "fabio"
+    },
+    {
+      "key": "b-whoami-headers",
+      "title": "Revisar os headers que o whoami devolve",
+      "description": "O fixture B não pode parecer o A só porque as portas internas coincidem.",
+      "status": "review",
+      "priority": "medium",
+      "type": "research",
+      "repository": "demo-b",
+      "service": "api",
+      "comments": [
+        {
+          "key": "b-whoami-headers-1",
+          "actor": "fabio",
+          "body": "Comparar `X-Forwarded-*` nos dois projetos no mesmo host."
+        }
+      ]
+    },
+    {
+      "key": "b-tls-fixture",
+      "title": "Rodar o par A/B com TLS local",
+      "description": "O contrato é a rede, não o HTTP claro. Bloqueado até o perfil `local-tls` estar no ciclo de CI deste fixture.",
+      "status": "blocked",
+      "priority": "high",
+      "type": "chore",
+      "labels": ["tls", "ci"],
+      "repository": "demo-b",
+      "environment": "demo-b"
+    },
+    {
+      "key": "b-redis-private",
+      "title": "Confirmar que o Redis não ganha hostname",
+      "description": "Mesmas portas internas que demo-a; o conflito que não pode existir é no host.",
+      "status": "ready",
+      "priority": "high",
+      "type": "chore",
+      "repository": "demo-b",
+      "environment": "demo-b",
+      "service": "redis"
+    },
+    {
+      "key": "b-runbook",
+      "title": "Escrever o runbook de subir A e B juntos",
+      "description": "O ponto do par é exatamente este: dois projetos, mesmas portas, um gateway.",
+      "status": "backlog",
+      "priority": "low",
+      "type": "documentation",
+      "repository": "demo-b"
     }
   ]
 }
