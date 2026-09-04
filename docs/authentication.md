@@ -179,8 +179,54 @@ that account is ended.
 
 A Portta token is a `ptt_`-prefixed Bearer credential belonging to a user. It
 never exceeds its owner's role: what it holds is the intersection of its own
-scopes and that role, so lowering somebody's role lowers every token they made
-without touching the tokens. Revoking one takes effect on the next request.
+scopes and that role, computed on every request. Lowering somebody's role lowers
+every token they made without touching the tokens; banning them stops all of
+them at once; revoking one takes effect on the next request that carries it.
+
+```bash
+portta auth token create --name laptop            # the secret is shown once
+portta auth token create --name ci --scopes task:read,task:write --expires-in-days 90
+portta auth token list
+portta auth token revoke <id>
+```
+
+Asking for no scopes gives the sensible default for what the token is: a
+person's token (`--human`) holds their whole role, and an agent's holds what
+agents hold — a developer minus the three things that change how the panel
+behaves. Asking for scopes the owner does not hold is a 400 that names exactly
+which ones did not fit.
+
+Your tokens are yours to make and revoke. Somebody else's needs `user:list` to
+see (`--all`) and `user:update` to revoke, because revoking a colleague's
+credential is an administrative act — and the one that makes a lost laptop
+somebody else's problem to solve.
+
+The panel accepts a token as `Authorization: Bearer ptt_…` and in no other
+form; `x-api-key` is not accepted. Housekeeping disables a token that expired
+more than thirty days ago and deletes one revoked more than ninety days ago.
+
+### Signing a terminal in
+
+```bash
+portta auth login --url http://127.0.0.1:8081     # asks for the token, without echoing it
+portta auth status                                # who this terminal is
+portta auth logout
+portta auth whoami                                # every panel this host has a credential for
+```
+
+`login` checks the token against the panel before saving it, so a typo fails
+here rather than on the next command. The store is
+`~/.config/portta/credentials.json` (`$XDG_CONFIG_HOME` respected), mode 0600,
+one entry per panel URL — a laptop panel and a server panel are not the same
+credential.
+
+What a command sends is, in order: `--token`, then `PORTTA_TOKEN`, then whatever
+`login` saved for that panel. `portta mcp` uses the same resolution, so an agent
+configured once keeps working after a token is rotated. A non-loopback panel URL
+still needs `--allow-remote`: that URL is where a credential would be sent.
+
+`logout` forgets the credential; it does not revoke the token. The message says
+so, because the two are different answers to "my laptop is gone".
 
 ### Agents in `disabled` mode
 
@@ -233,7 +279,7 @@ Portta never edits a consumer project's router. Create the host record, then opt
 that router into the generated middleware in the project's own Compose file:
 
 ```bash
-portta auth protect demo-web.example.com --project demo --service web
+portta protect host demo-web.example.com --project demo --service web
 ```
 
 ```yaml
@@ -244,9 +290,9 @@ labels:
 Inspect or remove records without exposing hashes:
 
 ```bash
-portta auth status
-portta auth status demo-web.example.com
-portta auth unprotect demo-web.example.com
+portta protect status
+portta protect status demo-web.example.com
+portta protect remove demo-web.example.com
 ```
 
 Removing the record does not edit the project label. Until the label is removed,

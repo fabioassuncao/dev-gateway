@@ -10606,6 +10606,123 @@
         ],
         "additionalProperties": false
       },
+      "ApiToken": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "start": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actor": {
+            "type": "string"
+          },
+          "actorKind": {
+            "type": "string",
+            "enum": [
+              "human",
+              "agent"
+            ]
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "number"
+          },
+          "expiresAt": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "lastUsedAt": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "user": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "start",
+          "actor",
+          "actorKind",
+          "scopes",
+          "createdAt",
+          "expiresAt",
+          "lastUsedAt",
+          "enabled",
+          "user"
+        ],
+        "additionalProperties": false
+      },
+      "ApiTokens": {
+        "type": "object",
+        "properties": {
+          "tokens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiToken"
+            }
+          }
+        },
+        "required": [
+          "tokens"
+        ],
+        "additionalProperties": false
+      },
+      "CreatedApiToken": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "The secret. Shown here and nowhere else, ever."
+          },
+          "credential": {
+            "$ref": "#/components/schemas/ApiToken"
+          }
+        },
+        "required": [
+          "token",
+          "credential"
+        ],
+        "additionalProperties": false
+      },
+      "RevokedApiToken": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "revoked": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "revoked"
+        ],
+        "additionalProperties": false
+      },
       "OpenApiDocument": {
         "type": "object",
         "properties": {
@@ -25702,6 +25819,361 @@
           }
         ],
         "x-portta-permission": "user:set-role"
+      }
+    },
+    "/auth/tokens": {
+      "get": {
+        "operationId": "listApiTokens",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Your tokens, without their secrets",
+        "description": "Yours by default. `?all=true` lists everybody's and needs user:list.",
+        "parameters": [
+          {
+            "name": "all",
+            "in": "query",
+            "required": false,
+            "description": "Every account's tokens, not only yours.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiTokens"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The delivery signature could not be verified.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-permission": "token:read"
+      },
+      "post": {
+        "operationId": "createApiToken",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Create a token for yourself",
+        "description": "The secret appears once, in this response. What the token holds is the intersection of its scopes and your role, computed on every request — so lowering your role lowers it too.",
+        "responses": {
+          "201": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedApiToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The delivery signature could not be verified.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "actorKind": {
+                    "default": "agent",
+                    "type": "string",
+                    "enum": [
+                      "human",
+                      "agent"
+                    ]
+                  },
+                  "scopes": {
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "user:create",
+                        "user:list",
+                        "user:set-role",
+                        "user:ban",
+                        "user:impersonate",
+                        "user:impersonate-admins",
+                        "user:delete",
+                        "user:set-password",
+                        "user:set-email",
+                        "user:get",
+                        "user:update",
+                        "session:list",
+                        "session:revoke",
+                        "session:delete",
+                        "project:read",
+                        "project:create",
+                        "project:update",
+                        "project:delete",
+                        "project:members",
+                        "repository:read",
+                        "repository:manage",
+                        "task:read",
+                        "task:write",
+                        "task:delete",
+                        "task:sync",
+                        "environment:read",
+                        "environment:operate",
+                        "environment:destroy",
+                        "environment:settings",
+                        "service:read",
+                        "service:operate",
+                        "container:read",
+                        "container:operate",
+                        "container:destroy",
+                        "logs:read",
+                        "metrics:read",
+                        "activity:read",
+                        "worksession:read",
+                        "worksession:write",
+                        "access:read",
+                        "access:open",
+                        "access:manage",
+                        "gateway:read",
+                        "gateway:operate",
+                        "docker:read",
+                        "docker:operate",
+                        "docker:destroy",
+                        "github:read",
+                        "github:sync",
+                        "github:manage",
+                        "settings:read",
+                        "settings:manage",
+                        "token:read",
+                        "token:create",
+                        "token:revoke",
+                        "audit:read"
+                      ]
+                    }
+                  },
+                  "expiresInDays": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365
+                  }
+                },
+                "required": [
+                  "name",
+                  "actorKind"
+                ],
+                "additionalProperties": false,
+                "ref": "CreateApiToken"
+              }
+            }
+          }
+        },
+        "x-portta-permission": "token:create"
+      }
+    },
+    "/auth/tokens/{id}": {
+      "delete": {
+        "operationId": "revokeApiToken",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Revoke a token",
+        "description": "Effective on the next request that carries it. The row stays, so a listing can still say what was revoked.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The token id, as the listing gives it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokedApiToken"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The delivery signature could not be verified.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-permission": "token:revoke"
       }
     },
     "/openapi.json": {

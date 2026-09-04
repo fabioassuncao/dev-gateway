@@ -12,6 +12,7 @@ import type { LiveHub } from '../realtime/hub.ts'
 import { readRepositoryScan } from './git.ts'
 import { loadScans, matchScan } from './repositories.ts'
 import { recordActivity } from './activity.ts'
+import { collectTokens } from 'portta-auth-core'
 
 interface Seen {
   head: string | null
@@ -132,6 +133,10 @@ export function createMaintenance(db: Database, hub: LiveHub): { tick(): Promise
         })
       }
       await db.activity.prune()
+      // Tokens that expired a month ago are switched off, and ones revoked a
+      // quarter ago are dropped. Neither can end a token somebody is using:
+      // both thresholds are long past the moment the token stopped working.
+      await collectTokens(db.handle)
     } catch (error) {
       process.stderr.write(`maintenance failed: ${error instanceof Error ? error.message : String(error)}\n`)
     }

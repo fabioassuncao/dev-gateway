@@ -28,7 +28,8 @@ import { activityRoutes } from './routes/activity.ts'
 import { developmentRoutes } from './routes/development.ts'
 import { authRoutes } from './routes/auth.ts'
 import { userRoutes } from './routes/users.ts'
-import { Forbidden, hasOwner, Unauthenticated } from 'portta-auth-core'
+import { tokenRoutes } from './routes/tokens.ts'
+import { Forbidden, hasOwner, TokenRefused, Unauthenticated } from 'portta-auth-core'
 import { principalMiddleware, SetupRequired } from 'portta-auth-core/hono'
 import { shareRoutes } from './routes/shares.ts'
 import { ActionRefused } from '../services/actions.ts'
@@ -77,7 +78,13 @@ const PORTTA_AUTH_PATHS: ReadonlySet<string> = new Set([
   '/api/auth/status',
   '/api/auth/setup',
   '/api/auth/me',
+  '/api/auth/tokens',
 ])
+
+/** Ours, or the library's. `/tokens/:id` is ours too, hence the prefix. */
+function isPorttaAuthPath(path: string): boolean {
+  return PORTTA_AUTH_PATHS.has(path) || path.startsWith('/api/auth/tokens/')
+}
 
 /**
  * A page on another site can point a form or a fetch at 127.0.0.1. Reads are
@@ -111,7 +118,7 @@ export function createApi(deps: AppDeps): Hono {
   const auth = deps.auth
   if (auth) {
     api.use('/auth/*', async (c, next) => {
-      if (PORTTA_AUTH_PATHS.has(c.req.path)) return next()
+      if (isPorttaAuthPath(c.req.path)) return next()
       return auth.handler(c.req.raw)
     })
   }
@@ -176,6 +183,7 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', developmentRoutes(deps))
   api.route('/', authRoutes(deps))
   api.route('/', userRoutes(deps))
+  api.route('/', tokenRoutes(deps))
   registerOpenApiRoutes(api, deps.config)
 
   api.all('*', (c) => c.json({ error: `no such endpoint: ${c.req.path}` }, 404))
@@ -211,6 +219,11 @@ export function createApp(deps: AppDeps): Hono {
       error instanceof DynamicWriteRefused
     ) {
       return c.json({ error: error.message, hint: error.hint }, error.status as 400)
+    }
+    // A token asking for more than its owner holds is the caller's mistake, and
+    // the message names exactly what did not fit.
+    if (error instanceof TokenRefused) {
+      return c.json({ error: error.message, hint: error.hint }, 400)
     }
     // A rule about accounts, not a missing permission: the message says which
     // rule, because "403" alone sends somebody looking for the wrong thing.

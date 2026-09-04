@@ -64,3 +64,17 @@ export {
   type BootstrapInput,
   type SetupStatus,
 } from './bootstrap.ts'
+
+export {
+  collectTokens,
+  createToken,
+  findToken,
+  listTokens,
+  revokeToken,
+  scopesFor,
+  TOKEN_PREFIX,
+  TokenRefused,
+  type CreateTokenInput,
+  type TokenDeps,
+  type TokenRecord,
+} from './api-tokens.ts'
