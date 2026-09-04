@@ -52,4 +52,6 @@ packages/*/dist/
 # Test artifacts
 tests/.tmp/
 tests/**/.env
+# Local working notes, never part of the repository
 .references
+.prompt
