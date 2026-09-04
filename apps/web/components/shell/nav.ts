@@ -37,6 +37,14 @@ export interface NavItem {
    * is a one-word change beside it.
    */
   enabled: boolean
+  /**
+   * What somebody needs to hold for this entry to be theirs.
+   *
+   * Absent means everybody who reached the panel at all. The page refuses on
+   * its own regardless; this is what keeps the rail from listing a page that
+   * would answer 404 to the person reading it.
+   */
+  permission?: string
 }
 
 export interface NavGroup {
@@ -55,18 +63,18 @@ export const NAV_GROUPS: NavGroup[] = [
     labelKey: 'groups.development',
     items: [
       { href: '/overview', labelKey: 'overview', icon: LayoutDashboard, enabled: true },
-      { href: '/projects', labelKey: 'projects', icon: Boxes, enabled: true },
-      { href: '/tasks', labelKey: 'tasks', icon: ListTodo, enabled: true },
+      { href: '/projects', labelKey: 'projects', icon: Boxes, enabled: true, permission: 'project:read' },
+      { href: '/tasks', labelKey: 'tasks', icon: ListTodo, enabled: true, permission: 'task:read' },
     ],
   },
   {
     labelKey: 'groups.infrastructure',
     items: [
-      { href: '/services', labelKey: 'services', icon: Container, enabled: false },
-      { href: '/docker', labelKey: 'docker', icon: Activity, enabled: false },
-      { href: '/network', labelKey: 'network', icon: Network, enabled: false },
-      { href: '/access', labelKey: 'access', icon: PlugZap, enabled: false },
-      { href: '/gateway', labelKey: 'gateway', icon: Globe, enabled: false },
+      { href: '/services', labelKey: 'services', icon: Container, enabled: true, permission: 'service:read' },
+      { href: '/docker', labelKey: 'docker', icon: Activity, enabled: true, permission: 'docker:read' },
+      { href: '/network', labelKey: 'network', icon: Network, enabled: true, permission: 'gateway:read' },
+      { href: '/access', labelKey: 'access', icon: PlugZap, enabled: true, permission: 'access:read' },
+      { href: '/gateway', labelKey: 'gateway', icon: Globe, enabled: true, permission: 'gateway:read' },
     ],
   },
   {

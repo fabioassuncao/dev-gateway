@@ -23,10 +23,16 @@ function viaRunner(summary: ActionSummary): summary is EnvironmentRunnerStartRes
  * containers are gone) can only be started, through the runner, or forgotten;
  * without the runner the panel shows the Compose command to run on the host.
  */
-export function EnvironmentActions({ project, onForgotten }: {
+export function EnvironmentActions({ project, onForgotten, mayForget = true }: {
   project: Environment
   /** Called after a remembered environment was forgotten; the page uses it to leave. */
   onForgotten?: () => void
+  /**
+   * Whether forgetting is offered. Starting and stopping an environment is
+   * `environment:operate`; dropping the panel's row for one is
+   * `environment:destroy`, and a developer holds the first and not the second.
+   */
+  mayForget?: boolean
 }) {
   const { t } = useTranslation('environments', { keyPrefix: 'actions' })
   const queryClient = useQueryClient()
@@ -76,16 +82,18 @@ export function EnvironmentActions({ project, onForgotten }: {
           {t('start')}
         </Button>
         {remembered ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={forget.isPending}
-            title={t('forget')}
-            onClick={() => setConfirmForget(true)}
-          >
-            <EyeOff className="size-3.5" />
-            {t('forget')}
-          </Button>
+          mayForget ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={forget.isPending}
+              title={t('forget')}
+              onClick={() => setConfirmForget(true)}
+            >
+              <EyeOff className="size-3.5" />
+              {t('forget')}
+            </Button>
+          ) : null
         ) : (
           <>
             <Button

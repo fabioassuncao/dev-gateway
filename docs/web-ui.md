@@ -539,6 +539,15 @@ carries the command that refreshes it. See
 
 ### Environments
 
+`/environments` lists them; `/environments/<name>` is one, with `logs` and
+`settings` as routes beside it. The rail shows Docker, Network and Gateway only
+to somebody who holds `docker:read` or `gateway:read` — a navigation entry that
+would answer 404 is a worse answer than no entry. Starting, stopping and
+restarting need `environment:operate`; rebuilding, removing and forgetting need
+`environment:destroy`; the overrides form needs `environment:settings`. Reading
+logs is `logs:read`, which a viewer has: they can watch what is happening and
+change none of it.
+
 ![The Environments page: every Compose project on this host, each as a table of its services with state, access, resources, runtime and actions](images/panel-environments.png)
 
 `/environments` lists every Compose project on this host, adopted or not,

@@ -1,6 +1,6 @@
 import 'server-only'
 import { cache } from 'react'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import {
   readActivity,
   readProject,
@@ -82,4 +82,22 @@ export const sessionsPage = cache(async (query: { projectId?: string; taskId?: s
 /** Read-only mode is a property of the panel, and every page asks it. */
 export function panelIsReadOnly(): boolean {
   return serverDeps().config.readOnly
+}
+
+/**
+ * A page only somebody with this permission has.
+ *
+ * `notFound()` rather than a refusal: a page a role never has is not part of
+ * that person's panel, and the navigation does not offer it either. A 403 page
+ * would be a door with a sign on it.
+ */
+export async function pageNeeds(permission: string): Promise<void> {
+  const { principal } = await context()
+  if (!principal.permissions.has(permission as never)) notFound()
+}
+
+/** The principal a page renders for, as the browser may see it. */
+export async function pagePrincipal() {
+  const { principal } = await context()
+  return principal
 }

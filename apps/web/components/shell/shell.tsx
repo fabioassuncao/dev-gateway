@@ -38,6 +38,7 @@ import { CommandPalette } from '@/components/command-palette'
 import { UserMenu } from './user-menu'
 import { NAV_GROUPS, activeHref } from './nav'
 import { useSidebarCollapsed } from './use-sidebar'
+import { usePrincipal } from '@/lib/principal'
 
 type Theme = 'light' | 'dark' | 'system'
 
@@ -142,6 +143,7 @@ function ShellControls({
 
 export function Shell({ children }: { children: ReactNode }) {
   const { t } = useTranslation('nav')
+  const permissions = new Set(usePrincipal().permissions)
   const pathname = usePathname()
   const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -222,7 +224,10 @@ export function Shell({ children }: { children: ReactNode }) {
             className={cn('order-3 flex w-full gap-1 overflow-x-auto px-2 py-1 md:order-none md:flex-col md:overflow-visible scroll-thin', sidebarCollapsed && 'md:px-1.5')}
           >
             {NAV_GROUPS.map((group, index) => {
-              const items = group.items.filter((item) => item.enabled)
+              // A page a role does not hold is not in that person's rail: it
+              // would answer 404, and a navigation entry that cannot be
+              // followed is a worse answer than no entry.
+              const items = group.items.filter((item) => item.enabled && (!item.permission || permissions.has(item.permission)))
               if (items.length === 0) return null
               return (
                 <div
