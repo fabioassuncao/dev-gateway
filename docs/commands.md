@@ -92,6 +92,20 @@ See [Database access](database-access.md), [TCP access](tcp-access.md), and
 | `portta tls trust` | Print the platform-specific CA trust command. |
 | `portta tls untrust` | Print the command that removes it again. |
 
+## The panel's accounts
+
+| Command | What it does |
+|---|---|
+| `portta auth bootstrap` | Create the owner, once, from this host. |
+| `portta auth reset-password <email>` | Reset a password inside the panel's container, when nobody can sign in to do it. |
+| `portta users list` | Every account, its role, and the Projects it reaches. |
+| `portta users create` | Create an account; a generated password is shown once. |
+| `portta users set-role <email> <role>` | Change a role. `owner` is transferred, not assigned. |
+| `portta users set-password <email>` | Set a password and end that account's sessions. |
+| `portta users remove <email>` | Remove an account, with its sessions, tokens and memberships. |
+
+See [Authentication](authentication.md) for the rules these obey.
+
 ## Projects, worktrees and remote hosts
 
 | Command | Purpose |

@@ -26,11 +26,17 @@ export {
   authorize,
   can,
   Forbidden,
+  refusalForBan,
+  refusalForRemoval,
+  refusalForRoleChange,
+  refusalForTransfer,
+  refusalForUserWrite,
   sees,
   Unauthenticated,
   type Principal,
   type PrincipalKind,
   type Scope,
+  type UserSubject,
 } from './authorize.ts'
 
 export {

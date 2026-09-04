@@ -13,6 +13,7 @@ import { hostCollect, hostStatus, hostWatch } from './commands/host.js'
 import { configGet, configList, configSet } from './commands/config.js'
 import { setupCommand } from './commands/setup.js'
 import { authBootstrap, authProtect, authStatus, authUnprotect } from './commands/auth.js'
+import { authResetPassword, usersCreate, usersList, usersRemove, usersSetPassword, usersSetRole } from './commands/users.js'
 import { shareGc, shareList, shareRevoke } from './commands/share.js'
 import { tlsInit, tlsStatus, tlsTrust, tlsUntrust } from './commands/tls.js'
 import { backupCommand, repairCommand, restoreCommand } from './commands/maintenance.js'
@@ -198,6 +199,22 @@ describe(auth.command('protect <host>'), 'Create or rotate a hostname credential
   .option('--label <text>').option('--project <name>').option('--service <name>')
   .action(authProtect)
 describe(auth.command('unprotect <host>'), 'Remove a hostname credential without changing project labels').action((host, _options, command) => authUnprotect(host, command))
+describe(auth.command('reset-password <email>'), 'Reset a password from the host, when nobody can sign in to do it')
+  .option('--password-stdin', 'read the password from stdin instead of generating one')
+  .action(authResetPassword)
+
+const users = describe(program.command('users'), 'The accounts this panel signs in')
+describe(panelOptions(users.command('list', { isDefault: true }).alias('ls')), 'List every account').action(usersList)
+describe(panelOptions(users.command('create'), false), 'Create an account; a generated password is shown once')
+  .requiredOption('--name <name>').requiredOption('--email <email>')
+  .option('--role <role>', 'owner, admin, developer or viewer (default: viewer)')
+  .option('--projects <a,b>', 'project ids the account starts with')
+  .option('--password-stdin')
+  .action(usersCreate)
+describe(panelOptions(users.command('set-role <email> <role>'), false), "Change an account's role").action(usersSetRole)
+describe(panelOptions(users.command('set-password <email>'), false), "Set an account's password and end its sessions")
+  .option('--password-stdin').action(usersSetPassword)
+describe(panelOptions(users.command('remove <email>'), false), 'Remove an account').action(usersRemove)
 
 const db = describe(program.command('db'), 'Panel database operations and project database clients')
 describe(db.command('status'), 'Show panel PostgreSQL state').action((_options, command) => dbStatus(command))

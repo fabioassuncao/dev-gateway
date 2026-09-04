@@ -181,6 +181,12 @@ file or stdin.
 | `auth protect <host>` | `--user`, `--password-stdin`, `--project`, `--service`; creates or rotates a protected-host record. |
 | `auth status [host]` | Read-only; never returns credential hashes. |
 | `auth unprotect <host>` | Removes the record; the consumer project's middleware label is unchanged. |
+| `auth reset-password <email>` | `--password-stdin`; otherwise a password is generated and shown once. Runs inside the panel container and ends every session of that account. |
+| `users list` | Global flags only. |
+| `users create` | `--name`, `--email`, `--role`, `--projects`, `--password-stdin`; a generated password is shown once. |
+| `users set-role <email> <role>` | Global flags only. The email is resolved to an id through the panel. |
+| `users set-password <email>` | `--password-stdin`; ends every session of that account. |
+| `users remove <email>` | Global flags only. |
 | `auth token list\|create\|revoke` | Manage revocable Bearer tokens. `create --name --actor [--human] [--capabilities <a,b>]` prints the secret once. |
 | `network status` | `--public-ip` explicitly permits one external lookup. |
 | `public status|enable|disable` | Enable needs confirmation; TCP services are never published. |

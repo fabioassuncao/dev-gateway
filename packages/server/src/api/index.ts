@@ -27,6 +27,7 @@ import { sessionRoutes } from './routes/sessions.ts'
 import { activityRoutes } from './routes/activity.ts'
 import { developmentRoutes } from './routes/development.ts'
 import { authRoutes } from './routes/auth.ts'
+import { userRoutes } from './routes/users.ts'
 import { Forbidden, hasOwner, Unauthenticated } from 'portta-auth-core'
 import { principalMiddleware, SetupRequired } from 'portta-auth-core/hono'
 import { shareRoutes } from './routes/shares.ts'
@@ -41,6 +42,7 @@ import { DockerAccessDenied } from '../services/docker/allowlist.ts'
 import { ZodError } from 'zod'
 import { registerOpenApiRoutes } from './openapi.ts'
 import { DatabaseUnavailable } from '../db/index.ts'
+import { UnknownUser, UserRefused, UsersUnavailable } from '../services/users.ts'
 import { GitHubForbidden, GitHubUnavailable } from '../services/integrations/github/index.ts'
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
@@ -173,6 +175,7 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', activityRoutes(deps))
   api.route('/', developmentRoutes(deps))
   api.route('/', authRoutes(deps))
+  api.route('/', userRoutes(deps))
   registerOpenApiRoutes(api, deps.config)
 
   api.all('*', (c) => c.json({ error: `no such endpoint: ${c.req.path}` }, 404))
@@ -208,6 +211,17 @@ export function createApp(deps: AppDeps): Hono {
       error instanceof DynamicWriteRefused
     ) {
       return c.json({ error: error.message, hint: error.hint }, error.status as 400)
+    }
+    // A rule about accounts, not a missing permission: the message says which
+    // rule, because "403" alone sends somebody looking for the wrong thing.
+    if (error instanceof UserRefused) {
+      return c.json({ error: error.message, hint: error.hint }, 403)
+    }
+    if (error instanceof UnknownUser) {
+      return c.json({ error: error.message }, 404)
+    }
+    if (error instanceof UsersUnavailable) {
+      return c.json({ error: error.message, hint: error.hint }, 503)
     }
     if (error instanceof ValidationError) {
       return c.json({ error: error.message, hint: 'the value was not saved' }, 400)

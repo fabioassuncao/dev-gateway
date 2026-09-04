@@ -70,6 +70,49 @@ the OpenAPI document publishes it as `x-portta-permission`. A request with no
 credential gets `401`; a request with one that is not enough gets `403`. Those
 two are never interchanged.
 
+### The rules a role cannot express
+
+Four things are true regardless of what somebody holds, because the owner is a
+person rather than a permission. An administrator holds every statement the
+owner does; these are the whole difference, and they are why an admin cannot
+take the panel:
+
+- **Nobody changes their own role, and nobody removes their own account.**
+- **Only the owner acts on the owner** — no role change, ban, password or
+  removal, whoever is asking.
+- **`owner` is never assigned.** It moves through
+  `POST /api/users/:id/transfer-ownership`, which promotes the target and demotes
+  the caller in one transaction. There is no moment with two owners.
+- **The last owner cannot be removed.** A panel without one is a panel nobody
+  can administer, and only before the bootstrap is that a legal state.
+
+Two more follow from where the accounts live. Setting somebody's password
+revokes every session they had, because a password that leaves the old sessions
+open sets nothing. And administering accounts needs a signed-in person: a
+machine token that has sat on a disk for six months is not what should be able
+to create an administrator.
+
+### Managing accounts
+
+| What | Permission | Where |
+|---|---|---|
+| List, read | `user:list`, `user:get` | `GET /api/users`, `portta users list` |
+| Create | `user:create` | `POST /api/users`, `portta users create` |
+| Change a role | `user:set-role` | `PATCH /api/users/:id/role`, `portta users set-role` |
+| Set a password | `user:set-password` | `PATCH /api/users/:id/password`, `portta users set-password` |
+| Ban, unban | `user:ban` | `PATCH /api/users/:id/ban` |
+| Remove | `user:delete` | `DELETE /api/users/:id`, `portta users remove` |
+| See and end sessions | `session:list`, `session:revoke` | `GET`/`DELETE /api/users/:id/sessions` |
+| Which Projects somebody reaches | `project:members` | `PUT /api/users/:id/projects` |
+| Hand the panel over | `user:set-role`, and only the owner | `POST /api/users/:id/transfer-ownership` |
+
+Removing an account takes its sessions, tokens and memberships with it. The work
+it did stays, under the name it was done with.
+
+Owner and admin see every Project, so a membership list does not apply to them
+and setting one is refused. Promoting somebody to admin clears the memberships
+they had, because leaving them would suggest a boundary nothing enforces.
+
 Read-only mode (`PORTTA_WEB_READ_ONLY=true`) intersects every principal with the
 reads, whoever signed in.
 
@@ -85,7 +128,18 @@ ten minutes. A user who has turned on a second factor is sent to `/two-factor`
 after their password is accepted.
 
 There is no email transport in a self-hosted panel, so there is no reset link.
-A forgotten password is reset from the host that owns the panel.
+A forgotten password is reset from the host that owns the panel:
+
+```bash
+printf %s "$NEW" | portta auth reset-password ada@example.com --password-stdin
+portta auth reset-password ada@example.com    # or let it generate one, shown once
+```
+
+That runs inside the panel's own container, where the database already is. It is
+deliberately not an API call: the case it exists for is the one where no
+credential works. Being able to run it means having the machine, which is the
+same authority the owner had when they created the account. Every session of
+that account is ended.
 
 ### Tokens for the CLI and agents
 

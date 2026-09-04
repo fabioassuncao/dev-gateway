@@ -31,6 +31,7 @@ export type ApiTag =
   | 'Integrations'
   | 'Documentation'
   | 'Authentication'
+  | 'Users'
 
 export type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 500 | 502 | 503
 
@@ -253,7 +254,8 @@ export function openApiOptions(version: string): Partial<GenerateSpecOptions> {
       { name: 'Events', description: 'Server-sent runtime events.' },
       { name: 'Integrations', description: 'Outbound integrations and their projections.' },
       { name: 'Documentation', description: 'The machine contract and its offline browser.' },
-      { name: 'Authentication', description: 'Revocable Bearer credentials for remote CLI and coding agents.' },
+      { name: 'Authentication', description: 'Who this request is, and how a person or an agent becomes somebody.' },
+      { name: 'Users', description: 'The accounts this panel signs in, their roles, and the Projects each one reaches.' },
     ],
     components: {
       securitySchemes: {

@@ -14,6 +14,11 @@ import {
   permissionsOf,
   principalFor,
   READ_PERMISSIONS,
+  refusalForBan,
+  refusalForRemoval,
+  refusalForRoleChange,
+  refusalForTransfer,
+  refusalForUserWrite,
   ROLES,
   sees,
   Unauthenticated,
@@ -160,5 +165,52 @@ describe('listing versus reaching', () => {
     expect(sees(developer, 1)).toBe(true)
     expect(sees(developer, 2)).toBe(false)
     expect(sees(principal('admin'), 2)).toBe(true)
+  })
+})
+
+describe('the rules a statement map cannot hold', () => {
+  const owner = { id: 'u-owner', role: 'owner' as const }
+  const admin = { id: 'u-admin', role: 'admin' as const }
+  const dev = { id: 'u-dev', role: 'developer' as const }
+
+  const asOwner = principalFor({ kind: 'user', role: 'owner', permissions: permissionsOf('owner'), scope: 'all', userId: 'u-owner' })
+  const asAdmin = principalFor({ kind: 'user', role: 'admin', permissions: permissionsOf('admin'), scope: 'all', userId: 'u-admin' })
+
+  it('lets nobody change their own role, whoever they are', () => {
+    expect(refusalForRoleChange(asOwner, owner, 'admin')).toMatch(/their own role/)
+    expect(refusalForRoleChange(asAdmin, admin, 'viewer')).toMatch(/their own role/)
+  })
+
+  // An admin holds every statement the owner does. This is the whole difference
+  // between them, and it is why an admin cannot promote themselves.
+  it('keeps every write on the owner to the owner', () => {
+    expect(refusalForUserWrite(asAdmin, owner)).toMatch(/only the owner/)
+    expect(refusalForBan(asAdmin, owner)).toMatch(/only the owner/)
+    expect(refusalForRemoval(asAdmin, owner, 2)).toMatch(/only the owner/)
+    expect(refusalForUserWrite(asOwner, admin)).toBeNull()
+  })
+
+  it('never hands `owner` out through a role change', () => {
+    expect(refusalForRoleChange(asOwner, admin, 'owner')).toMatch(/transferred/)
+    expect(refusalForRoleChange(asOwner, admin, 'viewer')).toBeNull()
+  })
+
+  // A panel with no owner is a panel nobody can administer, and getting back
+  // there would need the power of the person being removed.
+  it('keeps the last owner', () => {
+    expect(refusalForRemoval(asOwner, { id: 'u-other', role: 'owner' }, 1)).toMatch(/last owner/)
+    expect(refusalForRemoval(asOwner, { id: 'u-other', role: 'owner' }, 2)).toBeNull()
+    expect(refusalForRemoval(asOwner, dev, 1)).toBeNull()
+  })
+
+  it('lets nobody remove or ban themselves', () => {
+    expect(refusalForRemoval(asAdmin, admin, 2)).toMatch(/their own account/)
+    expect(refusalForBan(asAdmin, admin)).toMatch(/their own account/)
+  })
+
+  it('gives the transfer to the owner alone, and never to themselves', () => {
+    expect(refusalForTransfer(asAdmin, dev)).toMatch(/only the owner/)
+    expect(refusalForTransfer(asOwner, owner)).toMatch(/already owns/)
+    expect(refusalForTransfer(asOwner, dev)).toBeNull()
   })
 })

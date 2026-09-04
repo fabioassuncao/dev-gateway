@@ -9,7 +9,7 @@ import { createSnapshotCache } from '../src/services/inventory.ts'
 import { LiveHub } from '../src/realtime/hub.ts'
 import { createVerdictCache } from '../src/services/traefik.ts'
 import { createTestDb } from 'portta-db/testing'
-import { createPrincipalResolver, resolveSecurityMode } from 'portta-auth-core'
+import { createAuth, createPrincipalResolver, hasOwner, resolveSecurityMode } from 'portta-auth-core'
 import {
   environments as environmentsTable,
   githubInstallations,
@@ -443,4 +443,42 @@ export async function del(app: Hono, path: string, body: unknown = {}): Promise<
     body: JSON.stringify(body),
     headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },
   })
+}
+
+/**
+ * The panel with `PORTTA_AUTH_MODE=required`: a real Better Auth over the test
+ * database, and a way to sign somebody in.
+ *
+ * The route suites use `makeApp`, which is open mode, because who the caller is
+ * has its own suites. This is for the ones that are about exactly that.
+ */
+export function makeProtectedApp(database: Database, configOverrides: Partial<PanelConfig> = {}) {
+  const docker = fakeDocker({})
+  const config = testConfig(configOverrides)
+  const cache = createSnapshotCache(docker.client, config, 0)
+  const hub = new LiveHub(docker.client, cache)
+  const verdict = createVerdictCache(config, 0)
+  const security = resolveSecurityMode({
+    PORTTA_AUTH_MODE: 'required',
+    PORTTA_AUTH_SECRET: 'a-test-secret-that-is-long-enough',
+    ...(config.readOnly ? { PORTTA_RUNTIME_READ_ONLY: 'true' } : {}),
+  })
+  const handle = database.handle
+  const auth = createAuth({ db: handle, security, hasOwner: () => hasOwner(handle) })
+  const principals = createPrincipalResolver({ security, db: handle, auth })
+  const app: Hono = createApp({
+    config, client: docker.client, cache, hub, verdict, db: database, github: null, security, auth, principals,
+  })
+  return { app, auth, config, security, principals, db: handle }
+}
+
+/** Sign in, and hand back the cookie a browser would send next time. */
+export async function signInAs(
+  auth: ReturnType<typeof makeProtectedApp>['auth'],
+  email: string,
+  password: string,
+): Promise<Record<string, string>> {
+  const response = await auth.api.signInEmail({ body: { email, password }, returnHeaders: true })
+  const cookie = response.headers.get('set-cookie')
+  return cookie ? { cookie: cookie.split(';')[0] ?? '' } : {}
 }

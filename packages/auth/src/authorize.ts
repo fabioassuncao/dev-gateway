@@ -86,3 +86,70 @@ export function authorize(principal: Principal | null, permission: Permission, s
 export function sees(principal: Principal, projectId: number): boolean {
   return principal.scope === 'all' || principal.scope.has(projectId)
 }
+
+/**
+ * The rules a statement map cannot hold.
+ *
+ * `ac` answers "may an admin change roles". It cannot answer "may this admin
+ * change *this* role", because that depends on who the target is and who is
+ * asking — the owner is a person, not a permission. These four are the whole
+ * list (03 §6.4), they live beside `authorize` so there is one place to read
+ * what protects an account, and each returns the sentence to refuse with or
+ * null.
+ */
+export interface UserSubject {
+  id: string
+  role: Role
+}
+
+/** Nobody changes their own role, and nobody removes themselves. */
+function isSelf(principal: Principal, target: UserSubject): boolean {
+  return principal.userId !== null && principal.userId === target.id
+}
+
+/**
+ * Whether this principal may act on this account at all.
+ *
+ * The owner is the account that cannot be taken from its holder: an admin holds
+ * every statement, and the one thing that stops them promoting themselves is
+ * that they may not touch the owner.
+ */
+export function refusalForUserWrite(principal: Principal, target: UserSubject): string | null {
+  if (target.role === 'owner' && principal.role !== 'owner') {
+    return 'only the owner can act on the owner'
+  }
+  return null
+}
+
+export function refusalForRoleChange(principal: Principal, target: UserSubject, next: Role): string | null {
+  if (isSelf(principal, target)) return 'nobody changes their own role'
+  const write = refusalForUserWrite(principal, target)
+  if (write) return write
+  // Ownership moves through `transfer-ownership`, which demotes the caller in
+  // the same transaction. Handing the role out any other way makes two owners.
+  if (next === 'owner') return 'ownership is transferred, not assigned'
+  return null
+}
+
+export function refusalForRemoval(principal: Principal, target: UserSubject, owners: number): string | null {
+  if (isSelf(principal, target)) return 'nobody removes their own account'
+  const write = refusalForUserWrite(principal, target)
+  if (write) return write
+  // A panel with no owner is a panel nobody can administer. It is legal only
+  // before the bootstrap, and getting back there by removing the last one would
+  // need somebody with the power to remove them, who no longer exists.
+  if (target.role === 'owner' && owners <= 1) return 'the last owner cannot be removed'
+  return null
+}
+
+export function refusalForBan(principal: Principal, target: UserSubject): string | null {
+  if (isSelf(principal, target)) return 'nobody bans their own account'
+  return refusalForUserWrite(principal, target)
+}
+
+/** Only the owner transfers, and never to themselves. */
+export function refusalForTransfer(principal: Principal, target: UserSubject): string | null {
+  if (principal.role !== 'owner') return 'only the owner can transfer ownership'
+  if (isSelf(principal, target)) return 'the owner already owns this panel'
+  return null
+}

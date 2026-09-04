@@ -32,9 +32,8 @@ function status(overrides: Partial<GatewayStatus['dashboard']> = {}): GatewaySta
     panel: {
       expose: 'local',
       routed: false,
-      auth: 'none',
+      auth: 'disabled',
       authenticated: false,
-      user: '',
       readOnly: false,
       docs: true,
     },
