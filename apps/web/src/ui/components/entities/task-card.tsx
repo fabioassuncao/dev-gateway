@@ -28,6 +28,8 @@ export function TaskCard({
   onOpen,
   readOnly = false,
   showRepository = true,
+  showProject = false,
+  projectName,
 }: {
   task: TaskSummary
   columns: BoardColumn[]
@@ -36,6 +38,8 @@ export function TaskCard({
   onOpen?: (task: TaskSummary) => void
   readOnly?: boolean
   showRepository?: boolean
+  showProject?: boolean
+  projectName?: string
 }) {
   const { t } = useTranslation('tasks')
   const { t: tc } = useTranslation('common')
@@ -130,6 +134,14 @@ export function TaskCard({
       </a>
 
       <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1 text-2xs text-subtle">
+        {showProject ? (
+          <a
+            className="max-w-28 truncate rounded-xs text-2xs text-subtle underline-offset-2 hover:text-ink hover:underline focus-ring"
+            href={`#/projects/${encodeURIComponent(task.project)}`}
+          >
+            {projectName ?? task.project}
+          </a>
+        ) : null}
         {PriorityIcon ? (
           <span className="inline-flex size-5 items-center justify-center rounded-full border border-line bg-surface" title={priorityLabel(task.priority)}>
             <PriorityIcon className={cn('size-3', toneText[narrowTone(priorityTone(task.priority))])} aria-label={priorityLabel(task.priority)} />

@@ -53,8 +53,11 @@ export function TaskBoard({
   onOpen,
   readOnly = false,
   showRepository = true,
+  showProject = false,
+  projectNames = {},
+  from,
 }: {
-  slug: string
+  slug?: string
   tasks: TaskSummary[]
   columns?: BoardColumn[]
   onMove: (task: TaskSummary, status: TaskStatus, beforeId: string | null, afterId: string | null) => void
@@ -62,6 +65,9 @@ export function TaskBoard({
   readOnly?: boolean
   /** False when the project has one repository and naming it on every card is noise. */
   showRepository?: boolean
+  showProject?: boolean
+  projectNames?: Record<string, string>
+  from?: 'tasks'
 }) {
   const { t } = useTranslation('tasks')
   const defaultColumns = useBoardColumns()
@@ -107,6 +113,9 @@ export function TaskBoard({
             dragActive={dragging !== null}
             isSource={dragging === column.status}
             showRepository={showRepository}
+            showProject={showProject}
+            projectNames={projectNames}
+            from={from}
           />
         ))}
       </div>
@@ -125,8 +134,11 @@ function BoardColumnView({
   dragActive,
   isSource,
   showRepository,
+  showProject,
+  projectNames,
+  from,
 }: {
-  slug: string
+  slug?: string
   column: BoardColumn
   tasks: TaskSummary[]
   columns: BoardColumn[]
@@ -136,6 +148,9 @@ function BoardColumnView({
   dragActive: boolean
   isSource: boolean
   showRepository: boolean
+  showProject: boolean
+  projectNames: Record<string, string>
+  from?: 'tasks'
 }) {
   const { t } = useTranslation('tasks')
   const region = useRef<HTMLDivElement>(null)
@@ -188,7 +203,18 @@ function BoardColumnView({
           </p>
         ) : (
           shown.map((task) => (
-            <TaskCard key={task.id} task={task} columns={columns} href={taskHref(slug, task.id)} onMove={onMove} onOpen={onOpen} readOnly={readOnly} showRepository={showRepository} />
+            <TaskCard
+              key={task.id}
+              task={task}
+              columns={columns}
+              href={taskHref(task.project || slug || '', task.id, from ? { from } : undefined)}
+              onMove={onMove}
+              onOpen={onOpen}
+              readOnly={readOnly}
+              showRepository={showRepository}
+              showProject={showProject}
+              projectName={projectNames[task.project]}
+            />
           ))
         )}
         {tasks.length > shown.length ? (

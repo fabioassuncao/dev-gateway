@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LayoutGrid, Table2, X } from 'lucide-react'
 import { api, ApiError } from '../../lib/api/index.ts'
-import { keys, useTasks } from '../../lib/queries/index.ts'
+import { keys, useProject, useTasksList } from '../../lib/queries/index.ts'
 import type { TaskStatus, TaskSummary } from '../../../shared/task-types.ts'
-import type { Project } from '../../../shared/types.ts'
+import type { Project, ProjectSummary } from '../../../shared/types.ts'
 import { Badge } from '../ui/badge.tsx'
 import { Button } from '../ui/button.tsx'
 import { Card } from '../ui/card.tsx'
@@ -17,6 +17,7 @@ import { navigate } from '../../lib/router.ts'
 import {
   labelsOf,
   matchesFilters,
+  rememberTasksReturn,
   tasksHref,
   typesOf,
   type TaskFilterValues,
@@ -26,17 +27,21 @@ import { useBoardColumns, useTaskStatuses } from '../../i18n/use-task-statuses.t
 import { BoardEmpty, TaskBoard } from './task-board.tsx'
 import { TaskTable } from './task-table.tsx'
 
+export type TasksScope =
+  | { kind: 'project'; project: Project }
+  | { kind: 'global'; projects: ProjectSummary[] }
+
 /**
- * The Tasks tab of a project: one board or one table over the same rows, the
- * filters in the hash, and one dialog to create work.
+ * One board or one table over the same rows. The project tab and the global
+ * page differ only in the query they ask and the extra project column.
  */
-export function TasksTab({
-  project,
+export function TasksView({
+  scope,
   view,
   filters,
   readOnly = false,
 }: {
-  project: Project
+  scope: TasksScope
   view: TaskView
   filters: TaskFilterValues
   readOnly?: boolean
@@ -46,13 +51,23 @@ export function TasksTab({
   const boardColumns = useBoardColumns()
   const toast = useToast()
   const [failure, setFailure] = useState<unknown>(null)
-  const slug = project.slug
+
+  const slug = scope.kind === 'project' ? scope.project.slug : null
+  const from = scope.kind === 'global' ? 'tasks' as const : undefined
+  const listHref = tasksHref(scope.kind === 'global' ? { global: true } : slug!, view, filters)
+
+  useEffect(() => {
+    rememberTasksReturn(listHref)
+  }, [listHref])
+
+  const selectedSlug = scope.kind === 'global' ? (filters.project ?? '') : ''
+  const selected = useProject(selectedSlug, selectedSlug !== '')
 
   // The board wants every open task; the table is the place to look at what is
   // already done, so it asks for everything.
   const serverFilters = view === 'table' ? {} : { open: 'true' }
-  const query = useTasks(slug, serverFilters)
-  const queryKey = keys.tasks(slug, serverFilters)
+  const query = useTasksList(slug, serverFilters)
+  const queryKey = slug ? keys.tasks(slug, serverFilters) : keys.allTasks(serverFilters)
 
   const move = useOptimisticMutation<unknown, { task: TaskSummary; status: TaskStatus; beforeId: string | null; afterId: string | null }, TaskSummary[]>({
     queryKey,
@@ -87,11 +102,28 @@ export function TasksTab({
   const labels = useMemo(() => labelsOf(all), [all])
   const types = useMemo(() => typesOf(all), [all])
   const activeFilters = Object.values(filters).filter(Boolean).length
+  const projectNames = useMemo(() => {
+    const names: Record<string, string> = {}
+    if (scope.kind === 'project') {
+      names[scope.project.slug] = scope.project.name
+      return names
+    }
+    for (const project of scope.projects) names[project.slug] = project.name
+    return names
+  }, [scope])
+
+  const repositories = scope.kind === 'project'
+    ? scope.project.repositories
+    : (selected.data?.repositories ?? [])
+  const showRepository = scope.kind === 'project'
+    ? scope.project.repositories.length > 1
+    : new Set(shown.map((task) => task.repository?.id).filter(Boolean)).size > 1
 
   const unavailable = query.error instanceof ApiError && query.error.status === 503
   const setFilter = (key: keyof TaskFilterValues, value: string) =>
-    navigate(tasksHref(slug, view, { ...filters, [key]: value === '' ? undefined : value }))
-  const setView = (next: TaskView) => navigate(tasksHref(slug, next, filters))
+    navigate(tasksHref(scope.kind === 'global' ? { global: true } : slug!, view, { ...filters, [key]: value === '' ? undefined : value }))
+  const setView = (next: TaskView) => navigate(tasksHref(scope.kind === 'global' ? { global: true } : slug!, next, filters))
+  const clearHref = tasksHref(scope.kind === 'global' ? { global: true } : slug!, view)
 
   const setStatus = (task: TaskSummary, status: TaskStatus) => {
     setFailure(null)
@@ -100,6 +132,14 @@ export function TasksTab({
 
   const controls = (
     <>
+      {scope.kind === 'global' ? (
+        <Select value={filters.project ?? ''} onChange={(event) => setFilter('project', event.target.value)} size="sm" className="w-40" aria-label={t('projectFilter')}>
+          <option value="">{t('allProjects')}</option>
+          {scope.projects.filter((project) => !project.archived).map((project) => (
+            <option key={project.slug} value={project.slug}>{project.name}</option>
+          ))}
+        </Select>
+      ) : null}
       <Input
         value={filters.q ?? ''}
         onChange={(event) => setFilter('q', event.target.value)}
@@ -131,14 +171,16 @@ export function TasksTab({
           {labels.map((label) => <option key={label} value={label}>{label}</option>)}
         </Select>
       ) : null}
-      <Select value={filters.repository ?? ''} onChange={(event) => setFilter('repository', event.target.value)} size="sm" className="hidden w-40 xl:inline-block" aria-label={t('repositoryFilter')}>
-        <option value="">{t('anyRepository')}</option>
-        {project.repositories.map((repository) => (
-          <option key={repository.id} value={repository.id}>{repository.name}</option>
-        ))}
-      </Select>
+      {repositories.length > 0 ? (
+        <Select value={filters.repository ?? ''} onChange={(event) => setFilter('repository', event.target.value)} size="sm" className="hidden w-40 xl:inline-block" aria-label={t('repositoryFilter')}>
+          <option value="">{t('anyRepository')}</option>
+          {repositories.map((repository) => (
+            <option key={repository.id} value={repository.id}>{repository.name}</option>
+          ))}
+        </Select>
+      ) : null}
       {activeFilters > 0 ? (
-        <Button size="sm" variant="ghost" onClick={() => navigate(tasksHref(slug, view))}>
+        <Button size="sm" variant="ghost" onClick={() => navigate(clearHref)}>
           <X />
           {t('clearFilters')}
         </Button>
@@ -179,26 +221,30 @@ export function TasksTab({
       ) : view === 'table' ? (
         <Card>
           <TaskTable
-            slug={slug}
+            slug={slug ?? undefined}
             tasks={shown}
             columns={boardColumns}
             readOnly={readOnly}
             onSetStatus={readOnly ? undefined : setStatus}
             toolbar={controls}
             empty={<BoardEmpty />}
+            showProject={scope.kind === 'global'}
+            projectNames={projectNames}
+            from={from}
           />
         </Card>
       ) : shown.length === 0 ? (
         <Card><BoardEmpty /></Card>
       ) : (
         <TaskBoard
-          slug={slug}
+          slug={slug ?? undefined}
           tasks={shown}
           columns={boardColumns}
           readOnly={readOnly}
-          // A project with one repository does not need every card to repeat
-          // its name; a project with several does.
-          showRepository={project.repositories.length > 1}
+          showRepository={showRepository}
+          showProject={scope.kind === 'global'}
+          projectNames={projectNames}
+          from={from}
           onMove={(task, status, beforeId, afterId) => {
             setFailure(null)
             move.mutate({ task, status, beforeId, afterId })
@@ -207,4 +253,19 @@ export function TasksTab({
       )}
     </>
   )
+}
+
+/** The project tab still imports this name. */
+export function TasksTab({
+  project,
+  view,
+  filters,
+  readOnly = false,
+}: {
+  project: Project
+  view: TaskView
+  filters: TaskFilterValues
+  readOnly?: boolean
+}) {
+  return <TasksView scope={{ kind: 'project', project }} view={view} filters={filters} readOnly={readOnly} />
 }

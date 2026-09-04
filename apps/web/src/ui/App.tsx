@@ -8,6 +8,7 @@ import {
   BookOpen,
   Languages,
   LayoutDashboard,
+  ListTodo,
   Monitor,
   Moon,
   Network,
@@ -44,6 +45,7 @@ import { EnvironmentsPage } from './pages/Environments.tsx'
 import { RepositoryPage } from './pages/Repository.tsx'
 import { Loading } from './components/shell-bits.tsx'
 import { TaskPage } from './pages/Task.tsx'
+import { Tasks } from './pages/Tasks.tsx'
 import { Services } from './pages/Services.tsx'
 import { DockerPage } from './pages/Docker.tsx'
 import { NetworkPage } from './pages/Network.tsx'
@@ -55,6 +57,7 @@ import { navigate } from './lib/router.ts'
 type NavLabelKey =
   | 'overview'
   | 'projects'
+  | 'tasks'
   | 'services'
   | 'docker'
   | 'network'
@@ -87,6 +90,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/overview', labelKey: 'overview', icon: LayoutDashboard },
       { path: '/projects', labelKey: 'projects', icon: Boxes },
+      { path: '/tasks', labelKey: 'tasks', icon: ListTodo },
     ],
   },
   {
@@ -431,9 +435,11 @@ function Page({ path, readOnly = false }: { path: string; readOnly?: boolean }) 
         return <RepositoryPage slug={decode(parts[1])} id={decode(parts[3])} tab={parts[4] ?? null} />
       }
       if (parts[2] === 'tasks' && parts[3]) {
-        return <TaskPage slug={decode(parts[1])} id={decode(parts[3])} readOnly={readOnly} />
+        return <TaskPage slug={decode(parts[1])} id={decode(parts[3])} from={queryParam(path, 'from')} readOnly={readOnly} />
       }
       return <ProjectPage slug={decode(parts[1])} tab={parts[2] ?? null} query={queryOf(path)} readOnly={readOnly} />
+    case 'tasks':
+      return <Tasks query={queryOf(path)} readOnly={readOnly} />
     case 'environments':
       return parts[1]
         ? <EnvironmentPage project={decode(parts[1])} tab={parts[2] ?? null} service={queryParam(path, 'service')} />

@@ -11,11 +11,11 @@ import { Empty, ErrorBox, Loading } from '../components/shell-bits.tsx'
 import { TaskWorkspace } from '../components/tasks/task-workspace.tsx'
 import { useKickCreate } from '../lib/kick-create.ts'
 import { navigate } from '../lib/router.ts'
-import { taskHref, tasksHref } from '../lib/tasks.ts'
+import { taskHref, tasksHref, tasksReturnHref } from '../lib/tasks.ts'
 import { useDocumentTitle } from '../lib/title.ts'
 
 /** One task: what it is, who is on it, what came out of it, and what to do next. */
-export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: string; readOnly?: boolean }) {
+export function TaskPage({ slug, id, from = null, readOnly = false }: { slug: string; id: string; from?: string | null; readOnly?: boolean }) {
   const { t } = useTranslation('tasks')
   const { t: tn } = useTranslation('nav')
   const queryClient = useQueryClient()
@@ -26,7 +26,8 @@ export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: str
   const sessions = useSessions(slug, { task: id })
   const activity = useProjectActivity(slug, { task: id, limit: '30' })
   const github = useGitHub()
-  const kickCreate = useKickCreate(slug)
+  const kickCreate = useKickCreate(slug, from === 'tasks' ? { from: 'tasks' } : undefined)
+  const listHref = tasksReturnHref(from, tasksHref(slug, 'board'))
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   useDocumentTitle(task.data ? `#${task.data.id} ${task.data.title}` : `#${id}`, project.data?.name ?? slug)
@@ -44,13 +45,20 @@ export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: str
     toast.push({ title: t('failed'), description: error instanceof Error ? error.message : String(error), tone: 'danger' })
   }
 
-  const crumbs = (parentId: string | null): BreadcrumbItem[] => [
-    { label: tn('projects'), href: '#/projects' },
-    { label: project.data?.name ?? slug, href: `#/projects/${encodeURIComponent(slug)}`, pending: project.isPending },
-    { label: t('title'), href: `#${tasksHref(slug, 'board')}` },
-    ...(parentId ? [{ label: `#${parentId}`, href: taskHref(slug, parentId) }] : []),
-    { label: `#${id}` },
-  ]
+  const crumbs = (parentId: string | null): BreadcrumbItem[] => from === 'tasks'
+    ? [
+      { label: t('title'), href: `#${listHref}` },
+      { label: project.data?.name ?? slug, href: `#/projects/${encodeURIComponent(slug)}`, pending: project.isPending },
+      ...(parentId ? [{ label: `#${parentId}`, href: taskHref(slug, parentId, { from: 'tasks' }) }] : []),
+      { label: `#${id}` },
+    ]
+    : [
+      { label: tn('projects'), href: '#/projects' },
+      { label: project.data?.name ?? slug, href: `#/projects/${encodeURIComponent(slug)}`, pending: project.isPending },
+      { label: t('title'), href: `#${listHref}` },
+      ...(parentId ? [{ label: `#${parentId}`, href: taskHref(slug, parentId) }] : []),
+      { label: `#${id}` },
+    ]
 
   const patch = useMutation({
     mutationFn: (body: TaskBody) => {
@@ -110,7 +118,7 @@ export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: str
     mutationFn: () => api.deleteTask(id),
     onSuccess: () => {
       refresh()
-      navigate(tasksHref(slug, 'board'))
+      navigate(listHref)
     },
     onError: failed,
   })
@@ -123,7 +131,7 @@ export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: str
         <Breadcrumb items={crumbs(null)} className="-ml-1 mb-3" />
         <Card>
           {status === 404 ? (
-            <Empty title={t('notFound', { id })} hint={<a className="rounded-xs text-accent hover:underline focus-ring" href={`#${tasksHref(slug, 'board')}`}>{t('backToTasks')}</a>} />
+            <Empty title={t('notFound', { id })} hint={<a className="rounded-xs text-accent hover:underline focus-ring" href={`#${listHref}`}>{t('backToTasks')}</a>} />
           ) : status === 503 ? (
             <Empty title={t('needsDatabase')} hint={t('needsDatabaseHint')} />
           ) : (

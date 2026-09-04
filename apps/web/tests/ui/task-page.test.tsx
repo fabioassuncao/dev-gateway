@@ -65,6 +65,7 @@ const detail = makeTask({
 })
 
 beforeEach(() => {
+  sessionStorage.clear()
   task.mockReset().mockResolvedValue(detail)
   tasks.mockReset().mockResolvedValue([])
   project.mockReset().mockResolvedValue({ id: '1', slug: 'produto', name: 'Meu Produto', description: null, archived: false, relativePath: null, resolvedPath: null, location: 'external', repositories: [], githubRepositories: [], environments: [{ environment: 'produto', source: 'manual', running: true, serviceCount: 1, runningCount: 1, unhealthyCount: 0, urls: [] }] })
@@ -94,6 +95,17 @@ describe('one task', () => {
     expect(screen.getByText('Tests pass locally.')).toBeInTheDocument()
     expect(screen.getByText('#42 moved to in progress')).toBeInTheDocument()
     expect(screen.getByText(/not bound to a GitHub issue/i)).toBeInTheDocument()
+  })
+
+  it('walks Tasks and the project when the task was opened from the global list', async () => {
+    sessionStorage.setItem('portta-tasks-return', JSON.stringify({ href: '/tasks?view=board&status=blocked', scroll: 0 }))
+    renderWithQuery(<TaskPage slug="produto" id="42" from="tasks" />)
+    await screen.findByRole('heading', { name: 'Implementar refresh token' })
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: 'Tasks' })).toHaveAttribute('href', '#/tasks?view=board&status=blocked')
+    expect(await within(nav).findByRole('link', { name: 'Meu Produto' })).toHaveAttribute('href', '#/projects/produto')
+    expect(within(nav).queryByRole('link', { name: 'Projects' })).toBeNull()
+    expect(within(nav).getByText('#42')).toHaveAttribute('aria-current', 'page')
   })
 
   it('walks Projects, the project and Tasks in the breadcrumb, with no link trio below the title', async () => {

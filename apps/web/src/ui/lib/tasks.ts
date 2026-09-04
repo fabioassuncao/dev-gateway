@@ -6,9 +6,12 @@ import { taskTypeOf } from './task-presentation.ts'
 export const TASK_VIEWS = ['board', 'table'] as const
 export type TaskView = (typeof TASK_VIEWS)[number]
 
-export const TASK_FILTERS = ['status', 'assignee', 'repository', 'priority', 'type', 'label', 'q'] as const
+export const TASK_FILTERS = ['project', 'status', 'assignee', 'repository', 'priority', 'type', 'label', 'q'] as const
 export type TaskFilterKey = (typeof TASK_FILTERS)[number]
 export type TaskFilterValues = Partial<Record<TaskFilterKey, string>>
+
+/** Where a list of tasks lives: one project, or every project on the panel. */
+export type TasksScopeArg = string | { project: string } | { global: true }
 
 export function resolveTaskView(requested: string | null | undefined): TaskView {
   // "list" is what the simplified list called itself before it became a table;
@@ -16,12 +19,18 @@ export function resolveTaskView(requested: string | null | undefined): TaskView 
   return requested === 'table' || requested === 'list' ? 'table' : 'board'
 }
 
-export function taskHref(slug: string, id: string): string {
-  return `#/projects/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(id)}`
+export function taskHref(slug: string, id: string, options?: { from?: 'tasks' }): string {
+  const query = options?.from === 'tasks' ? '?from=tasks' : ''
+  return `#/projects/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(id)}${query}`
 }
 
-/** The tab's own address: a filtered board is a link somebody can paste. */
-export function tasksHref(slug: string, view: TaskView, filters: TaskFilterValues = {}): string {
+function tasksPath(scope: TasksScopeArg): string {
+  if (typeof scope === 'string') return `/projects/${encodeURIComponent(scope)}/tasks`
+  if ('global' in scope) return '/tasks'
+  return `/projects/${encodeURIComponent(scope.project)}/tasks`
+}
+
+function tasksQuery(view: TaskView, filters: TaskFilterValues): string {
   const query = new URLSearchParams()
   if (view !== 'board') query.set('view', view)
   for (const key of TASK_FILTERS) {
@@ -29,7 +38,12 @@ export function tasksHref(slug: string, view: TaskView, filters: TaskFilterValue
     if (value) query.set(key, value)
   }
   const suffix = query.toString()
-  return `/projects/${encodeURIComponent(slug)}/tasks${suffix ? `?${suffix}` : ''}`
+  return suffix ? `?${suffix}` : ''
+}
+
+/** The list's own address: a filtered board is a link somebody can paste. */
+export function tasksHref(scope: TasksScopeArg, view: TaskView, filters: TaskFilterValues = {}): string {
+  return `${tasksPath(scope)}${tasksQuery(view, filters)}`
 }
 
 export function taskFiltersFrom(params: URLSearchParams | Record<string, string>): TaskFilterValues {
@@ -47,6 +61,52 @@ export function boardToTasksHref(slug: string, legacyView: string | null, query:
   const params = new URLSearchParams(query.replace(/^\?/, ''))
   const filters = taskFiltersFrom(params)
   return tasksHref(slug, legacyView === 'backlog' ? 'table' : 'board', filters)
+}
+
+const RETURN_KEY = 'portta-tasks-return'
+
+/** Remember the list a task was opened from, so closing it lands in the same filters. */
+export function rememberTasksReturn(href: string): void {
+  try {
+    const main = document.querySelector('main')
+    sessionStorage.setItem(RETURN_KEY, JSON.stringify({
+      href,
+      scroll: main instanceof HTMLElement ? main.scrollTop : 0,
+    }))
+  } catch {
+    /* private browsing */
+  }
+}
+
+export function readTasksReturn(): { href: string; scroll: number } | null {
+  try {
+    const raw = sessionStorage.getItem(RETURN_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { href?: unknown; scroll?: unknown }
+    if (typeof parsed.href !== 'string' || parsed.href === '') return null
+    return { href: parsed.href, scroll: typeof parsed.scroll === 'number' ? parsed.scroll : 0 }
+  } catch {
+    return null
+  }
+}
+
+/** The list to go back to: the remembered hash, or the fallback for this page. */
+export function tasksReturnHref(from: string | null | undefined, fallback: string): string {
+  if (from === 'tasks') {
+    const stored = readTasksReturn()
+    if (stored?.href.startsWith('/tasks')) return stored.href
+    return '/tasks'
+  }
+  return fallback
+}
+
+export function restoreTasksScroll(): void {
+  const stored = readTasksReturn()
+  if (!stored || stored.scroll <= 0) return
+  requestAnimationFrame(() => {
+    const main = document.querySelector('main')
+    if (main instanceof HTMLElement) main.scrollTop = stored.scroll
+  })
 }
 
 export interface NestedTask {
@@ -81,6 +141,7 @@ export function nestTasks(tasks: readonly TaskSummary[]): NestedTask[] {
 
 /** Client-side narrowing for filters the server does not take, or before it answers. */
 export function matchesFilters(task: TaskSummary, filters: TaskFilterValues): boolean {
+  if (filters.project && !filters.project.split(',').includes(task.project)) return false
   if (filters.status && !filters.status.split(',').includes(task.status)) return false
   if (filters.assignee && task.assignee !== filters.assignee && task.agent !== filters.assignee) return false
   if (filters.repository && task.repository?.id !== filters.repository) return false
@@ -113,4 +174,9 @@ export function taskWorker(task: Pick<TaskSummary, 'assignee' | 'agent'>): { nam
   if (task.agent) return { name: task.agent, kind: 'agent' }
   if (task.assignee) return { name: task.assignee, kind: 'human' }
   return null
+}
+
+/** The name a person recognises, falling back to the slug the API already has. */
+export function projectNameOf(slug: string, names: Record<string, string> = {}): string {
+  return names[slug] ?? slug
 }

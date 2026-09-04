@@ -48,4 +48,18 @@ describe('the task board', () => {
     renderWithQuery(<TaskBoard slug="produto" tasks={[makeTaskSummary({ id: '5', title: 'Linked' })]} onMove={vi.fn()} />)
     expect(screen.getByRole('link', { name: 'Linked' })).toHaveAttribute('href', '#/projects/produto/tasks/5')
   })
+
+  it('names the project on a global board without growing the card', () => {
+    renderWithQuery(
+      <TaskBoard
+        tasks={[makeTaskSummary({ id: '5', project: 'portta', title: 'Linked' })]}
+        onMove={vi.fn()}
+        showProject
+        projectNames={{ portta: 'Portta' }}
+        from="tasks"
+      />,
+    )
+    expect(screen.getByRole('link', { name: 'Portta' })).toHaveAttribute('href', '#/projects/portta')
+    expect(screen.getByRole('link', { name: 'Linked' })).toHaveAttribute('href', '#/projects/portta/tasks/5?from=tasks')
+  })
 })

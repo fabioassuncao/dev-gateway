@@ -12,6 +12,8 @@ export const keys = {
   project: (slug: string) => ['projects', slug] as const,
   tasks: (slug: string, filters: Record<string, string | undefined> = {}) =>
     ['projects', slug, 'tasks', normalise(filters)] as const,
+  allTasks: (filters: Record<string, string | undefined> = {}) =>
+    ['tasks', 'all', normalise(filters)] as const,
   nextTask: (slug: string) => ['projects', slug, 'tasks', 'next'] as const,
   task: (ref: string) => ['tasks', ref] as const,
   taskSubtasks: (ref: string) => ['tasks', ref, 'subtasks'] as const,

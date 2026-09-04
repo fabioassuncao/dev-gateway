@@ -3,7 +3,7 @@
 import type { Task, TaskAttachment, TaskSummary } from '../../../shared/task-types.ts'
 import { request } from './client.ts'
 
-export type TaskFilters = Partial<Record<'status' | 'open' | 'priority' | 'type' | 'label' | 'assignee' | 'agent' | 'repository' | 'environment' | 'service' | 'parent' | 'q', string>>
+export type TaskFilters = Partial<Record<'status' | 'open' | 'priority' | 'type' | 'label' | 'assignee' | 'agent' | 'repository' | 'environment' | 'service' | 'parent' | 'project' | 'q', string>>
 
 export interface TaskBody {
   title?: string
@@ -41,6 +41,8 @@ const slugOf = (value: string) => encodeURIComponent(value)
 export const tasksApi = {
   tasks: (slug: string, filters: TaskFilters = {}) =>
     request<{ tasks: TaskSummary[] }>(`/projects/${slugOf(slug)}/tasks${query(filters)}`).then((data) => data.tasks),
+  allTasks: (filters: TaskFilters = {}) =>
+    request<{ tasks: TaskSummary[] }>(`/tasks${query(filters)}`).then((data) => data.tasks),
   nextTask: (slug: string) =>
     request<{ task: TaskSummary | null }>(`/projects/${slugOf(slug)}/tasks/next`).then((data) => data.task),
   createTask: (slug: string, body: TaskBody) =>

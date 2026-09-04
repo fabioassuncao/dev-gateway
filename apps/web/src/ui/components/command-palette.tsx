@@ -43,9 +43,10 @@ interface Command {
   run: () => void
 }
 
-const SECTIONS: { path: string; key: 'overview' | 'projects' | 'services' | 'docker' | 'network' | 'access' | 'gateway' | 'settings'; icon: ComponentType<{ className?: string }> }[] = [
+const SECTIONS: { path: string; key: 'overview' | 'projects' | 'tasks' | 'services' | 'docker' | 'network' | 'access' | 'gateway' | 'settings'; icon: ComponentType<{ className?: string }> }[] = [
   { path: '/overview', key: 'overview', icon: LayoutDashboard },
   { path: '/projects', key: 'projects', icon: Boxes },
+  { path: '/tasks', key: 'tasks', icon: ListTodo },
   { path: '/services', key: 'services', icon: Container },
   { path: '/docker', key: 'docker', icon: Activity },
   { path: '/network', key: 'network', icon: Network },

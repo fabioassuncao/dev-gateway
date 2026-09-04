@@ -6,14 +6,14 @@ import { navigate } from './router.ts'
 import { taskHref } from './tasks.ts'
 
 /** Create (or reopen) a draft and open its workspace. */
-export function useKickCreate(slug: string) {
+export function useKickCreate(slug: string, options?: { from?: 'tasks' }) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (body: TaskBody | void) => api.createTask(slug, { title: TASK_DRAFT_TITLE, draft: true, ...(body ?? {}) }),
     onSuccess: (task) => {
       queryClient.setQueryData(keys.task(task.id), task)
       void queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      navigate(taskHref(slug, task.id).replace(/^#/, ''))
+      navigate(taskHref(slug, task.id, options).replace(/^#/, ''))
     },
   })
 }

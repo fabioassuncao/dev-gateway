@@ -4,7 +4,7 @@ import { MoreHorizontal } from 'lucide-react'
 import type { TaskStatus, TaskSummary } from '../../../shared/task-types.ts'
 import { useTaskStatuses, type BoardColumn } from '../../i18n/use-task-statuses.ts'
 import { priorityRank, statusCategory } from '../../lib/task-presentation.ts'
-import { nestTasks, taskHref } from '../../lib/tasks.ts'
+import { nestTasks, projectNameOf, taskHref } from '../../lib/tasks.ts'
 import { useFormat } from '../../lib/use-format.ts'
 import type { Column } from '../../lib/table.ts'
 import { DataTable } from '../ui/data-table.tsx'
@@ -37,6 +37,8 @@ export function TaskTable({
   toolbar,
   empty,
   showProject = false,
+  projectNames = {},
+  from,
 }: {
   slug?: string
   tasks: TaskSummary[]
@@ -47,6 +49,8 @@ export function TaskTable({
   toolbar?: ReactNode
   empty?: ReactNode
   showProject?: boolean
+  projectNames?: Record<string, string>
+  from?: 'tasks'
 }) {
   const { t } = useTranslation('tasks')
   const { t: tc } = useTranslation('common')
@@ -63,7 +67,7 @@ export function TaskTable({
       pinned: true,
       sortValue: ({ task }) => Number(task.id) || task.id,
       cell: ({ task }) => (
-        <a className="rounded-xs underline-offset-2 hover:underline focus-ring" href={taskHref(slug ?? task.project, task.id)}>
+        <a className="rounded-xs underline-offset-2 hover:underline focus-ring" href={taskHref(slug ?? task.project, task.id, from ? { from } : undefined)}>
           <Mono kind="id" tone="subtle" className="text-xs">#{task.id}</Mono>
         </a>
       ),
@@ -77,7 +81,7 @@ export function TaskTable({
         <a
           className="block max-w-104 truncate rounded-xs text-sm text-ink underline-offset-2 hover:underline focus-ring"
           style={{ paddingLeft: `${depth * 16}px` }}
-          href={taskHref(slug ?? task.project, task.id)}
+          href={taskHref(slug ?? task.project, task.id, from ? { from } : undefined)}
           title={task.title}
         >
           {task.title}
@@ -88,10 +92,10 @@ export function TaskTable({
       ? [{
           id: 'project',
           header: t('table.project'),
-          sortValue: ({ task }: { task: TaskSummary }) => task.project,
+          sortValue: ({ task }: { task: TaskSummary }) => projectNameOf(task.project, projectNames),
           cell: ({ task }: { task: TaskSummary }) => (
             <a className="rounded-xs text-xs text-subtle underline-offset-2 hover:text-ink hover:underline focus-ring" href={`#/projects/${encodeURIComponent(task.project)}`}>
-              {task.project}
+              {projectNameOf(task.project, projectNames)}
             </a>
           ),
         } as Column<{ task: TaskSummary; depth: number }>]
@@ -177,7 +181,7 @@ export function TaskTable({
               </Button>
             </MenuTrigger>
             <MenuContent>
-              <MenuItem onSelect={() => (onOpen ? onOpen(task) : navigateTo(taskHref(slug ?? task.project, task.id)))}>
+              <MenuItem onSelect={() => (onOpen ? onOpen(task) : navigateTo(taskHref(slug ?? task.project, task.id, from ? { from } : undefined)))}>
                 {tc('open')}
               </MenuItem>
               {onSetStatus ? (
@@ -200,7 +204,7 @@ export function TaskTable({
         </div>
       ),
     },
-  ], [boardColumns, onOpen, onSetStatus, priorityLabel, readOnly, relativeTime, showProject, slug, statusLabel, t, tc])
+  ], [boardColumns, from, onOpen, onSetStatus, priorityLabel, projectNames, readOnly, relativeTime, showProject, slug, statusLabel, t, tc])
 
   return (
     <DataTable

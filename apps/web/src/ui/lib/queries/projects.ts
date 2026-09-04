@@ -7,8 +7,8 @@ export function useProjects() {
   return useQuery({ queryKey: keys.projects(), queryFn: api.projects, retry: false })
 }
 
-export function useProject(slug: string) {
-  return useQuery({ queryKey: keys.project(slug), queryFn: () => api.project(slug), retry: false })
+export function useProject(slug: string, enabled = true) {
+  return useQuery({ queryKey: keys.project(slug), queryFn: () => api.project(slug), retry: false, enabled: enabled && slug !== '' })
 }
 
 /**

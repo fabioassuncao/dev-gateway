@@ -9,8 +9,14 @@ import {
   labelsOf,
   matchesFilters,
   nestTasks,
+  projectNameOf,
+  readTasksReturn,
+  rememberTasksReturn,
   resolveTaskView,
+  taskFiltersFrom,
+  taskHref,
   tasksHref,
+  tasksReturnHref,
   typesOf,
 } from '../../src/ui/lib/tasks.ts'
 
@@ -22,6 +28,7 @@ const COLUMNS = [
 
 beforeEach(() => {
   localStorage.clear()
+  sessionStorage.clear()
 })
 
 describe('the task table', () => {
@@ -67,6 +74,14 @@ describe('the task table', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
     expect(screen.getByText('Nothing to show')).toBeInTheDocument()
   })
+
+  it('names the project on a global table and still opens the task', () => {
+    const rows = [makeTaskSummary({ id: '1', project: 'portta', title: 'Gateway' })]
+    renderWithQuery(<TaskTable tasks={rows} columns={COLUMNS} showProject projectNames={{ portta: 'Portta' }} from="tasks" />)
+    expect(screen.getByRole('columnheader', { name: 'Project' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Portta' })).toHaveAttribute('href', '#/projects/portta')
+    expect(screen.getByRole('link', { name: '#1' })).toHaveAttribute('href', '#/projects/portta/tasks/1?from=tasks')
+  })
 })
 
 describe('task addressing and filters', () => {
@@ -79,8 +94,29 @@ describe('task addressing and filters', () => {
   it('keeps a filtered view as a link', () => {
     expect(tasksHref('produto', 'board')).toBe('/projects/produto/tasks')
     expect(tasksHref('produto', 'table', { status: 'blocked', q: 'auth' })).toBe('/projects/produto/tasks?view=table&status=blocked&q=auth')
+    expect(tasksHref({ global: true }, 'board', { project: 'portta', status: 'in_progress' })).toBe('/tasks?project=portta&status=in_progress')
+    expect(tasksHref({ global: true }, 'table', { q: 'auth' })).toBe('/tasks?view=table&q=auth')
+    expect(taskHref('portta', '42', { from: 'tasks' })).toBe('#/projects/portta/tasks/42?from=tasks')
     // Priority is a real filter now, so a legacy link keeps it instead of dropping it.
     expect(boardToTasksHref('produto', 'backlog', '?priority=urgent&q=x')).toBe('/projects/produto/tasks?view=table&priority=urgent&q=x')
+  })
+
+  it('reads a project filter from the hash and matches it', () => {
+    expect(taskFiltersFrom(new URLSearchParams('project=portta&status=blocked'))).toEqual({ project: 'portta', status: 'blocked' })
+    const task = makeTaskSummary({ project: 'portta' })
+    expect(matchesFilters(task, { project: 'portta' })).toBe(true)
+    expect(matchesFilters(task, { project: 'portta,shop' })).toBe(true)
+    expect(matchesFilters(task, { project: 'shop' })).toBe(false)
+    expect(projectNameOf('portta', { portta: 'Portta' })).toBe('Portta')
+    expect(projectNameOf('shop')).toBe('shop')
+  })
+
+  it('remembers the list a task was opened from', () => {
+    sessionStorage.clear()
+    rememberTasksReturn('/tasks?view=table&project=portta')
+    expect(readTasksReturn()?.href).toBe('/tasks?view=table&project=portta')
+    expect(tasksReturnHref('tasks', '/projects/portta/tasks')).toBe('/tasks?view=table&project=portta')
+    expect(tasksReturnHref(null, '/projects/portta/tasks')).toBe('/projects/portta/tasks')
   })
 
   it('narrows by status, worker, repository and text', () => {
