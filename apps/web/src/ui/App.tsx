@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Activity,
@@ -8,27 +8,34 @@ import {
   BookOpen,
   Languages,
   LayoutDashboard,
+  Monitor,
   Moon,
   Network,
   PanelLeftClose,
   PanelLeftOpen,
   PlugZap,
+  Search,
   Settings as SettingsIcon,
   Sun,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
-import { useRoute, segments, queryParam, navigate } from './lib/router.ts'
+import { useRoute, segments, queryParam } from './lib/router.ts'
 import { legacyRedirect } from './lib/redirects.ts'
-import { useTheme } from './lib/theme.ts'
+import { useTheme, type Theme } from './lib/theme.ts'
 import { useLive } from './lib/live.ts'
 import { useSidebarCollapsed } from './lib/sidebar.ts'
+import { useShortcut } from './lib/shortcuts.ts'
 import { useMetricsCurrent, useStatus } from './lib/queries/index.ts'
 import { cn } from './lib/utils.ts'
 import { useLocale, type Locale } from './i18n/use-locale.ts'
-import { Menu, MenuContent, MenuItem, MenuTrigger } from './components/ui/menu.tsx'
+import { Menu, MenuContent, MenuRadio, MenuRadioGroup, MenuTrigger } from './components/ui/menu.tsx'
+import { Tooltip } from './components/ui/tooltip.tsx'
+import { Kbd, MOD_KEY } from './components/ui/kbd.tsx'
+import { iconButton } from './components/ui/surfaces.ts'
 import { GatewayStatusDot } from './components/gateway-status-dot.tsx'
 import { ConnectionBanner } from './components/connection-banner.tsx'
 import { ApplyBar } from './components/apply-bar.tsx'
+import { CommandPalette } from './components/command-palette.tsx'
 import { Overview } from './pages/Overview.tsx'
 import { Projects } from './pages/Projects.tsx'
 import { ProjectPage } from './pages/Project.tsx'
@@ -43,6 +50,7 @@ import { NetworkPage } from './pages/Network.tsx'
 import { Access } from './pages/Access.tsx'
 import { Gateway } from './pages/Gateway.tsx'
 import { Settings } from './pages/Settings.tsx'
+import { navigate } from './lib/router.ts'
 
 type NavLabelKey =
   | 'overview'
@@ -111,9 +119,9 @@ function Brand() {
   return (
     <span
       aria-hidden
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-accent-fg shadow-raised"
+      className="flex size-6 shrink-0 items-center justify-center rounded-md bg-accent text-accent-fg"
     >
-      <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+      <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
         <path d="M4 11.5V6" />
         <path d="M8 11.5V3.5" />
         <path d="M12 11.5V8" />
@@ -122,20 +130,103 @@ function Brand() {
   )
 }
 
-export function App() {
+const THEME_ICON: Record<Theme, ComponentType<{ className?: string }>> = { light: Sun, dark: Moon, system: Monitor }
+
+/**
+ * The controls that belong to the panel rather than to a page: language,
+ * theme, the documentation, the sidebar. Small icon buttons, because they
+ * are used once a week and looked at all day.
+ */
+function ShellControls({
+  theme,
+  setTheme,
+  locale,
+  setLocale,
+  docs,
+  collapsed,
+  toggleSidebar,
+  vertical,
+}: {
+  theme: Theme
+  setTheme: (theme: Theme) => void
+  locale: Locale
+  setLocale: (locale: Locale) => void
+  docs: boolean
+  collapsed: boolean
+  toggleSidebar: () => void
+  vertical: boolean
+}) {
   const { t } = useTranslation('nav')
   const { t: tc } = useTranslation('common')
+  const ThemeIcon = THEME_ICON[theme]
+  return (
+    <div className={cn('flex items-center gap-0.5', vertical && 'md:flex-col')}>
+      <Menu>
+        <Tooltip label={tc('languageSelectorTitle')}>
+          <MenuTrigger className={iconButton} aria-label={tc('languageSelector')}>
+            <Languages />
+          </MenuTrigger>
+        </Tooltip>
+        <MenuContent align={vertical ? 'start' : 'end'} side={vertical ? 'right' : 'bottom'}>
+          <MenuRadioGroup value={locale} onValueChange={(value) => setLocale(value as Locale)}>
+            <MenuRadio value="en">{tc('english')}</MenuRadio>
+            <MenuRadio value="pt-BR">{tc('portuguese')}</MenuRadio>
+          </MenuRadioGroup>
+        </MenuContent>
+      </Menu>
+      <Menu>
+        <Tooltip label={t('theme.label')}>
+          <MenuTrigger className={iconButton} aria-label={t('toggleTheme')}>
+            <ThemeIcon />
+          </MenuTrigger>
+        </Tooltip>
+        <MenuContent align={vertical ? 'start' : 'end'} side={vertical ? 'right' : 'bottom'}>
+          <MenuRadioGroup value={theme} onValueChange={(value) => setTheme(value as Theme)}>
+            <MenuRadio value="light" icon={<Sun />}>{t('theme.light')}</MenuRadio>
+            <MenuRadio value="dark" icon={<Moon />}>{t('theme.dark')}</MenuRadio>
+            <MenuRadio value="system" icon={<Monitor />}>{t('theme.system')}</MenuRadio>
+          </MenuRadioGroup>
+        </MenuContent>
+      </Menu>
+      {docs ? (
+        <Tooltip label={t('documentation')}>
+          <a href="/docs/" target="_blank" rel="noreferrer" className={iconButton} aria-label={t('documentation')}>
+            <BookOpen />
+          </a>
+        </Tooltip>
+      ) : null}
+      <Tooltip label={collapsed ? t('expandSidebar') : t('collapseSidebar')} shortcut={['[']}>
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          className={cn(iconButton, 'hidden md:inline-flex')}
+          aria-controls="section-navigation"
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? t('expandSidebar') : t('collapseSidebar')}
+        >
+          {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+        </button>
+      </Tooltip>
+    </div>
+  )
+}
+
+export function App() {
+  const { t } = useTranslation('nav')
   const [locale, setLocale] = useLocale()
-  const [path, go] = useRoute()
-  const [theme, toggleTheme] = useTheme()
+  const [path] = useRoute()
+  const { theme, setTheme } = useTheme()
   const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const live = useLive()
   const status = useStatus()
   const metrics = useMetricsCurrent()
 
-  const first = segments(path)[0] ?? 'overview'
+  const parts = segments(path)
+  const first = parts[0] ?? 'overview'
   const root = ROOT_OF[first] ?? `/${first}`
   const gateway = status.data?.gateway
+  const projectSlug = first === 'projects' && parts[1] ? decode(parts[1]) : null
 
   const gatewayTitle = gateway?.up ? t('gatewayUp') : t('gatewayDown')
   const hostname = metrics.data?.host?.hostname ?? metrics.data?.instance.hostname ?? null
@@ -143,163 +234,170 @@ export function App() {
     ? [hostname, gateway.gatewayVersion, gateway.profile].filter(Boolean).join(' · ')
     : '…'
 
+  const openPalette = useCallback(() => setPaletteOpen(true), [])
+  useShortcut({ key: 'k', mod: true }, openPalette)
+  useShortcut({ key: '[' }, toggleSidebar)
+
+  const controls = (vertical: boolean) => (
+    <ShellControls
+      theme={theme}
+      setTheme={setTheme}
+      locale={locale}
+      setLocale={setLocale}
+      docs={Boolean(status.data?.gateway.panel.docs)}
+      collapsed={sidebarCollapsed}
+      toggleSidebar={toggleSidebar}
+      vertical={vertical}
+    />
+  )
+
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col bg-bg">
       <ConnectionBanner state={live.state} />
       <ApplyBar readOnly={gateway?.panel.readOnly ?? false} />
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-      <aside
-        data-collapsed={sidebarCollapsed}
-        className={cn(
-          'flex shrink-0 flex-col border-b border-line bg-surface transition-[width] duration-200 md:border-r md:border-b-0',
-          sidebarCollapsed ? 'md:w-14' : 'md:w-52',
-        )}
-      >
-        <div
+        <aside
+          data-collapsed={sidebarCollapsed}
           className={cn(
-            'flex items-center gap-2.5 border-b border-line px-3 py-3',
-            sidebarCollapsed && 'md:justify-center md:px-0',
+            'flex shrink-0 flex-wrap items-center transition-[width] duration-150 md:h-full md:flex-col md:flex-nowrap md:items-stretch',
+            sidebarCollapsed ? 'md:w-12' : 'md:w-56',
           )}
         >
-          <Brand />
-          <div className={cn('min-w-0 flex-1', sidebarCollapsed && 'md:hidden')}>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-semibold tracking-tight">{t('appName')}</span>
-              <GatewayStatusDot up={gateway?.up} pending={status.isPending} title={gatewayTitle} />
-            </div>
-            {/* What this panel is attached to, which is the one thing a person
-                with two of them open needs to tell them apart. */}
-            <div className="truncate font-mono text-[11px] text-subtle" title={hostLine}>
-              {hostLine}
-            </div>
-          </div>
-        </div>
-
-        <nav
-          id="section-navigation"
-          aria-label={t('sections')}
-          className="flex gap-1 overflow-x-auto p-2 md:flex-col md:overflow-visible scroll-thin"
-        >
-          {NAV_GROUPS.map((group, index) => (
-            <div
-              key={group.labelKey ?? 'tail'}
-              className={cn('flex gap-1 md:flex-col', index > 0 && 'md:mt-2')}
-              role="group"
-              aria-label={group.labelKey ? t(group.labelKey) : undefined}
-            >
-              {group.labelKey ? (
-                <div
-                  aria-hidden="true"
-                  className={cn(
-                    'hidden px-2.5 pt-1 pb-0.5 text-[10px] font-semibold tracking-wider text-subtle uppercase md:block',
-                    sidebarCollapsed && 'md:hidden',
-                  )}
-                >
-                  {t(group.labelKey)}
-                </div>
-              ) : null}
-              {group.items.map((item) => {
-                const Icon = item.icon
-                const active = root === item.path
-                const label = t(item.labelKey)
-                return (
-                  <button
-                    key={item.path}
-                    onClick={() => go(item.path)}
-                    aria-label={label}
-                    aria-current={active ? 'page' : undefined}
-                    title={label}
-                    className={cn(
-                      'relative flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors',
-                      sidebarCollapsed && 'md:justify-center md:px-0',
-                      active
-                        // A bar on the leading edge as well as the tint: on a
-                        // tablet the nav is a horizontal strip, where a tint
-                        // alone is easy to lose.
-                        ? 'bg-accent/12 font-medium text-accent md:before:absolute md:before:inset-y-1 md:before:left-0 md:before:w-0.5 md:before:rounded-full md:before:bg-accent'
-                        : 'text-muted hover:bg-surface-2 hover:text-ink',
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className={cn(sidebarCollapsed && 'md:sr-only')}>{label}</span>
-                  </button>
-                )
-              })}
-            </div>
-          ))}
-        </nav>
-
-        <div
-          className={cn(
-            'mt-auto hidden items-center justify-end gap-2 border-t border-line px-3 py-2 md:flex',
-            sidebarCollapsed && 'md:flex-col md:px-2',
-          )}
-        >
-          <div className={cn('flex items-center gap-1', sidebarCollapsed && 'md:flex-col')}>
-            <Menu>
-              <MenuTrigger
-                className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"
-                aria-label={tc('languageSelector')}
-                title={tc('languageSelectorTitle')}
-              >
-                <Languages className="h-3.5 w-3.5" />
-              </MenuTrigger>
-              <MenuContent align={sidebarCollapsed ? 'start' : 'end'}>
-                {(['en', 'pt-BR'] as Locale[]).map((option) => (
-                  <MenuItem key={option} onSelect={() => setLocale(option)}>
-                    {option === 'pt-BR' ? tc('portuguese') : tc('english')}
-                    {locale === option ? ' ✓' : ''}
-                  </MenuItem>
-                ))}
-              </MenuContent>
-            </Menu>
-            {status.data?.gateway.panel.docs && (
-              <a
-                href="/docs/"
-                target="_blank"
-                rel="noreferrer"
-                className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"
-                aria-label={t('documentation')}
-                title={t('documentation')}
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-              </a>
+          <div
+            className={cn(
+              'flex min-w-0 flex-1 items-center gap-2 px-3 pt-2.5 pb-1.5 md:flex-none md:pt-3',
+              sidebarCollapsed && 'md:justify-center md:px-0',
             )}
-            <button
-              onClick={toggleTheme}
-              className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"
-              aria-label={t('toggleTheme')}
-              title={t('toggleTheme')}
-            >
-              {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-            </button>
-            <button
-              onClick={toggleSidebar}
-              className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"
-              aria-controls="section-navigation"
-              aria-expanded={!sidebarCollapsed}
-              aria-label={sidebarCollapsed ? t('expandSidebar') : t('collapseSidebar')}
-              title={sidebarCollapsed ? t('expandSidebar') : t('collapseSidebar')}
-            >
-              {sidebarCollapsed ? (
-                <PanelLeftOpen className="h-3.5 w-3.5" />
-              ) : (
-                <PanelLeftClose className="h-3.5 w-3.5" />
-              )}
-            </button>
+          >
+            <Brand />
+            <div className={cn('min-w-0 flex-1', sidebarCollapsed && 'md:hidden')}>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-semibold text-ink">{t('appName')}</span>
+                <GatewayStatusDot up={gateway?.up} pending={status.isPending} title={gatewayTitle} />
+              </div>
+              {/* What this panel is attached to, which is the one thing a person
+                  with two of them open needs to tell them apart. */}
+              <div className="truncate text-2xs text-subtle" title={hostLine}>
+                {hostLine}
+              </div>
+            </div>
           </div>
-        </div>
-      </aside>
 
-      {/* min-w-0: a flex item will not shrink below its content without it,
-          which is what let a wide table push the whole page sideways instead
-          of scrolling inside its own container. */}
-      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-5 md:px-6 scroll-thin">
-        <div className="mx-auto max-w-[1400px]">
-          <Page path={path} readOnly={gateway?.panel.readOnly ?? false} />
-        </div>
-      </main>
+          <div className={cn('order-2 w-full px-2 pb-1 md:order-none', sidebarCollapsed && 'md:px-1.5')}>
+            <Tooltip label={t('commandPalette')} shortcut={['mod', 'K']}>
+              <button
+                type="button"
+                onClick={openPalette}
+                aria-label={t('commandPalette')}
+                className={cn(
+                  'flex h-7 w-full items-center gap-2 rounded-md border border-line bg-surface px-2 text-xs text-subtle',
+                  'transition-colors duration-100 hover:border-line-strong hover:text-muted focus-ring',
+                  sidebarCollapsed && 'md:justify-center md:px-0',
+                )}
+              >
+                <Search className="size-3.5 shrink-0" aria-hidden />
+                <span className={cn('flex-1 truncate text-left', sidebarCollapsed && 'md:sr-only')}>{t('commandPalette')}</span>
+                <span className={cn('flex items-center gap-0.5', sidebarCollapsed && 'md:hidden')} aria-hidden>
+                  <Kbd>{MOD_KEY}</Kbd>
+                  <Kbd>K</Kbd>
+                </span>
+              </button>
+            </Tooltip>
+          </div>
+
+          <nav
+            id="section-navigation"
+            aria-label={t('sections')}
+            className={cn('order-3 flex w-full gap-1 overflow-x-auto px-2 py-1 md:order-none md:flex-col md:overflow-visible scroll-thin', sidebarCollapsed && 'md:px-1.5')}
+          >
+            {NAV_GROUPS.map((group, index) => (
+              <div
+                key={group.labelKey ?? 'tail'}
+                className={cn('flex gap-0.5 md:flex-col', index > 0 && 'md:mt-3')}
+                role="group"
+                aria-label={group.labelKey ? t(group.labelKey) : undefined}
+              >
+                {group.labelKey ? (
+                  <div
+                    aria-hidden="true"
+                    className={cn('hidden px-2 pb-1 text-2xs font-medium text-subtle md:block', sidebarCollapsed && 'md:hidden')}
+                  >
+                    {t(group.labelKey)}
+                  </div>
+                ) : null}
+                {group.items.map((item) => {
+                  const Icon = item.icon
+                  const active = root === item.path
+                  const label = t(item.labelKey)
+                  const link = (
+                    <a
+                      key={item.path}
+                      href={`#${item.path}`}
+                      aria-current={active ? 'page' : undefined}
+                      aria-label={sidebarCollapsed ? label : undefined}
+                      title={sidebarCollapsed ? label : undefined}
+                      className={cn(
+                        'flex h-7 shrink-0 items-center gap-2 rounded-md px-2 text-sm font-medium whitespace-nowrap',
+                        'transition-colors duration-100 focus-ring',
+                        sidebarCollapsed && 'md:justify-center md:px-0',
+                        active ? 'bg-fill-strong text-ink' : 'text-muted hover:bg-fill hover:text-ink',
+                      )}
+                    >
+                      <Icon className={cn('size-4 shrink-0', active ? 'text-ink' : 'text-subtle')} />
+                      <span className={cn(sidebarCollapsed && 'md:sr-only')}>{label}</span>
+                    </a>
+                  )
+                  return sidebarCollapsed ? (
+                    <Tooltip key={item.path} label={label} side="right">
+                      {link}
+                    </Tooltip>
+                  ) : (
+                    link
+                  )
+                })}
+              </div>
+            ))}
+          </nav>
+
+          {/* On a phone the controls sit beside the brand, on the first row;
+              on a desktop they wait at the bottom of the rail. One set of
+              controls either way, moved by order rather than duplicated. */}
+          <div
+            className={cn(
+              'order-1 flex items-center px-2 pt-2 pb-1.5 md:order-none md:mt-auto md:py-2',
+              sidebarCollapsed ? 'md:justify-center md:px-1.5' : 'md:justify-end',
+            )}
+          >
+            {controls(sidebarCollapsed)}
+          </div>
+        </aside>
+
+        {/* min-w-0: a flex item will not shrink below its content without it,
+            which is what let a wide table push the whole page sideways instead
+            of scrolling inside its own container. The main column is a panel
+            of its own: a hairline and a lift above the canvas the sidebar
+            sits on, so the content is what the eye lands on. */}
+        <main
+          className={cn(
+            'min-h-0 min-w-0 flex-1 overflow-y-auto bg-surface scroll-thin',
+            'border-t border-line md:mr-2 md:mb-2 md:rounded-lg md:border',
+          )}
+        >
+          <div className="mx-auto max-w-[88rem] px-4 py-4 md:px-6 md:py-5">
+            <Page path={path} readOnly={gateway?.panel.readOnly ?? false} />
+          </div>
+        </main>
       </div>
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        projectSlug={projectSlug}
+        theme={theme}
+        setTheme={setTheme}
+        locale={locale}
+        setLocale={setLocale}
+        toggleSidebar={toggleSidebar}
+      />
     </div>
   )
 }

@@ -32,5 +32,26 @@
     "development": "Development",
     "infrastructure": "Infrastructure"
   },
-  "environments": "Environments"
+  "environments": "Environments",
+  "commandPalette": "Command menu",
+  "commandPlaceholder": "Type a command or search…",
+  "commandNoResults": "Nothing matches",
+  "commandGroups": {
+    "navigate": "Go to",
+    "projects": "Projects",
+    "actions": "Actions",
+    "preferences": "Preferences"
+  },
+  "commandOpenTasks": "Open tasks of {{name}}",
+  "newTask": "New task",
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "shortcuts": {
+    "palette": "Open the command menu",
+    "sidebar": "Toggle the sidebar"
+  }
 }

@@ -32,5 +32,26 @@
     "development": "Desenvolvimento",
     "infrastructure": "Infraestrutura"
   },
-  "environments": "Ambientes"
+  "environments": "Ambientes",
+  "commandPalette": "Menu de comandos",
+  "commandPlaceholder": "Digite um comando ou busque…",
+  "commandNoResults": "Nada corresponde",
+  "commandGroups": {
+    "navigate": "Ir para",
+    "projects": "Projetos",
+    "actions": "Ações",
+    "preferences": "Preferências"
+  },
+  "commandOpenTasks": "Abrir tarefas de {{name}}",
+  "newTask": "Nova tarefa",
+  "theme": {
+    "label": "Tema",
+    "light": "Claro",
+    "dark": "Escuro",
+    "system": "Sistema"
+  },
+  "shortcuts": {
+    "palette": "Abrir o menu de comandos",
+    "sidebar": "Mostrar ou ocultar a barra lateral"
+  }
 }

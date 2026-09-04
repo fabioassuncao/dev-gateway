@@ -24,11 +24,11 @@ test.describe('the panel end to end', () => {
 
     const sections = ['Overview', 'Projects', 'Services', 'Docker', 'Network', 'Access', 'Gateway']
     for (const section of sections) {
-      await page.getByRole('button', { name: section, exact: true }).click()
+      await page.getByRole('link', { name: section, exact: true }).click()
       await expect(page).toHaveTitle(`${section} · Portta`)
     }
 
-    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await page.getByRole('link', { name: 'Settings', exact: true }).click()
     await expect(page).toHaveURL(/#\/settings\/[a-z-]+$/)
     await expect(page).toHaveTitle(/· Settings · Portta$/)
 
@@ -74,14 +74,14 @@ test.describe('the panel end to end', () => {
 
     await page.getByRole('button', { name: 'Collapse sidebar' }).click()
     await expect(page.getByRole('complementary')).toHaveAttribute('data-collapsed', 'true')
-    await expect(page.getByRole('button', { name: 'Projects' })).toHaveAttribute('title', 'Projects')
+    await expect(page.getByRole('link', { name: 'Projects', exact: true })).toHaveAttribute('title', 'Projects')
 
     await page.reload()
     await expect(page.getByRole('button', { name: 'Expand sidebar' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('link', { name: 'Overview', exact: true })).toHaveAttribute('aria-current', 'page')
 
     await page.setViewportSize({ width: 375, height: 700 })
-    await expect(page.getByRole('button', { name: 'Projects' })).toContainText('Projects')
+    await expect(page.getByRole('link', { name: 'Projects', exact: true })).toContainText('Projects')
     await expect(page.getByRole('button', { name: 'Expand sidebar' })).toBeHidden()
   })
 
@@ -116,7 +116,7 @@ test.describe('the panel end to end', () => {
 
     await page.reload()
     await expect(page.getByRole('tab', { name: 'Logs' })).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByRole('button', { name: 'Projects', exact: true })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: 'Projects', exact: true })).toHaveAttribute(
       'aria-current',
       'page',
     )
@@ -495,7 +495,9 @@ test.describe('the panel end to end', () => {
     const html = page.locator('html')
     const before = await html.getAttribute('class')
 
+    // The theme is a menu of three: light, dark and system.
     await page.getByRole('button', { name: 'Toggle theme' }).click()
+    await page.getByRole('menuitemradio', { name: before?.includes('dark') ? 'Light' : 'Dark' }).click()
     await expect(html).not.toHaveAttribute('class', before ?? '')
   })
 })
