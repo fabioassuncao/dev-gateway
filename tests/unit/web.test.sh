@@ -107,8 +107,8 @@ it "db migrate asks the running panel, never PostgreSQL"
 assert_contains "$(cat packages/cli/src/cli.ts)" "db.command('migrate')"
 assert_contains "$(cat "$db_clients")" "requestPanelMigrate"
 
-it "make db-migrate is a single CLI call"
-assert_contains "$(grep -A1 '^db-migrate:' Makefile)" '$(GW) db migrate'
+it "just db-migrate is a single CLI call"
+assert_contains "$(awk '/^db-migrate/,/^$/' justfile)" '{{gw}} db migrate'
 
 it "dumps use PostgreSQL's restorable custom format"
 assert_contains "$(cat "$db_clients")" "--format=custom"

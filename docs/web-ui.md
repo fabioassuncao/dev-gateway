@@ -146,8 +146,8 @@ CLI requires Node 22.12+ on the host; the core zero-Node fallbacks remain
 ### Development, with hot reloading
 
 ```bash
-make dev                     # gateway up, panel with hot reloading, pending SQL
-make db-migrate              # apply pending SQL without a restart
+just dev                     # gateway up, panel with hot reloading, pending SQL
+just db-migrate              # apply pending SQL without a restart
 ./bin/portta web dev         # the panel alone, on a gateway already running
 ```
 
@@ -156,7 +156,7 @@ front of it with HMR on `http://127.0.0.1:5173`. `apps/web/src`,
 `apps/web/migrations` and `packages/core/src` are bind-mounted, so the
 image's `node_modules` stay in place. Edits under `apps/web/src` reload on
 their own. A new SQL file is visible to the next `portta db migrate` (or
-the next `make dev`) without rebuilding the image. `node --watch` does not
+the next `just dev`) without rebuilding the image. `node --watch` does not
 reload `.sql`; apply it explicitly.
 
 The book icon and every `/docs/#/…` deep link stay on that same port. `dev:ui`

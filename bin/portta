@@ -210,6 +210,11 @@ cmd_up() {
     case "$1" in
       --attach) detach=0 ;;
       --wait) wait=1 ;;
+      --demo)
+        err "'up --demo' requires Node 22.12 or newer and the full CLI"
+        hint "npm install -g portta   (or run it inside a built checkout)"
+        exit 3
+        ;;
       -*) die "unknown flag for 'up': $1" ;;
       *) profile="$1" ;;
     esac
@@ -268,6 +273,11 @@ cmd_down() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --profile) shift; profile="${1:-$profile}" ;;
+      --demo)
+        err "'down --demo' requires Node 22.12 or newer and the full CLI"
+        hint "npm install -g portta   (or run it inside a built checkout)"
+        exit 3
+        ;;
       -*) die "unknown flag for 'down': $1" ;;
       *) profile="$1" ;;
     esac

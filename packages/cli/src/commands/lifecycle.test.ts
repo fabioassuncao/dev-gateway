@@ -19,7 +19,8 @@ const mocks = vi.hoisted(() => ({
   refreshRepositories: vi.fn(),
   ensureApplier: vi.fn(),
   ensureRunner: vi.fn(),
-  examplesApply: vi.fn(),
+  applyDemo: vi.fn(),
+  demoStacksDown: vi.fn(),
   webUp: vi.fn(),
   gatewayContext: vi.fn(),
 }))
@@ -53,10 +54,10 @@ vi.mock('./host.js', () => ({
   stopMetricsCollector: mocks.stopMetricsCollector,
 }))
 vi.mock('./repos.js', () => ({ refreshRepositories: mocks.refreshRepositories }))
-vi.mock('./examples.js', () => ({ examplesApply: mocks.examplesApply }))
+vi.mock('./examples.js', () => ({ applyDemo: mocks.applyDemo, demoStacksDown: mocks.demoStacksDown }))
 vi.mock('./web.js', () => ({ webUp: mocks.webUp }))
 
-import { authMigrationRunArguments, checkoutLocalEnv, clearRegenerableState, devCommand, doctorReport, panelDatabaseVolume, resetCommand, type Check } from './lifecycle.js'
+import { authMigrationRunArguments, checkoutLocalEnv, clearRegenerableState, devCommand, doctorReport, downCommand, panelDatabaseVolume, resetCommand, upCommand, type Check } from './lifecycle.js'
 
 describe('what doctor prints', () => {
   it('offers a fix only for a check that did not pass', () => {
@@ -228,7 +229,8 @@ describe('resetCommand', () => {
     expect(order.indexOf('up')).toBeLessThan(order.indexOf('dev-web'))
     expect(existsSync(join(root, 'state/git/index.json'))).toBe(false)
     expect(existsSync(join(root, 'state/metrics/host.json'))).toBe(false)
-    expect(mocks.examplesApply).not.toHaveBeenCalled()
+    expect(mocks.applyDemo).not.toHaveBeenCalled()
+    expect(mocks.demoStacksDown).not.toHaveBeenCalled()
   })
 
   it('runs no long docker operation on the dev path with its output swallowed', async () => {
@@ -284,7 +286,7 @@ describe('resetCommand', () => {
     expect(migrate?.[2]).toMatchObject({ stdio: 'inherit' })
   })
 
-  it('treats a missing panel volume as success and imports examples when asked', async () => {
+  it('treats a missing panel volume as success and applies the demo when asked', async () => {
     checkout()
     mocks.confirm.mockResolvedValue(undefined)
     mocks.requireDocker.mockResolvedValue(undefined)
@@ -297,16 +299,64 @@ describe('resetCommand', () => {
     mocks.ensureMetricsCollector.mockResolvedValue(undefined)
     mocks.inspectContainers.mockResolvedValue([])
     mocks.webUp.mockResolvedValue(undefined)
-    mocks.examplesApply.mockResolvedValue(undefined)
+    mocks.applyDemo.mockResolvedValue(undefined)
+    mocks.demoStacksDown.mockResolvedValue(undefined)
     mocks.runProcess.mockImplementation(async (_file: string, args: string[]) => {
       if (args[0] === 'volume' && args[1] === 'rm') return { stdout: '', stderr: 'Error: no such volume', exitCode: 1, failed: true }
       return ok()
     })
 
-    await resetCommand({ examples: true }, command())
+    await resetCommand({ demo: true }, command())
 
-    expect(mocks.examplesApply).toHaveBeenCalledTimes(1)
+    expect(mocks.demoStacksDown).toHaveBeenCalledTimes(1)
+    expect(mocks.applyDemo).toHaveBeenCalledTimes(1)
+    expect(mocks.applyDemo).toHaveBeenCalledWith(expect.anything(), { ensurePanel: false })
     expect(mocks.runProcess).toHaveBeenCalledWith('docker', ['volume', 'rm', 'portta-db'], { reject: false })
+  })
+
+  it('up --demo applies the demonstration after the gateway is up', async () => {
+    checkout()
+    mocks.requireDocker.mockResolvedValue(undefined)
+    mocks.ensureNetwork.mockResolvedValue('created')
+    mocks.ensureApplier.mockResolvedValue({ action: 'absent' })
+    mocks.ensureRunner.mockResolvedValue({ action: 'absent' })
+    mocks.refreshRepositories.mockResolvedValue(undefined)
+    mocks.ensureMetricsCollector.mockResolvedValue(undefined)
+    mocks.inspectContainers.mockResolvedValue([])
+    mocks.applyDemo.mockResolvedValue(undefined)
+    mocks.runProcess.mockResolvedValue(ok())
+
+    await upCommand(undefined, { demo: true }, command())
+
+    expect(mocks.applyDemo).toHaveBeenCalledTimes(1)
+    expect(mocks.applyDemo).toHaveBeenCalledWith(expect.anything(), { ensurePanel: true })
+  })
+
+  it('down --demo stops example stacks before the gateway', async () => {
+    checkout()
+    mocks.removeApplier.mockResolvedValue(undefined)
+    mocks.removeRunner.mockResolvedValue(undefined)
+    const order: string[] = []
+    mocks.demoStacksDown.mockImplementation(async () => { order.push('demo') })
+    mocks.runProcess.mockImplementation(async (_file: string, args: string[]) => {
+      if (args.includes('down')) order.push('gateway')
+      return ok()
+    })
+
+    await downCommand({ demo: true }, command())
+
+    expect(order).toEqual(['demo', 'gateway'])
+  })
+
+  it('down without --demo leaves example stacks alone', async () => {
+    checkout()
+    mocks.removeApplier.mockResolvedValue(undefined)
+    mocks.removeRunner.mockResolvedValue(undefined)
+    mocks.runProcess.mockResolvedValue(ok())
+
+    await downCommand({}, command())
+
+    expect(mocks.demoStacksDown).not.toHaveBeenCalled()
   })
 
   it('dev --reset is the same wipe', async () => {

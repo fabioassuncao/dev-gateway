@@ -78,9 +78,9 @@ database ids. `key` is stored as `source_key` and is unique per project. A
 second apply updates the same rows.
 
 ```bash
-make dev
-make demo-up          # optional: running stacks, not required for the import
-make examples         # portta examples apply
+just dev
+just dev --demo           # stacks and panel records
+portta examples apply     # re-import manifests without cycling containers
 ```
 
 `GET /api/projects/:slug/tasks/export` writes the same shape back. Tasks

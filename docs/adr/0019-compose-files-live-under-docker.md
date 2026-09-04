@@ -8,7 +8,7 @@ The gateway is not one Compose file. It is a base plus a set of overlays that
 each contribute only the keys they change, per
 [ADR 0003](0003-traefik-static-config-via-env.md). By the time the panel, TCP
 routing and the Tailscale attachment existed, that had grown to **fifteen
-`compose*.yaml` files sitting in the repository root**, next to `Makefile`,
+`compose*.yaml` files sitting in the repository root**, next to `justfile`,
 `README.md` and everything else. The root stopped being scannable, and the
 files gave no hint of the structure behind them: nothing in the flat listing
 said that exactly one `attach-*` is always selected, or that
@@ -107,6 +107,6 @@ root discovery.
 Anyone who was invoking `docker compose -f compose.yaml -f compose.local.yaml`
 by hand needs the new paths. That was never the supported interface — the base
 file says so in its header, and the CLI is the stable operational contract — but
-it is the one thing this change breaks. `make` and `./bin/portta` are
+it is the one thing this change breaks. `just` and `./bin/portta` are
 unaffected, and so are consumer projects: `compose.portta.yaml` lives in
 the adopted project, not here.

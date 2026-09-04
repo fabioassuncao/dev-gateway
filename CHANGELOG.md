@@ -35,6 +35,13 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ### Changed
 
+- **`--demo` is the complete demonstration.** `portta up --demo`, `dev --demo`,
+  `reset --demo` and `down --demo` start or stop every stack under
+  `docker/examples/` and, on the way up, import each `portta.example.json` into
+  the panel. It replaces `--examples` (data only) and the Make targets
+  `demo-up`, `demo-down` and `examples`. `just` is the checkout wrapper; the
+  Makefile is gone. `portta examples apply` remains for re-seeding without
+  cycling containers.
 - **The Overview leads with the host.** The machine's state moved from the
   bottom of the page to a band at the top, adaptive to what the host reports,
   with the last thirty minutes beside each measurement.

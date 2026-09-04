@@ -156,7 +156,7 @@ docker network inspect portta --format '{{ len .Containers }}'
 docker network rm portta
 ```
 
-## `make dev` or `make reset` seems to hang
+## `just dev` or `just reset` seems to hang
 
 It is almost always a build, not a hang. The first run in a checkout, and any
 run after a dependency change, builds the panel image — two `npm ci`, three
@@ -172,7 +172,7 @@ wait     still running: docker compose run --build portta-auth-migrate (2m10s)
 If you want to see what it is actually doing, or to confirm it is moving:
 
 ```bash
-make dev VERBOSE=1                      # stream every child process
+just dev --verbose                      # stream every child process
 docker buildx du                        # the build cache, from another terminal
 docker compose -f docker/compose/compose.yaml ps
 ```

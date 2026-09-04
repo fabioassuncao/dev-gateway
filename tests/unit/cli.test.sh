@@ -19,7 +19,7 @@ GW="$PORTTA_ROOT/bin/portta"
 # per group proves the same thing — a leaf that was never wired up is missing
 # from its parent's help — at a fifteenth of the cost.
 COMMAND_TREE=(
-  ":version setup bootstrap up down reset restart status logs doctor urls inspect update envs projects overview network public dns tls remote analyze init namespace access services service db redis web auth git repos host share toolbox tunnel backup restore repair mcp config dev tasks sessions activity"
+  ":version setup bootstrap up down reset restart status logs doctor urls inspect update envs projects overview network public dns tls remote analyze init namespace access services service db redis web auth git repos host share toolbox tunnel backup restore repair mcp config dev tasks sessions activity examples"
   "envs:list show services analyze init namespace start stop restart logs endpoints"
   "projects:list show create context resources activity"
   "network:status"
@@ -42,6 +42,7 @@ COMMAND_TREE=(
   "sessions:list start end heartbeat"
   "host:collect watch status"
   "share:list revoke gc"
+  "examples:apply"
 )
 
 describe "every command in the tree is registered under its parent"
@@ -144,6 +145,17 @@ for c in version bootstrap up down status doctor restart logs urls inspect updat
   it "PORTTA_FORCE_BASH portta $c is dispatched, not refused"
   out=$(PORTTA_FORCE_BASH=true "$GW" "$c" --help 2>&1)
   assert_not_contains "$out" "requires Node"
+done
+
+it "PORTTA_FORCE_BASH portta up --demo requires the full CLI"
+assert_contains "$(PORTTA_FORCE_BASH=true "$GW" up --demo 2>&1)" "requires Node"
+it "PORTTA_FORCE_BASH portta down --demo requires the full CLI"
+assert_contains "$(PORTTA_FORCE_BASH=true "$GW" down --demo 2>&1)" "requires Node"
+
+describe "--demo is the complete demonstration on the lifecycle commands"
+for c in up dev down reset; do
+  it "portta $c --help names --demo"
+  assert_contains "$("$GW" "$c" --help 2>&1)" "--demo"
 done
 
 it "every cmd_* in bin/portta has a dispatch arm"

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "slug": "demo-b",
+    "name": "Demo B",
+    "description": "Segundo projeto CI, mesmas portas internas que demo-a."
+  },
+  "repositories": [
+    { "key": "demo-b", "name": "demo-b", "role": "web" }
+  ],
+  "tasks": [
+    {
+      "key": "b-nginx",
+      "title": "Servir nginx atrás do gateway",
+      "description": "web e api no mesmo namespace, sem porta no host.",
+      "status": "done",
+      "priority": "medium",
+      "type": "chore",
+      "repository": "demo-b",
+      "environment": "demo-b",
+      "service": "web"
+    },
+    {
+      "key": "b-api",
+      "title": "Conferir o whoami da API",
+      "status": "ready",
+      "priority": "low",
+      "type": "chore",
+      "repository": "demo-b",
+      "service": "api"
+    }
+  ]
+}

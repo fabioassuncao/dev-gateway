@@ -44,6 +44,6 @@ bin
 !CHANGELOG.md
 AGENTS.md
 LICENSE
-Makefile
+justfile
 VERSION
 docker

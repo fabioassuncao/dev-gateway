@@ -74,22 +74,21 @@ project's own directory, as you always have.
 ## Resetting a checkout
 
 `portta dev --reset` wipes the panel database and starts again the same way
-`make dev` does. `portta reset` is that command. Make cannot take `--reset`
-as a flag; it uses variables:
+`just dev` does. `portta reset` is that command. Flags pass through:
 
 ```bash
-make dev RESET=1          # asks for confirmation on a TTY
-make dev RESET=1 YES=1    # same, non-interactive (`--yes`)
-make reset                # alias for the above
-make reset EXAMPLES=1     # then import docker/examples
+just reset                # asks for confirmation on a TTY
+just reset --yes          # same, non-interactive
+just reset --yes --demo   # then recreate docker/examples and import their panel records
+just dev --reset --demo   # the same sequence
 ```
 
-**What takes the time.** The first `make dev` or `make reset` in a checkout,
+**What takes the time.** The first `just dev` or `just reset` in a checkout,
 and any run after a dependency change, builds the panel image: two `npm ci`, a
 build across three workspaces and a render of the documentation. Several
 minutes is normal. It now says so before it starts and streams BuildKit's
 progress while it runs, and anything else that goes quiet reports how long it
-has been going. `make dev VERBOSE=1` shows every child process;
+has been going. `just dev --verbose` shows every child process;
 `./bin/portta --quiet reset` shows none of it. A `Ctrl-C` during a build is
 safe: BuildKit keeps the cache it has earned.
 
@@ -102,8 +101,14 @@ and Tailscale material, and every development project's containers, networks
 and volumes. This is a fresh panel on a developer checkout, not an empty
 machine.
 
-Demo shops under `docker/examples` are out of the default. For that full
-cycle: `make demo-down && make reset && make demo-up && make examples`.
+Demo stacks under `docker/examples` are out of the default. `--demo` is the
+complete demonstration — containers and panel records — on `up`, `dev` and
+`reset`:
+
+```bash
+just reset --yes --demo
+# same as: ./bin/portta reset --yes --demo
+```
 
 ## Running several environments
 

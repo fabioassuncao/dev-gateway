@@ -96,10 +96,11 @@ executable plus an argument array with shell expansion disabled.
 |---|---|
 | `setup` | `--dir`, `--repo`, `--branch`, `--profile`, `--dry-run`, `--skip-pull` |
 | `bootstrap` | `--skip-pull` |
-| `up [profile]` | `--attach` |
-| `dev [profile]` | `--reset`, `--examples`. Checkout setup from local Dockerfiles; never the published images. `--reset` wipes the panel database first. |
-| `down`, `restart`, `status`, `doctor`, `inspect`, `update`, `version` | Global flags only |
-| `reset` | `--examples`. Alias for `dev --reset`. Development project volumes stay. |
+| `up [profile]` | `--attach`, `--demo`. `--demo` starts `docker/examples` and imports their panel records. |
+| `dev [profile]` | `--reset`, `--demo`. Checkout setup from local Dockerfiles; never the published images. `--reset` wipes the panel database first. `--demo` is the complete demonstration (stacks and data). |
+| `down` | `--demo`. Without it, consumer projects keep running. With it, `docker/examples` are stopped and their volumes dropped, then the gateway. |
+| `restart`, `status`, `doctor`, `inspect`, `update`, `version` | Global flags only |
+| `reset` | `--demo`. Alias for `dev --reset`. Other development project volumes stay; `--demo` also recreates the example stacks. |
 | `logs [service]` | `--no-follow`, `--tail <lines>` |
 | `urls` | `--project <name>` |
 
@@ -138,6 +139,7 @@ project Docker is running: an observation, read locally.
 | `tasks github status\|link\|publish\|sync` | `link` requires exactly one of `--pull` or `--push`; `sync --resolve local\|remote` settles a conflict |
 | `sessions start\|end\|heartbeat\|list` | `start --project --task --repository --environment --summary`; `end --summary --abandon` |
 | `activity` | `--project`, `--kind`, `--task`, `--repository`, `--environment`, `--limit` |
+| `examples apply` | `--file`. Low-level re-import of `docker/examples/*/portta.example.json`. `--demo` on `up`/`dev`/`reset` is the complete demonstration. |
 
 Every verb that calls the panel accepts `--url`, `--allow-remote` and
 `--actor` (`PORTTA_ACTOR`), exactly as `portta mcp` does. `services`,

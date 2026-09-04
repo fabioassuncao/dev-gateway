@@ -70,7 +70,10 @@ http://demo-monorepo-api.localhost
 http://demo-monorepo-mailpit.localhost
 ```
 
-Or use `make demo-up` or its `make demo-up-all` alias for every adopted demo.
+Or `just up --demo` / `./bin/portta up --demo` for every stack under
+`docker/examples/` plus the panel records from each `portta.example.json`.
+`demo-external` is started (it is the External Docker fixture) but has no
+manifest, on purpose.
 
 ## Running the same project twice
 

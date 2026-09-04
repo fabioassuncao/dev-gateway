@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "slug": "demo-site",
+    "name": "Demo Site",
+    "description": "Site estático de um serviço só."
+  },
+  "repositories": [
+    { "key": "site", "name": "demo-site", "role": "web" }
+  ],
+  "tasks": [
+    {
+      "key": "site-deploy",
+      "title": "Publicar o site estático",
+      "description": "Um único serviço HTTP, hostname no gateway.",
+      "status": "done",
+      "priority": "medium",
+      "type": "chore",
+      "repository": "site",
+      "environment": "demo-site",
+      "service": "web"
+    }
+  ]
+}

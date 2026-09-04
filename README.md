@@ -137,10 +137,10 @@ cp .env.example .env
 ./bin/portta doctor
 ```
 
-Then start the bundled demo stacks, which deliberately reuse internal ports:
+Then start the bundled demo stacks and register them in the panel:
 
 ```bash
-make demo-up
+just up --demo
 ```
 
 Among their routes are `demo-a-web.localhost`, `demo-a-api.localhost`, `demo-b-web.localhost`, and `demo-b-api.localhost`. Add `./bin` to `PATH` to drop the prefix.

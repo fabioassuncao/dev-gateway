@@ -71,7 +71,7 @@ before the first step of it starts.
 
 ## Consequences
 
-A developer watching `make dev` or `make reset` sees the phase, sees the build
+A developer watching `just dev` or `just reset` sees the phase, sees the build
 that phase is waiting on, and sees BuildKit's own progress inside it. If
 something genuinely wedges, the elapsed time says so and they can decide
 whether to interrupt — `Ctrl-C` during a build is safe, since BuildKit keeps

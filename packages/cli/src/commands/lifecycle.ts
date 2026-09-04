@@ -16,7 +16,7 @@ import { ensureRunner, removeRunner } from './runner.js'
 import { refreshRepositories } from './repos.js'
 import { ensureMetricsCollector, stopMetricsCollector } from './host.js'
 import { webUp } from './web.js'
-import { examplesApply } from './examples.js'
+import { applyDemo, demoStacksDown } from './examples.js'
 
 export function checkoutLocalEnv(): Record<string, string> {
   return {
@@ -173,7 +173,7 @@ export async function bootstrapCommand(options: { skipPull?: boolean }, command:
   await doctorCommand(command)
 }
 
-export async function upCommand(profile: string | undefined, options: { attach?: boolean }, command: Command): Promise<void> {
+export async function upCommand(profile: string | undefined, options: { attach?: boolean; demo?: boolean }, command: Command): Promise<void> {
   if (profile) command.setOptionValueWithSource('profile', profile, 'cli')
   const context = gatewayContext({ profile: profile ?? globals(command).profile })
   if (context.config.profile === 'remote-public' && context.config.tcpEnabled) throw new RefusedError('TCP entrypoints must not run on the remote-public profile')
@@ -227,17 +227,22 @@ export async function upCommand(profile: string | undefined, options: { attach?:
   if (runner.action === 'removed') output.progress('ok       runner removed (PORTTA_RUNNER is false)')
   if (runner.action === 'refused') output.progress(`warn     not preparing the runner: ${runner.reason}`)
   if (runner.action === 'failed') output.progress(`warn     ${runner.reason}; project operations still run from a shell`)
+
+  if (options.demo) {
+    await applyDemo(command, { ensurePanel: true })
+    await urlsCommand({}, command)
+  }
 }
 
 /**
  * Complete checkout development setup: local Dockerfiles only, never the
- * published GHCR images. Make calls this; an installed PORTTA_HOME keeps `up`.
- * `--reset` wipes the panel database first; `--examples` imports docker/examples
- * after the panel is up. `portta reset` is this command with `--reset`.
+ * published GHCR images. Just calls this; an installed PORTTA_HOME keeps `up`.
+ * `--reset` wipes the panel database first; `--demo` starts docker/examples
+ * and imports their panel records. `portta reset` is this command with `--reset`.
  */
 export async function devCommand(
   profile: string | undefined,
-  options: { reset?: boolean; examples?: boolean },
+  options: { reset?: boolean; demo?: boolean },
   command: Command,
 ): Promise<void> {
   if (profile) command.setOptionValueWithSource('profile', profile, 'cli')
@@ -247,13 +252,17 @@ export async function devCommand(
   // the longest command here and the one most likely to be mistaken for a hang.
   new Output(globals(command)).progress(`dev runs: ${[
     ...(options.reset ? ['wipe the panel database'] : []),
+    ...(options.reset && options.demo ? ['stop docker/examples'] : []),
     ...(needsBootstrap ? ['prepare the checkout'] : []),
     'start gateway components',
     'start the panel',
+    ...(options.demo ? ['start docker/examples and import their panel records'] : []),
     'list routed hostnames',
-    ...(options.examples ? ['import docker/examples'] : []),
   ].join(' -> ')}`)
-  if (options.reset) await wipePanelDatabase(command)
+  if (options.reset) {
+    await wipePanelDatabase(command)
+    if (options.demo) await demoStacksDown(command)
+  }
   if (needsBootstrap) {
     command.setOptionValueWithSource('yes', true, 'cli')
     await bootstrapCommand({ skipPull: true }, command)
@@ -261,11 +270,12 @@ export async function devCommand(
   persistEnv(gatewayContext({ profile: profile ?? globals(command).profile }).root, checkoutLocalEnv())
   await upCommand(profile, { attach: false }, command)
   await webUp({ dev: true }, command)
+  if (options.demo) await applyDemo(command, { ensurePanel: false })
   await urlsCommand({}, command)
-  if (options.examples) await examplesApply({}, command)
 }
 
-export async function downCommand(command: Command): Promise<void> {
+export async function downCommand(options: { demo?: boolean }, command: Command): Promise<void> {
+  if (options.demo) await demoStacksDown(command)
   await compose(command, ['down'])
   // The applier lives outside the Compose project, so `down` does not see it.
   // `up` recreates it, and leaving a stopped gateway container behind is the one
@@ -305,7 +315,7 @@ export async function wipePanelDatabase(command: Command): Promise<void> {
   const context = gatewayContext({ profile: globals(command).profile })
   const output = new Output(globals(command))
   output.step('panel database')
-  await downCommand(command)
+  await downCommand({}, command)
   const volume = identifier(panelDatabaseVolume(context.env), 'volume')
   const removed = await runProcess('docker', ['volume', 'rm', volume], { reject: false })
   if (removed.exitCode === 0) output.progress(`removed volume ${volume}`)
@@ -314,9 +324,9 @@ export async function wipePanelDatabase(command: Command): Promise<void> {
   if (cleared.length > 0) output.progress(`cleared ${cleared.join(', ')}`)
 }
 
-/** Alias for `dev --reset`. Kept so `make reset` stays a one-line call. */
-export async function resetCommand(options: { examples?: boolean }, command: Command): Promise<void> {
-  await devCommand(undefined, { reset: true, examples: options.examples }, command)
+/** Alias for `dev --reset`. Kept so `just reset` stays a one-line call. */
+export async function resetCommand(options: { demo?: boolean }, command: Command): Promise<void> {
+  await devCommand(undefined, { reset: true, demo: options.demo }, command)
 }
 
 export async function restartCommand(command: Command): Promise<void> { await compose(command, ['up', '-d', '--force-recreate']) }

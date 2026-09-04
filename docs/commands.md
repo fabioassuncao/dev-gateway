@@ -10,9 +10,10 @@ and points to the detailed guides.
 |---|---|
 | `portta setup` | Provision or update a checkout idempotently; `--dry-run` prints the plan. |
 | `portta bootstrap` | Check the runtime, create gateway state and the shared network, then run diagnostics. |
-| `portta up [profile]` | Start `local`, `remote-private` or `remote-public`. |
-| `portta down` | Stop gateway components; consumer projects keep running. |
-| `portta reset` | Alias for `portta dev --reset`. Prints the steps it will run, and streams the builds.  `--examples` imports `docker/examples` afterwards. Development project volumes stay. Confirmation uses `--yes`, not `--force`. |
+| `portta up [profile]` | Start `local`, `remote-private` or `remote-public`. `--demo` also starts `docker/examples` and imports their panel records. |
+| `portta dev [profile]` | Checkout setup from local Dockerfiles, never the published images. `--reset` wipes the panel database first. `--demo` starts `docker/examples` and imports their panel records. |
+| `portta down` | Stop gateway components; consumer projects keep running. `--demo` also stops the example stacks and drops their volumes. |
+| `portta reset` | Alias for `portta dev --reset`. Prints the steps it will run, and streams the builds. `--demo` recreates `docker/examples` and imports their panel records. Other development project volumes stay. Confirmation uses `--yes`, not `--force`. |
 | `portta restart` | Recreate gateway components without restarting applications. |
 | `portta status` | Print a compact runtime overview. |
 | `portta logs [service]` | Follow gateway component logs. |

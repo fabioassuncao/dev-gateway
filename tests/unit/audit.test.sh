@@ -169,10 +169,12 @@ done
 assert_eq "" "$offenders"
 
 # `down` must never reach past the gateway's own Compose project.
+# `--demo` stops docker/examples with `-v` on purpose: those stacks are
+# disposable fixtures, not consumer projects, and live in examples.ts.
 it "compose down never takes volumes or orphans with it"
 assert_eq "" "$(grep -n 'portta_compose .* down' bin/portta 2>/dev/null | grep -E '\-v|--volumes|--remove-orphans' || true)"
 down_flags="(-v|--volumes|--remove-orphans)"
-assert_eq "" "$(grep -rn "'down'" packages/cli/src --include='*.ts' | grep -E "'$down_flags'" || true)"
+assert_eq "" "$(grep -rn "'down'" packages/cli/src --include='*.ts' | grep -v commands/examples | grep -E "'$down_flags'" || true)"
 
 describe "secrets never reach the process list or the repository"
 
@@ -311,29 +313,26 @@ assert_eq "" "$(grep -n 'portta-auth:' docker/compose/features/web-build.yaml ||
 it "a normal installation never builds the panel"
 assert_eq "" "$(grep -n 'build:' docker/compose/features/web.yaml || true)"
 
-it "Make never pulls a published Portta image"
-assert_eq "" "$(grep -E 'ghcr.io/fabioassuncao' Makefile || true)"
+it "Just never pulls a published Portta image"
+assert_eq "" "$(grep -E 'ghcr.io/fabioassuncao' justfile || true)"
 
-it "make dev calls the checkout setup command"
-assert_contains "$(sed -n '/^dev:/,/^[^[:space:]#][^:]*:/p' Makefile)" '$(GW) $(if $(YES),--yes,)'
-assert_contains "$(sed -n '/^dev:/,/^[^[:space:]#][^:]*:/p' Makefile)" ') dev '
+it "just dev calls the checkout setup command"
+assert_contains "$(awk '/^dev /,/^$/' justfile)" '{{gw}} dev {{args}}'
 
-it "make reset calls the checkout reset command"
-assert_contains "$(sed -n '/^reset:/,/^[^[:space:]#][^:]*:/p' Makefile)" '$(GW) $(if $(YES),--yes,)'
-assert_contains "$(sed -n '/^reset:/,/^[^[:space:]#][^:]*:/p' Makefile)" ') reset '
+it "just reset calls the checkout reset command"
+assert_contains "$(awk '/^reset /,/^$/' justfile)" '{{gw}} reset {{args}}'
 
-it "make VERBOSE=1 forwards --verbose, so a silent build can be made to speak"
-assert_contains "$(sed -n '/^dev:/,/^[^[:space:]#][^:]*:/p' Makefile)" '--verbose'
-assert_contains "$(sed -n '/^reset:/,/^[^[:space:]#][^:]*:/p' Makefile)" '--verbose'
+it "just up, down, dev and reset forward remaining arguments, including --demo"
+for recipe in up down dev reset; do
+  assert_contains "$(awk "/^${recipe} /,/^$/" justfile)" '{{args}}'
+done
 
-it "make reset EXAMPLES=1 forwards --examples"
-assert_contains "$(sed -n '/^reset:/,/^[^[:space:]#][^:]*:/p' Makefile)" '--examples'
+it "just has no leftover demo-up or examples recipes"
+assert_eq "" "$(grep -E '^(demo-up|demo-down|examples)' justfile || true)"
 
-it "make dev RESET=1 forwards --reset"
-assert_contains "$(sed -n '/^dev:/,/^[^[:space:]#][^:]*:/p' Makefile)" '--reset'
-
-it "make YES=1 forwards --yes"
-assert_contains "$(sed -n '/^dev:/,/^[^[:space:]#][^:]*:/p' Makefile)" '--yes'
+it "just up and just web build local Portta images"
+assert_contains "$(awk '/^up /,/^$/' justfile)" 'PORTTA_WEB_BUILD=true'
+assert_contains "$(awk '/^web /,/^$/' justfile)" 'PORTTA_WEB_BUILD=true'
 
 it "reset is the checkout setup with --reset"
 assert_contains "$(sed -n '/export async function resetCommand/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)" 'reset: true'
@@ -345,7 +344,7 @@ assert_contains "$dev_body" 'wipePanelDatabase'
 
 it "the wipe goes down, removes the panel volume, then returns"
 wipe_body="$(sed -n '/export async function wipePanelDatabase/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)"
-assert_contains "$wipe_body" 'await downCommand(command)'
+assert_contains "$wipe_body" 'await downCommand({}, command)'
 assert_contains "$wipe_body" "['volume', 'rm', volume]"
 assert_contains "$wipe_body" 'clearRegenerableState'
 
