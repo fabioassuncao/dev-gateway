@@ -262,37 +262,35 @@ describe('the config endpoints', () => {
   })
 })
 
-describe('the panel refuses to be routed without a credential', () => {
+describe('the panel refuses to be routed without signing people in', () => {
   const routed = (extra: Record<string, string> = {}) =>
     new Map(
       Object.entries({
         PORTTA_WEB_EXPOSE: 'vpn',
-        PORTTA_WEB_AUTH: 'basic',
-        PORTTA_WEB_AUTH_USER: 'dev',
-        PORTTA_WEB_AUTH_HASH: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
+        PORTTA_AUTH_MODE: 'required',
+        PORTTA_AUTH_SECRET: 'a-secret-long-enough-to-sign-with',
         ...extra,
       }),
     )
 
-  it('accepts a routed panel with a full credential', () => {
+  it('accepts a routed panel that asks who you are', () => {
     expect(() => validateCombination(routed())).not.toThrow()
   })
 
   it('refuses the routed panel with authentication off', () => {
-    expect(() => validateCombination(routed({ PORTTA_WEB_AUTH: 'none' }))).toThrow(ValidationError)
+    expect(() => validateCombination(routed({ PORTTA_AUTH_MODE: 'disabled' }))).toThrow(ValidationError)
   })
 
-  it('refuses a mode of basic with nothing behind it', () => {
-    expect(() => validateCombination(routed({ PORTTA_WEB_AUTH_HASH: '' }))).toThrow(ValidationError)
-    expect(() => validateCombination(routed({ PORTTA_WEB_AUTH_USER: '' }))).toThrow(ValidationError)
+  it('refuses required with nothing to sign with', () => {
+    expect(() => validateCombination(routed({ PORTTA_AUTH_SECRET: '' }))).toThrow(ValidationError)
   })
 
-  it('asks for none of it on loopback, where it would protect nothing', () => {
+  it('asks for none of it on loopback, where reaching it already means having the machine', () => {
     expect(() =>
       validateCombination(
         new Map([
           ['PORTTA_WEB_EXPOSE', 'local'],
-          ['PORTTA_WEB_AUTH', 'none'],
+          ['PORTTA_AUTH_MODE', 'disabled'],
         ]),
       ),
     ).not.toThrow()
@@ -300,14 +298,10 @@ describe('the panel refuses to be routed without a credential', () => {
 })
 
 describe('a dashboard on the domain', () => {
-  it('needs a credential and a real domain', () => {
-    expect(() =>
-      validateCombination(new Map([
-        ['PORTTA_DASHBOARD', 'true'],
-        ['PORTTA_DASHBOARD_EXPOSE', 'domain'],
-        ['PORTTA_DOMAIN', 'localhost'],
-      ])),
-    ).toThrow(ValidationError)
+  // It used to borrow the panel's BasicAuth credential. The panel signs people
+  // in itself now, so there is no credential to borrow, and Traefik's dashboard
+  // exposes the routing of every project on the host.
+  it('is refused, because it has no credential of its own', () => {
     expect(() =>
       validateCombination(new Map([
         ['PORTTA_DASHBOARD', 'true'],
@@ -315,68 +309,49 @@ describe('a dashboard on the domain', () => {
         ['PORTTA_DOMAIN', 'dev.example.com'],
       ])),
     ).toThrow(ValidationError)
+  })
+
+  it('is accepted on loopback, which is where it belongs', () => {
     expect(() =>
       validateCombination(new Map([
         ['PORTTA_DASHBOARD', 'true'],
-        ['PORTTA_DASHBOARD_EXPOSE', 'domain'],
-        ['PORTTA_DOMAIN', 'dev.example.com'],
-        ['PORTTA_WEB_AUTH', 'basic'],
-        ['PORTTA_WEB_AUTH_USER', 'dev'],
-        ['PORTTA_WEB_AUTH_HASH', '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1'],
+        ['PORTTA_DASHBOARD_EXPOSE', 'local'],
       ])),
     ).not.toThrow()
   })
 })
 
-describe('the password hash field takes a hash, never a password', () => {
-  it('accepts what Traefik accepts', () => {
-    expect(() =>
-      validateValue('PORTTA_WEB_AUTH_HASH', '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1'),
-    ).not.toThrow()
+describe('the panel URL is an origin, not a URL with a path', () => {
+  it('accepts what a browser would reach the panel on', () => {
+    expect(() => validateValue('PORTTA_PANEL_URL', 'https://panel.dev.example.com')).not.toThrow()
+    expect(() => validateValue('PORTTA_PANEL_URL', 'http://127.0.0.1:8081')).not.toThrow()
+    expect(() => validateValue('PORTTA_PANEL_URL', '')).not.toThrow()
   })
 
-  it('refuses a plaintext password typed into the field', () => {
-    expect(() => validateValue('PORTTA_WEB_AUTH_HASH', 'hunter2')).toThrow(ValidationError)
+  it('refuses a path, a credential or a scheme that is not http', () => {
+    for (const bad of ['https://panel.example.com/portta', 'https://user:pw@panel.example.com', 'ftp://panel.example.com', 'panel.example.com']) {
+      expect(() => validateValue('PORTTA_PANEL_URL', bad), bad).toThrow(ValidationError)
+    }
   })
 
-  it('refuses a username that could break the generated YAML', () => {
-    expect(() => validateValue('PORTTA_WEB_AUTH_USER', 'dev"user')).toThrow(ValidationError)
-    expect(() => validateValue('PORTTA_WEB_AUTH_USER', 'dev:admin')).toThrow(ValidationError)
+  it('checks every entry of the trusted list, and names the one that failed', () => {
+    expect(() => validateValue('PORTTA_PANEL_TRUSTED_ORIGINS', 'https://a.example.com, https://b.example.com')).not.toThrow()
+    expect(() => validateValue('PORTTA_PANEL_TRUSTED_ORIGINS', 'https://a.example.com, nonsense'))
+      .toThrow(/nonsense/)
   })
 })
 
-describe('saving a credential rewrites the ForwardAuth contract Traefik reads', () => {
-  it('renders the generated file next to .env', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'portta-settings-'))
-    const config = testConfig({ envFile: join(dir, '.env'), dynamicDir: dir })
-    writeFileSync(config.envFile, 'PORTTA_WEB_EXPOSE=local\n')
-
-    const result = patchConfig(config, {
-      PORTTA_WEB_AUTH: 'basic',
-      PORTTA_WEB_AUTH_USER: 'dev',
-      PORTTA_WEB_AUTH_HASH: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
-    })
-
-    expect(result.dynamic?.written).toBe(true)
-    const rendered = readFileSync(join(dir, 'portta-auth.yaml'), 'utf8')
-    expect(rendered).toContain('portta-web-auth:')
-    expect(rendered).toContain('forwardAuth:')
-    expect(rendered).not.toContain('$apr1$')
-    rmSync(dir, { recursive: true, force: true })
-  })
-
-  it('never returns the hash it just stored', () => {
+describe('a secret is stored and never handed back', () => {
+  it('never returns the value it just stored', () => {
     const dir = mkdtempSync(join(tmpdir(), 'portta-settings-'))
     const config = testConfig({ envFile: join(dir, '.env'), dynamicDir: dir })
     writeFileSync(config.envFile, '')
 
-    const result = patchConfig(config, {
-      PORTTA_WEB_AUTH_HASH: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
-    })
-    const field = result.view.fields.find((item) => item.key === 'PORTTA_WEB_AUTH_HASH')
+    const result = patchConfig(config, { PORTTA_AUTH_SECRET: 'a-secret-long-enough-to-sign-with' })
+    const field = result.view.fields.find((item) => item.key === 'PORTTA_AUTH_SECRET')
     expect(field?.isSet).toBe(true)
     expect(field?.value).toBeNull()
-    expect(JSON.stringify(result)).not.toContain('ckT15POyCRlen')
+    expect(JSON.stringify(result)).not.toContain('long-enough-to-sign')
     rmSync(dir, { recursive: true, force: true })
   })
 })

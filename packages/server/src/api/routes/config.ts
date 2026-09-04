@@ -16,13 +16,13 @@ export function configRoutes(deps: AppDeps): Hono {
   // Secret values never appear here: the response says whether a token is set,
   // and nothing more.
   app.get('/config', documentRoute({
-    tag: 'Configuration', operationId: 'getConfig', capability: 'config:read', summary: 'Get the managed settings catalogue',
+    tag: 'Configuration', operationId: 'getConfig', permission: 'settings:read', summary: 'Get the managed settings catalogue',
     description: 'Secret values are never returned; only whether they are set.', response: ConfigView,
     errors: [500],
   }), (c) => c.json(buildConfigView(deps.config)))
 
   app.patch('/config', documentRoute({
-    tag: 'Configuration', operationId: 'patchConfig', capability: 'config:write', summary: 'Save managed settings',
+    tag: 'Configuration', operationId: 'patchConfig', permission: 'settings:manage', summary: 'Save managed settings',
     response: ConfigPatchResult, request: patchBody, errors: [400, 403, 500],
   }), async (c) => {
     const body = await c.req.json().catch(() => null)

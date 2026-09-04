@@ -9,13 +9,13 @@
 export { createApi, createApp, type AppDeps } from './api/index.ts'
 export { generateOpenApi } from './api/openapi.ts'
 export { eventRoutes } from './realtime/sse.ts'
-export { isAuthenticated, loadConfig, type PanelConfig } from './config.ts'
+export { isProtected, loadConfig, type PanelConfig } from './config.ts'
 export { Database, DatabaseUnavailable } from './db/index.ts'
 export { DockerClient } from './services/docker/client.ts'
 export { LiveHub } from './realtime/hub.ts'
 export { createSnapshotCache } from './services/inventory.ts'
 export { createVerdictCache } from './services/traefik.ts'
-export { GENERATED_FILES, reconcilePanelProtection } from './services/dynamic.ts'
+export { GENERATED_FILES, reconcilePanelDynamic } from './services/dynamic.ts'
 export { GitHubIntegration } from './services/integrations/github/index.ts'
 
 // The panel's own fixtures derive a service's technology the way the inventory

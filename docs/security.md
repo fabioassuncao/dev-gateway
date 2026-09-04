@@ -135,14 +135,17 @@ containers, so it is fenced on three sides.
 - **Network.** Loopback by default. VPN routing and the dedicated public panel
   entrypoint are separate, explicit overlays; the public overlay does not
   publish the application's `web`/`websecure` entrypoints.
-- **Authentication, once it is routed.** `--expose vpn` and `--expose public`
-  require `PORTTA_WEB_AUTH=basic` and a credential, and are refused without one.
-  Traefik delegates to the separate, unexposed `portta-auth` process before the
-  panel receives a request. Browser logins create host-only signed sessions;
-  Basic credentials remain available to non-browser clients. The password is
-  generated, shown once, and stored only as a private hash. A routed panel also
-  defaults to read-only, and `doctor` fails if either is missing. See
-  [authentication.md](authentication.md).
+- **Authentication, which the panel does itself.** `--expose vpn`, `public` and
+  `domain` require `PORTTA_AUTH_MODE=required` and are refused without it. The
+  panel signs people in against its own database: a session cookie for a person,
+  a `ptt_` Bearer token for a CLI or an agent, and a role that decides what each
+  may do. Every operation declares the permission it needs, `401` and `403` mean
+  different things, and a revoked token or a banned user stops working on the
+  next request rather than the next sign-in. `PORTTA_AUTH_MODE=disabled` answers
+  everybody as the local operator and is refused anywhere but loopback. A routed
+  panel also defaults to read-only, and `doctor` fails if either is missing. See
+  [authentication.md](authentication.md) and
+  [ADR 0035](adr/0035-authentication-lives-in-the-panel.md).
 - **Traefik configuration.** The panel may write four filenames in
   `config/traefik/dynamic/` and refuses every other path in its own process.
   See [ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md).

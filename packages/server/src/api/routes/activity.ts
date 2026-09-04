@@ -45,7 +45,7 @@ export function activityRoutes(deps: AppDeps): Hono {
   }
 
   app.get('/projects/:slug/activity', documentRoute({
-    tag: 'Activity', operationId: 'listProjectActivity', capability: 'activity:read', summary: "A Project's activity, newest first",
+    tag: 'Activity', operationId: 'listProjectActivity', permission: 'activity:read', summary: "A Project's activity, newest first",
     response: ActivityResponse,
     parameters: [{ name: 'slug', in: 'path', required: true, description: 'The Project slug.', schema: { type: 'string' } }, ...filterParameters],
     errors: [404, 500, 503],
@@ -57,7 +57,7 @@ export function activityRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/activity', documentRoute({
-    tag: 'Activity', operationId: 'listActivity', capability: 'activity:read', summary: 'Activity across every Project, newest first',
+    tag: 'Activity', operationId: 'listActivity', permission: 'activity:read', summary: 'Activity across every Project, newest first',
     response: ActivityResponse, parameters: filterParameters, errors: [500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -65,7 +65,7 @@ export function activityRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/tasks/:ref/activity', documentRoute({
-    tag: 'Activity', operationId: 'listTaskActivity', capability: 'activity:read', summary: "One task's activity, newest first",
+    tag: 'Activity', operationId: 'listTaskActivity', permission: 'activity:read', summary: "One task's activity, newest first",
     response: ActivityResponse,
     parameters: [{ name: 'ref', in: 'path', required: true, description: 'Task id, #id or a bound owner/repo#number.', schema: { type: 'string' } }, ...filterParameters.filter((entry) => entry.name !== 'task')],
     errors: [400, 404, 500, 503],

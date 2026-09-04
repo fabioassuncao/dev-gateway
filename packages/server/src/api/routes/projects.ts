@@ -10,7 +10,7 @@ import { loadProjectCatalog, toProject, toProjectSummary, type ProjectCatalog } 
 import { Project, ProjectSummary } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 import { recordActivity } from '../../services/activity.ts'
-import { principalOf } from '../principal.ts'
+import { principalOf } from 'portta-auth-core/hono'
 
 const slugParameter = {
   name: 'slug',
@@ -115,7 +115,7 @@ export function projectRoutes(deps: AppDeps): Hono {
   const home = () => deps.config.projectsHome
 
   app.get('/projects', documentRoute({
-    tag: 'Projects', operationId: 'listProjects', capability: 'project:read', summary: 'List Projects',
+    tag: 'Projects', operationId: 'listProjects', permission: 'project:read', summary: 'List Projects',
     response: ProjectsResponse,
     description: 'A Project is the product the operator recognises. It stays visible with nothing running. See ADR 0031.',
     errors: [500, 503],
@@ -126,7 +126,7 @@ export function projectRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/projects', documentRoute({
-    tag: 'Projects', operationId: 'createProject', capability: 'project:write', summary: 'Create a Project',
+    tag: 'Projects', operationId: 'createProject', permission: 'project:create', summary: 'Create a Project',
     request: CreateBody, response: Project, status: 201,
     description: 'Persists the product. Nothing on this host is started or stopped. relativePath places it under Projects Home; files are never moved.',
     errors: [400, 403, 409, 500, 503],
@@ -145,7 +145,7 @@ export function projectRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/projects/:slug', documentRoute({
-    tag: 'Projects', operationId: 'getProject', capability: 'project:read', summary: 'Get one Project',
+    tag: 'Projects', operationId: 'getProject', permission: 'project:read', summary: 'Get one Project',
     response: Project, parameters: [slugParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -162,7 +162,7 @@ export function projectRoutes(deps: AppDeps): Hono {
   })
 
   app.patch('/projects/:slug', documentRoute({
-    tag: 'Projects', operationId: 'patchProject', capability: 'project:write', summary: 'Rename, describe, place or archive a Project',
+    tag: 'Projects', operationId: 'patchProject', permission: 'project:update', summary: 'Rename, describe, place or archive a Project',
     request: PatchBody, response: ProjectSummary,
     parameters: [slugParameter], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -184,7 +184,7 @@ export function projectRoutes(deps: AppDeps): Hono {
    * changed and no repository is unlinked from GitHub.
    */
   app.delete('/projects/:slug', documentRoute({
-    tag: 'Projects', operationId: 'deleteProject', capability: 'project:write', summary: 'Remove a Project grouping',
+    tag: 'Projects', operationId: 'deleteProject', permission: 'project:delete', summary: 'Remove a Project grouping',
     description: 'Deletes the grouping only. No container, volume, environment or repository is touched.',
     response: Removal, parameters: [slugParameter], errors: [403, 404, 500, 503],
   }), async (c) => {
@@ -204,7 +204,7 @@ export function projectRoutes(deps: AppDeps): Hono {
   })
 
   app.put('/projects/:slug/environments', documentRoute({
-    tag: 'Projects', operationId: 'setProjectEnvironments', capability: 'project:write',
+    tag: 'Projects', operationId: 'setProjectEnvironments', permission: 'project:update',
     summary: 'Set the environments a Project adopts by hand',
     description: 'A manual mapping always wins over portta.project and over a repository match.',
     request: EnvironmentsBody, response: Project,

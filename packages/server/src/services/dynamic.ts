@@ -22,16 +22,12 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 import {
-  PANEL_AUTH_MIDDLEWARE,
-  dashboardProtectionRecord,
-  panelProtectionRecord,
   quoteDynamicValue,
   readProtectionStore,
   removeProtection,
   renderAuthDynamic,
-  renderPanelAuth as renderSharedPanelAuth,
+  renderPanelAuth,
   UnsafeDynamicValueError,
-  setProtection,
   writeProtectionStore,
 } from 'portta-core'
 import type { PanelConfig } from '../config.ts'
@@ -47,8 +43,6 @@ export const GENERATED_FILES = {
 export type GeneratedFile = (typeof GENERATED_FILES)[keyof typeof GENERATED_FILES]
 
 const ALLOWED: readonly string[] = Object.values(GENERATED_FILES)
-
-export { PANEL_AUTH_MIDDLEWARE }
 
 export class DynamicWriteRefused extends Error {
   status = 403
@@ -71,14 +65,6 @@ export function assertGenerated(name: string): asserts name is GeneratedFile {
 /** YAML double-quoted scalar. Refuses anything that would need escaping. */
 export function quote(value: string): string {
   try { return quoteDynamicValue(value) }
-  catch (error) {
-    if (error instanceof UnsafeDynamicValueError) throw new DynamicWriteRefused(error.message)
-    throw error
-  }
-}
-
-export function renderPanelAuth(options: { user: string; hash: string } | null): string {
-  try { return renderSharedPanelAuth(options) }
   catch (error) {
     if (error instanceof UnsafeDynamicValueError) throw new DynamicWriteRefused(error.message)
     throw error
@@ -138,79 +124,38 @@ export function removeGenerated(dir: string, name: string): void {
 }
 
 /**
- * Brings `portta-panel.yaml` in line with the settings the panel was
- * started with. Returns what happened, because a panel that could not write is
- * a diagnostic rather than a crash: on Linux the directory may well belong to
- * another user, and `portta web auth set` writes the same file from the
- * host.
+ * Brings Traefik's two Portta-owned auth files in line with what is true.
+ *
+ * Two things happen here, and they are the same thing: `portta-panel.yaml` is
+ * written empty, because the panel signs people in itself, and `portta-auth.yaml`
+ * is rendered from the protection store, which covers projects and shares. A
+ * store left by an older Portta may still carry the `panel` and `dashboard`
+ * scopes; they are removed, so an upgraded host stops sending the panel through
+ * a middleware that no longer decides anything.
+ *
+ * Returns what happened rather than throwing: on Linux the directory may well
+ * belong to another user, and a panel that could not write is a diagnostic, not
+ * a crash.
  */
-export function reconcilePanelAuth(
-  dir: string,
-  auth: { mode: string; user: string; hash: string },
-): { written: boolean; reason: string } {
-  const wanted = renderPanelAuth(
-    auth.mode === 'basic' && auth.user !== '' && auth.hash !== ''
-      ? { user: auth.user, hash: auth.hash }
-      : null,
-  )
-
-  const current = readGenerated(dir, GENERATED_FILES.panel)
-  if (current === wanted) return { written: false, reason: 'already in step' }
-  if (!isDirWritable(dir)) return { written: false, reason: 'the dynamic directory is not writable' }
-
-  try {
-    writeGenerated(dir, GENERATED_FILES.panel, wanted)
-    return { written: true, reason: 'rendered from the current settings' }
-  } catch (cause) {
-    return { written: false, reason: String(cause) }
-  }
-}
-
-/** Keep panel credentials private and render their proxy contract fail-closed. */
-export function reconcilePanelProtection(
-  config: PanelConfig,
-  auth: { mode: string; user: string; hash: string; expose?: string; advertisedHost?: string | null },
-): { written: boolean; reason: string } {
+export function reconcilePanelDynamic(config: PanelConfig): { written: boolean; reason: string } {
   try {
     const current = readProtectionStore(config.authStore)
-    const record = panelProtectionRecord({
-      mode: auth.mode,
-      expose: auth.expose ?? config.webExpose,
-      user: auth.user,
-      hash: auth.hash,
-      webHost: process.env['PORTTA_WEB_HOST'] ?? 'portta-web',
-      domain: config.domain,
-      advertisedHost: auth.advertisedHost ?? config.panelAdvertisedHost,
-      port: config.webExternalPort,
-      tlsEnabled: config.tlsEnabled,
-      projectName: config.projectName,
-    })
-    const existing = current.protections.find((protection) => protection.scope === 'panel')
-    const same = record && existing
-      ? JSON.stringify({ ...existing, epoch: undefined }) === JSON.stringify({ ...record, epoch: undefined })
-      : record === null && existing === undefined
-    let next = same ? current : record ? setProtection(current, record) : removeProtection(current, 'panel')
-    const dashboard = dashboardProtectionRecord({
-      expose: config.dashboardExpose,
-      advertisedHost: config.dashboardAdvertisedHost,
-      mode: auth.mode,
-      user: auth.user,
-      hash: auth.hash,
-      tlsEnabled: config.tlsEnabled,
-      projectName: config.projectName,
-    })
-    next = dashboard ? setProtection(next, dashboard) : removeProtection(next, 'dashboard')
-    const unchanged = JSON.stringify(current) === JSON.stringify(next)
-    if (!unchanged) writeProtectionStore(config.authStore, next)
+    const next = removeProtection(removeProtection(current, 'panel'), 'dashboard')
+    const storeChanged = JSON.stringify(current) !== JSON.stringify(next)
+    if (storeChanged) writeProtectionStore(config.authStore, next)
+
     const wantedAuth = renderAuthDynamic(next)
-    const wantedPanel = renderPanelAuth(null)
-    const filesChanged = readGenerated(config.dynamicDir, GENERATED_FILES.auth) !== wantedAuth || readGenerated(config.dynamicDir, GENERATED_FILES.panel) !== wantedPanel
+    const wantedPanel = renderPanelAuth()
+    const filesChanged =
+      readGenerated(config.dynamicDir, GENERATED_FILES.auth) !== wantedAuth ||
+      readGenerated(config.dynamicDir, GENERATED_FILES.panel) !== wantedPanel
     if (filesChanged) {
+      if (!isDirWritable(config.dynamicDir)) return { written: false, reason: 'the dynamic directory is not writable' }
       writeGenerated(config.dynamicDir, GENERATED_FILES.auth, wantedAuth)
       writeGenerated(config.dynamicDir, GENERATED_FILES.panel, wantedPanel)
     }
-    const written = !unchanged || filesChanged
-    return { written, reason: written ? 'credential store and ForwardAuth rendered' : 'already in step' }
+    const written = storeChanged || filesChanged
+    return { written, reason: written ? 'panel middleware removed and ForwardAuth rendered' : 'already in step' }
   } catch (cause) {
     return { written: false, reason: String(cause) }
   }

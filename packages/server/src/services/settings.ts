@@ -6,7 +6,7 @@
 // values never leave the host.
 
 import type { ConfigField } from 'portta-contracts'
-import { isSupportedHash, normalizeProjectsHome, ProjectsHomeError } from 'portta-core'
+import { normalizeProjectsHome, ProjectsHomeError } from 'portta-core'
 
 export interface FieldSpec {
   key: string
@@ -46,22 +46,34 @@ function bindAddress(value: string): string | null {
   return IPV4.test(value) ? null : 'must be an IPv4 address'
 }
 
-function username(value: string): string | null {
+/**
+ * An origin, not a URL with a path.
+ *
+ * The panel URL becomes Better Auth's `baseURL` and the origin a write must
+ * come from, so a trailing path or a credential in it would silently widen or
+ * break both.
+ */
+function panelUrl(value: string): string | null {
   if (value === '') return null
-  return /^[A-Za-z0-9._-]{1,64}$/.test(value)
-    ? null
-    : 'must be 1 to 64 characters of letters, digits, dot, dash or underscore'
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return 'must be a URL, such as https://panel.example.com'
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return 'must be http or https'
+  if (url.username || url.password) return 'must not carry a credential'
+  if (url.pathname !== '/' || url.search || url.hash) return 'must be an origin, with no path'
+  return null
 }
 
-/**
- * A hash, never a password. Refusing anything else is what stops somebody
- * typing their password into the field and shipping it to Traefik in clear.
- */
-function passwordHash(value: string): string | null {
+function trustedOriginList(value: string): string | null {
   if (value === '') return null
-  return isSupportedHash(value)
-    ? null
-    : 'must be an apr1, bcrypt or SHA1 hash; run: portta web auth set'
+  for (const entry of value.split(',')) {
+    const refusal = panelUrl(entry.trim())
+    if (refusal) return `${entry.trim()}: ${refusal}`
+  }
+  return null
 }
 
 function email(value: string): string | null {
@@ -419,41 +431,40 @@ export const FIELDS: FieldSpec[] = [
     restartRequired: true,
   },
   {
-    key: 'PORTTA_WEB_AUTH',
+    key: 'PORTTA_AUTH_MODE',
     group: 'Panel',
     label: 'Panel authentication',
-    help: 'basic keeps the compatible setting name and enables Portta ForwardAuth. Required once it is routed.',
+    help: 'required makes the panel ask who you are: people sign in, agents carry a token. disabled makes every request the local operator, which is only allowed on loopback.',
     kind: 'choice',
-    choices: ['none', 'basic'],
+    choices: ['disabled', 'required'],
     restartRequired: true,
-  },
-  {
-    key: 'PORTTA_WEB_AUTH_USER',
-    group: 'Panel',
-    label: 'Panel username',
-    help: 'The user half of the credential. `portta web auth set` writes both.',
-    kind: 'string',
-    restartRequired: true,
-    validate: username,
-  },
-  {
-    key: 'PORTTA_WEB_AUTH_HASH',
-    group: 'Panel',
-    label: 'Panel password hash',
-    help: 'A hash, never a password. Generate one with `portta web auth set`.',
-    kind: 'string',
-    secret: true,
-    restartRequired: true,
-    validate: passwordHash,
   },
   {
     key: 'PORTTA_AUTH_SECRET',
     group: 'Panel',
     label: 'Session signing secret',
-    help: 'Generated during bootstrap. Rotating it signs out every protected host.',
+    help: 'What sessions and tokens are signed with. Generated during bootstrap; rotating it signs everybody out.',
     kind: 'string',
     secret: true,
     restartRequired: true,
+  },
+  {
+    key: 'PORTTA_PANEL_URL',
+    group: 'Panel',
+    label: 'Panel URL',
+    help: 'The address a browser reaches the panel on. It decides where sign-in redirects to and whether the session cookie may be Secure.',
+    kind: 'string',
+    restartRequired: true,
+    validate: panelUrl,
+  },
+  {
+    key: 'PORTTA_PANEL_TRUSTED_ORIGINS',
+    group: 'Panel',
+    label: 'Extra trusted origins',
+    help: 'Other origins a browser may sign in from, comma-separated: a VPN name, a public domain. Loopback and the panel URL are always trusted.',
+    kind: 'string',
+    restartRequired: true,
+    validate: trustedOriginList,
   },
   {
     key: 'PORTTA_RUNTIME_DOCS',
@@ -598,13 +609,13 @@ export function validateCombination(values: Map<string, string>): void {
   // A routed panel can stop containers and, since ADR 0010, says what is being
   // worked on. The tailnet is a good boundary and a poor last one.
   if (['vpn', 'public', 'domain'].includes(get('PORTTA_WEB_EXPOSE'))) {
-    if (get('PORTTA_WEB_AUTH') !== 'basic') {
-      throw new ValidationError('PORTTA_WEB_AUTH', 'must be basic while the panel is reachable beyond this host')
+    if (get('PORTTA_AUTH_MODE') !== 'required') {
+      throw new ValidationError('PORTTA_AUTH_MODE', 'must be required while the panel is reachable beyond this host')
     }
-    if (get('PORTTA_WEB_AUTH_USER') === '' || get('PORTTA_WEB_AUTH_HASH') === '') {
+    if (get('PORTTA_AUTH_SECRET') === '') {
       throw new ValidationError(
-        'PORTTA_WEB_AUTH_USER',
-        'a routed panel needs a credential: run portta web auth set',
+        'PORTTA_AUTH_SECRET',
+        'a panel that signs people in needs a signing secret: run portta bootstrap',
       )
     }
   }
@@ -614,12 +625,14 @@ export function validateCombination(values: Map<string, string>): void {
     if (domain === '' || domain === 'localhost') {
       throw new ValidationError('PORTTA_DASHBOARD_EXPOSE', 'a dashboard on the domain needs a domain of its own')
     }
-    if (get('PORTTA_WEB_AUTH') !== 'basic' || get('PORTTA_WEB_AUTH_USER') === '' || get('PORTTA_WEB_AUTH_HASH') === '') {
-      throw new ValidationError(
-        'PORTTA_DASHBOARD_EXPOSE',
-        'a dashboard on the domain needs a panel credential: run portta web auth set',
-      )
-    }
+    // The dashboard used to borrow the panel's BasicAuth credential, and the
+    // panel no longer has one: it signs people in itself. Traefik's dashboard
+    // exposes the routing of every project on the host, so an unprotected one
+    // on a domain is refused rather than warned about. Loopback still works.
+    throw new ValidationError(
+      'PORTTA_DASHBOARD_EXPOSE',
+      'the dashboard has no credential of its own; reach it on loopback instead',
+    )
   }
 
   if (get('PORTTA_WEB_BIND_ADDRESS') === '0.0.0.0') {

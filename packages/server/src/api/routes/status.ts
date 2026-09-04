@@ -17,7 +17,7 @@ export function statusRoutes(deps: AppDeps): Hono {
   // Liveness: answers even when Docker is unreachable, which is exactly when
   // somebody needs to know the panel itself is up.
   app.get('/health', documentRoute({
-    tag: 'Status', operationId: 'getHealth', capability: 'gateway:read', summary: 'Check panel liveness', response: HealthResponse,
+    tag: 'Status', operationId: 'getHealth', public: true, summary: 'Check panel liveness', response: HealthResponse,
     responseDescription: 'Answers even when Docker is unreachable.',
     example: { ok: true, panelVersion: '0.1.0', gatewayVersion: '0.2.0' },
   }), (c) =>
@@ -25,7 +25,7 @@ export function statusRoutes(deps: AppDeps): Hono {
   )
 
   app.get('/status', documentRoute({
-    tag: 'Status', operationId: 'getStatus', capability: 'gateway:read', summary: 'Get the gateway overview', response: Overview,
+    tag: 'Status', operationId: 'getStatus', permission: 'gateway:read', summary: 'Get the gateway overview', response: Overview,
     errors: [500, 502],
   }), async (c) => c.json(await panelOverview(deps)))
 

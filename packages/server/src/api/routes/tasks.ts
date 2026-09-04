@@ -19,7 +19,8 @@ import { ATTACHMENT_LIMITS, contentDisposition, normaliseContentType, rejectUplo
 import { pushToGitHub, resolveTask, type TaskChange } from '../../services/task-write.ts'
 import { recordActivity } from '../../services/activity.ts'
 import { applyExampleDocument, exportProjectTasks } from '../../services/task-example-apply.ts'
-import { principalOf, type Principal } from '../principal.ts'
+import { principalOf } from 'portta-auth-core/hono'
+import type { Principal } from 'portta-auth-core'
 import { Task, TaskAttachment, TaskNote, TaskSummary } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 
@@ -214,7 +215,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   // --- reads ----------------------------------------------------------------
 
   app.get('/projects/:slug/tasks', documentRoute({
-    tag: 'Tasks', operationId: 'listProjectTasks', capability: 'task:read',
+    tag: 'Tasks', operationId: 'listProjectTasks', permission: 'task:read',
     summary: "List a Project's tasks",
     description: 'Local tasks, with their GitHub binding where one exists. Answers without GitHub and without the App.',
     response: TasksResponse, parameters: [slugParameter, ...filterParameters], errors: [404, 500, 503],
@@ -246,7 +247,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/projects/:slug/tasks/next', documentRoute({
-    tag: 'Tasks', operationId: 'nextTask', capability: 'task:read',
+    tag: 'Tasks', operationId: 'nextTask', permission: 'task:read',
     summary: 'The task to do next, or null',
     description: 'Ready, unblocked by its subtasks, unassigned or assigned to the caller; then by priority, then by how long it has waited.',
     response: NextTaskResponse, parameters: [slugParameter, actorHeader], errors: [404, 500, 503],
@@ -260,7 +261,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/tasks', documentRoute({
-    tag: 'Tasks', operationId: 'listTasks', capability: 'task:read', summary: 'List tasks across Projects',
+    tag: 'Tasks', operationId: 'listTasks', permission: 'task:read', summary: 'List tasks across Projects',
     description: 'The canonical remote listing. Use project to scope by slug; every result remains a local Portta task.',
     response: TasksResponse,
     parameters: [{ name: 'project', in: 'query', required: false, description: 'Project slug.', schema: { type: 'string' } }, ...filterParameters],
@@ -290,7 +291,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/tasks/:ref', documentRoute({
-    tag: 'Tasks', operationId: 'getTask', capability: 'task:read', summary: 'Get one task',
+    tag: 'Tasks', operationId: 'getTask', permission: 'task:read', summary: 'Get one task',
     description: 'With its binding, environments, notes and subtasks. Addressable by id, `#id`, or `owner/repo#number`.',
     response: Task, parameters: [refParameter], errors: [400, 404, 500, 503],
   }), async (c) => {
@@ -299,7 +300,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/tasks/:ref/subtasks', documentRoute({
-    tag: 'Tasks', operationId: 'getSubtasks', capability: 'task:read', summary: 'The subtask tree under one task',
+    tag: 'Tasks', operationId: 'getSubtasks', permission: 'task:read', summary: 'The subtask tree under one task',
     response: SubtasksResponse, parameters: [refParameter], errors: [400, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -312,7 +313,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/tasks/:ref/subtasks', documentRoute({
-    tag: 'Tasks', operationId: 'createTaskSubtask', capability: 'task:write', summary: 'Create a subtask',
+    tag: 'Tasks', operationId: 'createTaskSubtask', permission: 'task:write', summary: 'Create a subtask',
     request: CreateTaskBody.omit({ parentId: true, draft: true }), response: Task, status: 201,
     parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -338,7 +339,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.put('/tasks/:ref/subtasks/:childRef', documentRoute({
-    tag: 'Tasks', operationId: 'linkTaskSubtask', capability: 'task:write', summary: 'Link an existing task as a subtask',
+    tag: 'Tasks', operationId: 'linkTaskSubtask', permission: 'task:write', summary: 'Link an existing task as a subtask',
     response: Task, parameters: [refParameter, { name: 'childRef', in: 'path', required: true, schema: { type: 'string' } }, actorHeader],
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -356,7 +357,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.delete('/tasks/:ref/subtasks/:childRef', documentRoute({
-    tag: 'Tasks', operationId: 'unlinkTaskSubtask', capability: 'task:write', summary: 'Unlink a subtask',
+    tag: 'Tasks', operationId: 'unlinkTaskSubtask', permission: 'task:write', summary: 'Unlink a subtask',
     response: Task, parameters: [refParameter, { name: 'childRef', in: 'path', required: true, schema: { type: 'string' } }, actorHeader],
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -373,7 +374,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/tasks/:ref/notes', documentRoute({
-    tag: 'Tasks', operationId: 'listTaskNotes', capability: 'task:read', summary: 'The notes on a task, oldest first',
+    tag: 'Tasks', operationId: 'listTaskNotes', permission: 'task:read', summary: 'The notes on a task, oldest first',
     response: NotesResponse, parameters: [refParameter], errors: [400, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -382,7 +383,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/tasks/:ref/comments', documentRoute({
-    tag: 'Tasks', operationId: 'listTaskComments', capability: 'task:read', summary: 'The local comments on a task, oldest first',
+    tag: 'Tasks', operationId: 'listTaskComments', permission: 'task:read', summary: 'The local comments on a task, oldest first',
     response: CommentsResponse, parameters: [refParameter], errors: [400, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -393,7 +394,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   const attachmentParameter = { name: 'attachmentId', in: 'path' as const, required: true, schema: { type: 'string' as const } }
 
   app.get('/tasks/:ref/attachments', documentRoute({
-    tag: 'Tasks', operationId: 'listTaskAttachments', capability: 'task:read',
+    tag: 'Tasks', operationId: 'listTaskAttachments', permission: 'task:read',
     summary: 'The files attached to a task, newest first',
     description: 'Metadata only. The bytes are at the downloadUrl each entry carries.',
     response: AttachmentsResponse, parameters: [refParameter], errors: [400, 404, 500, 503],
@@ -405,7 +406,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/tasks/:ref/attachments/:attachmentId', documentRoute({
-    tag: 'Tasks', operationId: 'downloadTaskAttachment', capability: 'task:read',
+    tag: 'Tasks', operationId: 'downloadTaskAttachment', permission: 'task:read',
     summary: 'The bytes of one attachment',
     description: 'Served with a Content-Disposition that renders an image or a PDF inline and downloads everything else.',
     response: z.string().meta({ ref: 'TaskAttachmentBytes' }), mediaType: 'application/octet-stream',
@@ -437,7 +438,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   // --- writes ---------------------------------------------------------------
 
   app.post('/projects/:slug/tasks', documentRoute({
-    tag: 'Tasks', operationId: 'createTask', capability: 'task:write', summary: 'Create a task',
+    tag: 'Tasks', operationId: 'createTask', permission: 'task:write', summary: 'Create a task',
     description: 'Local, immediately. Bind it to a GitHub issue afterwards with /github/link or /github/publish.',
     request: CreateTaskBody, response: Task, status: 201, parameters: [slugParameter, actorHeader],
     errors: [400, 403, 404, 500, 503],
@@ -479,7 +480,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.patch('/tasks/:ref', documentRoute({
-    tag: 'Tasks', operationId: 'patchTask', capability: 'task:write', summary: 'Change a task',
+    tag: 'Tasks', operationId: 'patchTask', permission: 'task:write', summary: 'Change a task',
     description: 'Written locally first. On a bound task, title, description, status, priority and assignee are also written to GitHub; the binding says whether that reached it.',
     request: PatchTaskBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -544,7 +545,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.delete('/tasks/:ref', documentRoute({
-    tag: 'Tasks', operationId: 'deleteTask', capability: 'task:write', summary: 'Delete a task and its subtasks',
+    tag: 'Tasks', operationId: 'deleteTask', permission: 'task:delete', summary: 'Delete a task and its subtasks',
     description: 'Local only: a bound GitHub issue is left as it is, unbound.',
     response: Removal, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -562,7 +563,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/tasks/:ref/start', documentRoute({
-    tag: 'Tasks', operationId: 'startTask', capability: 'task:write', summary: 'Take a task',
+    tag: 'Tasks', operationId: 'startTask', permission: 'task:write', summary: 'Take a task',
     description: 'Sets the status to in_progress and, unless assign is false, assigns the actor — in one write, so a task is never half-taken.',
     request: StartBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -571,12 +572,12 @@ export function taskRoutes(deps: AppDeps): Hono {
     const body = StartBody.parse(await c.req.json().catch(() => ({})))
     const principal = principalOf(c)
     const plan = startPlan(task, body.assign === false ? null : principal.actor)
-    const patch: Record<string, unknown> = { status: plan.status, ...(plan.assignee ? { assignee: plan.assignee } : {}), ...(principal.kind === 'agent' && plan.assignee ? { agent: principal.actor } : {}), ...(task.draft ? { draft: false } : {}) }
+    const patch: Record<string, unknown> = { status: plan.status, ...(plan.assignee ? { assignee: plan.assignee } : {}), ...(principal.actorKind === 'agent' && plan.assignee ? { agent: principal.actor } : {}), ...(task.draft ? { draft: false } : {}) }
     return c.json(await write(db, task, patch, { status: plan.status, ...(plan.assignee ? { assignee: plan.assignee } : {}) }, principal, 'task.status', `${principal.actor ?? 'somebody'} started "${task.title}"`))
   })
 
   app.post('/tasks/:ref/status', documentRoute({
-    tag: 'Tasks', operationId: 'setTaskStatus', capability: 'task:write', summary: 'Move a task to one status',
+    tag: 'Tasks', operationId: 'setTaskStatus', permission: 'task:write', summary: 'Move a task to one status',
     request: StatusBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -587,7 +588,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/tasks/:ref/move', documentRoute({
-    tag: 'Tasks', operationId: 'moveTask', capability: 'task:write', summary: 'Move and rank a task on the board',
+    tag: 'Tasks', operationId: 'moveTask', permission: 'task:write', summary: 'Move and rank a task on the board',
     description: 'Changes status and/or order atomically. beforeId and afterId name the adjacent tasks after the move; no neighbours appends.',
     request: MoveBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -625,7 +626,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/tasks/:ref/finish', documentRoute({
-    tag: 'Tasks', operationId: 'finishTask', capability: 'task:write', summary: 'Finish a task',
+    tag: 'Tasks', operationId: 'finishTask', permission: 'task:write', summary: 'Finish a task',
     description: 'Sets the status to done. On a bound task, close: true also closes the issue on GitHub.',
     request: FinishBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -638,7 +639,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/tasks/:ref/notes', documentRoute({
-    tag: 'Tasks', operationId: 'addTaskNote', capability: 'task:write', summary: 'Add a note to a task',
+    tag: 'Tasks', operationId: 'addTaskNote', permission: 'task:write', summary: 'Add a note to a task',
     description: 'Legacy alias for a local comment. Prefer /comments.',
     request: NoteBody, response: TaskNote, status: 201, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -659,7 +660,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/tasks/:ref/comments', documentRoute({
-    tag: 'Tasks', operationId: 'addTaskComment', capability: 'task:write', summary: 'Add a local comment to a task',
+    tag: 'Tasks', operationId: 'addTaskComment', permission: 'task:write', summary: 'Add a local comment to a task',
     description: 'Always local. Publishing this comment to GitHub is a separate, explicit operation.',
     request: NoteBody, response: TaskNote, status: 201, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -680,7 +681,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/tasks/:ref/attachments', documentRoute({
-    tag: 'Tasks', operationId: 'addTaskAttachment', capability: 'task:write',
+    tag: 'Tasks', operationId: 'addTaskAttachment', permission: 'task:write',
     summary: 'Attach a file to a task',
     description: `Multipart, one file in the \`file\` field. At most ${ATTACHMENT_LIMITS.maxBytes / 1024 / 1024} MB per file and ${ATTACHMENT_LIMITS.maxPerTask} files per task.`,
     requestMediaType: 'multipart/form-data',
@@ -724,7 +725,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.delete('/tasks/:ref/attachments/:attachmentId', documentRoute({
-    tag: 'Tasks', operationId: 'deleteTaskAttachment', capability: 'task:write',
+    tag: 'Tasks', operationId: 'deleteTaskAttachment', permission: 'task:write',
     summary: 'Remove an attachment',
     description: 'The bytes go with it. Nothing outside this task is touched.',
     response: OkResponse, parameters: [refParameter, attachmentParameter, actorHeader],
@@ -749,7 +750,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.patch('/tasks/:ref/notes/:noteId', documentRoute({
-    tag: 'Tasks', operationId: 'updateTaskNote', capability: 'task:write', summary: 'Edit a local note',
+    tag: 'Tasks', operationId: 'updateTaskNote', permission: 'task:write', summary: 'Edit a local note',
     request: NoteBody, response: TaskNote, parameters: [refParameter, { name: 'noteId', in: 'path' as const, required: true, schema: { type: 'string' as const } }, actorHeader],
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -758,7 +759,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     const existing = await db.tasks.findNote(task.id, c.req.param('noteId'))
     if (!existing) throw new HTTPException(404, { message: `no note '${c.req.param('noteId')}'` })
     const principal = principalOf(c)
-    if (existing.actor && principal.actor && existing.actor !== principal.actor && principal.kind !== 'operator') {
+    if (existing.actor && principal.actor && existing.actor !== principal.actor && principal.actorKind === 'agent') {
       throw new OverrideRefused('only the author can edit this note')
     }
     const body = NoteBody.parse(await c.req.json())
@@ -768,7 +769,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.patch('/tasks/:ref/comments/:noteId', documentRoute({
-    tag: 'Tasks', operationId: 'updateTaskComment', capability: 'task:write', summary: 'Edit a local comment',
+    tag: 'Tasks', operationId: 'updateTaskComment', permission: 'task:write', summary: 'Edit a local comment',
     request: NoteBody, response: TaskNote, parameters: [refParameter, { name: 'noteId', in: 'path' as const, required: true, schema: { type: 'string' as const } }, actorHeader],
     errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -777,14 +778,14 @@ export function taskRoutes(deps: AppDeps): Hono {
     const existing = await db.tasks.findNote(task.id, c.req.param('noteId'))
     if (!existing) throw new HTTPException(404, { message: `no comment '${c.req.param('noteId')}'` })
     const principal = principalOf(c)
-    if (existing.actor && principal.actor && existing.actor !== principal.actor && principal.kind !== 'operator') throw new OverrideRefused('only the author can edit this comment')
+    if (existing.actor && principal.actor && existing.actor !== principal.actor && principal.actorKind === 'agent') throw new OverrideRefused('only the author can edit this comment')
     const updated = await db.tasks.updateNote(task.id, existing.id, NoteBody.parse(await c.req.json()).body)
     if (!updated) throw new HTTPException(404, { message: `no comment '${existing.id}'` })
     return c.json(noteView(updated))
   })
 
   app.delete('/tasks/:ref/notes/:noteId', documentRoute({
-    tag: 'Tasks', operationId: 'deleteTaskNote', capability: 'task:write', summary: 'Delete a local note',
+    tag: 'Tasks', operationId: 'deleteTaskNote', permission: 'task:write', summary: 'Delete a local note',
     response: z.object({ ok: z.boolean(), removed: z.string() }).strict(),
     parameters: [refParameter, { name: 'noteId', in: 'path' as const, required: true, schema: { type: 'string' as const } }, actorHeader],
     errors: [400, 403, 404, 500, 503],
@@ -794,7 +795,7 @@ export function taskRoutes(deps: AppDeps): Hono {
     const existing = await db.tasks.findNote(task.id, c.req.param('noteId'))
     if (!existing) throw new HTTPException(404, { message: `no note '${c.req.param('noteId')}'` })
     const principal = principalOf(c)
-    if (existing.actor && principal.actor && existing.actor !== principal.actor && principal.kind !== 'operator') {
+    if (existing.actor && principal.actor && existing.actor !== principal.actor && principal.actorKind === 'agent') {
       throw new OverrideRefused('only the author can delete this note')
     }
     await db.tasks.removeNote(task.id, existing.id)
@@ -802,7 +803,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.delete('/tasks/:ref/comments/:noteId', documentRoute({
-    tag: 'Tasks', operationId: 'deleteTaskComment', capability: 'task:write', summary: 'Delete a local comment',
+    tag: 'Tasks', operationId: 'deleteTaskComment', permission: 'task:write', summary: 'Delete a local comment',
     response: z.object({ ok: z.boolean(), removed: z.string() }).strict(),
     parameters: [refParameter, { name: 'noteId', in: 'path' as const, required: true, schema: { type: 'string' as const } }, actorHeader],
     errors: [400, 403, 404, 500, 503],
@@ -812,13 +813,13 @@ export function taskRoutes(deps: AppDeps): Hono {
     const existing = await db.tasks.findNote(task.id, c.req.param('noteId'))
     if (!existing) throw new HTTPException(404, { message: `no comment '${c.req.param('noteId')}'` })
     const principal = principalOf(c)
-    if (existing.actor && principal.actor && existing.actor !== principal.actor && principal.kind !== 'operator') throw new OverrideRefused('only the author can delete this comment')
+    if (existing.actor && principal.actor && existing.actor !== principal.actor && principal.actorKind === 'agent') throw new OverrideRefused('only the author can delete this comment')
     await db.tasks.removeNote(task.id, existing.id)
     return c.json({ ok: true, removed: existing.id })
   })
 
   app.post('/projects/:slug/tasks/import', documentRoute({
-    tag: 'Tasks', operationId: 'importProjectTasks', capability: 'task:write',
+    tag: 'Tasks', operationId: 'importProjectTasks', permission: 'task:write',
     summary: 'Import a versioned task document',
     description: 'Reconciles by source_key. Repository, environment and parent are names, never database ids.',
     request: ExampleDocument, response: z.object({ project: z.string(), created: z.number(), updated: z.number(), tasks: z.array(Task) }).strict(),
@@ -830,7 +831,7 @@ export function taskRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/projects/:slug/tasks/export', documentRoute({
-    tag: 'Tasks', operationId: 'exportProjectTasks', capability: 'task:read',
+    tag: 'Tasks', operationId: 'exportProjectTasks', permission: 'task:read',
     summary: 'Export the project tasks as a versioned document',
     response: ExampleDocument, parameters: [slugParameter], errors: [404, 500, 503],
   }), async (c) => {
@@ -844,7 +845,7 @@ export function taskRoutes(deps: AppDeps): Hono {
    * manual link always wins over an inferred one.
    */
   app.put('/tasks/:ref/environments', documentRoute({
-    tag: 'Tasks', operationId: 'setTaskEnvironments', capability: 'task:write',
+    tag: 'Tasks', operationId: 'setTaskEnvironments', permission: 'task:write',
     summary: 'Link a task to the environments it is worked in',
     request: EnvironmentsBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {

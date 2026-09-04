@@ -30,7 +30,7 @@ export function gatewayRoutes(deps: AppDeps): Hono {
   const app = new Hono()
 
   app.get('/gateway', documentRoute({
-    tag: 'Gateway', operationId: 'getGateway', capability: 'gateway:read', summary: 'Get gateway component status',
+    tag: 'Gateway', operationId: 'getGateway', permission: 'gateway:read', summary: 'Get gateway component status',
     response: GatewayStatus, errors: [500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get()
@@ -41,7 +41,7 @@ export function gatewayRoutes(deps: AppDeps): Hono {
   // the deeper, host-level tool: it sees PATH, listening sockets, DNS and the
   // certificate files, which this process cannot.
   app.post('/gateway/doctor', documentRoute({
-    tag: 'Gateway', operationId: 'runGatewayDoctor', capability: 'gateway:read', summary: 'Run container-visible diagnostics',
+    tag: 'Gateway', operationId: 'runGatewayDoctor', permission: 'gateway:read', summary: 'Run container-visible diagnostics',
     response: DoctorResponse, errors: [403, 500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get(true)
@@ -73,7 +73,7 @@ export function gatewayRoutes(deps: AppDeps): Hono {
    * rather than pretending otherwise.
    */
   app.post('/gateway/restart', documentRoute({
-    tag: 'Gateway', operationId: 'restartGateway', capability: 'gateway:operate', summary: 'Restart selected gateway components',
+    tag: 'Gateway', operationId: 'restartGateway', permission: 'gateway:operate', summary: 'Restart selected gateway components',
     response: RestartResponse, request: restartBody, errors: [400, 403, 409, 500, 502],
   }), async (c) => {
     const body = await c.req.json().catch(() => ({}))
@@ -117,7 +117,7 @@ export function gatewayRoutes(deps: AppDeps): Hono {
    * anything held here is gone before there is a result to report.
    */
   app.get('/gateway/apply', documentRoute({
-    tag: 'Gateway', operationId: 'getApplyStatus', capability: 'gateway:read', summary: 'Get the state of the last settings apply',
+    tag: 'Gateway', operationId: 'getApplyStatus', permission: 'gateway:read', summary: 'Get the state of the last settings apply',
     response: ApplyStatus,
     parameters: [{
       name: 'logs', in: 'query', required: false,
@@ -141,7 +141,7 @@ export function gatewayRoutes(deps: AppDeps): Hono {
    * fixed when the host created the container.
    */
   app.post('/gateway/apply', documentRoute({
-    tag: 'Gateway', operationId: 'applySettings', capability: 'gateway:operate', summary: 'Apply saved settings by starting the applier',
+    tag: 'Gateway', operationId: 'applySettings', permission: 'gateway:operate', summary: 'Apply saved settings by starting the applier',
     response: ApplyResult, errors: [403, 404, 409, 500, 502],
   }), async (c) => {
     const snapshot = await deps.cache.get(true)
@@ -185,12 +185,12 @@ export function gatewayRoutes(deps: AppDeps): Hono {
    * rebuilding it: this is the verdict, not a replacement view.
    */
   app.get('/gateway/traefik', documentRoute({
-    tag: 'Gateway', operationId: 'getTraefikVerdict', capability: 'gateway:read', summary: "Get Traefik's routing table", response: TraefikVerdict,
+    tag: 'Gateway', operationId: 'getTraefikVerdict', permission: 'gateway:read', summary: "Get Traefik's routing table", response: TraefikVerdict,
     errors: [500, 502],
   }), async (c) => c.json(await deps.verdict.get()))
 
   app.get('/gateway/logs', documentRoute({
-    tag: 'Gateway', operationId: 'getGatewayLogs', capability: 'gateway:read', summary: 'Read gateway component logs', response: LogsResponse,
+    tag: 'Gateway', operationId: 'getGatewayLogs', permission: 'gateway:read', summary: 'Read gateway component logs', response: LogsResponse,
     parameters: [
       { name: 'component', in: 'query', required: false, description: 'Gateway component name.', schema: { type: 'string', enum: [...RESTARTABLE_COMPONENTS], default: 'traefik' } },
       tailParameter,

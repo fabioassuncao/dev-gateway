@@ -75,6 +75,16 @@ export interface DatabaseBackend {
 }
 
 export class Database {
+  /**
+   * The Drizzle handle itself, for Better Auth.
+   *
+   * Every other consumer goes through a repository, which is what keeps the
+   * queries in one place. Better Auth is the exception on purpose: it owns its
+   * own tables and issues its own statements through an adapter, so handing it
+   * a repository would mean reimplementing the library.
+   */
+  readonly handle: Db
+
   readonly environments: EnvironmentsRepository
   readonly projects: ProjectsRepository
   readonly repositories: RepositoriesRepository
@@ -96,6 +106,7 @@ export class Database {
 
   constructor(db: Db, backend: DatabaseBackend) {
     this.backend = backend
+    this.handle = db
     this.environments = new EnvironmentsRepository(db)
     this.projects = new ProjectsRepository(db)
     this.repositories = new RepositoriesRepository(db)

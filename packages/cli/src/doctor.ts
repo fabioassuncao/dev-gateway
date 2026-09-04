@@ -335,7 +335,7 @@ export async function runDoctor(context: GatewayContext): Promise<DoctorCheck[]>
     add(check('dashboard.expose', 'fail', 'traefik dashboard routing', dashboardRefusal,
       'set PORTTA_DASHBOARD_EXPOSE=local, or run portta web auth set and give the host a domain'))
   } else if (config.dashboardEnabled && config.dashboardExpose === 'domain') {
-    add(check('dashboard.expose', 'pass', 'traefik dashboard routing', `routed on ${config.dashboardAdvertisedHost}, behind portta-web-auth`))
+    add(check('dashboard.expose', 'pass', 'traefik dashboard routing', `routed on ${config.dashboardAdvertisedHost}`))
   }
 
   // --- the panel's front door ----------------------------------------------
@@ -468,7 +468,7 @@ export async function runDoctor(context: GatewayContext): Promise<DoctorCheck[]>
     if (env['PORTTA_WEB_EXPOSE'] === 'domain') {
       const advertised = env['PORTTA_PANEL_ADVERTISED_HOST'] ?? ''
       add(config.tlsEnabled
-        ? check('web.expose', 'pass', 'web panel routing', `routed on ${advertised} over HTTPS, behind portta-web-auth`)
+        ? check('web.expose', 'pass', 'web panel routing', `routed on ${advertised} over HTTPS`)
         : check('web.expose', 'fail', 'web panel routing', 'routed on the domain with TLS off, so the credential crosses in clear text',
             'portta config set tls.enabled true'))
       if (config.githubAppEnabled) {

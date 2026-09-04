@@ -177,8 +177,7 @@ file or stdin.
 | `web up`, `web dev` | `--expose local|vpn`, `--port`, `--read-only`, `--writable` |
 | `web down|disable|restart|status|open|build` | Global flags only. |
 | `web logs [service]` | `web`, `web-ui`, `web-socket-proxy` or `db`. |
-| `web auth status|clear|apply` | Global flags only. |
-| `web auth set` | `--user`, `--password-stdin`; generated passwords are shown once and only a scrypt hash is stored in the private auth store. |
+| `auth bootstrap` | `--name`, `--email`, `--password-stdin`; creates the panel owner, once. The password is only ever read from stdin. |
 | `auth protect <host>` | `--user`, `--password-stdin`, `--project`, `--service`; creates or rotates a protected-host record. |
 | `auth status [host]` | Read-only; never returns credential hashes. |
 | `auth unprotect <host>` | Removes the record; the consumer project's middleware label is unchanged. |
@@ -247,7 +246,6 @@ Every read command accepts the global `--json`. Stable top-level fields are:
 | `access list` | `bridges[]` (`id`, `project`, `service`, `target_port`, `local_port`, `kind`, `expires`, `bind`, `network`, `state`) |
 | `service list` | `forwarders[]` |
 | `web status` | `enabled`, `devMode`, `readOnly`, `expose`, `url`, `panel`, `socketProxy` |
-| `web auth status` | `expose`, `mode`, `user`, `hashSet`, `middleware` |
 | `network status` | `instance`, `bindAddress`, `publicIp`, `bindings`, `publicBindings` |
 | `public status` | `enabled`, `profile`, `domain`, `bindAddress` |
 | `dns check` | `domain`, `hostname`, `addresses`, `resolves` |

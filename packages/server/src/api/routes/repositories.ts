@@ -17,7 +17,7 @@ import { discoveredRepositories, environmentsOf, loadScans, toRepository } from 
 import { Commit, DiscoveredRepository, InstructionFile, Repository, RepositoryGit, RouteUrl } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 import { recordActivity } from '../../services/activity.ts'
-import { principalOf } from '../principal.ts'
+import { principalOf } from 'portta-auth-core/hono'
 
 const slugParameter = {
   name: 'slug', in: 'path' as const, required: true,
@@ -131,7 +131,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
   }
 
   app.get('/repositories/discovered', documentRoute({
-    tag: 'Repositories', operationId: 'listDiscoveredRepositories', capability: 'repository:read',
+    tag: 'Repositories', operationId: 'listDiscoveredRepositories', permission: 'repository:read',
     summary: 'Git roots the host scanned that no Project has registered',
     description: 'From the host scan index (portta repos scan). What "Add repository" offers. Empty when nothing was scanned.',
     response: DiscoveredResponse, errors: [500, 503],
@@ -142,7 +142,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/projects/:slug/repositories', documentRoute({
-    tag: 'Repositories', operationId: 'listProjectRepositories', capability: 'repository:read',
+    tag: 'Repositories', operationId: 'listProjectRepositories', permission: 'repository:read',
     summary: "List a Project's repositories",
     description: 'Registered repositories joined with what the host scan collected: branch, HEAD, dirty state, the environments running from each.',
     response: RepositoriesResponse, parameters: [slugParameter], errors: [404, 500, 503],
@@ -156,7 +156,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/projects/:slug/repositories', documentRoute({
-    tag: 'Repositories', operationId: 'createRepository', capability: 'repository:write',
+    tag: 'Repositories', operationId: 'createRepository', permission: 'repository:manage',
     summary: 'Register a repository on a Project',
     description: 'From a scanned root (scanKey), from the GitHub App projection (githubRepositoryId or githubFullName), or by hand. A GitHub repository belongs to one Project. Nothing is cloned, moved or fetched.',
     request: CreateBody, response: Repository, status: 201,
@@ -191,7 +191,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/repositories/:id', documentRoute({
-    tag: 'Repositories', operationId: 'getRepository', capability: 'repository:read', summary: 'Get one repository',
+    tag: 'Repositories', operationId: 'getRepository', permission: 'repository:read', summary: 'Get one repository',
     response: Repository, parameters: [idParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -200,7 +200,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
   })
 
   app.patch('/repositories/:id', documentRoute({
-    tag: 'Repositories', operationId: 'patchRepository', capability: 'repository:write', summary: 'Rename, place, re-point or re-link a repository',
+    tag: 'Repositories', operationId: 'patchRepository', permission: 'repository:manage', summary: 'Rename, place, re-point or re-link a repository',
     description: 'githubFullName or githubRepositoryId links the GitHub projection row; null unlinks it. Nothing on the host changes.',
     request: PatchBody, response: Repository, parameters: [idParameter], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -226,7 +226,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
   })
 
   app.delete('/repositories/:id', documentRoute({
-    tag: 'Repositories', operationId: 'deleteRepository', capability: 'repository:write', summary: 'Unregister a repository',
+    tag: 'Repositories', operationId: 'deleteRepository', permission: 'repository:manage', summary: 'Unregister a repository',
     description: 'Removes the registration only. The clone on the host, the remote and the GitHub repository are untouched.',
     response: Removal, parameters: [idParameter], errors: [403, 404, 500, 503],
   }), async (c) => {
@@ -246,7 +246,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
   }
 
   app.get('/repositories/:id/git', documentRoute({
-    tag: 'Repositories', operationId: 'getRepositoryGit', capability: 'repository:read',
+    tag: 'Repositories', operationId: 'getRepositoryGit', permission: 'repository:read',
     summary: 'Everything the host scan collected about a repository',
     description: 'Branch, HEAD, working tree, ahead/behind, remote, recent commits, instruction files and pull requests. A snapshot with an age; never live.',
     response: RepositoryGit, parameters: [idParameter], errors: [404, 500, 503],
@@ -257,7 +257,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/repositories/:id/commits', documentRoute({
-    tag: 'Repositories', operationId: 'listRepositoryCommits', capability: 'repository:read', summary: 'Recent commits, most recent first',
+    tag: 'Repositories', operationId: 'listRepositoryCommits', permission: 'repository:read', summary: 'Recent commits, most recent first',
     response: CommitsResponse, parameters: [idParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -266,7 +266,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/repositories/:id/instructions', documentRoute({
-    tag: 'Repositories', operationId: 'listRepositoryInstructions', capability: 'repository:read',
+    tag: 'Repositories', operationId: 'listRepositoryInstructions', permission: 'repository:read',
     summary: 'The instruction files an agent reads in this repository',
     description: 'AGENTS.md, CLAUDE.md, .cursor/rules and the rest of the allowlist, with content when it fits the bound and whether the working tree differs from HEAD.',
     response: InstructionsResponse, parameters: [idParameter], errors: [404, 500, 503],
@@ -277,7 +277,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/repositories/:id/environments', documentRoute({
-    tag: 'Repositories', operationId: 'listRepositoryEnvironments', capability: 'repository:read',
+    tag: 'Repositories', operationId: 'listRepositoryEnvironments', permission: 'repository:read',
     summary: 'The environments running from this repository',
     response: EnvironmentsResponse, parameters: [idParameter], errors: [404, 500, 503],
   }), async (c) => {

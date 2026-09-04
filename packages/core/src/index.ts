@@ -26,7 +26,6 @@ export * from './runner.ts'
 export * from './shares.ts'
 export * from './tunnel.ts'
 export * from './activity.ts'
-export * from "./capabilities-api.ts"
 export * from './repos-scan.ts'
 export * from './tasks.ts'
 export * from './task-example.ts'

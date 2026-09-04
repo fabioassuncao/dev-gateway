@@ -824,9 +824,9 @@ const GatewayPublicAccess = z.object({ enabled: z.boolean(), domain: z.string().
 const GatewayPanel = z.object({
   expose: z.string(),
   routed: z.boolean(),
+  /** `disabled` or `required`: whether the panel asks who you are. */
   auth: z.string(),
   authenticated: z.boolean(),
-  user: z.string(),
   readOnly: z.boolean(),
   /** Whether this panel serves the documentation, so the UI never links to a 404. */
   docs: z.boolean(),
@@ -1524,11 +1524,6 @@ export const ConfigPatchResult = named(
     saved: z.array(z.string()),
     pendingRestart: z.boolean(),
     applyCommand: z.string(),
-    dynamic: z.object({
-      file: z.string(),
-      written: z.boolean(),
-      reason: z.string(),
-    }).strict().optional().describe('Present when saving also rewrote a generated Traefik file'),
     view: ConfigView,
   }).strict(),
   'ConfigPatchResult',

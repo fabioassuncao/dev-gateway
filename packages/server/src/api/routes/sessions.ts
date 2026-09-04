@@ -10,7 +10,7 @@ import { StartSession, UpdateSession } from '../../db/work-sessions.ts'
 import { OverrideRefused } from '../../services/overrides.ts'
 import { loadNames, sessionView } from '../../services/activity-view.ts'
 import { recordActivity } from '../../services/activity.ts'
-import { principalOf } from '../principal.ts'
+import { principalOf } from 'portta-auth-core/hono'
 import { Session } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 import { actorHeader } from './tasks.ts'
@@ -50,7 +50,7 @@ export function sessionRoutes(deps: AppDeps): Hono {
   }
 
   app.get('/projects/:slug/sessions', documentRoute({
-    tag: 'Sessions', operationId: 'listProjectSessions', capability: 'activity:read', summary: "A Project's sessions, most recent first",
+    tag: 'Sessions', operationId: 'listProjectSessions', permission: 'worksession:read', summary: "A Project's sessions, most recent first",
     response: SessionsResponse, parameters: [slugParameter, { name: 'active', in: 'query', required: false, description: 'true for active sessions only.', schema: { type: 'string' } }],
     errors: [404, 500, 503],
   }), async (c) => {
@@ -63,7 +63,7 @@ export function sessionRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/projects/:slug/sessions', documentRoute({
-    tag: 'Sessions', operationId: 'startSession', capability: 'session:write', summary: 'Start a session',
+    tag: 'Sessions', operationId: 'startSession', permission: 'worksession:write', summary: 'Start a session',
     description: 'The actor is X-Portta-Actor, or the operator. An agent’s session is an agent session.',
     request: StartSessionBody, response: Session, status: 201, parameters: [slugParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -78,7 +78,7 @@ export function sessionRoutes(deps: AppDeps): Hono {
       if (!task || task.projectId !== project.id) throw new OverrideRefused('that task does not belong to this Project')
     }
     const actor = principal.actor ?? 'operator'
-    const row = await db.sessions.start(project.id, { ...rest, ...(environmentId !== undefined ? { environmentId } : {}), agent: rest.agent ?? (principal.kind === 'agent' ? principal.actor : null) }, actor, principal.actorKind)
+    const row = await db.sessions.start(project.id, { ...rest, ...(environmentId !== undefined ? { environmentId } : {}), agent: rest.agent ?? (principal.actorKind === 'agent' ? principal.actor : null) }, actor, principal.actorKind)
     await recordActivity({ db, hub: deps.hub }, {
       kind: 'session.started', actor, actorKind: principal.actorKind, project: project.slug,
       projectId: project.id, taskId: row.taskId, repositoryId: row.repositoryId, environmentId: row.environmentId, sessionId: row.id,
@@ -89,12 +89,12 @@ export function sessionRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/sessions/:id', documentRoute({
-    tag: 'Sessions', operationId: 'getSession', capability: 'activity:read', summary: 'One session',
+    tag: 'Sessions', operationId: 'getSession', permission: 'worksession:read', summary: 'One session',
     response: Session, parameters: [idParameter], errors: [404, 500, 503],
   }), async (c) => c.json(await present(requireDatabase(deps.db), c.req.param('id'))))
 
   app.patch('/sessions/:id', documentRoute({
-    tag: 'Sessions', operationId: 'updateSession', capability: 'session:write', summary: 'Heartbeat, end, or describe a session',
+    tag: 'Sessions', operationId: 'updateSession', permission: 'worksession:write', summary: 'Heartbeat, end, or describe a session',
     description: 'Any patch is a heartbeat. Only the session’s own actor, or the operator, may end it.',
     request: UpdateSessionBody, response: Session, parameters: [idParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -103,7 +103,7 @@ export function sessionRoutes(deps: AppDeps): Hono {
     if (!current) throw new HTTPException(404, { message: `no session '${c.req.param('id')}'` })
     const body = UpdateSessionBody.parse(await c.req.json().catch(() => ({})))
     const principal = principalOf(c)
-    if (body.status && body.status !== 'active' && principal.kind === 'agent' && principal.actor !== current.actor) {
+    if (body.status && body.status !== 'active' && principal.actorKind === 'agent' && principal.actor !== current.actor) {
       throw new HTTPException(403, { message: `only ${current.actor} or the operator may end this session` })
     }
     const wasActive = current.status === 'active'

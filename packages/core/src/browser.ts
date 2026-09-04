@@ -13,7 +13,6 @@
 
 export * from './activity.ts'
 export * from './capabilities.ts'
-export * from './capabilities-api.ts'
 export * from './discovery.ts'
 export * from './domain.ts'
 export * from './endpoints.ts'

@@ -12,7 +12,7 @@ import { HTTPException } from 'hono/http-exception'
 import { nextTask, type SchedulableTask } from 'portta-core'
 import type { AppDeps } from '../../deps.ts'
 import { documentRoute, projectParameter } from '../openapi.ts'
-import { principalOf } from '../principal.ts'
+import { principalOf } from 'portta-auth-core/hono'
 import { requireDatabase, type Database } from '../../db/index.ts'
 import type { TaskRow } from '../../db/tasks.ts'
 import { applyOverrides, loadOverrides } from '../../services/overrides.ts'
@@ -70,19 +70,19 @@ export function developmentRoutes(deps: AppDeps): Hono {
   // --- the consolidated Service ---------------------------------------------
 
   app.get('/environments/:project/services', documentRoute({
-    tag: 'Environments', operationId: 'listEnvironmentServices', capability: 'service:read',
+    tag: 'Environments', operationId: 'listEnvironmentServices', permission: 'service:read',
     summary: 'The services of one environment, consolidated',
     description: 'Each service with its state, health, access (endpoints, bridge, primary address), resources from the host collector, runtime and the actions that apply. What used to be three views is one row.',
     response: EnvironmentServices, parameters: [projectParameter], errors: [404, 500, 502],
   }), async (c) => {
     const environment = await environmentNamed(c.req.param('project'))
     const snapshot = await deps.cache.get()
-    const readOnly = principalOf(c).readOnly
+    const readOnly = !principalOf(c).permissions.has('environment:operate')
     return c.json(environmentServices(environment, deps.config, readCurrentMetrics(deps.config), listBridges(snapshot), { readOnly }))
   })
 
   app.post('/environments/:project/services/:service/actions/:action', documentRoute({
-    tag: 'Environments', operationId: 'runServiceAction', capability: 'environment:operate',
+    tag: 'Environments', operationId: 'runServiceAction', permission: 'service:operate',
     summary: 'Start, stop or restart one service of an environment',
     description: 'Resolves the service to its container and runs the same guarded action the Docker endpoints run. Gateway components are refused.',
     response: ActionResult, parameters: [projectParameter, serviceParameter, { name: 'action', in: 'path', required: true, schema: { type: 'string', enum: [...ServiceAction.options] } }],
@@ -115,7 +115,7 @@ export function developmentRoutes(deps: AppDeps): Hono {
   // --- the Development Context ------------------------------------------------
 
   app.get('/projects/:slug/context', documentRoute({
-    tag: 'Projects', operationId: 'getProjectContext', capability: 'project:read',
+    tag: 'Projects', operationId: 'getProjectContext', permission: 'project:read',
     summary: 'The Development Context of a project, for an agent about to work',
     description: 'The project, its repositories with their git state and instruction files, the environments with their services and commands, the work in progress and the next task, the effective instructions, and the CLI verbs that matter. Name a task with ?task= to include it.',
     response: DevelopmentContext, parameters: [slugParameter, { name: 'task', in: 'query', required: false, description: 'A task id to include in full.', schema: { type: 'string' } }],
@@ -130,7 +130,7 @@ export function developmentRoutes(deps: AppDeps): Hono {
     const metrics = readCurrentMetrics(deps.config)
     const bridges = listBridges(snapshot)
     const principal = principalOf(c)
-    const services = new Map(environments.map((environment) => [environment.name, environmentServices(environment, deps.config, metrics, bridges, { readOnly: principal.readOnly })]))
+    const services = new Map(environments.map((environment) => [environment.name, environmentServices(environment, deps.config, metrics, bridges, { readOnly: !principal.permissions.has('environment:operate') })]))
 
     const rows = await db.tasks.list({ projectId: project.id, open: true })
     const ctx = await loadTaskContext(deps.config, db, snapshot)
@@ -147,7 +147,7 @@ export function developmentRoutes(deps: AppDeps): Hono {
     return c.json(buildContext({
       now: Date.now(),
       actor: principal.actor,
-      capabilities: [...principal.capabilities],
+      permissions: [...principal.permissions].sort(),
       project,
       task,
       inProgress: summaries.filter((summary) => summary.status === 'in_progress'),
@@ -161,7 +161,7 @@ export function developmentRoutes(deps: AppDeps): Hono {
   // --- attributed resources ---------------------------------------------------
 
   app.get('/projects/:slug/resources', documentRoute({
-    tag: 'Projects', operationId: 'getProjectResources', capability: 'metrics:read',
+    tag: 'Projects', operationId: 'getProjectResources', permission: 'metrics:read',
     summary: "A project's resource usage, attributed through its environments",
     description: 'Host → Project → Environment → Container, summed from the collector over the environments this project adopted. Unattributed usage is not counted here.',
     response: ProjectResources, parameters: [slugParameter], errors: [404, 500, 503],
@@ -202,7 +202,7 @@ export function developmentRoutes(deps: AppDeps): Hono {
   // --- the Development Dashboard ----------------------------------------------
 
   app.get('/overview', documentRoute({
-    tag: 'Status', operationId: 'getDevelopmentOverview', capability: 'project:read',
+    tag: 'Status', operationId: 'getDevelopmentOverview', permission: 'project:read',
     summary: 'The Development Dashboard: what is happening on this host',
     description: 'Work in progress, active sessions, what needs attention, each project at a glance, recent code, the runtime and the resources. Without a database the work, session and project sections are empty and everything else still answers.',
     response: DevelopmentOverview, errors: [500, 502],

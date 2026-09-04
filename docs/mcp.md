@@ -50,26 +50,26 @@ claude mcp add portta -- portta mcp --actor claude-code
 | `--url <url>`, `PORTTA_URL` | The panel API base. Defaults to `http://127.0.0.1:<PORTTA_WEB_PORT>`; `PORTTA_PANEL_URL` is a compatibility alias |
 | `--allow-remote` | Permit a non-loopback panel URL. **Required** for one: that URL is where the panel credential would be sent |
 | `--actor <name>`, `PORTTA_MCP_ACTOR` | Sent on every call as `X-Portta-Actor`. Recorded on tasks, notes, sessions and activity; never forwarded to GitHub |
-| `PORTTA_WEB_AUTH_USER` + `PORTTA_PANEL_PASSWORD` | The panel credential, when the panel is authenticated |
-| `PORTTA_TOKEN` | Preferred non-interactive Bearer credential; the token supplies the authenticated actor and capabilities |
+| `PORTTA_TOKEN` | The Bearer credential a protected panel needs. The token names its owner, and what it holds is the intersection of its scopes and their role |
 
 `portta mcp` refuses a non-loopback panel URL unless you pass `--allow-remote`,
 because that URL is where a credential goes.
 
 ## What the actor means
 
-`X-Portta-Actor` is self-declared. It does not authenticate anything — the
-panel credential did that — it says *which* caller behind that credential
-this is. Two things follow:
+`X-Portta-Actor` is self-declared. It does not authenticate anything — a token
+or a session does that — it says *which* caller this is. Two things follow:
 
 - every task, note, session and activity event carries the name, so a person
   reading the panel from elsewhere can tell what an agent did;
-- an agent that announces itself holds the capabilities of the
-  `agentCapabilities` setting rather than the operator's. By default that is
-  everything except destroying an environment or a container, writing the
-  gateway configuration, and opening a network path. A refused call answers
-  `not permitted` with the capability named. See
-  [ADR 0032](adr/0032-portta-development-model.md).
+- on a panel with `PORTTA_AUTH_MODE=disabled`, an agent that announces itself
+  holds the `agentPermissions` setting rather than everything. By default that
+  is a developer minus the three things that change how the panel behaves:
+  `environment:settings`, `repository:manage` and `github:sync`. A refused call
+  answers `403` with the permission named. On a protected panel the token
+  decides instead, and the header is attribution alone. See
+  [ADR 0032](adr/0032-portta-development-model.md) and
+  [ADR 0035](adr/0035-authentication-lives-in-the-panel.md).
 
 ## The tools
 

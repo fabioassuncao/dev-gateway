@@ -35,6 +35,7 @@ import { GatewayStatusDot } from '@/components/gateway-status-dot'
 import { ConnectionBanner } from '@/components/connection-banner'
 import { ApplyBar } from '@/components/apply-bar'
 import { CommandPalette } from '@/components/command-palette'
+import { UserMenu } from './user-menu'
 import { NAV_GROUPS, activeHref } from './nav'
 import { useSidebarCollapsed } from './use-sidebar'
 
@@ -134,6 +135,7 @@ function ShellControls({
           {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
         </button>
       </Tooltip>
+      <UserMenu />
     </div>
   )
 }

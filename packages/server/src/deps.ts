@@ -5,6 +5,7 @@ import type { LiveHub } from './realtime/hub.ts'
 import type { VerdictCache } from './services/traefik.ts'
 import type { Database } from './db/index.ts'
 import type { GitHubIntegration } from './services/integrations/github/index.ts'
+import type { Auth, PrincipalResolver, SecurityConfig } from 'portta-auth-core'
 
 export interface AppDeps {
   config: PanelConfig
@@ -21,4 +22,13 @@ export interface AppDeps {
   db: Database
   /** Optional by design: every pre-integration endpoint works with null. */
   github: GitHubIntegration | null
+  /** Whether the panel asks who you are, decided once at boot. */
+  security: SecurityConfig
+  /**
+   * Better Auth, or null in `open` mode where it is never built: there is
+   * nothing to sign in to, and `/api/auth/*` answers 404 except for the status.
+   */
+  auth: Auth | null
+  /** Who a request is, from what it carries. The one answer the API trusts. */
+  principals: PrincipalResolver
 }

@@ -12,7 +12,7 @@ import { reposClear, reposScan, reposStatus } from './commands/repos.js'
 import { hostCollect, hostStatus, hostWatch } from './commands/host.js'
 import { configGet, configList, configSet } from './commands/config.js'
 import { setupCommand } from './commands/setup.js'
-import { authProtect, authStatus, authTokenCreate, authTokenList, authTokenRevoke, authUnprotect } from './commands/auth.js'
+import { authBootstrap, authProtect, authStatus, authUnprotect } from './commands/auth.js'
 import { shareGc, shareList, shareRevoke } from './commands/share.js'
 import { tlsInit, tlsStatus, tlsTrust, tlsUntrust } from './commands/tls.js'
 import { backupCommand, repairCommand, restoreCommand } from './commands/maintenance.js'
@@ -24,7 +24,7 @@ import { sessionsEnd, sessionsHeartbeat, sessionsList, sessionsStart } from './c
 import { activityCommand } from './commands/activity.js'
 import { remoteAccessClose, remoteAccessList, remoteAccessOpen, remoteBootstrap, remoteExec, remoteGateway } from './commands/remote.js'
 import { tunnelDisable, tunnelEnable, tunnelLogs, tunnelSetup, tunnelStatus, tunnelTest } from './commands/tunnel.js'
-import { legacy, webAuthApply, webAuthClear, webAuthSet, webAuthStatus, webBuild, webDisable, webDown, webLogs, webOpen, webRestart, webStatus, webUp } from './commands/web.js'
+import { legacy, webBuild, webDisable, webDown, webLogs, webOpen, webRestart, webStatus, webUp } from './commands/web.js'
 import { CLI_VERSION } from './version.js'
 
 const VERSION = CLI_VERSION
@@ -163,11 +163,6 @@ describe(web.command('status'), 'Show panel state and URL').action((_options, co
 describe(web.command('open'), 'Print and open the panel URL').action((_options, command) => webOpen(command))
 describe(web.command('logs [service]'), 'Follow panel logs').action((service, _options, command) => webLogs(service, command))
 describe(web.command('build'), 'Build the panel image').action((_options, command) => webBuild(command))
-const webAuth = describe(web.command('auth'), 'Manage the panel login credential')
-describe(webAuth.command('status', { isDefault: true }), 'Show panel authentication').action((_options, command) => webAuthStatus(command))
-describe(webAuth.command('set'), 'Generate or read a password and store only its hash').option('--user <name>').option('--password-stdin').action(webAuthSet)
-describe(webAuth.command('clear'), 'Remove the credential while the panel is local').action((_options, command) => webAuthClear(command))
-describe(webAuth.command('apply'), 'Render the middleware from .env').action((_options, command) => webAuthApply(command))
 
 const config = describe(program.command('config'), 'Read and change settings on an installed gateway')
 describe(config.command('list', { isDefault: true }).alias('ls'), 'List the named settings and their values').action((_options, command) => configList(command))
@@ -193,17 +188,16 @@ describe(share.command('list'), 'List shares').action((_options, command) => sha
 describe(share.command('revoke <id>'), 'Revoke one share without touching its project').action((id, _options, command) => shareRevoke(id, command))
 describe(share.command('gc'), 'Remove expired shares').action((_options, command) => shareGc(command))
 
-const auth = describe(program.command('auth'), 'Manage ForwardAuth protection for project hostnames')
+const auth = describe(program.command('auth'), 'The panel owner, and ForwardAuth protection for project hostnames')
+describe(panelOptions(auth.command('bootstrap'), false), 'Create the panel owner, once, from this host')
+  .requiredOption('--name <name>').requiredOption('--email <email>').option('--password-stdin')
+  .action(authBootstrap)
 describe(auth.command('status [host]', { isDefault: true }), 'List protected hosts without credentials').action((host, _options, command) => authStatus(host, command))
 describe(auth.command('protect <host>'), 'Create or rotate a hostname credential')
   .option('--user <name>').option('--password-stdin').option('--entrypoint <name>')
   .option('--label <text>').option('--project <name>').option('--service <name>')
   .action(authProtect)
 describe(auth.command('unprotect <host>'), 'Remove a hostname credential without changing project labels').action((host, _options, command) => authUnprotect(host, command))
-const authToken = describe(auth.command('token'), 'Manage revocable API Bearer tokens')
-describe(panelOptions(authToken.command('list')), 'List API token metadata').action(authTokenList)
-describe(panelOptions(authToken.command('create'), false), 'Create a token; its secret is shown once').requiredOption('--name <name>').requiredOption('--actor <name>', 'actor authenticated by the new token').option('--human').option('--capabilities <a,b>').action(authTokenCreate)
-describe(panelOptions(authToken.command('revoke <id>')), 'Revoke an API token').action(authTokenRevoke)
 
 const db = describe(program.command('db'), 'Panel database operations and project database clients')
 describe(db.command('status'), 'Show panel PostgreSQL state').action((_options, command) => dbStatus(command))

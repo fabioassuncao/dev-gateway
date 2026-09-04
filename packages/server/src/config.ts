@@ -97,14 +97,22 @@ export interface PanelConfig {
   docs: boolean
   /** Where the panel can be reached from: `local` or `vpn`. */
   webExpose: string
-  /** `none`, or the compatibility value `basic` for the Portta ForwardAuth login. */
-  webAuth: string
-  webAuthUser: string
   /**
-   * The apr1/bcrypt hash guarding the panel. Never leaves this process: the API
-   * reports whether it is set, the same way it treats TS_AUTHKEY.
+   * `disabled` or `required`. The panel signs people in itself now; `disabled`
+   * means every request is the local operator, which `packages/auth` allows
+   * only on loopback.
    */
-  webAuthHash: string
+  authMode: string
+  /**
+   * What sessions and tokens are signed with. Never leaves this process and
+   * never appears in a response: the API reports whether it is set, the way it
+   * treats TS_AUTHKEY.
+   */
+  authSecret: string
+  /** The origin a browser reaches the panel on, for cookies and redirects. */
+  panelUrl: string
+  /** Extra origins a browser may send a write from, comma-separated. */
+  panelTrustedOrigins: string
   /** Private credential catalogue shared with the auth process read-only. */
   authStore: string
   panelAdvertisedHost: string | null
@@ -204,9 +212,10 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     apiDocs: false,
     docs: isTrue(env('PORTTA_RUNTIME_DOCS', 'true')),
     webExpose: env('PORTTA_WEB_EXPOSE', 'local'),
-    webAuth: env('PORTTA_WEB_AUTH', 'none'),
-    webAuthUser: env('PORTTA_WEB_AUTH_USER', ''),
-    webAuthHash: env('PORTTA_WEB_AUTH_HASH', ''),
+    authMode: env('PORTTA_AUTH_MODE', 'disabled'),
+    authSecret: env('PORTTA_AUTH_SECRET', ''),
+    panelUrl: env('PORTTA_PANEL_URL', ''),
+    panelTrustedOrigins: env('PORTTA_PANEL_TRUSTED_ORIGINS', ''),
     authStore: env('PORTTA_RUNTIME_AUTH_STORE', '/app/state/auth/protections.json'),
     panelAdvertisedHost: optional('PORTTA_PANEL_ADVERTISED_HOST'),
     webExternalPort: env('PORTTA_WEB_PORT', '8081'),
@@ -267,9 +276,9 @@ export function isRouted(config: PanelConfig): boolean {
   return config.webExpose !== 'local'
 }
 
-/** True when a routed panel has a credential for Portta ForwardAuth. */
-export function isAuthenticated(config: PanelConfig): boolean {
-  return config.webAuth === 'basic' && config.webAuthUser !== '' && config.webAuthHash !== ''
+/** True when the panel asks who you are before answering. */
+export function isProtected(config: PanelConfig): boolean {
+  return config.authMode === 'required' && config.authSecret !== ''
 }
 
 /** The scheme Traefik answers on, given the resolved TLS settings. */

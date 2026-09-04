@@ -8,6 +8,15 @@
 import { createServer } from 'node:http'
 import next from 'next'
 import {
+  AGENT_DEFAULT_PERMISSIONS,
+  ConfigError,
+  createAuth,
+  createPrincipalResolver,
+  hasOwner,
+  resolveSecurityMode,
+  type Permission,
+} from 'portta-auth-core'
+import {
   createApp,
   createCommitWatch,
   createMaintenance,
@@ -19,34 +28,36 @@ import {
   GENERATED_FILES,
   GitHubIntegration,
   intervalMinutes,
-  isAuthenticated,
   LiveHub,
   loadConfig,
-  reconcilePanelProtection,
+  reconcilePanelDynamic,
   type AppDeps,
 } from 'portta-server'
 import { createPortta, type Startable } from './compose.ts'
 import { registerDeps } from '../lib/server/deps.ts'
+import { registerPrincipals } from '../lib/server/principal-registry.ts'
 
 const config = loadConfig()
 const development = process.env['NODE_ENV'] !== 'production'
 
-// The panel's ForwardAuth record and middleware live in state/files Traefik
-// watches. They are reconciled here as well as by `portta web auth set`, so a
-// panel started with a credential in .env is never behind stale protection. A
-// directory the panel cannot write is a diagnostic, not a reason to refuse to
-// start: on Linux it may well belong to another user, and the CLI writes the
-// same file.
-const rendered = reconcilePanelProtection(config, {
-  mode: config.webAuth,
-  user: config.webAuthUser,
-  hash: config.webAuthHash,
-})
-if (rendered.written) {
-  process.stdout.write(`wrote ${GENERATED_FILES.auth}: ${rendered.reason}\n`)
-} else if (config.webAuth === 'basic' && !isAuthenticated(config)) {
-  process.stdout.write('PORTTA_WEB_AUTH=basic without a credential: run portta web auth set\n')
+// Before anything else, because it can refuse to start: `disabled` on an
+// address other than loopback is an open panel on a network, which is a
+// configuration mistake rather than something to warn about and carry on with.
+let security
+try {
+  security = resolveSecurityMode(process.env)
+} catch (error) {
+  if (!(error instanceof ConfigError)) throw error
+  process.stderr.write(`${error.message}\n`)
+  process.exit(1)
 }
+
+// Traefik's two Portta-owned files. Projects and shares still go through
+// ForwardAuth; the panel does not, and a store left by an older Portta is
+// brought in line here. A directory the panel cannot write is a diagnostic, not
+// a reason to refuse to start: on Linux it may well belong to another user.
+const rendered = reconcilePanelDynamic(config)
+if (rendered.written) process.stdout.write(`wrote ${GENERATED_FILES.auth}: ${rendered.reason}\n`)
 
 // PostgreSQL is a boot dependency, not a soft one. A panel that starts without
 // it can show Docker and nothing else, and every write it accepts is lost — so
@@ -99,11 +110,31 @@ const cache = createSnapshotCache(client, config, 1000, (snapshot) =>
 const hub = new LiveHub(client, cache)
 const verdict = createVerdictCache(config)
 
-const deps: AppDeps = { config, client, cache, hub, verdict, db, github }
+// Better Auth is built only when there is something to sign in to. In open
+// mode it is never constructed: every request is already the local operator,
+// and an unused login page is a door with no lock and no wall.
+const auth = security.mode === 'protected'
+  ? createAuth({ db: db.handle, security, hasOwner: () => hasOwner(db.handle) })
+  : null
+
+const principals = createPrincipalResolver({
+  security,
+  db: db.handle,
+  auth,
+  // What an agent holds is a setting, so it is read per request rather than
+  // captured at boot: changing it in the panel takes effect on the next call.
+  agentPermissions: async () => {
+    const stored = await db.settings.getGlobal('agentPermissions').catch(() => null)
+    return Array.isArray(stored) && stored.length > 0 ? (stored as Permission[]) : AGENT_DEFAULT_PERMISSIONS
+  },
+})
+
+const deps: AppDeps = { config, client, cache, hub, verdict, db, github, security, auth, principals }
 
 // Before `next.prepare()`: a page rendered during preparation would otherwise
 // find nothing registered. See lib/server/deps.ts for why this is a global.
 registerDeps(deps)
+registerPrincipals(principals)
 
 // `process.cwd()` is apps/web: `npm run dev`, `next build` and the image's
 // WORKDIR all agree on it, and the bundled entry point has no directory of its
@@ -142,6 +173,12 @@ server.on('upgrade', portta.upgrade)
 server.listen(config.port, config.host, () => {
   process.stdout.write(`portta panel ${config.panelVersion} listening on http://${config.host}:${config.port}\n`)
   process.stdout.write(`docker api: ${config.dockerApi}\n`)
+  process.stdout.write(`authentication: ${security.mode}\n`)
+  if (security.mode === 'protected') {
+    void hasOwner(db.handle).then((owner) => {
+      if (!owner) process.stdout.write(`open ${security.panelUrl.origin}/setup to create the owner\n`)
+    })
+  }
   if (schedule?.running) {
     process.stdout.write(
       `github: reconciling every ${intervalMinutes(process.env['GITHUB_SYNC_INTERVAL_MINUTES'])} minute(s)\n`,

@@ -98,7 +98,7 @@ describe('the development dashboard', () => {
 describe('the development context', () => {
   it('gives an agent the project, its repositories with instructions, environments with commands, and the task text', () => {
     const context = buildContext({
-      now: NOW, actor: 'claude', capabilities: ['task:read'], project, task: null, inProgress: [], next: task({ id: '4' }),
+      now: NOW, actor: 'claude', permissions: ['task:read'], project, task: null, inProgress: [], next: task({ id: '4' }),
       scans: new Map([['abcdef012345', scan]]), environments: [environment('shop')], services: new Map(),
     })
     expect(context.repositories[0]).toMatchObject({ name: 'api', path: '/srv/projects/shop', environments: ['shop'] })

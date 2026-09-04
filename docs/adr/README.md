@@ -39,3 +39,4 @@ context, the decision, and what it costs us.
 | [0032](0032-portta-development-model.md) | The Portta development model: Project, Repository, Task, Session, Activity | Accepted, amends 0010/0013/0018/0031 |
 | [0033](0033-tasks-are-local-issues.md) | Tasks are local issues with sparse board ranks and API credentials | Accepted, amends 0032 |
 | [0034](0034-child-process-output.md) | A child process is never silent for long | Accepted |
+| [0035](0035-authentication-lives-in-the-panel.md) | The panel authenticates its own requests | Accepted, supersedes 0012 for the panel and amends 0027 |

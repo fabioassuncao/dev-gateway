@@ -5,7 +5,7 @@ import { composeArguments, gatewayContext } from '../context.js'
 import { PreconditionError, RefusedError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
-import { syncPanelProtection } from './web.js'
+import { syncForwardAuth } from './web.js'
 
 function globals(command: Command) {
   return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string }
@@ -27,7 +27,7 @@ interface Setting {
 const SETTINGS: Record<string, Setting> = {
   'panel.access': { key: 'PORTTA_WEB_EXPOSE', description: 'how the panel is reached', allowed: PANEL_ACCESS_MODES },
   'panel.port': { key: 'PORTTA_WEB_PORT', description: 'host port the panel answers on' },
-  'panel.user': { key: 'PORTTA_WEB_AUTH_USER', description: 'panel username' },
+  'panel.auth': { key: 'PORTTA_AUTH_MODE', description: 'whether the panel asks who you are', allowed: ['disabled', 'required'] },
   'panel.host': { key: 'PORTTA_PANEL_ADVERTISED_HOST', description: 'hostname the panel answers on, and the address a human types' },
   'panel.readOnly': { key: 'PORTTA_WEB_READ_ONLY', description: 'refuse every mutating panel endpoint', allowed: ['true', 'false'] },
   'panel.image': { key: 'PORTTA_WEB_IMAGE', description: 'published panel image' },
@@ -54,7 +54,7 @@ const SETTINGS: Record<string, Setting> = {
 
 /** Never printed, never returned, not even truncated. */
 const SECRETS = new Set([
-  'PORTTA_WEB_AUTH_HASH', 'PORTTA_RUNTIME_DB_PASSWORD', 'PORTTA_RUNTIME_DATABASE_URL',
+  'PORTTA_AUTH_SECRET', 'PORTTA_RUNTIME_DB_PASSWORD', 'PORTTA_RUNTIME_DATABASE_URL',
   'TS_AUTHKEY', 'CF_DNS_API_TOKEN', 'GITHUB_APP_WEBHOOK_SECRET',
 ])
 
@@ -195,18 +195,17 @@ async function setPanelAccess(root: string, value: string, output: Output): Prom
   if (!isPanelAccess(value)) throw new UsageError(`panel.access must be one of: ${PANEL_ACCESS_MODES.join(', ')}`)
   const context = gatewayContext({ root })
   const values: Record<string, string> = { PORTTA_WEB_EXPOSE: value, PORTTA_WEB: 'true' }
-  const credentialled = context.env['PORTTA_WEB_AUTH'] === 'basic'
-    && Boolean(context.env['PORTTA_WEB_AUTH_USER']) && Boolean(context.env['PORTTA_WEB_AUTH_HASH'])
+  const protectedPanel = context.env['PORTTA_AUTH_MODE'] === 'required'
 
-  if ((value === 'public' || value === 'vpn' || value === 'domain') && !credentialled) {
+  if ((value === 'public' || value === 'vpn' || value === 'domain') && !protectedPanel) {
     throw new RefusedError(
-      `panel access '${value}' would put the panel beyond this host with no credential in front of it`,
-      'run portta web auth set first; it generates a password and shows it once',
+      `panel access '${value}' would put the panel beyond this host while it answers everybody as the local operator`,
+      'portta config set panel.auth required   then open /setup to create the owner',
     )
   }
   if (value === 'vpn' && context.config.profile === 'remote-public') {
     throw new RefusedError('the panel must not be routed on the tailnet hostname while Traefik binds every interface',
-      "portta config set panel.access domain   routes it on the gateway's own domain, behind the same login page")
+      "portta config set panel.access domain   routes it on the gateway's own domain")
   }
 
   switch (value) {
@@ -276,7 +275,7 @@ export async function configSet(name: string, value: string, options: { apply?: 
   }
 
   write(context.root, values)
-  if (name === 'panel.access') syncPanelProtection(context.root, values)
+  if (name === 'panel.access') syncForwardAuth(context.root)
   output.progress(`${name} = ${value}`)
 
   if (options.apply === false) {

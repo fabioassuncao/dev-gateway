@@ -15,7 +15,7 @@ import { applyIssueToTask } from '../../services/integrations/github/tasks.ts'
 import { environmentsFor } from '../../services/issue-environments.ts'
 import { issueView as view, resolvedLinks as linksFor } from '../../services/issue-view.ts'
 import { recordActivity } from '../../services/activity.ts'
-import { principalOf } from '../principal.ts'
+import { principalOf } from 'portta-auth-core/hono'
 import { Issue } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 
@@ -116,7 +116,7 @@ export function issueRoutes(deps: AppDeps): Hono {
   }
 
   app.get('/projects/:slug/issues', documentRoute({
-    tag: 'Issues', operationId: 'listProjectIssues', capability: 'github:read',
+    tag: 'Issues', operationId: 'listProjectIssues', permission: 'github:read',
     summary: "List issues across a Project's repositories", response: IssuesResponse,
     description: 'Served from the projection, so it answers while GitHub is unreachable; every row carries syncedAt and a staleness flag.',
     parameters: [
@@ -132,7 +132,7 @@ export function issueRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/issues', documentRoute({
-    tag: 'Issues', operationId: 'listIssues', capability: 'github:read', summary: 'List projected issues',
+    tag: 'Issues', operationId: 'listIssues', permission: 'github:read', summary: 'List projected issues',
     response: IssuesResponse, parameters: filterParameters, errors: [500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -140,7 +140,7 @@ export function issueRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/issues/:id', documentRoute({
-    tag: 'Issues', operationId: 'getIssue', capability: 'github:read', summary: 'Get one issue with its sub-issue links',
+    tag: 'Issues', operationId: 'getIssue', permission: 'github:read', summary: 'Get one issue with its sub-issue links',
     response: Issue, parameters: [issueIdParameter], errors: [404, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -163,7 +163,7 @@ export function issueRoutes(deps: AppDeps): Hono {
    * because writing a status through labels shows in the issue's timeline.
    */
   app.patch('/issues/:id', documentRoute({
-    tag: 'Issues', operationId: 'patchIssue', capability: 'task:sync', summary: 'Change an issue on GitHub',
+    tag: 'Issues', operationId: 'patchIssue', permission: 'task:sync', summary: 'Change an issue on GitHub',
     description: 'Writes to GitHub and updates the projection from the response. Refused in read-only mode and for a repository outside the installation.',
     request: PatchIssueBody, response: Issue,
     parameters: [issueIdParameter], errors: [400, 403, 404, 500, 503],

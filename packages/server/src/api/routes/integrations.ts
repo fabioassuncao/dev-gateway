@@ -43,7 +43,7 @@ export function integrationRoutes(deps: AppDeps): Hono {
    * the default. Never a token, a private key or a webhook secret.
    */
   app.get('/integrations/github', documentRoute({
-    tag: 'Integrations', operationId: 'getGitHubIntegration', capability: 'github:read',
+    tag: 'Integrations', operationId: 'getGitHubIntegration', permission: 'github:read',
     summary: 'Report the GitHub App connection', response: GitHubIntegrationView,
     description: 'Reports configuration, reachability, installations, repository count, rate-limit budget and last sync. Secrets never appear here.',
     errors: [500],
@@ -84,7 +84,7 @@ export function integrationRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/integrations/github/repositories', documentRoute({
-    tag: 'Integrations', operationId: 'listGitHubRepositories', capability: 'github:read',
+    tag: 'Integrations', operationId: 'listGitHubRepositories', permission: 'github:read',
     summary: 'List the repositories the App was granted', response: RepositoriesResponse,
     description: 'Served from the projection, so it answers while GitHub is unreachable. This list is also the authorisation boundary for every later operation.',
     errors: [500, 503],
@@ -108,7 +108,7 @@ export function integrationRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/integrations/github/sync', documentRoute({
-    tag: 'Integrations', operationId: 'syncGitHubIntegration', capability: 'github:sync',
+    tag: 'Integrations', operationId: 'syncGitHubIntegration', permission: 'github:sync',
     summary: 'Project installations and repositories', response: SyncResult,
     description: 'Idempotent: two runs leave the same rows and move syncedAt. Repositories an installation no longer grants are removed.',
     errors: [403, 500, 503],
@@ -141,7 +141,7 @@ export function integrationRoutes(deps: AppDeps): Hono {
    * panel made.
    */
   app.post('/integrations/github/webhook', documentRoute({
-    tag: 'Integrations', operationId: 'receiveGitHubWebhook', capability: 'github:sync',
+    tag: 'Integrations', operationId: 'receiveGitHubWebhook', public: true,
     summary: 'Receive a signed GitHub delivery',
     description: 'Verifies the HMAC signature before parsing. An unhandled event is acknowledged and dropped; an unverified one is refused.',
     response: z.object({

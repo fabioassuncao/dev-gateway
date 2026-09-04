@@ -9,7 +9,7 @@ export function hostRoutes(deps: AppDeps): Hono {
 
   app.get('/metrics/current', documentRoute({
     tag: 'Status',
-    operationId: 'getMetricsCurrent', capability: 'metrics:read',
+    operationId: 'getMetricsCurrent', permission: 'metrics:read',
     summary: 'Get the latest host and project metrics snapshot',
     response: MetricsCurrent,
     description:
@@ -19,7 +19,7 @@ export function hostRoutes(deps: AppDeps): Hono {
 
   app.get('/metrics/history', documentRoute({
     tag: 'Status',
-    operationId: 'getMetricsHistory', capability: 'metrics:read',
+    operationId: 'getMetricsHistory', permission: 'metrics:read',
     summary: 'Get the short host metrics history',
     response: MetricsHistory,
     description: 'Reads state/metrics/history.jsonl. window is 15m, 30m or 60m.',

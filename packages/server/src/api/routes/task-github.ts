@@ -18,7 +18,7 @@ import { applyIssueToTask, fieldsFor } from '../../services/integrations/github/
 import { loadTaskContext, taskView, noteView } from '../../services/task-view.ts'
 import { pushToGitHub, resolveTask, wholeChange } from '../../services/task-write.ts'
 import { recordActivity } from '../../services/activity.ts'
-import { principalOf } from '../principal.ts'
+import { principalOf } from 'portta-auth-core/hono'
 import { Task, TaskNote } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 import { actorHeader, refParameter } from './tasks.ts'
@@ -66,7 +66,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
   }
 
   app.post('/tasks/:ref/github/link', documentRoute({
-    tag: 'Tasks', operationId: 'linkTaskToIssue', capability: 'task:sync', summary: 'Bind a task to a projected GitHub issue',
+    tag: 'Tasks', operationId: 'linkTaskToIssue', permission: 'task:sync', summary: 'Bind a task to a projected GitHub issue',
     description: 'The issue must already be projected and bound to no other task. initialSync explicitly chooses which side initializes shared fields.',
     request: LinkBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -102,7 +102,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/tasks/:ref/github/unlink', documentRoute({
-    tag: 'Tasks', operationId: 'unlinkTaskFromIssue', capability: 'task:sync', summary: 'Remove the GitHub binding of a task',
+    tag: 'Tasks', operationId: 'unlinkTaskFromIssue', permission: 'task:sync', summary: 'Remove the GitHub binding of a task',
     description: 'The task and the issue both stay; they just stop following each other.',
     response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -119,7 +119,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/tasks/:ref/github/publish', documentRoute({
-    tag: 'Tasks', operationId: 'publishTask', capability: 'task:sync', summary: 'Open a GitHub issue for a task and bind them',
+    tag: 'Tasks', operationId: 'publishTask', permission: 'task:sync', summary: 'Open a GitHub issue for a task and bind them',
     description: 'Creates the issue on GitHub, projects what GitHub returned, and binds the task to it. Needs the App and a granted repository.',
     request: PublishBody, response: Task, status: 201, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -168,7 +168,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
    * whole. Without a choice, a conflict is refused with 409.
    */
   app.post('/tasks/:ref/github/sync', documentRoute({
-    tag: 'Tasks', operationId: 'syncTask', capability: 'task:sync', summary: 'Push a pending local edit to GitHub, or settle a conflict',
+    tag: 'Tasks', operationId: 'syncTask', permission: 'task:sync', summary: 'Push a pending local edit to GitHub, or settle a conflict',
     request: SyncBody, response: Task, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 409, 500, 503],
   }), async (c) => {
     const db = requireDatabase(deps.db)
@@ -201,7 +201,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
    * GitHub. See ADR 0018's 2026-09-02 amendment.
    */
   app.post('/tasks/:ref/github/comments', documentRoute({
-    tag: 'Tasks', operationId: 'commentOnTask', capability: 'task:sync', summary: 'Comment on the bound GitHub issue',
+    tag: 'Tasks', operationId: 'commentOnTask', permission: 'task:sync', summary: 'Comment on the bound GitHub issue',
     description: 'Posts straight to GitHub and returns what GitHub returned. Comments are never projected. A local comment is /comments.',
     request: CommentBody, response: CommentResponse, status: 201, parameters: [refParameter, actorHeader], errors: [400, 403, 404, 500, 503],
   }), async (c) => {
@@ -223,7 +223,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/tasks/:ref/comments/:noteId/github/publish', documentRoute({
-    tag: 'Tasks', operationId: 'publishTaskComment', capability: 'task:sync', summary: 'Publish a local comment to the bound GitHub issue',
+    tag: 'Tasks', operationId: 'publishTaskComment', permission: 'task:sync', summary: 'Publish a local comment to the bound GitHub issue',
     description: 'Explicit and one-way. The local comment remains saved if GitHub is unavailable.',
     response: TaskNote, parameters: [refParameter, { name: 'noteId', in: 'path' as const, required: true, schema: { type: 'string' as const } }, actorHeader],
     errors: [400, 403, 404, 500, 503],

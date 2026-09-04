@@ -20,12 +20,15 @@
     "viewports": "npm run build && node e2e/viewports.mjs"
   },
   "dependencies": {
+    "@better-auth/api-key": "1.7.2",
     "@hono/node-server": "2.1.1",
     "@tanstack/react-query": "5.102.8",
+    "better-auth": "1.7.2",
     "i18next": "^26.4.1",
     "lucide-react": "1.38.0",
     "next": "16.3.4",
     "next-themes": "0.4.6",
+    "portta-auth-core": "0.1.0",
     "portta-contracts": "0.1.0",
     "portta-core": "0.1.0",
     "portta-db": "0.1.0",

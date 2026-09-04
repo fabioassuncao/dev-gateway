@@ -27,6 +27,7 @@ portta/
 ├── packages/core/           portta-core — shared derivations (private)
 ├── packages/contracts/      portta-contracts — API schemas, types, openapi.json
 ├── packages/db/             portta-db — Drizzle schema, migrations, client
+├── packages/auth/           portta-auth-core — who is asking, and what they may do
 ├── packages/server/         portta-server — services, Hono API, background work
 ├── packages/cli/            portta — TypeScript CLI
 ├── bin/portta          Bash entry point; delegates when Node is present
@@ -46,6 +47,7 @@ portta/
 | `packages/core` | `portta-core` | no | Pure derivations: `env`, `config`, `discovery`, `capabilities`, `endpoints`, `inventory`, `apply`, `tunnel`, `password`, `metrics`. No process execution, ever |
 | `packages/contracts` | `portta-contracts` | no (the future SDK's source) | The API's Zod schemas and types, and the generated `openapi.json` |
 | `packages/db` | `portta-db` | no | The schema, the generated migrations and the client. No business rule |
+| `packages/auth` | `portta-auth-core` | no | Better Auth, the security mode, the `Principal`, and the one `authorize` |
 | `packages/server` | `portta-server` | no | Every business rule: services, the Hono API, Docker, Traefik, Git, GitHub, persistence, background work |
 | `packages/cli` | `portta` | ready, not published by repository changes | Commands, formatting, provisioning, and every effect: `process`, `docker`, `host`, `detect`, `metrics` |
 
@@ -71,6 +73,7 @@ flowchart LR
     core[packages/core]
     contracts[packages/contracts]
     db[packages/db]
+    auth[packages/auth]
     server[packages/server]
     web[apps/web]
     cli[packages/cli]
@@ -78,11 +81,17 @@ flowchart LR
 
     contracts --> core
     db --> core
+    auth --> core
+    auth --> contracts
+    auth --> db
     server --> core
     server --> contracts
     server --> db
+    server --> auth
     web --> core
     web --> contracts
+    web --> db
+    web --> auth
     web --> server
     cli --> core
     cli --> contracts
@@ -104,6 +113,12 @@ Read the edges as consequences, not preferences:
   business rule to ask `auth` or the services about, which is what lets a suite
   run the real migrations against PGlite without starting a panel. Its enums are
   built from the constants in `core`, so a vocabulary exists once.
+- **`packages/auth` answers one question and answers it once.** Who is asking,
+  and what they may do. It owns Better Auth, the four roles, the permission
+  vocabulary and `authorize`; the API, a Server Component and the event stream
+  all read the same `Principal` from it. A second implementation of that
+  decision is a second answer, and one of them will be wrong. It knows the
+  database because the users are rows, and nothing else in it opens a socket.
 - **`packages/server` is the only place with a business rule**, and the only
   one that opens Docker, Traefik, Git, GitHub or PostgreSQL. It exports names,
   never `export *` from a service, so `apps/web` cannot reach past what it

@@ -26,7 +26,8 @@ import { composeUpCommand, findRememberedEnvironment, rememberedEnvironments } f
 import { runnerOf } from '../../services/runner.ts'
 import { documentRoute, projectParameter, tailParameter } from '../openapi.ts'
 import { recordActivity } from '../../services/activity.ts'
-import { principalOf, type Principal } from '../principal.ts'
+import { principalOf } from 'portta-auth-core/hono'
+import type { Principal } from 'portta-auth-core'
 import type { ActivityKind } from 'portta-core'
 import { requireDatabase } from '../../db/index.ts'
 
@@ -127,7 +128,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
   // gateway. Everything else lives on the Docker page, where it
   // is clearly labelled as being outside the gateway.
   app.get('/environments', documentRoute({
-    tag: 'Environments', operationId: 'listEnvironments', capability: 'environment:read', summary: 'List Compose environments', response: EnvironmentsResponse,
+    tag: 'Environments', operationId: 'listEnvironments', permission: 'environment:read', summary: 'List Compose environments', response: EnvironmentsResponse,
     description: 'Live environments (with containers) and, when the panel has persistence, remembered ones (seen before, containers gone). Without ?all the list is the integrated live ones plus the remembered ones a Project adopted.',
     parameters: [{
       name: 'all', in: 'query', required: false,
@@ -155,7 +156,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/environments/:project', documentRoute({
-    tag: 'Environments', operationId: 'getEnvironment', capability: 'environment:read', summary: 'Get one environment, live or remembered', response: Environment,
+    tag: 'Environments', operationId: 'getEnvironment', permission: 'environment:read', summary: 'Get one environment, live or remembered', response: Environment,
     description: 'A remembered environment (containers gone, row kept) answers with no services and presence: remembered.',
     parameters: [projectParameter], errors: [404, 500, 502],
   }), async (c) => {
@@ -177,7 +178,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
    * gets a 200 with fewer fields, never an error.
    */
   app.get('/environments/:project/git', documentRoute({
-    tag: 'Environments', operationId: 'getProjectGit', capability: 'environment:read', summary: 'Get collected Git metadata', response: ProjectGit,
+    tag: 'Environments', operationId: 'getProjectGit', permission: 'environment:read', summary: 'Get collected Git metadata', response: ProjectGit,
     description: 'Reads a host-collected snapshot. No scan, repository or remote is represented as a smaller 200 response.',
     parameters: [projectParameter], errors: [404, 500],
   }), async (c) => {
@@ -198,7 +199,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
    * sources all failed is a 200 carrying the reasons.
    */
   app.get('/environments/:project/logs', documentRoute({
-    tag: 'Environments', operationId: 'getProjectLogs', capability: 'logs:read', summary: "Read every service's recent logs",
+    tag: 'Environments', operationId: 'getProjectLogs', permission: 'logs:read', summary: "Read every service's recent logs",
     response: ProjectLogsResponse,
     description: 'Reads each service concurrently. A source that could not be read is reported beside the sources that answered.',
     parameters: [
@@ -260,7 +261,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
   })
 
   app.get('/environments/:project/removal-preview', documentRoute({
-    tag: 'Environments', operationId: 'previewEnvironmentRemoval', capability: 'environment:read',
+    tag: 'Environments', operationId: 'previewEnvironmentRemoval', permission: 'environment:read',
     summary: 'Preview what removing this environment from this host would touch',
     description: 'Advisory. Nothing is removed. Volume sizes are null: the panel has no volume inspect.',
     response: EnvironmentRemovalPreview,
@@ -272,7 +273,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/environments/:project/operations/rebuild', documentRoute({
-    tag: 'Environments', operationId: 'rebuildProject', capability: 'environment:operate',
+    tag: 'Environments', operationId: 'rebuildProject', permission: 'environment:operate',
     summary: 'Rebuild this project through the runner',
     description: 'Writes a closed runner request and starts the prepared container. Volumes are preserved.',
     response: ProjectRebuildResult,
@@ -291,7 +292,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/environments/:project/operations/remove', documentRoute({
-    tag: 'Environments', operationId: 'removeProject', capability: 'environment:destroy',
+    tag: 'Environments', operationId: 'removeProject', permission: 'environment:destroy',
     summary: 'Remove this project from this host',
     description: 'Confirmation is the exact Compose project name, checked on the server. GitHub is never touched.',
     response: ProjectRemoveResult,
@@ -354,7 +355,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
   for (const action of ['start', 'stop', 'restart'] as const) {
     app.post(`/environments/:project/actions/${action}`, documentRoute({
       tag: 'Environments',
-      operationId: `${action}Environment`, capability: 'environment:operate',
+      operationId: `${action}Environment`, permission: 'environment:operate',
       summary: `${action[0]?.toUpperCase()}${action.slice(1)} every container in an environment`,
       description: action === 'start'
         ? 'Iterates the environment\'s existing containers in Compose dependency order. A remembered environment (no containers) is started through the runner with Compose up, or refused with the command to run on the host.'
@@ -376,7 +377,7 @@ export function environmentRoutes(deps: AppDeps): Hono {
   }
 
   app.delete('/environments/:project', documentRoute({
-    tag: 'Environments', operationId: 'forgetEnvironment', capability: 'environment:destroy',
+    tag: 'Environments', operationId: 'forgetEnvironment', permission: 'environment:destroy',
     summary: 'Forget a remembered environment',
     description: 'Drops the panel\'s row for an environment whose containers are already gone: its overrides, Project link and task links go with it. A live environment is refused: stop and remove it first. Nothing on the host is touched.',
     response: EnvironmentForgotten,

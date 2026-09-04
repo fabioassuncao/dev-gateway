@@ -16,6 +16,7 @@ CREATE TYPE "public"."task_sync_state" AS ENUM('synced', 'pending', 'conflict', 
 CREATE TABLE "accounts" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
+	"issuer" text NOT NULL,
 	"account_id" text NOT NULL,
 	"provider_id" text NOT NULL,
 	"access_token" text,
@@ -31,6 +32,7 @@ CREATE TABLE "accounts" (
 --> statement-breakpoint
 CREATE TABLE "api_keys" (
 	"id" text PRIMARY KEY NOT NULL,
+	"config_id" text DEFAULT 'default' NOT NULL,
 	"name" text,
 	"start" text,
 	"prefix" text,
@@ -454,6 +456,7 @@ ALTER TABLE "github_repositories" ADD CONSTRAINT "github_repositories_installati
 ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "accounts_user_idx" ON "accounts" USING btree ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "accounts_issuer_account_id_idx" ON "accounts" USING btree ("issuer","account_id");--> statement-breakpoint
 CREATE INDEX "api_keys_reference_idx" ON "api_keys" USING btree ("reference_id");--> statement-breakpoint
 CREATE INDEX "sessions_user_idx" ON "sessions" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "users_role_idx" ON "users" USING btree ("role");--> statement-breakpoint

@@ -170,7 +170,8 @@ export const DevelopmentContext = named(
   z.object({
     generatedAt: unixSeconds,
     actor: z.string().nullable(),
-    capabilities: z.array(z.string()),
+    /** What the caller may do here, as `resource:action`. */
+    permissions: z.array(z.string()),
     project: z.object({
       slug: z.string(),
       name: z.string(),

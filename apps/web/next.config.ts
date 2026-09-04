@@ -13,7 +13,7 @@ const config: NextConfig = {
   // (`packages/db/drizzle`) and resolve paths from `import.meta.url` — all
   // things a bundler either cannot follow or would rewrite into something that
   // no longer points at the file.
-  serverExternalPackages: ['portta-server', 'portta-db', 'postgres', 'drizzle-orm', '@electric-sql/pglite'],
+  serverExternalPackages: ['portta-server', 'portta-auth-core', 'portta-db', 'better-auth', '@better-auth/api-key', 'postgres', 'drizzle-orm', '@electric-sql/pglite'],
   typescript: { ignoreBuildErrors: false },
   async headers() {
     return [

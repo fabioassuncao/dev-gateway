@@ -12,6 +12,9 @@ import { expect, test } from '@playwright/test'
 
 const DOCKER_PORT = process.env.PORTTA_E2E_DOCKER_PORT ?? '9911'
 
+// This panel runs with PORTTA_AUTH_MODE=disabled, which is the documented
+// default: on loopback there is nobody to sign in as, and the overview opens
+// straight away. `auth.spec.ts` drives the other mode, on its own panel.
 test.describe('the panel end to end', () => {
   // Every test describes the same host, whatever the previous one did to it.
   test.beforeEach(async ({ request }) => {

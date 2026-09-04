@@ -11,6 +11,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { type AppDeps, createApi, generateOpenApi } from 'portta-server'
 import { loadConfig } from 'portta-server/config'
+import { resolveSecurityMode } from 'portta-auth-core'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const packageRoot = resolve(here, '..')
@@ -21,7 +22,15 @@ const version = readFileSync(resolve(repositoryRoot, 'VERSION'), 'utf8').trim()
 // Route registration captures the dependencies but does not call them. The
 // generator therefore needs only the real resolved config; no Docker call,
 // working tree or network is involved in producing the contract.
-const deps = { config: loadConfig({ gatewayVersion: version }) } as AppDeps
+// `security` is read while the routes register -- it decides whether Better
+// Auth's endpoints are mounted -- so it is the one other thing this needs. Open
+// mode, because the document is the same either way: what a route needs does
+// not depend on how this panel was started.
+const deps = {
+  config: loadConfig({ gatewayVersion: version }),
+  security: resolveSecurityMode({}),
+  auth: null,
+} as unknown as AppDeps
 const rendered = `${JSON.stringify(await generateOpenApi(createApi(deps), version), null, 2)}\n`
 
 if (process.argv.includes('--check')) {

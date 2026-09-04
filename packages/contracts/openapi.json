@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Portta panel API",
-    "description": "The API used by the panel UI, the CLI and local agents. Every operation declares the capability it needs (x-portta-capability); read-only mode holds every read, and an agent that announces itself with X-Portta-Actor holds what the agentCapabilities setting grants. Writes can also be refused by the same-origin guard. Authentication, when enabled, is enforced by Traefik before a request reaches this application.",
+    "description": "The API used by the panel UI, the CLI and local agents. Every operation that is not public declares the permission it needs (x-portta-permission), and the panel decides: a session cookie or a Portta token names a user, and their role says what they hold. Read-only mode leaves every principal with the reads alone, and an agent that announces itself with X-Portta-Actor holds what the agentPermissions setting grants. Writes can also be refused by the same-origin guard.",
     "version": "0.8.0",
     "summary": "Runtime inventory and bounded control for Portta.",
     "license": {
@@ -99,18 +99,13 @@
       "cookieAuth": {
         "type": "apiKey",
         "in": "cookie",
-        "name": "__portta_session",
-        "description": "Host-scoped session issued by the Portta login page. Traefik validates it through ForwardAuth before forwarding the request."
-      },
-      "basicAuth": {
-        "type": "http",
-        "scheme": "basic",
-        "description": "Compatibility path for API clients, health checks and webhooks. Traefik validates it through Portta ForwardAuth before forwarding the request."
+        "name": "portta.session_token",
+        "description": "The session the panel issues at sign-in. The browser sends it; nothing else should."
       },
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "A revocable Portta API token. The raw credential is shown only when it is created."
+        "description": "A revocable Portta API token, for the CLI and coding agents. It begins with ptt_ and is shown only once, when it is created."
       }
     },
     "schemas": {
@@ -306,9 +301,6 @@
               "authenticated": {
                 "type": "boolean"
               },
-              "user": {
-                "type": "string"
-              },
               "readOnly": {
                 "type": "boolean"
               },
@@ -321,7 +313,6 @@
               "routed",
               "auth",
               "authenticated",
-              "user",
               "readOnly",
               "docs"
             ],
@@ -6796,27 +6787,6 @@
           "applyCommand": {
             "type": "string"
           },
-          "dynamic": {
-            "description": "Present when saving also rewrote a generated Traefik file",
-            "type": "object",
-            "properties": {
-              "file": {
-                "type": "string"
-              },
-              "written": {
-                "type": "boolean"
-              },
-              "reason": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "file",
-              "written",
-              "reason"
-            ],
-            "additionalProperties": false
-          },
           "view": {
             "$ref": "#/components/schemas/ConfigView"
           }
@@ -9292,7 +9262,7 @@
               "null"
             ]
           },
-          "capabilities": {
+          "permissions": {
             "type": "array",
             "items": {
               "type": "string"
@@ -9455,7 +9425,7 @@
         "required": [
           "generatedAt",
           "actor",
-          "capabilities",
+          "permissions",
           "project",
           "task",
           "work",
@@ -10295,14 +10265,98 @@
         ],
         "additionalProperties": false
       },
-      "ApiToken": {
+      "AuthStatus": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
+          "mode": {
+            "type": "string",
+            "enum": [
+              "open",
+              "protected"
+            ]
+          },
+          "setupRequired": {
+            "type": "boolean"
+          },
+          "twoFactor": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "mode",
+          "setupRequired",
+          "twoFactor"
+        ],
+        "additionalProperties": false
+      },
+      "AuthSetupResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "email",
+              "name"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "ok",
+          "user"
+        ],
+        "additionalProperties": false
+      },
+      "Me": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "local",
+              "user",
+              "token"
+            ]
+          },
+          "userId": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "name": {
             "type": "string"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "developer",
+              "viewer"
+            ]
           },
           "actor": {
             "type": "string"
@@ -10314,44 +10368,27 @@
               "agent"
             ]
           },
-          "capabilities": {
+          "permissions": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "project:read",
-                "project:write",
-                "repository:read",
-                "repository:write",
-                "task:read",
-                "task:write",
-                "task:sync",
-                "environment:read",
-                "environment:operate",
-                "environment:destroy",
-                "service:read",
-                "logs:read",
-                "access:open",
-                "access:write",
-                "metrics:read",
-                "activity:read",
-                "session:write",
-                "gateway:read",
-                "gateway:operate",
-                "config:read",
-                "config:write",
-                "docker:read",
-                "docker:operate",
-                "docker:destroy",
-                "github:read",
-                "github:sync"
-              ]
+              "type": "string"
             }
           },
-          "createdAt": {
-            "type": "string"
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "all"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            ]
           },
-          "revokedAt": {
+          "tokenId": {
             "type": [
               "string",
               "null"
@@ -10359,44 +10396,16 @@
           }
         },
         "required": [
-          "id",
+          "kind",
+          "userId",
           "name",
+          "email",
+          "role",
           "actor",
           "actorKind",
-          "capabilities",
-          "createdAt",
-          "revokedAt"
-        ],
-        "additionalProperties": false
-      },
-      "ApiTokens": {
-        "type": "object",
-        "properties": {
-          "tokens": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiToken"
-            }
-          }
-        },
-        "required": [
-          "tokens"
-        ],
-        "additionalProperties": false
-      },
-      "CreatedApiToken": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string"
-          },
-          "credential": {
-            "$ref": "#/components/schemas/ApiToken"
-          }
-        },
-        "required": [
-          "token",
-          "credential"
+          "permissions",
+          "scope",
+          "tokenId"
         ],
         "additionalProperties": false
       },
@@ -10483,18 +10492,8 @@
           }
         },
         "security": [
-          {},
-          {
-            "cookieAuth": []
-          },
-          {
-            "basicAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "x-portta-capability": "gateway:read"
+          {}
+        ]
       }
     },
     "/status": {
@@ -10537,18 +10536,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "gateway:read"
+        "x-portta-permission": "gateway:read"
       }
     },
     "/environments": {
@@ -10604,18 +10599,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "environment:read"
+        "x-portta-permission": "environment:read"
       }
     },
     "/environments/{project}": {
@@ -10680,18 +10671,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "environment:read"
+        "x-portta-permission": "environment:read"
       },
       "delete": {
         "operationId": "forgetEnvironment",
@@ -10774,18 +10761,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "environment:destroy"
+        "x-portta-permission": "environment:destroy"
       }
     },
     "/environments/{project}/git": {
@@ -10840,18 +10823,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "environment:read"
+        "x-portta-permission": "environment:read"
       }
     },
     "/environments/{project}/logs": {
@@ -10937,18 +10916,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "logs:read"
+        "x-portta-permission": "logs:read"
       }
     },
     "/environments/{project}/removal-preview": {
@@ -11023,18 +10998,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "environment:read"
+        "x-portta-permission": "environment:read"
       }
     },
     "/environments/{project}/operations/rebuild": {
@@ -11129,12 +11100,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -11156,7 +11123,7 @@
             }
           }
         },
-        "x-portta-capability": "environment:operate"
+        "x-portta-permission": "environment:operate"
       }
     },
     "/environments/{project}/operations/remove": {
@@ -11251,12 +11218,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -11292,7 +11255,7 @@
             }
           }
         },
-        "x-portta-capability": "environment:destroy"
+        "x-portta-permission": "environment:destroy"
       }
     },
     "/environments/{project}/actions/start": {
@@ -11384,18 +11347,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "environment:operate"
+        "x-portta-permission": "environment:operate"
       }
     },
     "/environments/{project}/actions/stop": {
@@ -11480,18 +11439,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "environment:operate"
+        "x-portta-permission": "environment:operate"
       }
     },
     "/environments/{project}/actions/restart": {
@@ -11576,18 +11531,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "environment:operate"
+        "x-portta-permission": "environment:operate"
       }
     },
     "/runner": {
@@ -11647,18 +11598,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "environment:read"
+        "x-portta-permission": "environment:read"
       }
     },
     "/environments/{project}/settings": {
@@ -11722,18 +11669,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "environment:read"
+        "x-portta-permission": "environment:read"
       },
       "put": {
         "operationId": "setEnvironmentSettings",
@@ -11816,12 +11759,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -11931,7 +11870,7 @@
             }
           }
         },
-        "x-portta-capability": "environment:operate"
+        "x-portta-permission": "environment:settings"
       },
       "delete": {
         "operationId": "clearEnvironmentSettings",
@@ -12003,18 +11942,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "environment:operate"
+        "x-portta-permission": "environment:settings"
       }
     },
     "/environments/{project}/services/{service}/overrides": {
@@ -12087,18 +12022,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "environment:read"
+        "x-portta-permission": "environment:read"
       }
     },
     "/environments/{project}/services/{service}/note": {
@@ -12191,12 +12122,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -12230,7 +12157,7 @@
             }
           }
         },
-        "x-portta-capability": "environment:operate"
+        "x-portta-permission": "environment:settings"
       }
     },
     "/environments/{project}/services/{service}/alias": {
@@ -12324,12 +12251,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -12357,7 +12280,7 @@
             }
           }
         },
-        "x-portta-capability": "environment:operate"
+        "x-portta-permission": "environment:settings"
       },
       "delete": {
         "operationId": "clearServiceAlias",
@@ -12438,18 +12361,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "environment:operate"
+        "x-portta-permission": "environment:settings"
       }
     },
     "/projects": {
@@ -12493,18 +12412,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "project:read"
+        "x-portta-permission": "project:read"
       },
       "post": {
         "operationId": "createProject",
@@ -12576,12 +12491,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -12640,7 +12551,7 @@
             }
           }
         },
-        "x-portta-capability": "project:write"
+        "x-portta-permission": "project:create"
       }
     },
     "/projects/{slug}": {
@@ -12704,18 +12615,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "project:read"
+        "x-portta-permission": "project:read"
       },
       "patch": {
         "operationId": "patchProject",
@@ -12797,12 +12704,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -12854,7 +12757,7 @@
             }
           }
         },
-        "x-portta-capability": "project:write"
+        "x-portta-permission": "project:update"
       },
       "delete": {
         "operationId": "deleteProject",
@@ -12927,18 +12830,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "project:write"
+        "x-portta-permission": "project:delete"
       }
     },
     "/projects/{slug}/environments": {
@@ -13023,12 +12922,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -13060,7 +12955,7 @@
             }
           }
         },
-        "x-portta-capability": "project:write"
+        "x-portta-permission": "project:update"
       }
     },
     "/repositories/discovered": {
@@ -13104,18 +12999,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "repository:read"
+        "x-portta-permission": "repository:read"
       }
     },
     "/projects/{slug}/repositories": {
@@ -13180,18 +13071,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "repository:read"
+        "x-portta-permission": "repository:read"
       },
       "post": {
         "operationId": "createRepository",
@@ -13274,12 +13161,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -13376,7 +13259,7 @@
             }
           }
         },
-        "x-portta-capability": "repository:write"
+        "x-portta-permission": "repository:manage"
       }
     },
     "/repositories/{id}": {
@@ -13440,18 +13323,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "repository:read"
+        "x-portta-permission": "repository:read"
       },
       "patch": {
         "operationId": "patchRepository",
@@ -13534,12 +13413,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -13636,7 +13511,7 @@
             }
           }
         },
-        "x-portta-capability": "repository:write"
+        "x-portta-permission": "repository:manage"
       },
       "delete": {
         "operationId": "deleteRepository",
@@ -13709,18 +13584,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "repository:write"
+        "x-portta-permission": "repository:manage"
       }
     },
     "/repositories/{id}/git": {
@@ -13785,18 +13656,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "repository:read"
+        "x-portta-permission": "repository:read"
       }
     },
     "/repositories/{id}/commits": {
@@ -13860,18 +13727,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "repository:read"
+        "x-portta-permission": "repository:read"
       }
     },
     "/repositories/{id}/instructions": {
@@ -13936,18 +13799,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "repository:read"
+        "x-portta-permission": "repository:read"
       }
     },
     "/repositories/{id}/environments": {
@@ -14011,18 +13870,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "repository:read"
+        "x-portta-permission": "repository:read"
       }
     },
     "/services": {
@@ -14076,18 +13931,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "service:read"
+        "x-portta-permission": "service:read"
       }
     },
     "/services/{id}": {
@@ -14151,18 +14002,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "service:read"
+        "x-portta-permission": "service:read"
       }
     },
     "/services/{id}/logs": {
@@ -14238,18 +14085,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "logs:read"
+        "x-portta-permission": "logs:read"
       }
     },
     "/services/{id}/traefik": {
@@ -14313,18 +14156,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "service:read"
+        "x-portta-permission": "service:read"
       }
     },
     "/docker/containers": {
@@ -14411,18 +14250,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "docker:read"
+        "x-portta-permission": "container:read"
       }
     },
     "/docker/containers/{id}": {
@@ -14486,18 +14321,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "docker:read"
+        "x-portta-permission": "container:read"
       },
       "delete": {
         "operationId": "removeContainer",
@@ -14590,12 +14421,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -14624,7 +14451,7 @@
             }
           }
         },
-        "x-portta-capability": "docker:destroy"
+        "x-portta-permission": "container:destroy"
       }
     },
     "/docker/containers/{id}/logs": {
@@ -14700,18 +14527,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "logs:read"
+        "x-portta-permission": "logs:read"
       }
     },
     "/docker/containers/{id}/stats": {
@@ -14775,18 +14598,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "docker:read"
+        "x-portta-permission": "container:read"
       }
     },
     "/docker/containers/{id}/removal-preview": {
@@ -14860,18 +14679,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "docker:read"
+        "x-portta-permission": "container:read"
       }
     },
     "/docker/containers/{id}/start": {
@@ -14965,18 +14780,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "docker:operate"
+        "x-portta-permission": "container:operate"
       }
     },
     "/docker/containers/{id}/stop": {
@@ -15070,18 +14881,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "docker:operate"
+        "x-portta-permission": "container:operate"
       }
     },
     "/docker/containers/{id}/restart": {
@@ -15175,18 +14982,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "docker:operate"
+        "x-portta-permission": "container:operate"
       }
     },
     "/docker/host": {
@@ -15229,18 +15032,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "docker:read"
+        "x-portta-permission": "docker:read"
       }
     },
     "/network": {
@@ -15283,18 +15082,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "gateway:read"
+        "x-portta-permission": "gateway:read"
       }
     },
     "/tunnel": {
@@ -15327,18 +15122,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "config:read"
+        "x-portta-permission": "settings:read"
       }
     },
     "/tunnel/setup": {
@@ -15391,12 +15182,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -15430,7 +15217,7 @@
             }
           }
         },
-        "x-portta-capability": "config:write"
+        "x-portta-permission": "settings:manage"
       }
     },
     "/tunnel/enable": {
@@ -15483,18 +15270,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "config:write"
+        "x-portta-permission": "settings:manage"
       }
     },
     "/tunnel/disable": {
@@ -15537,12 +15320,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -15564,7 +15343,7 @@
             }
           }
         },
-        "x-portta-capability": "config:write"
+        "x-portta-permission": "settings:manage"
       }
     },
     "/access": {
@@ -15607,18 +15386,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "service:read"
+        "x-portta-permission": "access:read"
       },
       "post": {
         "operationId": "openAccess",
@@ -15700,12 +15475,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -15755,7 +15526,7 @@
             }
           }
         },
-        "x-portta-capability": "access:open"
+        "x-portta-permission": "access:open"
       }
     },
     "/access/services/{project}/{service}/connection": {
@@ -15829,18 +15600,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "access:open"
+        "x-portta-permission": "access:open"
       }
     },
     "/access/{id}": {
@@ -15924,18 +15691,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "access:open"
+        "x-portta-permission": "access:open"
       }
     },
     "/shares": {
@@ -15968,18 +15731,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "service:read"
+        "x-portta-permission": "access:read"
       }
     },
     "/services/{id}/share": {
@@ -16064,12 +15823,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -16109,7 +15864,7 @@
             }
           }
         },
-        "x-portta-capability": "access:write"
+        "x-portta-permission": "access:manage"
       }
     },
     "/shares/{id}/regenerate": {
@@ -16183,18 +15938,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "access:write"
+        "x-portta-permission": "access:manage"
       }
     },
     "/shares/{id}": {
@@ -16268,18 +16019,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "access:write"
+        "x-portta-permission": "access:manage"
       }
     },
     "/gateway": {
@@ -16322,18 +16069,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "gateway:read"
+        "x-portta-permission": "gateway:read"
       }
     },
     "/gateway/doctor": {
@@ -16386,18 +16129,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "gateway:read"
+        "x-portta-permission": "gateway:read"
       }
     },
     "/gateway/restart": {
@@ -16470,12 +16209,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -16507,7 +16242,7 @@
             }
           }
         },
-        "x-portta-capability": "gateway:operate"
+        "x-portta-permission": "gateway:operate"
       }
     },
     "/gateway/apply": {
@@ -16566,18 +16301,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "gateway:read"
+        "x-portta-permission": "gateway:read"
       },
       "post": {
         "operationId": "applySettings",
@@ -16648,18 +16379,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "gateway:operate"
+        "x-portta-permission": "gateway:operate"
       }
     },
     "/gateway/traefik": {
@@ -16702,18 +16429,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "gateway:read"
+        "x-portta-permission": "gateway:read"
       }
     },
     "/gateway/logs": {
@@ -16806,18 +16529,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "gateway:read"
+        "x-portta-permission": "gateway:read"
       }
     },
     "/metrics/current": {
@@ -16851,18 +16570,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "metrics:read"
+        "x-portta-permission": "metrics:read"
       }
     },
     "/metrics/history": {
@@ -16911,18 +16626,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "metrics:read"
+        "x-portta-permission": "metrics:read"
       }
     },
     "/config": {
@@ -16956,18 +16667,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "config:read"
+        "x-portta-permission": "settings:read"
       },
       "patch": {
         "operationId": "patchConfig",
@@ -17018,12 +16725,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -17062,7 +16765,7 @@
             }
           }
         },
-        "x-portta-capability": "config:write"
+        "x-portta-permission": "settings:manage"
       }
     },
     "/database/migrate": {
@@ -17106,18 +16809,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "gateway:read"
+        "x-portta-permission": "gateway:read"
       }
     },
     "/events": {
@@ -17161,18 +16860,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "gateway:read"
+        "x-portta-permission": "activity:read"
       }
     },
     "/integrations/github": {
@@ -17206,18 +16901,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "github:read"
+        "x-portta-permission": "github:read"
       }
     },
     "/integrations/github/repositories": {
@@ -17261,18 +16952,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "github:read"
+        "x-portta-permission": "github:read"
       }
     },
     "/integrations/github/sync": {
@@ -17326,18 +17013,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "github:sync"
+        "x-portta-permission": "github:sync"
       }
     },
     "/integrations/github/webhook": {
@@ -17401,18 +17084,8 @@
           }
         },
         "security": [
-          {},
-          {
-            "cookieAuth": []
-          },
-          {
-            "basicAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "x-portta-capability": "github:sync"
+          {}
+        ]
       }
     },
     "/projects/{slug}/issues": {
@@ -17558,18 +17231,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "github:read"
+        "x-portta-permission": "github:read"
       }
     },
     "/issues": {
@@ -17695,18 +17364,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "github:read"
+        "x-portta-permission": "github:read"
       }
     },
     "/issues/{id}": {
@@ -17770,18 +17435,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "github:read"
+        "x-portta-permission": "github:read"
       },
       "patch": {
         "operationId": "patchIssue",
@@ -17864,12 +17525,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -17946,7 +17603,7 @@
             }
           }
         },
-        "x-portta-capability": "task:sync"
+        "x-portta-permission": "task:sync"
       }
     },
     "/projects/{slug}/tasks": {
@@ -18137,18 +17794,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:read"
+        "x-portta-permission": "task:read"
       },
       "post": {
         "operationId": "createTask",
@@ -18240,12 +17893,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -18414,7 +18063,7 @@
             }
           }
         },
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/projects/{slug}/tasks/next": {
@@ -18488,18 +18137,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:read"
+        "x-portta-permission": "task:read"
       }
     },
     "/tasks": {
@@ -18690,18 +18335,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:read"
+        "x-portta-permission": "task:read"
       }
     },
     "/tasks/{ref}": {
@@ -18776,18 +18417,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:read"
+        "x-portta-permission": "task:read"
       },
       "patch": {
         "operationId": "patchTask",
@@ -18879,12 +18516,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -19050,7 +18683,7 @@
             }
           }
         },
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       },
       "delete": {
         "operationId": "deleteTask",
@@ -19142,18 +18775,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:delete"
       }
     },
     "/tasks/{ref}/subtasks": {
@@ -19227,18 +18856,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:read"
+        "x-portta-permission": "task:read"
       },
       "post": {
         "operationId": "createTaskSubtask",
@@ -19329,12 +18954,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -19488,7 +19109,7 @@
             }
           }
         },
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/tasks/{ref}/subtasks/{childRef}": {
@@ -19589,18 +19210,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       },
       "delete": {
         "operationId": "unlinkTaskSubtask",
@@ -19699,18 +19316,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/tasks/{ref}/notes": {
@@ -19784,18 +19397,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:read"
+        "x-portta-permission": "task:read"
       },
       "post": {
         "operationId": "addTaskNote",
@@ -19887,12 +19496,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -19920,7 +19525,7 @@
             }
           }
         },
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/tasks/{ref}/comments": {
@@ -19994,18 +19599,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:read"
+        "x-portta-permission": "task:read"
       },
       "post": {
         "operationId": "addTaskComment",
@@ -20097,12 +19698,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -20130,7 +19727,7 @@
             }
           }
         },
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/tasks/{ref}/attachments": {
@@ -20205,18 +19802,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:read"
+        "x-portta-permission": "task:read"
       },
       "post": {
         "operationId": "addTaskAttachment",
@@ -20308,12 +19901,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -20342,7 +19931,7 @@
             }
           }
         },
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/tasks/{ref}/attachments/{attachmentId}": {
@@ -20425,18 +20014,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:read"
+        "x-portta-permission": "task:read"
       },
       "delete": {
         "operationId": "deleteTaskAttachment",
@@ -20536,18 +20121,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/tasks/{ref}/start": {
@@ -20641,12 +20222,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -20669,7 +20246,7 @@
             }
           }
         },
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/tasks/{ref}/status": {
@@ -20762,12 +20339,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -20801,7 +20374,7 @@
             }
           }
         },
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/tasks/{ref}/move": {
@@ -20895,12 +20468,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -20956,7 +20525,7 @@
             }
           }
         },
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/tasks/{ref}/finish": {
@@ -21050,12 +20619,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -21078,7 +20643,7 @@
             }
           }
         },
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/tasks/{ref}/notes/{noteId}": {
@@ -21179,12 +20744,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -21212,7 +20773,7 @@
             }
           }
         },
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       },
       "delete": {
         "operationId": "deleteTaskNote",
@@ -21324,18 +20885,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/tasks/{ref}/comments/{noteId}": {
@@ -21436,12 +20993,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -21469,7 +21022,7 @@
             }
           }
         },
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       },
       "delete": {
         "operationId": "deleteTaskComment",
@@ -21581,18 +21134,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/projects/{slug}/tasks/import": {
@@ -21710,12 +21259,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -22026,7 +21571,7 @@
             }
           }
         },
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/projects/{slug}/tasks/export": {
@@ -22385,18 +21930,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:read"
+        "x-portta-permission": "task:read"
       }
     },
     "/tasks/{ref}/environments": {
@@ -22489,12 +22030,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -22526,7 +22063,7 @@
             }
           }
         },
-        "x-portta-capability": "task:write"
+        "x-portta-permission": "task:write"
       }
     },
     "/tasks/{ref}/github/link": {
@@ -22620,12 +22157,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -22663,7 +22196,7 @@
             }
           }
         },
-        "x-portta-capability": "task:sync"
+        "x-portta-permission": "task:sync"
       }
     },
     "/tasks/{ref}/github/unlink": {
@@ -22757,18 +22290,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:sync"
+        "x-portta-permission": "task:sync"
       }
     },
     "/tasks/{ref}/github/publish": {
@@ -22862,12 +22391,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -22893,7 +22418,7 @@
             }
           }
         },
-        "x-portta-capability": "task:sync"
+        "x-portta-permission": "task:sync"
       }
     },
     "/tasks/{ref}/github/sync": {
@@ -22996,12 +22521,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -23028,7 +22549,7 @@
             }
           }
         },
-        "x-portta-capability": "task:sync"
+        "x-portta-permission": "task:sync"
       }
     },
     "/tasks/{ref}/github/comments": {
@@ -23122,12 +22643,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -23155,7 +22672,7 @@
             }
           }
         },
-        "x-portta-capability": "task:sync"
+        "x-portta-permission": "task:sync"
       }
     },
     "/tasks/{ref}/comments/{noteId}/github/publish": {
@@ -23257,18 +22774,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "task:sync"
+        "x-portta-permission": "task:sync"
       }
     },
     "/projects/{slug}/sessions": {
@@ -23341,18 +22854,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "activity:read"
+        "x-portta-permission": "worksession:read"
       },
       "post": {
         "operationId": "startSession",
@@ -23444,12 +22953,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -23550,7 +23055,7 @@
             }
           }
         },
-        "x-portta-capability": "session:write"
+        "x-portta-permission": "worksession:write"
       }
     },
     "/sessions/{id}": {
@@ -23614,18 +23119,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "activity:read"
+        "x-portta-permission": "worksession:read"
       },
       "patch": {
         "operationId": "updateSession",
@@ -23717,12 +23218,8 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
@@ -23810,7 +23307,7 @@
             }
           }
         },
-        "x-portta-capability": "session:write"
+        "x-portta-permission": "worksession:write"
       }
     },
     "/projects/{slug}/activity": {
@@ -23946,18 +23443,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "activity:read"
+        "x-portta-permission": "activity:read"
       }
     },
     "/activity": {
@@ -24074,18 +23567,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "activity:read"
+        "x-portta-permission": "activity:read"
       }
     },
     "/tasks/{ref}/activity": {
@@ -24222,18 +23711,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "activity:read"
+        "x-portta-permission": "activity:read"
       }
     },
     "/environments/{project}/services": {
@@ -24298,18 +23783,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "service:read"
+        "x-portta-permission": "service:read"
       }
     },
     "/environments/{project}/services/{service}/actions/{action}": {
@@ -24426,18 +23907,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "environment:operate"
+        "x-portta-permission": "service:operate"
       }
     },
     "/projects/{slug}/context": {
@@ -24511,18 +23988,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "project:read"
+        "x-portta-permission": "project:read"
       }
     },
     "/projects/{slug}/resources": {
@@ -24587,18 +24060,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "metrics:read"
+        "x-portta-permission": "metrics:read"
       }
     },
     "/overview": {
@@ -24642,44 +24111,31 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "project:read"
+        "x-portta-permission": "project:read"
       }
     },
-    "/auth/tokens": {
+    "/auth/status": {
       "get": {
-        "operationId": "listApiTokens",
+        "operationId": "getAuthStatus",
         "tags": [
           "Authentication"
         ],
-        "summary": "List API tokens without their secrets",
+        "summary": "Whether this panel asks who you are, and whether it has an owner yet",
+        "description": "Public, and the only thing a panel without an owner will answer besides liveness: the pages need it to decide between /setup, /sign-in and the panel itself.",
         "responses": {
           "200": {
             "description": "Successful response.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiTokens"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
+                  "$ref": "#/components/schemas/AuthStatus"
                 }
               }
             }
@@ -24693,36 +24149,38 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         },
         "security": [
-          {},
-          {
-            "cookieAuth": []
-          },
-          {
-            "basicAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "x-portta-capability": "config:read"
-      },
+          {}
+        ]
+      }
+    },
+    "/auth/setup": {
       "post": {
-        "operationId": "createApiToken",
+        "operationId": "createOwner",
         "tags": [
           "Authentication"
         ],
-        "summary": "Create a revocable Bearer token",
-        "description": "The raw token appears once. It has no expiry and remains valid until revoked.",
+        "summary": "Create the first user, who becomes the owner",
+        "description": "Accepted only while there is no owner. Two requests at once produce one owner and one 409, not two owners.",
         "responses": {
           "201": {
             "description": "Successful response.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreatedApiToken"
+                  "$ref": "#/components/schemas/AuthSetupResult"
                 }
               }
             }
@@ -24747,8 +24205,38 @@
               }
             }
           },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The requested operation conflicts with the current runtime state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -24759,16 +24247,7 @@
           }
         },
         "security": [
-          {},
-          {
-            "cookieAuth": []
-          },
-          {
-            "basicAuth": []
-          },
-          {
-            "bearerAuth": []
-          }
+          {}
         ],
         "requestBody": {
           "required": true,
@@ -24780,114 +24259,53 @@
                   "name": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 80
+                    "maxLength": 120
                   },
-                  "actor": {
+                  "email": {
                     "type": "string",
-                    "minLength": 1,
-                    "maxLength": 64,
-                    "pattern": "^[A-Za-z0-9._-]+$"
+                    "format": "email",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
                   },
-                  "actorKind": {
-                    "default": "agent",
+                  "password": {
                     "type": "string",
-                    "enum": [
-                      "human",
-                      "agent"
-                    ]
-                  },
-                  "capabilities": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "enum": [
-                        "project:read",
-                        "project:write",
-                        "repository:read",
-                        "repository:write",
-                        "task:read",
-                        "task:write",
-                        "task:sync",
-                        "environment:read",
-                        "environment:operate",
-                        "environment:destroy",
-                        "service:read",
-                        "logs:read",
-                        "access:open",
-                        "access:write",
-                        "metrics:read",
-                        "activity:read",
-                        "session:write",
-                        "gateway:read",
-                        "gateway:operate",
-                        "config:read",
-                        "config:write",
-                        "docker:read",
-                        "docker:operate",
-                        "docker:destroy",
-                        "github:read",
-                        "github:sync"
-                      ]
-                    }
+                    "minLength": 10,
+                    "maxLength": 128
                   }
                 },
                 "required": [
                   "name",
-                  "actor",
-                  "actorKind"
+                  "email",
+                  "password"
                 ],
                 "additionalProperties": false,
-                "ref": "CreateApiToken"
+                "ref": "AuthSetup"
               }
             }
           }
-        },
-        "x-portta-capability": "config:write"
+        }
       }
     },
-    "/auth/tokens/{id}": {
-      "delete": {
-        "operationId": "revokeApiToken",
+    "/auth/me": {
+      "get": {
+        "operationId": "getMe",
         "tags": [
           "Authentication"
         ],
-        "summary": "Revoke an API token",
+        "summary": "Who this request is, and what it may do",
+        "description": "What `portta auth status` prints and what the panel uses to decide which controls to show.",
         "responses": {
           "200": {
             "description": "Successful response.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean"
-                    },
-                    "revoked": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "ok",
-                    "revoked"
-                  ],
-                  "additionalProperties": false
+                  "$ref": "#/components/schemas/Me"
                 }
               }
             }
           },
-          "403": {
-            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The requested project, service, container, share or endpoint does not exist.",
+          "401": {
+            "description": "The delivery signature could not be verified.",
             "content": {
               "application/json": {
                 "schema": {
@@ -24908,28 +24326,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
-        ],
-        "x-portta-capability": "config:write"
+        "x-portta-authenticated": true
       }
     },
     "/openapi.json": {
@@ -24962,18 +24366,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "gateway:read"
+        "x-portta-permission": "gateway:read"
       }
     },
     "/docs": {
@@ -25008,18 +24408,14 @@
           }
         },
         "security": [
-          {},
           {
             "cookieAuth": []
-          },
-          {
-            "basicAuth": []
           },
           {
             "bearerAuth": []
           }
         ],
-        "x-portta-capability": "gateway:read"
+        "x-portta-permission": "gateway:read"
       }
     }
   }

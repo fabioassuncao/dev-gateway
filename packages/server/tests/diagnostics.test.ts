@@ -231,11 +231,7 @@ describe('diagnostics', () => {
 })
 
 describe('the panel judges its own front door', () => {
-  const CREDENTIAL = {
-    webAuth: 'basic',
-    webAuthUser: 'dev',
-    webAuthHash: '$apr1$abcdefgh$ckT15POyCRlen.h6XtGAZ1',
-  }
+  const PROTECTED = { authMode: 'required', authSecret: 'a-secret-long-enough-to-sign-with' }
 
   it('says nothing is needed on loopback', async () => {
     const checks = await check(GATEWAY, { webExpose: 'local' })
@@ -243,41 +239,40 @@ describe('the panel judges its own front door', () => {
     expect(find(checks, 'panel-read-only')).toBeUndefined()
   })
 
-  it('fails, not warns, when the panel is routed with nothing in front of it', async () => {
-    const checks = await check(GATEWAY, { webExpose: 'vpn', webAuth: 'none' })
+  it('fails, not warns, when the panel is routed and answers everybody', async () => {
+    const checks = await check(GATEWAY, { webExpose: 'vpn', authMode: 'disabled' })
     const auth = find(checks, 'panel-auth')
     expect(auth?.status).toBe('fail')
-    expect(auth?.fix).toBe('portta web auth set')
+    expect(auth?.fix).toContain('PORTTA_AUTH_MODE=required')
   })
 
-  it('treats basic without a credential as no protection at all', async () => {
-    const checks = await check(GATEWAY, { webExpose: 'vpn', webAuth: 'basic', webAuthUser: '' })
+  it('treats required with nothing to sign with as no protection at all', async () => {
+    const checks = await check(GATEWAY, { webExpose: 'vpn', authMode: 'required', authSecret: '' })
     expect(find(checks, 'panel-auth')?.status).toBe('fail')
   })
 
-  it('passes once a credential exists, and names the user', async () => {
-    const checks = await check(GATEWAY, { webExpose: 'vpn', ...CREDENTIAL })
+  it('passes once the panel signs people in', async () => {
+    const checks = await check(GATEWAY, { webExpose: 'vpn', ...PROTECTED })
     expect(find(checks, 'panel-auth')?.status).toBe('pass')
-    expect(find(checks, 'panel-auth')?.detail).toContain('dev')
   })
 
   it('warns about a routed panel that can still stop containers', async () => {
-    const checks = await check(GATEWAY, { webExpose: 'vpn', readOnly: false, ...CREDENTIAL })
+    const checks = await check(GATEWAY, { webExpose: 'vpn', readOnly: false, ...PROTECTED })
     expect(find(checks, 'panel-read-only')?.status).toBe('warn')
 
-    const readOnly = await check(GATEWAY, { webExpose: 'vpn', readOnly: true, ...CREDENTIAL })
+    const readOnly = await check(GATEWAY, { webExpose: 'vpn', readOnly: true, ...PROTECTED })
     expect(find(readOnly, 'panel-read-only')).toBeUndefined()
   })
 
   it('warns when the middleware file does not match the settings', async () => {
     // No dynamic directory in the test environment, so the rendered file is
     // missing: which is exactly the locked-out case worth reporting.
-    const checks = await check(GATEWAY, { webExpose: 'vpn', ...CREDENTIAL })
+    const checks = await check(GATEWAY, { webExpose: 'vpn', ...PROTECTED })
     expect(find(checks, 'panel-auth-file')?.status).toBe('warn')
   })
 
   it('never puts the hash in a diagnostic', async () => {
-    const checks = await check(GATEWAY, { webExpose: 'vpn', ...CREDENTIAL })
+    const checks = await check(GATEWAY, { webExpose: 'vpn', ...PROTECTED })
     expect(JSON.stringify(checks)).not.toContain('ckT15POyCRlen')
   })
 })

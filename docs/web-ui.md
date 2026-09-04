@@ -332,47 +332,36 @@ The private profile routes it through Traefik, which on that profile listens on
 the tailnet and nowhere else:
 
 ```bash
-./bin/portta web auth set
+./bin/portta config set panel.auth required
 ./bin/portta web up --expose vpn
 # https://portta-web.vpn.example.com
 ```
 
-This adds a Traefik router for `PORTTA_WEB_HOST.<domain>` and the Portta
-ForwardAuth middleware in front of it. It is refused on the `remote-public`
-profile, where that private router would be public, and it is refused without
-a credential: a routed panel can stop and remove every container on the host.
+This adds a Traefik router for `PORTTA_WEB_HOST.<domain>`. It is refused on the
+`remote-public` profile, where that private router would be public, and it is
+refused while `PORTTA_AUTH_MODE` is `disabled`: a routed panel can stop and
+remove every container on the host, and it would answer anybody who found it.
 
 A routed panel also defaults to read-only. `--writable` opts out, deliberately.
 
-### The credential
+### Signing in
+
+The panel signs people in itself. On a routed panel, `PORTTA_AUTH_MODE=required`
+means the first visit lands on `/setup`, which creates the owner — the only
+account that is ever created that way. Everybody after that is created by an
+administrator, and each of them has a role that decides what they may do.
 
 ```bash
-./bin/portta web auth set
-#   user      dev
-#   password  K7RXQ-M4WPD-J9TCF-B2NHY
-# warn this is the only time the password is shown; only its hash is stored
+# from the host, when there is no browser on it
+printf %s "$PASSWORD" | ./bin/portta auth bootstrap \
+  --name 'Ada Lovelace' --email ada@example.com --password-stdin
 ```
 
-The password is generated (twenty characters over a thirty-two symbol alphabet,
-so about a hundred bits), shown exactly once, and stored as scrypt in the
-owner-only `state/auth/protections.json`. Nothing puts it on a command line,
-where `ps` would show it to every user on the host. Use `--password-stdin` to
-supply your own, and `--user` to change the name.
-
-Traefik hot-reloads the dynamic directory, so a running panel needs no restart.
-
-```bash
-./bin/portta web auth          # is it protected, and as whom
-./bin/portta web auth apply    # re-render the middleware from .env
-./bin/portta web auth clear    # refused while the panel is routed
-```
-
-None of this check lives in the panel. The separate `portta-auth` process serves
-the login, validates the credential and issues a host-only session before the
-request reaches any panel route handler. Logging out clears that session;
-rotating the credential invalidates all sessions for this host. See
-[Authentication](authentication.md) and
-[ADR 0027](adr/0027-forward-authentication-service.md).
+The session is a cookie the panel issues and can revoke; banning somebody takes
+effect on their next request. A CLI or a coding agent carries a `ptt_` token
+instead, which never holds more than its owner's role. Nothing in front of the
+panel decides any of this. See [Authentication](authentication.md) and
+[ADR 0035](adr/0035-authentication-lives-in-the-panel.md).
 
 ### Public exposure
 

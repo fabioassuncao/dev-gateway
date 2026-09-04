@@ -9,6 +9,7 @@ import { createSnapshotCache } from '../src/services/inventory.ts'
 import { LiveHub } from '../src/realtime/hub.ts'
 import { createVerdictCache } from '../src/services/traefik.ts'
 import { createTestDb } from 'portta-db/testing'
+import { createPrincipalResolver, resolveSecurityMode } from 'portta-auth-core'
 import {
   environments as environmentsTable,
   githubInstallations,
@@ -418,8 +419,13 @@ export function makeApp(
   const cache = createSnapshotCache(docker.client, config, 0)
   const hub = new LiveHub(docker.client, cache)
   const verdict = createVerdictCache(config, 0)
-  const app: Hono = createApp({ config, client: docker.client, cache, hub, verdict, db, github })
-  return { app, docker, config, cache, hub, verdict, db, github }
+  // Open mode, which is what every route suite is about: who the caller is has
+  // its own suites in `packages/auth`, and repeating a sign-in here would test
+  // the harness rather than the route.
+  const security = resolveSecurityMode(config.readOnly ? { PORTTA_RUNTIME_READ_ONLY: 'true' } : {})
+  const principals = createPrincipalResolver({ security, db: db.handle, auth: null })
+  const app: Hono = createApp({ config, client: docker.client, cache, hub, verdict, db, github, security, auth: null, principals })
+  return { app, docker, config, cache, hub, verdict, db, github, security, principals }
 }
 
 /** Same-origin by default: the API refuses cross-origin writes. */

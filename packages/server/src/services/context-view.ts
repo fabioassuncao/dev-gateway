@@ -59,7 +59,7 @@ does not need. Fix that; do not free the port by force.
 export interface ContextInput {
   now: number
   actor: string | null
-  capabilities: readonly string[]
+  permissions: readonly string[]
   project: Project
   task: Task | null
   inProgress: TaskSummary[]
@@ -119,7 +119,7 @@ export function buildContext(input: ContextInput): DevelopmentContext {
   return {
     generatedAt: Math.floor(input.now / 1000),
     actor: input.actor,
-    capabilities: [...input.capabilities],
+    permissions: [...input.permissions],
     project: {
       slug,
       name: input.project.name,

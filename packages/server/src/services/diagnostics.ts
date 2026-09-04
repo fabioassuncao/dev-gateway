@@ -9,7 +9,7 @@
 import { parseEnv, readEnvFile, readProtectionStore, type StoredAlias } from 'portta-core'
 import { existsSync, statSync } from 'node:fs'
 import type { PanelConfig } from '../config.ts'
-import { isAuthenticated, isRouted } from '../config.ts'
+import { isProtected, isRouted } from '../config.ts'
 import { GENERATED_FILES, isDirWritable, readGenerated } from './dynamic.ts'
 import type { Snapshot } from './inventory.ts'
 import { componentOf } from './gateway.ts'
@@ -486,25 +486,23 @@ function panelChecks(config: PanelConfig): Diagnostic[] {
 
   if (!isRouted(config)) {
     results.push(
-      check('panel-auth', 'pass', 'Panel exposure', 'reachable on loopback only, where a password adds nothing'),
+      check('panel-auth', 'pass', 'Panel exposure', 'reachable on loopback only, where reaching it already means having the machine'),
     )
     return results
   }
 
-  if (!isAuthenticated(config)) {
+  if (!isProtected(config)) {
     results.push(
       check(
         'panel-auth',
         'fail',
         'Panel authentication',
-        `the panel is routed (expose: ${config.webExpose}) with no credential in front of it`,
-        'portta web auth set',
+        `the panel is routed (expose: ${config.webExpose}) and answers everybody as the local operator`,
+        'set PORTTA_AUTH_MODE=required and run portta bootstrap for a secret',
       ),
     )
   } else {
-    results.push(
-      check('panel-auth', 'pass', 'Panel authentication', `Portta ForwardAuth as ${config.webAuthUser}`),
-    )
+    results.push(check('panel-auth', 'pass', 'Panel authentication', 'the panel signs people in'))
   }
 
   if (!config.readOnly) {

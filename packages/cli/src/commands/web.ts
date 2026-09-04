@@ -1,11 +1,8 @@
 import { randomBytes } from 'node:crypto'
-import { chmodSync, mkdirSync, readFileSync } from 'node:fs'
+import { chmodSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  hashPassword,
   PANEL_ACCESS_MODES,
-  dashboardProtectionRecord,
-  panelProtectionRecord,
   isPanelAccess,
   isTrue,
   readEnvFile,
@@ -14,7 +11,6 @@ import {
   renderAuthDynamic,
   renderPanelAuth as renderSharedPanelAuth,
   setEnvValue,
-  setProtection,
   writeEnvFile,
   writeProtectionStore,
 } from 'portta-core'
@@ -36,38 +32,23 @@ function setValues(root: string, values: Record<string, string>): void {
   writeEnvFile(path, text)
 }
 
-export function syncPanelProtection(root: string, overrides: Record<string, string> = {}): void {
-  const context = gatewayContext({ root, overrides })
+/**
+ * Traefik's two Portta-owned files, written from the host.
+ *
+ * The panel signs people in itself, so neither it nor the Traefik dashboard has
+ * a record here any more; a store written by an older Portta still does, and
+ * those are removed. What remains is ForwardAuth for project hostnames and
+ * shares, which is what `portta protect` writes.
+ */
+export function syncForwardAuth(root: string): void {
   const storePath = join(root, 'state/auth/protections.json')
   const current = readProtectionStore(storePath)
-  const record = panelProtectionRecord({
-    mode: context.env['PORTTA_WEB_AUTH'] ?? 'none', expose: context.env['PORTTA_WEB_EXPOSE'] ?? 'local',
-    user: context.env['PORTTA_WEB_AUTH_USER'] ?? '', hash: context.env['PORTTA_WEB_AUTH_HASH'] ?? '',
-    webHost: context.env['PORTTA_WEB_HOST'] ?? 'portta-web', domain: context.config.domain,
-    advertisedHost: context.env['PORTTA_PANEL_ADVERTISED_HOST'] || context.env['PORTTA_PUBLIC_IP'] || null,
-    port: context.env['PORTTA_WEB_PORT'] ?? '8081', tlsEnabled: context.config.tlsEnabled,
-    projectName: context.config.projectName,
-  })
-  const existing = current.protections.find((protection) => protection.scope === 'panel')
-  const same = record && existing
-    ? JSON.stringify({ ...existing, epoch: undefined }) === JSON.stringify({ ...record, epoch: undefined })
-    : record === null && existing === undefined
-  let next = same ? current : record ? setProtection(current, record) : removeProtection(current, 'panel')
-  const dashboard = dashboardProtectionRecord({
-    expose: context.env['PORTTA_DASHBOARD_EXPOSE'] ?? 'local',
-    advertisedHost: context.config.dashboardAdvertisedHost,
-    mode: context.env['PORTTA_WEB_AUTH'] ?? 'none',
-    user: context.env['PORTTA_WEB_AUTH_USER'] ?? '',
-    hash: context.env['PORTTA_WEB_AUTH_HASH'] ?? '',
-    tlsEnabled: context.config.tlsEnabled,
-    projectName: context.config.projectName,
-  })
-  next = dashboard ? setProtection(next, dashboard) : removeProtection(next, 'dashboard')
+  const next = removeProtection(removeProtection(current, 'panel'), 'dashboard')
   writeProtectionStore(storePath, next)
   const dynamic = join(root, 'config/traefik/dynamic')
   mkdirSync(dynamic, { recursive: true })
   writeEnvFile(join(dynamic, 'portta-auth.yaml'), renderAuthDynamic(next))
-  writeEnvFile(join(dynamic, 'portta-panel.yaml'), renderSharedPanelAuth(null))
+  writeEnvFile(join(dynamic, 'portta-panel.yaml'), renderSharedPanelAuth())
 }
 
 /**
@@ -102,15 +83,20 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
         'portta config set panel.host portta.example.com')
     }
     if (!initial.config.tlsEnabled) {
-      throw new RefusedError("a panel routed on the domain would carry its credential in clear text",
+      throw new RefusedError("a panel routed on the domain would carry its session cookie in clear text",
         'enable TLS first: portta config set tls.enabled true')
     }
   }
-  const authConfigured = initial.env['PORTTA_WEB_AUTH'] === 'basic' && Boolean(initial.env['PORTTA_WEB_AUTH_USER']) && Boolean(initial.env['PORTTA_WEB_AUTH_HASH'])
-  // Anything the panel can be reached on from another machine sits behind the
-  // Traefik middleware first. `local` and `tailscale` publish a host port and
-  // are governed by the interface they bind, not by a credential.
-  if ((expose === 'vpn' || expose === 'public' || expose === 'domain') && !authConfigured) throw new RefusedError(`panel access '${expose}' needs a credential`, 'run portta web auth set first')
+  // Anything the panel can be reached on from another machine has to ask who is
+  // asking. `local` and `tailscale` publish a host port and are governed by the
+  // interface they bind, not by a credential.
+  const protectedPanel = initial.env['PORTTA_AUTH_MODE'] === 'required'
+  if ((expose === 'vpn' || expose === 'public' || expose === 'domain') && !protectedPanel) {
+    throw new RefusedError(
+      `panel access '${expose}' needs the panel to sign people in`,
+      'portta config set panel.auth required',
+    )
+  }
   const readOnly = options.writable ? false : options.readOnly ?? (expose === 'vpn' ? true : initial.config.webReadOnly)
   const values: Record<string, string> = {
     PORTTA_WEB: 'true', PORTTA_WEB_EXPOSE: expose, PORTTA_WEB_READ_ONLY: String(readOnly), PORTTA_WEB_DEV: String(options.dev === true),
@@ -139,7 +125,7 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   mkdirSync(join(initial.root, 'state/auth'), { recursive: true, mode: 0o700 })
   chmodSync(join(initial.root, 'state/auth'), 0o700)
   mkdirSync(join(initial.root, 'config/traefik/dynamic'), { recursive: true })
-  syncPanelProtection(initial.root, values)
+  syncForwardAuth(initial.root)
   // The values just written win over anything inherited: a PORTTA_WEB=false in
   // the environment would otherwise drop the panel overlays and leave Compose
   // starting a service that no longer exists in its file list.
@@ -320,49 +306,6 @@ export async function webOpen(command: Command): Promise<void> {
   new Output(globals(command)).data(url)
   const opener = process.platform === 'darwin' ? 'open' : 'xportta-open'
   await runProcess(opener, [url], { reject: false })
-}
-
-function authPath(root: string): string { return join(root, 'config/traefik/dynamic/portta-auth.yaml') }
-export function renderPanelAuth(user?: string, hash?: string): string {
-  return renderSharedPanelAuth(user && hash ? { user, hash } : null)
-}
-function renderAuth(root: string): void {
-  syncPanelProtection(root)
-}
-
-export async function webAuthStatus(command: Command): Promise<void> {
-  const context = gatewayContext({ profile: globals(command).profile })
-  const value = { expose: context.config.webExpose, mode: context.env['PORTTA_WEB_AUTH'] ?? 'none', user: context.env['PORTTA_WEB_AUTH_USER'] || null, hashSet: Boolean(context.env['PORTTA_WEB_AUTH_HASH']), middleware: authPath(context.root) }
-  const output = new Output(globals(command)); if (output.json) output.data(value); else for (const [key, item] of Object.entries(value)) output.line(`${key}: ${String(item)}`)
-}
-
-export async function webAuthSet(options: { user?: string; passwordStdin?: boolean }, command: Command): Promise<void> {
-  const context = gatewayContext({ profile: globals(command).profile })
-  const user = options.user ?? context.env['PORTTA_WEB_AUTH_USER'] ?? 'dev'
-  if (!/^[A-Za-z0-9._-]+$/.test(user)) throw new UsageError(`invalid username: ${user}`)
-  const generated = !options.passwordStdin
-  const password = generated ? randomBytes(20).toString('base64url').slice(0, 20).match(/.{1,5}/g)!.join('-') : readFileSync(0, 'utf8').trim()
-  if (!password) throw new UsageError('no password on stdin')
-  const hash = await hashPassword(password)
-  setValues(context.root, { PORTTA_WEB_AUTH: 'basic', PORTTA_WEB_AUTH_USER: user, PORTTA_WEB_AUTH_HASH: hash })
-  renderAuth(context.root)
-  const output = new Output(globals(command))
-  if (output.json) output.data({ user, password: generated ? password : undefined, generated })
-  else { output.line(`user: ${user}`); if (generated) { output.line(`password: ${password}`); output.warning('this is the only time the generated password is shown') } }
-}
-
-export async function webAuthClear(command: Command): Promise<void> {
-  const context = gatewayContext({ profile: globals(command).profile })
-  if (['vpn', 'public', 'domain'].includes(context.config.webExpose)) throw new RefusedError('refusing to leave a routed panel without a credential', 'run portta web up --expose local first')
-  setValues(context.root, { PORTTA_WEB_AUTH: 'none', PORTTA_WEB_AUTH_USER: '', PORTTA_WEB_AUTH_HASH: '' })
-  renderAuth(context.root)
-  new Output(globals(command)).progress('panel credential removed')
-}
-
-export async function webAuthApply(command: Command): Promise<void> {
-  const context = gatewayContext({ profile: globals(command).profile })
-  renderAuth(context.root)
-  new Output(globals(command)).progress(`rendered ${authPath(context.root)} from .env`)
 }
 
 /**

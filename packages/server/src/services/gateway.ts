@@ -2,7 +2,7 @@
 
 import { capabilitiesFrom, endpointsFor } from 'portta-core'
 import type { PanelConfig } from '../config.ts'
-import { isAuthenticated, isRouted, schemeFor } from '../config.ts'
+import { isProtected, isRouted, schemeFor } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import type { ContainerSummary, GatewayStatus, Health, ContainerState } from 'portta-contracts'
 import { exposuresFromConfig, factsFromConfig } from './access.ts'
@@ -67,7 +67,9 @@ function dashboardStatus(config: PanelConfig): GatewayStatus['dashboard'] {
     port: config.dashboardPort,
     expose: 'domain',
     advertisedHost: config.dashboardAdvertisedHost,
-    authenticated: isAuthenticated(config),
+    // The dashboard has no credential of its own: it used to borrow the panel's
+    // BasicAuth, and the panel signs people in itself now.
+    authenticated: false,
     endpoints,
   }
 }
@@ -111,14 +113,13 @@ export function gatewayStatus(snapshot: Snapshot, config: PanelConfig): GatewayS
       hostname: config.tailscaleHostname,
     },
     publicAccess: { enabled: config.publicEnabled, domain: config.publicDomain },
-    // The panel's own front door. `authenticated` is derived, never the hash
+    // The panel's own front door. `authenticated` is derived, never the secret
     // itself: that value never leaves this process.
     panel: {
       expose: config.webExpose,
       routed: isRouted(config),
-      auth: config.webAuth,
-      authenticated: isAuthenticated(config),
-      user: config.webAuthUser,
+      auth: config.authMode,
+      authenticated: isProtected(config),
       readOnly: config.readOnly,
       docs: config.docs,
     },

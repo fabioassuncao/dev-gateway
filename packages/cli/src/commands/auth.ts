@@ -16,7 +16,7 @@ import type { Command } from 'commander'
 import { gatewayContext } from '../context.js'
 import { UsageError } from '../errors.js'
 import { Output } from '../output.js'
-import { clientFor, csv } from './work.js'
+import { clientFor } from './work.js'
 
 function globals(command: Command) {
   return command.optsWithGlobals() as { json?: boolean; quiet?: boolean; verbose?: boolean; profile?: string }
@@ -112,30 +112,30 @@ export async function authStatus(hostInput: string | undefined, command: Command
   else for (const record of protections) output.line(`${record!.host}\t${record!.user}\t${record!.scope}\tepoch ${record!.epoch}`)
 }
 
-export async function authTokenList(_options: unknown, command: Command): Promise<void> {
-  const { client, output } = clientFor(command)
-  const body = await client.request<{ tokens: Array<{ id: string; name: string; actor: string; actorKind: string; capabilities: string[]; createdAt: string; revokedAt: string | null }> }>('GET', '/auth/tokens')
-  if (output.json) return output.data(body)
-  if (body.tokens.length === 0) return output.line('no API tokens')
-  for (const token of body.tokens) output.line(`${token.id}\t${token.revokedAt ? 'revoked' : 'active'}\t${token.actor}\t${token.name}`)
-}
+/**
+ * Create the owner, from the host that runs the panel.
+ *
+ * The same endpoint the `/setup` page posts to, so there is one way for a first
+ * user to exist. It is here because a panel bound to loopback on a server has no
+ * browser to open it in, and because a provisioning script needs a way that does
+ * not involve one.
+ */
+export async function authBootstrap(
+  options: { name?: string; email?: string; passwordStdin?: boolean },
+  command: Command,
+): Promise<void> {
+  if (!options.name || !options.email) throw new UsageError('--name and --email are required')
+  // Never an argument: a password on the command line is in the shell history,
+  // in `ps`, and in whatever collects both.
+  const password = options.passwordStdin ? readFileSync(0, 'utf8').trim() : ''
+  if (!password) throw new UsageError('the password is read from stdin', 'printf %s "$PASSWORD" | portta auth bootstrap --name … --email … --password-stdin')
+  if (password.length < 10) throw new UsageError('the password must be at least 10 characters')
 
-export async function authTokenCreate(options: { name?: string; actor?: string; human?: boolean; capabilities?: string }, command: Command): Promise<void> {
-  if (!options.name || !options.actor) throw new UsageError('--name and --actor are required')
-  // Here --actor names the new token, not the authenticated caller.
   const { client, output } = clientFor(command, { actor: undefined, actorKind: 'human' })
-  const body = await client.request<{ token: string; credential: { id: string; name: string; actor: string } }>('POST', '/auth/tokens', {
-    name: options.name, actor: options.actor, actorKind: options.human ? 'human' : 'agent',
-    ...(options.capabilities ? { capabilities: csv(options.capabilities) } : {}),
-  })
+  const body = await client.request<{ ok: true; user: { id: string; email: string; name: string } }>(
+    'POST', '/auth/setup', { name: options.name, email: options.email, password },
+  )
   if (output.json) return output.data(body)
-  output.line(`token: ${body.token}`)
-  output.warning('this is the only time the token is shown')
-  output.hint('set PORTTA_URL and PORTTA_TOKEN for non-interactive remote use')
-}
-
-export async function authTokenRevoke(id: string, _options: unknown, command: Command): Promise<void> {
-  const { client, output } = clientFor(command)
-  await client.request('DELETE', `/auth/tokens/${encodeURIComponent(id)}`)
-  output.progress(`revoked API token ${id}`)
+  output.progress(`created ${body.user.email} as the owner`)
+  output.hint('sign in at the panel URL; there is no password reset by email')
 }

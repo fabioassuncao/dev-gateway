@@ -51,7 +51,7 @@ export function tunnelRoutes(deps: AppDeps): Hono {
   }
 
   app.get('/tunnel', documentRoute({
-    tag: 'Network', operationId: 'getTunnel', capability: 'config:read', summary: 'Cloudflare Tunnel state and routes',
+    tag: 'Network', operationId: 'getTunnel', permission: 'settings:read', summary: 'Cloudflare Tunnel state and routes',
     response: TunnelView, errors: [500],
   }), async (c) => c.json(tunnelView(deps.config, await observe())))
 
@@ -63,7 +63,7 @@ export function tunnelRoutes(deps: AppDeps): Hono {
   }).strict()
 
   app.post('/tunnel/setup', documentRoute({
-    tag: 'Network', operationId: 'setupTunnel', capability: 'config:write', summary: 'Configure the connector from a tunnel token',
+    tag: 'Network', operationId: 'setupTunnel', permission: 'settings:manage', summary: 'Configure the connector from a tunnel token',
     request: SetupBody, response: TunnelView, errors: [400, 403, 500],
   }), async (c) => {
     if (deps.config.readOnly) return c.json({ error: 'the panel is read-only' }, 403)
@@ -86,7 +86,7 @@ export function tunnelRoutes(deps: AppDeps): Hono {
   })
 
   app.post('/tunnel/enable', documentRoute({
-    tag: 'Network', operationId: 'enableTunnel', capability: 'config:write', summary: 'Include the connector in the running stack',
+    tag: 'Network', operationId: 'enableTunnel', permission: 'settings:manage', summary: 'Include the connector in the running stack',
     response: TunnelView, errors: [400, 403, 500],
   }), async (c) => {
     if (deps.config.readOnly) return c.json({ error: 'the panel is read-only' }, 403)
@@ -105,7 +105,7 @@ export function tunnelRoutes(deps: AppDeps): Hono {
   }).strict()
 
   app.post('/tunnel/disable', documentRoute({
-    tag: 'Network', operationId: 'disableTunnel', capability: 'config:write', summary: 'Stop including the connector',
+    tag: 'Network', operationId: 'disableTunnel', permission: 'settings:manage', summary: 'Stop including the connector',
     request: DisableBody, response: TunnelView, errors: [403, 500],
   }), async (c) => {
     if (deps.config.readOnly) return c.json({ error: 'the panel is read-only' }, 403)

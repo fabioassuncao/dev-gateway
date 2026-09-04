@@ -194,8 +194,9 @@ portta config set panel.access local
 ```
 
 Each of these writes `.env`, renders the middleware, and recreates what needs
-recreating. Moving to `public` without a credential is refused; run
-`portta web auth set` first, which generates a password and shows it once.
+recreating. Moving to `public` while the panel answers everybody as the local
+operator is refused; run `portta config set panel.auth required` first, then open
+`/setup` to create the owner.
 
 `config` is part of the full CLI, so it needs Node 22.12+. On a host without
 it — which is what the installer produces by default — the installer is the way
@@ -327,9 +328,9 @@ so and stops rather than falling back to building on the host.
 **The port is already in use.** The installer checks before it starts and
 offers another port. Pass `--panel-port` in non-interactive runs.
 
-**The panel answers 401 and you have lost the password.** Only the hash is
-stored, so it cannot be recovered. `portta web auth set` generates a new one
-and shows it once.
+**The panel answers 401 and you have lost the password.** Only a hash is stored,
+so it cannot be recovered. Reset it from the host that owns the panel:
+`portta auth reset-password <email>`.
 
 **Something is unhealthy.** `portta doctor` names the check that failed and the
 command that addresses it. `portta logs web` and `portta logs traefik` are the

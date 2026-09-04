@@ -164,7 +164,7 @@ describe "the CLI drives it"
 # offers first. What is refused is reaching the panel from another machine with
 # nothing in front of it.
 it "publishing the panel publicly without a credential is refused"
-assert_contains "$(./bin/portta web up --expose public 2>&1)" "needs a credential"
+assert_contains "$(./bin/portta web up --expose public 2>&1)" "needs the panel to sign people in"
 
 it "an unknown expose value fails"
 assert_failure ./bin/portta web up --expose nonsense
@@ -270,20 +270,20 @@ assert_contains "$auth_services" './config/traefik/dynamic:/app/state/traefik-dy
 assert_contains "$auth_services" 'profiles: [migration]'
 assert_contains "$auth_services" 'network_mode: none'
 
-it "the hash is declared a secret, so the API never returns it"
-assert_contains "$(sed -n '/PORTTA_WEB_AUTH_HASH/,/},/p' packages/server/src/services/settings.ts)" "secret: true"
+it "the signing secret is declared a secret, so the API never returns it"
+assert_contains "$(sed -n '/PORTTA_AUTH_SECRET/,/},/p' packages/server/src/services/settings.ts)" "secret: true"
 
 it "routing the panel without a credential is refused by the profile resolver"
 assert_contains "$(cat scripts/lib/docker.sh)" "the panel is reachable beyond this host with no credential in front of it"
 
 it "and by web up"
-out=$(PORTTA_WEB_AUTH=none ./bin/portta web up --expose vpn 2>&1 || true)
-assert_contains "$out" "needs a credential"
+out=$(PORTTA_AUTH_MODE=disabled ./bin/portta web up --expose vpn 2>&1 || true)
+assert_contains "$out" "needs the panel to sign people in"
 
-
-it "the password never reaches a command line, where ps would show it"
-assert_contains "$(cat packages/cli/src/commands/web.ts)" "hashPassword(password)"
-assert_eq "" "$(grep -nE "runProcess\([^]]*password" packages/cli/src/commands/web.ts || true)"
+# The panel has no password of its own to hash: people sign in to it, and Better
+# Auth hashes what they type inside the process.
+it "the CLI stores no panel credential at all"
+assert_eq "" "$(grep -nE "hashPassword|PORTTA_WEB_AUTH" packages/cli/src/commands/web.ts || true)"
 
 describe "the panel writes four filenames into Traefik's dynamic directory"
 
@@ -330,10 +330,13 @@ assert_contains "$(cat "$traefik")" "createVerdictCache"
 describe "the CLI and the panel render the same middleware contract"
 
 it "both surfaces import the core renderer"
-assert_contains "$(cat packages/cli/src/commands/web.ts)" "renderSharedPanelAuth"
-assert_contains "$(cat packages/server/src/services/dynamic.ts)" "renderSharedPanelAuth"
-it "the middleware has one canonical definition"
-assert_eq "1" "$(grep -R --include='*.ts' -l "PANEL_AUTH_MIDDLEWARE = 'portta-web-auth'" packages apps | wc -l | tr -d ' ')"
+assert_contains "$(cat packages/cli/src/commands/web.ts)" "renderPanelAuth"
+assert_contains "$(cat packages/server/src/services/dynamic.ts)" "renderPanelAuth"
+
+# The panel signs people in itself, so nothing routes through a middleware to
+# reach it. A definition surviving anywhere would be a second answer.
+it "no panel authentication middleware is defined anywhere"
+assert_eq "" "$(grep -R --include='*.ts' -l "PANEL_AUTH_MIDDLEWARE" packages/*/src apps/*/src || true)"
 
 describe "the panel is containerised, and the host needs no Node"
 

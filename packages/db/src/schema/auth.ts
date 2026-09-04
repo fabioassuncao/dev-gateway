@@ -10,7 +10,7 @@
 // and compares. Domain ids stay `bigint` identities — see projects.ts.
 
 import { relations } from 'drizzle-orm'
-import { boolean, index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { boolean, index, integer, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { roleEnum } from './enums.ts'
 
@@ -71,6 +71,15 @@ export const accounts = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    /**
+     * Who vouches for this identity.
+     *
+     * Better Auth 1.7 scopes an account by issuer as well as by id, so two
+     * providers can name the same account without colliding. Portta configures
+     * one provider and nothing else, but the column is required and the library
+     * queries it: leaving it out makes every sign-in fail at the adapter.
+     */
+    issuer: text('issuer').notNull(),
     accountId: text('account_id').notNull(),
     /** `credential` for a password. No social provider is configured. */
     providerId: text('provider_id').notNull(),
@@ -85,7 +94,10 @@ export const accounts = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (table) => [index('accounts_user_idx').on(table.userId)],
+  (table) => [
+    index('accounts_user_idx').on(table.userId),
+    uniqueIndex('accounts_issuer_account_id_idx').on(table.issuer, table.accountId),
+  ],
 )
 
 export const verifications = pgTable('verifications', {
@@ -105,6 +117,14 @@ export const apiKeys = pgTable(
   'api_keys',
   {
     id: authId(),
+    /**
+     * Which set of api-key options minted this token.
+     *
+     * The plugin supports several named configurations; Portta declares one, so
+     * every row says `default`. The column is required by the library and read
+     * on every verification, so it exists even though nothing here varies it.
+     */
+    configId: text('config_id').notNull().default('default'),
     name: text('name'),
     /** The first characters, so a listing can identify a token without the secret. */
     start: text('start'),
