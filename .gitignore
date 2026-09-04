@@ -52,3 +52,4 @@ packages/*/dist/
 # Test artifacts
 tests/.tmp/
 tests/**/.env
+.references
