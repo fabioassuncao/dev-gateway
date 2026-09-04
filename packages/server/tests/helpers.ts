@@ -8,8 +8,17 @@ import { loadConfig, type PanelConfig } from '../src/config.ts'
 import { createSnapshotCache } from '../src/services/inventory.ts'
 import { LiveHub } from '../src/services/events.ts'
 import { createVerdictCache } from '../src/services/traefik.ts'
-import type { Database } from '../src/db/index.ts'
-import { fakeActivity, fakeSessions, fakeTasks } from './fake-work.ts'
+import { createTestDb } from 'portta-db/testing'
+import {
+  environments as environmentsTable,
+  githubInstallations,
+  githubIssues,
+  githubRepositories,
+  projects as projectsTable,
+  repositories as repositoriesTable,
+  type Db,
+} from 'portta-db'
+import { Database } from '../src/db/index.ts'
 import type { GitHubIntegration } from '../src/services/integrations/github/index.ts'
 import type { DockerClient, LogLine } from '../src/services/docker/client.ts'
 import type {
@@ -259,88 +268,149 @@ export function testConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
 }
 
 /**
- * Enough of `Database` to exercise the override endpoints without PostgreSQL.
+ * A real PostgreSQL, in memory, migrated, and seeded with the situation nearly
+ * every suite needs: one Project with one Repository, and two environments it
+ * has been seen running.
  *
- * The point of these tests is the refusal and rollback logic, not the SQL, so
- * the store is a map and `available` is a flag the test can turn off to prove
- * the 503 path.
+ * There used to be hand-written stand-ins here, one per repository. They were
+ * cheap and they were wrong in the way stand-ins always are: they accepted rows
+ * a check would refuse, they returned ids in a shape the driver never produces,
+ * and a query the panel got wrong passed anyway. PGlite costs about a hundred
+ * milliseconds and answers with the database.
  */
-export function fakeDatabase(options: { available?: boolean } = {}): Database & {
-  projectValues: Map<string, unknown>
-  serviceValues: Map<string, unknown>
-  failWrites?: boolean
-} {
-  const projectValues = new Map<string, unknown>()
-  const serviceValues = new Map<string, unknown>()
-  const available = options.available ?? true
-  const record = {
-    id: 'e1', composeProject: 'alpha', workingDir: null, configFiles: [], repoUrl: null, repoSubpath: null,
-    firstSeenAt: new Date(0), lastSeenAt: new Date(0), updatedAt: new Date(0),
+export interface SeededDatabase {
+  database: Database
+  db: Db
+  /** The ids the seed produced, as the API returns them: strings. */
+  ids: {
+    project: string
+    repository: string
+    githubRepository: string
+    environment: string
+    issueEnvironment: string
+  }
+  close: () => Promise<void>
+}
+
+export interface SeedOptions {
+  /** Skip the fixture rows and start from an empty schema. */
+  empty?: boolean
+  /**
+   * Report the connection as down, so `requireDatabase` refuses. This is the
+   * state a dropped connection leaves behind — not "no database configured",
+   * which stopped being possible when PostgreSQL became a boot dependency.
+   */
+  available?: boolean
+}
+
+export async function seededDatabase(options: SeedOptions = {}): Promise<SeededDatabase> {
+  const { db, close } = await createTestDb()
+  const database = options.available === false
+    ? new Database(db as unknown as Db, unreachableBackend())
+    : Database.forTesting(db as unknown as Db)
+  if (options.available !== false) await database.initialize()
+  const ids = {
+    project: '', repository: '', githubRepository: '', environment: '', issueEnvironment: '',
   }
 
-  const database = {
-    projectValues,
-    serviceValues,
-    status: () => ({ configured: true, available, reason: available ? null : 'connection refused', checkedAt: 0, migrations: [] }),
-    environments: {
-      find: async (composeProject: string) => ({ ...record, composeProject }),
-      upsertSeen: async () => record,
-      list: async () => [record],
-      recordCounts: async () => ({ overrides: 0, projectLinks: 0, issueLinks: 0 }),
-      forget: async () => ({ overrides: 0, projectLinks: 0, issueLinks: 0 }),
-    },
-    projects: {
-      find: async () => null,
-      list: async () => [],
-      listEnvironments: async () => [],
-    },
-    repositories: {
-      list: async () => [],
-      find: async () => null,
-      findByGitHub: async () => null,
-    },
-    // Empty by default: an override test is not a GitHub test, and every join
-    // must degrade to nothing rather than throw.
-    github: {
-      listIssues: async () => [],
-      listRelationships: async () => [],
-      findRepository: async () => null,
-      findIssue: async () => null,
-      findIssueByNumber: async () => null,
-      listRepositories: async () => [],
-    },
-    tasks: fakeTasks(),
-    sessions: fakeSessions(),
-    activity: fakeActivity(),
-    settings: {
-      getGlobal: async () => null,
-      getEnvironment: async (_id: string, key: string) => projectValues.get(key) ?? null,
-      setEnvironment: async (_id: string, key: string, value: unknown) => void projectValues.set(key, value),
-      clearEnvironment: async (_id: string, key: string) => void projectValues.delete(key),
-      getService: async (_id: string, service: string, key: string) => serviceValues.get(`${service}:${key}`) ?? null,
-      setService: async (_id: string, service: string, key: string, value: unknown) =>
-        void serviceValues.set(`${service}:${key}`, value),
-      clearService: async (_id: string, service: string, key: string) =>
-        void serviceValues.delete(`${service}:${key}`),
-      listAllEnvironment: async () =>
-        [...projectValues].map(([key, value]) => ({ composeProject: 'alpha', key, value })),
-      listAllService: async () =>
-        [...serviceValues].map(([composite, value]) => {
-          const [service, key] = composite.split(':')
-          return { composeProject: 'alpha', service: service!, key: key!, value }
-        }),
-    },
+  if (options.empty !== true) {
+    const [project] = await db
+      .insert(projectsTable)
+      .values({ slug: 'produto', name: 'Produto' })
+      .returning({ id: projectsTable.id })
+    await db.insert(githubInstallations).values({
+      installationId: 99, accountLogin: 'acme', accountType: 'Organization',
+    })
+    const [githubRepository] = await db
+      .insert(githubRepositories)
+      .values({
+        githubId: 1, nodeId: 'R_1', installationId: 99, owner: 'acme', name: 'api',
+        fullName: 'acme/api', defaultBranch: 'main', private: false,
+        htmlUrl: 'https://github.com/acme/api',
+      })
+      .returning({ id: githubRepositories.id })
+    const [repository] = await db
+      .insert(repositoriesTable)
+      .values({
+        projectId: project!.id, name: 'api', provider: 'github',
+        githubRepositoryId: githubRepository!.id, remoteUrl: 'https://github.com/acme/api',
+      })
+      .returning({ id: repositoriesTable.id })
+    const seen = await db
+      .insert(environmentsTable)
+      .values([{ composeProject: 'alpha' }, { composeProject: 'alpha-issue182' }])
+      .returning({ id: environmentsTable.id, composeProject: environmentsTable.composeProject })
+
+    ids.project = String(project!.id)
+    ids.repository = String(repository!.id)
+    ids.githubRepository = String(githubRepository!.id)
+    ids.environment = String(seen.find((row) => row.composeProject === 'alpha')!.id)
+    ids.issueEnvironment = String(seen.find((row) => row.composeProject === 'alpha-issue182')!.id)
   }
-  return database as unknown as Database & {
-    projectValues: Map<string, unknown>
-    serviceValues: Map<string, unknown>
+
+  return { database, db: db as unknown as Db, ids, close }
+}
+
+/**
+ * Project GitHub issues into the seeded repository, the way a sync does.
+ *
+ * The fixtures the suites write are `StoredIssue`-shaped; this puts the fields
+ * the projection actually holds into the row, so the joins, the enums and the
+ * foreign keys are the real ones.
+ */
+export async function seedIssues(
+  seeded: SeededDatabase,
+  rows: ReadonlyArray<Record<string, unknown>>,
+): Promise<void> {
+  if (rows.length === 0) return
+  await seeded.db.insert(githubIssues).values(
+    rows.map((row) => ({
+      githubId: row['githubId'] as number,
+      nodeId: row['nodeId'] as string,
+      repositoryId: Number(seeded.ids.githubRepository),
+      number: row['number'] as number,
+      title: row['title'] as string,
+      body: (row['body'] ?? null) as string | null,
+      state: row['state'] as 'open' | 'closed',
+      stateReason: (row['stateReason'] ?? null) as string | null,
+      issueType: (row['issueType'] ?? null) as string | null,
+      workflowStatus: (row['workflowStatus'] ?? null) as string | null,
+      priority: (row['priority'] ?? null) as string | null,
+      metadataSource: (row['metadataSource'] ?? 'none') as 'fields' | 'labels' | 'none',
+      labels: (row['labels'] ?? []) as string[],
+      assignees: (row['assignees'] ?? []) as string[],
+      milestone: (row['milestone'] ?? null) as never,
+      htmlUrl: row['htmlUrl'] as string,
+      isPullRequest: (row['isPullRequest'] ?? false) as boolean,
+      githubUpdatedAt: row['githubUpdatedAt'] as Date,
+    })),
+  )
+}
+
+/**
+ * A database the panel cannot reach.
+ *
+ * Most suites here are about Docker, Traefik or the gateway and never touch
+ * persistence. Passing this says so, and keeps a route that *does* touch it
+ * answering 503 — which is the boundary those suites were asserting when the
+ * dependency was optional and they passed `null`.
+ */
+export function detachedDatabase(): Database {
+  return new Database(undefined as never, unreachableBackend())
+}
+
+/** A backend whose server is not there: every call to it fails the way one would. */
+function unreachableBackend() {
+  const refuse = async (): Promise<never> => {
+    throw new Error('no database connection in this test')
   }
+  return { migrate: refuse, applied: refuse, legacy: async () => false, ping: refuse, close: async () => undefined }
 }
 
 export function makeApp(
   options: FakeDockerOptions = {},
   configOverrides: Partial<PanelConfig> = {},
-  db: Database | null = null,
+  db: Database = detachedDatabase(),
   github: GitHubIntegration | null = null,
 ) {
   const docker = fakeDocker(options)

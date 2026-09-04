@@ -23,6 +23,7 @@ export * from './namespace.ts'
 export * from './pressure.ts'
 export * from './project-order.ts'
 export * from './redact.ts'
+export * from './roles.ts'
 export * from './task-example.ts'
 export * from './tasks.ts'
 

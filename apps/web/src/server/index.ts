@@ -42,15 +42,26 @@ if (rendered.written) {
 }
 
 const client = new DockerClient(config.dockerApi)
-let db: Database | null = null
-if (config.databaseUrl !== null) {
-  try {
-    db = Database.open(config.databaseUrl)
-    await db.initialize()
-    process.stdout.write(`database ready: ${db.status().migrations.join(', ') || 'no migrations'}\n`)
-  } catch (error) {
-    process.stdout.write(`database temporarily unavailable; persistence will retry: ${String(error)}\n`)
-  }
+
+// PostgreSQL is a boot dependency, not a soft one. A panel that starts without
+// it can show Docker and nothing else, and every write it accepts is lost — so
+// it says what is missing and stops, rather than degrading into a half-panel
+// somebody has to diagnose.
+if (config.databaseUrl === null) {
+  process.stderr.write(
+    'PORTTA_RUNTIME_DATABASE_URL is not set; the panel needs PostgreSQL.\n' +
+      'Run: portta web up  (it starts the database beside the panel)\n',
+  )
+  process.exit(1)
+}
+
+const db = Database.open(config.databaseUrl)
+try {
+  await db.initialize()
+  process.stdout.write(`database ready: ${db.status().migrations.join(', ') || 'no migrations'}\n`)
+} catch (error) {
+  process.stderr.write(`the panel cannot open its database: ${String(error)}\n`)
+  process.exit(1)
 }
 
 // Off by default. Configured but unreachable is a status the panel reports,
@@ -80,7 +91,7 @@ if (github.status().configured) {
 // so without this the only trigger is somebody pressing Sync. See
 // integrations/github/sync/schedule.ts, and set GITHUB_SYNC_INTERVAL_MINUTES=0
 // on a panel that does receive webhooks.
-const schedule = db && github.status().configured
+const schedule = github.status().configured
   ? createReconciliationSchedule(() => github.require(), db, {
       minutes: intervalMinutes(process.env['GITHUB_SYNC_INTERVAL_MINUTES']),
       onError: (error) => process.stdout.write(`github reconciliation failed; the projection is unchanged: ${String(error)}\n`),
@@ -93,7 +104,7 @@ if (schedule) {
   }
 }
 
-const cache = createSnapshotCache(client, config, 1000, (snapshot) => db?.recordEnvironmentsSeen(snapshot.environments))
+const cache = createSnapshotCache(client, config, 1000, (snapshot) => db.recordEnvironmentsSeen(snapshot.environments))
 const hub = new LiveHub(client, cache)
 const verdict = createVerdictCache(config)
 
@@ -101,8 +112,8 @@ const app = createApp({ config, client, cache, hub, verdict, db, github })
 
 // What the repositories produced, noticed from the host scan once a minute,
 // and the hourly housekeeping: quiet sessions abandoned, old activity pruned.
-const commitWatch = db ? createCommitWatch(config, db, hub) : null
-const maintenance = db ? createMaintenance(db, hub) : null
+const commitWatch = createCommitWatch(config, db, hub)
+const maintenance = createMaintenance(db, hub)
 
 const indexHtml = join(config.uiDir, 'index.html')
 if (existsSync(indexHtml)) {
@@ -121,8 +132,8 @@ if (existsSync(indexHtml)) {
 }
 
 hub.start()
-commitWatch?.start()
-maintenance?.start()
+commitWatch.start()
+maintenance.start()
 
 const server = serve({ fetch: app.fetch, hostname: config.host, port: config.port }, (info) => {
   process.stdout.write(
@@ -135,11 +146,10 @@ function shutdown(signal: string): void {
   process.stdout.write(`\n${signal}: shutting the panel down\n`)
   hub.stop()
   schedule?.stop()
-  commitWatch?.stop()
-  maintenance?.stop()
+  commitWatch.stop()
+  maintenance.stop()
   server.close(() => {
-    if (db) void db.close().finally(() => process.exit(0))
-    else process.exit(0)
+    void db.close().finally(() => process.exit(0))
   })
   setTimeout(() => process.exit(0), 3000).unref()
 }

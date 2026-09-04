@@ -10,7 +10,7 @@
 import { projectOperable } from 'portta-core'
 import type { PanelConfig } from '../config.ts'
 import type { Database } from '../db/index.ts'
-import type { EnvironmentRecord } from '../db/client.ts'
+import type { EnvironmentRecord } from '../db/environments.ts'
 import type { Environment, EnvironmentStartable } from 'portta-contracts'
 import { CONTAINERS_GONE_REASON } from './actions.ts'
 import type { Snapshot } from './inventory.ts'

@@ -21,6 +21,7 @@ portta/
 ├── apps/auth/               the ForwardAuth service for project hostnames and shares
 ├── packages/core/           portta-core — shared derivations (private)
 ├── packages/contracts/      portta-contracts — API schemas, types, openapi.json
+├── packages/db/             portta-db — Drizzle schema, migrations, client
 ├── packages/server/         portta-server — services, Hono API, background work
 ├── packages/cli/            portta — TypeScript CLI
 ├── bin/portta          Bash entry point; delegates when Node is present
@@ -39,6 +40,7 @@ portta/
 | `apps/auth` | `portta-auth` | no | ForwardAuth for project hostnames and shares |
 | `packages/core` | `portta-core` | no | Pure derivations: `env`, `config`, `discovery`, `capabilities`, `endpoints`, `inventory`, `apply`, `tunnel`, `password`, `metrics`. No process execution, ever |
 | `packages/contracts` | `portta-contracts` | no (the future SDK's source) | The API's Zod schemas and types, and the generated `openapi.json` |
+| `packages/db` | `portta-db` | no | The schema, the generated migrations and the client. No business rule |
 | `packages/server` | `portta-server` | no | Every business rule: services, the Hono API, Docker, Traefik, Git, GitHub, persistence, background work |
 | `packages/cli` | `portta` | ready, not published by repository changes | Commands, formatting, provisioning, and every effect: `process`, `docker`, `host`, `detect`, `metrics` |
 
@@ -63,14 +65,17 @@ An arrow means "may import". Anything else is a defect, and
 flowchart LR
     core[packages/core]
     contracts[packages/contracts]
+    db[packages/db]
     server[packages/server]
     web[apps/web]
     cli[packages/cli]
     fauth[apps/auth]
 
     contracts --> core
+    db --> core
     server --> core
     server --> contracts
+    server --> db
     web --> core
     web --> contracts
     web --> server
@@ -90,6 +95,10 @@ Read the edges as consequences, not preferences:
   a future SDK compile against, so it cannot know a database exists. Its
   OpenAPI generator is a script, not source: it reaches for the server's routes,
   and nothing a consumer loads follows it.
+- **`packages/db` holds the shape of the rows and nothing else.** It has no
+  business rule to ask `auth` or the services about, which is what lets a suite
+  run the real migrations against PGlite without starting a panel. Its enums are
+  built from the constants in `core`, so a vocabulary exists once.
 - **`packages/server` is the only place with a business rule**, and the only
   one that opens Docker, Traefik, Git, GitHub or PostgreSQL. It exports names,
   never `export *` from a service, so `apps/web` cannot reach past what it
@@ -107,6 +116,7 @@ Read the edges as consequences, not preferences:
 | A panel page or React component | `apps/web` |
 | An API route, or the rule behind one | `packages/server` — `src/api/routes/` for the route, `src/services/` for the rule. Never in `apps/web` |
 | A Zod schema the API answers with, or a type the CLI compiles against | `packages/contracts` |
+| A table, a column, an index or a check | `packages/db` `src/schema/`, then `npm run db:generate --workspace=portta-db`. Never SQL by hand |
 | A shared enum or vocabulary both the schema and the CLI need | `packages/core`, named once, with `packages/contracts` deriving its schema from it |
 | Parsing `.env`, inventory, Traefik files, the Docker allowlist | `packages/core`, the first time a second consumer needs it |
 | A CLI command | `packages/cli` `src/commands/`, colocated `*.test.ts` |

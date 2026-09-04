@@ -1,10 +1,28 @@
+// The product the operator recognises. A decision, so nothing on the snapshot
+// path writes here and nothing here disappears when nothing is running.
+
 import { z } from 'zod'
+import { asc, eq, inArray } from 'drizzle-orm'
 import { parseRelativeProjectPath } from 'portta-core'
-import type {
-  DatabaseClient,
-  ProjectEnvironmentRow,
-  ProjectRecord,
-} from './client.ts'
+import { type Db, environments, projectEnvironments, projects } from 'portta-db'
+
+export interface ProjectRecord {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  archived: boolean
+  /** First-level directory under Projects Home. Null when unmanaged / not yet placed. */
+  relativePath: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface ProjectEnvironmentRow {
+  projectId: string
+  composeProject: string
+  source: string
+}
 
 const Slug = z.string().min(1).max(64).regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/, 'must be a lowercase slug')
 
@@ -35,47 +53,101 @@ const UpdateProject = z.object({
   relativePath: RelativePath.nullable().optional(),
 }).strict()
 
-/**
- * The product the operator recognises. A decision, so nothing on the snapshot
- * path writes here and nothing here disappears when nothing is running.
- */
+type Row = typeof projects.$inferSelect
+
+function toRecord(row: Row): ProjectRecord {
+  return { ...row, id: String(row.id) }
+}
+
 export class ProjectsRepository {
-  private readonly client: DatabaseClient
+  private readonly db: Db
 
-  constructor(client: DatabaseClient) {
-    this.client = client
+  constructor(db: Db) {
+    this.db = db
   }
 
-  create(input: unknown): Promise<ProjectRecord> {
-    return this.client.createProject(CreateProject.parse(input))
+  async create(input: unknown): Promise<ProjectRecord> {
+    const parsed = CreateProject.parse(input)
+    const [row] = await this.db.insert(projects).values(parsed).returning()
+    if (row === undefined) throw new Error(`database did not return project ${parsed.slug}`)
+    return toRecord(row)
   }
 
-  update(slug: string, patch: unknown): Promise<ProjectRecord | null> {
-    return this.client.updateProject(slug, UpdateProject.parse(patch))
+  /**
+   * Every column is optional, and `description` and `relativePath` are
+   * deliberately three-valued: an absent key leaves the column alone, `null`
+   * clears it, and a value sets it, so "no change" and "clear this" stay
+   * distinguishable.
+   */
+  async update(slug: string, patch: unknown): Promise<ProjectRecord | null> {
+    const parsed = UpdateProject.parse(patch)
+    const changes: Partial<Row> = { updatedAt: new Date() }
+    if (parsed.name !== undefined) changes.name = parsed.name
+    if (Object.hasOwn(parsed, 'description')) changes.description = parsed.description ?? null
+    if (parsed.archived !== undefined) changes.archived = parsed.archived
+    if (Object.hasOwn(parsed, 'relativePath')) changes.relativePath = parsed.relativePath ?? null
+    const [row] = await this.db.update(projects).set(changes).where(eq(projects.slug, slug)).returning()
+    return row ? toRecord(row) : null
   }
 
-  list(): Promise<ProjectRecord[]> {
-    return this.client.listProjects()
+  async list(): Promise<ProjectRecord[]> {
+    const rows = await this.db.select().from(projects).orderBy(asc(projects.archived), asc(projects.name))
+    return rows.map(toRecord)
   }
 
-  find(slug: string): Promise<ProjectRecord | null> {
-    return this.client.findProject(slug)
+  async find(slug: string): Promise<ProjectRecord | null> {
+    const [row] = await this.db.select().from(projects).where(eq(projects.slug, slug))
+    return row ? toRecord(row) : null
   }
 
   /** Removes the grouping only. No container, volume or repository is touched. */
-  remove(slug: string): Promise<boolean> {
-    return this.client.deleteProject(slug)
+  async remove(slug: string): Promise<boolean> {
+    const rows = await this.db
+      .delete(projects)
+      .where(eq(projects.slug, slug))
+      .returning({ id: projects.id })
+    return rows.length > 0
   }
 
-  listEnvironments(): Promise<ProjectEnvironmentRow[]> {
-    return this.client.listProjectEnvironments()
+  async listEnvironments(): Promise<ProjectEnvironmentRow[]> {
+    const rows = await this.db
+      .select({
+        projectId: projectEnvironments.projectId,
+        composeProject: environments.composeProject,
+        source: projectEnvironments.source,
+      })
+      .from(projectEnvironments)
+      .innerJoin(environments, eq(environments.id, projectEnvironments.environmentId))
+    return rows.map((row) => ({ ...row, projectId: String(row.projectId) }))
   }
 
-  setEnvironments(projectId: string, composeProjects: unknown): Promise<void> {
-    const parsed = z.array(z.string().min(1).max(255)).max(128).parse(composeProjects)
-    return this.client.setProjectEnvironments(projectId, parsed)
+  /**
+   * Replace this Project's adoptions. An environment belongs to at most one
+   * Project, so claiming one another Project holds moves it rather than failing.
+   */
+  async setEnvironments(projectId: string, composeProjects: unknown): Promise<void> {
+    const names = z.array(z.string().min(1).max(255)).max(128).parse(composeProjects)
+    const id = Number(projectId)
+    await this.db.transaction(async (tx) => {
+      await tx.delete(projectEnvironments).where(eq(projectEnvironments.projectId, id))
+      if (names.length === 0) return
+      // A name nothing has been seen running under is skipped, not an error:
+      // the operator may be adopting an environment before it first starts.
+      const known = await tx
+        .select({ id: environments.id })
+        .from(environments)
+        .where(inArray(environments.composeProject, names))
+      for (const environment of known) {
+        await tx
+          .insert(projectEnvironments)
+          .values({ projectId: id, environmentId: environment.id, source: 'manual' })
+          .onConflictDoUpdate({
+            target: projectEnvironments.environmentId,
+            set: { projectId: id, source: 'manual' },
+          })
+      }
+    })
   }
 }
 
-export type { ProjectRecord, ProjectEnvironmentRow }
 export { REPOSITORY_ROLES } from './repositories.ts'

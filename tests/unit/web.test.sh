@@ -373,8 +373,8 @@ assert_contains "$(cat docker/compose/features/web-dev.yaml)" 'command: ["npm", 
 it "mounts the shared package so editing it reloads the panel"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/core/src:/app/packages/core/src"
 
-it "mounts panel SQL so a new migration is visible without rebuilding"
-assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/server/migrations:/app/packages/server/migrations"
+it "mounts the generated SQL so a new migration is visible without rebuilding"
+assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/db/drizzle:/app/packages/db/drizzle"
 
 it "publishes the UI on its own port, which is where the panel answers"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "PORTTA_WEB_DEV_PORT:-5173"

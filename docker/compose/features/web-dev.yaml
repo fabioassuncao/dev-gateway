@@ -23,14 +23,16 @@ services:
       NODE_ENV: development
     volumes:
       - ./apps/web/src:/app/apps/web/src
-      # SQL files the running process reads on the next migrate. Without this
-      # a new file stays in the image until the next rebuild, so `portta db
-      # migrate` and a panel restart would both see a stale set.
-      - ./packages/server/migrations:/app/packages/server/migrations
       # The packages the panel composes, so editing one reloads it like its own
-      # source: the shared derivations, the contract, and the services and API.
+      # source: the shared derivations, the contract, the schema, and the
+      # services and API.
       - ./packages/core/src:/app/packages/core/src
       - ./packages/contracts/src:/app/packages/contracts/src
+      - ./packages/db/src:/app/packages/db/src
+      # The generated migrations the process applies on the next migrate.
+      # Without this a newly generated file stays in the image until the next
+      # rebuild, so `portta db migrate` and a restart would both see a stale set.
+      - ./packages/db/drizzle:/app/packages/db/drizzle
       - ./packages/server/src:/app/packages/server/src
       - ./.env:/app/state/.env
       - ./VERSION:/app/state/VERSION:ro

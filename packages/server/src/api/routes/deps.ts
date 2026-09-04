@@ -13,8 +13,12 @@ export interface AppDeps {
   hub: LiveHub
   /** Traefik's own view, on its own cache. Never on the snapshot path. */
   verdict: VerdictCache
-  /** Optional by design: every pre-persistence endpoint works with null. */
-  db: Database | null
+  /**
+   * Required. PostgreSQL is a boot dependency: `main` exits rather than serving
+   * a panel that cannot remember anything. A connection that drops *after* boot
+   * is a different thing, and `requireDatabase` still turns it into a 503.
+   */
+  db: Database
   /** Optional by design: every pre-integration endpoint works with null. */
   github: GitHubIntegration | null
 }

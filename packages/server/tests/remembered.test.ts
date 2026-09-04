@@ -2,14 +2,15 @@
 // listed, it can be started through the runner with the paths the panel
 // remembered, and it can be forgotten. A live one is never forgotten.
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { del, fakeDatabase, makeApp, post, type FakeContainer } from './helpers.ts'
+import { del, makeApp, post, seededDatabase, type FakeContainer, type SeededDatabase } from './helpers.ts'
 import { PROJECT_A } from './fixtures.ts'
-import type { Database } from '../src/db/index.ts'
-import type { EnvironmentRecord } from '../src/db/client.ts'
+import { activityEvents, environments as environmentsTable, projectEnvironments, projects as projectsTable } from 'portta-db'
+import { inArray } from 'drizzle-orm'
+import type { EnvironmentRecord } from '../src/db/environments.ts'
 import type { Environment, EnvironmentRunnerStartResult, ProjectLogsResponse } from 'portta-contracts'
 import { loadProjectCatalog } from '../src/services/catalog.ts'
 import { createSnapshotCache } from '../src/services/inventory.ts'
@@ -41,29 +42,60 @@ function isolated() {
   return { runnerDir: join(root, 'runner'), accessDir: join(root, 'access'), dynamicDir: join(root, 'dynamic') }
 }
 
-function withRecords(records: EnvironmentRecord[], adopted: string[] = []) {
-  const db = fakeDatabase()
-  const forgotten: string[] = []
-  Object.assign(db, {
-    environments: {
-      find: async (name: string) => records.find((record) => record.composeProject === name) ?? null,
-      upsertSeen: async () => records[0],
-      list: async () => records,
-      recordCounts: async () => ({ overrides: 0, projectLinks: 0, issueLinks: 0 }),
-      forget: async (name: string) => { forgotten.push(name); return { overrides: 0, projectLinks: 0, issueLinks: 0 } },
-    },
-    projects: {
-      find: async () => null,
-      list: async () => [{ id: 'p1', slug: 'acme', name: 'Acme', description: null, archived: false, relativePath: null, createdAt: new Date(0), updatedAt: new Date(0) }],
-      listEnvironments: async () => adopted.map((composeProject) => ({ projectId: 'p1', composeProject, source: 'manual' })),
-    },
-  })
-  return { db: db as unknown as Database, forgotten }
+const open: SeededDatabase[] = []
+afterEach(async () => {
+  for (const seeded of open.splice(0)) await seeded.close()
+})
+
+/**
+ * A database that has seen these environments and nothing else.
+ *
+ * `forgotten()` asks the table which of them are gone, rather than watching a
+ * stand-in record the call: what matters is that the row disappeared, not that
+ * a method was invoked.
+ */
+async function withRecords(records: EnvironmentRecord[], adopted: string[] = []) {
+  const seeded = await seededDatabase({ empty: true })
+  open.push(seeded)
+  const names = records.map((record) => record.composeProject)
+  await seeded.db.insert(environmentsTable).values(
+    records.map((record) => ({
+      composeProject: record.composeProject,
+      workingDir: record.workingDir,
+      configFiles: record.configFiles,
+      repoUrl: record.repoUrl,
+      repoSubpath: record.repoSubpath,
+    })),
+  )
+  const [project] = await seeded.db
+    .insert(projectsTable)
+    .values({ slug: 'acme', name: 'Acme' })
+    .returning({ id: projectsTable.id })
+  if (adopted.length > 0) {
+    const rows = await seeded.db
+      .select({ id: environmentsTable.id })
+      .from(environmentsTable)
+      .where(inArray(environmentsTable.composeProject, adopted))
+    await seeded.db.insert(projectEnvironments).values(
+      rows.map((row) => ({ projectId: project!.id, environmentId: row.id, source: 'manual' as const })),
+    )
+  }
+
+  const forgotten = async (): Promise<string[]> => {
+    const remaining = new Set(
+      (await seeded.db.select({ name: environmentsTable.composeProject }).from(environmentsTable))
+        .map((row) => row.name),
+    )
+    return names.filter((name) => !remaining.has(name))
+  }
+  const activity = () => seeded.db.select().from(activityEvents)
+
+  return { db: seeded.database, projectId: String(project!.id), forgotten, activity }
 }
 
 describe('GET /api/environments with remembered rows', () => {
   it('appends the remembered ones after the live ones with ?all=true', async () => {
-    const { db } = withRecords([ALPHA, GAMMA])
+    const { db } = await withRecords([ALPHA, GAMMA])
     const { app } = makeApp({ containers: PROJECT_A }, {}, db)
     const { environments } = (await (await app.request('/api/environments?all=true')).json()) as { environments: Environment[] }
     expect(environments.map((environment) => [environment.name, environment.presence])).toEqual([['alpha', 'live'], ['gamma', 'remembered']])
@@ -77,7 +109,7 @@ describe('GET /api/environments with remembered rows', () => {
   })
 
   it('without the runner, startable carries the exact compose command', async () => {
-    const { db } = withRecords([GAMMA])
+    const { db } = await withRecords([GAMMA])
     const { app } = makeApp({ containers: PROJECT_A }, {}, db)
     const { environments } = (await (await app.request('/api/environments?all=true')).json()) as { environments: Environment[] }
     expect(environments.find((environment) => environment.name === 'gamma')?.startable).toEqual({
@@ -88,14 +120,14 @@ describe('GET /api/environments with remembered rows', () => {
   })
 
   it('with the runner, a remembered environment is startable through it', async () => {
-    const { db } = withRecords([GAMMA])
+    const { db } = await withRecords([GAMMA])
     const { app } = makeApp({ containers: [...PROJECT_A, RUNNER] }, {}, db)
     const { environments } = (await (await app.request('/api/environments?all=true')).json()) as { environments: Environment[] }
     expect(environments.find((environment) => environment.name === 'gamma')?.startable).toEqual({ ok: true, reason: null, via: 'runner' })
   })
 
   it('one with no working directory is not operable and says so', async () => {
-    const { db } = withRecords([LOST])
+    const { db } = await withRecords([LOST])
     const { app } = makeApp({ containers: [...PROJECT_A, RUNNER] }, {}, db)
     const { environments } = (await (await app.request('/api/environments?all=true')).json()) as { environments: Environment[] }
     const lost = environments.find((environment) => environment.name === 'lost')!
@@ -105,7 +137,7 @@ describe('GET /api/environments with remembered rows', () => {
   })
 
   it('the default list keeps only the remembered ones a Project adopted', async () => {
-    const { db } = withRecords([GAMMA, LOST], ['gamma'])
+    const { db } = await withRecords([GAMMA, LOST], ['gamma'])
     const { app } = makeApp({ containers: PROJECT_A }, {}, db)
     const { environments } = (await (await app.request('/api/environments')).json()) as { environments: Environment[] }
     expect(environments.map((environment) => environment.name)).toEqual(['alpha', 'gamma'])
@@ -121,7 +153,7 @@ describe('GET /api/environments with remembered rows', () => {
 
 describe('GET /api/environments/:project for a remembered one', () => {
   it('answers with presence remembered and no services', async () => {
-    const { db } = withRecords([GAMMA])
+    const { db } = await withRecords([GAMMA])
     const { app } = makeApp({ containers: PROJECT_A }, {}, db)
     const response = await app.request('/api/environments/gamma')
     expect(response.status).toBe(200)
@@ -131,7 +163,7 @@ describe('GET /api/environments/:project for a remembered one', () => {
   })
 
   it('services and logs are the empty shapes, git the collected one', async () => {
-    const { db } = withRecords([GAMMA])
+    const { db } = await withRecords([GAMMA])
     const { app } = makeApp({ containers: PROJECT_A }, {}, db)
     const services = await app.request('/api/environments/gamma/services')
     expect(services.status).toBe(200)
@@ -145,7 +177,7 @@ describe('GET /api/environments/:project for a remembered one', () => {
   })
 
   it('still 404s for a name nobody remembers', async () => {
-    const { db } = withRecords([GAMMA])
+    const { db } = await withRecords([GAMMA])
     const { app } = makeApp({ containers: PROJECT_A }, {}, db)
     expect((await app.request('/api/environments/nope')).status).toBe(404)
     expect((await app.request('/api/environments/nope/services')).status).toBe(404)
@@ -154,7 +186,7 @@ describe('GET /api/environments/:project for a remembered one', () => {
 
 describe('POST /api/environments/:project/actions/start for a remembered one', () => {
   it('without the runner: 409, and the hint is the command to run on the host', async () => {
-    const { db } = withRecords([GAMMA])
+    const { db } = await withRecords([GAMMA])
     const { app } = makeApp({ containers: PROJECT_A }, isolated(), db)
     const response = await post(app, '/api/environments/gamma/actions/start')
     expect(response.status).toBe(409)
@@ -164,7 +196,7 @@ describe('POST /api/environments/:project/actions/start for a remembered one', (
   })
 
   it('with the runner: writes an up request carrying the paths and starts it', async () => {
-    const { db } = withRecords([GAMMA])
+    const { db, activity } = await withRecords([GAMMA])
     const config = isolated()
     const { app, docker } = makeApp({ containers: [...PROJECT_A, RUNNER] }, config, db)
     const response = await post(app, '/api/environments/gamma/actions/start')
@@ -177,12 +209,13 @@ describe('POST /api/environments/:project/actions/start for a remembered one', (
       workingDir: '/srv/dev/gamma', configFiles: ['/srv/dev/gamma/compose.yaml', '/srv/shared/base.yaml'],
     })
     expect(docker.calls.some((call) => call.method === 'start' && call.args[0] === 'gw-runner')).toBe(true)
-    const activity = (db as unknown as { activity: { rows: { kind: string; summary: string }[] } }).activity.rows
-    expect(activity[0]).toMatchObject({ kind: 'environment.started', summary: expect.stringContaining('gamma') })
+    expect(await activity()).toContainEqual(
+      expect.objectContaining({ kind: 'environment.started', summary: expect.stringContaining('gamma') }),
+    )
   })
 
   it('a live environment still iterates its containers, whatever the database says', async () => {
-    const { db } = withRecords([ALPHA])
+    const { db } = await withRecords([ALPHA])
     const config = isolated()
     const { app } = makeApp({ containers: [...PROJECT_A.map((entry) => ({ ...entry, state: 'exited' })), RUNNER] }, config, db)
     const response = await post(app, '/api/environments/alpha/actions/start')
@@ -191,13 +224,13 @@ describe('POST /api/environments/:project/actions/start for a remembered one', (
   })
 
   it('refuses one with no working directory', async () => {
-    const { db } = withRecords([LOST])
+    const { db } = await withRecords([LOST])
     const { app } = makeApp({ containers: [...PROJECT_A, RUNNER] }, isolated(), db)
     expect((await post(app, '/api/environments/lost/actions/start')).status).toBe(409)
   })
 
   it("refuses Portta's own project by name", async () => {
-    const { db } = withRecords([{ ...GAMMA, composeProject: 'portta', workingDir: '/opt/portta' }])
+    const { db } = await withRecords([{ ...GAMMA, composeProject: 'portta', workingDir: '/opt/portta' }])
     const { app } = makeApp({ containers: [...PROJECT_A, RUNNER] }, isolated(), db)
     const response = await post(app, '/api/environments/portta/actions/start')
     expect(response.status).toBe(403)
@@ -207,27 +240,26 @@ describe('POST /api/environments/:project/actions/start for a remembered one', (
 
 describe('DELETE /api/environments/:project', () => {
   it('forgets a remembered environment', async () => {
-    const { db, forgotten } = withRecords([GAMMA])
+    const { db, forgotten, activity } = await withRecords([GAMMA])
     const { app } = makeApp({ containers: PROJECT_A }, {}, db)
     const response = await del(app, '/api/environments/gamma')
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ ok: true, forgotten: 'gamma' })
-    expect(forgotten).toEqual(['gamma'])
-    const activity = (db as unknown as { activity: { rows: { kind: string }[] } }).activity.rows
-    expect(activity[0]).toMatchObject({ kind: 'environment.forgotten' })
+    expect(await forgotten()).toEqual(['gamma'])
+    expect(await activity()).toContainEqual(expect.objectContaining({ kind: 'environment.forgotten' }))
   })
 
   it('refuses a live one: stop and remove it first', async () => {
-    const { db, forgotten } = withRecords([ALPHA])
+    const { db, forgotten } = await withRecords([ALPHA])
     const { app } = makeApp({ containers: PROJECT_A }, {}, db)
     const response = await del(app, '/api/environments/alpha')
     expect(response.status).toBe(409)
     expect(((await response.json()) as { hint: string }).hint).toContain('stop and remove it first')
-    expect(forgotten).toEqual([])
+    expect(await forgotten()).toEqual([])
   })
 
   it('404s for a name nobody remembers, 503 with no persistence', async () => {
-    const { db } = withRecords([GAMMA])
+    const { db } = await withRecords([GAMMA])
     expect((await del(makeApp({ containers: PROJECT_A }, {}, db).app, '/api/environments/nope')).status).toBe(404)
     expect((await del(makeApp({ containers: PROJECT_A }).app, '/api/environments/gamma')).status).toBe(503)
   })
@@ -235,12 +267,12 @@ describe('DELETE /api/environments/:project', () => {
 
 describe('the Project catalogue', () => {
   it('keeps a remembered environment the Project adopted by hand, not running', async () => {
-    const { db } = withRecords([GAMMA], ['gamma'])
+    const { db, projectId } = await withRecords([GAMMA], ['gamma'])
     const docker = fakeDocker({ containers: PROJECT_A })
     const config = testConfig()
     const snapshot = await createSnapshotCache(docker.client, config, 0).get()
     const catalog = await loadProjectCatalog(db, snapshot, config)
-    expect(catalog.environments.get('p1')).toEqual([
+    expect(catalog.environments.get(projectId)).toEqual([
       { environment: 'gamma', source: 'manual', attribution: 'resolved', running: false, serviceCount: 0, runningCount: 0, completedCount: 0, unhealthyCount: 0, urls: [] },
     ])
   })
@@ -253,17 +285,17 @@ describe('removal keeps the environment remembered', () => {
   } as EnvironmentRecord
 
   it('down, with or without volumes, leaves the row alone', async () => {
-    const { db, forgotten } = withRecords([alpha])
+    const { db, forgotten } = await withRecords([alpha])
     const { app } = makeApp({ containers: [...PROJECT_A, RUNNER] }, isolated(), db)
     await post(app, '/api/environments/alpha/operations/remove', { confirmation: 'alpha', volumes: true, directory: false })
-    expect(forgotten).toEqual([])
+    expect(await forgotten()).toEqual([])
   })
 
   it('removing the directory forgets it in the same step', async () => {
-    const { db, forgotten } = withRecords([alpha])
+    const { db, forgotten } = await withRecords([alpha])
     const { app } = makeApp({ containers: [...PROJECT_A, RUNNER] }, isolated(), db)
     const response = await post(app, '/api/environments/alpha/operations/remove', { confirmation: 'alpha', volumes: true, directory: true })
     expect(response.status).toBe(200)
-    expect(forgotten).toEqual(['alpha'])
+    expect(await forgotten()).toEqual(['alpha'])
   })
 })

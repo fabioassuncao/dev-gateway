@@ -1,6 +1,7 @@
-import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
-import { makeApp } from './helpers.ts'
+import { afterEach, describe, expect, it } from 'vitest'
+import { eq } from 'drizzle-orm'
+import { githubIssues, githubRepositories } from 'portta-db'
+import { makeApp, seedIssues, seededDatabase, type SeededDatabase } from './helpers.ts'
 import { GATEWAY, PROJECT_A } from './fixtures.ts'
 import {
   inferIssueLink,
@@ -10,32 +11,9 @@ import {
 } from '../src/services/issue-link.ts'
 import { environmentsFor, issueLinksFrom } from '../src/services/issue-environments.ts'
 import { resolveTaskLinks } from '../src/services/task-environments.ts'
-import { fakeActivity, fakeSessions, fakeTasks, type FakeTasks } from './fake-work.ts'
 import { buildSnapshot } from '../src/services/inventory.ts'
 import { fakeDocker, testConfig } from './helpers.ts'
-import type { Database } from '../src/db/index.ts'
 import type { Environment, Issue } from 'portta-contracts'
-
-describe('the link schema', () => {
-  const migration = readFileSync(new URL('../migrations/0005_issue_environments.sql', import.meta.url), 'utf8')
-
-  it('gives an issue many environments and an environment one issue', () => {
-    expect(migration).toContain('PRIMARY KEY (issue_id, project_id)')
-    expect(migration).toContain('issue_environments_one_issue_per_env')
-  })
-
-  it('keeps the worktree model open without building it', () => {
-    expect(migration).toContain('worktree_path TEXT')
-  })
-
-  it('records why a link exists', () => {
-    expect(migration).toContain("source IN ('manual', 'label', 'branch', 'namespace')")
-  })
-
-  it('creates no agent_runs table on speculation', () => {
-    expect(migration).not.toMatch(/CREATE TABLE agent_runs/)
-  })
-})
 
 describe('reading an issue out of a convention', () => {
   it('parses a qualified and a bare label', () => {
@@ -206,72 +184,86 @@ describe('resolving links', () => {
 // The endpoints
 // ---------------------------------------------------------------------------
 
-function linkDatabase(rows = [storedIssue()]): { db: Database; tasks: FakeTasks } {
-  const tasks = fakeTasks()
-  const db = {
-    status: () => ({ configured: true, available: true, reason: null, checkedAt: 0, migrations: [] }),
-    environments: { find: async (name: string) => (name === 'alpha' ? { id: 'e1', composeProject: 'alpha' } : null), upsertSeen: async () => ({}), list: async () => [{ id: 'e1', composeProject: 'alpha' }] },
-    settings: { listAllEnvironment: async () => [], listAllService: async () => [], getGlobal: async () => null },
-    projects: { find: async () => null, list: async () => [{ id: 'w1', slug: 'produto', name: 'Produto' }], listEnvironments: async () => [] },
-    repositories: { list: async () => [], find: async () => null, findByGitHub: async () => null },
-    github: {
-      listIssues: async () => rows,
-      findIssue: async (id: string) => rows.find((row) => row.id === id) ?? null,
-      findIssueByNumber: async (repositoryId: string, number: number) => rows.find((row) => row.repositoryId === repositoryId && row.number === number) ?? null,
-      listRelationships: async () => [],
-      findRepository: async (fullName: string) => (fullName === 'acme/alpha' ? { id: 'r1', fullName, installationId: 1 } : null),
-      listRepositories: async () => [],
-    },
-    tasks, sessions: fakeSessions(), activity: fakeActivity(),
-  }
-  return { db: db as unknown as Database, tasks }
-}
+const open: SeededDatabase[] = []
+afterEach(async () => {
+  for (const seeded of open.splice(0)) await seeded.close()
+})
 
-function app(labels: Record<string, string> = {}, rows = [storedIssue()]) {
+/**
+ * A panel whose repository is `acme/alpha`, with the given issues projected and
+ * each one bound to a task — the state the projection leaves behind, and the
+ * one these endpoints read.
+ */
+async function app(labels: Record<string, string> = {}, rows = [storedIssue()]) {
   const containers = PROJECT_A.map((container) => ({
     ...container,
     labels: { ...container.labels, 'portta.repo': 'acme/alpha', ...labels },
   }))
-  const { db, tasks } = linkDatabase(rows)
-  // Every projected issue is bound to a task, as the migration would have left it.
+  const seeded = await seededDatabase()
+  open.push(seeded)
+  await seeded.db
+    .update(githubRepositories)
+    .set({ owner: 'acme', name: 'alpha', fullName: 'acme/alpha', htmlUrl: 'https://github.com/acme/alpha' })
+    .where(eq(githubRepositories.id, Number(seeded.ids.githubRepository)))
+  await seedIssues(seeded, rows)
+
+  const issueIds: string[] = []
   for (const row of rows) {
-    const task = tasks.seed({ projectId: 'w1', title: row.title, status: 'in_progress' })
-    tasks.links.push({ taskId: task.id, githubIssueId: row.id, syncState: 'synced', lastSyncedAt: NOW, lastError: null, localUpdatedAt: NOW, remoteUpdatedAt: NOW })
+    const [issue] = await seeded.db
+      .select({ id: githubIssues.id })
+      .from(githubIssues)
+      .where(eq(githubIssues.githubId, row['githubId'] as number))
+    const task = await seeded.database.tasks.create(
+      seeded.ids.project,
+      { title: row['title'] as string, status: 'in_progress' },
+      null,
+    )
+    await seeded.database.tasks.upsertLink({
+      taskId: task.id, githubIssueId: String(issue!.id), syncState: 'synced',
+      lastSyncedAt: NOW, localUpdatedAt: NOW, remoteUpdatedAt: NOW,
+    })
+    issueIds.push(String(issue!.id))
   }
-  return { ...makeApp({ containers: [...GATEWAY, ...containers] }, {}, db), tasks }
+
+  return {
+    ...makeApp({ containers: [...GATEWAY, ...containers] }, {}, seeded.database),
+    seeded,
+    tasks: seeded.database.tasks,
+    issueIds,
+  }
 }
 
 describe('the issue endpoint', () => {
   it('carries the environments the issue is being worked in', async () => {
-    const instance = app({ 'portta.issue': '#182' })
-    const issue = (await (await instance.app.request('/api/issues/1')).json()) as Issue
+    const instance = await app({ 'portta.issue': '#182' })
+    const issue = (await (await instance.app.request(`/api/issues/${instance.issueIds[0]}`)).json()) as Issue
     expect(issue.environments).toHaveLength(1)
     expect(issue.environments[0]).toMatchObject({ project: 'alpha', source: 'label', logsUrl: '#/environments/alpha/logs' })
   })
 
   it('carries an empty list when nothing is linked', async () => {
-    const instance = app()
-    const issue = (await (await instance.app.request('/api/issues/1')).json()) as Issue
+    const instance = await app()
+    const issue = (await (await instance.app.request(`/api/issues/${instance.issueIds[0]}`)).json()) as Issue
     expect(issue.environments).toEqual([])
   })
 
   it('links by hand through the task, and the manual link wins', async () => {
-    const instance = app()
-    const taskId = instance.tasks.rows[0]!.id
+    const instance = await app()
+    const taskId = (await instance.tasks.list({ limit: 10 }))[0]!.id
     const response = await instance.app.request(`/api/tasks/${taskId}/environments`, {
       method: 'PUT', body: JSON.stringify({ environments: ['alpha'] }),
       headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },
     })
     expect(response.status).toBe(200)
-    const issue = (await (await instance.app.request('/api/issues/1')).json()) as Issue
+    const issue = (await (await instance.app.request(`/api/issues/${instance.issueIds[0]}`)).json()) as Issue
     expect(issue.environments[0]).toMatchObject({ project: 'alpha', source: 'manual' })
     expect(instance.docker.removed).toEqual([])
     expect(instance.docker.calls.filter((call) => ['start', 'stop', 'restart', 'remove'].includes(call.method))).toEqual([])
   })
 
   it('no longer links an issue directly: the task is the thing an environment runs for', async () => {
-    const instance = app()
-    const response = await instance.app.request('/api/issues/1/environments', {
+    const instance = await app()
+    const response = await instance.app.request(`/api/issues/${instance.issueIds[0]}/environments`, {
       method: 'PUT', body: JSON.stringify({ environments: ['alpha'] }),
       headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },
     })
@@ -281,14 +273,14 @@ describe('the issue endpoint', () => {
 
 describe('the environment endpoint', () => {
   it('gains the task this environment runs for, and the issue it is bound to', async () => {
-    const instance = app({ 'portta.issue': '#182' })
+    const instance = await app({ 'portta.issue': '#182' })
     const project = (await (await instance.app.request('/api/environments/alpha')).json()) as Environment
     expect(project.task).toMatchObject({ title: 'Proxy TCP perde conexão', status: 'in_progress', source: 'label', github: { repository: 'acme/alpha', number: 182 } })
-    expect(project.issue).toMatchObject({ repository: 'acme/alpha', number: 182, source: 'label', panelUrl: '#/issues/1' })
+    expect(project.issue).toMatchObject({ repository: 'acme/alpha', number: 182, source: 'label', panelUrl: `#/issues/${instance.issueIds[0]}` })
   })
 
   it('is unchanged when nothing links, so no client breaks', async () => {
-    const instance = app()
+    const instance = await app()
     const project = (await (await instance.app.request('/api/environments/alpha')).json()) as Environment
     expect(project.issue).toBeUndefined()
     expect(project.task).toBeUndefined()

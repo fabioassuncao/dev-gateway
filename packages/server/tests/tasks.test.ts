@@ -5,12 +5,13 @@
 // local-first writes, the GitHub binding following when it can, the actor
 // carried through, and read-only and capability refusals.
 
-import { describe, expect, it } from 'vitest'
-import type { Database } from '../src/db/index.ts'
+import { afterEach, describe, expect, it } from 'vitest'
+import { asc, eq } from 'drizzle-orm'
+import { githubIssues, projects as projectsTable, tasks as tasksTable } from 'portta-db'
 import type { GitHubIntegration } from '../src/services/integrations/github/index.ts'
+import type { TaskRow } from '../src/db/tasks.ts'
 import { GATEWAY, PROJECT_A } from './fixtures.ts'
-import { del, makeApp, post } from './helpers.ts'
-import { fakeActivity, fakeSessions, fakeTasks, type FakeActivity, type FakeTasks } from './fake-work.ts'
+import { del, makeApp, post, seededDatabase, type SeededDatabase } from './helpers.ts'
 
 const NOW = new Date('2026-01-01T12:00:00Z')
 
@@ -26,50 +27,134 @@ function issueRow(overrides: Record<string, unknown> = {}) {
   }
 }
 
-interface Work { db: Database; tasks: FakeTasks; activity: FakeActivity; issues: Record<string, unknown>[] }
+const open: SeededDatabase[] = []
+afterEach(async () => {
+  for (const seeded of open.splice(0)) await seeded.close()
+})
 
-function work(issues: Record<string, unknown>[] = [], repository: unknown = { id: 'r1', fullName: 'acme/api', installationId: 99 }): Work {
-  const tasks = fakeTasks()
-  const activity = fakeActivity()
-  const db = {
-    status: () => ({ configured: true, available: true, reason: null, checkedAt: 0, migrations: [] }),
-    environments: {
-      find: async (name: string) => (name === 'alpha' ? { id: 'e1', composeProject: 'alpha' } : null),
-      upsertSeen: async () => ({}),
-      list: async () => [{ id: 'e1', composeProject: 'alpha' }],
-    },
-    settings: { listAllEnvironment: async () => [], listAllService: async () => [], getGlobal: async () => null },
-    repositories: {
-      list: async (projectId?: string) => (projectId === undefined || projectId === 'w1' ? [{ id: '10', projectId: 'w1', name: 'api', githubRepositoryId: 'r1', github: { repositoryId: 'r1', fullName: 'acme/api' } }] : []),
-      find: async (id: string) => (id === '10' ? { id: '10', projectId: 'w1', name: 'api', githubRepositoryId: 'r1', github: { repositoryId: 'r1', fullName: 'acme/api', htmlUrl: 'https://github.com/acme/api' } } : null),
-      findByGitHub: async (id: string) => (id === 'r1' ? { id: '10', projectId: 'w1', name: 'api' } : null),
-    },
-    projects: {
-      find: async (slug: string) => (slug === 'produto' ? { id: 'w1', slug, name: 'Produto' } : null),
-      list: async () => [{ id: 'w1', slug: 'produto', name: 'Produto' }],
-      listEnvironments: async () => [],
-    },
-    github: {
-      listIssues: async () => issues,
-      findIssue: async (id: string) => issues.find((entry) => entry['id'] === id) ?? null,
-      findIssueByNumber: async (repositoryId: string, number: number) => issues.find((entry) => entry['repositoryId'] === repositoryId && entry['number'] === number) ?? null,
-      listRelationships: async () => [],
-      findRepository: async () => repository,
-      listRepositories: async () => [],
-      upsertIssue: async (record: Record<string, unknown>) => {
-        const existing = issues.find((entry) => entry['githubId'] === record['githubId'])
-        if (existing) {
-          Object.assign(existing, record)
-          return String(existing['id'])
-        }
-        const created = { ...record, id: String(record['githubId']), repository: 'acme/api', syncedAt: NOW }
-        issues.push(created)
-        return created.id
-      },
-    },
-    tasks, sessions: fakeSessions(), activity,
-  } as unknown as Database
-  return { db, tasks, activity, issues }
+/**
+ * A panel with a Project, its repository, and whichever issues the test names.
+ *
+ * The rows are real: the checks, the enums, the cascades and the board's
+ * advisory lock are the ones production runs. `seed` inserts a task the way the
+ * repository does, so a test states a starting board rather than a starting
+ * object graph.
+ */
+async function work(
+  issues: Record<string, unknown>[] = [],
+  options: { second?: boolean } = {},
+) {
+  const seeded = await seededDatabase()
+  open.push(seeded)
+  const ids = {
+    project: seeded.ids.project,
+    repository: seeded.ids.repository,
+    githubRepository: seeded.ids.githubRepository,
+    other: '',
+  }
+
+  if (options.second !== false) {
+    const [other] = await seeded.db
+      .insert(projectsTable)
+      .values({ slug: 'outro', name: 'Outro' })
+      .returning({ id: projectsTable.id })
+    ids.other = String(other!.id)
+  }
+
+  for (const issue of issues) {
+    await seeded.db.insert(githubIssues).values({
+      githubId: issue['githubId'] as number,
+      nodeId: issue['nodeId'] as string,
+      repositoryId: Number(ids.githubRepository),
+      number: issue['number'] as number,
+      title: issue['title'] as string,
+      body: (issue['body'] ?? null) as string | null,
+      state: issue['state'] as 'open' | 'closed',
+      stateReason: (issue['stateReason'] ?? null) as string | null,
+      issueType: (issue['issueType'] ?? null) as string | null,
+      workflowStatus: (issue['workflowStatus'] ?? null) as string | null,
+      priority: (issue['priority'] ?? null) as string | null,
+      metadataSource: (issue['metadataSource'] ?? 'none') as 'fields' | 'labels' | 'none',
+      labels: (issue['labels'] ?? []) as string[],
+      assignees: (issue['assignees'] ?? []) as string[],
+      milestone: (issue['milestone'] ?? null) as never,
+      htmlUrl: issue['htmlUrl'] as string,
+      isPullRequest: (issue['isPullRequest'] ?? false) as boolean,
+      githubUpdatedAt: issue['githubUpdatedAt'] as Date,
+    })
+  }
+
+  /**
+   * A task on the board, created the way the API creates one so it lands at the
+   * end of its column. A test that cares about a specific rank says `position`,
+   * and only then is the row written directly.
+   */
+  const seed = async (
+    task: Partial<TaskRow> & { projectId: string; title: string },
+  ): Promise<TaskRow> => {
+    // A rank or a timestamp the test chose can only be written directly; without
+    // either, the row goes in through the repository so it appends like the API.
+    if (task.position === undefined && task.updatedAt === undefined) {
+      return seeded.database.tasks.create(
+        task.projectId,
+        {
+          title: task.title,
+          ...(task.description === undefined ? {} : { description: task.description }),
+          ...(task.status === undefined ? {} : { status: task.status }),
+          ...(task.priority === undefined ? {} : { priority: task.priority }),
+          ...(task.type === undefined ? {} : { type: task.type }),
+          ...(task.labels === undefined ? {} : { labels: task.labels }),
+          ...(task.assignee === undefined ? {} : { assignee: task.assignee }),
+          ...(task.agent === undefined ? {} : { agent: task.agent }),
+          ...(task.parentId === undefined ? {} : { parentId: task.parentId }),
+          ...(task.repositoryId === undefined ? {} : { repositoryId: task.repositoryId }),
+          ...(task.environmentId === undefined ? {} : { environmentId: task.environmentId }),
+          ...(task.service === undefined ? {} : { service: task.service }),
+          ...(task.dueAt === undefined ? {} : { dueAt: task.dueAt }),
+          ...(task.sourceKey === undefined ? {} : { sourceKey: task.sourceKey }),
+          ...(task.draft === undefined ? {} : { draft: task.draft }),
+        },
+        task.createdBy ?? null,
+      )
+    }
+    const [row] = await seeded.db
+      .insert(tasksTable)
+      .values({
+        projectId: Number(task.projectId),
+        title: task.title,
+        description: task.description ?? null,
+        status: task.status ?? 'backlog',
+        priority: task.priority ?? null,
+        type: task.type ?? null,
+        labels: task.labels ?? [],
+        assignee: task.assignee ?? null,
+        agent: task.agent ?? null,
+        createdBy: task.createdBy ?? null,
+        parentId: task.parentId == null ? null : Number(task.parentId),
+        repositoryId: task.repositoryId == null ? null : Number(task.repositoryId),
+        environmentId: task.environmentId == null ? null : Number(task.environmentId),
+        service: task.service ?? null,
+        position: task.position ?? 1024,
+        ...(task.updatedAt === undefined ? {} : { updatedAt: task.updatedAt }),
+        dueAt: task.dueAt ?? null,
+        sourceKey: task.sourceKey ?? null,
+        draft: task.draft ?? false,
+      })
+      .returning({ id: tasksTable.id })
+    return (await seeded.database.tasks.find(String(row!.id)))!
+  }
+
+  const rows = () => seeded.database.tasks.list({ limit: 2000 })
+  // Newest first, which is what the repository answers and what these tests
+  // read: `[0]` is the event the request under test just produced.
+  const activity = () => seeded.database.activity.list({ limit: 500 })
+  const issueRows = () => seeded.db.select().from(githubIssues).orderBy(asc(githubIssues.githubId))
+  const issueByGithubId = async (githubId: number) => {
+    const [row] = await seeded.db.select().from(githubIssues).where(eq(githubIssues.githubId, githubId))
+    return row
+  }
+
+  return { db: seeded.database, seeded, ids, seed, rows, activity, issueRows, issueByGithubId }
 }
 
 /** A GitHub integration that confirms every write, and records what was sent. */
@@ -99,7 +184,7 @@ const json = (response: Response) => response.json() as Promise<Record<string, a
 
 describe('local tasks', () => {
   it('creates, lists, reads and deletes a task with no GitHub at all', async () => {
-    const { db, activity } = work()
+    const { db, activity } = await work()
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
 
     const created = await post(app, '/api/projects/produto/tasks', { title: 'Rever autenticação', priority: 'high' }, { 'X-Portta-Actor': 'fabio', 'X-Portta-Actor-Kind': 'human' })
@@ -112,7 +197,7 @@ describe('local tasks', () => {
     expect(listed.tasks).toHaveLength(1)
     expect(await json(await app.request(`/api/tasks/${task.id}`))).toMatchObject({ id: task.id })
     expect(await json(await app.request(`/api/tasks/%23${task.id}`))).toMatchObject({ id: task.id })
-    expect(activity.rows[0]).toMatchObject({ kind: 'task.created', actor: 'fabio', actorKind: 'human', taskId: task.id })
+    expect((await activity())[0]).toMatchObject({ kind: 'task.created', actor: 'fabio', actorKind: 'human', taskId: task.id })
 
     const removed = await app.request(`/api/tasks/${task.id}`, { method: 'DELETE', headers: { origin: 'http://localhost', host: 'localhost' } })
     expect(removed.status).toBe(200)
@@ -120,37 +205,38 @@ describe('local tasks', () => {
   })
 
   it('offers the next task, and null when there is none', async () => {
-    const { db, tasks } = work()
-    tasks.seed({ projectId: 'w1', title: 'backlog', status: 'backlog' })
-    const ready = tasks.seed({ projectId: 'w1', title: 'ready', status: 'ready', priority: 'low' })
+    const { db, seed, ids } = await work()
+    await seed({ projectId: ids.project, title: 'backlog', status: 'backlog' })
+    const ready = await seed({ projectId: ids.project, title: 'ready', status: 'ready', priority: 'low' })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     expect((await json(await app.request('/api/projects/produto/tasks/next'))).task).toMatchObject({ id: ready.id })
-    ready.status = 'in_progress'
+    // Taken by somebody: `next` offers what is ready, not what is under way.
+    await db.tasks.update(ready.id, { status: 'in_progress' })
     expect((await json(await app.request('/api/projects/produto/tasks/next'))).task).toBeNull()
   })
 
   it('nests subtasks, counts them, and refuses a parent from another Project', async () => {
-    const { db, tasks } = work()
-    const parent = tasks.seed({ projectId: 'w1', title: 'Parent' })
-    tasks.seed({ projectId: 'w1', title: 'Child', parentId: parent.id, status: 'done' })
-    tasks.seed({ projectId: 'w1', title: 'Other child', parentId: parent.id })
-    tasks.seed({ projectId: 'w2', title: 'Elsewhere' })
+    const { db, seed, ids, rows } = await work()
+    const parent = await seed({ projectId: ids.project, title: 'Parent' })
+    await seed({ projectId: ids.project, title: 'Child', parentId: parent.id, status: 'done' })
+    await seed({ projectId: ids.project, title: 'Other child', parentId: parent.id })
+    await seed({ projectId: ids.other, title: 'Elsewhere' })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     const tree = await json(await app.request(`/api/tasks/${parent.id}/subtasks`))
     expect(tree.subtasks.map((node: { task: { title: string } }) => node.task.title)).toEqual(['Child', 'Other child'])
     expect(await json(await app.request(`/api/tasks/${parent.id}`))).toMatchObject({ subtaskCount: 2, openSubtaskCount: 1 })
-    const elsewhere = tasks.rows.find((row) => row.title === 'Elsewhere')!
+    const elsewhere = (await rows()).find((row) => row.title === 'Elsewhere')!
     const refused = await post(app, '/api/projects/produto/tasks', { title: 'x', parentId: elsewhere.id })
     expect(refused.status).toBe(400)
   })
 
   it('starts, moves and finishes a task, recording the actor on the way', async () => {
-    const { db, tasks, activity } = work()
-    const task = tasks.seed({ projectId: 'w1', title: 'Fix auth', status: 'ready' })
+    const { db, seed, ids, activity } = await work()
+    const task = await seed({ projectId: ids.project, title: 'Fix auth', status: 'ready' })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     const started = await json(await post(app, `/api/tasks/${task.id}/start`, {}, { 'X-Portta-Actor': 'claude-code' }))
     expect(started).toMatchObject({ status: 'in_progress', assignee: 'claude-code', agent: 'claude-code' })
-    expect(activity.rows[0]).toMatchObject({ kind: 'task.status', actor: 'claude-code', actorKind: 'agent' })
+    expect((await activity())[0]).toMatchObject({ kind: 'task.status', actor: 'claude-code', actorKind: 'agent' })
 
     const moved = await json(await post(app, `/api/tasks/${task.id}/status`, { status: 'review' }))
     expect(moved.status).toBe('review')
@@ -162,10 +248,10 @@ describe('local tasks', () => {
   })
 
   it('persists sparse ordering within and across board columns', async () => {
-    const { db, tasks, activity } = work()
-    const first = tasks.seed({ projectId: 'w1', title: 'First', status: 'ready', position: 1024 })
-    const second = tasks.seed({ projectId: 'w1', title: 'Second', status: 'ready', position: 2048 })
-    const blocked = tasks.seed({ projectId: 'w1', title: 'Blocked', status: 'blocked', position: 1024 })
+    const { db, seed, ids, activity } = await work()
+    const first = await seed({ projectId: ids.project, title: 'First', status: 'ready', position: 1024 })
+    const second = await seed({ projectId: ids.project, title: 'Second', status: 'ready', position: 2048 })
+    const blocked = await seed({ projectId: ids.project, title: 'Blocked', status: 'blocked', position: 1024 })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     const moved = await json(await post(app, `/api/tasks/${second.id}/move`, { status: 'ready', beforeId: null, afterId: first.id }, { 'X-Portta-Actor': 'codex', 'X-Portta-Source': 'cli' }))
     expect(moved.position).toBeLessThan(first.position)
@@ -174,13 +260,13 @@ describe('local tasks', () => {
     const crossed = await json(await post(app, `/api/tasks/${first.id}/move`, { status: 'blocked', beforeId: blocked.id, afterId: null }))
     expect(crossed).toMatchObject({ status: 'blocked' })
     expect(crossed.position).toBeGreaterThan(blocked.position)
-    expect(activity.rows.find((event) => event.source === 'cli')).toMatchObject({ source: 'cli', data: { position: { from: 2048 } } })
+    expect((await activity()).find((event) => event.source === 'cli')).toMatchObject({ source: 'cli', data: { position: { from: 2048 } } })
   })
 
   it('PATCH of status appends in the destination column and names the field that changed', async () => {
-    const { db, tasks, activity } = work()
-    const ready = tasks.seed({ projectId: 'w1', title: 'Stay', status: 'ready', position: 1024 })
-    const task = tasks.seed({ projectId: 'w1', title: 'Ship metrics', status: 'backlog', position: 1024, priority: 'low' })
+    const { db, seed, ids, activity } = await work()
+    const ready = await seed({ projectId: ids.project, title: 'Stay', status: 'ready', position: 1024 })
+    const task = await seed({ projectId: ids.project, title: 'Ship metrics', status: 'backlog', position: 1024, priority: 'low' })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     const moved = await json(await app.request(`/api/tasks/${task.id}`, {
       method: 'PATCH', body: JSON.stringify({ status: 'ready' }),
@@ -188,19 +274,19 @@ describe('local tasks', () => {
     }))
     expect(moved).toMatchObject({ status: 'ready' })
     expect(moved.position).toBeGreaterThan(ready.position)
-    expect(activity.rows[0]).toMatchObject({ kind: 'task.status', summary: '"Ship metrics" moved to ready' })
+    expect((await activity())[0]).toMatchObject({ kind: 'task.status', summary: '"Ship metrics" moved to ready' })
 
     const prioritised = await json(await app.request(`/api/tasks/${task.id}`, {
       method: 'PATCH', body: JSON.stringify({ priority: 'high' }),
       headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },
     }))
     expect(prioritised.priority).toBe('high')
-    expect(activity.rows[0]).toMatchObject({ kind: 'task.updated', summary: '"Ship metrics" priority changed from low to high' })
+    expect((await activity())[0]).toMatchObject({ kind: 'task.updated', summary: '"Ship metrics" priority changed from low to high' })
   })
 
   it('keeps notes locally, with the actor', async () => {
-    const { db, tasks } = work()
-    const task = tasks.seed({ projectId: 'w1', title: 'Fix auth' })
+    const { db, seed, ids } = await work()
+    const task = await seed({ projectId: ids.project, title: 'Fix auth' })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     const note = await json(await post(app, `/api/tasks/${task.id}/notes`, { body: 'tests pass' }, { 'X-Portta-Actor': 'claude-code' }))
     expect(note).toMatchObject({ body: 'tests pass', actor: 'claude-code', actorKind: 'agent' })
@@ -229,8 +315,8 @@ describe('local tasks', () => {
   })
 
   it('links a task to a running environment by hand, and refuses one that is not', async () => {
-    const { db, tasks } = work()
-    const task = tasks.seed({ projectId: 'w1', title: 'Fix auth' })
+    const { db, seed, ids } = await work()
+    const task = await seed({ projectId: ids.project, title: 'Fix auth' })
     const { app, docker } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, db)
     const put = (environments: string[]) => app.request(`/api/tasks/${task.id}/environments`, {
       method: 'PUT', body: JSON.stringify({ environments }),
@@ -243,8 +329,8 @@ describe('local tasks', () => {
   })
 
   it('reads a task out of an environment by its portta.task label, branch or namespace', async () => {
-    const { db, tasks } = work()
-    const task = tasks.seed({ projectId: 'w1', title: 'Fix auth' })
+    const { db, seed, ids } = await work()
+    const task = await seed({ projectId: ids.project, title: 'Fix auth' })
     const containers = PROJECT_A.map((container) => ({ ...container, labels: { ...container.labels, 'portta.task': `#${task.id}` } }))
     const { app } = makeApp({ containers: [...GATEWAY, ...containers] }, {}, db)
     const environment = await json(await app.request('/api/environments/alpha'))
@@ -255,9 +341,9 @@ describe('local tasks', () => {
 
 describe('the GitHub binding', () => {
   it('reaches GitHub first on a bound task, and the binding says synced', async () => {
-    const { db, tasks, issues } = work([issueRow()])
-    const task = tasks.seed({ projectId: 'w1', title: 'Implementar refresh token', status: 'ready', repositoryId: '10' })
-    await tasks.upsertLink({ taskId: task.id, githubIssueId: '1', syncState: 'synced', remoteUpdatedAt: NOW, localUpdatedAt: NOW })
+    const { db, seed, ids, issueByGithubId } = await work([issueRow()])
+    const task = await seed({ projectId: ids.project, title: 'Implementar refresh token', status: 'ready', repositoryId: ids.repository })
+    await db.tasks.upsertLink({ taskId: task.id, githubIssueId: '1', syncState: 'synced', remoteUpdatedAt: NOW, localUpdatedAt: NOW })
     const sent: Record<string, unknown>[] = []
     const { app } = makeApp({ containers: GATEWAY }, {}, db, fakeGitHub(sent))
 
@@ -265,7 +351,7 @@ describe('the GitHub binding', () => {
     expect(started.github).toMatchObject({ repository: 'acme/api', number: 123, syncState: 'synced' })
     expect(sent[0]).toMatchObject({ labels: ['status:in-progress'], assignees: ['claude-code'] })
     expect(JSON.stringify(sent)).not.toContain('X-Portta-Actor')
-    expect(issues[0]!['workflowStatus']).toBe('in_progress')
+    expect((await issueByGithubId(1))?.workflowStatus).toBe('in_progress')
 
     const finished = await json(await post(app, `/api/tasks/${task.id}/finish`, { close: true }))
     expect(sent[1]).toMatchObject({ labels: ['status:done'], state: 'closed' })
@@ -273,9 +359,9 @@ describe('the GitHub binding', () => {
   })
 
   it('writes locally and marks the binding pending when the App is not configured, then pushes on sync', async () => {
-    const { db, tasks } = work([issueRow()])
-    const task = tasks.seed({ projectId: 'w1', title: 'Implementar refresh token', status: 'ready' })
-    await tasks.upsertLink({ taskId: task.id, githubIssueId: '1', syncState: 'synced', remoteUpdatedAt: NOW, localUpdatedAt: NOW })
+    const { db, seed, ids } = await work([issueRow()])
+    const task = await seed({ projectId: ids.project, title: 'Implementar refresh token', status: 'ready' })
+    await db.tasks.upsertLink({ taskId: task.id, githubIssueId: '1', syncState: 'synced', remoteUpdatedAt: NOW, localUpdatedAt: NOW })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     const moved = await json(await post(app, `/api/tasks/${task.id}/status`, { status: 'review' }))
     expect(moved).toMatchObject({ status: 'review', github: { syncState: 'pending' } })
@@ -290,9 +376,9 @@ describe('the GitHub binding', () => {
   })
 
   it('refuses to settle a conflict without a choice, and takes the remote when told to', async () => {
-    const { db, tasks } = work([issueRow({ title: 'Remote title', workflowStatus: 'blocked', labels: ['status:blocked'] })])
-    const task = tasks.seed({ projectId: 'w1', title: 'Local title', status: 'review' })
-    await tasks.upsertLink({ taskId: task.id, githubIssueId: '1', syncState: 'conflict', remoteUpdatedAt: NOW, localUpdatedAt: NOW })
+    const { db, seed, ids } = await work([issueRow({ title: 'Remote title', workflowStatus: 'blocked', labels: ['status:blocked'] })])
+    const task = await seed({ projectId: ids.project, title: 'Local title', status: 'review' })
+    await db.tasks.upsertLink({ taskId: task.id, githubIssueId: '1', syncState: 'conflict', remoteUpdatedAt: NOW, localUpdatedAt: NOW })
     const { app } = makeApp({ containers: GATEWAY }, {}, db, fakeGitHub())
     const shown = await json(await app.request(`/api/tasks/${task.id}`))
     expect(shown.github).toMatchObject({ syncState: 'conflict', remote: { title: 'Remote title', status: 'blocked' } })
@@ -302,9 +388,9 @@ describe('the GitHub binding', () => {
   })
 
   it('links to a projected issue, refuses a pull request and an issue already bound, and unlinks', async () => {
-    const { db, tasks } = work([issueRow(), issueRow({ id: '2', githubId: 2, number: 124, isPullRequest: true })])
-    const task = tasks.seed({ projectId: 'w1', title: 'Local' })
-    const other = tasks.seed({ projectId: 'w1', title: 'Other' })
+    const { db, seed, ids } = await work([issueRow(), issueRow({ id: '2', githubId: 2, number: 124, isPullRequest: true })])
+    const task = await seed({ projectId: ids.project, title: 'Local' })
+    const other = await seed({ projectId: ids.project, title: 'Other' })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     expect((await post(app, `/api/tasks/${task.id}/github/link`, { issue: 'acme/api#124', initialSync: 'pull' })).status).toBe(400)
     const linked = await json(await post(app, `/api/tasks/${task.id}/github/link`, { issue: 'acme/api#123', initialSync: 'pull' }))
@@ -314,8 +400,8 @@ describe('the GitHub binding', () => {
   })
 
   it('publishes a task as a new issue on the repository it belongs to', async () => {
-    const { db, tasks } = work([])
-    const task = tasks.seed({ projectId: 'w1', title: 'Ship it', status: 'ready', priority: 'urgent', repositoryId: '10' })
+    const { db, seed, ids } = await work([])
+    const task = await seed({ projectId: ids.project, title: 'Ship it', status: 'ready', priority: 'urgent', repositoryId: ids.repository })
     const sent: Record<string, unknown>[] = []
     const { app } = makeApp({ containers: GATEWAY }, {}, db, fakeGitHub(sent))
     const published = await post(app, `/api/tasks/${task.id}/github/publish`, {})
@@ -325,17 +411,17 @@ describe('the GitHub binding', () => {
   })
 
   it('refuses to publish an intact draft', async () => {
-    const { db, tasks } = work()
-    const task = tasks.seed({ projectId: 'w1', title: 'New task', draft: true, repositoryId: '10' })
+    const { db, seed, ids } = await work()
+    const task = await seed({ projectId: ids.project, title: 'New task', draft: true, repositoryId: ids.repository })
     const { app } = makeApp({ containers: GATEWAY }, {}, db, fakeGitHub())
     expect((await post(app, `/api/tasks/${task.id}/github/publish`, {})).status).toBe(400)
   })
 
   it('stores comments locally and only publishes an explicit copy to GitHub', async () => {
-    const { db, tasks } = work([issueRow()])
-    const bound = tasks.seed({ projectId: 'w1', title: 'Bound' })
-    await tasks.upsertLink({ taskId: bound.id, githubIssueId: '1', syncState: 'synced' })
-    const unbound = tasks.seed({ projectId: 'w1', title: 'Unbound' })
+    const { db, seed, ids } = await work([issueRow()])
+    const bound = await seed({ projectId: ids.project, title: 'Bound' })
+    await db.tasks.upsertLink({ taskId: bound.id, githubIssueId: '1', syncState: 'synced' })
+    const unbound = await seed({ projectId: ids.project, title: 'Unbound' })
     const sent: Record<string, unknown>[] = []
     const { app } = makeApp({ containers: GATEWAY }, {}, db, fakeGitHub(sent))
     const comment = await post(app, `/api/tasks/${bound.id}/comments`, { body: 'done' }, { 'X-Portta-Actor': 'claude-code' })
@@ -351,7 +437,7 @@ describe('the GitHub binding', () => {
   })
 
   it('refuses a coordinate that is projected but bound to no task', async () => {
-    const { db } = work([issueRow()])
+    const { db } = await work([issueRow()])
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     expect((await app.request('/api/tasks/acme%2Fapi%23123')).status).toBe(404)
     expect((await app.request('/api/tasks/acme%2Fapi%23999')).status).toBe(404)
@@ -359,33 +445,35 @@ describe('the GitHub binding', () => {
 
   it('projects a new issue as a task on the repository that owns it, and follows a later change', async () => {
     const { applyIssueToTask } = await import('../src/services/integrations/github/tasks.ts')
-    const { db, tasks } = work()
-    const owner = async () => ({ projectId: 'w1', repositoryId: '10' })
+    // The issue has to exist: `task_github_links` points at it, and the panel
+    // never invents a binding to a row the projection does not hold.
+    const { db, ids, rows } = await work([issueRow()])
+    const owner = async () => ({ projectId: ids.project, repositoryId: ids.repository })
     const first = await applyIssueToTask(db.tasks, issueRow() as never, owner)
     expect(first.outcome).toBe('created')
-    expect(first.task).toMatchObject({ title: 'Implementar refresh token', status: 'ready', priority: 'high', repositoryId: '10', createdBy: 'github' })
+    expect(first.task).toMatchObject({ title: 'Implementar refresh token', status: 'ready', priority: 'high', repositoryId: ids.repository, createdBy: 'github' })
 
     const later = await applyIssueToTask(db.tasks, issueRow({ title: 'Renamed', githubUpdatedAt: new Date(NOW.getTime() + 60_000) }) as never, owner)
     expect(later.outcome).toBe('applied')
-    expect(tasks.rows[0]!.title).toBe('Renamed')
+    expect((await rows())[0]!.title).toBe('Renamed')
 
-    await tasks.setLinkState(first.task!.id, 'pending', { localUpdatedAt: new Date(NOW.getTime() + 120_000) })
+    await db.tasks.setLinkState(first.task!.id, 'pending', { localUpdatedAt: new Date(NOW.getTime() + 120_000) })
     const clash = await applyIssueToTask(db.tasks, issueRow({ title: 'Renamed again', githubUpdatedAt: new Date(NOW.getTime() + 180_000) }) as never, owner)
     expect(clash.outcome).toBe('conflict')
-    expect(tasks.rows[0]!.title).toBe('Renamed')
+    expect((await rows())[0]!.title).toBe('Renamed')
   })
 })
 
 describe('kick-create drafts', () => {
   it('reuses one intact draft per actor, keeps it off the board, and promotes on a real title', async () => {
-    const { db, tasks, activity } = work()
+    const { db, rows, activity } = await work()
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     const headers = { 'X-Portta-Actor': 'fabio', 'X-Portta-Actor-Kind': 'human' }
     const first = await post(app, '/api/projects/produto/tasks', { title: 'New task', draft: true }, headers)
     expect(first.status).toBe(201)
     const draft = await json(first)
     expect(draft).toMatchObject({ title: 'New task', draft: true, status: 'backlog' })
-    expect(activity.rows).toEqual([])
+    expect(await activity()).toEqual([])
     expect((await json(await app.request('/api/projects/produto/tasks'))).tasks).toEqual([])
     expect((await json(await app.request('/api/projects/produto/tasks?draft=true'))).tasks).toHaveLength(1)
     expect((await json(await app.request('/api/projects/produto/tasks/next'))).task).toBeNull()
@@ -393,31 +481,31 @@ describe('kick-create drafts', () => {
     const reused = await post(app, '/api/projects/produto/tasks', { title: 'New task', draft: true }, headers)
     expect(reused.status).toBe(200)
     expect((await json(reused)).id).toBe(draft.id)
-    expect(tasks.rows.filter((row) => row.draft)).toHaveLength(1)
+    expect((await rows()).filter((row) => row.draft)).toHaveLength(1)
 
     const promoted = await json(await app.request(`/api/tasks/${draft.id}`, {
       method: 'PATCH', body: JSON.stringify({ title: 'Configurar API' }),
       headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost', 'X-Portta-Actor': 'fabio' },
     }))
     expect(promoted).toMatchObject({ title: 'Configurar API', draft: false })
-    expect(activity.rows[0]).toMatchObject({ kind: 'task.created', taskId: draft.id })
+    expect((await activity())[0]).toMatchObject({ kind: 'task.created', taskId: draft.id })
     expect((await json(await app.request('/api/projects/produto/tasks'))).tasks).toHaveLength(1)
   })
 
   it('sweeps an untouched draft older than a day, stores a due date, and refuses a parent cycle', async () => {
-    const { db, tasks } = work()
-    tasks.seed({
-      projectId: 'w1', title: 'New task', draft: true, createdBy: 'fabio',
+    const { db, seed, ids, rows } = await work()
+    await seed({
+      projectId: ids.project, title: 'New task', draft: true, createdBy: 'fabio',
       updatedAt: new Date('2020-01-01T00:00:00Z'),
     })
-    const parent = tasks.seed({ projectId: 'w1', title: 'Parent' })
-    const child = tasks.seed({ projectId: 'w1', title: 'Child', parentId: parent.id })
+    const parent = await seed({ projectId: ids.project, title: 'Parent' })
+    const child = await seed({ projectId: ids.project, title: 'Child', parentId: parent.id })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     const created = await json(await post(app, '/api/projects/produto/tasks', {
       title: 'New task', draft: true, dueAt: 1_735_689_600,
     }, { 'X-Portta-Actor': 'ada' }))
     expect(created.dueAt).toBe(1_735_689_600)
-    expect(tasks.rows.some((row) => row.createdBy === 'fabio' && row.draft)).toBe(false)
+    expect((await rows()).some((row) => row.createdBy === 'fabio' && row.draft)).toBe(false)
 
     const cycled = await app.request(`/api/tasks/${parent.id}`, {
       method: 'PATCH', body: JSON.stringify({ parentId: child.id }),
@@ -427,7 +515,7 @@ describe('kick-create drafts', () => {
   })
 
   it('imports a document by source_key and exports the same keys', async () => {
-    const { db } = work()
+    const { db } = await work()
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     const document = {
       schemaVersion: 1,
@@ -456,8 +544,8 @@ describe('kick-create drafts', () => {
 
 describe('refusals', () => {
   it('refuses every write in read-only mode, and leaves the reads', async () => {
-    const { db, tasks } = work()
-    const task = tasks.seed({ projectId: 'w1', title: 't' })
+    const { db, seed, ids } = await work()
+    const task = await seed({ projectId: ids.project, title: 't' })
     const { app } = makeApp({ containers: GATEWAY }, { readOnly: true }, db)
     expect((await app.request(`/api/tasks/${task.id}`)).status).toBe(200)
     for (const path of [`/api/tasks/${task.id}/start`, `/api/tasks/${task.id}/notes`, '/api/projects/produto/tasks']) {
@@ -479,8 +567,8 @@ describe('attachments', () => {
   }
 
   it('stores a file, lists it and serves the bytes back', async () => {
-    const { db, tasks } = work()
-    const task = tasks.seed({ projectId: 'w1', title: 'Fix the queue' })
+    const { db, seed, ids } = await work()
+    const task = await seed({ projectId: ids.project, title: 'Fix the queue' })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
 
     const created = await upload(app, `/api/tasks/${task.id}/attachments`, new File(['{"a":1}'], 'payload.json', { type: 'application/json' }))
@@ -504,8 +592,8 @@ describe('attachments', () => {
   })
 
   it('names an image inline and a download as a download', async () => {
-    const { db, tasks } = work()
-    const task = tasks.seed({ projectId: 'w1', title: 't' })
+    const { db, seed, ids } = await work()
+    const task = await seed({ projectId: ids.project, title: 't' })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
 
     const image = await json(await upload(app, `/api/tasks/${task.id}/attachments`, new File(['png'], 'shot.png', { type: 'image/png' })))
@@ -518,8 +606,8 @@ describe('attachments', () => {
   })
 
   it('refuses a file that is too large, and says by how much', async () => {
-    const { db, tasks } = work()
-    const task = tasks.seed({ projectId: 'w1', title: 't' })
+    const { db, seed, ids } = await work()
+    const task = await seed({ projectId: ids.project, title: 't' })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     const oversized = new File(['x'.repeat(11 * 1024 * 1024)], 'huge.log', { type: 'text/plain' })
     const refused = await upload(app, `/api/tasks/${task.id}/attachments`, oversized)
@@ -528,8 +616,8 @@ describe('attachments', () => {
   })
 
   it('refuses a request with no file part at all', async () => {
-    const { db, tasks } = work()
-    const task = tasks.seed({ projectId: 'w1', title: 't' })
+    const { db, seed, ids } = await work()
+    const task = await seed({ projectId: ids.project, title: 't' })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     const response = await app.request(`/api/tasks/${task.id}/attachments`, {
       method: 'POST',
@@ -540,36 +628,36 @@ describe('attachments', () => {
   })
 
   it('stores a traversing name as one safe segment', async () => {
-    const { db, tasks } = work()
-    const task = tasks.seed({ projectId: 'w1', title: 't' })
+    const { db, seed, ids } = await work()
+    const task = await seed({ projectId: ids.project, title: 't' })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     const created = await json(await upload(app, `/api/tasks/${task.id}/attachments`, new File(['x'], 'x.txt', { type: 'text/plain' }), '../../etc/passwd'))
     expect(created.filename).toBe('passwd')
   })
 
   it('removes an attachment and stops serving it', async () => {
-    const { db, tasks, activity } = work()
-    const task = tasks.seed({ projectId: 'w1', title: 't' })
+    const { db, seed, ids, activity } = await work()
+    const task = await seed({ projectId: ids.project, title: 't' })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     const created = await json(await upload(app, `/api/tasks/${task.id}/attachments`, new File(['x'], 'note.txt', { type: 'text/plain' })))
 
     expect((await del(app, created.downloadUrl)).status).toBe(200)
     expect((await app.request(created.downloadUrl)).status).toBe(404)
-    expect(activity.rows.map((row) => row.summary)).toContainEqual(expect.stringContaining('removed note.txt'))
+    expect((await activity()).map((row) => row.summary)).toContainEqual(expect.stringContaining('removed note.txt'))
   })
 
   it('answers 404 for an attachment of another task', async () => {
-    const { db, tasks } = work()
-    const mine = tasks.seed({ projectId: 'w1', title: 'mine' })
-    const other = tasks.seed({ projectId: 'w1', title: 'other' })
+    const { db, seed, ids } = await work()
+    const mine = await seed({ projectId: ids.project, title: 'mine' })
+    const other = await seed({ projectId: ids.project, title: 'other' })
     const { app } = makeApp({ containers: GATEWAY }, {}, db)
     const created = await json(await upload(app, `/api/tasks/${mine.id}/attachments`, new File(['x'], 'a.txt', { type: 'text/plain' })))
     expect((await app.request(`/api/tasks/${other.id}/attachments/${created.id}`)).status).toBe(404)
   })
 
   it('refuses to attach anything in read-only mode', async () => {
-    const { db, tasks } = work()
-    const task = tasks.seed({ projectId: 'w1', title: 't' })
+    const { db, seed, ids } = await work()
+    const task = await seed({ projectId: ids.project, title: 't' })
     const { app } = makeApp({ containers: GATEWAY }, { readOnly: true }, db)
     const refused = await upload(app, `/api/tasks/${task.id}/attachments`, new File(['x'], 'a.txt', { type: 'text/plain' }))
     expect(refused.status).toBe(403)

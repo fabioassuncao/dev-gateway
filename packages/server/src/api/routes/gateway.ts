@@ -12,7 +12,6 @@ import { applier, applyStatus } from '../../services/apply.ts'
 import { ActionRefused } from '../../services/actions.ts'
 import { DockerApiError } from '../../services/docker/client.ts'
 import { documentRoute, tailParameter } from '../openapi.ts'
-import { unavailableDatabaseStatus } from '../../db/index.ts'
 
 const restartBody = z
   .object({ components: z.array(z.enum(RESTARTABLE_COMPONENTS)).min(1).optional() })
@@ -54,8 +53,7 @@ export function gatewayRoutes(deps: AppDeps): Hono {
       deps.config,
       verdict,
       [],
-      deps.db?.status() ??
-        unavailableDatabaseStatus(deps.config.databaseUrl !== null, 'PostgreSQL was unavailable at startup'),
+      deps.db.status(),
       loadAliases(deps.config),
       githubStatusOf(deps),
     )

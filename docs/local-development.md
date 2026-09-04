@@ -71,6 +71,24 @@ portta doctor     # when something does not behave
 Starting and stopping applications is not the gateway's job. Do that from the
 project's own directory, as you always have.
 
+## The panel's database
+
+PostgreSQL is required: the panel exits rather than starting without it, and
+`portta web up` brings it up alongside. Working on the schema is two commands:
+
+```bash
+# after editing packages/db/src/schema/*.ts
+npm run db:generate --workspace=portta-db   # write the migration
+npm run db:check --workspace=portta-db      # prove the schema and the SQL agree
+portta db migrate                           # apply it to a panel already running
+```
+
+`web-dev.yaml` mounts `packages/db/drizzle`, so a newly generated migration is
+visible to the running container without rebuilding the image.
+
+Suites do not need any of this: they open PGlite and apply the same migrations
+(`createTestDb()` from `portta-db/testing`). See [persistence](persistence.md).
+
 ## Resetting a checkout
 
 `portta dev --reset` wipes the panel database and starts again the same way
@@ -85,7 +103,7 @@ just dev --reset --demo   # the same sequence
 
 **What takes the time.** The first `just dev` or `just reset` in a checkout,
 and any run after a dependency change, builds the panel image: two `npm ci`, a
-build across three workspaces and a render of the documentation. Several
+build across five workspaces and a render of the documentation. Several
 minutes is normal. It now says so before it starts and streams BuildKit's
 progress while it runs, and anything else that goes quiet reports how long it
 has been going. `just dev --verbose` shows every child process;

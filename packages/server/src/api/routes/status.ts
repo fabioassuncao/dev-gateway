@@ -8,7 +8,6 @@ import { listBridges, listForwarders } from '../../services/access.ts'
 import { listShares } from '../../services/shares.ts'
 import { Overview, OverviewCounts } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
-import { unavailableDatabaseStatus } from '../../db/index.ts'
 import { githubStatusOf } from './integrations.ts'
 
 export const HealthResponse = z.object({
@@ -74,8 +73,7 @@ export function statusRoutes(deps: AppDeps): Hono {
           deps.config,
           null,
           shares,
-          deps.db?.status() ??
-            unavailableDatabaseStatus(deps.config.databaseUrl !== null, 'PostgreSQL was unavailable at startup'),
+          deps.db.status(),
           loadAliases(deps.config),
           githubStatusOf(deps),
         ),

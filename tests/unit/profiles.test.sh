@@ -90,6 +90,21 @@ it "off by default"
 assert_not_contains "$(files_for local)" "docker/compose/features/web.yaml"
 it "enabled by PORTTA_WEB"
 assert_contains "$(files_for local PORTTA_WEB=true)" "docker/compose/features/web.yaml"
+
+# PostgreSQL is a boot dependency of the panel, not a feature of it: the panel
+# refuses to start without it, so a profile that selected one and not the other
+# could only ever produce a panel that exits.
+it "and never without its database"
+for portta_profile in local remote-private remote-public; do
+  portta_selection=$(files_for "$portta_profile" PORTTA_WEB=true PUBLIC_DOMAIN=d.test)
+  case "$portta_selection" in
+    *"docker/compose/features/web.yaml"*)
+      assert_contains "$portta_selection" "docker/compose/features/db.yaml" ;;
+  esac
+done
+
+it "and never the database without the panel"
+assert_not_contains "$(files_for local)" "docker/compose/features/db.yaml"
 it "passes Projects Home as configuration without mounting it"
 web_overlay=$(cat "$PORTTA_ROOT/docker/compose/features/web.yaml")
 assert_contains "$web_overlay" 'PORTTA_PROJECTS_HOME: ${PORTTA_PROJECTS_HOME:-}'

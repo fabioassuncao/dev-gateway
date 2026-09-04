@@ -3,35 +3,38 @@
 // asserted here is that the routes feed them from the right places and stay
 // honest without a database.
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { eq } from 'drizzle-orm'
+import { projectEnvironments, projects as projectsTable, repositories as repositoriesTable } from 'portta-db'
 import type { Database } from '../src/db/index.ts'
 import { GATEWAY, PROJECT_A } from './fixtures.ts'
-import { makeApp, post } from './helpers.ts'
-import { fakeActivity, fakeSessions, fakeTasks } from './fake-work.ts'
+import { makeApp, post, seededDatabase, type SeededDatabase } from './helpers.ts'
 
-function work(): Database {
-  const tasks = fakeTasks()
-  tasks.seed({ projectId: 'w1', title: 'Fix auth', status: 'in_progress', assignee: 'claude' })
-  tasks.seed({ projectId: 'w1', title: 'Write docs', status: 'ready', priority: 'high' })
-  return {
-    status: () => ({ configured: true, available: true, reason: null, checkedAt: 0, migrations: [] }),
-    environments: {
-      find: async (name: string) => (name === 'alpha' ? { id: 'e1', composeProject: 'alpha' } : null),
-      upsertSeen: async () => ({}),
-      list: async () => [{ id: 'e1', composeProject: 'alpha' }],
-    },
-    settings: { listAllEnvironment: async () => [], listAllService: async () => [], getGlobal: async () => null },
-    repositories: { list: async () => [], find: async () => null, findByGitHub: async () => null },
-    projects: {
-      find: async (slug: string) => (slug === 'produto' ? { id: 'w1', slug, name: 'Produto', description: 'The product', archived: false, relativePath: null } : null),
-      list: async () => [{ id: 'w1', slug: 'produto', name: 'Produto', description: 'The product', archived: false, relativePath: null }],
-      listEnvironments: async () => [{ projectId: 'w1', composeProject: 'alpha', source: 'manual' }],
-    },
-    github: { listIssues: async () => [], findIssue: async () => null, listRelationships: async () => [], findRepository: async () => null, listRepositories: async () => [] },
-    tasks,
-    sessions: fakeSessions(),
-    activity: fakeActivity(),
-  } as unknown as Database
+const open: SeededDatabase[] = []
+afterEach(async () => {
+  for (const seeded of open.splice(0)) await seeded.close()
+})
+
+/**
+ * A Project with a description, two tasks in flight, and the environment it
+ * adopted — the situation the development surfaces exist to summarise.
+ */
+async function work(): Promise<Database> {
+  const seeded = await seededDatabase()
+  open.push(seeded)
+  const projectId = Number(seeded.ids.project)
+
+  await seeded.db.update(projectsTable).set({ description: 'The product' }).where(eq(projectsTable.id, projectId))
+  // These surfaces are about tasks and environments, not code: the seeded
+  // repository would add a row every assertion here would have to ignore.
+  await seeded.db.delete(repositoriesTable).where(eq(repositoriesTable.projectId, projectId))
+  await seeded.db.insert(projectEnvironments).values({
+    projectId, environmentId: Number(seeded.ids.environment), source: 'manual',
+  })
+  await seeded.database.tasks.create(seeded.ids.project, { title: 'Fix auth', status: 'in_progress', assignee: 'claude' }, null)
+  await seeded.database.tasks.create(seeded.ids.project, { title: 'Write docs', status: 'ready', priority: 'high' }, null)
+
+  return seeded.database
 }
 
 describe('consolidated services', () => {
@@ -76,7 +79,7 @@ describe('the development dashboard', () => {
   })
 
   it('counts the work and summarises the projects when there is one', async () => {
-    const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, work())
+    const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, await work())
     const body = await (await app.request('/api/overview')).json() as { work: { counts: { open: number; inProgress: number }; inProgress: Array<{ title: string }> }; projects: Array<{ slug: string; openTasks: number; runningEnvironments: number }> }
     expect(body.work.counts).toMatchObject({ open: 2, inProgress: 1 })
     expect(body.work.inProgress[0]?.title).toBe('Fix auth')
@@ -88,12 +91,12 @@ describe('the development context and resources', () => {
   it('needs a database, and a project that exists', async () => {
     const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] })
     expect((await app.request('/api/projects/produto/context')).status).toBe(503)
-    const withDb = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, work())
+    const withDb = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, await work())
     expect((await withDb.app.request('/api/projects/nope/context')).status).toBe(404)
   })
 
   it('hands an agent the project, its environments with services, the next task and the platform rules', async () => {
-    const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, work())
+    const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, await work())
     const response = await app.request('/api/projects/produto/context', { headers: { 'X-Portta-Actor': 'claude' } })
     expect(response.status).toBe(200)
     const body = await response.json() as { actor: string; project: { slug: string }; work: { next: { title: string } | null; inProgress: unknown[] }; environments: Array<{ name: string; services: unknown[]; startCommand: string }>; instructions: { platform: string }; commands: Record<string, string> }
@@ -108,7 +111,7 @@ describe('the development context and resources', () => {
   })
 
   it('attributes resources through adopted environments', async () => {
-    const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, work())
+    const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, await work())
     const body = await (await app.request('/api/projects/produto/resources')).json() as { project: string; environments: unknown[]; collectorActive: boolean }
     expect(body.project).toBe('produto')
     expect(body.collectorActive).toBe(false)

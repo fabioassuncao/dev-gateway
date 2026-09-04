@@ -7,8 +7,8 @@
 # and no access to the Docker socket. The panel reaches Docker exclusively
 # through its own socket proxy over an internal network.
 #
-# The panel is composed from four packages now, and they build in dependency
-# order: core → contracts → server → web. Skipping one leaves the next
+# The panel is composed from five packages now, and they build in dependency
+# order: core → contracts → db → server → web. Skipping one leaves the next
 # resolving a dist/ that does not exist.
 # =============================================================================
 
@@ -19,6 +19,7 @@ COPY apps/auth/package.json ./apps/auth/
 COPY apps/web/package.json ./apps/web/
 COPY packages/core/package.json ./packages/core/
 COPY packages/contracts/package.json ./packages/contracts/
+COPY packages/db/package.json ./packages/db/
 COPY packages/server/package.json ./packages/server/
 COPY packages/cli/package.json ./packages/cli/
 # Install the whole workspace graph. Filtering with --workspace drops optional
@@ -44,10 +45,13 @@ COPY packages/core/tsconfig.json packages/core/tsconfig.build.json ./packages/co
 COPY packages/core/src ./packages/core/src
 COPY packages/contracts/tsconfig.json packages/contracts/tsconfig.build.json ./packages/contracts/
 COPY packages/contracts/src ./packages/contracts/src
+COPY packages/db/tsconfig.json packages/db/tsconfig.build.json ./packages/db/
+COPY packages/db/src ./packages/db/src
 COPY packages/server/tsconfig.json packages/server/tsconfig.build.json ./packages/server/
 COPY packages/server/src ./packages/server/src
 RUN npm run build --workspace=portta-core \
  && npm run build --workspace=portta-contracts \
+ && npm run build --workspace=portta-db \
  && npm run build --workspace=portta-server \
  && npm run build --workspace=portta-auth \
  && npm run build --workspace=portta-web
@@ -67,9 +71,11 @@ COPY packages/core/tsconfig.json ./packages/core/
 COPY packages/core/src ./packages/core/src
 COPY packages/contracts/tsconfig.json ./packages/contracts/
 COPY packages/contracts/src ./packages/contracts/src
+COPY packages/db/tsconfig.json ./packages/db/
+COPY packages/db/src ./packages/db/src
+COPY packages/db/drizzle ./packages/db/drizzle
 COPY packages/server/tsconfig.json ./packages/server/
 COPY packages/server/src ./packages/server/src
-COPY packages/server/migrations ./packages/server/migrations
 WORKDIR /app/apps/web
 # The container runs as an unprivileged user, and Vite writes a temporary
 # config next to vite.config.ts and a cache under node_modules.
@@ -93,6 +99,7 @@ COPY apps/auth/package.json ./apps/auth/
 COPY apps/web/package.json ./apps/web/
 COPY packages/core/package.json ./packages/core/
 COPY packages/contracts/package.json ./packages/contracts/
+COPY packages/db/package.json ./packages/db/
 COPY packages/server/package.json ./packages/server/
 COPY packages/cli/package.json ./packages/cli/
 RUN npm ci --workspace=portta-web --workspace=portta-auth --omit=dev && npm cache clean --force
@@ -100,8 +107,11 @@ COPY --from=build /app/apps/auth/dist ./apps/auth/dist
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY --from=build /app/packages/core/dist ./packages/core/dist
 COPY --from=build /app/packages/contracts/dist ./packages/contracts/dist
+COPY --from=build /app/packages/db/dist ./packages/db/dist
 COPY --from=build /app/packages/server/dist ./packages/server/dist
-COPY packages/server/migrations ./packages/server/migrations
+# The generated SQL, beside the dist that resolves it: the panel applies pending
+# migrations at boot, so the image has to carry them.
+COPY packages/db/drizzle ./packages/db/drizzle
 
 WORKDIR /app/apps/web
 USER node

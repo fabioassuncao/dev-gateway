@@ -56,7 +56,7 @@ function clampTail(requested: string | undefined, fallback: number): number {
 async function withForgeFromApp(deps: AppDeps, git: ProjectGitView): Promise<ProjectGitView> {
   const slug = git.remote?.slug
   if (!slug || deps.github === null || !deps.github.status().configured) return git
-  if (!deps.db?.status().available) return git
+  if (!deps.db.status().available) return git
 
   const repository = await deps.db.github.findRepository(slug)
   if (!repository) return git
@@ -92,7 +92,7 @@ async function withForgeFromApp(deps: AppDeps, git: ProjectGitView): Promise<Pro
  * here is required for an environment page to render.
  */
 async function taskOf(deps: AppDeps, snapshot: Snapshot, project: Environment) {
-  if (!deps.db?.status().available) return { task: null, issue: null }
+  if (!deps.db.status().available) return { task: null, issue: null }
   const db = deps.db
   const tasks = await db.tasks.list({ limit: 2000 })
   if (tasks.length === 0) return { task: null, issue: null }
@@ -110,7 +110,7 @@ async function taskOf(deps: AppDeps, snapshot: Snapshot, project: Environment) {
 /** One activity line per lifecycle operation, attributed to the Project that adopted the environment when one did. */
 async function recordEnvironmentActivity(deps: AppDeps, name: string, principal: Principal, kind: ActivityKind, summary: string): Promise<void> {
   const db = deps.db
-  if (!db?.status().available) return
+  if (!db.status().available) return
   const environment = await db.environments.find(name).catch(() => null)
   const adoption = environment ? (await db.projects.listEnvironments().catch(() => [])).find((row) => row.composeProject === environment.composeProject) : undefined
   const slug = adoption ? (await db.projects.list().catch(() => [])).find((project) => project.id === adoption.projectId)?.slug ?? null : null

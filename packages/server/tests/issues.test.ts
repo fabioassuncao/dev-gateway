@@ -1,8 +1,6 @@
 import { createHmac } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
-import { makeApp } from './helpers.ts'
-import { fakeActivity, fakeSessions, fakeTasks } from './fake-work.ts'
+import { afterEach, describe, expect, it } from 'vitest'
+import { makeApp, seedIssues, seededDatabase, type SeededDatabase } from './helpers.ts'
 import { GATEWAY, PROJECT_A } from './fixtures.ts'
 import {
   labelsAfter,
@@ -14,25 +12,9 @@ import {
 } from '../src/services/integrations/github/metadata.ts'
 import { normaliseIssue, visibleLinks, wouldCycle } from '../src/services/integrations/github/issues.ts'
 import { HANDLED_EVENTS, planDelivery, verifySignature } from '../src/services/integrations/github/sync/webhook.ts'
-import type { Database } from '../src/db/index.ts'
+import { eq } from 'drizzle-orm'
+import { githubIssueRelationships, githubIssues, repositories as repositoriesTable } from 'portta-db'
 import type { Issue } from 'portta-contracts'
-
-describe('the issue schema', () => {
-  const migration = readFileSync(new URL('../migrations/0004_github_issues.sql', import.meta.url), 'utf8')
-
-  it('records where status came from, so the API can be honest about it', () => {
-    expect(migration).toMatch(/metadata_source\s+TEXT NOT NULL DEFAULT 'none'/)
-    expect(migration).toContain("CHECK (metadata_source IN ('fields', 'labels', 'none'))")
-  })
-
-  it('refuses a one-step cycle in the database itself', () => {
-    expect(migration).toContain('CHECK (parent_id <> child_id)')
-  })
-
-  it('does not project comments', () => {
-    expect(migration).not.toMatch(/CREATE TABLE github_issue_comments/)
-  })
-})
 
 describe('the label convention', () => {
   it('lives in one table', () => {
@@ -205,48 +187,42 @@ function issueRow(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function issueDatabase(rows = [issueRow()], relationships: { parentId: string; childId: string; position: number }[] = []) {
-  const db = {
-    status: () => ({ configured: true, available: true, reason: null, checkedAt: 0, migrations: [] }),
-    environments: { find: async () => null, upsertSeen: async () => ({}), list: async () => [] },
-    settings: { listAllEnvironment: async () => [], listAllService: async () => [] },
-    repositories: {
-      list: async (projectId?: string) => (projectId === undefined || projectId === 'w1' ? [{ id: '1', projectId: 'w1', name: 'api', githubRepositoryId: 'r1', github: { repositoryId: 'r1', fullName: 'acme/api' } }] : []),
-      find: async () => null,
-      findByGitHub: async () => null,
-    },
-    projects: {
-      find: async (slug: string) => (slug === 'produto' ? { id: 'w1', slug, name: 'Produto' } : null),
-      list: async () => [],
-      listEnvironments: async () => [],
-    },
-    github: {
-      listIssues: async (filter: { repositoryIds?: string[]; state?: string }) =>
-        rows.filter(
-          (row) =>
-            (filter.repositoryIds === undefined || filter.repositoryIds.includes(row.repositoryId)) &&
-            (filter.state === undefined || row.state === filter.state),
-        ),
-      findIssue: async (id: string) => rows.find((row) => row.id === id) ?? null,
-      listRelationships: async () => relationships,
-      findRepository: async () => null,
-      listRepositories: async () => [],
-      findIssueByNumber: async (repositoryId: string, number: number) => rows.find((row) => row.repositoryId === repositoryId && row.number === number) ?? null,
-    },
-    tasks: fakeTasks(),
-    sessions: fakeSessions(),
-    activity: fakeActivity(),
-  }
-  return db as unknown as Database
-}
+const open: SeededDatabase[] = []
+afterEach(async () => {
+  for (const seeded of open.splice(0)) await seeded.close()
+})
 
-function app(db = issueDatabase()) {
-  return makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, db)
+/**
+ * The panel with a Project, its repository, and the issues projected onto it.
+ *
+ * `repositories: []` drops the repository, which is how a Project that owns no
+ * code is stated.
+ */
+async function app(
+  rows: Record<string, unknown>[] = [issueRow()],
+  options: { relationships?: Array<{ parent: number; child: number; position: number }>; repositories?: 'none' } = {},
+) {
+  const seeded = await seededDatabase()
+  open.push(seeded)
+  if (options.repositories === 'none') {
+    await seeded.db.delete(repositoriesTable).where(eq(repositoriesTable.projectId, Number(seeded.ids.project)))
+  }
+  await seedIssues(seeded, rows)
+  for (const link of options.relationships ?? []) {
+    const [parent] = await seeded.db.select({ id: githubIssues.id }).from(githubIssues).where(eq(githubIssues.githubId, link.parent))
+    const [child] = await seeded.db.select({ id: githubIssues.id }).from(githubIssues).where(eq(githubIssues.githubId, link.child))
+    await seeded.db.insert(githubIssueRelationships).values({ parentId: parent!.id, childId: child!.id, position: link.position })
+  }
+  const issueId = async (githubId: number) => {
+    const [row] = await seeded.db.select({ id: githubIssues.id }).from(githubIssues).where(eq(githubIssues.githubId, githubId))
+    return String(row!.id)
+  }
+  return { ...makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, seeded.database), seeded, issueId }
 }
 
 describe('the issue endpoints', () => {
   it('lists a Project’s issues with the repository on every row', async () => {
-    const { app: server } = app()
+    const { app: server } = await app()
     const body = await (await server.request('/api/projects/produto/issues')).json()
     expect(body.issues).toHaveLength(1)
     expect(body.issues[0]).toMatchObject({
@@ -259,22 +235,19 @@ describe('the issue endpoints', () => {
   })
 
   it('answers empty for a Project that owns no repository', async () => {
-    const db = issueDatabase()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(db as any).repositories.list = async () => []
-    const { app: server } = app(db)
+    const { app: server } = await app([issueRow()], { repositories: 'none' })
     const body = await (await server.request('/api/projects/produto/issues')).json()
     expect(body.issues).toEqual([])
   })
 
   it('404s a workspace that does not exist', async () => {
-    const { app: server } = app()
+    const { app: server } = await app()
     expect((await server.request('/api/projects/ghost/issues')).status).toBe(404)
   })
 
   it('filters by status, priority and text', async () => {
-    const rows = [issueRow(), issueRow({ id: '2', number: 124, title: 'Outra', workflowStatus: 'backlog', priority: 'low' })]
-    const { app: server } = app(issueDatabase(rows))
+    const rows = [issueRow(), issueRow({ githubId: 2, number: 124, title: 'Outra', workflowStatus: 'backlog', priority: 'low' })]
+    const { app: server } = await app(rows)
 
     const byStatus = await (await server.request('/api/projects/produto/issues?status=backlog')).json()
     expect(byStatus.issues.map((issue: Issue) => issue.number)).toEqual([124])
@@ -284,19 +257,24 @@ describe('the issue endpoints', () => {
   })
 
   it('nests a sub-issue under its parent', async () => {
-    const rows = [issueRow(), issueRow({ id: '2', githubId: 2, number: 124, title: 'Sub' })]
-    const { app: server } = app(issueDatabase(rows, [{ parentId: '1', childId: '2', position: 0 }]))
+    const rows = [issueRow(), issueRow({ githubId: 2, number: 124, title: 'Sub' })]
+    const { app: server, issueId } = await app(rows, {
+      relationships: [{ parent: 1, child: 2, position: 0 }],
+    })
 
     const body = await (await server.request('/api/projects/produto/issues')).json()
-    const parent = body.issues.find((issue: Issue) => issue.id === '1')
-    const child = body.issues.find((issue: Issue) => issue.id === '2')
-    expect(parent.childIds).toEqual(['2'])
-    expect(child.parentId).toBe('1')
+    const parentId = await issueId(1)
+    const childId = await issueId(2)
+    const parent = body.issues.find((issue: Issue) => issue.id === parentId)
+    const child = body.issues.find((issue: Issue) => issue.id === childId)
+    expect(parent.childIds).toEqual([childId])
+    expect(child.parentId).toBe(parentId)
   })
 
   it('marks the projection stale rather than hiding it', async () => {
     const old = new Date(Date.now() - 3_600_000)
-    const { app: server } = app(issueDatabase([issueRow({ syncedAt: old })]))
+    const { app: server, seeded } = await app([issueRow()])
+    await seeded.db.update(githubIssues).set({ syncedAt: old })
     const body = await (await server.request('/api/projects/produto/issues')).json()
     expect(body.issues[0].stale).toBe(true)
   })
@@ -308,8 +286,8 @@ describe('the issue endpoints', () => {
   })
 
   it('refuses a write when no GitHub App is configured', async () => {
-    const { app: server } = app()
-    const response = await server.request('/api/issues/1', {
+    const { app: server, issueId } = await app()
+    const response = await server.request(`/api/issues/${await issueId(1)}`, {
       method: 'PATCH',
       body: JSON.stringify({ status: 'done' }),
       headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },

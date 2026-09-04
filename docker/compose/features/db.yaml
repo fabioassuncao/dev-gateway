@@ -1,9 +1,11 @@
 # ============================================================================
-# Portta: panel persistence (opt-in with the panel)
+# Portta: panel persistence (always, with the panel)
 # ============================================================================
-# PostgreSQL is a private implementation detail of the panel. It has no host
-# port, never joins the shared HTTP network, and keeps its data in a named
-# volume that `portta down` does not remove.
+# PostgreSQL is a private implementation detail of the panel, and a required
+# one: the panel refuses to start without it, so this overlay is selected
+# wherever web.yaml is (packages/core/src/config.ts). It has no host port, never
+# joins the shared HTTP network, and keeps its data in a named volume that
+# `portta down` does not remove — only `portta reset` does.
 # ============================================================================
 
 networks:

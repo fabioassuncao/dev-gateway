@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { del, makeApp, post } from './helpers.ts'
 import { GATEWAY, PROJECT_A, PROJECT_B } from './fixtures.ts'
@@ -9,55 +8,6 @@ import {
 } from '../src/services/adoption.ts'
 import type { Database } from '../src/db/index.ts'
 import type { Project } from 'portta-contracts'
-
-describe('the development-model schema', () => {
-  const migration = readFileSync(new URL('../migrations/0007_environments_and_projects.sql', import.meta.url), 'utf8')
-
-  it('renames the observation before the decision, so the names cannot collide', () => {
-    expect(migration.indexOf('ALTER TABLE projects RENAME TO environments')).toBeLessThan(
-      migration.indexOf('ALTER TABLE workspaces RENAME TO projects'),
-    )
-  })
-
-  it('renames the index-backed constraints and sequences explicitly', () => {
-    for (const name of [
-      'projects_id_seq RENAME TO environments_id_seq',
-      'projects_pkey TO environments_pkey',
-      'workspaces_id_seq RENAME TO projects_id_seq',
-      'workspaces_pkey TO projects_pkey',
-      'workspaces_slug_key TO projects_slug_key',
-      'workspaces_relative_path_unique RENAME TO projects_relative_path_unique',
-    ]) {
-      expect(migration).toContain(name)
-    }
-  })
-
-  it('drops what nothing ever wrote', () => {
-    expect(migration).toContain('DROP TABLE integrations')
-    expect(migration).toContain('DROP COLUMN slug')
-    expect(migration).toContain('DROP COLUMN display_name')
-    expect(migration).toContain('DROP COLUMN archived')
-  })
-
-  it('gives an environment at most one Project, and records why', () => {
-    expect(migration).toContain('project_environments_one_project_per_env')
-    expect(migration).toContain("source IN ('manual', 'label', 'repo-match', 'path')")
-  })
-})
-
-describe('the repositories schema', () => {
-  const migration = readFileSync(new URL('../migrations/0008_repositories.sql', import.meta.url), 'utf8')
-
-  it('keeps one GitHub repository on one Project, and backfills the oldest claim', () => {
-    expect(migration).toContain('github_repository_id BIGINT UNIQUE REFERENCES github_repositories(id) ON DELETE SET NULL')
-    expect(migration).toContain('DISTINCT ON (pr.repository_id)')
-    expect(migration.indexOf('INSERT INTO repositories')).toBeLessThan(migration.indexOf('DROP TABLE project_repositories'))
-  })
-
-  it('never points a repository at an environment: that association is observed, not stored', () => {
-    expect(migration).not.toContain('environment_id')
-  })
-})
 
 describe('repository coordinates', () => {
   it('reads the same slug out of every remote shape', () => {

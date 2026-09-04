@@ -4,12 +4,12 @@
 // the host, its remote, its role, and optionally the GitHub projection row it
 // corresponds to. What the host scan observed about it (branch, commits,
 // instruction files) is read from state/git at request time and never stored;
-// `core/repositories.ts` joins the two.
+// `services/repositories.ts` joins the two.
 
 import { z } from 'zod'
 import { posix } from 'node:path'
-import type { Sql } from 'postgres'
-import type { DatabaseClient } from './client.ts'
+import { asc, eq } from 'drizzle-orm'
+import { type Db, githubRepositories, repositories } from 'portta-db'
 
 /** Documented vocabulary, not an enum: adding one later is not a migration. */
 export const REPOSITORY_ROLES = ['api', 'web', 'mobile', 'services', 'infra', 'docs', 'other'] as const
@@ -107,95 +107,86 @@ export const UpdateRepository = z.object({
 }).strict()
 export type UpdateRepositoryInput = z.infer<typeof UpdateRepository>
 
-const COLUMNS = `
-  r.id::text AS id,
-  r.project_id::text AS "projectId",
-  r.name, r.role,
-  r.local_path AS "localPath",
-  r.relative_path AS "relativePath",
-  r.remote_url AS "remoteUrl",
-  r.provider,
-  r.github_repository_id::text AS "githubRepositoryId",
-  r.position, r.created_at AS "createdAt", r.updated_at AS "updatedAt",
-  gr.id::text AS "ghId", gr.full_name AS "ghFullName", gr.html_url AS "ghHtmlUrl",
-  gr.default_branch AS "ghDefaultBranch", gr.private AS "ghPrivate", gr.archived AS "ghArchived"
-`
-
-interface JoinedRow extends RepositoryRecord {
-  ghId: string | null
-  ghFullName: string | null
-  ghHtmlUrl: string | null
-  ghDefaultBranch: string | null
-  ghPrivate: boolean | null
-  ghArchived: boolean | null
+type JoinedRow = {
+  repository: typeof repositories.$inferSelect
+  github: typeof githubRepositories.$inferSelect | null
 }
 
 function toRow(joined: JoinedRow): RepositoryRow {
-  const { ghId, ghFullName, ghHtmlUrl, ghDefaultBranch, ghPrivate, ghArchived, ...record } = joined
+  const { repository, github } = joined
   return {
-    ...record,
-    github: ghId && ghFullName && ghHtmlUrl
+    ...repository,
+    id: String(repository.id),
+    projectId: String(repository.projectId),
+    githubRepositoryId: repository.githubRepositoryId === null ? null : String(repository.githubRepositoryId),
+    github: github
       ? {
-          repositoryId: ghId,
-          fullName: ghFullName,
-          htmlUrl: ghHtmlUrl,
-          defaultBranch: ghDefaultBranch,
-          private: ghPrivate === true,
-          archived: ghArchived === true,
+          repositoryId: String(github.id),
+          fullName: github.fullName,
+          htmlUrl: github.htmlUrl,
+          defaultBranch: github.defaultBranch,
+          private: github.private,
+          archived: github.archived,
         }
       : null,
   }
 }
 
 export class RepositoriesRepository {
-  private readonly sql: Sql
+  private readonly db: Db
 
-  constructor(client: DatabaseClient) {
-    this.sql = client.handle
+  constructor(db: Db) {
+    this.db = db
+  }
+
+  private joined() {
+    return this.db
+      .select({ repository: repositories, github: githubRepositories })
+      .from(repositories)
+      .leftJoin(githubRepositories, eq(githubRepositories.id, repositories.githubRepositoryId))
   }
 
   async list(projectId?: string): Promise<RepositoryRow[]> {
     const rows = projectId === undefined
-      ? await this.sql<JoinedRow[]>`
-          SELECT ${this.sql.unsafe(COLUMNS)} FROM repositories r
-          LEFT JOIN github_repositories gr ON gr.id = r.github_repository_id
-          ORDER BY r.project_id, r.position, r.name`
-      : await this.sql<JoinedRow[]>`
-          SELECT ${this.sql.unsafe(COLUMNS)} FROM repositories r
-          LEFT JOIN github_repositories gr ON gr.id = r.github_repository_id
-          WHERE r.project_id = ${projectId}
-          ORDER BY r.position, r.name`
+      ? await this.joined().orderBy(asc(repositories.projectId), asc(repositories.position), asc(repositories.name))
+      : await this.joined()
+          .where(eq(repositories.projectId, Number(projectId)))
+          .orderBy(asc(repositories.position), asc(repositories.name))
     return rows.map(toRow)
   }
 
   async find(id: string): Promise<RepositoryRow | null> {
     if (!/^\d+$/.test(id)) return null
-    const rows = await this.sql<JoinedRow[]>`
-      SELECT ${this.sql.unsafe(COLUMNS)} FROM repositories r
-      LEFT JOIN github_repositories gr ON gr.id = r.github_repository_id
-      WHERE r.id = ${id}`
-    return rows[0] ? toRow(rows[0]) : null
+    const [row] = await this.joined().where(eq(repositories.id, Number(id)))
+    return row ? toRow(row) : null
   }
 
   async findByGitHub(githubRepositoryId: string): Promise<RepositoryRow | null> {
-    const rows = await this.sql<JoinedRow[]>`
-      SELECT ${this.sql.unsafe(COLUMNS)} FROM repositories r
-      LEFT JOIN github_repositories gr ON gr.id = r.github_repository_id
-      WHERE r.github_repository_id = ${githubRepositoryId}`
-    return rows[0] ? toRow(rows[0]) : null
+    if (!/^\d+$/.test(githubRepositoryId)) return null
+    const [row] = await this.joined().where(eq(repositories.githubRepositoryId, Number(githubRepositoryId)))
+    return row ? toRow(row) : null
   }
 
   async create(projectId: string, input: unknown): Promise<RepositoryRow> {
     const parsed = CreateRepository.parse(input)
     const provider = parsed.provider ?? providerFor(parsed.remoteUrl, parsed.githubRepositoryId !== null)
-    const rows = await this.sql<{ id: string }[]>`
-      INSERT INTO repositories (project_id, name, role, local_path, relative_path, remote_url, provider, github_repository_id, position)
-      VALUES (${projectId}, ${parsed.name}, ${parsed.role}, ${parsed.localPath}, ${parsed.relativePath},
-              ${parsed.remoteUrl}, ${provider}, ${parsed.githubRepositoryId}, ${parsed.position})
-      RETURNING id::text AS id`
-    const created = rows[0] ? await this.find(rows[0].id) : null
-    if (!created) throw new Error('database did not return the repository it created')
-    return created
+    const [created] = await this.db
+      .insert(repositories)
+      .values({
+        projectId: Number(projectId),
+        name: parsed.name,
+        role: parsed.role,
+        localPath: parsed.localPath,
+        relativePath: parsed.relativePath,
+        remoteUrl: parsed.remoteUrl,
+        provider,
+        githubRepositoryId: parsed.githubRepositoryId === null ? null : Number(parsed.githubRepositoryId),
+        position: parsed.position,
+      })
+      .returning({ id: repositories.id })
+    const row = created ? await this.find(String(created.id)) : null
+    if (!row) throw new Error('database did not return the repository it created')
+    return row
   }
 
   /** Three-valued on the nullable columns: absent leaves it, null clears it, a value sets it. */
@@ -215,19 +206,25 @@ export class RepositoriesRepository {
     }
     const provider = parsed.provider
       ?? (has('remoteUrl') || has('githubRepositoryId') ? providerFor(next.remoteUrl, next.githubRepositoryId !== null) : current.provider)
-    await this.sql`
-      UPDATE repositories SET
-        name = ${next.name}, role = ${next.role}, local_path = ${next.localPath},
-        relative_path = ${next.relativePath}, remote_url = ${next.remoteUrl}, provider = ${provider},
-        github_repository_id = ${next.githubRepositoryId}, position = ${next.position}, updated_at = now()
-      WHERE id = ${id}`
+    await this.db
+      .update(repositories)
+      .set({
+        ...next,
+        provider,
+        githubRepositoryId: next.githubRepositoryId === null ? null : Number(next.githubRepositoryId),
+        updatedAt: new Date(),
+      })
+      .where(eq(repositories.id, Number(id)))
     return this.find(id)
   }
 
   /** Removes the registration. The clone, the remote and the GitHub row are untouched. */
   async remove(id: string): Promise<boolean> {
     if (!/^\d+$/.test(id)) return false
-    const rows = await this.sql<{ id: string }[]>`DELETE FROM repositories WHERE id = ${id} RETURNING id::text AS id`
+    const rows = await this.db
+      .delete(repositories)
+      .where(eq(repositories.id, Number(id)))
+      .returning({ id: repositories.id })
     return rows.length > 0
   }
 }

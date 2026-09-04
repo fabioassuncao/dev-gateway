@@ -8,7 +8,7 @@ import { resolveAdoptions, type ProjectCoordinates } from './adoption.ts'
 import { coordinateOf, loadScans, toRepository, type RepositoryScans } from './repositories.ts'
 import { rememberedEnvironments } from './remembered.ts'
 import type { Database } from '../db/index.ts'
-import type { ProjectRecord } from '../db/client.ts'
+import type { ProjectRecord } from '../db/projects.ts'
 import type { RepositoryRow } from '../db/repositories.ts'
 import type {
   Project,

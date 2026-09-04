@@ -1,10 +1,10 @@
 // Who is asking, and what they may do.
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DEFAULT_AGENT_CAPABILITIES } from 'portta-core'
 import { principalFor } from '../src/api/principal.ts'
 import { GATEWAY, PROJECT_A } from './fixtures.ts'
-import { fakeDatabase, makeApp, post } from './helpers.ts'
+import { makeApp, post, seededDatabase, type SeededDatabase } from './helpers.ts'
 
 const headers = (values: Record<string, string>) => ({ get: (name: string) => values[name] ?? values[name.toLowerCase()] ?? null })
 const source = (readOnly = false, granted = DEFAULT_AGENT_CAPABILITIES) => ({ readOnly, agentCapabilities: async () => granted })
@@ -58,21 +58,27 @@ describe('the principal', () => {
 })
 
 describe('capabilities on the routes', () => {
+  // A real database, because these routes read the environment before they
+  // decide anything; what is asserted is the refusal, not the row.
+  let seeded: SeededDatabase
+  beforeEach(async () => { seeded = await seededDatabase() })
+  afterEach(async () => { await seeded.close() })
+
   it('refuses an agent a destructive operation it does not hold, with the capability named', async () => {
-    const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, fakeDatabase())
+    const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, seeded.database)
     const response = await post(app, '/api/environments/alpha/operations/remove', { confirmation: 'alpha', volumes: false, directory: false }, { 'X-Portta-Actor': 'claude-code' })
     expect(response.status).toBe(403)
     expect(await response.json()).toMatchObject({ error: expect.stringContaining('environment:destroy') })
   })
 
   it('lets the same agent operate what it holds', async () => {
-    const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, fakeDatabase())
+    const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, seeded.database)
     const response = await post(app, '/api/environments/alpha/actions/stop', {}, { 'X-Portta-Actor': 'claude-code' })
     expect(response.status).toBe(200)
   })
 
   it('lets the operator do everything', async () => {
-    const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, fakeDatabase())
+    const { app } = makeApp({ containers: [...GATEWAY, ...PROJECT_A] }, {}, seeded.database)
     const response = await app.request('/api/environments/alpha/removal-preview')
     expect(response.status).toBe(200)
   })

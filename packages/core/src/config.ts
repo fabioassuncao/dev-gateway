@@ -232,6 +232,9 @@ export function composeFiles(config: GatewayConfig): string[] {
   }
   if (config.tcpEnabled) files.push(attached === 'tailscale' ? 'docker/compose/features/tcp-tailscale.yaml' : 'docker/compose/features/tcp.yaml')
   if (config.webEnabled) {
+    // Always together. PostgreSQL is a boot dependency of the panel, not a
+    // feature of it: a panel with no database refuses to start, so a profile
+    // that selected one without the other could only ever produce that.
     files.push('docker/compose/features/web.yaml', 'docker/compose/features/db.yaml')
     // Exactly one overlay owns the panel's front door, so `public` and a host
     // publish can never both claim PORTTA_WEB_PORT.

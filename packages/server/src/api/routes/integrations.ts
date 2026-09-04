@@ -60,7 +60,7 @@ export function integrationRoutes(deps: AppDeps): Hono {
     let sync: GitHubIntegrationView['sync'] = []
     let projectionAvailable = false
 
-    if (deps.db?.status().available) {
+    if (deps.db.status().available) {
       projectionAvailable = true
       const [rows, repositories, state] = await Promise.all([
         deps.db.github.listInstallations(),
@@ -172,7 +172,7 @@ export function integrationRoutes(deps: AppDeps): Hono {
     }
 
     const outcome = planDelivery(c.req.header('x-github-event') ?? '', payload)
-    if (outcome.action === 'ignored' || deps.github === null || !deps.db?.status().available) {
+    if (outcome.action === 'ignored' || deps.github === null || !deps.db.status().available) {
       return c.json({ ok: true, action: 'ignored', reason: outcome.reason })
     }
 

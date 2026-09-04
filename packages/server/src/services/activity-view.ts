@@ -3,7 +3,7 @@
 
 import type { Database } from '../db/index.ts'
 import type { ActivityRow } from '../db/activity.ts'
-import type { SessionRow } from '../db/sessions.ts'
+import type { SessionRow } from '../db/work-sessions.ts'
 import type { ActivityEvent, Session, TaskStatus } from 'portta-contracts'
 
 function seconds(date: Date | null): number | null {

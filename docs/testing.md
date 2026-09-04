@@ -19,7 +19,8 @@ Nothing else.
 | --- | --- | --- |
 | `packages/core/src/*.ts` | `npm test --workspace=portta-core` | ~0.5s |
 | `packages/contracts/src/**` | `npm test --workspace=portta-contracts` | ~0.2s |
-| `packages/server/src/**` | `npm test --workspace=portta-server` | ~3s |
+| `packages/db/src/schema/**` | `npm test --workspace=portta-db` and `npm run db:check --workspace=portta-db` | ~8s |
+| `packages/server/src/**` | `npm test --workspace=portta-server` | ~35s |
 | `packages/cli/src/**` | `npm test --workspace=portta` | ~0.7s |
 | `apps/auth/src/**` | `npm test --workspace=portta-auth` | ~0.5s |
 | `apps/web/src/ui/**` | `npm test --workspace=portta-web -- --project ui` | ~11s |
@@ -80,6 +81,29 @@ shell audit suites (`tests/unit/audit.test.sh`, `install.test.sh`,
 `web.test.sh`) are the clearest example: they assert invariants such as "no
 prune, ever" and "no password on a command line" in milliseconds.
 
+## The database in a test
+
+Anything that touches a row opens [PGlite](https://pglite.dev) — PostgreSQL
+compiled to WebAssembly — and applies the real migrations:
+
+```ts
+import { createTestDb } from 'portta-db/testing'
+
+const { db, close } = await createTestDb()
+```
+
+There used to be hand-written stand-ins for each repository instead. They were
+faster and they were wrong in the way stand-ins always are: they accepted rows a
+check would refuse, they returned ids in a shape the driver never produces, and
+a query the panel got wrong passed anyway. Three tests in the panel's own suite
+were asserting a fake's behaviour rather than the database's, and only noticed
+when the fake went away.
+
+The cost is a few seconds per file, nearly all of it compiling the WebAssembly
+once per worker; each test after the first costs about a hundred milliseconds.
+`packages/server/tests/helpers.ts` has `seededDatabase()`, which is one already
+holding a Project, a repository and two environments.
+
 `tests/unit/boundaries.test.sh` is the same idea applied to the monorepo's
 shape: an import that crosses a boundary the [map](monorepo.md) does not allow
 compiles perfectly well, because npm workspaces resolve every package from one
@@ -118,7 +142,8 @@ review:
 | --- | --- | --- | --- |
 | Shared core | `packages/core/src/*.test.ts` | no | `tests/run.sh`, CI |
 | The contract | `packages/contracts/src/*.test.ts` | no | `tests/run.sh`, CI |
-| Services and API | `packages/server/tests/` | no | `tests/run.sh`, CI |
+| Schema and migrations | `packages/db/tests/` | no (PGlite) | `tests/run.sh`, CI |
+| Services and API | `packages/server/tests/` | no (PGlite) | `tests/run.sh`, CI |
 | CLI | `packages/cli/src/**/*.test.ts` | no | `tests/run.sh`, CI |
 | ForwardAuth | `apps/auth/src/*.test.ts` | no | `tests/run.sh`, CI |
 | Panel components | `apps/web/tests/ui/` | no | `tests/run.sh`, CI |

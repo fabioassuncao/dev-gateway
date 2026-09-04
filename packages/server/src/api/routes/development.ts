@@ -31,7 +31,6 @@ import { diagnose, problemsOnly } from '../../services/diagnostics.ts'
 import { gatewayStatus } from '../../services/gateway.ts'
 import { listShares } from '../../services/shares.ts'
 import { loadAliases } from '../../services/overrides.ts'
-import { unavailableDatabaseStatus } from '../../db/index.ts'
 import { githubStatusOf } from './integrations.ts'
 import { recordActivity } from '../../services/activity.ts'
 import {
@@ -237,7 +236,7 @@ export function developmentRoutes(deps: AppDeps): Hono {
     const gateway = gatewayStatus(snapshot, deps.config)
     const problems = problemsOnly(diagnose(
       snapshot, deps.config, null, shares,
-      deps.db?.status() ?? unavailableDatabaseStatus(deps.config.databaseUrl !== null, 'PostgreSQL was unavailable at startup'),
+      deps.db.status(),
       loadAliases(deps.config), githubStatusOf(deps),
     ))
 

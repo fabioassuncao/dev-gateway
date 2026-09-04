@@ -1,37 +1,20 @@
-import { readFileSync } from 'node:fs'
-import { describe, expect, it, vi } from 'vitest'
-import type { DatabaseClient } from '../src/db/client.ts'
+// Persistence, from the panel's side.
+//
+// The schema itself — what the tables are, what they refuse, what a removal
+// takes with it — is asserted in packages/db against the real migration. What
+// is asserted here is what the panel does around it: the closed setting
+// catalogue, the boundary a dropped connection produces, and the migrate
+// endpoint.
+
+import { describe, expect, it } from 'vitest'
+import { eq } from 'drizzle-orm'
+import { settings as settingsTable } from 'portta-db'
 import { GLOBAL_KEYS, UnknownSettingKey, globalSchema, environmentSchema, serviceSchema } from '../src/db/keys.ts'
-import { SettingsRepository } from '../src/db/settings.ts'
-import { Database, requireDatabase, unavailableDatabaseStatus } from '../src/db/index.ts'
+import { Database, requireDatabase, unavailableDatabaseStatus, type DatabaseBackend } from '../src/db/index.ts'
 import { diagnose } from '../src/services/diagnostics.ts'
 import { buildSnapshot } from '../src/services/inventory.ts'
-import { fakeDocker, makeApp, post, testConfig } from './helpers.ts'
+import { detachedDatabase, fakeDocker, makeApp, post, seededDatabase, testConfig } from './helpers.ts'
 import { FULL_HOST } from './fixtures.ts'
-
-describe('the persistence schema', () => {
-  const migration = readFileSync(new URL('../migrations/0001_initial.sql', import.meta.url), 'utf8')
-
-  it('has the local identity and portable project coordinates decided before implementation', () => {
-    expect(migration).toContain('compose_project TEXT NOT NULL UNIQUE')
-    expect(migration).toContain('repo_url')
-    expect(migration).toContain('repo_subpath')
-    expect(migration).toContain('slug')
-    expect(migration).toContain('id          UUID PRIMARY KEY')
-  })
-
-  it('timestamps every project- and user-scoped decision', () => {
-    expect(migration.match(/updated_at/g)?.length).toBeGreaterThanOrEqual(5)
-  })
-
-  it('contains no runtime observation tables', () => {
-    expect(migration).not.toMatch(/CREATE TABLE (containers|urls|health|ports|networks|logs)\b/)
-  })
-
-  it('cascades settings when their local project identity is removed', () => {
-    expect(migration.match(/REFERENCES projects\(id\) ON DELETE CASCADE/g)).toHaveLength(3)
-  })
-})
 
 describe('the closed setting catalogue', () => {
   it('accepts only declared, validated values', () => {
@@ -47,31 +30,35 @@ describe('the closed setting catalogue', () => {
   })
 
   it('falls back to null when a hand-edited row is invalid', async () => {
-    const client = {
-      getGlobalSetting: vi.fn().mockResolvedValue('neon-pink'),
-    } as unknown as DatabaseClient
-    const settings = new SettingsRepository(client)
-
-    await expect(settings.getGlobal('theme')).resolves.toBeNull()
+    const seeded = await seededDatabase({ empty: true })
+    try {
+      await seeded.db.insert(settingsTable).values({ key: 'theme', value: 'neon-pink' })
+      await expect(seeded.database.settings.getGlobal('theme')).resolves.toBeNull()
+    } finally {
+      await seeded.close()
+    }
   })
 
-  it('validates before writing', async () => {
-    const setGlobalSetting = vi.fn().mockResolvedValue(undefined)
-    const client = { setGlobalSetting } as unknown as DatabaseClient
-    const settings = new SettingsRepository(client)
+  it('validates before writing, so an invalid value never reaches a row', async () => {
+    const seeded = await seededDatabase({ empty: true })
+    try {
+      await expect(seeded.database.settings.setGlobal('theme', 'neon-pink' as never)).rejects.toThrow()
+      expect(await seeded.db.select().from(settingsTable)).toHaveLength(0)
 
-    await settings.setGlobal('theme', 'dark')
-    expect(setGlobalSetting).toHaveBeenCalledWith('theme', 'dark')
+      await seeded.database.settings.setGlobal('theme', 'dark')
+      const [row] = await seeded.db.select().from(settingsTable).where(eq(settingsTable.key, 'theme'))
+      expect(row?.value).toBe('dark')
+    } finally {
+      await seeded.close()
+    }
   })
 })
 
-describe('degraded operation', () => {
-  function databaseWith(client: Partial<DatabaseClient>): Database {
-    const Constructor = Database as unknown as new (databaseClient: DatabaseClient) => Database
-    return new Constructor(client as DatabaseClient)
-  }
-
-  it('keeps every existing read surface available with db null', async () => {
+describe('a connection the panel cannot reach', () => {
+  // PostgreSQL is a boot dependency now, so "no database configured" is not a
+  // state the panel can be in. A connection that drops after boot is, and every
+  // Docker-backed read has to survive it.
+  it('keeps every read surface that does not need a row available', async () => {
     const { app } = makeApp({ containers: FULL_HOST })
     const paths = [
       '/api/health',
@@ -92,7 +79,7 @@ describe('degraded operation', () => {
     }
   })
 
-  it('reports an unavailable configured database as a warning', async () => {
+  it('reports it as a warning rather than a failure', async () => {
     const config = testConfig()
     const docker = fakeDocker({ containers: FULL_HOST })
     const snapshot = await buildSnapshot(docker.client, config)
@@ -102,91 +89,114 @@ describe('degraded operation', () => {
     expect(database).toMatchObject({ status: 'warn', fix: 'portta db status' })
   })
 
-  it('turns a future persistence write into a clear 503 boundary', () => {
-    expect(() => requireDatabase(null)).toThrow(/persistence is unavailable/)
+  it('turns a persistence write into a clear 503 boundary', () => {
+    expect(() => requireDatabase(detachedDatabase())).toThrow(/persistence is unavailable/)
   })
 
-  it('retries migrations and records projects after a startup outage', async () => {
-    let unavailable = true
-    const client = {
-      migrate: vi.fn(async () => {
-        if (unavailable) throw new Error('connection refused')
-        return [{ version: '0001_initial.sql', appliedAt: new Date() }]
-      }),
-      ping: vi.fn().mockResolvedValue(undefined),
-      upsertSeen: vi.fn().mockResolvedValue({ id: '1' }),
-    }
-    const database = databaseWith(client)
-
-    await expect(database.initialize()).rejects.toThrow('connection refused')
-    expect(database.status().available).toBe(false)
-
-    unavailable = false
-    await database.recordEnvironmentsSeen([{ name: 'demo-a', workingDir: null, repoUrl: null, gitRoot: null }])
-
-    expect(database.status()).toMatchObject({ available: true, migrations: ['0001_initial.sql'] })
-    expect(client.upsertSeen).toHaveBeenCalledOnce()
+  it('answers 503 on the migrate endpoint', async () => {
+    const { app } = makeApp()
+    expect((await post(app, '/api/database/migrate')).status).toBe(503)
   })
+})
 
-  it('coalesces concurrent migration retries', async () => {
-    const client = {
-      migrate: vi.fn().mockResolvedValue([{ version: '0001_initial.sql', appliedAt: new Date() }]),
-      ping: vi.fn().mockResolvedValue(undefined),
+describe('applying migrations', () => {
+  /** A backend that counts what the panel asked it to do. */
+  function counting(overrides: Partial<DatabaseBackend> = {}) {
+    const calls = { migrate: 0, ping: 0 }
+    const backend: DatabaseBackend = {
+      migrate: async () => void (calls.migrate += 1),
+      applied: async () => ['0000_initial'],
+      legacy: async () => false,
+      ping: async () => void (calls.ping += 1),
+      close: async () => undefined,
+      ...overrides,
     }
-    const database = databaseWith(client)
+    return { backend, calls }
+  }
+
+  it('coalesces concurrent initialisations into one', async () => {
+    const { backend, calls } = counting()
+    const database = new Database(undefined as never, backend)
 
     await Promise.all([database.initialize(), database.initialize(), database.initialize()])
 
-    expect(client.migrate).toHaveBeenCalledOnce()
-    expect(client.ping).toHaveBeenCalledOnce()
+    expect(calls).toEqual({ migrate: 1, ping: 1 })
   })
 
-  it('applies a file that appeared after the process had already started', async () => {
-    const migrate = vi.fn()
-      .mockResolvedValueOnce([{ version: '0001_initial.sql', appliedAt: new Date() }])
-      .mockResolvedValueOnce([
-        { version: '0001_initial.sql', appliedAt: new Date() },
-        { version: '0006_project_relative_path.sql', appliedAt: new Date() },
-      ])
-    const database = databaseWith({
-      migrate,
-      ping: vi.fn().mockResolvedValue(undefined),
-    })
+  it('reports what a run applied that the last one had not', async () => {
+    let applied = ['0000_initial']
+    const { backend } = counting({ applied: async () => applied })
+    const database = new Database(undefined as never, backend)
 
     await database.initialize()
+    applied = ['0000_initial', '0001_later']
+
     await expect(database.applyMigrations()).resolves.toEqual({
-      migrations: ['0001_initial.sql', '0006_project_relative_path.sql'],
-      applied: ['0006_project_relative_path.sql'],
+      migrations: ['0000_initial', '0001_later'],
+      applied: ['0001_later'],
     })
-    expect(migrate).toHaveBeenCalledTimes(2)
+  })
+
+  // The volume outlives the schema, and there is no conversion: the answer is
+  // to say so rather than to fail with a missing-column error later.
+  it('refuses a volume that holds the pre-Drizzle schema', async () => {
+    const { backend } = counting({ legacy: async () => true })
+    const database = new Database(undefined as never, backend)
+
+    await expect(database.initialize()).rejects.toThrow(/portta reset/)
+    expect(database.status().available).toBe(false)
+  })
+
+  // A database that was down at startup is not abandoned: the next Docker
+  // snapshot retries, and identity is recorded once persistence recovers.
+  it('retries at the next snapshot after a startup outage', async () => {
+    let down = true
+    const seeded = await seededDatabase({ empty: true })
+    try {
+      const database = new Database(seeded.db, {
+        migrate: async () => {
+          if (down) throw new Error('connection refused')
+        },
+        applied: async () => ['0000_initial'],
+        legacy: async () => false,
+        ping: async () => undefined,
+        close: async () => undefined,
+      })
+
+      await expect(database.initialize()).rejects.toThrow('connection refused')
+      expect(database.status().available).toBe(false)
+
+      down = false
+      await database.recordEnvironmentsSeen([
+        { name: 'demo-a', workingDir: null, repoUrl: null, gitRoot: null },
+      ])
+
+      expect(database.status()).toMatchObject({ available: true, migrations: ['0000_initial'] })
+      expect(await database.environments.find('demo-a')).toMatchObject({ composeProject: 'demo-a' })
+    } finally {
+      await seeded.close()
+    }
   })
 
   it('applies pending schema through the API without a restart', async () => {
-    const database = databaseWith({
-      migrate: vi.fn().mockResolvedValue([{ version: '0001_initial.sql', appliedAt: new Date() }]),
-      ping: vi.fn().mockResolvedValue(undefined),
-    })
-    await database.initialize()
-    const { app } = makeApp({}, {}, database)
-
-    const response = await post(app, '/api/database/migrate')
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ applied: [], migrations: ['0001_initial.sql'] })
+    const seeded = await seededDatabase({ empty: true })
+    try {
+      const { app } = makeApp({}, {}, seeded.database)
+      const response = await post(app, '/api/database/migrate')
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ applied: [], migrations: ['0000_initial'] })
+    } finally {
+      await seeded.close()
+    }
   })
 
   it('applies schema even when the panel is read-only', async () => {
-    const database = databaseWith({
-      migrate: vi.fn().mockResolvedValue([{ version: '0001_initial.sql', appliedAt: new Date() }]),
-      ping: vi.fn().mockResolvedValue(undefined),
-    })
-    await database.initialize()
-    const { app } = makeApp({}, { readOnly: true }, database)
-
-    expect((await post(app, '/api/database/migrate')).status).toBe(200)
-  })
-
-  it('returns 503 when persistence is not configured', async () => {
-    const { app } = makeApp()
-    expect((await post(app, '/api/database/migrate')).status).toBe(503)
+    const seeded = await seededDatabase({ empty: true })
+    try {
+      const { app } = makeApp({}, { readOnly: true }, seeded.database)
+      expect((await post(app, '/api/database/migrate')).status).toBe(200)
+    } finally {
+      await seeded.close()
+    }
   })
 })
