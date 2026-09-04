@@ -1,7 +1,57 @@
 import * as Primitive from '@radix-ui/react-dialog'
 import type { ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils.ts'
+import { iconButton } from './surfaces.ts'
+
+const SIZES = {
+  sm: 'w-[min(92vw,26rem)]',
+  md: 'w-[min(92vw,34rem)]',
+  lg: 'w-[min(94vw,48rem)]',
+} as const
+
+/** The scrim behind any modal surface: the dialog and the drawer share it. */
+export function Scrim({ className }: { className?: string }) {
+  return <Primitive.Overlay className={cn('fixed inset-0 z-40 bg-scrim data-[state=open]:animate-fade-in', className)} />
+}
+
+/** The header every modal surface uses: a title, a description, the close. */
+export function ModalHeader({
+  title,
+  description,
+  dismissible = true,
+  children,
+}: {
+  title: ReactNode
+  description?: ReactNode
+  dismissible?: boolean
+  children?: ReactNode
+}) {
+  const { t } = useTranslation('common')
+  return (
+    <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
+      <div className="min-w-0">
+        <Primitive.Title className="text-base font-semibold text-ink">{title}</Primitive.Title>
+        {description ? (
+          <Primitive.Description className="mt-0.5 text-sm text-subtle">{description}</Primitive.Description>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        {children}
+        {dismissible ? (
+          <Primitive.Close className={iconButton} aria-label={t('close')}>
+            <X />
+          </Primitive.Close>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+export function ModalFooter({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn('flex items-center justify-end gap-2 border-t border-line px-4 py-3', className)}>{children}</div>
+}
 
 export function Dialog({
   open,
@@ -10,6 +60,7 @@ export function Dialog({
   description,
   children,
   footer,
+  size = 'md',
   className,
   dismissible = true,
 }: {
@@ -19,6 +70,7 @@ export function Dialog({
   description?: ReactNode
   children?: ReactNode
   footer?: ReactNode
+  size?: keyof typeof SIZES
   className?: string
   /**
    * A dialog reporting work that is already running has nothing to cancel, and
@@ -30,36 +82,20 @@ export function Dialog({
   return (
     <Primitive.Root open={open} onOpenChange={(next) => { if (dismissible || next) onOpenChange(next) }}>
       <Primitive.Portal>
-        <Primitive.Overlay className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[1px]" />
+        <Scrim />
         <Primitive.Content
           onEscapeKeyDown={(event) => { if (!dismissible) event.preventDefault() }}
           onPointerDownOutside={(event) => { if (!dismissible) event.preventDefault() }}
           className={cn(
-            'fixed top-1/2 left-1/2 z-50 w-[min(92vw,34rem)] -translate-x-1/2 -translate-y-1/2',
-            'rounded-lg border border-line bg-surface shadow-modal',
+            'fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 outline-none',
+            'rounded-xl border border-line bg-surface shadow-modal data-[state=open]:animate-dialog-in',
+            SIZES[size],
             className,
           )}
         >
-          <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
-            <div className="min-w-0">
-              <Primitive.Title className="text-sm font-semibold text-ink">{title}</Primitive.Title>
-              {description ? (
-                <Primitive.Description className="mt-1 text-xs text-muted">
-                  {description}
-                </Primitive.Description>
-              ) : null}
-            </div>
-            {dismissible ? (
-              <Primitive.Close className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink">
-                <X className="h-4 w-4" />
-                <span className="sr-only">Close</span>
-              </Primitive.Close>
-            ) : null}
-          </div>
+          <ModalHeader title={title} description={description} dismissible={dismissible} />
           <div className="max-h-[60vh] overflow-y-auto px-4 py-3 scroll-thin">{children}</div>
-          {footer ? (
-            <div className="flex justify-end gap-2 border-t border-line px-4 py-3">{footer}</div>
-          ) : null}
+          {footer ? <ModalFooter>{footer}</ModalFooter> : null}
         </Primitive.Content>
       </Primitive.Portal>
     </Primitive.Root>

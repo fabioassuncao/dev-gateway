@@ -19,33 +19,36 @@ export function Breadcrumb({ items, className }: { items: BreadcrumbItem[]; clas
   const { t } = useTranslation('common')
   if (items.length < 2) return null
   return (
-    <nav aria-label={t('breadcrumb')} className={cn('mb-1 min-w-0', className)}>
-      <ol className="flex min-w-0 items-center gap-1 overflow-hidden text-xs text-subtle whitespace-nowrap">
+    <nav aria-label={t('breadcrumb')} className={cn('min-w-0', className)}>
+      <ol className="flex min-w-0 items-center gap-0.5 overflow-hidden text-xs text-subtle whitespace-nowrap">
         {items.map((item, index) => {
           const last = index === items.length - 1
           return (
-            <li key={`${index}-${item.label}`} className={cn('flex min-w-0 items-center gap-1', index < items.length - 2 && 'hidden sm:flex')}>
+            <li key={`${index}-${item.label}`} className={cn('flex min-w-0 items-center gap-0.5', index < items.length - 2 && 'hidden sm:flex')}>
               {index > 0 ? (
                 <ChevronRight
                   aria-hidden="true"
                   // The parent's separator would lead the trail once the items before it are hidden.
-                  className={cn('h-3 w-3 shrink-0 opacity-50', index === items.length - 2 && items.length > 2 && 'hidden sm:block')}
+                  className={cn('size-3 shrink-0 text-faint', index === items.length - 2 && items.length > 2 && 'hidden sm:block')}
                 />
               ) : null}
               {last ? (
-                <span aria-current="page" title={item.label} className="max-w-[16rem] truncate text-muted">
+                <span aria-current="page" title={item.label} className="max-w-64 truncate rounded-xs px-1 text-muted">
                   {item.label}
                 </span>
               ) : item.href ? (
                 <a
                   href={item.href}
                   title={item.label}
-                  className={cn('max-w-[12rem] truncate underline-offset-2 hover:text-accent hover:underline', item.pending && 'opacity-60')}
+                  className={cn(
+                    'max-w-48 truncate rounded-xs px-1 transition-colors duration-100 hover:bg-fill hover:text-ink focus-ring',
+                    item.pending && 'opacity-60',
+                  )}
                 >
                   {item.label}
                 </a>
               ) : (
-                <span className="truncate">{item.label}</span>
+                <span className="truncate px-1">{item.label}</span>
               )}
             </li>
           )

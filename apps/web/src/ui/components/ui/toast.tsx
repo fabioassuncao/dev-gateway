@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
-import { X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils.ts'
+import { iconButton, overlaySurface } from './surfaces.ts'
 
 export type ToastTone = 'neutral' | 'ok' | 'warn' | 'danger'
 
@@ -10,6 +12,8 @@ export interface ToastInput {
   tone?: ToastTone
   /** Milliseconds before it goes away on its own. 0 keeps it until dismissed. */
   duration?: number
+  /** One thing to do about it, offered inline: undo, open, retry. */
+  action?: { label: string; onClick: () => void }
 }
 
 interface Toast extends ToastInput {
@@ -36,7 +40,15 @@ export function useToast(): ToastApi {
 
 const DEFAULT_DURATION = 6_000
 
+const ICON: Record<ToastTone, { icon: typeof Info; className: string }> = {
+  neutral: { icon: Info, className: 'text-subtle' },
+  ok: { icon: CheckCircle2, className: 'text-ok' },
+  warn: { icon: AlertTriangle, className: 'text-warn' },
+  danger: { icon: XCircle, className: 'text-danger' },
+}
+
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation('common')
   const [toasts, setToasts] = useState<Toast[]>([])
   const counter = useRef(0)
 
@@ -61,38 +73,40 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         role="region"
         aria-live="polite"
-        aria-label="Notifications"
-        className="pointer-events-none fixed right-4 bottom-4 z-[60] flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2"
+        aria-label={t('notifications')}
+        className="pointer-events-none fixed right-4 bottom-4 z-[60] flex w-88 max-w-[calc(100vw-2rem)] flex-col gap-2"
       >
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            role={toast.tone === 'danger' ? 'alert' : 'status'}
-            className={cn(
-              'pointer-events-auto flex items-start gap-2 rounded-md border bg-surface px-3 py-2 text-sm shadow-overlay',
-              toast.tone === 'danger'
-                ? 'border-danger/50'
-                : toast.tone === 'warn'
-                  ? 'border-warn/50'
-                  : toast.tone === 'ok'
-                    ? 'border-ok/50'
-                    : 'border-line',
-            )}
-          >
-            <div className="min-w-0 flex-1">
-              <div className={cn('font-medium', toast.tone === 'danger' ? 'text-danger' : 'text-ink')}>{toast.title}</div>
-              {toast.description ? <div className="mt-0.5 break-words text-xs text-muted">{toast.description}</div> : null}
-            </div>
-            <button
-              type="button"
-              className="rounded p-0.5 text-subtle hover:bg-surface-2 hover:text-ink"
-              aria-label="Dismiss"
-              onClick={() => dismiss(toast.id)}
+        {toasts.map((toast) => {
+          const { icon: Icon, className } = ICON[toast.tone]
+          return (
+            <div
+              key={toast.id}
+              role={toast.tone === 'danger' ? 'alert' : 'status'}
+              className={cn('pointer-events-auto flex items-start gap-2.5 px-3 py-2.5 text-sm animate-toast-in', overlaySurface)}
             >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ))}
+              <Icon className={cn('mt-0.5 size-4 shrink-0', className)} aria-hidden />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-ink">{toast.title}</div>
+                {toast.description ? <div className="mt-0.5 break-words text-xs text-subtle">{toast.description}</div> : null}
+                {toast.action ? (
+                  <button
+                    type="button"
+                    className="mt-1.5 text-xs font-medium text-accent hover:underline focus-ring rounded-xs"
+                    onClick={() => {
+                      toast.action?.onClick()
+                      dismiss(toast.id)
+                    }}
+                  >
+                    {toast.action.label}
+                  </button>
+                ) : null}
+              </div>
+              <button type="button" className={cn(iconButton, '-mr-1')} aria-label={t('dismiss')} onClick={() => dismiss(toast.id)}>
+                <X />
+              </button>
+            </div>
+          )
+        })}
       </div>
     </ToastContext.Provider>
   )

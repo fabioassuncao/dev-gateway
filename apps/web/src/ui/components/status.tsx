@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import type { ContainerState, EndpointScope, Health, Ownership, UrlScope } from '../../shared/types.ts'
-import { Badge } from './ui/badge.tsx'
-import { cn } from '../lib/utils.ts'
+import { Badge, StatusIndicator } from './ui/badge.tsx'
+import type { Tone } from '../lib/tone.ts'
 
-const STATE_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'neutral'> = {
+const STATE_TONE: Record<string, Tone> = {
   running: 'ok',
   restarting: 'warn',
   paused: 'warn',
@@ -14,31 +14,41 @@ const STATE_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'neutral'> = {
   absent: 'neutral',
 }
 
-export function StateDot({ state, health }: { state: ContainerState | 'absent'; health?: Health }) {
-  const { t } = useTranslation('common')
-  const tone = health === 'unhealthy' ? 'danger' : health === 'starting' ? 'warn' : STATE_TONE[state] ?? 'neutral'
-  const color =
-    tone === 'ok' ? 'bg-ok' : tone === 'warn' ? 'bg-warn' : tone === 'danger' ? 'bg-danger' : 'bg-subtle'
-  const stateLabel = t(`state.${state}`, { defaultValue: state })
-  const healthLabel = health && health !== 'none' ? t(`health.${health}`, { defaultValue: health }) : null
-  return (
-    <span
-      className={cn('inline-block h-2 w-2 shrink-0 rounded-full', color)}
-      title={healthLabel ? `${stateLabel} (${healthLabel})` : stateLabel}
-    />
-  )
+/** The tone of a container, from its state and, when it has one, its health. */
+export function containerTone(state: ContainerState | 'absent', health?: Health): Tone {
+  return health === 'unhealthy' ? 'danger' : health === 'starting' ? 'warn' : STATE_TONE[state] ?? 'neutral'
 }
 
-export function StateBadge({ state, health, completed }: { state: ContainerState | 'absent'; health?: Health; completed?: boolean }) {
+/**
+ * What a container is doing, as a dot and a word: `● running · healthy`.
+ * The dot carries the colour; the word stays quiet, so a column of thirty of
+ * them is read by the dots and confirmed by the words.
+ */
+export function StateBadge({
+  state,
+  health,
+  completed,
+  emphasis = 'muted',
+}: {
+  state: ContainerState | 'absent'
+  health?: Health
+  completed?: boolean
+  emphasis?: 'ink' | 'muted' | 'tone'
+}) {
   const { t } = useTranslation('common')
   // A one-shot that exited 0 is not "exited" the way a crashed service is.
-  if (completed && state === 'exited') return <Badge tone="neutral">{t('state.completed')}</Badge>
+  if (completed && state === 'exited') {
+    return <StatusIndicator tone="neutral" emphasis={emphasis}>{t('state.completed')}</StatusIndicator>
+  }
   const stateLabel = t(`state.${state}`, { defaultValue: state })
   const healthLabel = health && health !== 'none' ? t(`health.${health}`, { defaultValue: health }) : null
   const label = healthLabel && state === 'running' ? `${stateLabel} · ${healthLabel}` : stateLabel
-  const tone =
-    health === 'unhealthy' ? 'danger' : health === 'starting' ? 'warn' : STATE_TONE[state] ?? 'neutral'
-  return <Badge tone={tone}>{label}</Badge>
+  const tone = containerTone(state, health)
+  return (
+    <StatusIndicator tone={tone} emphasis={emphasis} pulse={state === 'restarting' || health === 'starting'}>
+      {label}
+    </StatusIndicator>
+  )
 }
 
 /**

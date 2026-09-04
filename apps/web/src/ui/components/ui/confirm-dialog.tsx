@@ -62,7 +62,7 @@ export function ConfirmDialog({
       onOpenChange={onOpenChange}
       title={
         <span className="flex items-center gap-2">
-          {tone === 'danger' ? <AlertTriangle className="h-4 w-4 shrink-0 text-danger" aria-hidden /> : null}
+          {tone === 'danger' ? <AlertTriangle className="size-4 shrink-0 text-danger" aria-hidden /> : null}
           {title}
         </span>
       }
@@ -75,7 +75,8 @@ export function ConfirmDialog({
           <Button
             variant={tone === 'danger' ? 'danger' : 'primary'}
             size="sm"
-            disabled={!ready || busy}
+            disabled={!ready}
+            busy={busy}
             onClick={onConfirm}
           >
             {confirmLabel}
@@ -86,9 +87,10 @@ export function ConfirmDialog({
       <div className="space-y-3">
         {details ? <div className="text-sm text-ink">{details}</div> : null}
         {requireTyped !== undefined ? (
-          <label className="block">
-            <span className="text-xs text-subtle">{requireTypedHint ?? t('typeToConfirm', { value: requireTyped })}</span>
+          <label className="block space-y-1">
+            <span className="block text-xs text-muted">{requireTypedHint ?? t('typeToConfirm', { value: requireTyped })}</span>
             <Input
+              mono
               value={typed}
               autoFocus
               onChange={(event) => setTyped(event.target.value)}

@@ -12,6 +12,8 @@ export interface SegmentOption<Value extends string> {
  * table, cards or table. One component so the switch sits in the same place,
  * at the same size, on every page that offers one — and so the arrow keys work
  * the same way, which they do not when each page rolls its own pair of buttons.
+ *
+ * The chosen segment is lifted, not coloured: it is a view, not an action.
  */
 export function Segmented<Value extends string>({
   options,
@@ -20,6 +22,7 @@ export function Segmented<Value extends string>({
   label,
   /** Show only the icons; the label stays as the accessible name. */
   iconOnly = false,
+  size = 'sm',
   className,
 }: {
   options: readonly SegmentOption<Value>[]
@@ -27,6 +30,7 @@ export function Segmented<Value extends string>({
   onChange: (value: Value) => void
   label: string
   iconOnly?: boolean
+  size?: 'sm' | 'md'
   className?: string
 }) {
   const move = (delta: number) => {
@@ -39,7 +43,11 @@ export function Segmented<Value extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className={cn('inline-flex shrink-0 rounded-md border border-line bg-surface p-0.5', className)}
+      className={cn(
+        'inline-flex shrink-0 items-center gap-0.5 rounded-md border border-line bg-surface-2 p-0.5',
+        size === 'sm' ? 'h-7' : 'h-8',
+        className,
+      )}
       onKeyDown={(event) => {
         if (event.key === 'ArrowRight' || event.key === 'ArrowDown') { event.preventDefault(); move(1) }
         if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') { event.preventDefault(); move(-1) }
@@ -59,11 +67,12 @@ export function Segmented<Value extends string>({
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn(
-              'flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors',
-              selected ? 'bg-accent/12 font-medium text-accent' : 'text-muted hover:text-ink',
+              'flex h-full items-center gap-1.5 rounded-sm text-xs font-medium transition-colors duration-100 focus-ring',
+              iconOnly ? 'px-1.5' : 'px-2',
+              selected ? 'bg-surface text-ink shadow-raised ring-1 ring-line' : 'text-subtle hover:text-ink',
             )}
           >
-            {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
+            {Icon ? <Icon className="size-3.5" /> : null}
             {iconOnly ? null : option.label}
           </button>
         )

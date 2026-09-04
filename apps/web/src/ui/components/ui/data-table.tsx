@@ -17,6 +17,8 @@ import {
 import { Button } from './button.tsx'
 import { Menu, MenuContent, MenuLabel, MenuSeparator, MenuTrigger, MenuToggle } from './menu.tsx'
 import { Empty } from '../shell-bits.tsx'
+import { Checkbox } from './field.tsx'
+import { tdClass, thClass } from './table.tsx'
 
 export type { Column, SortState } from '../../lib/table.ts'
 
@@ -125,14 +127,14 @@ export function DataTable<Row>({
   return (
     <div className={cn('min-w-0', className)}>
       {(toolbar || hideable.length > 0) ? (
-        <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-1.5">
           {toolbar}
           {hideable.length > 0 ? (
             <div className="ml-auto">
               <Menu>
                 <MenuTrigger asChild>
                   <Button variant="ghost" size="sm" aria-label={t('columns')} title={t('columns')}>
-                    <Columns3 className="h-3.5 w-3.5" />
+                    <Columns3 />
                     <span className="hidden sm:inline">{t('columns')}</span>
                   </Button>
                 </MenuTrigger>
@@ -159,7 +161,7 @@ export function DataTable<Row>({
         <div
           role="region"
           aria-label={t('selectionActions')}
-          className="flex flex-wrap items-center gap-2 border-b border-accent/30 bg-accent/[0.07] px-3 py-2"
+          className="flex flex-wrap items-center gap-2 border-b border-accent/30 bg-selection px-3 py-1.5"
         >
           <span className="text-xs font-medium text-accent">{t('selected', { count: selected.length })}</span>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -178,7 +180,7 @@ export function DataTable<Row>({
             ))}
           </div>
           <Button variant="ghost" size="sm" className="ml-auto" onClick={clear}>
-            <X className="h-3.5 w-3.5" />
+            <X />
             {t('clearSelection')}
           </Button>
         </div>
@@ -193,13 +195,11 @@ export function DataTable<Row>({
             <thead>
               <tr className="bg-surface">
                 {selectable ? (
-                  <th scope="col" className="w-9 border-b border-line px-3 py-2 text-left">
-                    <input
-                      type="checkbox"
-                      className="h-3.5 w-3.5 accent-[var(--portta-accent)]"
+                  <th scope="col" className={cn(thClass, 'w-9')}>
+                    <Checkbox
                       aria-label={t('selectAll')}
                       checked={allSelected}
-                      ref={(node) => { if (node) node.indeterminate = someSelected }}
+                      indeterminate={someSelected}
                       onChange={() => setSelection(allSelected ? [] : ordered.map(rowKey))}
                     />
                   </th>
@@ -214,7 +214,7 @@ export function DataTable<Row>({
                       scope="col"
                       aria-sort={active ? (sort?.direction === 'asc' ? 'ascending' : 'descending') : sortable ? 'none' : undefined}
                       className={cn(
-                        'border-b border-line px-3 py-2 text-[11px] font-semibold tracking-wide whitespace-nowrap text-subtle uppercase',
+                        thClass,
                         column.align === 'right' ? 'text-right' : column.align === 'center' ? 'text-center' : 'text-left',
                         PRIORITY_CLASS[column.priority ?? 1],
                         column.headerClassName,
@@ -225,13 +225,13 @@ export function DataTable<Row>({
                           type="button"
                           onClick={() => setSort((current) => nextSort(current, column.id))}
                           className={cn(
-                            'inline-flex items-center gap-1 rounded uppercase transition-colors hover:text-ink',
-                            active && 'text-accent',
+                            'inline-flex items-center gap-1 rounded-xs transition-colors hover:text-ink focus-ring',
+                            active && 'text-ink',
                             column.align === 'right' && 'flex-row-reverse',
                           )}
                         >
                           {column.header}
-                          <Icon className={cn('h-3 w-3', !active && 'opacity-40')} aria-hidden />
+                          <Icon className={cn('size-3', !active && 'opacity-40')} aria-hidden />
                         </button>
                       ) : (
                         <span>{column.header || <span className="sr-only">{column.srHeader}</span>}</span>
@@ -262,18 +262,15 @@ export function DataTable<Row>({
                       // An explicit background so the pinned cells have one to
                       // inherit; without it they would be transparent and the
                       // scrolled content would show through them.
-                      'group bg-surface outline-none transition-colors',
-                      picked ? 'bg-accent/[0.07]' : 'hover:bg-surface-2',
-                      'focus-visible:bg-surface-2',
+                      'group bg-surface transition-colors duration-100 focus-ring-inset',
+                      picked ? 'bg-selection' : 'hover:bg-fill',
                       onRowActivate && 'cursor-default',
                       rowClassName?.(row),
                     )}
                   >
                     {selectable ? (
-                      <td className="border-b border-line/70 px-3 py-2 align-middle">
-                        <input
-                          type="checkbox"
-                          className="h-3.5 w-3.5 accent-[var(--portta-accent)]"
+                      <td className={tdClass}>
+                        <Checkbox
                           aria-label={t('selectRow', { name: rowLabel?.(row) ?? id })}
                           checked={picked}
                           onChange={() =>
@@ -286,7 +283,7 @@ export function DataTable<Row>({
                       <td
                         key={column.id}
                         className={cn(
-                          'border-b border-line/70 px-3 py-2 align-middle',
+                          tdClass,
                           column.align === 'right' ? 'text-right' : column.align === 'center' ? 'text-center' : 'text-left',
                           PRIORITY_CLASS[column.priority ?? 1],
                           column.cellClassName,

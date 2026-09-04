@@ -14,7 +14,7 @@ export function GatewayStatusDot({
   return (
     <span
       className={cn(
-        'h-2 w-2 shrink-0 rounded-full',
+        'size-2 shrink-0 rounded-full',
         up ? 'bg-ok' : pending ? 'bg-subtle' : 'bg-danger',
         className,
       )}

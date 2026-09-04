@@ -1,5 +1,8 @@
 import '@testing-library/jest-dom/vitest'
 import { vi } from 'vitest'
+// The primitives name their controls through i18n, so a test that renders one
+// alone still gets English names.
+import '../../src/ui/i18n/index.ts'
 
 // jsdom has neither of these, and the panel touches both on mount.
 class FakeEventSource {

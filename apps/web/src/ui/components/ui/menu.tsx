@@ -1,29 +1,38 @@
 import * as Primitive from '@radix-ui/react-dropdown-menu'
-import { Check } from 'lucide-react'
+import { Check, ChevronRight } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/utils.ts'
+import { Shortcut } from './kbd.tsx'
+import { overlayEnter, overlayItem, overlayLabel, overlaySeparator, overlaySurface } from './surfaces.ts'
 
 export const Menu = Primitive.Root
 export const MenuTrigger = Primitive.Trigger
+export const MenuGroup = Primitive.Group
+export const MenuSub = Primitive.Sub
+export const MenuRadioGroup = Primitive.RadioGroup
 
 export function MenuContent({
   children,
   align = 'end',
+  side,
   className,
 }: {
   children: ReactNode
-  align?: 'start' | 'end'
+  align?: 'start' | 'center' | 'end'
+  side?: 'top' | 'right' | 'bottom' | 'left'
   className?: string
 }) {
   return (
     <Primitive.Portal>
       <Primitive.Content
         align={align}
+        side={side}
         sideOffset={4}
         collisionPadding={8}
         className={cn(
-          'z-50 max-h-[min(28rem,var(--radix-dropdown-menu-content-available-height))] min-w-44 overflow-y-auto',
-          'rounded-md border border-line bg-surface p-1 shadow-overlay scroll-thin',
+          'z-50 max-h-[min(28rem,var(--radix-dropdown-menu-content-available-height))] min-w-44 overflow-y-auto p-1 scroll-thin',
+          overlaySurface,
+          overlayEnter,
           className,
         )}
       >
@@ -35,11 +44,7 @@ export function MenuContent({
 
 /** Names what the items below it are for, when a menu holds more than one group. */
 export function MenuLabel({ children }: { children: ReactNode }) {
-  return (
-    <Primitive.Label className="px-2 py-1 text-[11px] font-semibold tracking-wider text-subtle uppercase">
-      {children}
-    </Primitive.Label>
-  )
+  return <Primitive.Label className={overlayLabel}>{children}</Primitive.Label>
 }
 
 export function MenuItem({
@@ -47,16 +52,23 @@ export function MenuItem({
   onSelect,
   disabled,
   tone,
-  /** Shown dimmed at the end of the row: a shortcut, a count, a state. */
+  icon,
+  /** Shown dimmed at the end of the row: a count, a state. */
   hint,
+  /** The keys that do the same thing without the menu. */
+  shortcut,
   title,
+  className,
 }: {
   children: ReactNode
   onSelect?: () => void
   disabled?: boolean
   tone?: 'danger'
+  icon?: ReactNode
   hint?: ReactNode
+  shortcut?: readonly string[]
   title?: string
+  className?: string
 }) {
   return (
     <Primitive.Item
@@ -64,13 +76,15 @@ export function MenuItem({
       onSelect={onSelect}
       title={title}
       className={cn(
-        'flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm outline-none',
-        'data-[highlighted]:bg-surface-2 data-[disabled]:opacity-40',
-        tone === 'danger' ? 'text-danger data-[highlighted]:bg-danger/10' : 'text-ink',
+        overlayItem,
+        tone === 'danger' && 'text-danger data-[highlighted]:bg-danger/10 [&_svg]:text-danger',
+        className,
       )}
     >
-      <span className="flex min-w-0 flex-1 items-center gap-2">{children}</span>
-      {hint ? <span className="shrink-0 text-[11px] text-subtle">{hint}</span> : null}
+      {icon}
+      <span className="flex min-w-0 flex-1 items-center gap-2 truncate">{children}</span>
+      {hint ? <span className="shrink-0 text-2xs text-subtle">{hint}</span> : null}
+      {shortcut ? <Shortcut keys={shortcut} className="ml-2" /> : null}
     </Primitive.Item>
   )
 }
@@ -93,19 +107,63 @@ export function MenuToggle({
       disabled={disabled}
       onCheckedChange={onCheckedChange}
       onSelect={(event) => event.preventDefault()}
-      className={cn(
-        'flex cursor-default items-center gap-2 rounded py-1.5 pr-2 pl-7 text-sm text-ink outline-none',
-        'relative data-[highlighted]:bg-surface-2 data-[disabled]:opacity-40',
-      )}
+      className={cn(overlayItem, 'pl-7')}
     >
-      <Primitive.ItemIndicator className="absolute left-1.5 flex items-center">
-        <Check className="h-3.5 w-3.5 text-accent" />
+      <Primitive.ItemIndicator className="absolute left-2 flex items-center">
+        <Check className="size-3.5 text-accent" />
       </Primitive.ItemIndicator>
       {children}
     </Primitive.CheckboxItem>
   )
 }
 
+/** One of a set: a sort order, a theme. */
+export function MenuRadio({
+  children,
+  value,
+  disabled,
+  icon,
+}: {
+  children: ReactNode
+  value: string
+  disabled?: boolean
+  icon?: ReactNode
+}) {
+  return (
+    <Primitive.RadioItem value={value} disabled={disabled} className={cn(overlayItem, 'pl-7')}>
+      <Primitive.ItemIndicator className="absolute left-2 flex items-center">
+        <Check className="size-3.5 text-accent" />
+      </Primitive.ItemIndicator>
+      {icon}
+      {children}
+    </Primitive.RadioItem>
+  )
+}
+
+export function MenuSubTrigger({ children, icon }: { children: ReactNode; icon?: ReactNode }) {
+  return (
+    <Primitive.SubTrigger className={overlayItem}>
+      {icon}
+      <span className="flex-1">{children}</span>
+      <ChevronRight className="ml-auto" />
+    </Primitive.SubTrigger>
+  )
+}
+
+export function MenuSubContent({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <Primitive.Portal>
+      <Primitive.SubContent
+        sideOffset={2}
+        collisionPadding={8}
+        className={cn('z-50 min-w-40 p-1', overlaySurface, overlayEnter, className)}
+      >
+        {children}
+      </Primitive.SubContent>
+    </Primitive.Portal>
+  )
+}
+
 export function MenuSeparator() {
-  return <Primitive.Separator className="my-1 h-px bg-line" />
+  return <Primitive.Separator className={overlaySeparator} />
 }

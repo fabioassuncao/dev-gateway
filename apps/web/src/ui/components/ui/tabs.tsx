@@ -8,6 +8,8 @@ export interface TabDefinition {
   label: string
   /** Hash path this tab navigates to. A tab is a URL, never component state. */
   href: string
+  /** A number beside the label: how many of the thing the tab shows. */
+  count?: number
 }
 
 /**
@@ -17,6 +19,9 @@ export interface TabDefinition {
  * reload and moves with the browser's back button. Radix is already a
  * dependency for dialog, menu and switch; a link list needs twenty lines and
  * no fourth package.
+ *
+ * Every tab has the same weight whether selected or not, so choosing one
+ * never shifts its neighbours.
  */
 export function Tabs({
   tabs,
@@ -60,7 +65,7 @@ export function Tabs({
       role="tablist"
       aria-label={label}
       onKeyDown={onKeyDown}
-      className={cn('flex gap-1 overflow-x-auto border-b border-line scroll-thin', className)}
+      className={cn('-mb-px flex gap-0.5 overflow-x-auto border-b border-line scroll-thin', className)}
     >
       {tabs.map((tab) => {
         const selected = tab.id === active
@@ -75,13 +80,15 @@ export function Tabs({
             id={`tab-${tab.id}`}
             tabIndex={selected ? 0 : -1}
             className={cn(
-              '-mb-px border-b-2 px-3 py-1.5 text-sm whitespace-nowrap transition-colors',
-              selected
-                ? 'border-accent font-medium text-accent'
-                : 'border-transparent text-muted hover:text-ink',
+              'relative flex h-9 shrink-0 items-center gap-1.5 rounded-t-sm px-2.5 text-sm font-medium whitespace-nowrap transition-colors duration-100 focus-ring-inset',
+              'after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:transition-colors',
+              selected ? 'text-ink after:bg-accent' : 'text-subtle hover:text-ink after:bg-transparent',
             )}
           >
             {tab.label}
+            {tab.count !== undefined ? (
+              <span className={cn('text-xs tabular-nums', selected ? 'text-subtle' : 'text-faint')}>{tab.count}</span>
+            ) : null}
           </a>
         )
       })}
