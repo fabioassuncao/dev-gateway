@@ -365,7 +365,11 @@ export function App() {
           <div
             className={cn(
               'order-1 flex items-center px-2 pt-2 pb-1.5 md:order-none md:mt-auto md:py-2',
-              sidebarCollapsed ? 'md:justify-center md:px-1.5' : 'md:justify-end',
+              // Unfolded, the group starts on the navigation's icon axis:
+              // iconButton is 24px around a centred 14px glyph, so 11px of
+              // padding puts that glyph at the same 16px where the nav icons
+              // and the palette's magnifier begin.
+              sidebarCollapsed ? 'md:justify-center md:px-1.5' : 'md:pl-[11px]',
             )}
           >
             {controls(sidebarCollapsed)}
