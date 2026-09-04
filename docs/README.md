@@ -53,6 +53,7 @@ is the complete operator and contributor index. Historical build briefs under
 ## Web panel
 
 - [Web UI](web-ui.md) — installation, pages, API, actions, authentication, the documentation site it serves, and screenshots.
+- [Design system](design-system.md) — the panel's tokens, type scale, states, components and layout, and the rules for adding to them.
 - [Tasks](tasks.md) — the workspace, kick-create drafts, import/export, GitHub binding, and how commits will attach.
 - [GitHub](github.md) — creating and installing the App step by step, then how issues become tasks bound to Projects, and the board that writes back.
 - [MCP](mcp.md) — the task verbs an agent drives through `portta mcp`, and what it deliberately cannot reach.

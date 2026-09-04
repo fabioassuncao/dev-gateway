@@ -97,12 +97,19 @@ Every new page must call `useDocumentTitle` so tabs, bookmarks and history do
 not inherit the previous page's title. The built UI also serves its SVG favicon
 locally, with no browser request to a third-party asset.
 
-At `md` and above, the sidebar can collapse from its 208px labelled form to a
-56px icon rail. The `portta-sidebar` preference survives reloads when local storage
-is available and safely defaults to expanded when it is not. Icons keep native
-tooltips and accessible labels, and the active section carries
-`aria-current="page"`. Below `md`, navigation remains the labelled horizontal
-strip and the collapse control is hidden.
+At `md` and above, the sidebar can collapse from its 224px labelled form to a
+48px icon rail, with the `[` key or the control at its foot. The `portta-sidebar`
+preference survives reloads when local storage is available and safely defaults
+to expanded when it is not. Sections are links, so they open in a new tab like
+any link; icons keep tooltips and accessible labels, and the active section
+carries `aria-current="page"`. Below `md`, navigation remains the labelled
+horizontal strip and the collapse control is hidden.
+
+`⌘K` (`Ctrl+K` elsewhere) opens the command menu: every section, every project
+and its tasks, the actions of the current page (a new task, folding the
+sidebar) and the preferences (theme, language). Typing narrows it; Enter runs
+the highlighted entry. The visual language of the whole panel is described in
+[Design system](design-system.md).
 
 PostgreSQL stores decisions and identity, not observations. Everything live on
 screen (services, URLs, networks, ports, health and bridges) is still read from
@@ -787,7 +794,9 @@ the derived hostname behind the same login as the panel.
 
 ### Light and dark
 
-The panel follows the system theme and remembers an explicit choice. The same
+The theme is light, dark or system, chosen from the theme control at the foot
+of the sidebar or from the command menu. Only an explicit choice is stored, so
+a panel that was never told keeps following the operating system. The same
 Overview, in the dark theme:
 
 ![The Overview page in the dark theme](images/panel-overview-dark.png)
