@@ -50,7 +50,7 @@ claude mcp add portta -- portta mcp --actor claude-code
 | `--url <url>`, `PORTTA_URL` | The panel API base. Defaults to `http://127.0.0.1:<PORTTA_WEB_PORT>`; `PORTTA_PANEL_URL` is a compatibility alias |
 | `--allow-remote` | Permit a non-loopback panel URL. **Required** for one: that URL is where the panel credential would be sent |
 | `--actor <name>`, `PORTTA_MCP_ACTOR` | Sent on every call as `X-Portta-Actor`. Recorded on tasks, notes, sessions and activity; never forwarded to GitHub |
-| `PORTTA_TOKEN` | The Bearer credential a protected panel needs. The token names its owner, and what it holds is the intersection of its scopes and their role |
+| `PORTTA_TOKEN` | The Bearer credential a protected panel needs. The token names its owner, and what it holds is the intersection of its scopes and their role. Without it, whatever `portta auth login` saved for this panel is used |
 
 `portta mcp` refuses a non-loopback panel URL unless you pass `--allow-remote`,
 because that URL is where a credential goes.

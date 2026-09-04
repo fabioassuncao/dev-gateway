@@ -58,7 +58,7 @@ in place and reports the record it could not migrate.
 
 The panel still does not rewrite a consumer project's router. A project opts in
 with the `portta-forward-auth@file` middleware and provisions its host record
-through `portta auth protect`; removing the record fails that router closed
+through `portta protect host`; removing the record fails that router closed
 until the project removes the label.
 
 ## Consequences

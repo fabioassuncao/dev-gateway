@@ -19,7 +19,7 @@ GW="$PORTTA_ROOT/bin/portta"
 # per group proves the same thing — a leaf that was never wired up is missing
 # from its parent's help — at a fifteenth of the cost.
 COMMAND_TREE=(
-  ":version setup bootstrap up down reset restart status logs doctor urls inspect update envs projects overview network public dns tls remote analyze init namespace access services service db redis web auth users git repos host share toolbox tunnel backup restore repair mcp config dev tasks sessions activity examples"
+  ":version setup bootstrap up down reset restart status logs doctor urls inspect update envs projects overview network public dns tls remote analyze init namespace access services service db redis web auth protect users git repos host share toolbox tunnel backup restore repair mcp config dev tasks sessions activity examples"
   "envs:list show services analyze init namespace start stop restart logs endpoints"
   "projects:list show create context resources activity"
   "network:status"
@@ -34,7 +34,9 @@ COMMAND_TREE=(
   "db:status shell dump restore open close url psql mysql"
   "redis:open close cli"
   "web:up dev down disable restart status open logs build"
-  "auth:bootstrap status protect unprotect reset-password"
+  "auth:status login logout whoami bootstrap reset-password token"
+  "auth token:list create revoke"
+  "protect:status host remove"
   "users:list create set-role set-password grant revoke remove"
   "git:scan status clear"
   "repos:scan status clear"

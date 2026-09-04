@@ -12,7 +12,8 @@ import { reposClear, reposScan, reposStatus } from './commands/repos.js'
 import { hostCollect, hostStatus, hostWatch } from './commands/host.js'
 import { configGet, configList, configSet } from './commands/config.js'
 import { setupCommand } from './commands/setup.js'
-import { authBootstrap, authProtect, authStatus, authUnprotect } from './commands/auth.js'
+import { authBootstrap, authLogin, authLogout, authStatus, authTokenCreate, authTokenList, authTokenRevoke, authWhoami } from './commands/auth.js'
+import { protectHost, protectStatus, unprotectHost } from './commands/protect.js'
 import { authResetPassword, usersCreate, usersGrant, usersList, usersRemove, usersRevoke, usersSetPassword, usersSetRole } from './commands/users.js'
 import { shareGc, shareList, shareRevoke } from './commands/share.js'
 import { tlsInit, tlsStatus, tlsTrust, tlsUntrust } from './commands/tls.js'
@@ -189,19 +190,36 @@ describe(share.command('list'), 'List shares').action((_options, command) => sha
 describe(share.command('revoke <id>'), 'Revoke one share without touching its project').action((id, _options, command) => shareRevoke(id, command))
 describe(share.command('gc'), 'Remove expired shares').action((_options, command) => shareGc(command))
 
-const auth = describe(program.command('auth'), 'The panel owner, and ForwardAuth protection for project hostnames')
+const auth = describe(program.command('auth'), 'Who this terminal is, to a panel')
+describe(panelOptions(auth.command('status', { isDefault: true }), false), 'Whether this panel asks who you are, and who it thinks you are').action(authStatus)
+describe(panelOptions(auth.command('login'), false), 'Save a token for a panel, after checking it')
+  .option('--token <token>', 'the token; omitted, it is read from the terminal without echoing')
+  .action(authLogin)
+describe(panelOptions(auth.command('logout'), false), 'Forget the saved credential for a panel').action(authLogout)
+describe(auth.command('whoami'), 'Every panel this host has a credential for').action(authWhoami)
 describe(panelOptions(auth.command('bootstrap'), false), 'Create the panel owner, once, from this host')
   .requiredOption('--name <name>').requiredOption('--email <email>').option('--password-stdin')
   .action(authBootstrap)
-describe(auth.command('status [host]', { isDefault: true }), 'List protected hosts without credentials').action((host, _options, command) => authStatus(host, command))
-describe(auth.command('protect <host>'), 'Create or rotate a hostname credential')
-  .option('--user <name>').option('--password-stdin').option('--entrypoint <name>')
-  .option('--label <text>').option('--project <name>').option('--service <name>')
-  .action(authProtect)
-describe(auth.command('unprotect <host>'), 'Remove a hostname credential without changing project labels').action((host, _options, command) => authUnprotect(host, command))
 describe(auth.command('reset-password <email>'), 'Reset a password from the host, when nobody can sign in to do it')
   .option('--password-stdin', 'read the password from stdin instead of generating one')
   .action(authResetPassword)
+const authToken = describe(auth.command('token'), 'Personal API tokens for this panel')
+describe(panelOptions(authToken.command('list', { isDefault: true })), 'Your tokens, without their secrets')
+  .option('--all', "every account's tokens; needs user:list").action(authTokenList)
+describe(panelOptions(authToken.command('create'), false), 'Create a token; its secret is shown once')
+  .requiredOption('--name <name>').option('--human', 'a person\'s token, holding their whole role')
+  .option('--scopes <a,b>', 'permissions this token holds, inside your role')
+  .option('--expires-in-days <days>', '1 to 365; omitted, it is valid until revoked')
+  .action(authTokenCreate)
+describe(panelOptions(authToken.command('revoke <id>')), 'Revoke a token').action(authTokenRevoke)
+
+const protect = describe(program.command('protect'), 'ForwardAuth protection for project hostnames and shares')
+describe(protect.command('status [host]', { isDefault: true }), 'List protected hosts without credentials').action((host, _options, command) => protectStatus(host, command))
+describe(protect.command('host <host>'), 'Create or rotate a hostname credential')
+  .option('--user <name>').option('--password-stdin').option('--entrypoint <name>')
+  .option('--label <text>').option('--project <name>').option('--service <name>')
+  .action(protectHost)
+describe(protect.command('remove <host>'), 'Remove a hostname credential without changing project labels').action((host, _options, command) => unprotectHost(host, command))
 
 const users = describe(program.command('users'), 'The accounts this panel signs in')
 describe(panelOptions(users.command('list', { isDefault: true }).alias('ls')), 'List every account').action(usersList)

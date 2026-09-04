@@ -178,9 +178,16 @@ file or stdin.
 | `web down|disable|restart|status|open|build` | Global flags only. |
 | `web logs [service]` | `web`, `web-ui`, `web-socket-proxy` or `db`. |
 | `auth bootstrap` | `--name`, `--email`, `--password-stdin`; creates the panel owner, once. The password is only ever read from stdin. |
-| `auth protect <host>` | `--user`, `--password-stdin`, `--project`, `--service`; creates or rotates a protected-host record. |
-| `auth status [host]` | Read-only; never returns credential hashes. |
-| `auth unprotect <host>` | Removes the record; the consumer project's middleware label is unchanged. |
+| `auth login` | `--token`; omitted, the token is read from the terminal without echoing. Checked against the panel before it is saved. |
+| `auth status` | Global flags only. Says the panel's mode and who this terminal is. |
+| `auth logout` | Global flags only. Forgets the credential; does not revoke the token. |
+| `auth whoami` | Global flags only. Never prints a token. |
+| `auth token list` | `--all` for everybody's; needs `user:list`. |
+| `auth token create` | `--name`, `--human`, `--scopes <a,b>`, `--expires-in-days`; the secret is shown once. |
+| `auth token revoke <id>` | Global flags only. Somebody else's needs `user:update`. |
+| `protect host <host>` | `--user`, `--password-stdin`, `--project`, `--service`; creates or rotates a protected-host record. |
+| `protect status [host]` | Read-only; never returns credential hashes. |
+| `protect remove <host>` | Removes the record; the consumer project's middleware label is unchanged. |
 | `auth reset-password <email>` | `--password-stdin`; otherwise a password is generated and shown once. Runs inside the panel container and ends every session of that account. |
 | `users list` | Global flags only. |
 | `users create` | `--name`, `--email`, `--role`, `--projects`, `--password-stdin`; a generated password is shown once. |

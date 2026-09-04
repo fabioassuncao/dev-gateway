@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../context.js', () => ({
   gatewayContext: () => ({
     root: mocks.root,
-    env: { PORTTA_WEB_PORT: '8081', PORTTA_WEB_AUTH_USER: 'dev', PORTTA_PANEL_PASSWORD: 'secret' },
+    env: { PORTTA_WEB_PORT: '8081', PORTTA_TOKEN: 'ptt_secret' },
     config: {},
     composeFiles: [],
     version: 'test',

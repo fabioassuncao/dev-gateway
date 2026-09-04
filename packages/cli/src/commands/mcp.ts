@@ -284,7 +284,10 @@ export async function mcpCommand(options: McpOptions, command: Command): Promise
   // stdout is the transport. Anything written there that is not a protocol
   // message corrupts the session, which is why nothing in this command prints.
   const server = new McpServer({ name: 'portta', version: CLI_VERSION })
-  registerTools(server, createCaller(url, panelHeaders(context.env, actor)))
+  // The same credential resolution as every other command: `PORTTA_TOKEN`, or
+  // whatever `portta auth login` saved for this panel. An agent configured once
+  // keeps working after a token rotation without its config being edited.
+  registerTools(server, createCaller(url, panelHeaders(context.env, actor, undefined, { url })))
 
   try {
     await server.connect(new StdioServerTransport())

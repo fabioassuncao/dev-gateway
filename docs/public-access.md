@@ -80,7 +80,7 @@ Anything routed is public unless its router opts into authentication. Portta
 ships a working ForwardAuth middleware and one credential per protected host:
 
 ```bash
-portta auth protect demo-web.example.com --project demo --service web
+portta protect host demo-web.example.com --project demo --service web
 ```
 
 Then opt a router in:

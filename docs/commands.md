@@ -81,9 +81,9 @@ See [Database access](database-access.md), [TCP access](tcp-access.md), and
 | `portta share list` | List temporary panel-created hostnames. |
 | `portta share revoke` | Revoke one temporary share. |
 | `portta share gc` | Remove expired shares. |
-| `portta auth protect <host>` | Create or rotate a protected-host credential. |
-| `portta auth status [host]` | Inspect protected hosts without exposing hashes. |
-| `portta auth unprotect <host>` | Remove a host record; the project label remains yours to remove. |
+| `portta protect host <host>` | Create or rotate a protected-host credential. |
+| `portta protect status [host]` | Inspect protected hosts without exposing hashes. |
+| `portta protect remove <host>` | Remove a host record; the project label remains yours to remove. |
 | `portta dns status` | Show DNS configuration and provider records. |
 | `portta dns check` | Verify the wildcard points at this host. |
 | `portta dns setup` | Plan or apply the wildcard record. |
@@ -96,6 +96,11 @@ See [Database access](database-access.md), [TCP access](tcp-access.md), and
 
 | Command | What it does |
 |---|---|
+| `portta auth login` | Save a token for a panel, after checking it. |
+| `portta auth status` | Whether this panel asks who you are, and who it thinks you are. |
+| `portta auth logout` | Forget the saved credential. The token itself stays valid. |
+| `portta auth whoami` | Every panel this host has a credential for. |
+| `portta auth token list\|create\|revoke` | Personal API tokens. A new secret is shown once. |
 | `portta auth bootstrap` | Create the owner, once, from this host. |
 | `portta auth reset-password <email>` | Reset a password inside the panel's container, when nobody can sign in to do it. |
 | `portta users list` | Every account, its role, and the Projects it reaches. |
