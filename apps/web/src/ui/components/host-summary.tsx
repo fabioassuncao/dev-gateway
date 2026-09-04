@@ -3,17 +3,20 @@ import { useTranslation } from 'react-i18next'
 import {
   BatteryCharging,
   BatteryMedium,
+  Box,
   ChevronDown,
   Cpu,
   Gauge,
   HardDrive,
+  Laptop,
   MemoryStick,
+  Monitor,
   MonitorCog,
   Server,
   Thermometer,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
-import type { HostMetrics, MetricsCurrent, MetricsHistory } from '../../shared/types.ts'
+import type { HostKind, HostMetrics, MetricsCurrent, MetricsHistory } from '../../shared/types.ts'
 import type { HostPressure } from '../../shared/overview-types.ts'
 import { useFormat } from '../lib/use-format.ts'
 import {
@@ -233,12 +236,6 @@ function ReadingCell({ reading, minutes }: { reading: Reading; minutes: number }
   )
 }
 
-function identityLine(host: HostMetrics): string {
-  return [host.model, host.distro ?? host.platform, host.version, host.architecture]
-    .filter((value): value is string => Boolean(value))
-    .join(' · ')
-}
-
 /** The strip's own shape while the first snapshot is on its way. */
 export function HostSummarySkeleton() {
   return (
@@ -254,42 +251,128 @@ export function HostSummarySkeleton() {
   )
 }
 
-/**
- * Who this machine is: its name, how long it has been up, and what it is,
- * one line under the page title rather than a card of its own.
- */
-export function HostIdentity({ data, className }: { data: MetricsCurrent; className?: string }) {
-  const { t } = useTranslation('overview', { keyPrefix: 'host' })
-  const format = useFormat()
-  const host = data.host
-  if (!host) return null
-  const identity = identityLine(host)
-  return (
-    <span className={cn('inline-flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5', className)}>
-      <Server className="size-3.5 shrink-0 text-subtle" aria-hidden />
-      <span className="font-medium text-ink">{host.hostname ?? t('title')}</span>
-      {host.uptimeSeconds !== null ? <span className="text-subtle">{t('up', { time: format.uptime(host.uptimeSeconds) })}</span> : null}
-      {identity ? <span className="min-w-0 truncate text-subtle" title={identity}>{identity}</span> : null}
-    </span>
-  )
+const KIND_ICON: Record<HostKind, ComponentType<{ className?: string }>> = {
+  notebook: Laptop,
+  desktop: Monitor,
+  server: Server,
+  vm: Box,
 }
 
 /**
- * The verdict, in the corner of the page: whether the gateway is up, whether
- * the host has room, and how fresh that is. The reasons wait in a tooltip;
- * the strip below says which number, and the attention band says what to do.
+ * What the host is, when the collector did not say. An older collector wrote
+ * neither `kind` nor `productName`; a battery still means a laptop and a
+ * hypervisor still means a VM. Anything else stays unsaid.
  */
-export function HostVerdict({
+export function hostKindOf(host: HostMetrics): HostKind | null {
+  if (host.kind) return host.kind
+  if (host.virtual === true) return 'vm'
+  if (host.battery) return 'notebook'
+  return null
+}
+
+/**
+ * The name at the top: the commercial name without its parenthesis
+ * ("MacBook Pro", not "MacBook Pro (14-inch, M3 Pro, Nov 2023)"), else the
+ * hostname. The whole name waits in the title attribute.
+ */
+export function hostDisplayName(host: HostMetrics): string | null {
+  if (host.productName) return host.productName.replace(/\s*\(.*\)\s*$/, '') || host.productName
+  return host.hostname
+}
+
+/**
+ * The facts under the name, none of them said twice: the hostname when the
+ * product name took its place, the provider or hypervisor of a VM, the
+ * model, the OS, the architecture, and how long it has been up.
+ */
+export function hostFacts(host: HostMetrics, kind: HostKind | null, uptime: string | null): string[] {
+  const os = [host.distro ?? host.platform, host.version].filter(Boolean).join(' ')
+  return [
+    host.productName ? host.hostname : null,
+    kind === 'vm' ? host.manufacturer : null,
+    host.model && host.model !== host.productName ? host.model : null,
+    os || null,
+    host.architecture,
+    uptime,
+  ].filter((value): value is string => Boolean(value))
+}
+
+/**
+ * The top of the Overview: not the page's name but the machine's. What it is
+ * on one line, the facts about it on the next, and beside them whether the
+ * gateway is up, whether the host has room, and how fresh that is. The route
+ * name stays as the page's heading for a screen reader; a person reads the
+ * host.
+ */
+export function HostHeader({
+  title,
   data,
+  pending,
   pressure,
   gateway,
   className,
 }: {
-  data: MetricsCurrent
+  /** The route's name, the page's h1 for assistive technology. */
+  title: string
+  /** Undefined while the first snapshot is on its way. */
+  data: MetricsCurrent | undefined
+  pending: boolean
+  /** The server's verdict. Absent on a panel that cannot compute one. */
   pressure?: HostPressure
-  gateway?: { up: boolean; label: string }
+  gateway: { up: boolean; label: string }
   className?: string
 }) {
+  const { t } = useTranslation('overview', { keyPrefix: 'host' })
+  const format = useFormat()
+  const host = data?.host ?? null
+  const kind = host ? hostKindOf(host) : null
+  const Icon = kind ? KIND_ICON[kind] : Server
+  const name = host ? hostDisplayName(host) ?? t('title') : null
+  const facts = host
+    ? hostFacts(host, kind, host.uptimeSeconds !== null ? t('up', { time: format.uptime(host.uptimeSeconds) }) : null).join(' · ')
+    : ''
+
+  return (
+    <header className={cn('flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5', className)}>
+      <h1 className="sr-only">{title}</h1>
+
+      <div className="flex min-w-0 flex-1 basis-64 items-start gap-2">
+        <Icon className="mt-0.5 size-4 shrink-0 text-subtle" aria-hidden />
+        {host ? (
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-ink" title={host.productName ?? undefined}>
+              {name}
+              {kind ? <span className="font-normal text-muted"> · {t(`kind.${kind}`)}</span> : null}
+            </p>
+            {facts ? <p className="truncate text-xs text-subtle tabular-nums" title={facts}>{facts}</p> : null}
+          </div>
+        ) : pending ? (
+          <div className="min-w-0 space-y-1.5 pt-0.5" aria-hidden>
+            <Skeleton className="h-3.5 w-44" />
+            <Skeleton className="h-3 w-72 max-w-full" />
+          </div>
+        ) : (
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-muted">{t('unavailable')}</p>
+            <p className="truncate text-xs text-subtle">{t('unavailableHint')}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        <StatusIndicator tone={gateway.up ? 'ok' : 'danger'} emphasis="ink">{gateway.label}</StatusIndicator>
+        {data ? <HostStatus data={data} pressure={pressure} /> : null}
+      </div>
+    </header>
+  )
+}
+
+/**
+ * Whether the host has room, and how fresh that is. The reasons wait in a
+ * tooltip; the strip below says which number, and the attention band says
+ * what to do.
+ */
+function HostStatus({ data, pressure }: { data: MetricsCurrent; pressure?: HostPressure }) {
   const { t } = useTranslation('overview', { keyPrefix: 'host' })
   const { t: tp } = useTranslation('overview', { keyPrefix: 'pressure' })
   const format = useFormat()
@@ -312,8 +395,7 @@ export function HostVerdict({
         : null
 
   return (
-    <span className={cn('inline-flex flex-wrap items-center gap-x-3 gap-y-1', className)}>
-      {gateway ? <StatusIndicator tone={gateway.up ? 'ok' : 'danger'}>{gateway.label}</StatusIndicator> : null}
+    <>
       {data.host ? (
         <Tooltip label={verdictHint} side="bottom">
           <span tabIndex={0} className="inline-flex rounded-xs focus-ring">
@@ -323,8 +405,8 @@ export function HostVerdict({
           </span>
         </Tooltip>
       ) : null}
-      {freshness ? <span className={cn('text-xs', freshness.tone === 'warn' ? 'text-warn' : 'text-subtle')}>{freshness.text}</span> : null}
-    </span>
+      {freshness ? <span className={cn(freshness.tone === 'warn' ? 'text-warn' : 'text-subtle')}>{freshness.text}</span> : null}
+    </>
   )
 }
 
@@ -406,49 +488,6 @@ export function HostReadings({
         </dl>
       ) : null}
     </section>
-  )
-}
-
-/**
- * The host in one piece: identity, verdict and readings. The Overview places
- * the three where they belong on the page; this keeps them together for a
- * panel that only has room for one block.
- */
-export function HostSummary({
-  data,
-  history,
-  pressure,
-  gateway,
-}: {
-  data: MetricsCurrent
-  history?: MetricsHistory
-  /** The server's verdict. Absent on a panel that cannot compute one. */
-  pressure?: HostPressure
-  gateway?: { up: boolean; label: string }
-}) {
-  const { t } = useTranslation('overview', { keyPrefix: 'host' })
-
-  if (!data.host) {
-    // No metrics is not no information: the gateway's own state still belongs
-    // at the top of the page, where it would have been beside them.
-    return (
-      <section aria-label={t('summary')} className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm">
-        <Server className="size-4 shrink-0 text-subtle" aria-hidden />
-        <span className="font-medium text-ink">{t('unavailable')}</span>
-        <span className="text-xs text-subtle">{t('unavailableHint')}</span>
-        {gateway ? <StatusIndicator tone={gateway.up ? 'ok' : 'danger'} className="ml-auto">{gateway.label}</StatusIndicator> : null}
-      </section>
-    )
-  }
-
-  return (
-    <div className="mb-4 space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-        <HostIdentity data={data} />
-        <HostVerdict data={data} pressure={pressure} gateway={gateway} />
-      </div>
-      <HostReadings data={data} history={history} />
-    </div>
   )
 }
 

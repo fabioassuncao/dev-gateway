@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { I18nextProvider } from 'react-i18next'
 import i18n from '../../src/ui/i18n/index.ts'
-import { HostSummary } from '../../src/ui/components/host-summary.tsx'
+import { HostHeader, HostReadings } from '../../src/ui/components/host-summary.tsx'
 import type { MetricsCurrent } from '../../src/shared/types.ts'
 import type { HostPressure } from '../../src/shared/overview-types.ts'
 import { emptySnapshot } from 'portta-core'
@@ -38,7 +38,10 @@ const normal: HostPressure = { level: 'normal', measured: true, reasons: [] }
 function renderSummary(data: MetricsCurrent, pressure: HostPressure = normal) {
   return render(
     <I18nextProvider i18n={i18n}>
-      <HostSummary data={data} pressure={pressure} />
+      <>
+        <HostHeader title="Overview" data={data} pending={false} pressure={pressure} gateway={{ up: true, label: 'Gateway running' }} />
+        <HostReadings data={data} />
+      </>
     </I18nextProvider>,
   )
 }
@@ -97,5 +100,53 @@ describe('the host summary', () => {
   it('explains itself when there is no snapshot at all', () => {
     renderSummary(current({ host: null }))
     expect(screen.getByText('Unavailable')).toBeInTheDocument()
+    expect(screen.getByText('Gateway running')).toBeInTheDocument()
+  })
+})
+
+describe('the host header', () => {
+  it('keeps the route name as the heading a screen reader hears', () => {
+    renderSummary(current())
+    expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument()
+  })
+
+  it('puts the commercial name and the kind first, and the hostname among the facts', () => {
+    const data = current()
+    data.host!.productName = 'MacBook Pro (14-inch, M3 Pro, Nov 2023)'
+    data.host!.kind = 'notebook'
+    data.host!.model = 'Mac15,6'
+    renderSummary(data)
+    const name = screen.getByText(/MacBook Pro/)
+    expect(name).toHaveTextContent('MacBook Pro · Notebook')
+    expect(name).toHaveAttribute('title', 'MacBook Pro (14-inch, M3 Pro, Nov 2023)')
+    expect(screen.getByText(/^lab · Mac15,6 · macOS 15\.4 · arm64/)).toBeInTheDocument()
+  })
+
+  it('still calls a machine with a battery a notebook when the collector did not say', () => {
+    const data = current()
+    data.host!.kind = null
+    data.host!.battery = { hasBattery: true, percent: 0.78, charging: false, acConnected: true, minutesRemaining: null, cycleCount: null }
+    renderSummary(data)
+    expect(screen.getByText(/· Notebook/)).toBeInTheDocument()
+  })
+
+  it('names the provider of a virtual machine', () => {
+    const data = current()
+    data.host!.kind = 'vm'
+    data.host!.manufacturer = 'Hetzner'
+    data.host!.model = 'vServer'
+    renderSummary(data)
+    expect(screen.getByText(/· Virtual machine/)).toBeInTheDocument()
+    expect(screen.getByText(/^Hetzner · vServer · /)).toBeInTheDocument()
+  })
+
+  it('claims nothing about a machine it cannot classify', () => {
+    const data = current()
+    data.host!.kind = null
+    data.host!.manufacturer = 'Apple Inc.'
+    renderSummary(data)
+    expect(screen.getByText('lab')).toHaveTextContent(/^lab$/)
+    expect(screen.queryByText(/Apple Inc\./)).not.toBeInTheDocument()
+    expect(screen.queryByText(/· (Notebook|Desktop|Server|Virtual machine)/)).not.toBeInTheDocument()
   })
 })

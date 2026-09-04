@@ -1,7 +1,6 @@
 {
   "title": "Visão geral",
   "reading": "Lendo o que está acontecendo",
-  "description": "O que está sendo trabalhado, quem está nisso, o que precisa de atenção e se este host tem folga.",
   "gatewayRunning": "Gateway em execução",
   "gatewayDown": "Gateway inativo",
   "problems": "{{count}} problemas",
@@ -64,6 +63,12 @@
   "host": {
     "title": "Este host",
     "description": "Como esta máquina está agora.",
+    "kind": {
+      "notebook": "Notebook",
+      "desktop": "Desktop",
+      "server": "Servidor",
+      "vm": "Máquina virtual"
+    },
     "system": "Sistema",
     "cpu": "CPU",
     "memory": "Memória",

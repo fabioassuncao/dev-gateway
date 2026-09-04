@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import { renderWithQuery } from './render.tsx'
 import { makeOverview } from './fixtures.ts'
+import { emptySnapshot } from 'portta-core'
 
 class ApiError extends Error {
   status: number
@@ -67,6 +68,24 @@ describe('the development dashboard', () => {
     renderWithQuery(<Overview />)
     expect(await screen.findByText('Using this host')).toBeInTheDocument()
     for (const link of screen.getAllByRole('link', { name: 'Meu Produto' })) expect(link).toHaveAttribute('href', '#/projects/produto')
+  })
+
+  it('opens with the host rather than a page title', async () => {
+    const snapshot = emptySnapshot({ id: 'i', name: 'lab', hostname: 'lab' }, 1_700_000_000)
+    snapshot.host.hostname = 'lab'
+    snapshot.host.productName = 'MacBook Pro (14-inch, M3 Pro, Nov 2023)'
+    snapshot.host.kind = 'notebook'
+    snapshot.host.distro = 'macOS'
+    snapshot.host.version = '26.5.2'
+    snapshot.host.architecture = 'arm64'
+    snapshot.host.uptimeSeconds = 3600 * 24 * 17
+    metricsCurrent.mockResolvedValue({ ...snapshot, ageSeconds: 4, stale: false, collectorActive: true })
+    renderWithQuery(<Overview />)
+    expect(await screen.findByText(/MacBook Pro/)).toHaveTextContent('MacBook Pro · Notebook')
+    expect(screen.getByText(/^lab · macOS 26\.5\.2 · arm64 · up 17d 0h$/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument()
+    expect(screen.queryByText(/What is being worked on/)).not.toBeInTheDocument()
+    expect(screen.getByText('Gateway running')).toBeInTheDocument()
   })
 
   it('falls back to the gateway status when the dashboard needs the database', async () => {

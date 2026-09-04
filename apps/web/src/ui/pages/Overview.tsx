@@ -7,10 +7,10 @@ import { navigate } from '../lib/router.ts'
 import { Card, CardBody, CardHeader, CardSection } from '../components/ui/card.tsx'
 import { Badge, StatusIndicator } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
-import { Empty, ErrorBox, Loading, NoValue, PageHeader, SectionHeader } from '../components/shell-bits.tsx'
+import { Empty, ErrorBox, Loading, NoValue, SectionHeader } from '../components/shell-bits.tsx'
 import { CodeChip, Mono } from '../components/copy.tsx'
 import { DiagnosticText } from '../components/diagnostic-text.tsx'
-import { HostIdentity, HostReadings, HostSummarySkeleton, HostVerdict, pressureReasons } from '../components/host-summary.tsx'
+import { HostHeader, HostReadings, HostSummarySkeleton, pressureReasons } from '../components/host-summary.tsx'
 import { EnvironmentActions } from '../components/environment-actions.tsx'
 import { CommitRow } from '../components/entities/commit-row.tsx'
 import { ProjectRow } from '../components/entities/project-card.tsx'
@@ -27,10 +27,11 @@ import { cn } from '../lib/utils.ts'
  * needs attention, what changed. Infrastructure has its own pages; this one
  * answers the question a person asks when they open the panel.
  *
- * The page is dense because related things share a line, not because
- * anything is small: the verdict sits beside the title, the host's name
- * under it, the readings in one strip, and a panel with nothing to say
- * takes one row rather than a card.
+ * The page has no visible title: its subject is the host, so the host's
+ * name and kind sit where a title would, the gateway's and the host's
+ * verdict beside them, the readings in one strip under them. The page is
+ * dense because related things share a line, not because anything is
+ * small; a panel with nothing to say takes one row rather than a card.
  */
 export function Overview() {
   const { t } = useTranslation('overview')
@@ -51,9 +52,9 @@ export function Overview() {
 }
 
 /**
- * The top of the page, shared by the full and the reduced dashboard: the
- * title, the gateway's and the host's verdict beside it, the host's identity
- * under it, and the readings in a strip.
+ * The top of the page, shared by the full and the reduced dashboard: who
+ * this machine is, with the gateway's and the host's verdict beside it, and
+ * the readings in a strip.
  */
 function OverviewHeader({ gatewayUp, pressure }: { gatewayUp: boolean; pressure?: HostPressure }) {
   const { t } = useTranslation('overview')
@@ -63,15 +64,13 @@ function OverviewHeader({ gatewayUp, pressure }: { gatewayUp: boolean; pressure?
 
   return (
     <>
-      <PageHeader
+      <HostHeader
         title={t('title')}
-        description={t('description')}
-        actions={
-          metrics.data
-            ? <HostVerdict data={metrics.data} pressure={pressure} gateway={gateway} />
-            : <StatusIndicator tone={gateway.up ? 'ok' : 'danger'} emphasis="ink">{gateway.label}</StatusIndicator>
-        }
-        meta={metrics.data?.host ? <HostIdentity data={metrics.data} /> : undefined}
+        data={metrics.data}
+        pending={metrics.isPending}
+        pressure={pressure}
+        gateway={gateway}
+        className="mb-3"
       />
       {metrics.data?.host ? (
         <HostReadings data={metrics.data} history={history.data} className="mb-4" />

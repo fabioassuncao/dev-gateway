@@ -11,7 +11,9 @@ test.describe('the panel end to end', () => {
   test('the overview answers whether the gateway is healthy', async ({ page }) => {
     await page.goto('/')
 
-    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
+    // The route name is the page's h1 for a screen reader; what a person sees
+    // at the top is the host, so the heading is asserted present, not visible.
+    await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeAttached()
     await expect(page.getByText('Gateway running')).toBeVisible()
     // No PostgreSQL in the demo host: the work sections are empty and say so;
     // the runtime, the gateway and its problems still answer.
