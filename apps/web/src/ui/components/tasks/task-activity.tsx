@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Bot, GitBranch, MessageSquare, Trash2, User } from 'lucide-react'
-import type { ActivityEvent, Task, TaskNote } from '../../../shared/task-types.ts'
+import type { ActivityEvent, Task, TaskNote } from 'portta-contracts'
 import { Button } from '../ui/button.tsx'
 import { Timeline, TimelineItem } from '../ui/timeline.tsx'
 import { useFormat } from '../../lib/use-format.ts'

@@ -175,7 +175,7 @@ npm run dev --workspace=portta-web        # API on :8081
 npm run dev:ui --workspace=portta-web     # Vite on :5173, docs proxied from :5174
 npm test --workspace=portta-web
 npm run test:e2e --workspace=portta-web
-npm run openapi --workspace=portta-web    # refresh apps/web/openapi.json
+npm run openapi --workspace=portta-contracts   # refresh packages/contracts/openapi.json
 ```
 
 ### API contract
@@ -204,10 +204,11 @@ returns 404 unless `PORTTA_RUNTIME_API_DOCS=true` explicitly opts in. The JSON
 contract stays available because a caller that reached the API can already
 inspect it.
 
-`apps/web/openapi.json` is checked in so an API change is visible in review.
-`npm run openapi:check` regenerates it in memory and fails on byte-level drift.
-Adding or changing a route therefore requires updating its attached description
-and running `npm run openapi`.
+`packages/contracts/openapi.json` is checked in so an API change is visible in
+review. `npm run openapi:check --workspace=portta-contracts` regenerates it in
+memory and fails on byte-level drift. Adding or changing a route therefore
+requires updating its attached description and running
+`npm run openapi --workspace=portta-contracts`.
 
 ### The documentation, served from the panel
 

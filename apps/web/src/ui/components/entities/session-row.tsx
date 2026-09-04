@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Bot, GitCommitHorizontal, User } from 'lucide-react'
-import type { Session } from '../../../shared/task-types.ts'
+import type { Session } from 'portta-contracts'
 import { Badge, StatusDot } from '../ui/badge.tsx'
 import { Mono } from '../copy.tsx'
 import { Tooltip } from '../ui/tooltip.tsx'

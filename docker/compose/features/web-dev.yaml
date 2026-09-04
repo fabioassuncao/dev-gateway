@@ -26,9 +26,12 @@ services:
       # SQL files the running process reads on the next migrate. Without this
       # a new file stays in the image until the next rebuild, so `portta db
       # migrate` and a panel restart would both see a stale set.
-      - ./apps/web/migrations:/app/apps/web/migrations
-      # The shared package, so editing it reloads the panel like its own source.
+      - ./packages/server/migrations:/app/packages/server/migrations
+      # The packages the panel composes, so editing one reloads it like its own
+      # source: the shared derivations, the contract, and the services and API.
       - ./packages/core/src:/app/packages/core/src
+      - ./packages/contracts/src:/app/packages/contracts/src
+      - ./packages/server/src:/app/packages/server/src
       - ./.env:/app/state/.env
       - ./VERSION:/app/state/VERSION:ro
 
@@ -55,6 +58,11 @@ services:
       PORTTA_RUNTIME_API_TARGET: http://web:8081
     volumes:
       - ./apps/web/src:/app/apps/web/src
+      # The UI imports `slug` and the task vocabulary from portta-core/browser
+      # and its types from portta-contracts, so both have to be as fresh as the
+      # panel's own source or HMR would show a stale shape.
+      - ./packages/core/src:/app/packages/core/src
+      - ./packages/contracts/src:/app/packages/contracts/src
       - ./apps/web/package.json:/app/apps/web/package.json:ro
       - ./apps/web/scripts:/app/apps/web/scripts:ro
       - ./apps/web/vite.config.ts:/app/apps/web/vite.config.ts:ro

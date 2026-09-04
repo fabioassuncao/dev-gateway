@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useContainers, useDockerHost, useMetricsCurrent } from '../lib/queries/index.ts'
-import type { ContainerSummary, MetricsCurrent, Ownership } from '../../shared/types.ts'
+import type { ContainerSummary, MetricsCurrent, Ownership } from 'portta-contracts'
 import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
 import { Badge } from '../components/ui/badge.tsx'
 import { Input, Select } from '../components/ui/field.tsx'

@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
 import { makeContainer, makeOperable, makeStartable } from './fixtures.ts'
-import type { Environment, EnvironmentRemovalPreview } from '../../src/shared/types.ts'
+import type { Environment, EnvironmentRemovalPreview } from 'portta-contracts'
 
 const rebuildEnvironment = vi.fn()
 const removeEnvironment = vi.fn()

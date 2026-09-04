@@ -1,6 +1,6 @@
 // The rules of the task views: nesting, addressing, and filters in the hash.
 
-import type { TaskSummary } from '../../shared/task-types.ts'
+import type { TaskSummary } from 'portta-contracts'
 import { taskTypeOf } from './task-presentation.ts'
 
 export const TASK_VIEWS = ['board', 'table'] as const

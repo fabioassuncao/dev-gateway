@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ProjectSummary } from '../../src/shared/types.ts'
+import type { ProjectSummary } from 'portta-contracts'
 import {
   DEFAULT_PROJECT_FILTERS,
   defaultProjectOrder,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query'
-import type { LiveEvent } from '../../shared/types.ts'
+import type { LiveEvent } from 'portta-contracts'
 import { keys } from './queries/keys.ts'
 
 export type LiveState = 'connecting' | 'live' | 'offline'

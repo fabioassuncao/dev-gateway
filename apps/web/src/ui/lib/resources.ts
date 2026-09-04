@@ -5,7 +5,7 @@
 // in packages/core/src/pressure.ts. The server decides the host's overall
 // verdict; this only decides what colour one bar is.
 
-import type { HostPressure } from '../../shared/overview-types.ts'
+import type { HostPressure } from 'portta-contracts'
 
 export type ResourceKind = 'cpu' | 'memory' | 'swap' | 'storage' | 'gpu' | 'temperature' | 'load' | 'battery'
 

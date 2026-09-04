@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Bot, Boxes, Container, FolderGit2, ListTodo, User, type LucideIcon } from 'lucide-react'
-import type { ActivityEvent } from '../../../shared/task-types.ts'
+import type { ActivityEvent } from 'portta-contracts'
 import { Timeline, TimelineItem } from '../ui/timeline.tsx'
 import { Button } from '../ui/button.tsx'
 import { Empty } from '../shell-bits.tsx'

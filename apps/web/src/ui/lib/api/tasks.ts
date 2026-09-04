@@ -1,6 +1,6 @@
 // Work: Portta's own tasks, and the optional GitHub binding on top of them.
 
-import type { Task, TaskAttachment, TaskSummary } from '../../../shared/task-types.ts'
+import type { Task, TaskAttachment, TaskSummary } from 'portta-contracts'
 import { request } from './client.ts'
 
 export type TaskFilters = Partial<Record<'status' | 'open' | 'priority' | 'type' | 'label' | 'assignee' | 'agent' | 'repository' | 'environment' | 'service' | 'parent' | 'project' | 'q', string>>

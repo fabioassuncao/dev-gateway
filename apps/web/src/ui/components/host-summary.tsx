@@ -16,8 +16,13 @@ import {
   Thermometer,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
-import type { HostKind, HostMetrics, MetricsCurrent, MetricsHistory } from '../../shared/types.ts'
-import type { HostPressure } from '../../shared/overview-types.ts'
+import type {
+  HostKind,
+  HostMetrics,
+  HostPressure,
+  MetricsCurrent,
+  MetricsHistory,
+} from 'portta-contracts'
 import { useFormat } from '../lib/use-format.ts'
 import {
   percentLabel,

@@ -6,7 +6,7 @@ import { cn } from '../lib/utils.ts'
 import { toneBorder, toneText, toneWash } from '../lib/tone.ts'
 import { ApplyDialog } from './apply-dialog.tsx'
 import { useApply } from '../lib/use-apply.ts'
-import type { ApplyStatus } from '../../shared/types.ts'
+import type { ApplyStatus } from 'portta-contracts'
 
 /**
  * Saved settings that are not running yet used to be visible only on the

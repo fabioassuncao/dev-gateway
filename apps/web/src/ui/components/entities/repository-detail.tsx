@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { ExternalLink } from 'lucide-react'
-import type { Repository, RepositoryGit } from '../../../shared/types.ts'
+import type { Repository, RepositoryGit } from 'portta-contracts'
 import { projectGitOf } from '../../lib/git.ts'
 import { Badge } from '../ui/badge.tsx'
 import { Card, CardBody, CardHeader } from '../ui/card.tsx'

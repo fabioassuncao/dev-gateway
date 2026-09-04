@@ -32,19 +32,24 @@ every edit. They cost a minute or more; the targeted run costs under a second.
 | You changed | Run |
 | --- | --- |
 | `packages/core/src/**` | `npm test --workspace=portta-core` |
+| `packages/contracts/src/**` | `npm test --workspace=portta-contracts` and `npm run openapi:check --workspace=portta-contracts` |
+| `packages/server/src/**` | `npm test --workspace=portta-server` |
 | `packages/cli/src/**` | `npm test --workspace=portta` |
 | `apps/auth/src/**` | `npm test --workspace=portta-auth` |
-| `apps/web/src/server/**` | `npm test --workspace=portta-web -- --project server` |
 | `apps/web/src/ui/**` | `npm test --workspace=portta-web -- --project ui` |
+| `apps/web/src/docs/**` | `npm test --workspace=portta-web -- --project docs` |
+| an API route or a service | also `npm run openapi:check --workspace=portta-contracts` |
 | `scripts/`, `bin/portta`, `install.sh` | `bash tests/unit/<subject>.test.sh` |
 | `docker/compose/`, `templates/` | `bash tests/unit/profiles.test.sh`, `bash tests/unit/templates.test.sh` |
 
 Append a filename or `-t <name>` to narrow further:
-`npm test --workspace=portta-web -- --project server apply`.
+`npm test --workspace=portta-server -- apply`.
 
 Run `./tests/run.sh` when you finish a feature, when the change is structural
-or touches something shared (`packages/core`, `src/shared/types.ts`, a compose
-overlay, the installer), and before a merge or a release.
+or touches something shared (`packages/core`, `packages/contracts`, a compose
+overlay, the installer), and before a merge or a release. It also runs
+`tests/unit/boundaries.test.sh`, which fails when an import crosses a workspace
+boundary the [map](docs/monorepo.md) does not allow.
 
 **Nothing runs these for you.** The only workflow left publishes the Docker
 image; there is no CI that re-checks a push. Run `--e2e` before a merge that

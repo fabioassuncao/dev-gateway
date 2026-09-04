@@ -1,7 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ContainerSummary } from '../../../shared/types.ts'
-import type { ContainerResourceMetrics, MetricsCurrent } from '../../../shared/types.ts'
+import type { ContainerResourceMetrics, ContainerSummary, MetricsCurrent } from 'portta-contracts'
 import type { Column } from '../../lib/table.ts'
 import { DataTable } from '../ui/data-table.tsx'
 import { Badge } from '../ui/badge.tsx'

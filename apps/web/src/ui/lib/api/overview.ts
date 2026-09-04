@@ -1,6 +1,6 @@
 // The Development Dashboard, and the Development Context an agent reads.
 
-import type { DevelopmentContext, DevelopmentOverview } from '../../../shared/overview-types.ts'
+import type { DevelopmentContext, DevelopmentOverview } from 'portta-contracts'
 import { request } from './client.ts'
 
 export const overviewApi = {

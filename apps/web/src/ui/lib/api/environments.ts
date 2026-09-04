@@ -6,13 +6,13 @@ import type {
   EnvironmentOverrides,
   EnvironmentRemovalPreview,
   EnvironmentRunnerStartResult,
+  EnvironmentServices,
   ProjectGit,
   ProjectLogsResponse,
   ProjectRebuildResult,
   ProjectRemoveResult,
   ServiceOverrides,
-} from '../../../shared/types.ts'
-import type { EnvironmentServices } from '../../../shared/service-types.ts'
+} from 'portta-contracts'
 import { request } from './client.ts'
 
 export const environmentsApi = {

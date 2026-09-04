@@ -1,4 +1,4 @@
-import type { Commit } from '../../../shared/types.ts'
+import type { Commit } from 'portta-contracts'
 import { useFormat } from '../../lib/use-format.ts'
 import { cn } from '../../lib/utils.ts'
 import { Mono } from '../copy.tsx'

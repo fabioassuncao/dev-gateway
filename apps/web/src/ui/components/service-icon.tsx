@@ -1,6 +1,6 @@
 import type { ComponentType, SVGProps } from 'react'
 import { Mail } from 'lucide-react'
-import type { ServiceTech } from '../../shared/types.ts'
+import type { ServiceTech } from 'portta-contracts'
 import { cn } from '../lib/utils.ts'
 
 type IconProps = SVGProps<SVGSVGElement>

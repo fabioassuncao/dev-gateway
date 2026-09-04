@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { TaskPriority, TaskStatus } from '../../shared/task-types.ts'
+import type { TaskPriority, TaskStatus } from 'portta-contracts'
 
 export const TASK_STATUS_ORDER: TaskStatus[] = ['backlog', 'ready', 'in_progress', 'review', 'blocked', 'done']
 

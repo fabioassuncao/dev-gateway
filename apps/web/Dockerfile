@@ -6,6 +6,10 @@
 # and the production dependencies only: no compiler, no source, no Docker CLI,
 # and no access to the Docker socket. The panel reaches Docker exclusively
 # through its own socket proxy over an internal network.
+#
+# The panel is composed from four packages now, and they build in dependency
+# order: core → contracts → server → web. Skipping one leaves the next
+# resolving a dist/ that does not exist.
 # =============================================================================
 
 FROM node:24.20.0-alpine AS deps
@@ -14,6 +18,8 @@ COPY package.json package-lock.json ./
 COPY apps/auth/package.json ./apps/auth/
 COPY apps/web/package.json ./apps/web/
 COPY packages/core/package.json ./packages/core/
+COPY packages/contracts/package.json ./packages/contracts/
+COPY packages/server/package.json ./packages/server/
 COPY packages/cli/package.json ./packages/cli/
 # Install the whole workspace graph. Filtering with --workspace drops optional
 # native bindings (Vite/rolldown) that the Alpine build needs.
@@ -32,11 +38,19 @@ COPY docs ./docs
 COPY README.md CHANGELOG.md ./
 COPY apps/auth/tsconfig.json apps/auth/tsconfig.build.json ./apps/auth/
 COPY apps/auth/src ./apps/auth/src
-# Both configs: the package builds through tsconfig.build.json, which extends
+# Both configs: each package builds through tsconfig.build.json, which extends
 # tsconfig.json to drop the tests from the published output.
 COPY packages/core/tsconfig.json packages/core/tsconfig.build.json ./packages/core/
 COPY packages/core/src ./packages/core/src
-RUN npm run build --workspace=portta-core && npm run build --workspace=portta-auth && npm run build --workspace=portta-web
+COPY packages/contracts/tsconfig.json packages/contracts/tsconfig.build.json ./packages/contracts/
+COPY packages/contracts/src ./packages/contracts/src
+COPY packages/server/tsconfig.json packages/server/tsconfig.build.json ./packages/server/
+COPY packages/server/src ./packages/server/src
+RUN npm run build --workspace=portta-core \
+ && npm run build --workspace=portta-contracts \
+ && npm run build --workspace=portta-server \
+ && npm run build --workspace=portta-auth \
+ && npm run build --workspace=portta-web
 
 # --- development -------------------------------------------------------------
 # Used by docker/compose/features/web-dev.yaml, which bind-mounts the source over
@@ -46,11 +60,16 @@ WORKDIR /app
 ENV NODE_ENV=development
 COPY apps/web ./apps/web
 COPY apps/auth ./apps/auth
-# The workspace symlink npm ci created points at packages/core, so the shared
-# package's source has to be here too: this stage never builds it, and the
-# `development` export condition resolves it as TypeScript.
+# The workspace symlinks npm ci created point at these packages, so their source
+# has to be here too: this stage never builds them, and the `development` export
+# condition resolves each as TypeScript.
 COPY packages/core/tsconfig.json ./packages/core/
 COPY packages/core/src ./packages/core/src
+COPY packages/contracts/tsconfig.json ./packages/contracts/
+COPY packages/contracts/src ./packages/contracts/src
+COPY packages/server/tsconfig.json ./packages/server/
+COPY packages/server/src ./packages/server/src
+COPY packages/server/migrations ./packages/server/migrations
 WORKDIR /app/apps/web
 # The container runs as an unprivileged user, and Vite writes a temporary
 # config next to vite.config.ts and a cache under node_modules.
@@ -58,7 +77,7 @@ RUN chown -R node:node /app
 USER node
 EXPOSE 8081 5173
 # Through the package script, so `--conditions=development` is declared once.
-# Dropping it resolves portta-core to a dist/ this stage does not build.
+# Dropping it resolves the workspace packages to a dist/ this stage does not build.
 CMD ["npm", "run", "dev"]
 
 # --- runtime -----------------------------------------------------------------
@@ -73,12 +92,16 @@ COPY package.json package-lock.json ./
 COPY apps/auth/package.json ./apps/auth/
 COPY apps/web/package.json ./apps/web/
 COPY packages/core/package.json ./packages/core/
+COPY packages/contracts/package.json ./packages/contracts/
+COPY packages/server/package.json ./packages/server/
 COPY packages/cli/package.json ./packages/cli/
 RUN npm ci --workspace=portta-web --workspace=portta-auth --omit=dev && npm cache clean --force
 COPY --from=build /app/apps/auth/dist ./apps/auth/dist
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY --from=build /app/packages/core/dist ./packages/core/dist
-COPY apps/web/migrations ./apps/web/migrations
+COPY --from=build /app/packages/contracts/dist ./packages/contracts/dist
+COPY --from=build /app/packages/server/dist ./packages/server/dist
+COPY packages/server/migrations ./packages/server/migrations
 
 WORKDIR /app/apps/web
 USER node

@@ -82,7 +82,7 @@ assert_contains "$(PORTTA_WEB=true PORTTA_RUNTIME_DB_PASSWORD=test bash -c '. sc
 
 it "the password is generated and declared secret"
 assert_contains "$(cat scripts/bootstrap.sh)" "portta_env_set PORTTA_RUNTIME_DB_PASSWORD"
-assert_contains "$(sed -n '/PORTTA_RUNTIME_DB_PASSWORD/,/},/p' apps/web/src/server/core/settings.ts)" "secret: true"
+assert_contains "$(sed -n '/PORTTA_RUNTIME_DB_PASSWORD/,/},/p' packages/server/src/services/settings.ts)" "secret: true"
 
 
 describe "the panel database has private operational tooling"
@@ -118,7 +118,7 @@ assert_contains "$(cat "$db_clients")" "await confirm('restore the panel databas
 
 describe "the API cannot reach a Docker endpoint it does not name"
 
-allowlist="apps/web/src/server/docker/allowlist.ts"
+allowlist="packages/server/src/services/docker/allowlist.ts"
 
 for forbidden in "/exec" "/images" "/volumes" "/build" "/system" "/secrets" "prune" "archive"; do
   it "no allowlist rule mentions $forbidden"
@@ -133,7 +133,7 @@ assert_eq "1" "$(grep -c "containers\\\\/create" "$allowlist" || true)"
 
 describe "a removal takes the container and nothing else"
 
-client="apps/web/src/server/docker/client.ts"
+client="packages/server/src/services/docker/client.ts"
 
 it "volumes are never removed alongside a container"
 assert_contains "$(cat "$client")" "v: '0'"
@@ -153,10 +153,10 @@ assert_contains "$(cat "$client")" "Privileged: false"
 describe "secrets stay on the host"
 
 it "secret settings are declared as such"
-assert_contains "$(cat apps/web/src/server/core/settings.ts)" "secret: true"
+assert_contains "$(cat packages/server/src/services/settings.ts)" "secret: true"
 
 it "the config view never returns a secret value"
-assert_contains "$(cat apps/web/src/server/core/configview.ts)" "value: secret ? null : stored"
+assert_contains "$(cat packages/server/src/services/configview.ts)" "value: secret ? null : stored"
 
 describe "the CLI drives it"
 
@@ -203,7 +203,7 @@ assert_contains "$compose" './state/runner:/app/state/runner'
 assert_contains "$compose" './state/access:/app/state/access'
 
 it "the panel refuses a path it could not open, naming that directory"
-assert_contains "$(cat apps/web/src/server/core/settings.ts)" "the directory mounted into the panel"
+assert_contains "$(cat packages/server/src/services/settings.ts)" "the directory mounted into the panel"
 
 
 describe "every panel command resolves the file list with the panel enabled"
@@ -271,7 +271,7 @@ assert_contains "$auth_services" 'profiles: [migration]'
 assert_contains "$auth_services" 'network_mode: none'
 
 it "the hash is declared a secret, so the API never returns it"
-assert_contains "$(sed -n '/PORTTA_WEB_AUTH_HASH/,/},/p' apps/web/src/server/core/settings.ts)" "secret: true"
+assert_contains "$(sed -n '/PORTTA_WEB_AUTH_HASH/,/},/p' packages/server/src/services/settings.ts)" "secret: true"
 
 it "routing the panel without a credential is refused by the profile resolver"
 assert_contains "$(cat scripts/lib/docker.sh)" "the panel is reachable beyond this host with no credential in front of it"
@@ -287,7 +287,7 @@ assert_eq "" "$(grep -nE "runProcess\([^]]*password" packages/cli/src/commands/w
 
 describe "the panel writes four filenames into Traefik's dynamic directory"
 
-dynamic="apps/web/src/server/core/dynamic.ts"
+dynamic="packages/server/src/services/dynamic.ts"
 
 it "the allowlist names exactly four files"
 assert_eq "4" "$(grep -cE "^  (panel|shares|aliases|auth): 'portta-[a-z]+\.yaml'," "$dynamic")"
@@ -308,10 +308,10 @@ assert_eq "" "$(sed -n '/^    volumes:/,/^    networks:/p' docker/compose/featur
 
 describe "the panel reads Traefik, and only reads it"
 
-traefik="apps/web/src/server/core/traefik.ts"
+traefik="packages/server/src/services/traefik.ts"
 
 it "it reaches Traefik over the shared network, not the control one"
-assert_eq "" "$(grep -n 'control' apps/web/src/server/config.ts | grep -i traefik || true)"
+assert_eq "" "$(grep -n 'control' packages/server/src/config.ts | grep -i traefik || true)"
 
 for method in POST PUT PATCH DELETE; do
   it "no $method is ever sent to the Traefik API"
@@ -331,7 +331,7 @@ describe "the CLI and the panel render the same middleware contract"
 
 it "both surfaces import the core renderer"
 assert_contains "$(cat packages/cli/src/commands/web.ts)" "renderSharedPanelAuth"
-assert_contains "$(cat apps/web/src/server/core/dynamic.ts)" "renderSharedPanelAuth"
+assert_contains "$(cat packages/server/src/services/dynamic.ts)" "renderSharedPanelAuth"
 it "the middleware has one canonical definition"
 assert_eq "1" "$(grep -R --include='*.ts' -l "PANEL_AUTH_MIDDLEWARE = 'portta-web-auth'" packages apps | wc -l | tr -d ' ')"
 
@@ -374,7 +374,7 @@ it "mounts the shared package so editing it reloads the panel"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/core/src:/app/packages/core/src"
 
 it "mounts panel SQL so a new migration is visible without rebuilding"
-assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./apps/web/migrations:/app/apps/web/migrations"
+assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/server/migrations:/app/packages/server/migrations"
 
 it "publishes the UI on its own port, which is where the panel answers"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "PORTTA_WEB_DEV_PORT:-5173"

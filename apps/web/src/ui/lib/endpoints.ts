@@ -1,6 +1,6 @@
 // The order addresses are shown in, everywhere they are shown.
 
-import type { RouteUrl, UrlScope } from '../../shared/types.ts'
+import type { RouteUrl, UrlScope } from 'portta-contracts'
 
 const SCOPE_ORDER: Record<UrlScope, number> = { local: 0, vpn: 1, public: 2 }
 const SCHEME_ORDER: Record<RouteUrl['scheme'], number> = { https: 0, http: 1 }

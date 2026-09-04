@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { MoreHorizontal, Play, PlugZap, RotateCw, ScrollText, Share2, Square } from 'lucide-react'
-import type { Service } from '../../../shared/service-types.ts'
+import type { Service } from 'portta-contracts'
 import { api, ApiError } from '../../lib/api/index.ts'
 import { keys } from '../../lib/queries/index.ts'
 import { accessProblemKey } from '../../lib/services.ts'

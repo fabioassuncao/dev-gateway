@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { ContainerState, EndpointScope, Health, Ownership, UrlScope } from '../../shared/types.ts'
+import type { ContainerState, EndpointScope, Health, Ownership, UrlScope } from 'portta-contracts'
 import { Badge, StatusIndicator } from './ui/badge.tsx'
 import type { Tone } from '../lib/tone.ts'
 

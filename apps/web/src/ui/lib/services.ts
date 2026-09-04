@@ -2,8 +2,13 @@
 // the server has not answered with one, how endpoints group by scope, and
 // what the runtime column reads.
 
-import type { ContainerSummary, EndpointScope } from '../../shared/types.ts'
-import type { Service, ServiceAccess, ServiceAccessEndpoint } from '../../shared/service-types.ts'
+import type {
+  ContainerSummary,
+  EndpointScope,
+  Service,
+  ServiceAccess,
+  ServiceAccessEndpoint,
+} from 'portta-contracts'
 import { orderEndpoints } from './endpoints.ts'
 
 /** Nearest first, the order a person tries them in. */

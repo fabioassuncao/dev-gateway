@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import { renderWithQuery } from './render.tsx'
-import type { GatewayStatus } from '../../src/shared/types.ts'
+import type { GatewayStatus } from 'portta-contracts'
 
 const gateway = vi.fn()
 

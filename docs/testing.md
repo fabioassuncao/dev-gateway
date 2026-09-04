@@ -18,24 +18,27 @@ Nothing else.
 | You changed | Run | Cost |
 | --- | --- | --- |
 | `packages/core/src/*.ts` | `npm test --workspace=portta-core` | ~0.5s |
+| `packages/contracts/src/**` | `npm test --workspace=portta-contracts` | ~0.2s |
+| `packages/server/src/**` | `npm test --workspace=portta-server` | ~3s |
 | `packages/cli/src/**` | `npm test --workspace=portta` | ~0.7s |
 | `apps/auth/src/**` | `npm test --workspace=portta-auth` | ~0.5s |
-| `apps/web/src/server/**` | `npm test --workspace=portta-web -- --project server` | ~1.5s |
-| `apps/web/src/ui/**` | `npm test --workspace=portta-web -- --project ui` | ~3.5s |
+| `apps/web/src/ui/**` | `npm test --workspace=portta-web -- --project ui` | ~11s |
+| `apps/web/src/docs/**` | `npm test --workspace=portta-web -- --project docs` | ~0.5s |
+| an API route or a schema | also `npm run openapi:check --workspace=portta-contracts` | ~0.5s |
 | `scripts/lib/*.sh`, `bin/portta`, `install.sh` | `bash tests/unit/<subject>.test.sh` | 0.1–13s |
 | `docker/compose/**`, `templates/**` | `bash tests/unit/profiles.test.sh` and `bash tests/unit/templates.test.sh` | ~6s |
 
 Narrow further with a name filter, which every suite here accepts:
 
 ```bash
-npm test --workspace=portta-web -- --project server apply   # one file
-npm test --workspace=portta-core -- -t 'refuses'            # one description
+npm test --workspace=portta-server -- apply       # one file
+npm test --workspace=portta-core -- -t 'refuses'  # one description
 ```
 
 Widen only when there is a concrete reason to think something else is affected:
 a shared type, an exported helper with several callers, a change to
-`packages/core` (which all three other workspaces import), or a compose overlay
-that more than one profile selects.
+`packages/core` or `packages/contracts` (which everything downstream imports),
+or a compose overlay that more than one profile selects.
 
 Do **not** run `./tests/run.sh`, the end-to-end suites, or the Playwright run
 for an ordinary fix, feature increment or refactor. They exist for the moments
@@ -77,6 +80,11 @@ shell audit suites (`tests/unit/audit.test.sh`, `install.test.sh`,
 `web.test.sh`) are the clearest example: they assert invariants such as "no
 prune, ever" and "no password on a command line" in milliseconds.
 
+`tests/unit/boundaries.test.sh` is the same idea applied to the monorepo's
+shape: an import that crosses a boundary the [map](monorepo.md) does not allow
+compiles perfectly well, because npm workspaces resolve every package from one
+`node_modules`. Nothing but that suite would notice.
+
 **Do not write a test that** restates the implementation, asserts a static
 label or a class name, checks that a file exists next to another assertion that
 reads it, covers browser plumbing with no rule behind it (`localStorage`,
@@ -109,11 +117,13 @@ review:
 | Layer | Where | Needs Docker | Runs in |
 | --- | --- | --- | --- |
 | Shared core | `packages/core/src/*.test.ts` | no | `tests/run.sh`, CI |
+| The contract | `packages/contracts/src/*.test.ts` | no | `tests/run.sh`, CI |
+| Services and API | `packages/server/tests/` | no | `tests/run.sh`, CI |
 | CLI | `packages/cli/src/**/*.test.ts` | no | `tests/run.sh`, CI |
 | ForwardAuth | `apps/auth/src/*.test.ts` | no | `tests/run.sh`, CI |
-| Panel API | `apps/web/tests/server/` | no | `tests/run.sh`, CI |
 | Panel components | `apps/web/tests/ui/` | no | `tests/run.sh`, CI |
-| Shell gateway and invariants | `tests/unit/` | compose only | `tests/run.sh`, CI |
+| Documentation collection | `apps/web/tests/docs/` | no | `tests/run.sh`, CI |
+| Shell gateway, invariants and workspace boundaries | `tests/unit/` | compose only | `tests/run.sh`, CI |
 | Gateway end to end | `tests/e2e/` | yes | `--e2e`, CI |
 | Panel in a browser | `apps/web/e2e/` | no (fake Engine API) | `--e2e`, CI |
 | Panel layout at every width | `apps/web/e2e/viewports.mjs` | yes (a disposable PostgreSQL) | by hand |

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ContainerSummary } from '../../../shared/types.ts'
-import type { Service } from '../../../shared/service-types.ts'
+import type { ContainerSummary, Service } from 'portta-contracts'
 import { Table } from '../ui/table.tsx'
 import { Empty } from '../shell-bits.tsx'
 import { ServiceDrawer } from './service-drawer.tsx'

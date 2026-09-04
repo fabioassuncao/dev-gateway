@@ -5,17 +5,23 @@ import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { isAuthenticated, loadConfig } from './config.ts'
-import { DockerClient } from './docker/client.ts'
-import { createSnapshotCache } from './core/inventory.ts'
-import { LiveHub } from './core/events.ts'
-import { createVerdictCache } from './core/traefik.ts'
-import { createApp } from './app.ts'
-import { GENERATED_FILES, reconcilePanelProtection } from './core/dynamic.ts'
-import { Database } from './db/index.ts'
-import { GitHubIntegration } from './integrations/github/index.ts'
-import { createReconciliationSchedule, intervalMinutes } from './integrations/github/sync/schedule.ts'
-import { createCommitWatch, createMaintenance } from './core/commit-watch.ts'
+import {
+  createApp,
+  createCommitWatch,
+  createMaintenance,
+  createReconciliationSchedule,
+  createSnapshotCache,
+  createVerdictCache,
+  Database,
+  DockerClient,
+  GENERATED_FILES,
+  GitHubIntegration,
+  intervalMinutes,
+  isAuthenticated,
+  LiveHub,
+  loadConfig,
+  reconcilePanelProtection,
+} from 'portta-server'
 
 const config = loadConfig()
 

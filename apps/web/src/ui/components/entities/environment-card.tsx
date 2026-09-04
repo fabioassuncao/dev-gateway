@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { Environment } from '../../../shared/types.ts'
+import type { Environment } from 'portta-contracts'
 import { useEnvironmentGit } from '../../lib/queries/index.ts'
 import { environmentHealth, healthTone } from '../../lib/health.ts'
 import { serviceRowsFor } from '../../lib/services.ts'

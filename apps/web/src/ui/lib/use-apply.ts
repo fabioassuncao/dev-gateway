@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './api/index.ts'
 import { keys } from './queries/keys.ts'
-import type { ApplyStatus } from '../../shared/types.ts'
+import type { ApplyStatus } from 'portta-contracts'
 
 /**
  * Applying saved settings recreates the panel that is showing this dialog, so

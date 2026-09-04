@@ -1,7 +1,13 @@
 import { Bot, GitCommitHorizontal, User } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { ActivityEvent, Session, Task, TaskNote, TaskSummary } from '../../../shared/task-types.ts'
-import type { Project } from '../../../shared/types.ts'
+import type {
+  ActivityEvent,
+  Project,
+  Session,
+  Task,
+  TaskNote,
+  TaskSummary,
+} from 'portta-contracts'
 import type { TaskBody } from '../../lib/api/index.ts'
 import { Badge } from '../ui/badge.tsx'
 import { SectionHeader } from '../shell-bits.tsx'

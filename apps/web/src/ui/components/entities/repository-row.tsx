@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { ExternalLink, GitBranch } from 'lucide-react'
-import type { Repository } from '../../../shared/types.ts'
+import type { Repository } from 'portta-contracts'
 import { useFormat } from '../../lib/use-format.ts'
 import { cn } from '../../lib/utils.ts'
 import { Badge, StatusIndicator } from '../ui/badge.tsx'

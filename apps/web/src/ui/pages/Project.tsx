@@ -15,8 +15,13 @@ import {
   useSessions,
   useTasks,
 } from '../lib/queries/index.ts'
-import type { Environment, Project, ProjectEnvironment, Repository } from '../../shared/types.ts'
-import type { TaskSummary } from '../../shared/task-types.ts'
+import type {
+  Environment,
+  Project,
+  ProjectEnvironment,
+  Repository,
+  TaskSummary,
+} from 'portta-contracts'
 import { Badge, StatusIndicator } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Card, CardBody, CardHeader, CardSection } from '../components/ui/card.tsx'

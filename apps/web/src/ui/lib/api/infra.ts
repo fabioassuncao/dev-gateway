@@ -22,7 +22,7 @@ import type {
   ApplyStatus,
   RunnerStatus,
   TraefikVerdict,
-} from '../../../shared/types.ts'
+} from 'portta-contracts'
 import { request } from './client.ts'
 
 export const infraApi = {

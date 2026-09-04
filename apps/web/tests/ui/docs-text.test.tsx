@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
-import { docsHref, slugFor, splitDocRefs } from '../../src/shared/docs.ts'
+import { docsHref, slugFor, splitDocRefs } from 'portta-contracts'
 import { renderWithQuery } from './render.tsx'
 
 const overview = vi.fn()

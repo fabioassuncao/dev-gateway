@@ -1,6 +1,6 @@
 // What a Git snapshot says, decided once.
 
-import type { GitInfo } from '../../shared/types.ts'
+import type { GitInfo, ProjectGit, RepositoryGit } from 'portta-contracts'
 
 export type GitState = 'clean' | 'dirty' | 'detached' | 'not-collected' | 'stale'
 
@@ -20,7 +20,6 @@ export function gitState(git: GitInfo | null | undefined, stale = false): GitSta
   return changedCount(git) > 0 ? 'dirty' : 'clean'
 }
 
-import type { ProjectGit, RepositoryGit } from '../../shared/types.ts'
 
 /**
  * A repository scan, in the shape the status line reads. The two differ only

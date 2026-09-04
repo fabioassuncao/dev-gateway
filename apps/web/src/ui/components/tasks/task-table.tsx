@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MoreHorizontal } from 'lucide-react'
-import type { TaskStatus, TaskSummary } from '../../../shared/task-types.ts'
+import type { TaskStatus, TaskSummary } from 'portta-contracts'
 import { useTaskStatuses, type BoardColumn } from '../../i18n/use-task-statuses.ts'
 import { priorityRank, statusCategory } from '../../lib/task-presentation.ts'
 import { nestTasks, projectNameOf, taskHref } from '../../lib/tasks.ts'

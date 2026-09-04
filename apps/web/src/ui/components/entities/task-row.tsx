@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { TaskSummary } from '../../../shared/task-types.ts'
+import type { TaskSummary } from 'portta-contracts'
 import { Tooltip } from '../ui/tooltip.tsx'
 import { useFormat } from '../../lib/use-format.ts'
 import { cn } from '../../lib/utils.ts'

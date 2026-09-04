@@ -10,7 +10,7 @@ import { Button } from './ui/button.tsx'
 import { AddressLine, Mono } from './copy.tsx'
 import { Select } from './ui/field.tsx'
 import { Callout } from './shell-bits.tsx'
-import type { ContainerSummary, Share } from '../../shared/types.ts'
+import type { ContainerSummary, Share } from 'portta-contracts'
 
 export function SharePanel({ container }: { container: ContainerSummary }) {
   const { t } = useTranslation('common', { keyPrefix: 'share' })

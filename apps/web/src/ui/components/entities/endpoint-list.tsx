@@ -1,4 +1,4 @@
-import type { RouteUrl } from '../../../shared/types.ts'
+import type { RouteUrl } from 'portta-contracts'
 import { orderEndpoints } from '../../lib/endpoints.ts'
 import { cn } from '../../lib/utils.ts'
 import { AddressLine } from '../copy.tsx'

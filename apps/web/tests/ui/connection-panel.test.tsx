@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
-import type { ServiceConnection } from '../../src/shared/types.ts'
+import type { ServiceConnection } from 'portta-contracts'
 
 const serviceConnection = vi.fn()
 

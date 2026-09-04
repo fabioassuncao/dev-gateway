@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { Environment, ProjectLogSource } from '../../shared/types.ts'
+import type { Environment, ProjectLogSource } from 'portta-contracts'
 import { api } from '../lib/api/index.ts'
 import { keys } from '../lib/queries/keys.ts'
 import { Card } from './ui/card.tsx'

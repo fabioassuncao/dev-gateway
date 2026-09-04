@@ -1,14 +1,17 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
+// Two projects. The API's suites moved to portta-server with the code they
+// cover; what is left is the panel itself, which needs a DOM, and the build-time
+// documentation collector, which reads the repository and must not have one.
 export default defineConfig({
   test: {
     projects: [
       {
         test: {
-          name: 'server',
+          name: 'docs',
           environment: 'node',
-          include: ['tests/server/**/*.test.ts'],
+          include: ['tests/docs/**/*.test.ts'],
         },
       },
       {

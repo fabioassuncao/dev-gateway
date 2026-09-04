@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { dropTargetForElements, monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
-import type { TaskStatus, TaskSummary } from '../../../shared/task-types.ts'
+import type { TaskStatus, TaskSummary } from 'portta-contracts'
 import { Empty } from '../shell-bits.tsx'
 import { cn } from '../../lib/utils.ts'
 import { useBoardColumns, type BoardColumn } from '../../i18n/use-task-statuses.ts'

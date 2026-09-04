@@ -104,7 +104,7 @@ assert_contains "$(cat scripts/lib/apply.sh)" 'portta_container_is_managed'
 it "the panel cannot enable the applier"
 # Turning it on is a host decision: the key is deliberately absent from the
 # catalogue of everything the Settings page may write.
-assert_eq "" "$(grep -n \"PORTTA_APPLY\" apps/web/src/server/core/settings.ts || true)"
+assert_eq "" "$(grep -n \"PORTTA_APPLY\" packages/server/src/services/settings.ts || true)"
 
 it "the runner is not a compose service"
 assert_eq "" "$(grep -rn 'portta-runner\|component: runner' docker/compose/ 2>/dev/null || true)"
@@ -113,13 +113,13 @@ it "the runner command is fixed, never composed from input"
 assert_contains "$(cat scripts/lib/runner.sh)" 'bash "$PORTTA_ROOT/scripts/lib/runner-exec.sh"'
 
 it "the panel cannot enable the runner"
-assert_eq "" "$(grep -n \"PORTTA_RUNNER\" apps/web/src/server/core/settings.ts || true)"
+assert_eq "" "$(grep -n \"PORTTA_RUNNER\" packages/server/src/services/settings.ts || true)"
 
 it "the panel gains no new Docker permission for it"
 # start, inspect and logs were already allowed; that is the whole point. Four
 # POST rules and one create, exactly as before this feature existed.
-assert_eq "4" "$(grep -c "method: 'POST'" apps/web/src/server/docker/allowlist.ts)"
-assert_eq "1" "$(grep -c 'containers..create' apps/web/src/server/docker/allowlist.ts)"
+assert_eq "4" "$(grep -c "method: 'POST'" packages/server/src/services/docker/allowlist.ts)"
+assert_eq "1" "$(grep -c 'containers..create' packages/server/src/services/docker/allowlist.ts)"
 
 describe "file modes are read portably"
 
@@ -144,7 +144,7 @@ describe "tests do not reach into procfs"
 # the prune audit below avoids naming its literals.
 PROCFS_PATH="/pro""c/"
 it "no test uses a procfs path to simulate a failure"
-assert_eq "" "$(grep -rn -- "$PROCFS_PATH" apps/web/tests tests 2>/dev/null || true)"
+assert_eq "" "$(grep -rn -- "$PROCFS_PATH" apps/web/tests packages/server/tests tests 2>/dev/null || true)"
 
 describe "the gateway never destroys what it does not own"
 

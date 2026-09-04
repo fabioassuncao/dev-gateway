@@ -1,4 +1,4 @@
-import type { ConfigField as ConfigFieldView } from '../../../shared/types.ts'
+import type { ConfigField as ConfigFieldView } from 'portta-contracts'
 import { useTranslation } from 'react-i18next'
 import { RotateCw } from 'lucide-react'
 import { DocText } from '../doc-text.tsx'

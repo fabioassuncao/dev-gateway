@@ -1,6 +1,6 @@
 // Development sessions: who is working on what, since when.
 
-import type { Session } from '../../../shared/task-types.ts'
+import type { Session } from 'portta-contracts'
 import { request } from './client.ts'
 
 export interface SessionBody {

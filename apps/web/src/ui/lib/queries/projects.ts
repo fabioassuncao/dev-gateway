@@ -1,5 +1,5 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
-import type { Project } from '../../../shared/types.ts'
+import type { Project } from 'portta-contracts'
 import { api } from '../api/index.ts'
 import { keys } from './keys.ts'
 

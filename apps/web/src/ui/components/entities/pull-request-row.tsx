@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { ForgePullRequest } from '../../../shared/types.ts'
+import type { ForgePullRequest } from 'portta-contracts'
 import { Badge, StatusIndicator } from '../ui/badge.tsx'
 import { Mono } from '../copy.tsx'
 

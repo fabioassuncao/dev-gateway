@@ -22,7 +22,7 @@ import {
   type ProjectState,
   type ProjectView,
 } from '../lib/projects.ts'
-import { slug as slugify } from '../../shared/slug.ts'
+import { slug as slugify } from 'portta-core/browser'
 import { useDocumentTitle } from '../lib/title.ts'
 
 const VIEW_STORAGE = 'portta-projects-view'

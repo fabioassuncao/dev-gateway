@@ -2,7 +2,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
-import type { ApplyStatus } from '../../src/shared/types.ts'
+import type { ApplyStatus } from 'portta-contracts'
 
 const applyStatus = vi.fn()
 const applyProbe = vi.fn()

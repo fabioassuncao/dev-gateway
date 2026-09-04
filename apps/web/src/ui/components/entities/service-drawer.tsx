@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ContainerSummary } from '../../../shared/types.ts'
-import type { Service } from '../../../shared/service-types.ts'
+import type { ContainerSummary, Service } from 'portta-contracts'
 import { api } from '../../lib/api/index.ts'
 import { keys } from '../../lib/queries/index.ts'
 import { serviceFromContainer } from '../../lib/services.ts'

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Globe } from 'lucide-react'
-import type { ProjectDomain } from '../../shared/types.ts'
+import type { ProjectDomain } from 'portta-contracts'
 import { Badge } from './ui/badge.tsx'
 import { Card, CardBody, CardHeader } from './ui/card.tsx'
 import { Callout, KeyValue, NoValue } from './shell-bits.tsx'

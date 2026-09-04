@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileText, ImageIcon, Loader2, Paperclip, Trash2, Upload } from 'lucide-react'
-import type { TaskAttachment } from '../../../shared/task-types.ts'
+import type { TaskAttachment } from 'portta-contracts'
 import { Button } from '../ui/button.tsx'
 import { ConfirmDialog } from '../ui/confirm-dialog.tsx'
 import { useToast } from '../ui/toast.tsx'

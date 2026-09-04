@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink } from 'lucide-react'
-import type { Task } from '../../../shared/task-types.ts'
+import type { Task } from 'portta-contracts'
 import { Badge } from '../ui/badge.tsx'
 import { Button } from '../ui/button.tsx'
 import { Input, Select } from '../ui/field.tsx'

@@ -8,7 +8,7 @@ import type {
   Repository,
   RepositoryGit,
   RouteUrl,
-} from '../../../shared/types.ts'
+} from 'portta-contracts'
 import { request } from './client.ts'
 
 export interface RepositoryEnvironmentRow {

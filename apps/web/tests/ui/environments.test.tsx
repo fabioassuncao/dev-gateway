@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
 import { makeContainer, makeEnvironment, makeOperable, makeStartable } from './fixtures.ts'
-import type { Environment } from '../../src/shared/types.ts'
+import type { Environment } from 'portta-contracts'
 
 const environments = vi.fn()
 const projects = vi.fn()

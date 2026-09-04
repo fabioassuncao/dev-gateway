@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { slug } from '../../../shared/slug.ts'
+import { slug } from 'portta-core/browser'
 import { cn } from '../../lib/utils.ts'
 import { Badge } from '../ui/badge.tsx'
 

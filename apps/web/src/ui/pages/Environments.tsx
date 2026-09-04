@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useEnvironmentOwners, useEnvironments } from '../lib/queries/index.ts'
-import type { Environment } from '../../shared/types.ts'
+import type { Environment } from 'portta-contracts'
 import { Card } from '../components/ui/card.tsx'
 import { Input, Select } from '../components/ui/field.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'

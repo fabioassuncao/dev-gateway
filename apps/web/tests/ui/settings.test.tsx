@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
-import type { ConfigView } from '../../src/shared/types.ts'
+import type { ConfigView } from 'portta-contracts'
 
 const config = vi.fn()
 const patchConfig = vi.fn()

@@ -6,8 +6,7 @@
 // merges them once: the counts are null when the dashboard is unavailable, and
 // a component reads one object either way.
 
-import type { ProjectSummary } from '../../shared/types.ts'
-import type { ProjectPulse } from '../../shared/overview-types.ts'
+import type { ProjectPulse, ProjectSummary } from 'portta-contracts'
 import type { ProjectEnvironmentFacts } from '../components/entities/project-actions.tsx'
 
 export type ProjectState = 'archived' | 'unhealthy' | 'partial' | 'running' | 'idle'

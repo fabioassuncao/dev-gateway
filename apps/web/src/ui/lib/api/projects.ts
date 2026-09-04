@@ -3,7 +3,7 @@
 import type {
   Project,
   ProjectSummary,
-} from '../../../shared/types.ts'
+} from 'portta-contracts'
 import { request } from './client.ts'
 
 export const projectsApi = {

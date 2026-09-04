@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Circle } from 'lucide-react'
-import type { Task, TaskSummary } from '../../../shared/task-types.ts'
+import type { Task, TaskSummary } from 'portta-contracts'
 import { Button } from '../ui/button.tsx'
 import { Input } from '../ui/field.tsx'
 import { SectionHeader } from '../shell-bits.tsx'

@@ -14,9 +14,9 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import MarkdownIt from 'markdown-it'
-import { slugFor } from '../shared/docs.ts'
+import { slugFor } from 'portta-contracts'
 
-export { slugFor } from '../shared/docs.ts'
+export { slugFor } from 'portta-contracts'
 
 export interface DocHeading {
   id: string

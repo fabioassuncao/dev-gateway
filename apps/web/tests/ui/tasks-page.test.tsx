@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
 import { makeTask, makeTaskSummary } from './fixtures.ts'
-import type { ProjectSummary } from '../../src/shared/types.ts'
+import type { ProjectSummary } from 'portta-contracts'
 
 class ApiError extends Error {
   status: number

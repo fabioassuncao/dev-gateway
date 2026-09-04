@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { Diagnostic } from '../../shared/types.ts'
+import type { Diagnostic } from 'portta-contracts'
 import { DocText } from './doc-text.tsx'
 
 export function DiagnosticText({

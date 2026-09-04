@@ -3,7 +3,7 @@ import { ExternalLink } from 'lucide-react'
 import { useServiceTraefik } from '../lib/queries/index.ts'
 import { Badge, StatusIndicator } from './ui/badge.tsx'
 import { Mono } from './copy.tsx'
-import type { ContainerSummary } from '../../shared/types.ts'
+import type { ContainerSummary } from 'portta-contracts'
 
 export function TraefikVerdictRow({
   container,

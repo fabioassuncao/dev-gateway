@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Bot, GitPullRequestArrow, User } from 'lucide-react'
-import type { TaskPriority, TaskStatus, TaskSummary } from '../../../shared/task-types.ts'
+import type { TaskPriority, TaskStatus, TaskSummary } from 'portta-contracts'
 import { Badge } from '../ui/badge.tsx'
 import { Tooltip } from '../ui/tooltip.tsx'
 import { useTaskStatuses } from '../../i18n/use-task-statuses.ts'

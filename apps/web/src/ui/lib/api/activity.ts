@@ -1,6 +1,6 @@
 // Activity: what happened in the development flow, with references.
 
-import type { ActivityEvent } from '../../../shared/task-types.ts'
+import type { ActivityEvent } from 'portta-contracts'
 import { request } from './client.ts'
 
 export type ActivityFilters = Partial<Record<'kind' | 'task' | 'repository' | 'environment' | 'session' | 'actor' | 'before' | 'limit', string>>

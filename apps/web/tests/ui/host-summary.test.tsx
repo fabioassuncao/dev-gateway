@@ -3,8 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { I18nextProvider } from 'react-i18next'
 import i18n from '../../src/ui/i18n/index.ts'
 import { HostHeader, HostReadings } from '../../src/ui/components/host-summary.tsx'
-import type { MetricsCurrent } from '../../src/shared/types.ts'
-import type { HostPressure } from '../../src/shared/overview-types.ts'
+import type { HostPressure, MetricsCurrent } from 'portta-contracts'
 import { emptySnapshot } from 'portta-core'
 
 function current(overrides: Partial<MetricsCurrent> = {}): MetricsCurrent {

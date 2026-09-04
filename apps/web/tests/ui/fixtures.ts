@@ -1,4 +1,19 @@
-import type { ContainerSummary, DockerHost, Environment, EnvironmentOperable, EnvironmentStartable } from '../../src/shared/types.ts'
+import type {
+  ActivityEvent,
+  ContainerSummary,
+  DevelopmentOverview,
+  DockerHost,
+  Environment,
+  EnvironmentOperable,
+  EnvironmentStartable,
+  ProjectPulse,
+  Repository,
+  RepositoryGit,
+  Service,
+  Session,
+  Task,
+  TaskSummary,
+} from 'portta-contracts'
 
 export function makeStartable(ok = false): EnvironmentStartable {
   return ok
@@ -17,7 +32,7 @@ export function makeOperable(workingDir: string | null = '/srv/dev/alpha'): Envi
   }
   return { ok: true, reason: null, workingDir, configFiles: [] }
 }
-import { resolveServiceTech } from '../../src/server/core/tech.ts'
+import { resolveServiceTech } from 'portta-server'
 
 /**
  * One environment as the list serves it. Counts follow the services given;
@@ -207,8 +222,6 @@ export const HOST: DockerHost = {
   ],
 }
 
-import type { Repository, RepositoryGit } from '../../src/shared/types.ts'
-import type { Service } from '../../src/shared/service-types.ts'
 
 export function makeService(overrides: Partial<Service> = {}): Service {
   const base: Service = {
@@ -309,8 +322,6 @@ export function makeRepositoryGit(overrides: Partial<RepositoryGit> = {}): Repos
   }
 }
 
-import type { ActivityEvent, Session, Task, TaskSummary } from '../../src/shared/task-types.ts'
-import type { DevelopmentOverview, ProjectPulse } from '../../src/shared/overview-types.ts'
 
 export function makeTaskSummary(overrides: Partial<TaskSummary> = {}): TaskSummary {
   const id = overrides.id ?? '42'

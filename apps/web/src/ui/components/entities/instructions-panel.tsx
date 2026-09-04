@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileText } from 'lucide-react'
-import type { InstructionFile } from '../../../shared/types.ts'
+import type { InstructionFile } from 'portta-contracts'
 import { useFormat } from '../../lib/use-format.ts'
 import { cn } from '../../lib/utils.ts'
 import { Badge } from '../ui/badge.tsx'

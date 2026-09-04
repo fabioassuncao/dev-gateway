@@ -7,7 +7,7 @@ import type {
   EnvironmentRemovalPreview,
   ProjectRemoveResult,
   RunnerStatus,
-} from '../../shared/types.ts'
+} from 'portta-contracts'
 import { api } from '../lib/api/index.ts'
 import { keys, useEnvironmentRemovalPreview } from '../lib/queries/index.ts'
 import { Button } from './ui/button.tsx'

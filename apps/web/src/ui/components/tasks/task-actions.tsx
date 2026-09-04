@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, MoreHorizontal, Trash2 } from 'lucide-react'
-import type { Task, TaskStatus } from '../../../shared/task-types.ts'
+import type { Task, TaskStatus } from 'portta-contracts'
 import { Button } from '../ui/button.tsx'
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from '../ui/menu.tsx'
 import { Tooltip } from '../ui/tooltip.tsx'

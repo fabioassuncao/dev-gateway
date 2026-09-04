@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { GitBranch } from 'lucide-react'
-import type { ProjectGit } from '../../../shared/types.ts'
+import type { ProjectGit } from 'portta-contracts'
 import { changedCount, gitState } from '../../lib/git.ts'
 import { useFormat } from '../../lib/use-format.ts'
 import { cn } from '../../lib/utils.ts'

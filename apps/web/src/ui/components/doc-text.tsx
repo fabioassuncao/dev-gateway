@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
-import type { Overview } from '../../shared/types.ts'
-import { splitDocRefs } from '../../shared/docs.ts'
+import { splitDocRefs } from 'portta-contracts'
+import type { Overview } from 'portta-contracts'
 import { api } from '../lib/api/index.ts'
 import { keys } from '../lib/queries/keys.ts'
 

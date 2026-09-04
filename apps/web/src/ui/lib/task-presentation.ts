@@ -25,7 +25,7 @@ import {
   Wrench,
   type LucideIcon,
 } from 'lucide-react'
-import type { TaskPriority, TaskStatus, TaskSyncState } from '../../shared/task-types.ts'
+import type { TaskPriority, TaskStatus, TaskSyncState } from 'portta-contracts'
 
 /** What a board column needs to say: which status it holds. */
 export interface ColumnLike {
