@@ -5949,6 +5949,30 @@
               "null"
             ]
           },
+          "productName": {
+            "description": "The commercial name, where the platform reports a trustworthy one (macOS so far)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "notebook",
+                  "desktop",
+                  "server",
+                  "vm"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the machine is, from its chassis, hypervisor flag and battery; null when none of them say"
+          },
           "architecture": {
             "type": [
               "string",
@@ -6114,6 +6138,8 @@
           "hostname",
           "manufacturer",
           "model",
+          "productName",
+          "kind",
           "architecture",
           "virtual",
           "platform",

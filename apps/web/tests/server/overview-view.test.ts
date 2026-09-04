@@ -120,7 +120,7 @@ describe('the host verdict on the dashboard', () => {
     metrics.collectedAt = Math.floor(NOW / 1000)
     metrics.ageSeconds = 0
     metrics.host = {
-      hostname: 'lab', manufacturer: null, model: null, architecture: 'arm64', virtual: false,
+      hostname: 'lab', manufacturer: null, model: null, productName: null, kind: null, architecture: 'arm64', virtual: false,
       platform: 'darwin', distro: 'macOS', version: null, release: null, kernel: null, uptimeSeconds: 100,
       cpu: { manufacturer: null, brand: 'M3', physicalCores: 8, logicalCores: 8, speed: null, speedMax: null },
       memoryTotalBytes: 100, memoryUsedBytes: 10, memoryAvailableBytes: 90, memoryUsedPercent: 0.1,

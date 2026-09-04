@@ -23,6 +23,7 @@ function value<T>(result: Settled<T>): T | undefined {
 
 let staticCache: {
   system: unknown
+  chassis: unknown
   os: unknown
   cpu: unknown
   graphics: unknown
@@ -30,14 +31,17 @@ let staticCache: {
 
 export async function loadStaticFacts(): Promise<typeof staticCache> {
   if (staticCache) return staticCache
-  const [system, os, cpu, graphics] = await Promise.allSettled([
+  const [system, chassis, os, cpu, graphics] = await Promise.allSettled([
     si.system(),
+    // The chassis type is what says notebook, desktop or rack; read once.
+    si.chassis(),
     si.osInfo(),
     si.cpu(),
     si.graphics(),
   ])
   staticCache = {
     system: value(system) ?? {},
+    chassis: value(chassis) ?? {},
     os: value(os) ?? {},
     cpu: value(cpu) ?? {},
     graphics: value(graphics) ?? {},
@@ -113,6 +117,7 @@ export async function collectSnapshot(root: string, now = Date.now()): Promise<M
     time: value(time),
     cpuTemperature: value(cpuTemperature),
     battery: value(battery),
+    chassis: facts?.chassis,
     storage: filesystemForPath(root, mounts),
   })
 

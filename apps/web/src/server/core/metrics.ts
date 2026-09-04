@@ -45,6 +45,8 @@ export function emptyMetrics(): MetricsCurrent {
 function completeHost(host: HostMetrics): HostMetrics {
   return {
     ...host,
+    productName: host.productName ?? null,
+    kind: host.kind ?? null,
     gpu: host.gpu ?? [],
     temperatureCelsius: host.temperatureCelsius ?? null,
     battery: host.battery ?? null,

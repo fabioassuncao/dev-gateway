@@ -953,11 +953,16 @@ export const HostStorageInfo = named(
 )
 export type HostStorageInfo = z.infer<typeof HostStorageInfo>
 
+export const HostKind = z.enum(['notebook', 'desktop', 'server', 'vm'])
+export type HostKind = z.infer<typeof HostKind>
+
 export const HostMetrics = named(
   z.object({
     hostname: nullableString,
     manufacturer: nullableString,
     model: nullableString,
+    productName: nullableString.describe('The commercial name, where the platform reports a trustworthy one (macOS so far)'),
+    kind: HostKind.nullable().describe('What the machine is, from its chassis, hypervisor flag and battery; null when none of them say'),
     architecture: nullableString,
     virtual: z.boolean().nullable(),
     platform: nullableString,

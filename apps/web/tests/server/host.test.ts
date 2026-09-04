@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { makeApp } from './helpers.ts'
 import { GATEWAY } from './fixtures.ts'
-import type { MetricsCurrent, MetricsHistory } from '../../src/shared/types.ts'
+import { MetricsCurrent, type MetricsHistory } from '../../src/shared/types.ts'
 import { emptySnapshot } from 'portta-core'
 
 const dirs: string[] = []
@@ -53,6 +53,20 @@ describe('GET /api/metrics/current', () => {
     expect(body.projects[0]?.name).toBe('Alpha')
     expect(body.stale).toBe(true)
     expect(body.collectorActive).toBe(false)
+  })
+
+  it('completes a snapshot from a collector that predates kind and productName', async () => {
+    const dir = metricsDir()
+    const snapshot = emptySnapshot({ id: 'inst', name: 'lab', hostname: 'lab' }, 1_000)
+    const older = snapshot.host as Partial<typeof snapshot.host>
+    delete older.kind
+    delete older.productName
+    writeFileSync(join(dir, 'current.json'), JSON.stringify(snapshot))
+    const { app } = makeApp({ containers: GATEWAY }, { metricsDir: dir, metricsStaleSeconds: 30 })
+    const body = (await (await app.request('/api/metrics/current')).json()) as MetricsCurrent
+    expect(body.host?.kind).toBeNull()
+    expect(body.host?.productName).toBeNull()
+    expect(() => MetricsCurrent.parse(body)).not.toThrow()
   })
 
   it('treats a malformed file as not collected', async () => {

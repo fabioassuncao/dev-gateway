@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   aggregateProjects,
+  deriveHostKind,
   detectRuntime,
   dockerCliStatsToRaw,
   parseDockerPercent,
@@ -237,5 +238,53 @@ describe('battery and temperature', () => {
     expect(normalizeTemperature({ main: 0, cores: [51, 63, 58] })).toBe(63)
     expect(normalizeTemperature({}, [{ vendor: null, model: 'RTX', vramBytes: null, utilisation: null, temperature: 71 }])).toBe(71)
     expect(normalizeTemperature({}, [])).toBeNull()
+  })
+})
+
+describe('host kind', () => {
+  const laptopBattery = { hasBattery: true as const, percent: 0.8, charging: false, acConnected: false, minutesRemaining: null, cycleCount: null }
+
+  it('calls a hypervisor guest a VM whatever its chassis claims', () => {
+    expect(deriveHostKind({ virtual: true, chassisType: 'Notebook', battery: laptopBattery })).toBe('vm')
+  })
+
+  it('reads the chassis type the way an operator would', () => {
+    for (const chassis of ['Notebook', 'Laptop', 'Convertible']) {
+      expect(deriveHostKind({ virtual: false, chassisType: chassis, battery: null })).toBe('notebook')
+    }
+    for (const chassis of ['Tower', 'Mini PC', 'Desktop']) {
+      expect(deriveHostKind({ virtual: false, chassisType: chassis, battery: null })).toBe('desktop')
+    }
+    for (const chassis of ['Rack Mount Chassis', 'Blade', 'Main Server Chassis']) {
+      expect(deriveHostKind({ virtual: false, chassisType: chassis, battery: null })).toBe('server')
+    }
+  })
+
+  it('falls back to the battery, and to nothing at all', () => {
+    expect(deriveHostKind({ virtual: false, chassisType: 'Other', battery: laptopBattery })).toBe('notebook')
+    expect(deriveHostKind({ virtual: null, chassisType: null, battery: null })).toBeNull()
+    expect(deriveHostKind({ virtual: false, chassisType: '', battery: null })).toBeNull()
+  })
+
+  it('keeps the commercial name on macOS, where system.version carries it', () => {
+    const host = normalizeHost({
+      system: { manufacturer: 'Apple Inc.', model: 'Mac15,6', version: 'MacBook Pro (14-inch, M3 Pro, Nov 2023)', virtual: false, type: 'Notebook' },
+      os: { platform: 'darwin', distro: 'macOS', release: '26.5.2', arch: 'arm64' },
+      chassis: { type: 'Notebook' },
+    })
+    expect(host.productName).toBe('MacBook Pro (14-inch, M3 Pro, Nov 2023)')
+    expect(host.kind).toBe('notebook')
+    expect(host.model).toBe('Mac15,6')
+  })
+
+  it('does not mistake a Linux DMI product_version for a name', () => {
+    const host = normalizeHost({
+      system: { manufacturer: 'QEMU', model: 'Standard PC (Q35 + ICH9, 2009)', version: 'pc-q35-8.2', virtual: true },
+      os: { platform: 'linux', distro: 'Ubuntu', release: '24.04', arch: 'x64' },
+      chassis: { type: 'Other' },
+    })
+    expect(host.productName).toBeNull()
+    expect(host.kind).toBe('vm')
+    expect(host.manufacturer).toBe('QEMU')
   })
 })

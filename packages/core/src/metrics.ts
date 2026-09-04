@@ -66,10 +66,18 @@ export interface HostLoad {
   fifteen: number
 }
 
+/** What a person would call the machine, when the hardware says. */
+export const HOST_KINDS = ['notebook', 'desktop', 'server', 'vm'] as const
+export type HostKind = (typeof HOST_KINDS)[number]
+
 export interface HostMetrics {
   hostname: string | null
   manufacturer: string | null
   model: string | null
+  /** The commercial name, where the platform reports a trustworthy one (macOS so far). */
+  productName: string | null
+  /** From the chassis, the hypervisor flag and the battery; null when none of them say. */
+  kind: HostKind | null
   architecture: string | null
   virtual: boolean | null
   platform: string | null
@@ -186,6 +194,8 @@ export function emptyHost(): HostMetrics {
     hostname: null,
     manufacturer: null,
     model: null,
+    productName: null,
+    kind: null,
     architecture: null,
     virtual: null,
     platform: null,
@@ -373,6 +383,33 @@ export function normalizeBattery(battery: unknown): HostBatteryInfo | null {
   }
 }
 
+// SMBIOS chassis names as systeminformation spells them, grouped by what an
+// operator would call the machine. Anything else ('Other', 'Docking Station',
+// 'IoT Gateway', an empty string) says nothing and maps to null.
+const LAPTOP_CHASSIS = /^(portable|laptop|notebook|sub notebook|hand held|tablet|convertible|detachable)$/i
+const DESKTOP_CHASSIS = /^(desktop|low profile desktop|mini tower|tower|all in one|space-saving|lunch box|sealed-case pc|mini pc|stick pc|embedded pc)$/i
+const SERVER_CHASSIS = /^(pizza box|main server chassis|expansion chassis|sub chassis|bus expansion chassis|peripheral chassis|raid chassis|rack mount chassis|multi-system|compactpci|advancedtca|blade|blade enclosure)$/i
+
+/**
+ * What kind of machine this is. A hypervisor's guest is a VM whatever its
+ * chassis claims; otherwise the chassis decides; a battery with no chassis
+ * type is still a laptop. A server that reports nothing stays null rather
+ * than guessed.
+ */
+export function deriveHostKind(input: {
+  virtual: boolean | null
+  chassisType: string | null
+  battery: HostBatteryInfo | null
+}): HostKind | null {
+  if (input.virtual === true) return 'vm'
+  const chassis = (input.chassisType ?? '').trim()
+  if (LAPTOP_CHASSIS.test(chassis)) return 'notebook'
+  if (DESKTOP_CHASSIS.test(chassis)) return 'desktop'
+  if (SERVER_CHASSIS.test(chassis)) return 'server'
+  if (input.battery) return 'notebook'
+  return null
+}
+
 export function normalizeLoad(...candidates: unknown[]): HostLoad | null {
   for (const candidate of candidates) {
     const samples = Array.isArray(candidate) ? candidate : null
@@ -396,6 +433,7 @@ export function normalizeHost(input: {
   time?: unknown
   cpuTemperature?: unknown
   battery?: unknown
+  chassis?: unknown
   storage?: HostStorageInfo | null
 }): HostMetrics {
   const system = record(input.system)
@@ -404,6 +442,18 @@ export function normalizeHost(input: {
   const mem = record(input.mem)
   const currentLoad = record(input.currentLoad)
   const time = record(input.time)
+  const chassis = record(input.chassis)
+
+  const platform = asNonEmptyString(os?.platform)
+  const virtual = asBoolean(system?.virtual)
+  const battery = normalizeBattery(input.battery)
+  // macOS puts the marketing name ("MacBook Pro (14-inch, M3 Pro, Nov 2023)")
+  // in system.version. On Linux the same field is DMI product_version, which
+  // QEMU fills with "pc-q35-8.2"; there the model (DMI product_name) already
+  // names the box as well as anything will.
+  const productName = platform === 'darwin' ? asNonEmptyString(system?.version) : null
+  // si.chassis() is the source; si.system() repeats the type on macOS only.
+  const chassisType = asNonEmptyString(chassis?.type) ?? asNonEmptyString(system?.type)
 
   const memoryTotalBytes = asFiniteNumber(mem?.total)
   const memoryAvailableBytes = asFiniteNumber(mem?.available) ?? asFiniteNumber(mem?.free)
@@ -421,9 +471,11 @@ export function normalizeHost(input: {
     hostname: asNonEmptyString(os?.hostname) ?? asNonEmptyString(system?.hostname),
     manufacturer: asNonEmptyString(system?.manufacturer),
     model: asNonEmptyString(system?.model),
+    productName,
+    kind: deriveHostKind({ virtual, chassisType, battery }),
     architecture: asNonEmptyString(os?.arch) ?? asNonEmptyString(cpu?.arch),
-    virtual: asBoolean(system?.virtual),
-    platform: asNonEmptyString(os?.platform),
+    virtual,
+    platform,
     distro: asNonEmptyString(os?.distro),
     version: asNonEmptyString(os?.release) ?? asNonEmptyString(os?.build),
     release: asNonEmptyString(os?.codename) ?? asNonEmptyString(os?.release),
@@ -449,7 +501,7 @@ export function normalizeHost(input: {
     storage: input.storage ?? null,
     gpu: gpus,
     temperatureCelsius: normalizeTemperature(input.cpuTemperature, gpus),
-    battery: normalizeBattery(input.battery),
+    battery,
   }
 }
 
