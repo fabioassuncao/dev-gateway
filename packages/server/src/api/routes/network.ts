@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
 import { gatewayStatus, componentOf } from '../../services/gateway.ts'
 import { schemeFor } from '../../config.ts'
 import { NetworkView } from 'portta-contracts'

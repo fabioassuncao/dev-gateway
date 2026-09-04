@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
 import { componentOf, gatewayStatus, RESTARTABLE_COMPONENTS } from '../../services/gateway.ts'
 import { loadAliases } from '../../services/overrides.ts'
 import { githubStatusOf } from './integrations.ts'

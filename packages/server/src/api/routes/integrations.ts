@@ -1,14 +1,16 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
+import { githubStatus } from '../../services/integrations/github/status.ts'
+
+/** Re-exported so the routes that report it keep one import. */
+export { githubStatus as githubStatusOf } from '../../services/integrations/github/status.ts'
 import { requireDatabase } from '../../db/index.ts'
-import { unavailableGitHubStatus } from '../../services/integrations/github/index.ts'
 import { planDelivery, verifySignature } from '../../services/integrations/github/sync/webhook.ts'
 import { reconcile, syncRepositoryIssues } from '../../services/integrations/github/sync/issues.ts'
 import {
   GitHubIntegrationView,
   GitHubRepositoryView,
-  GitHubStatus,
 } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 
@@ -31,12 +33,7 @@ function seconds(date: Date | null): number | null {
   return date === null ? null : Math.floor(date.getTime() / 1000)
 }
 
-export function githubStatusOf(deps: AppDeps): GitHubStatus {
-  return (
-    deps.github?.status() ??
-    unavailableGitHubStatus(false, 'the GitHub App is not configured', deps.config.githubApiUrl)
-  )
-}
+
 
 export function integrationRoutes(deps: AppDeps): Hono {
   const app = new Hono()
@@ -51,7 +48,7 @@ export function integrationRoutes(deps: AppDeps): Hono {
     description: 'Reports configuration, reachability, installations, repository count, rate-limit budget and last sync. Secrets never appear here.',
     errors: [500],
   }), async (c) => {
-    const status = githubStatusOf(deps)
+    const status = githubStatus(deps)
 
     // The projection is read from the database, so it answers while GitHub is
     // down. A database that is down is a smaller answer, not an error.

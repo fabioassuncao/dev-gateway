@@ -18,7 +18,7 @@ class ApiError extends Error {
   }
 }
 
-vi.mock('../../src/ui/lib/api/index.ts', () => ({
+vi.mock('@/lib/api/index', () => ({
   ApiError,
   api: {
     applyStatus: () => applyStatus(),
@@ -28,7 +28,7 @@ vi.mock('../../src/ui/lib/api/index.ts', () => ({
   },
 }))
 
-const { ApplyBar } = await import('../../src/ui/components/apply-bar.tsx')
+const { ApplyBar } = await import('@/components/apply-bar')
 
 const IDLE: ApplyStatus = {
   state: 'idle',

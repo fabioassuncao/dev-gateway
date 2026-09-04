@@ -3,7 +3,7 @@ import { screen, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { renderWithQuery } from './render.tsx'
 import { makeTaskSummary } from './fixtures.ts'
-import { TaskTable } from '../../src/ui/components/tasks/task-table.tsx'
+import { TaskTable } from '@/components/tasks/task-table'
 import {
   boardToTasksHref,
   labelsOf,
@@ -18,7 +18,7 @@ import {
   tasksHref,
   tasksReturnHref,
   typesOf,
-} from '../../src/ui/lib/tasks.ts'
+} from '@/lib/tasks'
 
 const COLUMNS = [
   { id: 'backlog', label: 'Backlog', status: 'backlog' as const },
@@ -50,8 +50,8 @@ describe('the task table', () => {
 
   it('links every row to the task it is', () => {
     renderWithQuery(<TaskTable slug="produto" tasks={tasks} columns={COLUMNS} />)
-    expect(screen.getByRole('link', { name: '#1' })).toHaveAttribute('href', '#/projects/produto/tasks/1')
-    expect(screen.getByRole('link', { name: 'Parent' })).toHaveAttribute('href', '#/projects/produto/tasks/1')
+    expect(screen.getByRole('link', { name: '#1' })).toHaveAttribute('href', '/projects/produto/tasks/1')
+    expect(screen.getByRole('link', { name: 'Parent' })).toHaveAttribute('href', '/projects/produto/tasks/1')
   })
 
   it('changes a status from the row, without opening the task', async () => {
@@ -79,8 +79,8 @@ describe('the task table', () => {
     const rows = [makeTaskSummary({ id: '1', project: 'portta', title: 'Gateway' })]
     renderWithQuery(<TaskTable tasks={rows} columns={COLUMNS} showProject projectNames={{ portta: 'Portta' }} from="tasks" />)
     expect(screen.getByRole('columnheader', { name: 'Project' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Portta' })).toHaveAttribute('href', '#/projects/portta')
-    expect(screen.getByRole('link', { name: '#1' })).toHaveAttribute('href', '#/projects/portta/tasks/1?from=tasks')
+    expect(screen.getByRole('link', { name: 'Portta' })).toHaveAttribute('href', '/projects/portta')
+    expect(screen.getByRole('link', { name: '#1' })).toHaveAttribute('href', '/projects/portta/tasks/1?from=tasks')
   })
 })
 
@@ -96,7 +96,7 @@ describe('task addressing and filters', () => {
     expect(tasksHref('produto', 'table', { status: 'blocked', q: 'auth' })).toBe('/projects/produto/tasks?view=table&status=blocked&q=auth')
     expect(tasksHref({ global: true }, 'board', { project: 'portta', status: 'in_progress' })).toBe('/tasks?project=portta&status=in_progress')
     expect(tasksHref({ global: true }, 'table', { q: 'auth' })).toBe('/tasks?view=table&q=auth')
-    expect(taskHref('portta', '42', { from: 'tasks' })).toBe('#/projects/portta/tasks/42?from=tasks')
+    expect(taskHref('portta', '42', { from: 'tasks' })).toBe('/projects/portta/tasks/42?from=tasks')
     // Priority is a real filter now, so a legacy link keeps it instead of dropping it.
     expect(boardToTasksHref('produto', 'backlog', '?priority=urgent&q=x')).toBe('/projects/produto/tasks?view=table&priority=urgent&q=x')
   })

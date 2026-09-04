@@ -9,7 +9,7 @@ const rebuildEnvironment = vi.fn()
 const removeEnvironment = vi.fn()
 const environmentRemovalPreview = vi.fn()
 
-vi.mock('../../src/ui/lib/api/index.ts', () => ({
+vi.mock('@/lib/api/index', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     rebuildEnvironment: (...args: unknown[]) => rebuildEnvironment(...args),
@@ -19,7 +19,7 @@ vi.mock('../../src/ui/lib/api/index.ts', () => ({
   },
 }))
 
-const { EnvironmentOperations } = await import('../../src/ui/components/environment-operations.tsx')
+const { EnvironmentOperations } = await import('@/components/environment-operations')
 
 function project(overrides: Partial<Environment> = {}): Environment {
   const services = overrides.services ?? [

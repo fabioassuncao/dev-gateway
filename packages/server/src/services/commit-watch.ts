@@ -8,7 +8,7 @@
 
 import type { PanelConfig } from '../config.ts'
 import type { Database } from '../db/index.ts'
-import type { LiveHub } from './events.ts'
+import type { LiveHub } from '../realtime/hub.ts'
 import { readRepositoryScan } from './git.ts'
 import { loadScans, matchScan } from './repositories.ts'
 import { recordActivity } from './activity.ts'

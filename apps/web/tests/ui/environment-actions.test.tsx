@@ -8,7 +8,7 @@ import type { Environment } from 'portta-contracts'
 const environmentAction = vi.fn()
 const forgetEnvironment = vi.fn()
 
-vi.mock('../../src/ui/lib/api/index.ts', () => ({
+vi.mock('@/lib/api/index', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     environmentAction: (...args: unknown[]) => environmentAction(...args),
@@ -21,7 +21,7 @@ beforeEach(() => {
   forgetEnvironment.mockReset().mockResolvedValue({ ok: true, forgotten: 'alpha' })
 })
 
-const { EnvironmentActions } = await import('../../src/ui/components/environment-actions.tsx')
+const { EnvironmentActions } = await import('@/components/environment-actions')
 
 function project(overrides: Partial<Environment> = {}): Environment {
   const services = overrides.services ?? [

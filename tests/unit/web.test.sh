@@ -376,19 +376,22 @@ assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/core/s
 it "mounts the generated SQL so a new migration is visible without rebuilding"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/db/drizzle:/app/packages/db/drizzle"
 
-it "publishes the UI on its own port, which is where the panel answers"
-assert_contains "$(cat docker/compose/features/web-dev.yaml)" "PORTTA_WEB_DEV_PORT:-5173"
+# One process, one port: Next, the API, the event stream and the upgrades are
+# all behind one dispatcher, so HMR arrives on the same port the API answers on.
+# There used to be a second container running Vite on 5173.
+it "runs one container, not a second one for the UI"
+assert_eq "" "$(grep -vE '^\s*#' docker/compose/features/web-dev.yaml | grep -n 'web-ui\|5173' || true)"
 
-it "mounts the documentation so the docs Vite can collect it"
+it "mounts the documentation so a change to a page is visible without rebuilding"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./docs:/app/docs:ro"
 
-it "mounts the docs Vite config beside the UI one"
-assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./apps/web/vite.docs.config.ts:/app/apps/web/vite.docs.config.ts:ro"
-
-it "each Vite writes its pre-bundle to its own cacheDir"
-assert_contains "$(cat apps/web/vite.config.ts)" "node_modules/.vite/ui"
-assert_contains "$(cat apps/web/vite.docs.config.ts)" "node_modules/.vite/docs"
-assert_contains "$(cat apps/web/vite.auth.config.ts)" "node_modules/.vite/auth"
+# The panel is Next now. Nothing in apps/web builds with Vite — `vitest.config.ts`
+# is the test runner, which is Vite and says so. The one Vite build left in the
+# repository makes the login page apps/auth serves, a separate service on a
+# separate origin that may not import from the panel.
+it "leaves no Vite build in the panel"
+assert_eq "" "$(find apps/web -maxdepth 1 -name 'vite.*.ts' -o -maxdepth 1 -name 'vite.config.ts' | sort)"
+assert_contains "$(cat apps/auth/vite.config.ts)" "/__portta/auth/"
 
 it "the checkout migrator builds the auth image before running"
 assert_contains "$(sed -n '/export function authMigrationRunArguments/,/^}/p' packages/cli/src/commands/lifecycle.ts)" "'--build'"

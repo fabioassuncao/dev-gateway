@@ -49,7 +49,7 @@ create an arbitrary container. See [Out of scope](#out-of-scope).
 ```text
 Browser
    |                              http, loopback by default
-Panel (Hono + React, one container)
+Panel (Next.js + Hono, one process, one container)
    |-- filtered Docker API, internal control network
 Panel socket proxy
    |                              read-only bind of the socket
@@ -57,9 +57,27 @@ Docker
 Panel -- durable decisions --> PostgreSQL (private data network, no host port)
 ```
 
-The panel application is a single container. In production the Node process serves both the
-JSON API and the built UI, so there is one address to remember. It joins two
-networks: the gateway's shared network (so it can be published, and routed by
+The panel application is a single container running a single Node process, and
+that process is a dispatcher over four things:
+
+```text
+/api/*        the Hono API, including the event stream
+upgrade /ws/* WebSocket, authorised before the handshake
+/*            Next's handler: the pages, their data, their assets
+```
+
+`apps/web/server/main.ts` composes them and `apps/web/server/compose.ts` decides
+which is which. One process because the panel is loopback by default with no
+proxy in front of it, a session cookie needs a single origin, and one container
+is what `portta web up` already starts.
+
+A page is a Server Component: it calls `services.*` from `portta-server`
+directly and never fetches the API this same process is serving. What it reads
+is handed to the client as `initialData`, so the first paint is the page rather
+than a spinner, and the event stream keeps it alive from there. A mutation
+always goes through `/api` — the same contract the CLI and MCP use.
+
+It joins two networks: the gateway's shared network (so it can be published, and routed by
 Traefik when that is asked for) and its own `internal` control network, where
 its socket proxy lives. A third, dedicated internal network connects only the
 panel and its PostgreSQL database.
@@ -80,11 +98,29 @@ newer daemon cannot silently change the response contract. See
 
 | Layer | Choice |
 |---|---|
-| API | Node 24, TypeScript, [Hono](https://hono.dev/), Zod for input validation |
-| UI | React 19, Vite 8, Tailwind CSS 4, Radix primitives, TanStack Query |
-| Persistence | PostgreSQL 18, SQL migrations, typed repositories |
+| Pages | [Next.js 16](https://nextjs.org/) App Router, React 19, Server Components by default |
+| Server | Node 24, TypeScript, a custom `http` server that dispatches to Next and Hono |
+| API | [Hono](https://hono.dev/), Zod for input validation, OpenAPI generated from the routes |
+| UI | Tailwind CSS 4, Radix primitives, TanStack Query, next-themes, i18next |
+| Persistence | PostgreSQL 18, Drizzle ORM, generated migrations |
 | Live updates | Server-sent events, fed by Docker's own event stream |
-| Tests | Vitest (API, core, components), Playwright (end to end) |
+| Tests | Vitest (services, API, components, schema), Playwright (end to end) |
+
+There is no Vite in the panel. The one Vite build left in the repository makes
+the login page `apps/auth` serves, which is a separate service on a separate
+origin and may not import from the panel.
+
+### Where the code lives
+
+```text
+apps/web/
+├── app/                 routes. (panel)/ has the shell; docs/ is the documentation
+├── components/          ui/ primitives, shell/, entities/, tasks/, settings/
+├── lib/                 api client, queries, live, i18n, docs collector, format
+├── messages/            en/*.json, pt-BR/*.json
+├── server/              main.ts (the process) and compose.ts (the dispatcher)
+└── public/              the favicon, and nothing that needs a request elsewhere
+```
 
 ### Shell and navigation
 
@@ -151,32 +187,37 @@ just db-migrate              # apply pending SQL without a restart
 ./bin/portta web dev         # the panel alone, on a gateway already running
 ```
 
-Two containers from the same image: the API with `node --watch`, and Vite in
-front of it with HMR on `http://127.0.0.1:5173`. `apps/web/src`,
-`apps/web/migrations` and `packages/core/src` are bind-mounted, so the
-image's `node_modules` stay in place. Edits under `apps/web/src` reload on
-their own. A new SQL file is visible to the next `portta db migrate` (or
-the next `just dev`) without rebuilding the image. `node --watch` does not
-reload `.sql`; apply it explicitly.
+One container, one port. The panel is a single process, so Next's HMR arrives on
+the same `http://127.0.0.1:8081` the API answers on — there is no second server
+and no second port to remember.
 
-The book icon and every `/docs/#/…` deep link stay on that same port. `dev:ui`
-starts a second Vite for the documentation site (loopback :5174, no HMR) and
-the UI Vite proxies `/docs` to it, so a click never falls through to the
-panel Overview. The Markdown under `docs/`, `README.md` and `CHANGELOG.md` is
-bind-mounted; production still serves the bundle baked into the image.
+`apps/web/{app,components,lib,messages,server,public}`, `packages/*/src`,
+`packages/db/drizzle` and the Markdown under `docs/` are bind-mounted, so the
+image's `node_modules` stay in place. An edit to a page or a component reloads
+in the browser; an edit to `server/main.ts` restarts the process. A newly
+generated migration is visible to the next `portta db migrate` without
+rebuilding the image.
+
+The book icon and every `/docs/…` link stay on that same port: the documentation
+is a route of the panel, not a second site.
 
 `./bin/portta web up` goes back to the built image.
 
 If you do have Node on the host and prefer to work outside containers:
 
 ```bash
-npm ci                 # from the repository root; installs every workspace
-npm run dev --workspace=portta-web        # API on :8081
-npm run dev:ui --workspace=portta-web     # Vite on :5173, docs proxied from :5174
+npm ci                                          # from the repository root
+npm run dev --workspace=portta-web              # the panel on :8081
 npm test --workspace=portta-web
 npm run test:e2e --workspace=portta-web
-npm run openapi --workspace=portta-contracts   # refresh packages/contracts/openapi.json
+npm run openapi --workspace=portta-contracts    # refresh packages/contracts/openapi.json
 ```
+
+`npm run build --workspace=portta-web` is `next build` followed by an esbuild
+bundle of `server/main.ts` into `dist/server.mjs`. It needs the workspace
+packages built first (`core → contracts → db → server`): under
+`NODE_ENV=production` the `development` export condition no longer applies, so
+each resolves to its `dist/`. The image does exactly that, in that order.
 
 ### API contract
 
@@ -213,9 +254,13 @@ requires updating its attached description and running
 ### The documentation, served from the panel
 
 `http://127.0.0.1:8081/docs` is this documentation — every file under `docs/`
-including the ADRs, plus the README and the changelog — rendered into the panel
-image at build time, with a sidebar, an on-page table of contents, search, and
-both themes. The book icon beside the language and theme controls opens it.
+including the ADRs, plus the README and the changelog — rendered at build time
+into static pages, with a sidebar, search and both themes. The book icon beside
+the language and theme controls opens it.
+
+They are ordinary routes of the panel (`app/docs/[[...slug]]`), prerendered by
+`generateStaticParams`, so a deep link is a real URL a server can answer and a
+browser can bookmark.
 
 The source of truth does not move: `docs/*.md` stays ordinary Markdown, readable
 on GitHub, with no front matter and no second copy. The navigation is the
@@ -233,7 +278,7 @@ A fence that fails to parse stays as the source.
 
 Because the build reads every link, it is also the link checker this repository
 did not have: a link that names a documentation page which does not exist fails
-`npm run build:docs`.
+`npm run build --workspace=portta-web`.
 
 Two switches, independent on purpose:
 

@@ -5,12 +5,12 @@ import { renderWithQuery } from './render.tsx'
 
 const overview = vi.fn()
 
-vi.mock('../../src/ui/lib/api/index.ts', () => ({
+vi.mock('@/lib/api/index', () => ({
   ApiError: class ApiError extends Error {},
   api: { overview: () => overview() },
 }))
 
-const { DocText } = await import('../../src/ui/components/doc-text.tsx')
+const { DocText } = await import('@/components/doc-text')
 
 function status(docs: boolean) {
   return { gateway: { panel: { docs } } }

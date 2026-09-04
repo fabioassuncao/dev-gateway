@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import { API_CAPABILITIES, DEFAULT_AGENT_CAPABILITIES, createApiToken, readProtectionStore, revokeApiToken, writeProtectionStore } from 'portta-core'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
 import { documentRoute } from '../openapi.ts'
 
 const Token = z.object({

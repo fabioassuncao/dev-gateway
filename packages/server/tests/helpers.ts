@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { createApp } from '../src/api/index.ts'
 import { loadConfig, type PanelConfig } from '../src/config.ts'
 import { createSnapshotCache } from '../src/services/inventory.ts'
-import { LiveHub } from '../src/services/events.ts'
+import { LiveHub } from '../src/realtime/hub.ts'
 import { createVerdictCache } from '../src/services/traefik.ts'
 import { createTestDb } from 'portta-db/testing'
 import {

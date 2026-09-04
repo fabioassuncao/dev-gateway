@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
 import { closeBridge, listBridges, listForwarders, listTcpServices, openBridge, serviceConnection } from '../../services/access.ts'
 import { AccessView, Bridge, ServiceConnection } from 'portta-contracts'
 import { bridgeIdParameter, documentRoute, projectParameter } from '../openapi.ts'

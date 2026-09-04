@@ -6,14 +6,14 @@ import type { ServiceConnection } from 'portta-contracts'
 
 const serviceConnection = vi.fn()
 
-vi.mock('../../src/ui/lib/api/index.ts', () => ({
+vi.mock('@/lib/api/index', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     serviceConnection: (...args: unknown[]) => serviceConnection(...args),
   },
 }))
 
-const { ConnectionPanel } = await import('../../src/ui/components/connection-panel.tsx')
+const { ConnectionPanel } = await import('@/components/connection-panel')
 
 const data: ServiceConnection = {
   project: 'alpha',

@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
 import { buildConfigView, patchConfig } from '../../services/configview.ts'
 import { ConfigPatchResult, ConfigView } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'

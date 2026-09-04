@@ -66,7 +66,7 @@ const HOST_SNAPSHOT = {
     cpuUtilisation: 0.23,
     cpuIdle: 0.77,
     load: { one: 2.14, five: 1.86, fifteen: 1.62 },
-    storage: { path: '/Users/dev/portta', mount: '/', filesystem: 'apfs', totalBytes: 460 * GB, usedBytes: 190 * GB, availableBytes: 270 * GB, usedPercent: 190 / 460 },
+    storage: { path: '/srv/portta', mount: '/', filesystem: 'apfs', totalBytes: 460 * GB, usedBytes: 190 * GB, availableBytes: 270 * GB, usedPercent: 190 / 460 },
     gpu: [{ vendor: 'Apple', model: 'Apple M3 Pro', vramBytes: null, utilisation: null, temperature: null }],
     temperatureCelsius: null,
     battery: { hasBattery: true, percent: 1, charging: false, acConnected: true, minutesRemaining: null, cycleCount: 143 },
@@ -85,53 +85,15 @@ function writeHostSnapshot() {
   writeFileSync(join(metricsDir, 'current.json'), JSON.stringify({ ...HOST_SNAPSHOT, collectedAt: Math.floor(Date.now() / 1000) }))
 }
 
+// What the documentation shows.
+//
+// One entry per page that exists. The rest — projects, tasks, environments,
+// services, Docker, network, gateway, settings — come back as each page is
+// ported to the App Router, and their shots come back with them; a shot of a
+// 404 is worse than a missing shot.
 const SHOTS = [
-  { name: 'panel-overview', route: '/#/overview', ready: 'Demo Shop' },
-  { name: 'panel-projects', route: '/#/projects', ready: 'Demo Shop' },
-  {
-    name: 'panel-projects-table',
-    route: '/#/projects',
-    ready: 'Demo Shop',
-    async before(page) {
-      await page.getByRole('radio', { name: 'Table' }).click()
-      await page.getByRole('table').waitFor()
-    },
-  },
-  { name: 'panel-tasks', route: '/#/projects/demo-shop/tasks', ready: 'Configurar autenticação' },
-  {
-    name: 'panel-tasks-table',
-    route: '/#/projects/demo-shop/tasks?view=table',
-    ready: 'Configurar autenticação',
-  },
-  {
-    name: 'panel-task',
-    route: '/#/projects/demo-shop/tasks',
-    ready: 'Configurar autenticação',
-    async before(page) {
-      // The board's ids are minted by the seed, so the shot follows a card
-      // rather than guessing a number.
-      await page.getByRole('link', { name: 'Configurar autenticação' }).first().click()
-      await page.getByRole('heading', { level: 1 }).or(page.getByText('Configurar autenticação')).first().waitFor()
-      await page.waitForTimeout(600)
-    },
-  },
-  { name: 'panel-environments', route: '/#/environments', ready: 'demo-shop' },
-  { name: 'panel-environment', route: '/#/environments/demo-shop', ready: 'Open / Test' },
-  { name: 'panel-services', route: '/#/services', ready: 'demo-shop' },
-  { name: 'panel-docker', route: '/#/docker' },
-  { name: 'panel-docker-external', route: '/#/docker', scrollTo: 1500 },
-  { name: 'panel-access', route: '/#/access', ready: '55431' },
-  { name: 'panel-network', route: '/#/network' },
-  {
-    name: 'panel-gateway',
-    route: '/#/gateway',
-    async before(page) {
-      await page.getByRole('button', { name: 'Run diagnostics' }).click()
-      await page.getByText('Traefik', { exact: true }).first().waitFor()
-    },
-  },
-  { name: 'panel-settings', route: '/#/settings/gateway' },
-  { name: 'panel-overview-dark', route: '/#/overview', theme: 'dark', ready: 'Demo Shop' },
+  { name: 'panel-overview', route: '/overview', ready: 'Demo Shop' },
+  { name: 'panel-docs', route: '/docs', ready: 'Portta docs' },
 ]
 
 function sleep(ms) {

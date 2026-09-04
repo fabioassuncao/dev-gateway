@@ -1,0 +1,33 @@
+import type { Metadata } from 'next'
+import { developmentOverview, panelOverview } from 'portta-server'
+import { OverviewView } from '@/components/overview/overview-view'
+import { serverDeps } from '@/lib/server/deps'
+import { serverTranslation } from '@/lib/i18n/server'
+
+// The dashboard is a picture of a running host: it is read on every request,
+// never at build time, and never cached between two of them.
+export const dynamic = 'force-dynamic'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await serverTranslation('overview')
+  return { title: t('title') }
+}
+
+/**
+ * What is happening: the host it happens on, the work, who is on it, what
+ * needs attention, what changed.
+ *
+ * The server reads it and hands it down, so the first paint is the dashboard
+ * rather than a spinner. From there the client keeps it alive: the same query
+ * refetches on its interval, and `lib/live.ts` invalidates it when Docker says
+ * something changed.
+ *
+ * `services.*`, never `fetch('/api/…')`: the request would leave the process,
+ * come back through the same dispatcher, and pay for a round trip to reach code
+ * this render already has.
+ */
+export default async function OverviewPage() {
+  const deps = serverDeps()
+  const [overview, status] = await Promise.all([developmentOverview(deps), panelOverview(deps)])
+  return <OverviewView initialOverview={overview} initialStatus={status} />
+}

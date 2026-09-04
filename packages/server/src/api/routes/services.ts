@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
 import { findContainer } from '../../services/actions.ts'
 import { dashboardRouterUrl, routersFor } from '../../services/traefik.ts'
 import { ContainerSummary, LogsResponse, ServiceTraefik } from 'portta-contracts'

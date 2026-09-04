@@ -2,8 +2,8 @@ import type { ReactElement, ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { I18nextProvider } from 'react-i18next'
 import { render } from '@testing-library/react'
-import i18n from '../../src/ui/i18n/index.ts'
-import type { Locale } from '../../src/ui/i18n/use-locale.ts'
+import i18n from '@/lib/i18n/client'
+import type { Locale } from '@/lib/i18n/use-locale'
 
 export function renderWithQuery(ui: ReactElement, locale?: Locale) {
   if (locale) void i18n.changeLanguage(locale)

@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
 import { RunnerStatus } from 'portta-contracts'
 import { runnerStatus } from '../../services/runner.ts'
 import { documentRoute } from '../openapi.ts'

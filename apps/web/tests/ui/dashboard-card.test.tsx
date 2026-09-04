@@ -5,12 +5,12 @@ import type { GatewayStatus } from 'portta-contracts'
 
 const gateway = vi.fn()
 
-vi.mock('../../src/ui/lib/api/index.ts', () => ({
+vi.mock('@/lib/api/index', () => ({
   ApiError: class ApiError extends Error {},
   api: { gateway: () => gateway() },
 }))
 
-const { DashboardCard } = await import('../../src/ui/components/dashboard-card.tsx')
+const { DashboardCard } = await import('@/components/dashboard-card')
 
 function status(overrides: Partial<GatewayStatus['dashboard']> = {}): GatewayStatus {
   return {

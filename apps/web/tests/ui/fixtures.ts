@@ -349,7 +349,7 @@ export function makeTaskSummary(overrides: Partial<TaskSummary> = {}): TaskSumma
     createdAt: 1_700_000_000,
     updatedAt: 1_700_000_000,
     closedAt: null,
-    panelUrl: `#/projects/produto/tasks/${id}`,
+    panelUrl: `/projects/produto/tasks/${id}`,
     ...overrides,
   }
 }
@@ -445,7 +445,7 @@ export function makeOverview(overrides: Partial<DevelopmentOverview> = {}): Deve
     },
     sessions: [makeSession()],
     attention: [
-      { kind: 'service-unhealthy', severity: 'fail', summary: 'produto/worker is unhealthy', project: 'produto', environment: 'produto', service: 'worker', taskId: null, href: '#/environments/produto?service=worker' },
+      { kind: 'service-unhealthy', severity: 'fail', summary: 'produto/worker is unhealthy', project: 'produto', environment: 'produto', service: 'worker', taskId: null, href: '/environments/produto?service=worker' },
     ],
     projects: [makePulse()],
     code: {

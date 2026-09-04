@@ -17,7 +17,12 @@ the Alpine panel image cannot build Vite.
 
 ```text
 portta/
-├── apps/web/                the panel: the UI, and the process that serves it
+├── apps/web/                the panel: Next.js pages and the process that serves them
+│   ├── app/                 routes; (panel)/ carries the shell, docs/ the documentation
+│   ├── components/          ui/ primitives, shell/, entities/, tasks/, settings/
+│   ├── lib/                 api client, queries, live, i18n, docs collector
+│   ├── messages/            en/*.json, pt-BR/*.json
+│   └── server/              main.ts (the process), compose.ts (the dispatcher)
 ├── apps/auth/               the ForwardAuth service for project hostnames and shares
 ├── packages/core/           portta-core — shared derivations (private)
 ├── packages/contracts/      portta-contracts — API schemas, types, openapi.json
@@ -36,7 +41,7 @@ portta/
 
 | Workspace | Name | Published | Holds |
 |---|---|---|---|
-| `apps/web` | `portta-web` | no | The UI, the process entry point, the Dockerfile, and the panel's own tests. No business rule |
+| `apps/web` | `portta-web` | no | The pages, the process that serves them, the Dockerfile, and the panel's own tests. No business rule |
 | `apps/auth` | `portta-auth` | no | ForwardAuth for project hostnames and shares |
 | `packages/core` | `portta-core` | no | Pure derivations: `env`, `config`, `discovery`, `capabilities`, `endpoints`, `inventory`, `apply`, `tunnel`, `password`, `metrics`. No process execution, ever |
 | `packages/contracts` | `portta-contracts` | no (the future SDK's source) | The API's Zod schemas and types, and the generated `openapi.json` |
@@ -103,8 +108,10 @@ Read the edges as consequences, not preferences:
   one that opens Docker, Traefik, Git, GitHub or PostgreSQL. It exports names,
   never `export *` from a service, so `apps/web` cannot reach past what it
   means to offer.
-- **`apps/web` composes.** A page calls a service; it never fetches its own API
-  from the server side.
+- **`apps/web` composes.** A page calls a service through `lib/server/deps.ts`;
+  it never fetches its own API from the server side, because the request would
+  leave the process and come back through the same dispatcher to reach code the
+  render already has.
 - **`packages/cli` never imports the server or the database.** It talks to the
   panel over HTTP, which is the rule that keeps "the CLI never opens
   PostgreSQL" true by construction rather than by care.
@@ -113,7 +120,8 @@ Read the edges as consequences, not preferences:
 
 | You are adding… | It belongs in… |
 |---|---|
-| A panel page or React component | `apps/web` |
+| A panel page | `apps/web` `app/`, as a Server Component; a Client Component only where there is interaction |
+| A React component | `apps/web` `components/` |
 | An API route, or the rule behind one | `packages/server` — `src/api/routes/` for the route, `src/services/` for the rule. Never in `apps/web` |
 | A Zod schema the API answers with, or a type the CLI compiles against | `packages/contracts` |
 | A table, a column, an index or a check | `packages/db` `src/schema/`, then `npm run db:generate --workspace=portta-db`. Never SQL by hand |

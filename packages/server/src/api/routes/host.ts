@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
 import { MetricsCurrent, MetricsHistory } from 'portta-contracts'
 import { historyWindowSeconds, readCurrentMetrics, readMetricsHistory } from '../../services/metrics.ts'
 import { documentRoute } from '../openapi.ts'

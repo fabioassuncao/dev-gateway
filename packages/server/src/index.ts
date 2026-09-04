@@ -8,10 +8,11 @@
 
 export { createApi, createApp, type AppDeps } from './api/index.ts'
 export { generateOpenApi } from './api/openapi.ts'
+export { eventRoutes } from './realtime/sse.ts'
 export { isAuthenticated, loadConfig, type PanelConfig } from './config.ts'
 export { Database, DatabaseUnavailable } from './db/index.ts'
 export { DockerClient } from './services/docker/client.ts'
-export { LiveHub } from './services/events.ts'
+export { LiveHub } from './realtime/hub.ts'
 export { createSnapshotCache } from './services/inventory.ts'
 export { createVerdictCache } from './services/traefik.ts'
 export { GENERATED_FILES, reconcilePanelProtection } from './services/dynamic.ts'
@@ -20,6 +21,12 @@ export { GitHubIntegration } from './services/integrations/github/index.ts'
 // The panel's own fixtures derive a service's technology the way the inventory
 // does, rather than restating the answer and drifting from it.
 export { resolveServiceTech } from './services/tech.ts'
+
+// What a Server Component reads. A page calls these directly; it never fetches
+// the API this process is already serving.
+export { developmentOverview, listProjects } from './services/development.ts'
+export { panelOverview } from './services/status.ts'
+export { readCurrentMetrics } from './services/metrics.ts'
 
 // Background work. The host stays the collector; these are the intervals the
 // panel itself owns.

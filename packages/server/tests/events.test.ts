@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { LiveHub, translate } from '../src/services/events.ts'
+import { LiveHub, translate } from '../src/realtime/hub.ts'
 import { createSnapshotCache } from '../src/services/inventory.ts'
 import { fakeDocker, testConfig } from './helpers.ts'
 import { FULL_HOST } from './fixtures.ts'

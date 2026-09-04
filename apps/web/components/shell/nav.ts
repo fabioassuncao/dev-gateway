@@ -1,0 +1,83 @@
+import type { ComponentType } from 'react'
+import {
+  Activity,
+  Boxes,
+  Container,
+  Globe,
+  LayoutDashboard,
+  ListTodo,
+  Network,
+  PlugZap,
+  Settings as SettingsIcon,
+} from 'lucide-react'
+
+export type NavLabelKey =
+  | 'overview'
+  | 'projects'
+  | 'tasks'
+  | 'services'
+  | 'docker'
+  | 'network'
+  | 'access'
+  | 'gateway'
+  | 'settings'
+
+export type NavGroupKey = 'groups.development' | 'groups.infrastructure'
+
+export interface NavItem {
+  href: string
+  labelKey: NavLabelKey
+  icon: ComponentType<{ className?: string }>
+  /**
+   * Whether the page exists yet.
+   *
+   * The pages come back one group at a time as they are ported. An entry that
+   * is not ready stays in this list rather than being deleted and re-added: the
+   * order, the grouping and the icons are decided once, and turning a page on
+   * is a one-word change beside it.
+   */
+  enabled: boolean
+}
+
+export interface NavGroup {
+  /** Null for the trailing items that belong to no group. */
+  labelKey: NavGroupKey | null
+  items: NavItem[]
+}
+
+/**
+ * Two groups and a tail. Development is where a day starts; infrastructure
+ * is the set of technical perspectives over the same host. Settings sits
+ * alone at the end because it is neither.
+ */
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    labelKey: 'groups.development',
+    items: [
+      { href: '/overview', labelKey: 'overview', icon: LayoutDashboard, enabled: true },
+      { href: '/projects', labelKey: 'projects', icon: Boxes, enabled: false },
+      { href: '/tasks', labelKey: 'tasks', icon: ListTodo, enabled: false },
+    ],
+  },
+  {
+    labelKey: 'groups.infrastructure',
+    items: [
+      { href: '/services', labelKey: 'services', icon: Container, enabled: false },
+      { href: '/docker', labelKey: 'docker', icon: Activity, enabled: false },
+      { href: '/network', labelKey: 'network', icon: Network, enabled: false },
+      { href: '/access', labelKey: 'access', icon: PlugZap, enabled: false },
+      { href: '/gateway', labelKey: 'gateway', icon: Globe, enabled: false },
+    ],
+  },
+  {
+    labelKey: null,
+    items: [{ href: '/settings', labelKey: 'settings', icon: SettingsIcon, enabled: false }],
+  },
+]
+
+/** Which sidebar entry a path belongs to. `/projects/x/tasks` is still Projects. */
+export function activeHref(pathname: string): string {
+  const first = pathname.split('/').filter(Boolean)[0] ?? 'overview'
+  // An environment is reached from a Project, and belongs under it.
+  return first === 'environments' ? '/projects' : `/${first}`
+}

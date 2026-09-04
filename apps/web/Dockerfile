@@ -2,14 +2,15 @@
 # Portta: administration panel
 # =============================================================================
 # Build context is the repository root so npm workspaces can install from the
-# single lockfile. The runtime stage carries the built server, the built UI
+# single lockfile. The runtime stage carries the built server, the built pages
 # and the production dependencies only: no compiler, no source, no Docker CLI,
 # and no access to the Docker socket. The panel reaches Docker exclusively
 # through its own socket proxy over an internal network.
 #
-# The panel is composed from five packages now, and they build in dependency
-# order: core → contracts → db → server → web. Skipping one leaves the next
-# resolving a dist/ that does not exist.
+# The panel is composed from five packages, and they build in dependency order:
+# core → contracts → db → server → web. Skipping one leaves the next resolving
+# a dist/ that does not exist, because `next build` runs under NODE_ENV
+# production, where the `development` export condition no longer applies.
 # =============================================================================
 
 FROM node:24.20.0-alpine AS deps
@@ -23,32 +24,37 @@ COPY packages/db/package.json ./packages/db/
 COPY packages/server/package.json ./packages/server/
 COPY packages/cli/package.json ./packages/cli/
 # Install the whole workspace graph. Filtering with --workspace drops optional
-# native bindings (Vite/rolldown) that the Alpine build needs.
+# native bindings the Alpine build needs.
 RUN npm ci
 
 # --- build -------------------------------------------------------------------
 FROM deps AS build
 WORKDIR /app
-COPY apps/web/tsconfig.json apps/web/tsconfig.server.json apps/web/vite.config.ts ./apps/web/
-COPY apps/web/vite.auth.config.ts apps/web/vite.docs.config.ts ./apps/web/
-COPY apps/web/src ./apps/web/src
-# The documentation itself, read at build time by apps/web/vite.docs.config.ts
-# and rendered into the bundle. The Markdown never reaches the runtime stage;
-# what ships is the HTML it produced, which is what makes /docs offline.
-COPY docs ./docs
-COPY README.md CHANGELOG.md ./
-COPY apps/auth/tsconfig.json apps/auth/tsconfig.build.json ./apps/auth/
-COPY apps/auth/src ./apps/auth/src
-# Both configs: each package builds through tsconfig.build.json, which extends
-# tsconfig.json to drop the tests from the published output.
 COPY packages/core/tsconfig.json packages/core/tsconfig.build.json ./packages/core/
 COPY packages/core/src ./packages/core/src
 COPY packages/contracts/tsconfig.json packages/contracts/tsconfig.build.json ./packages/contracts/
 COPY packages/contracts/src ./packages/contracts/src
 COPY packages/db/tsconfig.json packages/db/tsconfig.build.json ./packages/db/
 COPY packages/db/src ./packages/db/src
+COPY packages/db/drizzle ./packages/db/drizzle
 COPY packages/server/tsconfig.json packages/server/tsconfig.build.json ./packages/server/
 COPY packages/server/src ./packages/server/src
+COPY apps/auth/tsconfig.json apps/auth/tsconfig.build.json apps/auth/tsconfig.ui.json apps/auth/vite.config.ts ./apps/auth/
+COPY apps/auth/src ./apps/auth/src
+COPY apps/auth/ui ./apps/auth/ui
+COPY apps/web/tsconfig.json apps/web/next.config.ts apps/web/postcss.config.mjs apps/web/esbuild.server.ts ./apps/web/
+COPY apps/web/app ./apps/web/app
+COPY apps/web/components ./apps/web/components
+COPY apps/web/lib ./apps/web/lib
+COPY apps/web/messages ./apps/web/messages
+COPY apps/web/server ./apps/web/server
+COPY apps/web/public ./apps/web/public
+# The documentation itself, read at build time by app/docs and rendered into
+# static pages. What ships is the HTML it produced, which is what makes /docs
+# offline; the Markdown reaches the runtime stage too, because a page
+# regenerated on demand reads it again.
+COPY docs ./docs
+COPY README.md CHANGELOG.md ./
 RUN npm run build --workspace=portta-core \
  && npm run build --workspace=portta-contracts \
  && npm run build --workspace=portta-db \
@@ -57,8 +63,9 @@ RUN npm run build --workspace=portta-core \
  && npm run build --workspace=portta-web
 
 # --- development -------------------------------------------------------------
-# Used by docker/compose/features/web-dev.yaml, which bind-mounts the source over
-# /app/apps/web and runs either the API with `node --watch` or Vite with HMR.
+# Used by docker/compose/features/web-dev.yaml, which bind-mounts the source
+# over /app and runs the panel with `tsx watch`. One container, one port: HMR
+# arrives on the same 8081 the API answers on.
 FROM deps AS dev
 WORKDIR /app
 ENV NODE_ENV=development
@@ -76,14 +83,15 @@ COPY packages/db/src ./packages/db/src
 COPY packages/db/drizzle ./packages/db/drizzle
 COPY packages/server/tsconfig.json ./packages/server/
 COPY packages/server/src ./packages/server/src
+COPY docs ./docs
+COPY README.md CHANGELOG.md ./
 WORKDIR /app/apps/web
-# The container runs as an unprivileged user, and Vite writes a temporary
-# config next to vite.config.ts and a cache under node_modules.
+# The container runs as an unprivileged user, and Next writes .next beside the
+# source it was given.
 RUN chown -R node:node /app
 USER node
-EXPOSE 8081 5173
+EXPOSE 8081
 # Through the package script, so `--conditions=development` is declared once.
-# Dropping it resolves the workspace packages to a dist/ this stage does not build.
 CMD ["npm", "run", "dev"]
 
 # --- runtime -----------------------------------------------------------------
@@ -104,14 +112,21 @@ COPY packages/server/package.json ./packages/server/
 COPY packages/cli/package.json ./packages/cli/
 RUN npm ci --workspace=portta-web --workspace=portta-auth --omit=dev && npm cache clean --force
 COPY --from=build /app/apps/auth/dist ./apps/auth/dist
+COPY --from=build /app/apps/web/.next ./apps/web/.next
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY --from=build /app/packages/core/dist ./packages/core/dist
 COPY --from=build /app/packages/contracts/dist ./packages/contracts/dist
 COPY --from=build /app/packages/db/dist ./packages/db/dist
 COPY --from=build /app/packages/server/dist ./packages/server/dist
+COPY apps/web/next.config.ts ./apps/web/
+COPY apps/web/public ./apps/web/public
 # The generated SQL, beside the dist that resolves it: the panel applies pending
 # migrations at boot, so the image has to carry them.
 COPY packages/db/drizzle ./packages/db/drizzle
+# The Markdown behind /docs. Most pages are prerendered into .next, and one that
+# is regenerated on demand reads the source again.
+COPY docs ./docs
+COPY README.md CHANGELOG.md ./
 
 WORKDIR /app/apps/web
 USER node
@@ -120,4 +135,4 @@ EXPOSE 8081
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=5 \
   CMD wget -q -O /dev/null http://127.0.0.1:8081/api/health || exit 1
 
-CMD ["node", "dist/server/index.js"]
+CMD ["node", "dist/server.mjs"]

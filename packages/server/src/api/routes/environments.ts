@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
 import { HTTPException } from 'hono/http-exception'
 import { readProjectGit } from '../../services/git.ts'
 import { mergeLogSources, type LogSourceLines } from '../../services/projectlogs.ts'

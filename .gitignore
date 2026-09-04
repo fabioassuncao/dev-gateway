@@ -45,7 +45,9 @@ apps/web/node_modules/
 apps/*/dist/
 apps/web/test-results/
 apps/web/playwright-report/
-apps/web/.vite/
+apps/web/.next/
+apps/web/next-env.d.ts
+apps/web/tsconfig.tsbuildinfo
 packages/*/node_modules/
 packages/*/dist/
 

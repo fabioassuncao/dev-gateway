@@ -23,8 +23,9 @@ Nothing else.
 | `packages/server/src/**` | `npm test --workspace=portta-server` | ~35s |
 | `packages/cli/src/**` | `npm test --workspace=portta` | ~0.7s |
 | `apps/auth/src/**` | `npm test --workspace=portta-auth` | ~0.5s |
-| `apps/web/src/ui/**` | `npm test --workspace=portta-web -- --project ui` | ~11s |
-| `apps/web/src/docs/**` | `npm test --workspace=portta-web -- --project docs` | ~0.5s |
+| `apps/web/{app,components,lib}/**` | `npm test --workspace=portta-web -- --project ui` | ~11s |
+| `apps/web/server/**` | `npm test --workspace=portta-web -- --project server` | ~1s |
+| `apps/web/lib/docs/**` | `npm test --workspace=portta-web -- --project docs` | ~0.5s |
 | an API route or a schema | also `npm run openapi:check --workspace=portta-contracts` | ~0.5s |
 | `scripts/lib/*.sh`, `bin/portta`, `install.sh` | `bash tests/unit/<subject>.test.sh` | 0.1–13s |
 | `docker/compose/**`, `templates/**` | `bash tests/unit/profiles.test.sh` and `bash tests/unit/templates.test.sh` | ~6s |
@@ -57,7 +58,10 @@ always before a merge or a release:
 ```
 
 The two expensive layers stay opt-in, because both need a Docker daemon and
-both take minutes:
+both take minutes. The panel's browser run needs one too now: PostgreSQL is a
+boot dependency of the panel, so the harness starts a disposable database and
+removes it afterwards. Point `PORTTA_E2E_DATABASE_URL` at one you already have
+to skip that.
 
 ```bash
 ./tests/run.sh --e2e    # the gateway end to end, plus the panel in a browser
@@ -147,10 +151,11 @@ review:
 | CLI | `packages/cli/src/**/*.test.ts` | no | `tests/run.sh`, CI |
 | ForwardAuth | `apps/auth/src/*.test.ts` | no | `tests/run.sh`, CI |
 | Panel components | `apps/web/tests/ui/` | no | `tests/run.sh`, CI |
+| The panel's dispatcher | `apps/web/tests/server/` | no | `tests/run.sh`, CI |
 | Documentation collection | `apps/web/tests/docs/` | no | `tests/run.sh`, CI |
 | Shell gateway, invariants and workspace boundaries | `tests/unit/` | compose only | `tests/run.sh`, CI |
 | Gateway end to end | `tests/e2e/` | yes | `--e2e`, CI |
-| Panel in a browser | `apps/web/e2e/` | no (fake Engine API) | `--e2e`, CI |
+| Panel in a browser | `apps/web/e2e/` | yes (a disposable PostgreSQL; the Engine API is faked) | `--e2e`, CI |
 | Panel layout at every width | `apps/web/e2e/viewports.mjs` | yes (a disposable PostgreSQL) | by hand |
 
 ### The layout check

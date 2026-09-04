@@ -3,7 +3,7 @@
 // needs no Docker daemon and describes a known host every time.
 
 import { createServer } from 'node:http'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { makeBridge } from './container.mjs'
@@ -159,15 +159,69 @@ const docker = createServer((req, res) => {
   return json(res, { message: `unexpected call: ${req.method} ${path}` }, 500)
 })
 
+// PostgreSQL is a boot dependency of the panel: it exits rather than serving
+// without one. The Docker *Engine API* the panel talks to is still the fake
+// above — this is a real container for a real database, and the only reason the
+// panel end-to-end run now needs a daemon.
+// A fixed name, so the `docker rm -f` below always clears the one a killed run
+// left behind. A name with the pid in it would leave a container holding the
+// port and no way to find it.
+const DB_NAME = 'portta-e2e-db'
+const DB_PORT = Number(process.env.PORTTA_E2E_DB_PORT ?? 9913)
+const DATABASE_URL = process.env.PORTTA_E2E_DATABASE_URL ?? `postgres://portta:portta@127.0.0.1:${DB_PORT}/portta`
+
+function run(command, args) {
+  return spawnSync(command, args, { encoding: 'utf8' })
+}
+
+function startDatabase() {
+  if (process.env.PORTTA_E2E_DATABASE_URL) return () => undefined
+
+  if (run('docker', ['info']).status !== 0) {
+    process.stderr.write(
+      'the panel end-to-end run needs a PostgreSQL, and PostgreSQL is a boot dependency of the panel.\n' +
+        'Start Docker, or point PORTTA_E2E_DATABASE_URL at a database you already have.\n',
+    )
+    process.exit(1)
+  }
+
+  run('docker', ['rm', '-f', DB_NAME])
+  const started = run('docker', [
+    'run', '--rm', '-d', '--name', DB_NAME,
+    '-e', 'POSTGRES_USER=portta', '-e', 'POSTGRES_PASSWORD=portta', '-e', 'POSTGRES_DB=portta',
+    '-p', `127.0.0.1:${DB_PORT}:5432`,
+    'postgres:18.6-alpine',
+  ])
+  if (started.status !== 0) {
+    process.stderr.write(`could not start the end-to-end database: ${started.stderr}\n`)
+    process.exit(1)
+  }
+
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    if (run('docker', ['exec', DB_NAME, 'pg_isready', '-U', 'portta']).status === 0) {
+      process.stdout.write(`end-to-end database on 127.0.0.1:${DB_PORT}\n`)
+      return () => run('docker', ['rm', '-f', DB_NAME])
+    }
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500)
+  }
+  run('docker', ['rm', '-f', DB_NAME])
+  process.stderr.write('the end-to-end database never became ready\n')
+  process.exit(1)
+}
+
+const stopDatabase = startDatabase()
+
 docker.listen(DOCKER_PORT, '127.0.0.1', () => {
   process.stdout.write(`fake docker api on 127.0.0.1:${DOCKER_PORT}\n`)
 
-  const panel = spawn(process.execPath, [join(root, 'dist/server/index.js')], {
+  const panel = spawn(process.execPath, [join(root, 'dist/server.mjs')], {
     cwd: root,
     stdio: 'inherit',
     env: {
       ...process.env,
+      NODE_ENV: 'production',
       PORTTA_RUNTIME_DOCKER_API: `http://127.0.0.1:${DOCKER_PORT}`,
+      PORTTA_RUNTIME_DATABASE_URL: DATABASE_URL,
       PORTTA_RUNTIME_HOST: '127.0.0.1',
       PORTTA_RUNTIME_PORT: String(PANEL_PORT),
       PORTTA_RUNTIME_ENV_FILE: join(root, 'e2e/env.fixture'),
@@ -182,9 +236,13 @@ docker.listen(DOCKER_PORT, '127.0.0.1', () => {
   const shutdown = () => {
     panel.kill('SIGTERM')
     docker.close()
+    stopDatabase()
     process.exit(0)
   }
   process.on('SIGINT', shutdown)
   process.on('SIGTERM', shutdown)
-  panel.on('exit', (code) => process.exit(code ?? 0))
+  panel.on('exit', (code) => {
+    stopDatabase()
+    process.exit(code ?? 0)
+  })
 })

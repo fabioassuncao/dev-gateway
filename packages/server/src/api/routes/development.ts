@@ -10,7 +10,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import { nextTask, type SchedulableTask } from 'portta-core'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
 import { documentRoute, projectParameter } from '../openapi.ts'
 import { principalOf } from '../principal.ts'
 import { requireDatabase, type Database } from '../../db/index.ts'
@@ -19,19 +19,11 @@ import { applyOverrides, loadOverrides } from '../../services/overrides.ts'
 import { listBridges } from '../../services/access.ts'
 import { runContainerAction } from '../../services/actions.ts'
 import { readCurrentMetrics } from '../../services/metrics.ts'
-import { readRepositoryScan } from '../../services/git.ts'
-import { loadProjectCatalog, toProject } from '../../services/catalog.ts'
 import { loadTaskContext, taskSummaries, taskView } from '../../services/task-view.ts'
-import { loadNames, sessionView } from '../../services/activity-view.ts'
 import { environmentServices } from '../../services/service-view.ts'
 import { findRememberedEnvironment } from '../../services/remembered.ts'
 import { buildContext } from '../../services/context-view.ts'
-import { buildOverview } from '../../services/overview-view.ts'
-import { diagnose, problemsOnly } from '../../services/diagnostics.ts'
-import { gatewayStatus } from '../../services/gateway.ts'
-import { listShares } from '../../services/shares.ts'
-import { loadAliases } from '../../services/overrides.ts'
-import { githubStatusOf } from './integrations.ts'
+import { developmentOverview, listProjects, scansFor } from '../../services/development.ts'
 import { recordActivity } from '../../services/activity.ts'
 import {
   ActionResult,
@@ -40,7 +32,7 @@ import {
   EnvironmentServices,
   ProjectResources,
 } from 'portta-contracts'
-import type { Environment, Project, RepositoryGit, TaskSummary } from 'portta-contracts'
+import type { Environment, Project } from 'portta-contracts'
 
 const slugParameter = { name: 'slug', in: 'path' as const, required: true, description: 'The Project slug.', schema: { type: 'string' as const } }
 const serviceParameter = { name: 'service', in: 'path' as const, required: true, description: 'Compose service name.', schema: { type: 'string' as const } }
@@ -62,11 +54,7 @@ export function developmentRoutes(deps: AppDeps): Hono {
     return applyOverrides([found], await loadOverrides(deps.db))[0]!
   }
 
-  async function projects(db: Database): Promise<Project[]> {
-    const snapshot = await deps.cache.get()
-    const catalog = await loadProjectCatalog(db, snapshot, deps.config)
-    return catalog.records.map((record) => toProject(record, catalog.repositoriesByProject.get(record.id) ?? [], catalog.environments.get(record.id) ?? [], catalog.projectsHome))
-  }
+  const projects = (db: Database): Promise<Project[]> => listProjects(deps, db)
 
   async function projectNamed(db: Database, slug: string): Promise<Project> {
     const project = (await projects(db)).find((item) => item.slug === slug)
@@ -74,15 +62,6 @@ export function developmentRoutes(deps: AppDeps): Hono {
     return project
   }
 
-  function scansFor(list: readonly Project[]): Map<string, RepositoryGit> {
-    const scans = new Map<string, RepositoryGit>()
-    for (const project of list) {
-      for (const repository of project.repositories) {
-        if (repository.scanKey && !scans.has(repository.scanKey)) scans.set(repository.scanKey, readRepositoryScan(deps.config, repository.scanKey))
-      }
-    }
-    return scans
-  }
 
   function schedulable(rows: readonly TaskRow[]): SchedulableTask[] {
     return rows.map((row) => ({ id: row.id, parentId: row.parentId, status: row.status, priority: row.priority, assignee: row.assignee, waitingSince: seconds(row.updatedAt) }))
@@ -173,7 +152,7 @@ export function developmentRoutes(deps: AppDeps): Hono {
       task,
       inProgress: summaries.filter((summary) => summary.status === 'in_progress'),
       next: chosen ? summaries.find((summary) => summary.id === chosen.id) ?? null : null,
-      scans: scansFor([project]),
+      scans: scansFor(deps, [project]),
       environments,
       services,
     }))
@@ -227,49 +206,7 @@ export function developmentRoutes(deps: AppDeps): Hono {
     summary: 'The Development Dashboard: what is happening on this host',
     description: 'Work in progress, active sessions, what needs attention, each project at a glance, recent code, the runtime and the resources. Without a database the work, session and project sections are empty and everything else still answers.',
     response: DevelopmentOverview, errors: [500, 502],
-  }), async (c) => {
-    const snapshot = await deps.cache.get()
-    const overrides = await loadOverrides(deps.db)
-    const environments = applyOverrides(snapshot.environments, overrides)
-    const metrics = readCurrentMetrics(deps.config)
-    const shares = listShares(deps.config, snapshot)
-    const gateway = gatewayStatus(snapshot, deps.config)
-    const problems = problemsOnly(diagnose(
-      snapshot, deps.config, null, shares,
-      deps.db.status(),
-      loadAliases(deps.config), githubStatusOf(deps),
-    ))
-
-    let list: Project[] = []
-    let tasks: TaskSummary[] = []
-    let sessions: ReturnType<typeof sessionView>[] = []
-    const lastActivity = new Map<string, { at: number; summary: string }>()
-    const db = deps.db
-    if (db && db.status().available) {
-      list = await projects(db)
-      const rows = await db.tasks.list({ limit: 2000 })
-      tasks = taskSummaries(await loadTaskContext(deps.config, db, snapshot, rows), rows)
-      const names = await loadNames(db)
-      sessions = (await db.sessions.list({ status: ['active'], limit: 100 })).map((row) => sessionView(names, row))
-      for (const event of await db.activity.list({ limit: 300 })) {
-        const slug = event.projectId ? names.slugById.get(event.projectId) : undefined
-        if (slug && !lastActivity.has(slug)) lastActivity.set(slug, { at: seconds(event.at), summary: event.summary })
-      }
-    }
-
-    return c.json(buildOverview({
-      now: Date.now(),
-      projects: list,
-      environments,
-      tasks,
-      sessions,
-      scans: scansFor(list),
-      metrics,
-      problems,
-      gatewayUp: gateway.up,
-      lastActivity,
-    }))
-  })
+  }), async (c) => c.json(await developmentOverview(deps)))
 
   return app
 }

@@ -71,6 +71,14 @@ portta doctor     # when something does not behave
 Starting and stopping applications is not the gateway's job. Do that from the
 project's own directory, as you always have.
 
+## The panel in development
+
+`just dev` starts it with hot reloading on **one port**: the panel is a single
+Node process — Next, the Hono API, the event stream and the WebSocket upgrades
+behind one dispatcher — so `http://127.0.0.1:8081` is the API, the pages, the
+documentation and HMR. There used to be a second container on 5173; there is no
+Vite in the panel any more.
+
 ## The panel's database
 
 PostgreSQL is required: the panel exits rather than starting without it, and
@@ -103,7 +111,8 @@ just dev --reset --demo   # the same sequence
 
 **What takes the time.** The first `just dev` or `just reset` in a checkout,
 and any run after a dependency change, builds the panel image: two `npm ci`, a
-build across five workspaces and a render of the documentation. Several
+build across six workspaces and a render of the documentation into static
+pages. Several
 minutes is normal. It now says so before it starts and streams BuildKit's
 progress while it runs, and anything else that goes quiet reports how long it
 has been going. `just dev --verbose` shows every child process;

@@ -37,8 +37,9 @@ every edit. They cost a minute or more; the targeted run costs under a second.
 | `packages/server/src/**` | `npm test --workspace=portta-server` |
 | `packages/cli/src/**` | `npm test --workspace=portta` |
 | `apps/auth/src/**` | `npm test --workspace=portta-auth` |
-| `apps/web/src/ui/**` | `npm test --workspace=portta-web -- --project ui` |
-| `apps/web/src/docs/**` | `npm test --workspace=portta-web -- --project docs` |
+| `apps/web/{app,components,lib}/**` | `npm test --workspace=portta-web -- --project ui` |
+| `apps/web/server/**` | `npm test --workspace=portta-web -- --project server` |
+| `apps/web/lib/docs/**` | `npm test --workspace=portta-web -- --project docs` |
 | an API route or a service | also `npm run openapi:check --workspace=portta-contracts` |
 | `scripts/`, `bin/portta`, `install.sh` | `bash tests/unit/<subject>.test.sh` |
 | `docker/compose/`, `templates/` | `bash tests/unit/profiles.test.sh`, `bash tests/unit/templates.test.sh` |

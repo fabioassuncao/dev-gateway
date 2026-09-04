@@ -8,8 +8,8 @@ import {
   resolveProjectView,
   toListItem,
   toListItems,
-} from '../../src/ui/lib/projects.ts'
-import { affectedBy, availableActions } from '../../src/ui/components/entities/project-actions.tsx'
+} from '@/lib/projects'
+import { affectedBy, availableActions } from '@/components/entities/project-actions'
 import { makePulse } from './fixtures.ts'
 
 function summary(overrides: Partial<ProjectSummary> = {}): ProjectSummary {

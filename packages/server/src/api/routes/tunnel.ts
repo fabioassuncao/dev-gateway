@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
 import { TunnelView } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 import { TunnelSetupError, forgetTunnel, tunnelView } from '../../services/tunnel.ts'

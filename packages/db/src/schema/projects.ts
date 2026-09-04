@@ -28,9 +28,9 @@ export const projects = pgTable(
     description: text('description'),
     archived: boolean('archived').notNull().default(false),
     /**
-     * The first-level directory under Projects Home (`brasil-data-hub`), never
-     * an absolute path and never the identity: changing PORTTA_PROJECTS_HOME
-     * must not invent new Projects (ADR 0031).
+     * The first-level directory under Projects Home (`storefront`), never an
+     * absolute path and never the identity: changing PORTTA_PROJECTS_HOME must
+     * not invent new Projects (ADR 0031).
      */
     relativePath: text('relative_path'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),

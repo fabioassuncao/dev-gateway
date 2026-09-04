@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
 import { findContainer, removalPreview, removeContainer, runContainerAction } from '../../services/actions.ts'
 import { readLogs } from './services.ts'
 import { ActionResult, ContainerSummary, DockerHost, LogsResponse, Ownership, RemovalPreview } from 'portta-contracts'

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { I18nextProvider } from 'react-i18next'
-import i18n from '../../src/ui/i18n/index.ts'
-import { HostHeader, HostReadings } from '../../src/ui/components/host-summary.tsx'
+import i18n from '@/lib/i18n/client'
+import { HostHeader, HostReadings } from '@/components/host-summary'
 import type { HostPressure, MetricsCurrent } from 'portta-contracts'
 import { emptySnapshot } from 'portta-core'
 

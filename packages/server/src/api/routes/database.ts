@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
 import { DatabaseMigrateResult } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 

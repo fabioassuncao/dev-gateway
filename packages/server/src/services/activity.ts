@@ -2,7 +2,7 @@
 
 import type { ActivityKind } from 'portta-core'
 import type { Database } from '../db/index.ts'
-import type { LiveHub } from './events.ts'
+import type { LiveHub } from '../realtime/hub.ts'
 import type { ActivityInput } from '../db/activity.ts'
 
 export interface ActivityDeps {

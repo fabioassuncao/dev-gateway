@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
-import type { AppDeps } from './deps.ts'
+import type { AppDeps } from '../../deps.ts'
 import { requireDatabase, type Database } from '../../db/index.ts'
 import type { StoredIssue } from '../../db/github.ts'
 import { OverrideRefused } from '../../services/overrides.ts'

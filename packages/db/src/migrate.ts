@@ -3,7 +3,6 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres, { type Sql } from 'postgres'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 /**
  * Fixed, and documented because it is: a session-level advisory lock, so the
@@ -16,12 +15,15 @@ const LOCK_KEY = 7_412_004
 /**
  * Where the generated SQL lives, relative to this module in src/ and in dist/.
  *
- * A function, not a constant: `import.meta.url` is a file URL when Node loads
- * this, and a `/@fs/…` path when a bundler does. Resolving it at module load
- * made merely importing this package throw in any test that runs through Vite.
+ * `import.meta.dirname`, not `new URL('../drizzle', import.meta.url)`. Two
+ * reasons, both learnt the hard way: resolving it at module load threw in any
+ * test that runs through Vite, where `import.meta.url` is a `/@fs/…` path
+ * rather than a file URL; and a bundler reads `new URL(…, import.meta.url)` as
+ * an asset reference and tries to resolve `../drizzle` as a module, which it is
+ * not — it is a directory of SQL. A plain string is neither.
  */
 export function migrationsFolder(): string {
-  return fileURLToPath(new URL('../drizzle', import.meta.url))
+  return join(import.meta.dirname, '..', 'drizzle')
 }
 
 /** The table the migrator records applied files in. `drizzle.config.ts` says the same. */

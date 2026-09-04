@@ -7,18 +7,18 @@ import { makeTask } from './fixtures.ts'
 const createTask = vi.fn()
 const navigate = vi.fn()
 
-vi.mock('../../src/ui/lib/api/index.ts', () => ({
+vi.mock('@/lib/api/index', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     createTask: (slug: string, body: unknown) => createTask(slug, body),
   },
 }))
 
-vi.mock('../../src/ui/lib/router.ts', () => ({
+vi.mock('@/lib/navigation', () => ({
   navigate: (path: string) => navigate(path),
 }))
 
-const { useKickCreate } = await import('../../src/ui/lib/kick-create.ts')
+const { useKickCreate } = await import('@/lib/kick-create')
 
 function Probe({ parentId }: { parentId?: string }) {
   const kick = useKickCreate('produto')

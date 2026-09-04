@@ -2,7 +2,7 @@
 
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import type { AppDeps } from './routes/deps.ts'
+import type { AppDeps } from '../deps.ts'
 import { statusRoutes } from './routes/status.ts'
 import { environmentRoutes } from './routes/environments.ts'
 import { runnerRoutes } from './routes/runner.ts'
@@ -18,7 +18,7 @@ import { gatewayRoutes } from './routes/gateway.ts'
 import { hostRoutes } from './routes/host.ts'
 import { configRoutes } from './routes/config.ts'
 import { databaseRoutes } from './routes/database.ts'
-import { eventRoutes } from './routes/events.ts'
+import { eventRoutes } from '../realtime/sse.ts'
 import { integrationRoutes } from './routes/integrations.ts'
 import { issueRoutes } from './routes/issues.ts'
 import { taskRoutes } from './routes/tasks.ts'
@@ -40,7 +40,6 @@ import { DockerApiError } from '../services/docker/client.ts'
 import { DockerAccessDenied } from '../services/docker/allowlist.ts'
 import { ZodError } from 'zod'
 import { registerOpenApiRoutes } from './openapi.ts'
-import { registerDocsRoutes } from './routes/docs.ts'
 import { DatabaseUnavailable } from '../db/index.ts'
 import { GitHubForbidden, GitHubUnavailable } from '../services/integrations/github/index.ts'
 
@@ -187,10 +186,10 @@ export function createApp(deps: AppDeps): Hono {
     return c.json({ error: 'unexpected failure', detail: String(error) }, 500)
   })
 
+  // `/api` and nothing else. The documentation is a route of the panel now
+  // (`app/docs`), and everything that is not the API reaches Next through the
+  // dispatcher in apps/web/server/compose.ts.
   app.route('/api', createApi(deps))
-  // Before the caller's SPA static mount and its `*` catch-all, so a deep link
-  // into the documentation reaches the documentation rather than the panel.
-  registerDocsRoutes(app, deps.config)
   return app
 }
 

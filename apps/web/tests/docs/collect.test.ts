@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { collectDocs, headingId, isMissingDocPage, rewriteHtmlBlock, rewriteLink, sectionsFrom, slugFor } from '../../src/docs/collect.ts'
+import { collectDocs, headingId, isMissingDocPage, rewriteHtmlBlock, rewriteLink, sectionsFrom, slugFor } from '@/lib/docs/collect'
 
 const REPOSITORY_ROOT = new URL('../../../../', import.meta.url).pathname
 
@@ -30,13 +30,13 @@ describe('link rewriting', () => {
   const known = new Set(['install', 'adr/0007-tailscale-sidecar', 'overview', 'networking'])
 
   it('turns a relative documentation link into a route, keeping the anchor', () => {
-    expect(rewriteLink('install.md', 'docs/README.md', known)).toEqual({ href: '#/install', external: false })
+    expect(rewriteLink('install.md', 'docs/README.md', known)).toEqual({ href: '/install', external: false })
     expect(rewriteLink('networking.md#ports', 'docs/install.md', known))
-      .toEqual({ href: '#/networking#ports', external: false })
+      .toEqual({ href: '/networking#ports', external: false })
     expect(rewriteLink('adr/0007-tailscale-sidecar.md', 'docs/architecture.md', known))
-      .toEqual({ href: '#/adr/0007-tailscale-sidecar', external: false })
+      .toEqual({ href: '/adr/0007-tailscale-sidecar', external: false })
     expect(rewriteLink('../install.md', 'docs/adr/0007-x.md', known))
-      .toEqual({ href: '#/install', external: false })
+      .toEqual({ href: '/install', external: false })
   })
 
   // The panel ships the documentation, not the repository, so a link out of the
