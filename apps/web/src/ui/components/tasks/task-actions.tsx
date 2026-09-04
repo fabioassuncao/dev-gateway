@@ -54,7 +54,7 @@ export function TaskActions({
           <Button size="sm" variant="default" disabled={readOnly} aria-label={t('detail.changeStatus')}>
             <span className="text-subtle">{t('detail.statusLabel')}</span>
             <TaskStatusBadge status={task.status} />
-            <ChevronDown className="h-3 w-3" aria-hidden />
+            <ChevronDown aria-hidden />
           </Button>
         </MenuTrigger>
         <MenuContent>
@@ -102,7 +102,7 @@ export function TaskActions({
       <Menu>
         <MenuTrigger asChild>
           <Button size="icon" variant="ghost" disabled={readOnly} aria-label={tc('actions')}>
-            <MoreHorizontal className="h-4 w-4" />
+            <MoreHorizontal />
           </Button>
         </MenuTrigger>
         <MenuContent>
@@ -114,8 +114,7 @@ export function TaskActions({
               <MenuSeparator />
             </>
           ) : null}
-          <MenuItem tone="danger" onSelect={onDiscard}>
-            <Trash2 className="h-3.5 w-3.5" />
+          <MenuItem tone="danger" icon={<Trash2 />} onSelect={onDiscard}>
             {task.draft ? t('draft.discard') : tc('delete')}
           </MenuItem>
         </MenuContent>

@@ -7,7 +7,7 @@ import type { Task, TaskPriority, TaskStatus, TaskSummary } from '../../../share
 import type { Project } from '../../../shared/types.ts'
 import { Button } from '../ui/button.tsx'
 import { Dialog } from '../ui/dialog.tsx'
-import { Input, Select } from '../ui/field.tsx'
+import { Field, Input, Select, Textarea } from '../ui/field.tsx'
 import { ErrorBox } from '../shell-bits.tsx'
 import { useTaskStatuses } from '../../i18n/use-task-statuses.ts'
 
@@ -82,77 +82,77 @@ export function TaskDialog(props: Mode & { project?: Project | null; open: boole
     >
       {submit.error ? <ErrorBox error={submit.error} /> : null}
       <div className="space-y-3">
-        <label className="block">
-          <span className="text-xs text-subtle">{t('dialog.title')}</span>
-          <Input value={title} onChange={(event) => setTitle(event.target.value)} aria-label={t('dialog.title')} />
-        </label>
-        <label className="block">
-          <span className="text-xs text-subtle">{t('dialog.description')}</span>
-          <textarea
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            aria-label={t('dialog.description')}
-            rows={4}
-            className="block w-full rounded-md border border-line bg-surface px-2 py-1.5 font-mono text-xs text-ink outline-none focus:border-accent"
-          />
-        </label>
+        <Field label={t('dialog.title')}>
+          {(id) => <Input id={id} value={title} onChange={(event) => setTitle(event.target.value)} aria-label={t('dialog.title')} />}
+        </Field>
+        <Field label={t('dialog.description')}>
+          {(id) => (
+            <Textarea
+              id={id}
+              mono
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              aria-label={t('dialog.description')}
+              rows={4}
+            />
+          )}
+        </Field>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-xs text-subtle">{t('dialog.status')}</span>
-            <Select value={status} onChange={(event) => setStatus(event.target.value as TaskStatus)} aria-label={t('dialog.status')}>
-              {statusOptions.map((entry) => (
-                <option key={entry.value} value={entry.value}>{entry.label}</option>
-              ))}
-            </Select>
-          </label>
-          <label className="block">
-            <span className="text-xs text-subtle">{t('dialog.priority')}</span>
-            <Select value={priority} onChange={(event) => setPriority(event.target.value as TaskPriority | '')} aria-label={t('dialog.priority')}>
-              {priorityOptions.map((entry) => (
-                <option key={entry.value} value={entry.value}>{entry.label}</option>
-              ))}
-            </Select>
-          </label>
-          <label className="block">
-            <span className="text-xs text-subtle">{t('dialog.type')}</span>
-            <Input value={type} onChange={(event) => setType(event.target.value)} placeholder={t('dialog.typePlaceholder')} aria-label={t('dialog.type')} />
-          </label>
-          <label className="block">
-            <span className="text-xs text-subtle">{t('dialog.labels')}</span>
-            <Input value={labels} onChange={(event) => setLabels(event.target.value)} placeholder={t('dialog.labelsPlaceholder')} aria-label={t('dialog.labels')} />
-          </label>
-          <label className="block">
-            <span className="text-xs text-subtle">{t('dialog.assignee')}</span>
-            <Input value={assignee} onChange={(event) => setAssignee(event.target.value)} aria-label={t('dialog.assignee')} />
-          </label>
-          <label className="block">
-            <span className="text-xs text-subtle">{t('dialog.agent')}</span>
-            <Input value={agent} onChange={(event) => setAgent(event.target.value)} placeholder="claude-code" aria-label={t('dialog.agent')} />
-          </label>
-          <label className="block">
-            <span className="text-xs text-subtle">{t('dialog.repository')}</span>
-            <Select value={repositoryId} onChange={(event) => setRepositoryId(event.target.value)} aria-label={t('dialog.repository')}>
-              <option value="">{t('dialog.wholeProject')}</option>
-              {(props.project?.repositories ?? []).map((repository) => (
-                <option key={repository.id} value={repository.id}>{repository.name}</option>
-              ))}
-            </Select>
-          </label>
-          {props.mode === 'create' ? (
-            <label className="block">
-              <span className="text-xs text-subtle">{t('dialog.environment')}</span>
-              <Select value={environment} onChange={(event) => setEnvironment(event.target.value)} aria-label={t('dialog.environment')}>
-                <option value="">{t('dialog.noEnvironment')}</option>
-                {environments.map((entry) => (
-                  <option key={entry.environment} value={entry.environment}>{entry.environment}</option>
+          <Field label={t('dialog.status')}>
+            {(id) => (
+              <Select id={id} value={status} onChange={(event) => setStatus(event.target.value as TaskStatus)} aria-label={t('dialog.status')} className="w-full">
+                {statusOptions.map((entry) => (
+                  <option key={entry.value} value={entry.value}>{entry.label}</option>
                 ))}
               </Select>
-            </label>
+            )}
+          </Field>
+          <Field label={t('dialog.priority')}>
+            {(id) => (
+              <Select id={id} value={priority} onChange={(event) => setPriority(event.target.value as TaskPriority | '')} aria-label={t('dialog.priority')} className="w-full">
+                {priorityOptions.map((entry) => (
+                  <option key={entry.value} value={entry.value}>{entry.label}</option>
+                ))}
+              </Select>
+            )}
+          </Field>
+          <Field label={t('dialog.type')}>
+            {(id) => <Input id={id} value={type} onChange={(event) => setType(event.target.value)} placeholder={t('dialog.typePlaceholder')} aria-label={t('dialog.type')} />}
+          </Field>
+          <Field label={t('dialog.labels')}>
+            {(id) => <Input id={id} value={labels} onChange={(event) => setLabels(event.target.value)} placeholder={t('dialog.labelsPlaceholder')} aria-label={t('dialog.labels')} />}
+          </Field>
+          <Field label={t('dialog.assignee')}>
+            {(id) => <Input id={id} value={assignee} onChange={(event) => setAssignee(event.target.value)} aria-label={t('dialog.assignee')} />}
+          </Field>
+          <Field label={t('dialog.agent')}>
+            {(id) => <Input id={id} value={agent} onChange={(event) => setAgent(event.target.value)} placeholder="claude-code" aria-label={t('dialog.agent')} />}
+          </Field>
+          <Field label={t('dialog.repository')}>
+            {(id) => (
+              <Select id={id} value={repositoryId} onChange={(event) => setRepositoryId(event.target.value)} aria-label={t('dialog.repository')} className="w-full">
+                <option value="">{t('dialog.wholeProject')}</option>
+                {(props.project?.repositories ?? []).map((repository) => (
+                  <option key={repository.id} value={repository.id}>{repository.name}</option>
+                ))}
+              </Select>
+            )}
+          </Field>
+          {props.mode === 'create' ? (
+            <Field label={t('dialog.environment')}>
+              {(id) => (
+                <Select id={id} value={environment} onChange={(event) => setEnvironment(event.target.value)} aria-label={t('dialog.environment')} className="w-full">
+                  <option value="">{t('dialog.noEnvironment')}</option>
+                  {environments.map((entry) => (
+                    <option key={entry.environment} value={entry.environment}>{entry.environment}</option>
+                  ))}
+                </Select>
+              )}
+            </Field>
           ) : null}
-          <label className="block">
-            <span className="text-xs text-subtle">{t('dialog.service')}</span>
-            <Input value={service} onChange={(event) => setService(event.target.value)} placeholder="api" aria-label={t('dialog.service')} />
-          </label>
+          <Field label={t('dialog.service')}>
+            {(id) => <Input id={id} value={service} onChange={(event) => setService(event.target.value)} placeholder="api" aria-label={t('dialog.service')} />}
+          </Field>
         </div>
       </div>
     </Dialog>

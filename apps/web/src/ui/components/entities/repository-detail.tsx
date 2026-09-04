@@ -25,16 +25,16 @@ export function RepositoryDetail({ repository, git }: { repository: Repository; 
         }
       />
       <CardBody>
-        <dl className="divide-y divide-line/60">
-          <KeyValue label={t('directory')}>{path ? <Mono value={path} /> : <span className="text-subtle">{t('noPath')}</span>}</KeyValue>
-          {repository.remoteUrl ? <KeyValue label={t('remote')}><Mono value={repository.remoteUrl} /></KeyValue> : null}
+        <dl className="divide-y divide-line-subtle">
+          <KeyValue label={t('directory')}>{path ? <Mono kind="path" tone="ink" value={path} /> : <span className="text-subtle">{t('noPath')}</span>}</KeyValue>
+          {repository.remoteUrl ? <KeyValue label={t('remote')}><Mono kind="url" tone="ink" value={repository.remoteUrl} /></KeyValue> : null}
           {repository.github ? (
             <KeyValue label="GitHub">
-              <a className="inline-flex items-center gap-1 underline-offset-2 hover:text-accent hover:underline" href={repository.github.htmlUrl} target="_blank" rel="noreferrer noopener">
+              <a className="inline-flex items-center gap-1 rounded-xs underline-offset-2 hover:underline focus-ring" href={repository.github.htmlUrl} target="_blank" rel="noreferrer noopener">
                 {repository.github.fullName}
-                <ExternalLink className="h-3 w-3" />
+                <ExternalLink className="size-3" />
               </a>
-              {repository.github.defaultBranch ? <span className="ml-2 font-mono text-xs text-subtle">{repository.github.defaultBranch}</span> : null}
+              {repository.github.defaultBranch ? <Mono kind="branch" tone="subtle" className="ml-2 text-xs">{repository.github.defaultBranch}</Mono> : null}
             </KeyValue>
           ) : null}
         </dl>

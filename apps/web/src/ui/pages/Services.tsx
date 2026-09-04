@@ -48,6 +48,7 @@ export function Services() {
             <Select
               value={state}
               onChange={(event) => setState(event.target.value)}
+              size="sm"
               className="w-32"
               aria-label={t('filterAria')}
             >
@@ -62,6 +63,7 @@ export function Services() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('searchPlaceholder')}
+              size="sm"
               className="w-64"
               aria-label={t('searchAria')}
             />

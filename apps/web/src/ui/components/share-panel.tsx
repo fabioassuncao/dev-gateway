@@ -7,7 +7,9 @@ import { keys, useShares } from '../lib/queries/index.ts'
 import { useFormat } from '../lib/use-format.ts'
 import { Badge } from './ui/badge.tsx'
 import { Button } from './ui/button.tsx'
-import { AddressLine } from './copy.tsx'
+import { AddressLine, Mono } from './copy.tsx'
+import { Select } from './ui/field.tsx'
+import { Callout } from './shell-bits.tsx'
 import type { ContainerSummary, Share } from '../../shared/types.ts'
 
 export function SharePanel({ container }: { container: ContainerSummary }) {
@@ -64,8 +66,9 @@ export function SharePanel({ container }: { container: ContainerSummary }) {
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{t('private')}</Badge>
           <span className="text-subtle">{t('privateHint')}</span>
-          <select
-            className="rounded border border-line bg-surface px-1.5 py-1 text-xs"
+          <Select
+            size="sm"
+            className="w-28"
             value={ttl}
             onChange={(event) => setTtl(Number(event.target.value))}
             aria-label={t('expiresAfter')}
@@ -75,9 +78,9 @@ export function SharePanel({ container }: { container: ContainerSummary }) {
                 {option.label}
               </option>
             ))}
-          </select>
+          </Select>
           <Button size="sm" disabled={create.isPending} onClick={() => create.mutate('protected')}>
-            <Share2 className="h-3.5 w-3.5" />
+            <Share2 />
             {t('shareWithPassword')}
           </Button>
           {query.data?.publicAllowed ? (
@@ -89,15 +92,16 @@ export function SharePanel({ container }: { container: ContainerSummary }) {
       )}
 
       {password ? (
-        <div className="rounded border border-warn/40 bg-warn/10 px-2 py-1.5">
-          <div className="font-medium">
-            {t('passwordLabel')}{' '}
-            <span className="font-mono">{password}</span>
-          </div>
-          <div className="text-subtle">
-            {t('passwordHint')}
-          </div>
-        </div>
+        <Callout
+          tone="warn"
+          title={
+            <>
+              {t('passwordLabel')} <Mono kind="text" tone="ink">{password}</Mono>
+            </>
+          }
+        >
+          {t('passwordHint')}
+        </Callout>
       ) : null}
 
       {error ? (
@@ -128,7 +132,7 @@ function ActiveShare({
     <div className="space-y-1">
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone={share.mode === 'public' ? 'danger' : 'warn'}>{share.mode}</Badge>
-        {share.user ? <span className="font-mono text-muted">{share.user}</span> : null}
+        {share.user ? <Mono kind="text">{share.user}</Mono> : null}
         <Badge tone={share.state === 'active' ? 'outline' : 'danger'}>
           {share.state === 'expired'
             ? t('expired')

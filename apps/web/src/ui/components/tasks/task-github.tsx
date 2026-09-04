@@ -5,7 +5,9 @@ import type { Task } from '../../../shared/task-types.ts'
 import { Badge } from '../ui/badge.tsx'
 import { Button } from '../ui/button.tsx'
 import { Input, Select } from '../ui/field.tsx'
+import { Eyebrow } from '../shell-bits.tsx'
 import { syncTone } from '../../lib/task-presentation.ts'
+import { narrowTone } from '../../lib/tone.ts'
 import { useFormat } from '../../lib/use-format.ts'
 
 export function TaskGitHubCard({
@@ -33,18 +35,18 @@ export function TaskGitHubCard({
 
   return (
     <div>
-      <p className="mb-1 text-[11px] font-medium tracking-wide text-subtle uppercase">{t('github.section')}</p>
+      <Eyebrow className="mb-1.5">{t('github.section')}</Eyebrow>
       {github ? (
         <div className="space-y-1.5 text-sm">
-          <a className="inline-flex items-center gap-1 font-mono text-xs hover:text-accent" href={github.htmlUrl} target="_blank" rel="noreferrer noopener">
-            {github.repository}#{github.number} <ExternalLink className="h-3 w-3" />
+          <a className="inline-flex items-center gap-1 rounded-xs font-mono text-xs text-ink hover:text-accent focus-ring" href={github.htmlUrl} target="_blank" rel="noreferrer noopener">
+            {github.repository}#{github.number} <ExternalLink className="size-3" />
           </a>
           <div className="flex flex-wrap gap-1">
             <Badge tone={github.state === 'open' ? 'ok' : 'neutral'}>{t(`github.state.${github.state}`)}</Badge>
-            <Badge tone={syncTone(github.syncState)}>{t(`sync.${github.syncState}`)}</Badge>
+            <Badge tone={narrowTone(syncTone(github.syncState))}>{t(`sync.${github.syncState}`)}</Badge>
           </div>
-          {github.lastSyncedAt ? <p className="text-[11px] text-subtle">{t('github.lastSynced', { time: relativeTime(github.lastSyncedAt) })}</p> : null}
-          {github.lastError ? <p className="text-[11px] text-danger">{github.lastError}</p> : null}
+          {github.lastSyncedAt ? <p className="text-xs text-subtle">{t('github.lastSynced', { time: relativeTime(github.lastSyncedAt) })}</p> : null}
+          {github.lastError ? <p className="text-xs text-danger">{github.lastError}</p> : null}
           {github.syncState === 'conflict' && github.remote ? (
             <p className="text-xs text-muted">{t('github.conflictExplained', { title: github.remote.title, status: github.remote.status ?? '—', assignee: github.remote.assignee ?? '—' })}</p>
           ) : null}
@@ -64,8 +66,8 @@ export function TaskGitHubCard({
         <div className="space-y-2">
           <p className="text-xs text-subtle">{t('github.notBound')}</p>
           <form className="space-y-1.5" onSubmit={(event) => { event.preventDefault(); if (issueRef.trim()) void link(issueRef.trim(), initialSync).then(() => setIssueRef('')) }}>
-            <Input value={issueRef} onChange={(event) => setIssueRef(event.target.value)} placeholder="owner/repo#42" className="h-7" disabled={readOnly || !configured} />
-            <Select value={initialSync} onChange={(event) => setInitialSync(event.target.value as 'pull' | 'push')} className="h-7 text-xs" disabled={readOnly || !configured} aria-label={t('github.initialSync')}>
+            <Input size="sm" mono value={issueRef} onChange={(event) => setIssueRef(event.target.value)} placeholder="owner/repo#42" disabled={readOnly || !configured} />
+            <Select size="sm" value={initialSync} onChange={(event) => setInitialSync(event.target.value as 'pull' | 'push')} className="w-full" disabled={readOnly || !configured} aria-label={t('github.initialSync')}>
               <option value="pull">{t('github.pullFirst')}</option>
               <option value="push">{t('github.pushFirst')}</option>
             </Select>

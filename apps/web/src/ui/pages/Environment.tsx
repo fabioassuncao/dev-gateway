@@ -9,7 +9,7 @@ import { useFormat } from '../lib/use-format.ts'
 import { useDocumentTitle } from '../lib/title.ts'
 import { navigate } from '../lib/router.ts'
 import type { Environment } from '../../shared/types.ts'
-import { Badge } from '../components/ui/badge.tsx'
+import { Badge, StatusIndicator } from '../components/ui/badge.tsx'
 import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
 import { Tabs, TabPanel, type TabDefinition } from '../components/ui/tabs.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
@@ -24,6 +24,7 @@ import { ResourceUsage } from '../components/entities/resource-usage.tsx'
 import { ServiceTable } from '../components/entities/service-table.tsx'
 import { repositoryHref } from '../components/entities/repository-row.tsx'
 import { useTaskStatuses } from '../i18n/use-task-statuses.ts'
+import { narrowTone } from '../lib/tone.ts'
 import { Mono } from '../components/copy.tsx'
 
 const TABS = ['overview', 'logs', 'settings'] as const
@@ -62,7 +63,7 @@ export function EnvironmentPage({ project: name, tab: requested, service }: {
         <Card>
           <Empty
             title={t('notFound', { name })}
-            hint={<a className="text-accent hover:underline" href="#/environments">{t('backToAll')}</a>}
+            hint={<a className="rounded-xs text-accent hover:underline focus-ring" href="#/environments">{t('backToAll')}</a>}
           />
         </Card>
       </>
@@ -152,6 +153,32 @@ function EnvironmentHeader({ environment, owner }: { environment: Environment; o
             .filter(Boolean)
             .join(' · ') || undefined
         }
+        meta={
+          <>
+            {remembered ? (
+              <Badge tone="outline">{t('presence.remembered')}</Badge>
+            ) : (
+              <StatusIndicator tone={narrowTone(healthTone(health))}>{t('header.services', { running: environment.runningCount, total: environment.serviceCount })}</StatusIndicator>
+            )}
+            {!remembered && environment.unhealthyCount > 0 ? <StatusIndicator tone="danger">{t('unhealthy', { count: environment.unhealthyCount })}</StatusIndicator> : null}
+            {owner ? (
+              owner.repository ? (
+                <a className="rounded-xs text-accent underline-offset-2 hover:underline focus-ring" href={repositoryHref(owner.slug, owner.repository.id)}>
+                  {t('header.openRepository')}: {owner.repository.name}
+                </a>
+              ) : null
+            ) : environment.group ? (
+              <Badge tone="outline">{t('partOf', { group: environment.group })}</Badge>
+            ) : (
+              <span className="text-subtle">{t('header.noProject')}</span>
+            )}
+            {environment.namespace ? <Badge tone="outline">{t('worktree', { name: environment.namespace })}</Badge> : null}
+            {environment.repoUrl ? (
+              <a className="rounded-xs text-muted underline-offset-2 hover:text-ink hover:underline focus-ring" href={environment.repoUrl} target="_blank" rel="noreferrer noopener">{environment.repo}</a>
+            ) : null}
+            <Mono kind="text" tone="subtle" className="text-xs">{environment.networks.join(', ')}</Mono>
+          </>
+        }
         actions={
           <>
             {environment.urls.length > 0 ? <EnvironmentOpenMenu environment={environment} /> : null}
@@ -160,34 +187,12 @@ function EnvironmentHeader({ environment, owner }: { environment: Environment; o
           </>
         }
       />
-      <div className="mb-4 rounded-lg border border-line bg-surface">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-xs">
-          {remembered ? (
-            <Badge tone="outline">{t('presence.remembered')}</Badge>
-          ) : (
-            <Badge tone={healthTone(health)}>{t('header.services', { running: environment.runningCount, total: environment.serviceCount })}</Badge>
-          )}
-          {!remembered && environment.unhealthyCount > 0 ? <Badge tone="danger">{t('unhealthy', { count: environment.unhealthyCount })}</Badge> : null}
-          {owner ? (
-            owner.repository ? (
-              <a className="text-accent underline-offset-2 hover:underline" href={repositoryHref(owner.slug, owner.repository.id)}>
-                {t('header.openRepository')}: {owner.repository.name}
-              </a>
-            ) : null
-          ) : environment.group ? (
-            <Badge tone="outline">{t('partOf', { group: environment.group })}</Badge>
-          ) : (
-            <span className="text-subtle">{t('header.noProject')}</span>
-          )}
-          {environment.namespace ? <Badge tone="outline">{t('worktree', { name: environment.namespace })}</Badge> : null}
-          {environment.repoUrl ? (
-            <a className="text-muted underline-offset-2 hover:text-accent hover:underline" href={environment.repoUrl} target="_blank" rel="noreferrer noopener">{environment.repo}</a>
-          ) : null}
-          <span className="ml-auto font-mono text-subtle">{environment.networks.join(', ')}</span>
+      {git.data || environment.task || environment.issue ? (
+        <div className="mb-4 divide-y divide-line rounded-lg border border-line bg-surface">
+          {git.data ? <GitStatusLine git={git.data} variant="line" /> : null}
+          {environment.task ? <TaskLine task={environment.task} /> : environment.issue ? <IssueLine issue={environment.issue} /> : null}
         </div>
-        {git.data ? <GitStatusLine git={git.data} variant="line" className="border-t border-line" /> : null}
-        {environment.task ? <TaskLine task={environment.task} /> : environment.issue ? <IssueLine issue={environment.issue} /> : null}
-      </div>
+      ) : null}
     </>
   )
 }
@@ -196,14 +201,14 @@ function TaskLine({ task }: { task: NonNullable<Environment['task']> }) {
   const { t } = useTranslation('environments')
   const { statusLabel, priorityLabel } = useTaskStatuses()
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-2 text-xs">
+    <div className="flex min-h-8 flex-wrap items-center gap-2 px-3 py-1.5 text-xs">
       <span className="text-subtle">{t('header.task')}</span>
-      <a className="font-medium text-ink underline-offset-2 hover:text-accent hover:underline" href={task.panelUrl}>#{task.id} {task.title}</a>
+      <a className="rounded-xs font-medium text-ink underline-offset-2 hover:underline focus-ring" href={task.panelUrl}>#{task.id} {task.title}</a>
       <Badge tone="accent">{statusLabel(task.status)}</Badge>
       {task.priority ? <Badge tone="warn">{priorityLabel(task.priority)}</Badge> : null}
       {task.agent ? <Badge tone="outline">{task.agent}</Badge> : task.assignee ? <Badge tone="outline">{task.assignee}</Badge> : null}
       {task.github ? (
-        <a className="text-muted underline-offset-2 hover:text-accent hover:underline" href={task.github.htmlUrl} target="_blank" rel="noreferrer noopener">
+        <a className="text-muted underline-offset-2 hover:underline" href={task.github.htmlUrl} target="_blank" rel="noreferrer noopener">
           {task.github.repository}#{task.github.number}
         </a>
       ) : null}
@@ -216,10 +221,10 @@ function IssueLine({ issue }: { issue: NonNullable<Environment['issue']> }) {
   const { t } = useTranslation('environments')
   const { statusLabel, priorityLabel } = useTaskStatuses()
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-2 text-xs">
+    <div className="flex min-h-8 flex-wrap items-center gap-2 px-3 py-1.5 text-xs">
       <span className="text-subtle">{t('header.task')}</span>
       <Badge tone="outline">{issue.repository}</Badge>
-      <a className="underline-offset-2 hover:text-accent hover:underline" href={issue.htmlUrl} target="_blank" rel="noreferrer noopener">#{issue.number}</a>
+      <a className="underline-offset-2 hover:underline" href={issue.htmlUrl} target="_blank" rel="noreferrer noopener">#{issue.number}</a>
       <span className="min-w-0 truncate font-medium text-ink">{issue.title}</span>
       {issue.status ? <Badge tone="accent">{statusLabel(issue.status)}</Badge> : null}
       {issue.priority ? <Badge tone="warn">{priorityLabel(issue.priority)}</Badge> : null}
@@ -259,9 +264,9 @@ function OverviewTab({ environment, service }: { environment: Environment; servi
         )}
       </Card>
       {environment.workingDir || environment.gitRoot ? (
-        <div className="px-1 text-xs text-subtle">
-          {environment.workingDir ? <Mono value={environment.workingDir} /> : null}
-          {environment.gitRoot && environment.gitRoot !== environment.workingDir ? <span> · {t('environment.gitRoot')}: <Mono value={environment.gitRoot} /></span> : null}
+        <div className="flex flex-wrap items-center gap-x-1 px-1 text-xs text-subtle">
+          {environment.workingDir ? <Mono kind="path" tone="subtle" value={environment.workingDir} /> : null}
+          {environment.gitRoot && environment.gitRoot !== environment.workingDir ? <span className="flex min-w-0 items-center gap-1"> · {t('environment.gitRoot')}: <Mono kind="path" tone="subtle" value={environment.gitRoot} /></span> : null}
         </div>
       ) : null}
     </div>

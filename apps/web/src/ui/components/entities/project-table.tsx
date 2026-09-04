@@ -10,6 +10,8 @@ import type { Column } from '../../lib/table.ts'
 import { DataTable, type BulkAction } from '../ui/data-table.tsx'
 import { ConfirmDialog } from '../ui/confirm-dialog.tsx'
 import { Badge } from '../ui/badge.tsx'
+import { NoValue } from '../shell-bits.tsx'
+import { Mono } from '../copy.tsx'
 import { useToast } from '../ui/toast.tsx'
 import { ResourceUsage } from './resource-usage.tsx'
 import { ProjectActionsMenu, affectedBy, type LifecycleAction, type ProjectActionTarget } from './project-actions.tsx'
@@ -56,13 +58,13 @@ export function ProjectTable({
       cell: (item) => (
         <div className="min-w-0">
           <a
-            className="block max-w-[18rem] truncate font-medium text-ink underline-offset-2 hover:text-accent hover:underline"
+            className="block max-w-72 truncate rounded-xs font-medium text-ink underline-offset-2 hover:underline focus-ring"
             href={`#/projects/${encodeURIComponent(item.slug)}`}
           >
             {item.name}
           </a>
           {item.description ? (
-            <span className="block max-w-[18rem] truncate text-[11px] text-subtle">{item.description}</span>
+            <span className="block max-w-72 truncate text-2xs text-subtle">{item.description}</span>
           ) : null}
         </div>
       ),
@@ -98,7 +100,7 @@ export function ProjectTable({
       header: t('table.tasks'),
       align: 'right',
       sortValue: (item) => item.openTasks,
-      cell: (item) => (item.openTasks === null ? <span className="text-subtle">—</span> : <span className="tabular-nums">{item.openTasks}</span>),
+      cell: (item) => (item.openTasks === null ? <NoValue /> : <span className="tabular-nums">{item.openTasks}</span>),
     },
     {
       id: 'inProgress',
@@ -106,7 +108,7 @@ export function ProjectTable({
       align: 'right',
       priority: 2,
       sortValue: (item) => item.inProgressTasks,
-      cell: (item) => (item.inProgressTasks ? <Badge tone="info">{item.inProgressTasks}</Badge> : <span className="text-subtle">—</span>),
+      cell: (item) => (item.inProgressTasks ? <Badge tone="info">{item.inProgressTasks}</Badge> : <NoValue />),
     },
     {
       id: 'blocked',
@@ -114,14 +116,14 @@ export function ProjectTable({
       align: 'right',
       priority: 2,
       sortValue: (item) => item.blockedTasks,
-      cell: (item) => (item.blockedTasks ? <Badge tone="danger">{item.blockedTasks}</Badge> : <span className="text-subtle">—</span>),
+      cell: (item) => (item.blockedTasks ? <Badge tone="danger">{item.blockedTasks}</Badge> : <NoValue />),
     },
     {
       id: 'agents',
       header: t('table.agents'),
       align: 'right',
       sortValue: (item) => item.activeSessions,
-      cell: (item) => (item.activeSessions ? <Badge tone="agent" dot>{item.activeSessions}</Badge> : <span className="text-subtle">—</span>),
+      cell: (item) => (item.activeSessions ? <Badge tone="agent" dot>{item.activeSessions}</Badge> : <NoValue />),
     },
     {
       id: 'resources',
@@ -131,8 +133,8 @@ export function ProjectTable({
       sortValue: (item) => item.resources?.memoryUsedBytes ?? null,
       cell: (item) =>
         item.resources
-          ? <ResourceUsage cpu={item.resources.cpuUtilisation} memoryBytes={item.resources.memoryUsedBytes} className="text-[11px]" />
-          : <span className="text-subtle">—</span>,
+          ? <ResourceUsage cpu={item.resources.cpuUtilisation} memoryBytes={item.resources.memoryUsedBytes} className="text-2xs" />
+          : <NoValue />,
     },
     {
       id: 'commit',
@@ -144,11 +146,11 @@ export function ProjectTable({
       sortValue: (item) => item.lastCommit?.date ?? null,
       cell: (item) =>
         item.lastCommit ? (
-          <span className="flex min-w-0 items-center gap-1.5 text-[11px]">
-            <span className="font-mono text-subtle">{item.lastCommit.shortSha}</span>
-            <span className="max-w-[14rem] truncate text-muted">{item.lastCommit.subject}</span>
+          <span className="flex min-w-0 items-center gap-1.5 text-2xs">
+            <Mono kind="sha" tone="subtle">{item.lastCommit.shortSha}</Mono>
+            <span className="max-w-56 truncate text-muted">{item.lastCommit.subject}</span>
           </span>
-        ) : <span className="text-subtle">—</span>,
+        ) : <NoValue />,
     },
     {
       id: 'activity',
@@ -158,8 +160,8 @@ export function ProjectTable({
       sortValue: (item) => item.lastActivityAt,
       cell: (item) =>
         item.lastActivityAt
-          ? <span className="text-[11px] tabular-nums text-muted" title={item.lastActivity ?? undefined}>{relativeTime(item.lastActivityAt)}</span>
-          : <span className="text-subtle">—</span>,
+          ? <span className="text-2xs tabular-nums text-muted" title={item.lastActivity ?? undefined}>{relativeTime(item.lastActivityAt)}</span>
+          : <NoValue />,
     },
     {
       id: 'actions',
@@ -224,14 +226,14 @@ export function ProjectTable({
       {
         id: 'start',
         label: ta('bulk.start'),
-        icon: <Play className="h-3.5 w-3.5" />,
+        icon: <Play className="size-3.5" />,
         disabledReason: startable.length === 0 ? ta('bulk.nothingToStart') : undefined,
         onRun: () => void run('start', startable, clear),
       },
       {
         id: 'stop',
         label: ta('bulk.stop'),
-        icon: <Square className="h-3.5 w-3.5" />,
+        icon: <Square className="size-3.5" />,
         tone: 'danger',
         disabledReason: stoppable.length === 0 ? ta('bulk.nothingToStop') : undefined,
         onRun: () => setPending({ kind: 'stop', items: stoppable, clear }),
@@ -239,14 +241,14 @@ export function ProjectTable({
       {
         id: 'restart',
         label: ta('bulk.restart'),
-        icon: <RotateCw className="h-3.5 w-3.5" />,
+        icon: <RotateCw className="size-3.5" />,
         disabledReason: stoppable.length === 0 ? ta('bulk.nothingToStop') : undefined,
         onRun: () => setPending({ kind: 'restart', items: stoppable, clear }),
       },
       {
         id: 'archive',
         label: ta('bulk.archive'),
-        icon: <Archive className="h-3.5 w-3.5" />,
+        icon: <Archive className="size-3.5" />,
         onRun: () => setPending({ kind: 'archive', items: selected.filter((item) => !item.archived), clear }),
       },
     ]

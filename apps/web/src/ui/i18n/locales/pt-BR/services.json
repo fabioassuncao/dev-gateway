@@ -52,7 +52,7 @@
     "actionOk": "{{name}}: {{action}} enviado"
   },
   "menu": {
-    "openTest": "Abrir / Testar",
+    "openTest": "Acessar",
     "open": "Abrir",
     "copy": "Copiar endereço",
     "logs": "Logs",

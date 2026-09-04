@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { dropTargetForElements, monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import type { TaskStatus, TaskSummary } from '../../../shared/task-types.ts'
-import { Badge } from '../ui/badge.tsx'
 import { Empty } from '../shell-bits.tsx'
 import { cn } from '../../lib/utils.ts'
 import { useBoardColumns, type BoardColumn } from '../../i18n/use-task-statuses.ts'
 import { columnFor, statusIcon, statusTone } from '../../lib/task-presentation.ts'
+import { toneText } from '../../lib/tone.ts'
 import { taskHref } from '../../lib/tasks.ts'
 import { TaskCard } from '../entities/task-card.tsx'
 
@@ -93,7 +93,7 @@ export function TaskBoard({
       <div aria-live="polite" className="sr-only">
         {announcement}
       </div>
-      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 scroll-thin md:mx-0 md:px-0">
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 scroll-thin md:mx-0 md:px-0">
         {columns.map((column) => (
           <BoardColumnView
             key={column.id}
@@ -161,29 +161,27 @@ function BoardColumnView({
   const shown = [...tasks].sort((a, b) => a.position - b.position || a.id.localeCompare(b.id)).slice(0, COLUMN_CAP)
   const Icon = statusIcon(column.status)
   const tone = statusTone(column.status)
-  const accent =
-    tone === 'ok' ? 'bg-ok' : tone === 'danger' ? 'bg-danger' : tone === 'info' ? 'bg-info' : tone === 'accent' ? 'bg-accent' : 'bg-line-strong'
+  const iconTone = toneText[tone === 'outline' ? 'neutral' : tone]
 
   return (
     <section
       ref={region}
       aria-label={t('columnLabel', { label: column.label })}
       className={cn(
-        'flex w-[17rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-surface transition-colors',
-        over ? 'border-accent bg-accent/[0.05]' : 'border-line',
+        'flex w-64 shrink-0 flex-col rounded-lg border bg-surface-2/50 transition-colors duration-100',
+        over ? 'border-accent bg-selection' : 'border-transparent',
         // Every valid destination is visible while a card is in the air; the
         // column it came from is not a destination worth pointing at.
         dragActive && !over && !isSource && 'border-dashed border-line-strong',
       )}
     >
-      <header className="flex items-center gap-2 border-b border-line px-3 py-2">
-        <span className={cn('h-4 w-0.5 shrink-0 rounded-full', accent)} aria-hidden />
-        <Icon className="h-3.5 w-3.5 shrink-0 text-subtle" aria-hidden />
-        <h2 className="min-w-0 truncate text-sm font-semibold text-ink">{column.label}</h2>
-        <Badge tone="outline" className="ml-auto tabular-nums">{tasks.length}</Badge>
+      <header className="flex h-9 items-center gap-2 px-3">
+        <Icon className={cn('size-3.5 shrink-0', iconTone)} aria-hidden />
+        <h2 className="min-w-0 truncate text-sm font-medium text-ink">{column.label}</h2>
+        <span className="text-xs text-subtle tabular-nums">{tasks.length}</span>
       </header>
 
-      <div className="max-h-[min(70vh,40rem)] min-h-24 space-y-2 overflow-y-auto p-2 scroll-thin">
+      <div className="max-h-[min(70vh,40rem)] min-h-24 space-y-1.5 overflow-y-auto px-2 pb-2 scroll-thin">
         {shown.length === 0 ? (
           <p className={cn('px-1 py-6 text-center text-xs', over ? 'text-accent' : 'text-subtle')}>
             {over ? t('dropHere') : t('columnEmpty', { label: column.label })}
@@ -194,7 +192,7 @@ function BoardColumnView({
           ))
         )}
         {tasks.length > shown.length ? (
-          <p className="px-1 pb-1 text-center text-[11px] text-subtle">{t('moreHidden', { count: tasks.length - shown.length })}</p>
+          <p className="px-1 pb-1 text-center text-2xs text-subtle">{t('moreHidden', { count: tasks.length - shown.length })}</p>
         ) : null}
       </div>
     </section>

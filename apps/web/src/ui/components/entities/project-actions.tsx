@@ -186,22 +186,22 @@ export function ProjectActionsMenu({
         <MenuTrigger asChild>
           {trigger ?? (
             <Button variant="ghost" size="icon" aria-label={ta('menuFor', { name: target.name })}>
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreHorizontal />
             </Button>
           )}
         </MenuTrigger>
         <MenuContent align={align}>
           <MenuItem onSelect={() => navigate(base.replace(/^#/, ''))}>
-            <ExternalLink className="h-3.5 w-3.5" /> {tc('open')}
+            <ExternalLink className="size-3.5" /> {tc('open')}
           </MenuItem>
           <MenuItem onSelect={() => navigate(`${base}/tasks`.replace(/^#/, ''))}>
-            <ListTodo className="h-3.5 w-3.5" /> {ta('openTasks')}
+            <ListTodo className="size-3.5" /> {ta('openTasks')}
           </MenuItem>
           <MenuItem onSelect={() => navigate(`${base}/repositories`.replace(/^#/, ''))}>
-            <FolderGit2 className="h-3.5 w-3.5" /> {ta('openRepositories')}
+            <FolderGit2 className="size-3.5" /> {ta('openRepositories')}
           </MenuItem>
           <MenuItem onSelect={() => navigate(`${base}/environments`.replace(/^#/, ''))}>
-            <Boxes className="h-3.5 w-3.5" /> {ta('openEnvironments')}
+            <Boxes className="size-3.5" /> {ta('openEnvironments')}
           </MenuItem>
 
           {actions.length > 0 ? (
@@ -214,17 +214,17 @@ export function ProjectActionsMenu({
                   hint={affectedBy(target, 'start').environments.length}
                   onSelect={() => lifecycle.mutate('start')}
                 >
-                  <Play className="h-3.5 w-3.5" /> {ta('start')}
+                  <Play className="size-3.5" /> {ta('start')}
                 </MenuItem>
               ) : null}
               {actions.includes('stop') ? (
                 <MenuItem disabled={lifecycle.isPending} hint={stopImpact.environments.length} onSelect={() => setConfirm('stop')}>
-                  <Square className="h-3.5 w-3.5" /> {ta('stop')}
+                  <Square className="size-3.5" /> {ta('stop')}
                 </MenuItem>
               ) : null}
               {actions.includes('restart') ? (
                 <MenuItem disabled={lifecycle.isPending} hint={restartImpact.environments.length} onSelect={() => setConfirm('restart')}>
-                  <RotateCw className="h-3.5 w-3.5" /> {ta('restart')}
+                  <RotateCw className="size-3.5" /> {ta('restart')}
                 </MenuItem>
               ) : null}
             </>
@@ -232,14 +232,13 @@ export function ProjectActionsMenu({
 
           <MenuSeparator />
           <MenuItem onSelect={() => navigate(`${base}/settings`.replace(/^#/, ''))}>
-            <Settings2 className="h-3.5 w-3.5" /> {ta('settings')}
+            <Settings2 className="size-3.5" /> {ta('settings')}
           </MenuItem>
-          <MenuItem disabled={archive.isPending} onSelect={() => archive.mutate()}>
-            {target.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+          <MenuItem disabled={archive.isPending} icon={target.archived ? <ArchiveRestore /> : <Archive />} onSelect={() => archive.mutate()}>
             {ta(target.archived ? 'unarchive' : 'archive')}
           </MenuItem>
           <MenuItem tone="danger" onSelect={() => setConfirm('delete')}>
-            <Trash2 className="h-3.5 w-3.5" /> {ta('delete')}
+            <Trash2 className="size-3.5" /> {ta('delete')}
           </MenuItem>
         </MenuContent>
       </Menu>
@@ -323,7 +322,7 @@ export function ProjectPrimaryAction({ target }: { target: ProjectActionTarget }
         aria-label={`${running ? t('stop') : t('start')} ${target.name}`}
         onClick={() => (running ? setConfirmStop(true) : lifecycle.mutate('start'))}
       >
-        {running ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+        {running ? <Square className="size-3.5" /> : <Play className="size-3.5" />}
       </Button>
       <ConfirmDialog
         open={confirmStop}

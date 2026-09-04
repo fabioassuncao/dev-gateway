@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Bot, GitCommitHorizontal, User } from 'lucide-react'
 import type { Session } from '../../../shared/task-types.ts'
 import { Badge, StatusDot } from '../ui/badge.tsx'
+import { Mono } from '../copy.tsx'
 import { Tooltip } from '../ui/tooltip.tsx'
 import { useFormat } from '../../lib/use-format.ts'
 import { taskHref } from '../../lib/tasks.ts'
@@ -39,10 +40,10 @@ export function SessionRow({
     <div
       role="group"
       aria-label={t('rowLabel', { actor: session.actor })}
-      className={cn('min-w-0 border-b border-line px-4 py-2 text-sm last:border-b-0', className)}
+      className={cn('min-w-0 border-b border-line-subtle px-3 py-2 text-sm transition-colors duration-100 last:border-b-0 hover:bg-fill', className)}
     >
       <div className="flex min-w-0 items-center gap-2">
-        <Icon className={cn('h-3.5 w-3.5 shrink-0', agent ? 'text-agent' : 'text-subtle')} aria-hidden />
+        <Icon className={cn('size-3.5 shrink-0', agent ? 'text-agent' : 'text-subtle')} aria-hidden />
         <span className="min-w-0 truncate font-medium text-ink">{session.agent ?? session.actor}</span>
         {session.agent && session.agent !== session.actor ? (
           <span className="hidden truncate text-xs text-subtle sm:inline">{session.actor}</span>
@@ -53,7 +54,7 @@ export function SessionRow({
           <Badge tone={session.status === 'abandoned' ? 'warn' : 'neutral'}>{t(`status.${session.status}`)}</Badge>
         )}
         <Tooltip label={active ? t('duration', { time: uptime(elapsed) }) : t('endedAgo', { time: relativeTime(session.endedAt ?? session.lastActivityAt) })}>
-          <span tabIndex={0} className="ml-auto shrink-0 rounded text-[11px] tabular-nums text-subtle outline-none focus-visible:outline-2 focus-visible:outline-accent">
+          <span tabIndex={0} className="ml-auto shrink-0 rounded text-2xs tabular-nums text-subtle focus-ring">
             {active ? uptime(elapsed) : t('endedAgo', { time: relativeTime(session.endedAt ?? session.lastActivityAt) })}
           </span>
         </Tooltip>
@@ -62,10 +63,10 @@ export function SessionRow({
 
       {session.task ? (
         <a
-          className="mt-0.5 block min-w-0 truncate text-[13px] text-ink underline-offset-2 hover:text-accent hover:underline"
+          className="mt-0.5 block min-w-0 truncate rounded-xs text-sm text-ink underline-offset-2 hover:underline focus-ring"
           href={taskHref(session.project, session.task.id)}
         >
-          <span className="font-mono text-xs text-subtle">#{session.task.id}</span> {session.task.title}
+          <Mono kind="id" tone="subtle" className="text-xs">#{session.task.id}</Mono> {session.task.title}
         </a>
       ) : (
         <p className="mt-0.5 text-xs text-subtle">{t('noTask')}</p>
@@ -73,22 +74,22 @@ export function SessionRow({
 
       {session.summary ? <p className="mt-0.5 line-clamp-2 text-xs text-muted">{session.summary}</p> : null}
 
-      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-subtle">
+      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-2xs text-subtle">
         {showProject ? (
-          <a className="truncate underline-offset-2 hover:text-accent hover:underline" href={`#/projects/${encodeURIComponent(session.project)}`}>
+          <a className="truncate rounded-xs underline-offset-2 hover:text-ink hover:underline focus-ring" href={`#/projects/${encodeURIComponent(session.project)}`}>
             {session.project}
           </a>
         ) : null}
         {session.repository ? <Badge tone="outline">{session.repository.name}</Badge> : null}
         {session.environment ? (
-          <a className="truncate font-mono underline-offset-2 hover:text-accent hover:underline" href={`#/environments/${encodeURIComponent(session.environment)}`}>
+          <a className="truncate rounded-xs font-mono underline-offset-2 hover:text-ink hover:underline focus-ring" href={`#/environments/${encodeURIComponent(session.environment)}`}>
             {session.environment}
           </a>
         ) : null}
         {session.commits.length > 0 ? (
           <Tooltip label={session.commits.slice(0, 5).map((commit) => commit.subject).join(' · ')}>
-            <span tabIndex={0} className="inline-flex items-center gap-1 rounded outline-none focus-visible:outline-2 focus-visible:outline-accent">
-              <GitCommitHorizontal className="h-3 w-3" aria-hidden />
+            <span tabIndex={0} className="inline-flex items-center gap-1 rounded-xs focus-ring">
+              <GitCommitHorizontal className="size-3" aria-hidden />
               {t('commits', { count: session.commits.length })}
             </span>
           </Tooltip>

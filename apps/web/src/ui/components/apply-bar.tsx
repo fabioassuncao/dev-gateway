@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import { TriangleAlert } from 'lucide-react'
 import { Button } from './ui/button.tsx'
-import { CopyButton } from './copy.tsx'
+import { CodeChip, CopyButton } from './copy.tsx'
+import { cn } from '../lib/utils.ts'
+import { toneBorder, toneText, toneWash } from '../lib/tone.ts'
 import { ApplyDialog } from './apply-dialog.tsx'
 import { useApply } from '../lib/use-apply.ts'
 import type { ApplyStatus } from '../../shared/types.ts'
@@ -38,9 +40,9 @@ export function ApplyBar({ readOnly }: { readOnly: boolean }) {
     <>
       <div
         role="status"
-        className="flex shrink-0 flex-wrap items-center gap-2 border-b border-info/40 bg-info/5 px-3 py-2 text-xs text-info"
+        className={cn('flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5 text-xs', toneBorder.info, toneWash.info, toneText.info)}
       >
-        <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
+        <TriangleAlert className="size-3.5 shrink-0" />
         <span>{applying ? t('barApplying') : t('barPending')}</span>
 
         {applying ? null : canApply ? (
@@ -50,7 +52,7 @@ export function ApplyBar({ readOnly }: { readOnly: boolean }) {
         ) : (
           <>
             <span className="ml-auto">{t('barManual')}</span>
-            <code className="font-mono text-ink">{status.applyCommand}</code>
+            <CodeChip>{status.applyCommand}</CodeChip>
             <CopyButton value={status.applyCommand} label={tc('copyCommand')} />
             {/* Read-only is a deliberate posture, so it gets no instructions
                 for undoing itself. */}

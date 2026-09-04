@@ -120,10 +120,10 @@ export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: str
     const status = task.error instanceof ApiError ? task.error.status : null
     return (
       <>
-        <Breadcrumb items={crumbs(null)} />
+        <Breadcrumb items={crumbs(null)} className="-ml-1 mb-3" />
         <Card>
           {status === 404 ? (
-            <Empty title={t('notFound', { id })} hint={<a className="text-accent hover:underline" href={`#${tasksHref(slug, 'board')}`}>{t('backToTasks')}</a>} />
+            <Empty title={t('notFound', { id })} hint={<a className="rounded-xs text-accent hover:underline focus-ring" href={`#${tasksHref(slug, 'board')}`}>{t('backToTasks')}</a>} />
           ) : status === 503 ? (
             <Empty title={t('needsDatabase')} hint={t('needsDatabaseHint')} />
           ) : (
@@ -138,7 +138,7 @@ export function TaskPage({ slug, id, readOnly = false }: { slug: string; id: str
 
   return (
     <>
-      <div className="mb-4">
+      <div className="-ml-1 mb-3">
         <Breadcrumb items={crumbs(data.parentId)} />
       </div>
       <TaskWorkspace

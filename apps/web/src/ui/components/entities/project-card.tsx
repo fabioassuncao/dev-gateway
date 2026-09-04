@@ -2,7 +2,8 @@ import { useTranslation } from 'react-i18next'
 import { Bot, Boxes, FolderGit2, GitCommitHorizontal, OctagonX } from 'lucide-react'
 import type { ProjectListItem } from '../../lib/projects.ts'
 import { projectState, projectStateTone } from '../../lib/projects.ts'
-import { Badge } from '../ui/badge.tsx'
+import { Badge, StatusIndicator } from '../ui/badge.tsx'
+import { narrowTone } from '../../lib/tone.ts'
 import { Card } from '../ui/card.tsx'
 import { Tooltip } from '../ui/tooltip.tsx'
 import { useFormat } from '../../lib/use-format.ts'
@@ -16,10 +17,10 @@ export function ProjectStateBadge({ item, className }: { item: ProjectListItem; 
   const state = projectState(item)
   return (
     <Tooltip label={t(`${state}Hint` as 'runningHint')}>
-      <span tabIndex={0} className={cn('rounded outline-none focus-visible:outline-2 focus-visible:outline-accent', className)}>
-        <Badge tone={projectStateTone(state)} dot={state !== 'archived' && state !== 'idle'}>
+      <span tabIndex={0} className={cn('inline-flex rounded-xs focus-ring', className)}>
+        <StatusIndicator tone={narrowTone(projectStateTone(state))} pulse={false}>
           {t(state)}
-        </Badge>
+        </StatusIndicator>
       </span>
     </Tooltip>
   )
@@ -54,7 +55,7 @@ export function ProjectCounts({ item, className }: { item: ProjectListItem; clas
   }
 
   return (
-    <span className={cn('inline-flex items-center gap-2.5 text-[11px] tabular-nums text-muted', className)}>
+    <span className={cn('inline-flex items-center gap-2.5 text-xs tabular-nums text-muted', className)}>
       {facts.map((fact) => {
         const Icon = fact.icon
         return (
@@ -65,11 +66,11 @@ export function ProjectCounts({ item, className }: { item: ProjectListItem; clas
               // icon need a name at all times, for a reader and for a test.
               aria-label={fact.label}
               className={cn(
-                'inline-flex items-center gap-1 rounded outline-none focus-visible:outline-2 focus-visible:outline-accent',
+                'inline-flex items-center gap-1 rounded-xs focus-ring',
                 fact.tone === 'danger' ? 'text-danger' : fact.tone === 'agent' ? 'text-agent' : undefined,
               )}
             >
-              <Icon className="h-3 w-3" aria-hidden />
+              <Icon className="size-3" aria-hidden />
               {fact.text}
             </span>
           </Tooltip>
@@ -105,11 +106,11 @@ export function ProjectCard({ item }: { item: ProjectListItem }) {
 
   return (
     <Card className="group flex min-w-0 flex-col">
-      <div className="flex items-start gap-2 border-b border-line px-3.5 py-2.5">
+      <div className="flex items-start gap-2 border-b border-line px-3 py-2">
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <a
-              className="min-w-0 truncate text-sm font-semibold text-ink underline-offset-2 hover:text-accent hover:underline"
+              className="min-w-0 truncate rounded-xs text-sm font-medium text-ink underline-offset-2 hover:underline focus-ring"
               href={`#/projects/${encodeURIComponent(item.slug)}`}
             >
               {item.name}
@@ -117,7 +118,7 @@ export function ProjectCard({ item }: { item: ProjectListItem }) {
             <ProjectStateBadge item={item} />
           </div>
           {item.description ? (
-            <p className="mt-0.5 line-clamp-2 text-xs text-muted">{item.description}</p>
+            <p className="mt-0.5 line-clamp-2 text-xs text-subtle">{item.description}</p>
           ) : null}
         </div>
         <div className="row-actions flex shrink-0 items-center">
@@ -126,19 +127,19 @@ export function ProjectCard({ item }: { item: ProjectListItem }) {
         </div>
       </div>
 
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
         <ProjectCounts item={item} />
         <ProjectWork item={item} />
         {item.resources ? (
-          <ResourceUsage cpu={item.resources.cpuUtilisation} memoryBytes={item.resources.memoryUsedBytes} className="text-[11px]" />
+          <ResourceUsage cpu={item.resources.cpuUtilisation} memoryBytes={item.resources.memoryUsedBytes} className="text-2xs" />
         ) : null}
       </div>
 
       {item.lastCommit || item.lastActivity ? (
-        <div className="mt-auto flex min-w-0 items-center gap-1.5 border-t border-line px-3.5 py-1.5 text-[11px] text-subtle">
+        <div className="mt-auto flex min-w-0 items-center gap-1.5 border-t border-line px-3 py-1.5 text-2xs text-subtle">
           {item.lastCommit ? (
             <>
-              <GitCommitHorizontal className="h-3 w-3 shrink-0" aria-hidden />
+              <GitCommitHorizontal className="size-3 shrink-0" aria-hidden />
               <span className="font-mono">{item.lastCommit.shortSha}</span>
               <span className="min-w-0 truncate">{item.lastCommit.subject}</span>
               <span className="ml-auto shrink-0">{relativeTime(item.lastCommit.date)}</span>
@@ -164,10 +165,10 @@ export function ProjectRow({ item, className }: { item: ProjectListItem; classNa
     <div
       role="group"
       aria-label={item.name}
-      className={cn('flex min-w-0 items-center gap-2 border-b border-line px-4 py-1.5 text-sm last:border-b-0', className)}
+      className={cn('flex h-9 min-w-0 items-center gap-2 border-b border-line-subtle px-3 text-sm transition-colors duration-100 last:border-b-0 hover:bg-fill', className)}
     >
       <a
-        className="min-w-0 flex-1 truncate font-medium text-ink underline-offset-2 hover:text-accent hover:underline"
+        className="min-w-0 flex-1 truncate rounded-xs font-medium text-ink underline-offset-2 hover:underline focus-ring"
         href={`#/projects/${encodeURIComponent(item.slug)}`}
       >
         {item.name}

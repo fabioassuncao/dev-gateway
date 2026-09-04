@@ -19,14 +19,15 @@ export function SettingsGroup({
   return (
     <Card className="min-w-0 flex-1">
       <CardHeader title={t(`groups.${name}`, { defaultValue: name })} />
-      <CardBody className="space-y-4">
+      <CardBody className="divide-y divide-line-subtle py-0">
         {fields.map((field) => (
-          <ConfigField
-            key={field.key}
-            field={field}
-            value={valueOf(field)}
-            onChange={(value) => onChange(field.key, value)}
-          />
+          <div key={field.key} className="py-3 first:pt-2.5 last:pb-2.5">
+            <ConfigField
+              field={field}
+              value={valueOf(field)}
+              onChange={(value) => onChange(field.key, value)}
+            />
+          </div>
         ))}
       </CardBody>
     </Card>

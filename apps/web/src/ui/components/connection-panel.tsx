@@ -4,7 +4,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { useServiceConnection } from '../lib/queries/index.ts'
 import type { ServiceConnection, ServiceEndpoint } from '../../shared/types.ts'
 import { Button } from './ui/button.tsx'
-import { CopyButton } from './copy.tsx'
+import { CopyButton, Mono } from './copy.tsx'
 import { ScopeBadge } from './status.tsx'
 
 function MaskedSecret({ value, revealLabel, hideLabel, copyLabel }: {
@@ -16,15 +16,15 @@ function MaskedSecret({ value, revealLabel, hideLabel, copyLabel }: {
   const [revealed, setRevealed] = useState(false)
   return (
     <span className="inline-flex min-w-0 items-center gap-0.5">
-      <span className="truncate font-mono text-xs text-ink">{revealed ? value : '••••••••'}</span>
+      <Mono kind="text" tone="ink" className="truncate text-xs">{revealed ? value : '••••••••'}</Mono>
       <Button
         variant="ghost"
-        size="icon"
+        size="icon-sm"
         title={revealed ? hideLabel : revealLabel}
         aria-label={revealed ? hideLabel : revealLabel}
         onClick={() => setRevealed((open) => !open)}
       >
-        {revealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+        {revealed ? <EyeOff /> : <Eye />}
       </Button>
       <CopyButton value={value} label={copyLabel} />
     </span>
@@ -37,7 +37,7 @@ function EndpointRow({ endpoint }: { endpoint: ServiceEndpoint }) {
     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
       <ScopeBadge scope={endpoint.scope} />
       {endpoint.usable ? (
-        <span className="font-mono text-xs text-ink">{endpoint.url}</span>
+        <Mono kind="url" tone="ink" className="text-xs">{endpoint.url}</Mono>
       ) : (
         <span className="text-xs text-subtle">{endpoint.problem ?? endpoint.url}</span>
       )}
@@ -73,7 +73,7 @@ export function ConnectionDetails({ data }: { data: ServiceConnection }) {
           />
         </div>
       ) : (
-        <div className="text-[11px] text-subtle">
+        <div className="text-2xs text-subtle">
           {credentials.reason ?? t('connection.templateHint')}
         </div>
       )}

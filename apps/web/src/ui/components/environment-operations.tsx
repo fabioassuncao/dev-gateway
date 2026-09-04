@@ -13,7 +13,8 @@ import { keys, useEnvironmentRemovalPreview } from '../lib/queries/index.ts'
 import { Button } from './ui/button.tsx'
 import { Dialog } from './ui/dialog.tsx'
 import { ErrorBox } from './shell-bits.tsx'
-import { CopyButton } from './copy.tsx'
+import { CommandRow, Mono, Pre } from './copy.tsx'
+import { Checkbox, Field, Input } from './ui/field.tsx'
 
 type RemoveMode = 'keep-data' | 'and-local-data'
 
@@ -30,7 +31,7 @@ export function EnvironmentOperations({ project }: { project: Environment }) {
         title={project.operable.ok ? t('rebuild') : (project.operable.reason ?? t('rebuildDisabled'))}
         onClick={() => setRebuildOpen(true)}
       >
-        <Hammer className="h-3.5 w-3.5" />
+        <Hammer />
         {t('rebuild')}
       </Button>
       <Button
@@ -39,7 +40,7 @@ export function EnvironmentOperations({ project }: { project: Environment }) {
         title={t('removeKeep')}
         onClick={() => setRemoveMode('keep-data')}
       >
-        <Trash2 className="h-3.5 w-3.5" />
+        <Trash2 />
         {t('removeKeep')}
       </Button>
       <Button
@@ -98,11 +99,11 @@ function RebuildDialog({ project, onClose }: { project: Environment; onClose: ()
       description={t('rebuildDescription', { name: project.name })}
       footer={
         done ? (
-          <Button variant="primary" onClick={onClose}>{tc('close')}</Button>
+          <Button variant="primary" size="sm" onClick={onClose}>{tc('close')}</Button>
         ) : started ? null : (
           <>
-            <Button variant="ghost" onClick={onClose}>{tc('cancel')}</Button>
-            <Button variant="primary" disabled={rebuild.isPending} onClick={() => rebuild.mutate()}>
+            <Button variant="ghost" size="sm" onClick={onClose}>{tc('cancel')}</Button>
+            <Button variant="primary" size="sm" busy={rebuild.isPending} onClick={() => rebuild.mutate()}>
               {t('rebuild')}
             </Button>
           </>
@@ -112,9 +113,8 @@ function RebuildDialog({ project, onClose }: { project: Environment; onClose: ()
       {error ? <ErrorBox error={error} /> : null}
       {!started ? (
         <label className="mt-2 flex items-start gap-2 text-sm text-ink">
-          <input
-            type="checkbox"
-            className="mt-1"
+          <Checkbox
+            className="mt-0.5"
             checked={noCache}
             onChange={(event) => setNoCache(event.target.checked)}
           />
@@ -176,11 +176,11 @@ function RemoveDialog({
       description={t('removeFromHost', { name: project.name })}
       footer={
         result ? (
-          <Button variant="primary" onClick={onClose}>{tc('close')}</Button>
+          <Button variant="primary" size="sm" onClick={onClose}>{tc('close')}</Button>
         ) : (
           <>
-            <Button variant="ghost" onClick={onClose}>{tc('cancel')}</Button>
-            <Button variant="danger" disabled={!canSubmit} onClick={() => remove.mutate()}>
+            <Button variant="ghost" size="sm" onClick={onClose}>{tc('cancel')}</Button>
+            <Button variant="danger" size="sm" disabled={!canSubmit} busy={remove.isPending} onClick={() => remove.mutate()}>
               {mode === 'keep-data' ? t('removeKeep') : t('removeData')}
             </Button>
           </>
@@ -199,9 +199,8 @@ function RemoveDialog({
           {result.remainingCommands.length > 0 ? (
             <ul className="space-y-1">
               {result.remainingCommands.map((command) => (
-                <li key={command} className="flex items-center gap-2 rounded border border-line bg-surface-2 px-2 py-1.5">
-                  <code className="min-w-0 flex-1 truncate font-mono text-xs">{command}</code>
-                  <CopyButton value={command} label={t('copyCommand')} />
+                <li key={command}>
+                  <CommandRow command={command} />
                 </li>
               ))}
             </ul>
@@ -211,9 +210,8 @@ function RemoveDialog({
         <>
           {mode === 'and-local-data' && data?.directoryRemovalAvailable ? (
             <label className="mt-3 flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="mt-1"
+              <Checkbox
+                className="mt-0.5"
                 checked={directory}
                 onChange={(event) => setDirectory(event.target.checked)}
               />
@@ -225,9 +223,8 @@ function RemoveDialog({
           ) : null}
           {directory && data?.git.dirty ? (
             <label className="mt-2 flex items-start gap-2 text-sm text-warn">
-              <input
-                type="checkbox"
-                className="mt-1"
+              <Checkbox
+                className="mt-0.5"
                 checked={overrideDirty}
                 onChange={(event) => setOverrideDirty(event.target.checked)}
               />
@@ -240,16 +237,18 @@ function RemoveDialog({
               </span>
             </label>
           ) : null}
-          <label className="mt-3 block text-sm">
-            <span className="text-muted">{t('typeName', { name: project.name })}</span>
-            <input
-              className="mt-1 w-full rounded border border-line bg-surface-2 px-2 py-1.5 font-mono text-sm"
-              value={confirmation}
-              onChange={(event) => setConfirmation(event.target.value)}
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </label>
+          <Field label={t('typeName', { name: project.name })} className="mt-3">
+            {(id) => (
+              <Input
+                id={id}
+                mono
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            )}
+          </Field>
         </>
       )}
     </Dialog>
@@ -272,7 +271,7 @@ function PreviewBody({ preview }: { preview: EnvironmentRemovalPreview }) {
         </p>
       ) : null}
       {preview.workingDir ? (
-        <p className="font-mono text-xs text-muted">{preview.workingDir}</p>
+        <p><Mono kind="path" className="text-xs" value={preview.workingDir} /></p>
       ) : null}
     </div>
   )
@@ -287,9 +286,9 @@ function RunnerLog({ status, failed }: { status: RunnerStatus | null; failed: bo
         {failed ? t('rebuildFailed') : status.state === 'ok' ? t('rebuildOk') : t('rebuildRunning')}
       </p>
       {status.logTail.length > 0 ? (
-        <pre className="mt-2 max-h-56 overflow-auto rounded border border-line bg-surface-2 p-2 font-mono text-xs">
+        <Pre className="mt-2" maxHeight="max-h-56">
           {status.logTail.join('\n')}
-        </pre>
+        </Pre>
       ) : null}
     </div>
   )

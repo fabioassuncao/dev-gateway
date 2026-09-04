@@ -7,7 +7,7 @@ import { api } from '../lib/api/index.ts'
 import { Button } from './ui/button.tsx'
 import { Dialog } from './ui/dialog.tsx'
 import { ErrorBox } from './shell-bits.tsx'
-import { CopyButton } from './copy.tsx'
+import { CommandRow } from './copy.tsx'
 
 type ActionSummary = EnvironmentActionResult | EnvironmentRunnerStartResult
 
@@ -70,7 +70,7 @@ export function EnvironmentActions({ project, onForgotten }: {
           title={canStart ? t('start') : (project.startable.reason ?? t('startDisabled'))}
           onClick={() => act.mutate('start')}
         >
-          <Play className="h-3.5 w-3.5" />
+          <Play className="size-3.5" />
           {t('start')}
         </Button>
         {remembered ? (
@@ -81,7 +81,7 @@ export function EnvironmentActions({ project, onForgotten }: {
             title={t('forget')}
             onClick={() => setConfirmForget(true)}
           >
-            <EyeOff className="h-3.5 w-3.5" />
+            <EyeOff className="size-3.5" />
             {t('forget')}
           </Button>
         ) : (
@@ -92,7 +92,7 @@ export function EnvironmentActions({ project, onForgotten }: {
               title={canStop ? t('stop') : t('stopDisabled')}
               onClick={() => setConfirmStop(true)}
             >
-              <Square className="h-3.5 w-3.5" />
+              <Square className="size-3.5" />
               {t('stop')}
             </Button>
             <Button
@@ -101,7 +101,7 @@ export function EnvironmentActions({ project, onForgotten }: {
               title={t('restart')}
               onClick={() => act.mutate('restart')}
             >
-              <RotateCw className={act.isPending ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
+              <RotateCw className={act.isPending ? 'animate-spin' : undefined} />
               {t('restart')}
             </Button>
           </>
@@ -109,10 +109,9 @@ export function EnvironmentActions({ project, onForgotten }: {
       </div>
 
       {startCommand ? (
-        <div className="flex flex-wrap items-center gap-1 text-xs text-subtle">
-          <span>{t('startCommand')}</span>
-          <code className="min-w-0 truncate rounded border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-ink">{startCommand}</code>
-          <CopyButton value={startCommand} />
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-subtle">
+          <span className="shrink-0">{t('startCommand')}</span>
+          <CommandRow command={startCommand} className="min-w-0 flex-1" />
         </div>
       ) : null}
 
@@ -136,8 +135,8 @@ export function EnvironmentActions({ project, onForgotten }: {
         description={t('stopConfirm', { name: project.name, count: services.length })}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setConfirmStop(false)}>{t('cancel')}</Button>
-            <Button variant="primary" disabled={act.isPending} onClick={() => act.mutate('stop')}>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmStop(false)}>{t('cancel')}</Button>
+            <Button variant="danger" size="sm" busy={act.isPending} onClick={() => act.mutate('stop')}>
               {t('stop')}
             </Button>
           </>
@@ -157,8 +156,8 @@ export function EnvironmentActions({ project, onForgotten }: {
         description={t('forgetConfirm', { name: project.name })}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setConfirmForget(false)}>{t('cancel')}</Button>
-            <Button variant="primary" disabled={forget.isPending} onClick={() => forget.mutate()}>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmForget(false)}>{t('cancel')}</Button>
+            <Button variant="primary" size="sm" busy={forget.isPending} onClick={() => forget.mutate()}>
               {t('forget')}
             </Button>
           </>

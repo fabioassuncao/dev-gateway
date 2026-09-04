@@ -4,7 +4,7 @@ import { useEnvironmentGit } from '../../lib/queries/index.ts'
 import { environmentHealth, healthTone } from '../../lib/health.ts'
 import { serviceRowsFor } from '../../lib/services.ts'
 import { useFormat } from '../../lib/use-format.ts'
-import { Badge } from '../ui/badge.tsx'
+import { Badge, StatusIndicator } from '../ui/badge.tsx'
 import { Card, CardHeader } from '../ui/card.tsx'
 import { EnvironmentActions } from '../environment-actions.tsx'
 import { GitStatusLine } from './git-status-line.tsx'
@@ -41,7 +41,7 @@ export function EnvironmentCard({
           <span className="flex flex-wrap items-center gap-2">
             <a
               href={`#/environments/${encodeURIComponent(environment.name)}`}
-              className="underline-offset-2 hover:text-accent hover:underline"
+              className="rounded-xs underline-offset-2 hover:underline focus-ring"
               title={environment.overrides?.displayName ? t('derivedName', { name: environment.name }) : undefined}
             >
               {environment.overrides?.displayName ?? environment.name}
@@ -51,12 +51,12 @@ export function EnvironmentCard({
             {remembered ? (
               <Badge tone="outline">{t('presence.remembered')}</Badge>
             ) : (
-              <Badge tone={healthTone(health)}>{t('running', { running: environment.runningCount, total: environment.serviceCount })}</Badge>
+              <StatusIndicator tone={healthTone(health)}>{t('running', { running: environment.runningCount, total: environment.serviceCount })}</StatusIndicator>
             )}
-            {!remembered && environment.unhealthyCount > 0 ? <Badge tone="danger">{t('unhealthy', { count: environment.unhealthyCount })}</Badge> : null}
+            {!remembered && environment.unhealthyCount > 0 ? <StatusIndicator tone="danger">{t('unhealthy', { count: environment.unhealthyCount })}</StatusIndicator> : null}
             {environment.namespace ? <Badge tone="outline">{t('worktree', { name: environment.namespace })}</Badge> : null}
             {owner ? (
-              <a className="text-xs text-muted underline-offset-2 hover:text-accent hover:underline" href={`#/projects/${encodeURIComponent(owner.slug)}`}>
+              <a className="rounded-xs text-xs text-subtle underline-offset-2 hover:text-ink hover:underline focus-ring" href={`#/projects/${encodeURIComponent(owner.slug)}`}>
                 {t('header.project')}: {owner.name}
               </a>
             ) : environment.group ? (
@@ -86,11 +86,11 @@ export function EnvironmentCard({
       {git.data ? <GitStatusLine git={git.data} variant="line" className="border-b border-line" refreshHint={false} /> : null}
       <ServiceTable services={rows} containers={environment.services} emptyTitle={t(remembered ? 'servicesTable.emptyRemembered' : 'servicesTable.empty')} />
       {hidden.length > 0 ? (
-        <details className="border-t border-line px-4 py-2">
+        <details className="border-t border-line px-3 py-2">
           <summary className="cursor-pointer text-xs text-subtle">
             {t(hidden.length === 1 ? 'collapsedService' : 'collapsedServices', { count: hidden.length })}
           </summary>
-          <div className="-mx-4 mt-2">
+          <div className="-mx-3 mt-2">
             <ServiceTable services={hidden} containers={environment.services} />
           </div>
         </details>

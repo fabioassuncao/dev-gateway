@@ -104,34 +104,34 @@ export function TasksTab({
         value={filters.q ?? ''}
         onChange={(event) => setFilter('q', event.target.value)}
         placeholder={t('filterPlaceholder')}
-        className="h-8 w-52"
+        size="sm" className="w-52"
         aria-label={t('filterAria')}
       />
-      <Select value={filters.status ?? ''} onChange={(event) => setFilter('status', event.target.value)} className="h-8 w-36" aria-label={t('statusFilter')}>
+      <Select value={filters.status ?? ''} onChange={(event) => setFilter('status', event.target.value)} size="sm" className="w-36" aria-label={t('statusFilter')}>
         <option value="">{t('anyStatus')}</option>
         {statusOptions.map((entry) => (
           <option key={entry.value} value={entry.value}>{entry.label}</option>
         ))}
       </Select>
-      <Select value={filters.priority ?? ''} onChange={(event) => setFilter('priority', event.target.value)} className="h-8 w-32" aria-label={t('priorityFilter')}>
+      <Select value={filters.priority ?? ''} onChange={(event) => setFilter('priority', event.target.value)} size="sm" className="w-32" aria-label={t('priorityFilter')}>
         <option value="">{t('anyPriority')}</option>
         {priorityOptions.filter((entry) => entry.value !== '').map((entry) => (
           <option key={entry.value} value={entry.value}>{entry.label}</option>
         ))}
       </Select>
       {types.length > 0 ? (
-        <Select value={filters.type ?? ''} onChange={(event) => setFilter('type', event.target.value)} className="hidden h-8 w-32 lg:block" aria-label={t('typeFilter')}>
+        <Select value={filters.type ?? ''} onChange={(event) => setFilter('type', event.target.value)} size="sm" className="hidden w-32 lg:inline-block" aria-label={t('typeFilter')}>
           <option value="">{t('anyType')}</option>
           {types.map((type) => <option key={type} value={type}>{type}</option>)}
         </Select>
       ) : null}
       {labels.length > 0 ? (
-        <Select value={filters.label ?? ''} onChange={(event) => setFilter('label', event.target.value)} className="hidden h-8 w-32 lg:block" aria-label={t('labelFilter')}>
+        <Select value={filters.label ?? ''} onChange={(event) => setFilter('label', event.target.value)} size="sm" className="hidden w-32 lg:inline-block" aria-label={t('labelFilter')}>
           <option value="">{t('anyLabel')}</option>
           {labels.map((label) => <option key={label} value={label}>{label}</option>)}
         </Select>
       ) : null}
-      <Select value={filters.repository ?? ''} onChange={(event) => setFilter('repository', event.target.value)} className="hidden h-8 w-40 xl:block" aria-label={t('repositoryFilter')}>
+      <Select value={filters.repository ?? ''} onChange={(event) => setFilter('repository', event.target.value)} size="sm" className="hidden w-40 xl:inline-block" aria-label={t('repositoryFilter')}>
         <option value="">{t('anyRepository')}</option>
         {project.repositories.map((repository) => (
           <option key={repository.id} value={repository.id}>{repository.name}</option>
@@ -139,7 +139,7 @@ export function TasksTab({
       </Select>
       {activeFilters > 0 ? (
         <Button size="sm" variant="ghost" onClick={() => navigate(tasksHref(slug, view))}>
-          <X className="h-3.5 w-3.5" />
+          <X />
           {t('clearFilters')}
         </Button>
       ) : null}
@@ -148,7 +148,7 @@ export function TasksTab({
 
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
         <Segmented
           label={t('viewLabel')}
           value={view}

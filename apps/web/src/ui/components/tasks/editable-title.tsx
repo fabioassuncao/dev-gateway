@@ -73,10 +73,10 @@ export function EditableTitle({
               setEditing(false)
             }
           }}
-          className="w-full bg-transparent text-2xl font-semibold tracking-tight text-ink outline-none"
+          className="w-full rounded-sm bg-transparent text-xl font-semibold text-ink outline-none ring-2 ring-accent/30"
         />
-        {pending ? <p className="mt-1 text-[11px] text-subtle">{t('save.saving')}</p> : null}
-        {error ? <p className="mt-1 text-[11px] text-danger">{error}</p> : null}
+        {pending ? <p className="mt-1 text-xs text-subtle">{t('save.saving')}</p> : null}
+        {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
       </div>
     )
   }
@@ -89,16 +89,16 @@ export function EditableTitle({
           disabled={disabled}
           onClick={() => { setDraftTitle(value); setEditing(true) }}
           className={cn(
-            'block w-full rounded-md text-left text-2xl font-semibold tracking-tight outline-none',
-            'hover:bg-surface-2/60 focus-visible:ring-2 focus-visible:ring-accent/40',
+            '-mx-1 block w-[calc(100%+0.5rem)] rounded-sm px-1 text-left text-xl font-semibold focus-ring',
+            'transition-colors duration-100 hover:bg-fill',
             draft && isDefaultDraftTitle(value) ? 'text-subtle' : 'text-ink',
           )}
         >
           {display}
         </button>
       </h1>
-      {pending ? <p className="mt-1 text-[11px] text-subtle">{t('save.saving')}</p> : null}
-      {error ? <p className="mt-1 text-[11px] text-danger">{error}</p> : null}
+      {pending ? <p className="mt-1 text-xs text-subtle">{t('save.saving')}</p> : null}
+      {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
     </div>
   )
 }

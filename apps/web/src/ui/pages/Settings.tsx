@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Save, ShieldCheck } from 'lucide-react'
+import { Save } from 'lucide-react'
 import type { ConfigField } from '../../shared/types.ts'
 import { slug } from '../../shared/slug.ts'
 import { api } from '../lib/api/index.ts'
@@ -9,7 +9,7 @@ import { keys, useConfig } from '../lib/queries/index.ts'
 import { navigate } from '../lib/router.ts'
 import { Badge } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
-import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
+import { Callout, Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
 import { SettingsGroup } from '../components/settings/settings-group.tsx'
 import { SettingsNav } from '../components/settings/settings-nav.tsx'
 import { GitHubStatusCard } from '../components/github-status.tsx'
@@ -91,10 +91,11 @@ export function Settings({ group }: { group: string | null }) {
             {dirty ? <Badge tone="warn">{tc('unsaved', { count: Object.keys(draft).length })}</Badge> : null}
             <Button
               variant="primary"
+              size="sm"
               disabled={!dirty || save.isPending || !view.envFile.writable}
               onClick={() => save.mutate()}
             >
-              <Save className="h-3.5 w-3.5" />
+              <Save />
               {save.isPending ? tc('saving') : tc('save')}
             </Button>
           </>
@@ -102,9 +103,9 @@ export function Settings({ group }: { group: string | null }) {
       />
 
       {!view.envFile.writable ? (
-        <div className="mb-4 rounded-md border border-warn/40 bg-warn/5 px-3 py-2 text-sm text-warn">
+        <Callout tone="warn" className="mb-4">
           {t('notWritable', { path: view.envFile.path })}
-        </div>
+        </Callout>
       ) : null}
 
       {error ? (
@@ -117,10 +118,9 @@ export function Settings({ group }: { group: string | null }) {
           pending, and how to apply it, is the global bar's job now — it says
           the same thing on every page instead of only on this one. */}
       {saved && !dirty ? (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-ok/40 bg-ok/5 px-3 py-2 text-sm text-ok">
-          <ShieldCheck className="h-4 w-4" />
-          <span>{t('savedShort')}</span>
-        </div>
+        <Callout tone="ok" role="status" className="mb-4">
+          {t('savedShort')}
+        </Callout>
       ) : null}
 
       <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-start">

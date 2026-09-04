@@ -50,8 +50,8 @@ export function EnvironmentsPage() {
         title={t('title')}
         description={t('description')}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Select value={filter} onChange={(event) => setFilter(event.target.value as Filter)} className="w-40" aria-label={t('filterAria')}>
+          <>
+            <Select value={filter} onChange={(event) => setFilter(event.target.value as Filter)} size="sm" className="w-40" aria-label={t('filterAria')}>
               <option value="all">{t('all')}</option>
               <option value="running">{t('running')}</option>
               <option value="remembered">{t('remembered')}</option>
@@ -61,10 +61,11 @@ export function EnvironmentsPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('title')}
+              size="sm"
               className="w-64"
               aria-label={t('filterAria')}
             />
-          </div>
+          </>
         }
       />
       {(query.data ?? []).length === 0 ? (
@@ -72,7 +73,7 @@ export function EnvironmentsPage() {
       ) : environments.length === 0 ? (
         <Card><Empty title={t('noMatch')} /></Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {environments.map((environment) => (
             <EnvironmentCard key={environment.name} environment={environment} owner={owners.get(environment.name) ?? null} />
           ))}

@@ -7,7 +7,7 @@ import { keys } from '../../lib/queries/index.ts'
 import { serviceFromContainer } from '../../lib/services.ts'
 import { useFormat } from '../../lib/use-format.ts'
 import { Drawer } from '../ui/drawer.tsx'
-import { KeyValue } from '../shell-bits.tsx'
+import { KeyValue, SectionHeader } from '../shell-bits.tsx'
 import { Mono } from '../copy.tsx'
 import { OwnershipBadge, StateBadge } from '../status.tsx'
 import { ServiceIcon } from '../service-icon.tsx'
@@ -74,7 +74,7 @@ export function ServiceDrawer({
         <span className="flex flex-wrap items-center gap-2">
           <span>{container.tech.label} · {container.image}</span>
           {container.environment ? (
-            <a className="text-accent underline-offset-2 hover:underline" href={`#/environments/${encodeURIComponent(container.environment)}`}>
+            <a className="rounded-xs text-accent underline-offset-2 hover:underline focus-ring" href={`#/environments/${encodeURIComponent(container.environment)}`}>
               {t('environmentLink')}
             </a>
           ) : null}
@@ -91,7 +91,7 @@ export function ServiceDrawer({
     >
       <div className="space-y-4">
         <section aria-label={t('summary')}>
-          <dl className="divide-y divide-line/60">
+          <dl className="divide-y divide-line-subtle">
             <KeyValue label={tc('container.containerId')}><Mono value={shortId(container.id)} /></KeyValue>
             {container.environment ? (
               <KeyValue label={tc('container.composeProject')}>
@@ -106,14 +106,14 @@ export function ServiceDrawer({
             {row.resources ? (
               <KeyValue label={tc('container.resources')}>
                 <ResourceUsage variant="bar" cpu={row.resources.cpuUtilisation} memoryBytes={row.resources.memoryUsedBytes} memoryLimitBytes={row.resources.memoryLimitBytes} diskBytes={row.resources.diskBytes} stale={row.resources.stale} />
-                {row.resources.collectedAt ? <div className="mt-1 text-[11px] text-subtle">{t('measuredAt', { time: relativeTime(row.resources.collectedAt) })}</div> : null}
+                {row.resources.collectedAt ? <div className="mt-1 text-2xs text-subtle">{t('measuredAt', { time: relativeTime(row.resources.collectedAt) })}</div> : null}
               </KeyValue>
             ) : null}
           </dl>
         </section>
 
         <section ref={access} aria-label={t('access')} className="scroll-mt-4">
-          <h3 className="mb-1 text-xs font-semibold tracking-wide text-subtle uppercase">{t('access')}</h3>
+          <SectionHeader as="h3" title={t('access')} className="mb-1" />
           {http ? (
             container.urls.length > 0 ? <EndpointList endpoints={container.urls} /> : <span className="text-xs text-subtle">{t('noEndpoint')}</span>
           ) : container.environment && container.service && container.exposedPorts.length > 0 ? (
@@ -124,10 +124,10 @@ export function ServiceDrawer({
         </section>
 
         <section aria-label={t('runtime')}>
-          <h3 className="mb-1 text-xs font-semibold tracking-wide text-subtle uppercase">{t('runtime')}</h3>
-          <dl className="divide-y divide-line/60">
+          <SectionHeader as="h3" title={t('runtime')} className="mb-1" />
+          <dl className="divide-y divide-line-subtle">
             <KeyValue label={tc('container.networks')}>
-              <span className="font-mono text-xs text-muted">{container.networks.length ? container.networks.join(', ') : tc('none')}</span>
+              <Mono kind="text">{container.networks.length ? container.networks.join(', ') : tc('none')}</Mono>
             </KeyValue>
             {container.exposedPorts.length > 0 ? <KeyValue label={tc('container.containerPorts')}><Mono value={container.exposedPorts.join(', ')} /></KeyValue> : null}
             {container.ports.length > 0 ? (
@@ -163,13 +163,13 @@ export function ServiceDrawer({
 
         {container.urls.length > 0 ? (
           <section ref={share} aria-label={tc('container.exposure')} className="scroll-mt-4">
-            <h3 className="mb-1 text-xs font-semibold tracking-wide text-subtle uppercase">{tc('container.exposure')}</h3>
+            <SectionHeader as="h3" title={tc('container.exposure')} className="mb-1" />
             <SharePanel container={container} />
           </section>
         ) : null}
 
         <details ref={logs} open={section === 'logs'} className="scroll-mt-4">
-          <summary className="cursor-pointer text-xs font-semibold tracking-wide text-subtle uppercase">{t('logs')}</summary>
+          <summary className="cursor-pointer rounded-xs text-sm font-medium text-ink focus-ring">{t('logs')}</summary>
           <div className="mt-2 h-[40vh] min-h-0">
             <LogViewer queryKey={keys.containerLogs(container.id)} load={(tail) => api.logs(container.id, tail)} className="h-full rounded-md border border-line" />
           </div>
@@ -177,8 +177,8 @@ export function ServiceDrawer({
 
         {Object.keys(container.labels).length > 0 ? (
           <details>
-            <summary className="cursor-pointer text-xs font-semibold tracking-wide text-subtle uppercase">{t('labels')}</summary>
-            <div className="mt-2 max-h-48 space-y-0.5 overflow-y-auto font-mono text-[11px] text-muted scroll-thin">
+            <summary className="cursor-pointer rounded-xs text-sm font-medium text-ink focus-ring">{t('labels')}</summary>
+            <div className="mt-2 max-h-48 space-y-0.5 overflow-y-auto rounded-md border border-line bg-surface-2 p-2 font-mono text-2xs text-muted scroll-thin">
               {Object.entries(container.labels).map(([key, value]) => (
                 <div key={key} className="break-all"><span className="text-subtle">{key}</span>={value}</div>
               ))}

@@ -17,9 +17,11 @@ import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../ui/m
 import { useToast } from '../ui/toast.tsx'
 import { ConnectionDetails } from '../connection-panel.tsx'
 import { Loading } from '../shell-bits.tsx'
+import { Mono } from '../copy.tsx'
+import { overlayLabel } from '../ui/surfaces.ts'
 
 function ScopeLabel({ children }: { children: React.ReactNode }) {
-  return <Primitive.Label className="px-2 pt-1.5 pb-0.5 text-[10px] font-semibold tracking-wider text-subtle uppercase">{children}</Primitive.Label>
+  return <Primitive.Label className={overlayLabel}>{children}</Primitive.Label>
 }
 
 function open(url: string): void {
@@ -79,9 +81,9 @@ export function OpenTestMenu({
       <Menu>
         <MenuTrigger asChild>
           <Button size={size} variant={variant} aria-label={t('openTest')}>
-            <ExternalLink className="h-3.5 w-3.5" />
+            <ExternalLink />
             {t('openTest')}
-            <ChevronDown className="h-3 w-3 opacity-60" />
+            <ChevronDown className="opacity-60" />
           </Button>
         </MenuTrigger>
         <MenuContent>
@@ -95,17 +97,17 @@ export function OpenTestMenu({
                 <div key={`${endpoint.provider}:${endpoint.url}`}>
                   {access.kind === 'http' ? (
                     <MenuItem disabled={!endpoint.usable} onSelect={() => open(endpoint.url)}>
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      <span className="truncate font-mono text-xs">{endpoint.url}</span>
+                      <ExternalLink className="size-3.5" />
+                      <Mono kind="url" tone="ink">{endpoint.url}</Mono>
                     </MenuItem>
                   ) : (
                     <MenuItem disabled={!endpoint.usable} onSelect={() => copy(endpoint.url)}>
-                      <Copy className="h-3.5 w-3.5" />
-                      <span className="truncate font-mono text-xs">{endpoint.url}</span>
+                      <Copy className="size-3.5" />
+                      <Mono kind="url" tone="ink">{endpoint.url}</Mono>
                     </MenuItem>
                   )}
                   {!endpoint.usable && endpoint.problem ? (
-                    <div className="px-2 pb-1 text-[11px] text-subtle">{endpoint.problem}</div>
+                    <div className="px-2 pb-1 text-2xs text-subtle">{endpoint.problem}</div>
                   ) : null}
                 </div>
               ))}
@@ -118,32 +120,32 @@ export function OpenTestMenu({
                 <>
                   <ScopeLabel>{t('bridge')}</ScopeLabel>
                   <MenuItem onSelect={() => copy(access.bridge!.bindIp)}>
-                    <Copy className="h-3.5 w-3.5" /> {t('copyHost')} <span className="font-mono text-xs text-muted">{access.bridge.bindIp}</span>
+                    <Copy className="size-3.5" /> {t('copyHost')} <Mono kind="host">{access.bridge.bindIp}</Mono>
                   </MenuItem>
                   {access.bridge.localPort !== null ? (
                     <MenuItem onSelect={() => copy(String(access.bridge!.localPort))}>
-                      <Copy className="h-3.5 w-3.5" /> {t('copyPort')} <span className="font-mono text-xs text-muted">{access.bridge.localPort}</span>
+                      <Copy className="size-3.5" /> {t('copyPort')} <Mono kind="host">{access.bridge.localPort}</Mono>
                     </MenuItem>
                   ) : null}
                   <MenuItem onSelect={() => copy(access.bridge!.connectionString)}>
-                    <Copy className="h-3.5 w-3.5" /> {t('copyConnectionString')}
+                    <Copy className="size-3.5" /> {t('copyConnectionString')}
                   </MenuItem>
                   <MenuItem onSelect={() => closeBridge.mutate(access.bridge!.id)}>
-                    <PlugZap className="h-3.5 w-3.5" /> {t('closeAccess')}
+                    <PlugZap className="size-3.5" /> {t('closeAccess')}
                   </MenuItem>
                 </>
               ) : (
                 <MenuItem disabled={!service.actions.openAccess || bridge.isPending} onSelect={() => bridge.mutate()}>
-                  <PlugZap className="h-3.5 w-3.5" /> {t('openAccess')}
+                  <PlugZap className="size-3.5" /> {t('openAccess')}
                 </MenuItem>
               )}
               {access.primary && hostPort(access.primary.url) ? (
                 <>
                   <MenuItem onSelect={() => copy(hostPort(access.primary!.url)!.host)}>
-                    <Copy className="h-3.5 w-3.5" /> {t('copyHost')}
+                    <Copy className="size-3.5" /> {t('copyHost')}
                   </MenuItem>
                   <MenuItem onSelect={() => copy(hostPort(access.primary!.url)!.port)}>
-                    <Copy className="h-3.5 w-3.5" /> {t('copyPort')}
+                    <Copy className="size-3.5" /> {t('copyPort')}
                   </MenuItem>
                 </>
               ) : null}
@@ -155,7 +157,7 @@ export function OpenTestMenu({
             <>
               <MenuSeparator />
               <MenuItem onSelect={onLogs}>
-                <ScrollText className="h-3.5 w-3.5" /> {t('logs')}
+                <ScrollText className="size-3.5" /> {t('logs')}
               </MenuItem>
             </>
           ) : null}
@@ -190,9 +192,9 @@ export function EnvironmentOpenMenu({ environment, size = 'sm' }: { environment:
     <Menu>
       <MenuTrigger asChild>
         <Button size={size} aria-label={t('openTest')}>
-          <ExternalLink className="h-3.5 w-3.5" />
+          <ExternalLink />
           {t('openTest')}
-          <ChevronDown className="h-3 w-3 opacity-60" />
+          <ChevronDown className="opacity-60" />
         </Button>
       </MenuTrigger>
       <MenuContent>
@@ -202,25 +204,25 @@ export function EnvironmentOpenMenu({ environment, size = 'sm' }: { environment:
             <ScopeLabel>{tc(`scope.${scope}`)}</ScopeLabel>
             {urls.filter((url) => url.scope === scope).map((url) => (
               <MenuItem key={url.url} onSelect={() => open(url.url)}>
-                <ExternalLink className="h-3.5 w-3.5" />
-                <span className="truncate font-mono text-xs">{url.url}</span>
+                <ExternalLink className="size-3.5" />
+                <Mono kind="url" tone="ink">{url.url}</Mono>
               </MenuItem>
             ))}
           </div>
         ))}
         {urls.length > 0 ? (
           <MenuItem onSelect={() => copy(urls.map((url) => url.url).join('\n'))}>
-            <Copy className="h-3.5 w-3.5" /> {t('copy')}
+            <Copy className="size-3.5" /> {t('copy')}
           </MenuItem>
         ) : null}
         {tcp ? (
           <MenuItem onSelect={() => navigate('/access')}>
-            <PlugZap className="h-3.5 w-3.5" /> {t('accessPage')}
+            <PlugZap className="size-3.5" /> {t('accessPage')}
           </MenuItem>
         ) : null}
         <MenuSeparator />
         <MenuItem onSelect={() => navigate(`/environments/${encodeURIComponent(environment.name)}/logs`)}>
-          <ScrollText className="h-3.5 w-3.5" /> {t('logs')}
+          <ScrollText className="size-3.5" /> {t('logs')}
         </MenuItem>
       </MenuContent>
     </Menu>

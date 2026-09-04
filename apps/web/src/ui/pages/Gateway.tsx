@@ -8,7 +8,9 @@ import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
 import { Badge } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Select } from '../components/ui/field.tsx'
-import { Empty, ErrorBox, KeyValue, Loading, PageHeader } from '../components/shell-bits.tsx'
+import { Callout, Empty, ErrorBox, KeyValue, Loading, PageHeader } from '../components/shell-bits.tsx'
+import { Mono } from '../components/copy.tsx'
+import { StatusIndicator } from '../components/ui/badge.tsx'
 import { StateBadge } from '../components/status.tsx'
 import { DiagnosticText } from '../components/diagnostic-text.tsx'
 import { LogViewer } from '../components/logs.tsx'
@@ -57,7 +59,7 @@ export function Gateway() {
         actions={
           <>
             <Button size="sm" disabled={doctor.isPending} onClick={() => doctor.mutate()}>
-              <Stethoscope className="h-3.5 w-3.5" />
+              <Stethoscope />
               {doctor.isPending ? t('checking') : t('runDiagnostics')}
             </Button>
             <Button
@@ -66,7 +68,7 @@ export function Gateway() {
               disabled={restart.isPending}
               onClick={() => restart.mutate(['traefik'])}
             >
-              <RotateCw className={restart.isPending ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
+              <RotateCw className={restart.isPending ? 'animate-spin' : undefined} />
               {t('restartTraefik')}
             </Button>
           </>
@@ -80,40 +82,40 @@ export function Gateway() {
       ) : null}
 
       {restart.data ? (
-        <div className="mb-4 rounded-md border border-info/40 bg-info/5 px-3 py-2 text-sm text-info">
+        <Callout tone="info" className="mb-4">
           {t('restarted', {
             components: restart.data.restarted.join(', '),
             note: restart.data.note,
           })}{' '}
-          <span className="font-mono text-xs">{restart.data.applyCommand}</span>
-        </div>
+          <Mono kind="command" tone="ink">{restart.data.applyCommand}</Mono>
+        </Callout>
       ) : null}
 
       <div className="grid items-start gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader title={t('overviewCard.title')} />
           <CardBody>
-            <dl className="divide-y divide-line/60">
+            <dl className="divide-y divide-line-subtle">
               <KeyValue label={t('overviewCard.profile')}>{gateway.profile}</KeyValue>
-              <KeyValue label={t('overviewCard.domain')}><span className="font-mono text-xs">{gateway.domain}</span></KeyValue>
+              <KeyValue label={t('overviewCard.domain')}><Mono kind="host" tone="ink">{gateway.domain}</Mono></KeyValue>
               <KeyValue label={t('overviewCard.listening')}>
-                <span className="font-mono text-xs">{gateway.bindAddress}:{gateway.httpPort} / {gateway.httpsPort}</span>
+                <Mono kind="host" tone="ink">{gateway.bindAddress}:{gateway.httpPort} / {gateway.httpsPort}</Mono>
               </KeyValue>
               <KeyValue label={t('overviewCard.tls')}>
-                {gateway.tls.enabled ? <Badge tone="ok">{t('overviewCard.tlsEnabled', { mode: gateway.tls.mode })}</Badge> : <Badge>{tc('disabled')}</Badge>}
+                <StatusIndicator tone={gateway.tls.enabled ? 'ok' : 'neutral'} emphasis="ink">{gateway.tls.enabled ? t('overviewCard.tlsEnabled', { mode: gateway.tls.mode }) : tc('disabled')}</StatusIndicator>
               </KeyValue>
               <KeyValue label={t('overviewCard.tailscale')}>
                 {gateway.tailscale.enabled ? (
-                  <Badge tone={gateway.tailscale.running ? 'ok' : 'warn'}>{gateway.tailscale.running ? t('overviewCard.tailscaleRunning') : t('overviewCard.tailscaleEnabledNotRunning')}</Badge>
+                  <StatusIndicator tone={gateway.tailscale.running ? 'ok' : 'warn'} emphasis="ink">{gateway.tailscale.running ? t('overviewCard.tailscaleRunning') : t('overviewCard.tailscaleEnabledNotRunning')}</StatusIndicator>
                 ) : (
-                  <Badge>{tc('disabled')}</Badge>
+                  <StatusIndicator tone="neutral" emphasis="ink">{tc('disabled')}</StatusIndicator>
                 )}
               </KeyValue>
               <KeyValue label={t('overviewCard.publicAccess')}>
-                {gateway.publicAccess.enabled ? <Badge tone="warn">{gateway.publicAccess.domain ?? tc('enabled')}</Badge> : <Badge>{tc('disabled')}</Badge>}
+                <StatusIndicator tone={gateway.publicAccess.enabled ? 'warn' : 'neutral'} emphasis="ink">{gateway.publicAccess.enabled ? (gateway.publicAccess.domain ?? tc('enabled')) : tc('disabled')}</StatusIndicator>
               </KeyValue>
               <KeyValue label={t('overviewCard.sharedNetwork')}>
-                <span className="font-mono text-xs">{t('overviewCard.attached', { name: gateway.network.name, count: gateway.network.attached })}</span>
+                <Mono kind="text" tone="ink">{t('overviewCard.attached', { name: gateway.network.name, count: gateway.network.attached })}</Mono>
               </KeyValue>
             </dl>
           </CardBody>
@@ -121,7 +123,7 @@ export function Gateway() {
         <Card>
           <CardHeader title={t('components.title')} />
           <CardBody>
-            <dl className="divide-y divide-line/60">
+            <dl className="divide-y divide-line-subtle">
               <KeyValue label={t('components.traefik')}>
                 <StateBadge state={gateway.traefik.state} health={gateway.traefik.health} />
               </KeyValue>
@@ -133,19 +135,19 @@ export function Gateway() {
               </KeyValue>
               <KeyValue label={t('components.tailscale')}>
                 {gateway.tailscale.enabled ? (
-                  <Badge tone={gateway.tailscale.running ? 'ok' : 'warn'}>
+                  <StatusIndicator tone={gateway.tailscale.running ? 'ok' : 'warn'} emphasis="ink">
                     {gateway.tailscale.running ? tc('running') : t('components.notRunning')}
-                  </Badge>
+                  </StatusIndicator>
                 ) : (
-                  <Badge>{tc('disabled')}</Badge>
+                  <StatusIndicator tone="neutral" emphasis="ink">{tc('disabled')}</StatusIndicator>
                 )}
               </KeyValue>
               <KeyValue label={t('components.sharedNetwork')}>
-                <Badge tone={gateway.network.exists ? 'ok' : 'danger'}>
+                <StatusIndicator tone={gateway.network.exists ? 'ok' : 'danger'} emphasis="ink">
                   {gateway.network.exists
                     ? t('components.attached', { count: gateway.network.attached })
                     : t('components.missing')}
-                </Badge>
+                </StatusIndicator>
               </KeyValue>
               <KeyValue label={t('components.routedServices')}>{gateway.routes}</KeyValue>
             </dl>
@@ -155,20 +157,20 @@ export function Gateway() {
         <Card>
           <CardHeader title={t('versions.title')} />
           <CardBody>
-            <dl className="divide-y divide-line/60">
+            <dl className="divide-y divide-line-subtle">
               <KeyValue label={t('versions.gateway')}>{gateway.gatewayVersion}</KeyValue>
               <KeyValue label={t('versions.panel')}>{gateway.panelVersion}</KeyValue>
               <KeyValue label={t('versions.profile')}>{gateway.profile}</KeyValue>
               <KeyValue label={t('versions.domain')}>
-                <span className="font-mono text-xs">{gateway.domain}</span>
+                <Mono kind="host" tone="ink">{gateway.domain}</Mono>
               </KeyValue>
               <KeyValue label={t('versions.traefikDashboard')}>
                 {gateway.dashboard.enabled ? (
-                  <span className="font-mono text-xs">
+                  <Mono kind="host" tone="ink">
                     {gateway.dashboard.bindAddress}:{gateway.dashboard.port}
-                  </span>
+                  </Mono>
                 ) : (
-                  <Badge>{tc('disabled')}</Badge>
+                  <StatusIndicator tone="neutral" emphasis="ink">{tc('disabled')}</StatusIndicator>
                 )}
               </KeyValue>
               <KeyValue label={t('versions.thisPanel')}>
@@ -177,7 +179,7 @@ export function Gateway() {
                 ) : gateway.panel.authenticated ? (
                   <span className="flex flex-wrap items-center gap-1.5">
                     <Badge tone="ok">{t('versions.routedForwardAuth')}</Badge>
-                    <span className="font-mono text-xs">{gateway.panel.user}</span>
+                    <Mono kind="text" tone="ink">{gateway.panel.user}</Mono>
                   </span>
                 ) : (
                   <Badge tone="danger">{t('versions.routedNoCredential')}</Badge>
@@ -202,19 +204,19 @@ export function Gateway() {
             }
           />
           {doctor.data ? (
-            <ul className="max-h-72 divide-y divide-line/70 overflow-y-auto scroll-thin">
+            <ul className="max-h-72 divide-y divide-line-subtle overflow-y-auto scroll-thin">
               {doctor.data.checks.map((check) => (
-                <li key={check.id} className="flex gap-2 px-4 py-2">
+                <li key={check.id} className="flex gap-2 px-3 py-1.5">
                   {check.status === 'pass' ? (
-                    <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ok" />
+                    <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-ok" />
                   ) : check.status === 'warn' ? (
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" />
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warn" />
                   ) : (
-                    <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-danger" />
+                    <XCircle className="mt-0.5 size-3.5 shrink-0 text-danger" />
                   )}
                   <div className="min-w-0">
                     <DiagnosticText diagnostic={check} part="title" className="text-xs font-medium text-ink" />
-                    <DiagnosticText diagnostic={check} part="detail" className="text-[11px] text-muted" />
+                    <DiagnosticText diagnostic={check} part="detail" className="text-2xs text-muted" />
                   </div>
                 </li>
               ))}
@@ -223,9 +225,9 @@ export function Gateway() {
             <Empty title={t('diagnostics.notRun')} hint={t('diagnostics.notRunHint')} />
           )}
           {doctor.data ? (
-            <div className="border-t border-line px-4 py-2 text-[11px] text-subtle">
+            <div className="border-t border-line px-3 py-2 text-2xs text-subtle">
               {t('diagnostics.deeperChecks')}{' '}
-              <span className="font-mono">{doctor.data.hostCommand}</span>
+              <Mono kind="command" tone="muted">{doctor.data.hostCommand}</Mono>
             </div>
           ) : null}
         </Card>
@@ -238,6 +240,7 @@ export function Gateway() {
             <Select
               value={component}
               onChange={(event) => setComponent(event.target.value)}
+              size="sm"
               className="w-40"
               aria-label={t('logs.componentAria')}
             >

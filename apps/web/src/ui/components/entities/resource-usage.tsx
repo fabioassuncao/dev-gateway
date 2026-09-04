@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { bytes } from '../../lib/format.ts'
-import { percentLabel, resourceTone } from '../../lib/resources.ts'
+import { percentLabel, resourceBarClass, resourceTone } from '../../lib/resources.ts'
 import { cn } from '../../lib/utils.ts'
 
 /**
@@ -67,8 +67,8 @@ function Bar({ label, value, ratio, kind }: { label: string; value: string; rati
         <span className="font-medium tabular-nums text-ink">{value}</span>
       </div>
       {ratio !== null ? (
-        <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded bg-surface-2" aria-hidden>
-          <div className={tone === 'warn' ? 'h-full bg-warn' : 'h-full bg-ok'} style={{ width: `${Math.min(100, Math.max(0, ratio * 100))}%` }} />
+        <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-fill-strong" aria-hidden>
+          <div className={cn('h-full rounded-full', resourceBarClass(tone))} style={{ width: `${Math.min(100, Math.max(0, ratio * 100))}%` }} />
         </div>
       ) : null}
     </div>

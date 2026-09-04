@@ -6,9 +6,10 @@ import { useDevelopmentOverview, useEnvironments, useMetricsCurrent, useMetricsH
 import type { DevelopmentOverview } from '../../shared/overview-types.ts'
 import { navigate } from '../lib/router.ts'
 import { Card, CardBody, CardHeader, CardSection } from '../components/ui/card.tsx'
-import { Badge } from '../components/ui/badge.tsx'
+import { Badge, StatusIndicator } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
-import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
+import { Empty, ErrorBox, Loading, NoValue, PageHeader } from '../components/shell-bits.tsx'
+import { Mono } from '../components/copy.tsx'
 import { DiagnosticText } from '../components/diagnostic-text.tsx'
 import { HostSummary, HostSummarySkeleton } from '../components/host-summary.tsx'
 import { EnvironmentActions } from '../components/environment-actions.tsx'
@@ -73,7 +74,7 @@ const SPAN: Record<1 | 2 | 3, string> = {
  */
 function GatewayBadge({ up }: { up: boolean }) {
   const { t } = useTranslation('overview')
-  return <Badge tone={up ? 'ok' : 'danger'} dot>{up ? t('gatewayRunning') : t('gatewayDown')}</Badge>
+  return <StatusIndicator tone={up ? 'ok' : 'danger'} emphasis="ink">{up ? t('gatewayRunning') : t('gatewayDown')}</StatusIndicator>
 }
 
 function Dashboard({ data }: { data: DevelopmentOverview }) {
@@ -147,7 +148,7 @@ function WorkSection({ label, tasks, empty }: { label: string; tasks: Developmen
   return (
     <CardSection label={label} count={tasks.length}>
       {tasks.length === 0
-        ? <p className="px-4 py-2 text-xs text-subtle">{empty}</p>
+        ? <p className="px-3 py-2 text-xs text-subtle">{empty}</p>
         : tasks.map((task) => <TaskRow key={task.id} task={task} href={taskHref(task.project, task.id)} compact showProject showAge />)}
     </CardSection>
   )
@@ -189,13 +190,13 @@ function AttentionPanel({ data }: { data: DevelopmentOverview }) {
       {data.attention.length === 0 ? (
         <Empty compact icon={ShieldCheck} tone="ok" title={t('attention.none')} />
       ) : (
-        <ul className="divide-y divide-line/70">
+        <ul className="divide-y divide-line-subtle">
           {data.attention.map((item, index) => (
-            <li key={`${item.kind}-${index}`} className="flex items-center gap-2.5 px-4 py-2 text-sm">
+            <li key={`${item.kind}-${index}`} className="flex h-9 items-center gap-2.5 px-3 text-sm transition-colors duration-100 hover:bg-fill">
               {item.severity === 'fail'
-                ? <XCircle className="h-4 w-4 shrink-0 text-danger" aria-hidden />
-                : <AlertTriangle className="h-4 w-4 shrink-0 text-warn" aria-hidden />}
-              <a className="min-w-0 flex-1 truncate text-ink underline-offset-2 hover:text-accent hover:underline" href={item.href}>
+                ? <XCircle className="size-4 shrink-0 text-danger" aria-hidden />
+                : <AlertTriangle className="size-4 shrink-0 text-warn" aria-hidden />}
+              <a className="min-w-0 flex-1 truncate rounded-xs text-ink underline-offset-2 hover:underline focus-ring" href={item.href}>
                 {item.summary}
               </a>
               {item.project ? <Badge tone="outline">{item.project}</Badge> : null}
@@ -214,7 +215,7 @@ function ProjectsPanel({ data }: { data: DevelopmentOverview }) {
     <Card>
       <CardHeader
         title={t('projects.title')}
-        icon={<Boxes className="h-4 w-4" />}
+        icon={<Boxes className="size-4" />}
         actions={<a className="text-xs text-accent hover:underline" href="#/projects">{t('projects.all')}</a>}
       />
       {shown.length === 0 ? (
@@ -243,14 +244,14 @@ function EnvironmentUsagePanel({ data }: { data: DevelopmentOverview }) {
         data.resources.topProjects.map((entry) => {
           const environment = known.get(entry.environment)
           return (
-            <div key={entry.environment} className="group flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line px-4 py-2 text-sm last:border-b-0">
+            <div key={entry.environment} className="group flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line-subtle px-3 py-1.5 text-sm last:border-b-0 hover:bg-fill">
               <a
-                className="min-w-0 truncate font-medium underline-offset-2 hover:text-accent hover:underline"
+                className="min-w-0 truncate rounded-xs font-medium underline-offset-2 hover:underline focus-ring"
                 href={entry.slug ? `#/projects/${encodeURIComponent(entry.slug)}` : `#/environments/${encodeURIComponent(entry.environment)}`}
               >
                 {entry.name}
               </a>
-              <ResourceUsage cpu={entry.cpuUtilisation} memoryBytes={entry.memoryUsedBytes} className="text-[11px]" />
+              <ResourceUsage cpu={entry.cpuUtilisation} memoryBytes={entry.memoryUsedBytes} className="text-2xs" />
               {environment && environment.runningCount > 0 ? (
                 <span className="row-actions ml-auto"><EnvironmentActions project={environment} /></span>
               ) : null}
@@ -270,22 +271,22 @@ function CodePanel({ data }: { data: DevelopmentOverview }) {
     <Card>
       <CardHeader
         title={t('code.title')}
-        icon={<GitCommitHorizontal className="h-4 w-4" />}
+        icon={<GitCommitHorizontal className="size-4" />}
         description={t('code.description')}
       />
       {dirty.length > 0 ? (
         <CardSection label={t('code.dirty')} count={dirty.length}>
-          <ul className="divide-y divide-line/70">
+          <ul className="divide-y divide-line-subtle">
             {dirty.map((repository) => (
-              <li key={repository.id} className="flex flex-wrap items-center gap-2 px-4 py-1.5 text-sm">
+              <li key={repository.id} className="flex flex-wrap items-center gap-2 px-3 py-1.5 text-sm">
                 <a
-                  className="font-medium underline-offset-2 hover:text-accent hover:underline"
+                  className="rounded-xs font-medium underline-offset-2 hover:underline focus-ring"
                   href={`#/projects/${encodeURIComponent(repository.project)}/repositories/${encodeURIComponent(repository.id)}`}
                 >
                   {repository.name}
                 </a>
-                <span className="text-[11px] text-subtle">{repository.project}</span>
-                <span className="font-mono text-[11px] text-muted">{repository.branch ?? '—'}</span>
+                <span className="text-2xs text-subtle">{repository.project}</span>
+                {repository.branch ? <Mono kind="branch" className="text-2xs">{repository.branch}</Mono> : <NoValue />}
                 {repository.changed > 0 ? <Badge tone="warn">{t('code.uncommitted', { count: repository.changed })}</Badge> : null}
                 {repository.ahead > 0 ? <Badge tone="outline">↑{repository.ahead}</Badge> : null}
                 {repository.behind > 0 ? <Badge tone="outline">↓{repository.behind}</Badge> : null}
@@ -298,11 +299,11 @@ function CodePanel({ data }: { data: DevelopmentOverview }) {
         <Empty compact title={t('code.empty')} hint={t('code.emptyHint')} />
       ) : (
         <CardSection label={t('code.recent')} count={commits.length}>
-          <ul className="divide-y divide-line/70">
+          <ul className="divide-y divide-line-subtle">
             {commits.map((commit) => (
-              <li key={`${commit.repository.id}-${commit.sha}`} className="flex items-center gap-2 px-4 py-0.5 text-sm">
+              <li key={`${commit.repository.id}-${commit.sha}`} className="flex items-center gap-2 px-3 py-0.5 text-sm">
                 <a
-                  className="w-32 shrink-0 truncate text-xs text-muted hover:text-accent"
+                  className="w-32 shrink-0 truncate rounded-xs text-xs text-subtle hover:text-ink focus-ring"
                   href={`#/projects/${encodeURIComponent(commit.project)}/repositories/${encodeURIComponent(commit.repository.id)}/commits`}
                   title={`${commit.project} · ${commit.repository.name}`}
                 >
@@ -353,17 +354,17 @@ function ReducedOverview({ reason }: { reason: number }) {
         {problems.length === 0 ? (
           <CardBody>
             <div className="flex items-center gap-2 text-sm text-ok">
-              <CheckCircle2 className="h-4 w-4" aria-hidden />
+              <CheckCircle2 className="size-4" aria-hidden />
               {t('attention.none')}
             </div>
           </CardBody>
         ) : (
-          <ul className="divide-y divide-line/70">
+          <ul className="divide-y divide-line-subtle">
             {problems.map((problem) => (
-              <li key={problem.id} className="flex gap-2.5 px-4 py-2.5">
+              <li key={problem.id} className="flex gap-2.5 px-3 py-2">
                 {problem.status === 'fail'
-                  ? <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" aria-hidden />
-                  : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warn" aria-hidden />}
+                  ? <XCircle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
+                  : <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />}
                 <div className="min-w-0">
                   <DiagnosticText diagnostic={problem} part="title" className="text-sm font-medium text-ink" />
                   <DiagnosticText diagnostic={problem} part="detail" className="text-xs text-muted" />

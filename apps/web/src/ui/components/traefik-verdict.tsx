@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { ExternalLink } from 'lucide-react'
 import { useServiceTraefik } from '../lib/queries/index.ts'
-import { Badge } from './ui/badge.tsx'
+import { Badge, StatusIndicator } from './ui/badge.tsx'
+import { Mono } from './copy.tsx'
 import type { ContainerSummary } from '../../shared/types.ts'
 
 export function TraefikVerdictRow({
@@ -35,7 +36,7 @@ export function TraefikVerdictRow({
   if (data.routers.length === 0) {
     return (
       <div className="space-y-1 text-xs">
-        <Badge tone="danger">{t('noRouter')}</Badge>
+        <StatusIndicator tone="danger" emphasis="tone">{t('noRouter')}</StatusIndicator>
         <div className="text-subtle">
           {t('noRouterDetail', { hosts: data.expectedHosts.join(', ') })}
         </div>
@@ -48,12 +49,8 @@ export function TraefikVerdictRow({
       {data.routers.map((router) => (
         <div key={router.name} className="space-y-0.5">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="font-mono text-ink">{router.name}</span>
-            {router.status === 'enabled' ? (
-              <Badge tone="ok">{router.status}</Badge>
-            ) : (
-              <Badge tone="danger">{router.status}</Badge>
-            )}
+            <Mono kind="text" tone="ink">{router.name}</Mono>
+            <StatusIndicator tone={router.status === 'enabled' ? 'ok' : 'danger'}>{router.status}</StatusIndicator>
             {router.entryPoints.map((entry) => (
               <Badge key={entry} tone="outline">
                 {entry}
@@ -61,18 +58,18 @@ export function TraefikVerdictRow({
             ))}
             {router.dashboardUrl ? (
               <a
-                className="inline-flex items-center gap-1 text-muted underline-offset-2 hover:text-accent hover:underline"
+                className="inline-flex items-center gap-1 rounded-xs text-muted underline-offset-2 hover:text-ink hover:underline focus-ring"
                 href={router.dashboardUrl}
                 target="_blank"
                 rel="noreferrer noopener"
               >
                 {t('dashboard')}
-                <ExternalLink className="h-3 w-3" />
+                <ExternalLink className="size-3" />
               </a>
             ) : null}
           </div>
 
-          <div className="font-mono text-[11px] break-all text-subtle">{router.rule}</div>
+          <div className="break-all"><Mono kind="text" tone="subtle" className="text-2xs whitespace-normal">{router.rule}</Mono></div>
 
           {router.middlewares.length > 0 ? (
             <div className="text-subtle">
@@ -81,7 +78,7 @@ export function TraefikVerdictRow({
           ) : null}
 
           {router.servers.length > 0 ? (
-            <div className="font-mono text-[11px] text-subtle">→ {router.servers.join(', ')}</div>
+            <div><Mono kind="text" tone="subtle" className="text-2xs">→ {router.servers.join(', ')}</Mono></div>
           ) : null}
 
           {router.errors.length > 0 ? (

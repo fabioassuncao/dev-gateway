@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Bot, GitBranch, User } from 'lucide-react'
+import { AlertTriangle, Bot, GitBranch, MessageSquare, Trash2, User } from 'lucide-react'
 import type { ActivityEvent, Task, TaskNote } from '../../../shared/task-types.ts'
 import { Button } from '../ui/button.tsx'
 import { Timeline, TimelineItem } from '../ui/timeline.tsx'
 import { useFormat } from '../../lib/use-format.ts'
+import { narrowTone, type Tone } from '../../lib/tone.ts'
+import { SectionHeader } from '../shell-bits.tsx'
 import { MarkdownEditor } from './markdown-editor.tsx'
 import { MarkdownView } from './markdown-view.tsx'
 
@@ -12,12 +14,19 @@ type Entry =
   | { kind: 'event'; at: number; id: string; event: ActivityEvent }
   | { kind: 'comment'; at: number; id: string; note: TaskNote }
 
-function toneOf(kind: string): 'neutral' | 'ok' | 'warn' | 'danger' | 'info' {
-  if (kind === 'task.conflict') return 'danger'
-  if (kind === 'task.deleted') return 'warn'
-  if (kind === 'task.created' || kind === 'task.comment' || kind === 'task.note') return 'info'
-  if (kind === 'task.status') return 'ok'
-  return 'neutral'
+function toneOf(kind: string): Tone {
+  if (kind === 'task.conflict') return narrowTone('danger')
+  if (kind === 'task.deleted') return narrowTone('warn')
+  if (kind === 'task.created' || kind === 'task.comment' || kind === 'task.note') return narrowTone('info')
+  if (kind === 'task.status') return narrowTone('ok')
+  return narrowTone('neutral')
+}
+
+/** The kinds worth an icon on the rail; every other event keeps the dot. */
+function markerOf(kind: string) {
+  if (kind === 'task.conflict') return <AlertTriangle />
+  if (kind === 'task.deleted') return <Trash2 />
+  return undefined
 }
 
 export function TaskActivity({
@@ -65,33 +74,33 @@ export function TaskActivity({
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-medium text-ink">{t('detail.activity')}</h2>
+      <SectionHeader title={t('detail.activity')} />
       {feed.length === 0 ? (
         <p className="text-sm text-subtle">{t('detail.noActivityYet')}</p>
       ) : (
         <Timeline>
           {feed.map((entry) => entry.kind === 'event' ? (
-            <TimelineItem key={entry.id} time={relativeTime(entry.event.at)} tone={toneOf(entry.event.kind)}>
+            <TimelineItem key={entry.id} time={relativeTime(entry.event.at)} tone={toneOf(entry.event.kind)} marker={markerOf(entry.event.kind)}>
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
                 <span className="min-w-0">{entry.event.summary}</span>
                 {entry.event.actor ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-subtle">
-                    {entry.event.actorKind === 'agent' ? <Bot className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                  <span className="inline-flex items-center gap-1 text-2xs text-subtle">
+                    {entry.event.actorKind === 'agent' ? <Bot className="size-3" /> : <User className="size-3" />}
                     {entry.event.actor}
                   </span>
                 ) : null}
               </div>
             </TimelineItem>
           ) : (
-            <TimelineItem key={entry.id} time={relativeTime(entry.note.createdAt)} tone="info">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-1 text-[11px] text-subtle">
-                  {entry.note.actorKind === 'agent' ? <Bot className="h-3 w-3" /> : <User className="h-3 w-3" />}
+            <TimelineItem key={entry.id} time={relativeTime(entry.note.createdAt)} tone="info" marker={<MessageSquare />}>
+              <div className="group min-w-0">
+                <div className="flex flex-wrap items-center gap-1 text-2xs text-subtle">
+                  {entry.note.actorKind === 'agent' ? <Bot className="size-3" /> : <User className="size-3" />}
                   <span>{entry.note.actor ?? t('detail.someone')}</span>
                   {entry.note.updatedAt ? <span>· {t('detail.edited')}</span> : null}
-                  {entry.note.publishState === 'synced' ? <span className="inline-flex items-center gap-1"><GitBranch className="h-3 w-3" />GitHub</span> : null}
+                  {entry.note.publishState === 'synced' ? <span className="inline-flex items-center gap-1"><GitBranch className="size-3" />GitHub</span> : null}
                   {readOnly ? null : (
-                    <span className="ml-auto flex gap-1">
+                    <span className="ml-auto flex gap-0.5 row-actions">
                       <Button size="sm" variant="ghost" onClick={() => { setEditing(entry.note.id); setEditBody(entry.note.body) }}>{t('detail.editNote')}</Button>
                       <Button size="sm" variant="ghost" onClick={() => onDelete(entry.note)}>{t('detail.deleteNote')}</Button>
                       {onPublish && entry.note.publishState !== 'synced' ? <Button size="sm" variant="ghost" onClick={() => void onPublish(entry.note)}>{entry.note.publishState === 'error' ? t('detail.retryPublish') : t('detail.publishComment')}</Button> : null}
@@ -107,9 +116,9 @@ export function TaskActivity({
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-1"><MarkdownView source={entry.note.body} /></div>
+                  <div className="mt-1 rounded-md border border-line bg-surface-2/40 px-3 py-2"><MarkdownView source={entry.note.body} /></div>
                 )}
-                {entry.note.publishError ? <p className="mt-1 text-[11px] text-danger">{entry.note.publishError}</p> : null}
+                {entry.note.publishError ? <p className="mt-1 text-xs text-danger">{entry.note.publishError}</p> : null}
               </div>
             </TimelineItem>
           ))}

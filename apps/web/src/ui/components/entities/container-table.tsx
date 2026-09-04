@@ -7,6 +7,7 @@ import { DataTable } from '../ui/data-table.tsx'
 import { Badge } from '../ui/badge.tsx'
 import { useFormat } from '../../lib/use-format.ts'
 import { Mono } from '../copy.tsx'
+import { NoValue } from '../shell-bits.tsx'
 import { OwnershipBadge, StateBadge } from '../status.tsx'
 import { ContainerActions } from '../container-actions.tsx'
 import { ServiceIcon } from '../service-icon.tsx'
@@ -68,7 +69,7 @@ export function ContainerTable({
         <div className="min-w-0">
           <button
             type="button"
-            className="flex min-w-0 items-center gap-1.5 text-left font-medium text-ink hover:text-accent"
+            className="flex min-w-0 items-center gap-1.5 rounded-xs text-left font-medium text-ink underline-offset-2 hover:underline focus-ring"
             onClick={() => onDetails(container)}
           >
             <ServiceIcon tech={container.tech} />
@@ -104,8 +105,8 @@ export function ContainerTable({
       cell: (container) => {
         const measured = resources.get(container.id)
         return measured
-          ? <ResourceUsage cpu={measured.cpuUtilisation} memoryBytes={measured.memoryUsedBytes} memoryLimitBytes={measured.memoryLimitBytes} className="text-[11px]" />
-          : <span className="text-xs text-subtle">—</span>
+          ? <ResourceUsage cpu={measured.cpuUtilisation} memoryBytes={measured.memoryUsedBytes} memoryLimitBytes={measured.memoryLimitBytes} className="text-2xs" />
+          : <NoValue />
       },
     },
     {
@@ -116,10 +117,10 @@ export function ContainerTable({
       cell: (container) => (
         <span className="text-xs text-muted">
           {container.environment ? (
-            <a className="underline-offset-2 hover:text-accent hover:underline" href={`#/environments/${encodeURIComponent(container.environment)}`}>
+            <a className="rounded-xs underline-offset-2 hover:text-ink hover:underline focus-ring" href={`#/environments/${encodeURIComponent(container.environment)}`}>
               {container.environment}
             </a>
-          ) : '—'}
+          ) : <NoValue />}
           {container.service ? <span className="text-subtle"> · {container.service}</span> : null}
         </span>
       ),
@@ -130,7 +131,7 @@ export function ContainerTable({
       priority: 2,
       sortValue: (container) => container.image,
       cell: (container) => (
-        <span className="font-mono text-xs text-muted" title={container.image}>{shortImage(container.image)}</span>
+        <Mono kind="text" title={container.image}>{shortImage(container.image)}</Mono>
       ),
     },
     {
@@ -139,9 +140,9 @@ export function ContainerTable({
       priority: 3,
       sortValue: (container) => container.ports[0]?.hostPort ?? null,
       cell: (container) => (
-        <span className="font-mono text-xs text-muted">
-          {container.ports.length > 0 ? container.ports.map((port) => `${port.ip}:${port.hostPort}`).join(' ') : '—'}
-        </span>
+        container.ports.length > 0
+          ? <Mono kind="port">{container.ports.map((port) => `${port.ip}:${port.hostPort}`).join(' ')}</Mono>
+          : <NoValue />
       ),
     },
     {
@@ -150,7 +151,7 @@ export function ContainerTable({
       priority: 3,
       defaultHidden: true,
       sortValue: (container) => container.networks.join(','),
-      cell: (container) => <Mono value={container.networks.join(', ') || '—'} />,
+      cell: (container) => container.networks.length > 0 ? <Mono value={container.networks.join(', ')} /> : <NoValue />,
     },
     {
       id: 'uptime',

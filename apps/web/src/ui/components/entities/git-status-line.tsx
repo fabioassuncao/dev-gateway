@@ -4,13 +4,13 @@ import type { ProjectGit } from '../../../shared/types.ts'
 import { changedCount, gitState } from '../../lib/git.ts'
 import { useFormat } from '../../lib/use-format.ts'
 import { cn } from '../../lib/utils.ts'
-import { Mono } from '../copy.tsx'
+import { CodeChip, Mono } from '../copy.tsx'
 import { KeyValue } from '../shell-bits.tsx'
-import { Badge } from '../ui/badge.tsx'
+import { Badge, StatusIndicator } from '../ui/badge.tsx'
 
 function ExternalLink({ href, className, children }: { href: string; className?: string; children: React.ReactNode }) {
   return (
-    <a className={cn('underline-offset-2 hover:text-accent hover:underline', className)} href={href} target="_blank" rel="noreferrer noopener">
+    <a className={cn('rounded-xs underline-offset-2 hover:text-ink hover:underline focus-ring', className)} href={href} target="_blank" rel="noreferrer noopener">
       {children}
     </a>
   )
@@ -39,10 +39,10 @@ export function GitStatusLine({
   if (!data || !data.collected) {
     if (!refreshHint) return null
     return (
-      <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-subtle', variant === 'line' && 'px-4 py-2', className)}>
-        <GitBranch className="h-3.5 w-3.5" />
+      <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-subtle', variant === 'line' && 'px-3 py-1.5', className)}>
+        <GitBranch className="size-3.5" />
         <span>{t('empty')}.</span>
-        {data ? <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono">{data.refreshCommand}</code> : null}
+        {data ? <CodeChip>{data.refreshCommand}</CodeChip> : null}
       </div>
     )
   }
@@ -61,12 +61,12 @@ export function GitStatusLine({
   const head = data.links.commit ? (
     <ExternalLink href={data.links.commit} className="font-mono">{git.head.shortSha}</ExternalLink>
   ) : (
-    <span className="font-mono">{git.head.shortSha}</span>
+    <Mono kind="sha">{git.head.shortSha}</Mono>
   )
   const tree = changed > 0 ? (
-    <Badge tone="warn">{t('uncommittedChanges', { count: changed })}</Badge>
+    <StatusIndicator tone="warn">{t('uncommittedChanges', { count: changed })}</StatusIndicator>
   ) : (
-    <Badge tone="ok">{t('clean')}</Badge>
+    <StatusIndicator tone="ok">{t('clean')}</StatusIndicator>
   )
   const drift = (
     <>
@@ -86,9 +86,9 @@ export function GitStatusLine({
 
   if (variant === 'line') {
     return (
-      <div className={cn('flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2 text-xs', className)} data-git-state={state}>
+      <div className={cn('flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 text-xs', className)} data-git-state={state}>
         <span className="flex items-center gap-1.5 text-muted">
-          <GitBranch className="h-3.5 w-3.5" />
+          <GitBranch className="size-3.5" />
           {branch}
         </span>
         {git.head.shortSha ? (
@@ -110,7 +110,7 @@ export function GitStatusLine({
   }
 
   return (
-    <dl className={cn('divide-y divide-line/60', className)} data-git-state={state}>
+    <dl className={cn('divide-y divide-line-subtle', className)} data-git-state={state}>
       <KeyValue label={t('branch')}>
         <span className="flex flex-wrap items-center gap-1.5">
           {branch}
@@ -134,7 +134,7 @@ export function GitStatusLine({
       <KeyValue label={t('upstream')}>
         {git.upstream ? (
           <span className="flex flex-wrap items-center gap-1.5">
-            <span className="font-mono text-xs">{git.upstream}</span>
+            <Mono kind="branch" tone="ink" className="text-xs">{git.upstream}</Mono>
             <Badge tone={git.ahead > 0 ? 'accent' : 'outline'}>{t('ahead', { count: git.ahead })}</Badge>
             <Badge tone={git.behind > 0 ? 'warn' : 'outline'}>{t('behind', { count: git.behind })}</Badge>
           </span>
@@ -150,13 +150,13 @@ export function GitStatusLine({
       ) : null}
       {data.workingDir ? (
         <KeyValue label={t('scannedDirectory')}>
-          <Mono value={data.workingDir} />
+          <Mono kind="path" tone="ink" value={data.workingDir} />
         </KeyValue>
       ) : null}
       <KeyValue label={t('collected')}>{age}</KeyValue>
       {refreshHint ? (
         <KeyValue label={t('refreshOnHost')}>
-          <Mono value={data.refreshCommand} />
+          <CodeChip>{data.refreshCommand}</CodeChip>
         </KeyValue>
       ) : null}
     </dl>

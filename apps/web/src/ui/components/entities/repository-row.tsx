@@ -3,7 +3,7 @@ import { ExternalLink, GitBranch } from 'lucide-react'
 import type { Repository } from '../../../shared/types.ts'
 import { useFormat } from '../../lib/use-format.ts'
 import { cn } from '../../lib/utils.ts'
-import { Badge } from '../ui/badge.tsx'
+import { Badge, StatusIndicator } from '../ui/badge.tsx'
 import { Mono } from '../copy.tsx'
 
 export function repositoryHref(projectSlug: string, repositoryId: string, tab?: string): string {
@@ -18,12 +18,12 @@ export function RepositoryGitLine({ git, className }: { git: Repository['git']; 
   return (
     <span className={cn('flex flex-wrap items-center gap-x-2 gap-y-1 text-xs', className)} data-git-state={git.stale ? 'stale' : git.dirty ? 'dirty' : 'clean'}>
       <span className="flex items-center gap-1 text-muted">
-        <GitBranch className="h-3.5 w-3.5" />
+        <GitBranch className="size-3.5" />
         {git.detached ? <Badge tone="warn">{t('detached')}</Badge> : <span className="font-medium text-ink">{git.branch}</span>}
       </span>
-      <span className="font-mono text-muted">{git.head.shortSha}</span>
+      <Mono kind="sha">{git.head.shortSha}</Mono>
       {git.head.subject ? <span className="truncate text-subtle" title={git.head.subject}>{git.head.subject}</span> : null}
-      {git.changed > 0 ? <Badge tone="warn">{t('changed', { count: git.changed })}</Badge> : <Badge tone="ok">{t('clean')}</Badge>}
+      {git.changed > 0 ? <StatusIndicator tone="warn">{t('changed', { count: git.changed })}</StatusIndicator> : <StatusIndicator tone="ok">{t('clean')}</StatusIndicator>}
       {git.ahead > 0 ? <Badge tone="outline">{t('ahead', { count: git.ahead })}</Badge> : null}
       {git.behind > 0 ? <Badge tone="outline">{t('behind', { count: git.behind })}</Badge> : null}
       <span className={cn('text-subtle', git.stale && 'text-warn')} title={git.stale ? t('stale') : undefined}>
@@ -57,22 +57,22 @@ export function RepositoryRow({
     <div
       role="group"
       aria-label={t('rowLabel', { name: repository.name })}
-      className={cn('grid gap-x-3 gap-y-1 border-b border-line px-4 py-2 text-sm last:border-b-0 lg:grid-cols-[minmax(10rem,0.5fr)_1fr_auto] lg:items-center', className)}
+      className={cn('grid gap-x-3 gap-y-1 border-b border-line-subtle px-3 py-2 text-sm transition-colors duration-100 last:border-b-0 hover:bg-fill lg:grid-cols-[minmax(10rem,0.5fr)_1fr_auto] lg:items-center', className)}
     >
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-        <a className="font-medium text-ink underline-offset-2 hover:text-accent hover:underline" href={href}>
+        <a className="rounded-xs font-medium text-ink underline-offset-2 hover:underline focus-ring" href={href}>
           {repository.name}
         </a>
         {repository.role ? <Badge tone="outline">{repository.role}</Badge> : null}
         {repository.github ? (
           <a
-            className="inline-flex items-center gap-1 text-xs text-muted underline-offset-2 hover:text-accent hover:underline"
+            className="inline-flex items-center gap-1 rounded-xs text-xs text-subtle underline-offset-2 hover:text-ink hover:underline focus-ring"
             href={repository.github.htmlUrl}
             target="_blank"
             rel="noreferrer noopener"
           >
             {repository.github.fullName}
-            <ExternalLink className="h-3 w-3" />
+            <ExternalLink className="size-3" />
           </a>
         ) : repository.provider !== 'local' ? (
           <Badge tone="neutral">{repository.provider}</Badge>
@@ -86,14 +86,14 @@ export function RepositoryRow({
         <RepositoryGitLine git={repository.git} />
         {density === 'card' ? (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle">
-            {path ? <Mono value={path} /> : <span>{t('noPath')}</span>}
+            {path ? <Mono kind="path" tone="subtle" value={path} /> : <span>{t('noPath')}</span>}
             {repository.environments.map((environment) => (
-              <a key={environment} className="text-accent underline-offset-2 hover:underline" href={`#/environments/${encodeURIComponent(environment)}`}>
+              <a key={environment} className="rounded-xs text-accent underline-offset-2 hover:underline focus-ring" href={`#/environments/${encodeURIComponent(environment)}`}>
                 {environment}
               </a>
             ))}
             {repository.instructionCount > 0 ? (
-              <a className="underline-offset-2 hover:text-accent hover:underline" href={repositoryHref(projectSlug, repository.id, 'instructions')}>
+              <a className="underline-offset-2 hover:underline" href={repositoryHref(projectSlug, repository.id, 'instructions')}>
                 {t('instructionCount', { count: repository.instructionCount })}
               </a>
             ) : null}

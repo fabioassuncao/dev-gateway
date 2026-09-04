@@ -52,7 +52,7 @@ export function ActivityTimeline({
   if (events.length === 0) return <Empty title={emptyTitle ?? t('empty')} hint={compact ? undefined : t('emptyHint')} />
 
   return (
-    <div className="px-4 py-3">
+    <div className="px-3 py-3">
       <Timeline>
         {events.map((event) => {
           const Icon = ICONS[entityOf(event.kind)]
@@ -60,32 +60,32 @@ export function ActivityTimeline({
           return (
             <TimelineItem key={event.id} time={relativeTime(event.at)} tone={toneOf(event.kind)}>
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-                <Icon className="h-3.5 w-3.5 shrink-0 text-subtle" aria-hidden />
+                <Icon className="size-3.5 shrink-0 text-subtle" aria-hidden />
                 <span className="min-w-0">{event.summary}</span>
                 {event.actor ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-subtle">
-                    <ActorIcon className="h-3 w-3" aria-hidden />
+                  <span className="inline-flex items-center gap-1 text-2xs text-subtle">
+                    <ActorIcon className="size-3" aria-hidden />
                     {event.actor}
                   </span>
                 ) : null}
               </div>
               {!compact ? (
-                <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-subtle">
+                <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-2xs text-subtle">
                   {showProject && event.project ? (
-                    <a className="underline-offset-2 hover:text-accent hover:underline" href={`#/projects/${encodeURIComponent(event.project)}`}>{event.project}</a>
+                    <a className="rounded-xs underline-offset-2 hover:text-ink hover:underline focus-ring" href={`#/projects/${encodeURIComponent(event.project)}`}>{event.project}</a>
                   ) : null}
                   {event.taskId && event.project ? (
-                    <a className="underline-offset-2 hover:text-accent hover:underline" href={taskHref(event.project, event.taskId)}>
+                    <a className="rounded-xs underline-offset-2 hover:text-ink hover:underline focus-ring" href={taskHref(event.project, event.taskId)}>
                       #{event.taskId}{event.taskTitle ? ` ${event.taskTitle}` : ''}
                     </a>
                   ) : null}
                   {event.repositoryId && event.project ? (
-                    <a className="underline-offset-2 hover:text-accent hover:underline" href={`#/projects/${encodeURIComponent(event.project)}/repositories/${encodeURIComponent(event.repositoryId)}`}>
+                    <a className="rounded-xs underline-offset-2 hover:text-ink hover:underline focus-ring" href={`#/projects/${encodeURIComponent(event.project)}/repositories/${encodeURIComponent(event.repositoryId)}`}>
                       {event.repositoryName ?? t('repository')}
                     </a>
                   ) : null}
                   {event.environment ? (
-                    <a className="font-mono underline-offset-2 hover:text-accent hover:underline" href={`#/environments/${encodeURIComponent(event.environment)}`}>{event.environment}</a>
+                    <a className="rounded-xs font-mono underline-offset-2 hover:text-ink hover:underline focus-ring" href={`#/environments/${encodeURIComponent(event.environment)}`}>{event.environment}</a>
                   ) : null}
                 </div>
               ) : null}

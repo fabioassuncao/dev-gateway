@@ -56,7 +56,8 @@ export function ServiceAlias({
           value={value}
           onChange={(event) => setValue(event.target.value)}
           placeholder={t('placeholder')}
-          className="h-7 w-56"
+          size="sm"
+          className="w-56"
           aria-label={t('aliasFor', { name })}
         />
         <Button size="sm" disabled={save.isPending || value.trim() === ''} onClick={() => save.mutate()}>
@@ -72,7 +73,7 @@ export function ServiceAlias({
       {save.error ? <ErrorBox error={save.error} /> : null}
       {clear.error ? <ErrorBox error={clear.error} /> : null}
 
-      <p className="text-[11px] text-subtle">
+      <p className="text-2xs text-subtle">
         {t('hint')}
       </p>
     </div>

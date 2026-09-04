@@ -4,9 +4,12 @@ import { CheckCircle2, Circle } from 'lucide-react'
 import type { Task, TaskSummary } from '../../../shared/task-types.ts'
 import { Button } from '../ui/button.tsx'
 import { Input } from '../ui/field.tsx'
+import { SectionHeader } from '../shell-bits.tsx'
 import { TaskRow } from '../entities/task-row.tsx'
 import { taskHref } from '../../lib/tasks.ts'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover.tsx'
+import { overlayItem } from '../ui/surfaces.ts'
+import { cn } from '../../lib/utils.ts'
 
 export function TaskSubtasks({
   task,
@@ -39,31 +42,33 @@ export function TaskSubtasks({
 
   return (
     <section className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-medium text-ink">{t('detail.subtasks', { done, total: task.subtasks.length })}</h2>
-        {readOnly ? null : (
-          <div className="flex gap-1">
+      <SectionHeader
+        title={t('detail.subtasks', { done, total: task.subtasks.length })}
+        actions={readOnly ? undefined : (
+          <>
             <Button size="sm" onClick={onCreate}>{t('detail.newSubtask')}</Button>
             <Popover>
               <PopoverTrigger asChild>
                 <Button size="sm" variant="ghost">{t('detail.linkExisting')}</Button>
               </PopoverTrigger>
-              <PopoverContent className="w-72 p-2">
-                <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('detail.searchTasks')} className="mb-2 h-7" />
-                {linkable.length === 0 ? <p className="px-1 py-2 text-xs text-subtle">{t('detail.noLinkable')}</p> : linkable.slice(0, 12).map((entry) => (
-                  <button key={entry.id} type="button" onClick={() => onLink(entry.id)} className="block w-full truncate rounded px-2 py-1 text-left text-sm hover:bg-surface-2">
-                    #{entry.id} {entry.title}
+              <PopoverContent padding="list" className="w-72">
+                <div className="p-1 pb-1.5">
+                  <Input size="sm" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('detail.searchTasks')} />
+                </div>
+                {linkable.length === 0 ? <p className="px-2 py-2 text-xs text-subtle">{t('detail.noLinkable')}</p> : linkable.slice(0, 12).map((entry) => (
+                  <button key={entry.id} type="button" onClick={() => onLink(entry.id)} className={cn(overlayItem, 'w-full hover:bg-fill focus-ring-inset')}>
+                    <span className="truncate">#{entry.id} {entry.title}</span>
                   </button>
                 ))}
               </PopoverContent>
             </Popover>
-          </div>
+          </>
         )}
-      </div>
+      />
       {task.subtasks.length === 0 ? (
         <p className="text-sm text-subtle">{t('detail.noSubtasks')}</p>
       ) : (
-        <ul className="divide-y divide-line/70 rounded-md border border-line">
+        <ul className="divide-y divide-line-subtle rounded-md border border-line">
           {task.subtasks.map((subtask) => (
             <li key={subtask.id}>
               <TaskRow
@@ -72,14 +77,14 @@ export function TaskSubtasks({
                 compact
                 actions={readOnly ? undefined : (
                   <div className="flex items-center gap-1">
-                    <button
-                      type="button"
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
                       onClick={() => onStatus(subtask.id, subtask.status === 'done' ? 'ready' : 'done')}
                       aria-label={subtask.status === 'done' ? t('detail.reopenSubtask', { id: subtask.id }) : t('detail.completeSubtask', { id: subtask.id })}
-                      className="rounded p-1 text-subtle hover:bg-surface-2 hover:text-ink"
                     >
-                      {subtask.status === 'done' ? <CheckCircle2 className="h-4 w-4 text-ok" /> : <Circle className="h-4 w-4" />}
-                    </button>
+                      {subtask.status === 'done' ? <CheckCircle2 className="text-ok" /> : <Circle />}
+                    </Button>
                     <Button size="sm" variant="ghost" onClick={() => onUnlink(subtask.id)}>{t('detail.unlinkSubtask')}</Button>
                   </div>
                 )}

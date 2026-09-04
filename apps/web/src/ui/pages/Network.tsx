@@ -4,7 +4,9 @@ import { EndpointList } from '../components/entities/endpoint-list.tsx'
 import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
 import { Badge } from '../components/ui/badge.tsx'
 import { Table, Td, Th, Tr } from '../components/ui/table.tsx'
-import { Empty, ErrorBox, KeyValue, Loading, PageHeader } from '../components/shell-bits.tsx'
+import { Empty, ErrorBox, KeyValue, Loading, NoValue, PageHeader } from '../components/shell-bits.tsx'
+import { Mono } from '../components/copy.tsx'
+import { StatusIndicator } from '../components/ui/badge.tsx'
 import { StateBadge } from '../components/status.tsx'
 import { useDocumentTitle } from '../lib/title.ts'
 
@@ -36,15 +38,15 @@ export function NetworkPage() {
         <Card>
           <CardHeader title={t('domains.title')} />
           <CardBody>
-            <dl className="divide-y divide-line/60">
+            <dl className="divide-y divide-line-subtle">
               <KeyValue label={t('domains.routedDomain')}>
-                <span className="font-mono text-xs">{domains.local}</span>
+                <Mono kind="host" tone="ink">{domains.local}</Mono>
               </KeyValue>
               <KeyValue label={t('domains.vpnDomain')}>
-                <span className="font-mono text-xs">{domains.private ?? '—'}</span>
+                {domains.private ? <Mono kind="host" tone="ink">{domains.private}</Mono> : <NoValue />}
               </KeyValue>
               <KeyValue label={t('domains.publicDomain')}>
-                <span className="font-mono text-xs">{domains.public ?? '—'}</span>
+                {domains.public ? <Mono kind="host" tone="ink">{domains.public}</Mono> : <NoValue />}
               </KeyValue>
               <KeyValue label={t('domains.scheme')}>{domains.scheme}</KeyValue>
             </dl>
@@ -54,20 +56,20 @@ export function NetworkPage() {
         <Card>
           <CardHeader title={t('tls.title')} />
           <CardBody>
-            <dl className="divide-y divide-line/60">
+            <dl className="divide-y divide-line-subtle">
               <KeyValue label={t('tls.https')}>
-                <Badge tone={tls.enabled ? 'ok' : 'neutral'}>
+                <StatusIndicator tone={tls.enabled ? 'ok' : 'neutral'} emphasis="ink">
                   {tls.enabled ? tc('enabled') : tc('disabled')}
-                </Badge>
+                </StatusIndicator>
               </KeyValue>
               <KeyValue label={t('tls.mode')}>{tls.mode}</KeyValue>
               <KeyValue label={t('tls.acmeContact')}>
-                <Badge tone={tls.acmeEmailSet ? 'ok' : 'warn'}>
+                <StatusIndicator tone={tls.acmeEmailSet ? 'ok' : 'warn'} emphasis="ink">
                   {tls.acmeEmailSet ? tc('set') : tc('notSet')}
-                </Badge>
+                </StatusIndicator>
               </KeyValue>
               <KeyValue label={t('tls.directory')}>
-                <span className="font-mono text-[11px] break-all">{tls.caServer}</span>
+                <Mono kind="url" tone="ink" className="break-all whitespace-normal">{tls.caServer}</Mono>
               </KeyValue>
             </dl>
           </CardBody>
@@ -76,22 +78,22 @@ export function NetworkPage() {
         <Card>
           <CardHeader title={t('vpnDns.title')} />
           <CardBody>
-            <dl className="divide-y divide-line/60">
+            <dl className="divide-y divide-line-subtle">
               <KeyValue label={t('vpnDns.tailscale')}>
                 {tailscale.enabled ? (
                   <StateBadge state={tailscale.state} health={tailscale.health} />
                 ) : (
-                  <Badge>{tc('disabled')}</Badge>
+                  <StatusIndicator tone="neutral" emphasis="ink">{tc('disabled')}</StatusIndicator>
                 )}
               </KeyValue>
               <KeyValue label={t('vpnDns.tailnetHostname')}>
-                <span className="font-mono text-xs">{tailscale.hostname}</span>
+                <Mono kind="host" tone="ink">{tailscale.hostname}</Mono>
               </KeyValue>
               <KeyValue label={t('vpnDns.dnsProvider')}>{dns.provider}</KeyValue>
               <KeyValue label={t('vpnDns.cloudflare')}>
-                <Badge tone={dns.cloudflareEnabled ? 'ok' : 'neutral'}>
+                <StatusIndicator tone={dns.cloudflareEnabled ? 'ok' : 'neutral'} emphasis="ink">
                   {dns.cloudflareEnabled ? (dns.zone ?? tc('enabled')) : tc('disabled')}
-                </Badge>
+                </StatusIndicator>
               </KeyValue>
             </dl>
           </CardBody>
@@ -121,7 +123,7 @@ export function NetworkPage() {
                   <Td>
                     <StateBadge state={route.state} />
                   </Td>
-                  <Td className="font-mono text-xs text-muted">{route.port}</Td>
+                  <Td><Mono kind="port">{route.port}</Mono></Td>
                   <Td>
                     <EndpointList endpoints={route.urls} />
                   </Td>
@@ -147,16 +149,16 @@ export function NetworkPage() {
           <tbody>
             {networks.map((network) => (
               <Tr key={network.id}>
-                <Td className="font-mono text-xs">{network.name}</Td>
+                <Td><Mono kind="host" tone="ink">{network.name}</Mono></Td>
                 <Td>
                   <Badge tone={ROLE_TONE[network.role]}>{t(`networks.roles.${network.role}`)}</Badge>
                 </Td>
                 <Td className="text-xs text-muted">{network.driver}</Td>
                 <Td className="text-xs tabular-nums">{network.containerCount}</Td>
-                <Td className="flex gap-1">
+                <Td><span className="flex gap-1">
                   {network.internal ? <Badge tone="info">{t('networks.internal')}</Badge> : null}
                   {network.managed ? <Badge tone="accent">{t('networks.gateway')}</Badge> : null}
-                </Td>
+                </span></Td>
               </Tr>
             ))}
           </tbody>

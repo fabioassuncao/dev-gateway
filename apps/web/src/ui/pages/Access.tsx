@@ -10,7 +10,8 @@ import { Badge } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Table, Td, Th, Tr } from '../components/ui/table.tsx'
 import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
-import { CopyButton } from '../components/copy.tsx'
+import { CopyButton, Mono } from '../components/copy.tsx'
+import { StatusIndicator } from '../components/ui/badge.tsx'
 import { ConnectionPanel } from '../components/connection-panel.tsx'
 import { StateBadge } from '../components/status.tsx'
 import { useFormat } from '../lib/use-format.ts'
@@ -25,13 +26,13 @@ function GatewayAddress({ service, enabled }: { service: TcpService; enabled: bo
     return (
       <div>
         <div className="flex items-center gap-1">
-          <span className="font-mono text-xs text-ink">{gatewayAddress}</span>
+          <Mono kind="host" tone="ink" className="text-xs">{gatewayAddress}</Mono>
           <CopyButton value={gatewayAddress} label={t('services.copyAddress')} />
           {gatewayConnectionString ? (
             <CopyButton value={gatewayConnectionString} label={t('services.copyGatewayConnectionString')} />
           ) : null}
         </div>
-        <div className="text-[11px] text-subtle">
+        <div className="text-2xs text-subtle">
           {routing === 'tls-sni' ? t('services.tlsRequiredHostname') : t('services.tlsRequiredSslmode')}
         </div>
       </div>
@@ -42,7 +43,7 @@ function GatewayAddress({ service, enabled }: { service: TcpService; enabled: bo
     return (
       <div>
         <Badge tone="neutral">{t('services.noHostnameSharing')}</Badge>
-        <div className="text-[11px] text-subtle">{t('services.serverSpeaksFirst')}</div>
+        <div className="text-2xs text-subtle">{t('services.serverSpeaksFirst')}</div>
       </div>
     )
   }
@@ -56,7 +57,7 @@ function GatewayAddress({ service, enabled }: { service: TcpService; enabled: bo
       <span className="text-xs text-subtle">
         {enabled ? t('services.notOptedIn') : t('services.routingOff')}
       </span>
-      <div className="text-[11px] text-subtle">
+      <div className="text-2xs text-subtle">
         {enabled ? t('services.addTcpOverlay') : t('services.tcpDisabled')}
       </div>
     </div>
@@ -136,24 +137,24 @@ export function Access() {
                   </Td>
                   <Td>
                     <div className="flex items-center gap-1">
-                      <span className="font-mono text-xs">
+                      <Mono kind="host" tone="ink" className="text-xs">
                         {bridge.bindIp}:{bridge.localPort ?? '?'}
-                      </span>
+                      </Mono>
                       <CopyButton value={bridge.bindIp} label={t('bridges.copyHost')} />
                       <CopyButton value={String(bridge.localPort ?? '')} label={t('bridges.copyPort')} />
                     </div>
-                    <div className="text-[11px] text-subtle">
+                    <div className="text-2xs text-subtle">
                       {t('bridges.target', { service: bridge.service, port: bridge.targetPort })}
                     </div>
                   </Td>
                   <Td>
                     <div className="flex items-center gap-1">
-                      <span className="truncate font-mono text-xs text-muted">
+                      <Mono kind="url" className="max-w-64 text-xs">
                         {bridge.connectionString}
-                      </span>
+                      </Mono>
                       <CopyButton value={bridge.connectionString} label={t('bridges.copyConnectionString')} />
                     </div>
-                    <div className="text-[11px] text-subtle">{t('bridges.credentialsHint')}</div>
+                    <div className="text-2xs text-subtle">{t('bridges.credentialsHint')}</div>
                   </Td>
                   <Td className="text-xs text-muted">{expiresIn(bridge.expiresAt)}</Td>
                   <Td className="text-right">
@@ -163,7 +164,7 @@ export function Access() {
                       disabled={close.isPending}
                       onClick={() => close.mutate(bridge)}
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <X />
                       {t('bridges.close')}
                     </Button>
                   </Td>
@@ -212,9 +213,9 @@ export function Access() {
                   <Td>
                     <Badge tone={service.kind === 'tcp' ? 'neutral' : 'info'}>{service.kind}</Badge>
                   </Td>
-                  <Td className="font-mono text-xs text-muted">{shortImage(service.image)}</Td>
-                  <Td className="font-mono text-xs text-muted">
-                    {service.defaultPort ?? service.ports[0] ?? '-'}
+                  <Td><Mono kind="text" title={service.image}>{shortImage(service.image)}</Mono></Td>
+                  <Td>
+                    <Mono kind="port">{service.defaultPort ?? service.ports[0] ?? '-'}</Mono>
                   </Td>
                   <Td>
                     <StateBadge state={service.state} health={service.health} />
@@ -225,17 +226,16 @@ export function Access() {
                   </Td>
                   <Td className="text-right">
                     {service.bridge ? (
-                      <span className="font-mono text-xs text-ok">
-                        {service.bridge.bindIp}:{service.bridge.localPort}
-                      </span>
+                      <StatusIndicator tone="ok" emphasis="ink" className="justify-end">
+                        <Mono kind="host" tone="ink">{service.bridge.bindIp}:{service.bridge.localPort}</Mono>
+                      </StatusIndicator>
                     ) : (
                       <Button
                         size="sm"
-                        variant="primary"
                         disabled={service.state !== 'running' || open.isPending}
                         onClick={() => open.mutate(service)}
                       >
-                        <PlugZap className="h-3.5 w-3.5" />
+                        <PlugZap />
                         {t('services.openLocalAccess')}
                       </Button>
                     )}
@@ -265,19 +265,21 @@ export function Access() {
             <tbody>
               {forwarders.map((forwarder) => (
                 <Tr key={forwarder.alias}>
-                  <Td className="flex items-center gap-1 font-mono text-xs">
-                    <Plug className="h-3.5 w-3.5 text-subtle" />
-                    {forwarder.alias}
+                  <Td>
+                    <span className="flex items-center gap-1.5">
+                      <Plug className="size-3.5 text-subtle" />
+                      <Mono kind="host" tone="ink">{forwarder.alias}</Mono>
+                    </span>
                   </Td>
                   <Td className="text-xs">
                     {forwarder.project}/{forwarder.service}
                   </Td>
-                  <Td className="font-mono text-xs">{forwarder.port}</Td>
+                  <Td><Mono kind="port" tone="ink">{forwarder.port}</Mono></Td>
                   <Td>
                     <StateBadge state={forwarder.state} />
                   </Td>
-                  <Td className="font-mono text-[11px] text-muted">
-                    {forwarder.networks.join(', ')}
+                  <Td>
+                    <Mono kind="text" tone="subtle">{forwarder.networks.join(', ')}</Mono>
                   </Td>
                 </Tr>
               ))}

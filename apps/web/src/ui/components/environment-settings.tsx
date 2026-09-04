@@ -6,7 +6,7 @@ import { useEnvironmentSettings } from '../lib/queries/index.ts'
 import type { Environment } from '../../shared/types.ts'
 import { Dialog } from './ui/dialog.tsx'
 import { Button } from './ui/button.tsx'
-import { Input, Select } from './ui/field.tsx'
+import { Checkbox, Field, Input, Select } from './ui/field.tsx'
 import { ErrorBox } from './shell-bits.tsx'
 import { Switch } from './ui/switch.tsx'
 
@@ -87,7 +87,7 @@ export function EnvironmentSettingsForm({
   const unavailable = query.error instanceof ApiError && query.error.status === 503
 
   const footer = (
-    <div className="mt-4 flex justify-end gap-2">
+    <div className="mt-4 flex justify-end gap-2 border-t border-line pt-3">
       <Button size="sm" disabled={reset.isPending || unavailable} onClick={() => reset.mutate()}>
         {t('reset')}
       </Button>
@@ -102,55 +102,56 @@ export function EnvironmentSettingsForm({
       {query.error ? <ErrorBox error={query.error} /> : null}
 
       <div className="space-y-3">
-        <label className="block">
-          <span className="text-xs text-subtle">{t('displayName')}</span>
-          <Input
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-            placeholder={project.name}
-            aria-label={t('displayName')}
-          />
-          <span className="mt-0.5 block text-[11px] text-subtle">
-            {t('derivedNameHint', {
-              name: project.name,
-            })}
-          </span>
-        </label>
+        <Field label={t('displayName')} hint={t('derivedNameHint', { name: project.name })}>
+          {(id) => (
+            <Input
+              id={id}
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              placeholder={project.name}
+              aria-label={t('displayName')}
+            />
+          )}
+        </Field>
 
-        <label className="block">
-          <span className="text-xs text-subtle">{t('descriptionLabel')}</span>
-          <Input
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            aria-label={t('descriptionLabel')}
-          />
-        </label>
+        <Field label={t('descriptionLabel')}>
+          {(id) => (
+            <Input
+              id={id}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              aria-label={t('descriptionLabel')}
+            />
+          )}
+        </Field>
 
-        <label className="block">
-          <span className="text-xs text-subtle">{t('primaryService')}</span>
-          <Select
-            value={primaryService}
-            onChange={(event) => setPrimaryService(event.target.value)}
-            aria-label={t('primaryService')}
-          >
-            <option value="">{t('none')}</option>
-            {names.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </Select>
-        </label>
+        <Field label={t('primaryService')}>
+          {(id) => (
+            <Select
+              id={id}
+              value={primaryService}
+              onChange={(event) => setPrimaryService(event.target.value)}
+              aria-label={t('primaryService')}
+              className="w-full"
+            >
+              <option value="">{t('none')}</option>
+              {names.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
 
         <fieldset className="space-y-1">
-          <legend className="text-xs text-subtle">{t('collapsedServices')}</legend>
-          <p className="text-[11px] text-subtle">
+          <legend className="text-xs font-medium text-muted">{t('collapsedServices')}</legend>
+          <p className="text-2xs text-subtle">
             {t('collapsedServicesHint')}
           </p>
           {names.map((name) => (
-            <label key={name} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+            <label key={name} className="flex h-7 items-center gap-2 text-sm">
+              <Checkbox
                 checked={hidden.includes(name)}
                 onChange={(event) =>
                   setHidden((current) =>

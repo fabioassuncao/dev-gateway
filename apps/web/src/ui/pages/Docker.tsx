@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useContainers, useDockerHost, useMetricsCurrent } from '../lib/queries/index.ts'
 import type { ContainerSummary, MetricsCurrent, Ownership } from '../../shared/types.ts'
-import { Card, CardHeader } from '../components/ui/card.tsx'
+import { Card, CardBody, CardHeader } from '../components/ui/card.tsx'
 import { Badge } from '../components/ui/badge.tsx'
 import { Input, Select } from '../components/ui/field.tsx'
 import { Table, Td, Th, Tr } from '../components/ui/table.tsx'
 import { Empty, ErrorBox, KeyValue, Loading, PageHeader, StatTile } from '../components/shell-bits.tsx'
+import { Mono } from '../components/copy.tsx'
 import { OwnershipBadge } from '../components/status.tsx'
 import { ContainerTable } from '../components/entities/container-table.tsx'
 import { ServiceDrawer } from '../components/entities/service-drawer.tsx'
@@ -63,6 +64,7 @@ export function DockerPage() {
             <Select
               value={ownership}
               onChange={(event) => setOwnership(event.target.value as 'all' | Ownership)}
+              size="sm"
               className="w-40"
               aria-label={t('filterOwnership')}
             >
@@ -75,6 +77,7 @@ export function DockerPage() {
             <Select
               value={state}
               onChange={(event) => setState(event.target.value)}
+              size="sm"
               className="w-32"
               aria-label={t('filterState')}
             >
@@ -87,6 +90,7 @@ export function DockerPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('searchPlaceholder')}
+              size="sm"
               className="w-64"
               aria-label={t('searchAria')}
             />
@@ -172,8 +176,8 @@ export function DockerPage() {
                 <tbody>
                   {host.data.ports.map((port) => (
                     <Tr key={`${port.hostPort}/${port.protocol}`}>
-                      <Td className="font-mono text-xs">
-                        {port.hostPort}/{port.protocol}
+                      <Td>
+                        <Mono kind="port" tone="ink">{port.hostPort}/{port.protocol}</Mono>
                         {port.conflict ? (
                           <Badge tone="warn" className="ml-2">
                             {t('publishedPorts.conflictBadge')}
@@ -183,7 +187,7 @@ export function DockerPage() {
                       <Td className="text-xs">
                         {port.bindings.map((binding) => (
                           <div key={binding.containerId + binding.ip}>
-                            <span className="font-mono text-muted">{binding.ip}</span>{' '}
+                            <Mono kind="host">{binding.ip}</Mono>{' '}
                             {binding.containerName}
                           </div>
                         ))}
@@ -202,8 +206,8 @@ export function DockerPage() {
 
           <Card>
             <CardHeader title={t('engine.title')} />
-            <div className="px-4 py-3">
-              <dl className="divide-y divide-line/60">
+            <CardBody>
+              <dl className="divide-y divide-line-subtle">
                 <KeyValue label={t('engine.docker')}>
                   {host.data.engine.version} (API {host.data.engine.apiVersion})
                 </KeyValue>
@@ -215,7 +219,7 @@ export function DockerPage() {
                   {host.data.engine.cpus} CPU · {bytes(host.data.engine.memoryBytes)}
                 </KeyValue>
               </dl>
-            </div>
+            </CardBody>
           </Card>
         </div>
       ) : null}
@@ -249,7 +253,7 @@ function ContainerGroup({
   const { t } = useTranslation('docker')
   return (
     <Card>
-      <CardHeader title={title} meta={<Badge tone="outline">{containers.length}</Badge>} />
+      <CardHeader title={title} meta={<span className="text-xs font-normal text-subtle tabular-nums">{containers.length}</span>} />
       <ContainerTable
         containers={containers}
         metrics={metrics}
@@ -257,7 +261,7 @@ function ContainerGroup({
         caption={t('table.caption', { group: title })}
         // The band above the rows holds the column control either way; the
         // group's description earns it rather than leaving it empty.
-        toolbar={<span className="text-xs text-muted">{description}</span>}
+        toolbar={<span className="text-xs text-subtle">{description}</span>}
         onDetails={onDetails}
       />
     </Card>

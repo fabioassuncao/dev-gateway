@@ -23,13 +23,18 @@ interface ViewerResponse extends Omit<LogsResponse, 'containerId' | 'name' | 'li
   ordered?: boolean
 }
 
+/**
+ * A service name is painted from a neutral set, never from the semantic
+ * tones: stderr is red because it means something, and an origin that
+ * happened to hash to red would say the same thing by accident.
+ */
 const ORIGIN_TONES = [
   'text-accent',
   'text-info',
-  'text-ok',
-  'text-warn',
-  'text-danger',
+  'text-agent',
+  'text-ink',
   'text-muted',
+  'text-subtle',
 ] as const
 
 export function originTone(service: string): string {
@@ -91,12 +96,13 @@ export function LogViewer({
 
   return (
     <div className={cn('flex min-h-0 flex-col', className)}>
-      <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-2 py-1.5">
         {sources && onSelectService ? (
           <Select
             value={selectedService ?? ''}
             onChange={(event) => onSelectService(event.target.value === '' ? null : event.target.value)}
-            className="h-7 w-44"
+            size="sm"
+            className="w-44"
             aria-label={t('logs.service')}
           >
             <option value="">{t('logs.allServices')}</option>
@@ -112,13 +118,15 @@ export function LogViewer({
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           placeholder={t('logs.filterLines')}
-          className="h-7 w-48"
+          size="sm"
+          className="w-48"
           aria-label={t('logs.filterLogLines')}
         />
         <Select
           value={String(tail)}
           onChange={(event) => setTail(Number(event.target.value))}
-          className="h-7 w-28"
+          size="sm"
+          className="w-28"
           aria-label={t('logs.numberOfLines')}
         >
           <option value="100">100 {t('logs.lines')}</option>
@@ -132,7 +140,7 @@ export function LogViewer({
           onClick={() => setFollow((value) => !value)}
           title={t('logs.refreshEvery3s')}
         >
-          <RefreshCw className={cn('h-3.5 w-3.5', follow && 'animate-spin')} />
+          <RefreshCw className={cn(follow && 'animate-spin')} />
           {follow ? t('following') : t('follow')}
         </Button>
         <Button size="sm" onClick={() => void query.refetch()}>
@@ -189,7 +197,7 @@ export function LogViewer({
           />
         ) : null}
         {lines.length > 0 ? (
-          <pre className="p-3 font-mono text-[11.5px] leading-relaxed whitespace-pre-wrap">
+          <pre className="p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
             {lines.map((line, index) => (
               <div key={index} className={line.stream === 'stderr' ? 'text-danger' : 'text-ink/90'}>
                 {showOrigin && line.service ? (

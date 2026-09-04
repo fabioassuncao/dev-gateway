@@ -5,6 +5,7 @@ import type { TaskAttachment } from '../../../shared/task-types.ts'
 import { Button } from '../ui/button.tsx'
 import { ConfirmDialog } from '../ui/confirm-dialog.tsx'
 import { useToast } from '../ui/toast.tsx'
+import { SectionHeader } from '../shell-bits.tsx'
 import { useFormat } from '../../lib/use-format.ts'
 import { cn } from '../../lib/utils.ts'
 
@@ -82,20 +83,21 @@ export function TaskAttachments({
         if (files.length > 0) onUpload(files)
       }}
       className={cn(
-        'space-y-2 rounded-md outline-none transition-colors',
-        over && 'ring-2 ring-accent ring-offset-2 ring-offset-bg',
-        'focus-visible:ring-2 focus-visible:ring-accent',
+        'space-y-2 rounded-md transition-colors focus-ring',
+        over && 'ring-2 ring-accent ring-offset-2 ring-offset-surface',
       )}
     >
-      <div className="flex items-center gap-2">
-        <h2 className="text-sm font-medium text-ink">{t('title', { count: attachments.length })}</h2>
-        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-subtle" aria-hidden /> : null}
-        {!readOnly ? (
-          <Button size="sm" variant="ghost" className="ml-auto" onClick={() => input.current?.click()}>
-            <Upload className="h-3.5 w-3.5" />
-            {t('add')}
-          </Button>
-        ) : null}
+      <div>
+        <SectionHeader
+          title={t('title', { count: attachments.length })}
+          count={busy ? <Loader2 className="size-3.5 animate-spin text-subtle" aria-hidden /> : undefined}
+          actions={!readOnly ? (
+            <Button size="sm" variant="ghost" onClick={() => input.current?.click()}>
+              <Upload />
+              {t('add')}
+            </Button>
+          ) : undefined}
+        />
         <input
           ref={input}
           type="file"
@@ -115,24 +117,24 @@ export function TaskAttachments({
           {over ? t('dropHere') : `${t('empty')}. ${t('emptyHint', { max: MAX_MB })}`}
         </p>
       ) : (
-        <ul className="divide-y divide-line/70 overflow-hidden rounded-md border border-line">
+        <ul className="divide-y divide-line-subtle overflow-hidden rounded-md border border-line">
           {attachments.map((attachment) => {
             const Icon = ICON[attachment.kind]
             return (
-              <li key={attachment.id} className="group flex min-w-0 items-center gap-2.5 px-3 py-2">
+              <li key={attachment.id} className="group flex min-w-0 items-center gap-2.5 px-3 py-1.5 transition-colors duration-100 hover:bg-fill">
                 {attachment.kind === 'image' ? (
                   <img
                     src={attachment.downloadUrl}
                     alt={t('preview', { name: attachment.filename })}
-                    className="h-8 w-8 shrink-0 rounded border border-line object-cover"
+                    className="size-8 shrink-0 rounded-sm border border-line object-cover"
                     loading="lazy"
                   />
                 ) : (
-                  <Icon className="h-4 w-4 shrink-0 text-subtle" aria-hidden />
+                  <Icon className="size-4 shrink-0 text-subtle" aria-hidden />
                 )}
                 <div className="min-w-0 flex-1">
                   <a
-                    className="block truncate text-sm text-ink underline-offset-2 hover:text-accent hover:underline"
+                    className="block truncate rounded-xs text-sm text-ink underline-offset-2 hover:underline focus-ring"
                     href={attachment.downloadUrl}
                     target="_blank"
                     rel="noreferrer noopener"
@@ -140,7 +142,7 @@ export function TaskAttachments({
                   >
                     {attachment.filename}
                   </a>
-                  <span className="text-[11px] text-subtle">
+                  <span className="text-2xs text-subtle">
                     {bytes(attachment.sizeBytes)} · {t('byOn', { actor: attachment.actor ?? t('unknownActor'), time: relativeTime(attachment.createdAt) })}
                   </span>
                 </div>
@@ -152,7 +154,7 @@ export function TaskAttachments({
                     aria-label={t('removeTitle', { name: attachment.filename })}
                     onClick={() => setPending(attachment)}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 />
                   </Button>
                 ) : null}
               </li>

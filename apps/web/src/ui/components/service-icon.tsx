@@ -76,7 +76,7 @@ export function ServiceIcon({ tech, className }: { tech: ServiceTech; className?
       title={tech.label}
       aria-hidden="true"
     >
-      <Icon className="h-3.5 w-3.5" />
+      <Icon className="size-3.5" />
     </span>
   )
 }

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Bold, Braces, CheckSquare, Code2, Heading1, Heading2, Heading3, Italic, Link, List, ListOrdered, Quote, Strikethrough } from 'lucide-react'
 import { cn } from '../../lib/utils.ts'
+import { iconButton } from '../ui/surfaces.ts'
 import { MarkdownView } from './markdown-view.tsx'
 
 type Command = { before: string; after?: string; fallback?: string; line?: boolean }
@@ -70,19 +71,28 @@ export function MarkdownEditor({
   ]
 
   return (
-    <div className="overflow-hidden rounded-md border border-line bg-surface">
-      <div className="flex min-h-8 flex-wrap items-center gap-0.5 border-b border-line bg-surface-2/40 px-1.5">
+    <div className="overflow-hidden rounded-md border border-line bg-surface transition-colors duration-100 focus-within:border-accent">
+      <div className="flex min-h-9 flex-wrap items-center gap-0.5 border-b border-line bg-surface-2/60 px-1.5">
         <button type="button" className={tab(mode === 'edit')} onClick={() => setMode('edit')}>{t('markdown.edit')}</button>
         <button type="button" className={tab(mode === 'preview')} onClick={() => setMode('preview')}>{t('markdown.preview')}</button>
-        {mode === 'edit' ? <span className="mx-1 h-4 w-px bg-line" /> : null}
+        {mode === 'edit' ? <span className="mx-1.5 h-4 w-px bg-line" aria-hidden /> : null}
         {mode === 'edit' ? controls.map(({ title, icon: Icon, command }) => (
-          <button key={title} type="button" title={title} aria-label={title} disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => apply(command)} className="rounded p-1 text-muted hover:bg-surface-2 hover:text-ink disabled:opacity-40">
-            <Icon className="h-3.5 w-3.5" aria-hidden />
+          <button
+            key={title}
+            type="button"
+            title={title}
+            aria-label={title}
+            disabled={disabled}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => apply(command)}
+            className={cn(iconButton, 'disabled:pointer-events-none disabled:opacity-40')}
+          >
+            <Icon aria-hidden />
           </button>
         )) : null}
       </div>
       {mode === 'preview' ? (
-        <div className={compact ? 'min-h-20 px-3 py-2' : 'min-h-36 px-4 py-3'}>{value.trim() ? <MarkdownView source={value} /> : <p className="text-sm text-subtle">{placeholder}</p>}</div>
+        <div className={compact ? 'min-h-20 px-3 py-2' : 'min-h-32 px-3 py-2.5'}>{value.trim() ? <MarkdownView source={value} /> : <p className="text-sm text-subtle">{placeholder}</p>}</div>
       ) : (
         <textarea ref={area} data-task-markdown value={value} disabled={disabled} autoFocus={autoFocus}
           onChange={(event) => onChange(event.target.value)}
@@ -91,12 +101,19 @@ export function MarkdownEditor({
             if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && onSubmit) { event.preventDefault(); onSubmit() }
           }}
           placeholder={placeholder} rows={compact ? 4 : 9}
-          className={cn('block w-full resize-y bg-transparent font-mono text-sm leading-relaxed text-ink outline-none placeholder:text-subtle', compact ? 'min-h-20 px-3 py-2' : 'min-h-36 px-4 py-3')} />
+          className={cn(
+            'block w-full resize-y bg-transparent font-mono text-xs leading-relaxed text-ink outline-none placeholder:text-faint disabled:opacity-50',
+            compact ? 'min-h-20 px-3 py-2' : 'min-h-32 px-3 py-2.5',
+          )} />
       )}
     </div>
   )
 }
 
 function tab(active: boolean): string {
-  return cn('border-b-2 px-2 py-1.5 text-xs font-medium', active ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink')
+  return cn(
+    'relative flex h-9 items-center rounded-t-sm px-2 text-sm font-medium transition-colors duration-100 focus-ring-inset',
+    'after:absolute after:inset-x-1.5 after:bottom-0 after:h-0.5 after:rounded-full',
+    active ? 'text-ink after:bg-accent' : 'text-subtle hover:text-ink after:bg-transparent',
+  )
 }

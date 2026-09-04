@@ -1,10 +1,11 @@
 import { useTranslation } from 'react-i18next'
-import { ExternalLink, TriangleAlert } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { useGateway } from '../lib/queries/index.ts'
-import { Badge } from './ui/badge.tsx'
+import { Badge, StatusIndicator } from './ui/badge.tsx'
 import { Button } from './ui/button.tsx'
 import { Card, CardBody, CardHeader } from './ui/card.tsx'
-import { CopyButton } from './copy.tsx'
+import { CopyButton, Mono } from './copy.tsx'
+import { Callout } from './shell-bits.tsx'
 import { ScopeBadge } from './status.tsx'
 import { primaryUsable } from './dashboard-card-lib.ts'
 
@@ -27,14 +28,14 @@ export function DashboardCard() {
       />
       <CardBody className="space-y-3">
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <Badge tone={dashboard.enabled ? 'ok' : 'neutral'}>
+          <StatusIndicator tone={dashboard.enabled ? 'ok' : 'neutral'} emphasis="ink">
             {dashboard.enabled ? tc('enabled') : tc('disabled')}
-          </Badge>
+          </StatusIndicator>
           {dashboard.enabled ? <Badge>{dashboard.expose}</Badge> : null}
           {dashboard.expose === 'domain' ? (
-            <Badge tone={dashboard.authenticated ? 'ok' : 'danger'}>
+            <StatusIndicator tone={dashboard.authenticated ? 'ok' : 'danger'} emphasis="ink">
               {dashboard.authenticated ? t('authenticated') : t('noCredential')}
-            </Badge>
+            </StatusIndicator>
           ) : dashboard.enabled ? (
             <Badge>{t('loopbackOnly')}</Badge>
           ) : null}
@@ -45,7 +46,7 @@ export function DashboardCard() {
             <ScopeBadge scope={endpoint.scope} />
             {endpoint.usable ? (
               <>
-                <span className="font-mono text-xs text-ink">{endpoint.url}</span>
+                <Mono kind="url" tone="ink" className="text-xs">{endpoint.url}</Mono>
                 <CopyButton value={endpoint.url} label={t('copyAddress')} />
               </>
             ) : (
@@ -59,10 +60,7 @@ export function DashboardCard() {
         ) : null}
 
         {tailnetHole ? (
-          <p className="flex items-start gap-1.5 text-xs text-warn">
-            <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>{t('tailnetWarning')}</span>
-          </p>
+          <Callout tone="warn">{t('tailnetWarning')}</Callout>
         ) : null}
 
         <Button
@@ -74,7 +72,7 @@ export function DashboardCard() {
             if (primary) window.open(primary.url, '_blank', 'noreferrer')
           }}
         >
-          <ExternalLink className="h-3.5 w-3.5" />
+          <ExternalLink />
           {t('open')}
         </Button>
       </CardBody>

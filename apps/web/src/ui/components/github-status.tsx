@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { RefreshCw } from 'lucide-react'
 import { api } from '../lib/api/index.ts'
 import { keys, useGitHub } from '../lib/queries/index.ts'
-import { Badge } from './ui/badge.tsx'
+import { Badge, StatusIndicator } from './ui/badge.tsx'
+import { Mono } from './copy.tsx'
 import { Button } from './ui/button.tsx'
 import { Card, CardBody, CardHeader } from './ui/card.tsx'
 import { Empty, ErrorBox, KeyValue, Loading } from './shell-bits.tsx'
@@ -44,23 +45,23 @@ export function GitHubStatusCard() {
           <span className="flex flex-wrap items-center gap-2">
             <span>{t('title')}</span>
             {status.available ? (
-              <Badge tone="ok">{t('connected', { defaultValue: 'connected' })}</Badge>
+              <StatusIndicator tone="ok">{t('connected', { defaultValue: 'connected' })}</StatusIndicator>
             ) : (
-              <Badge tone="warn">{t('unreachable', { defaultValue: 'unreachable' })}</Badge>
+              <StatusIndicator tone="warn">{t('unreachable', { defaultValue: 'unreachable' })}</StatusIndicator>
             )}
           </span>
         }
         description={status.available ? `App ${status.appId} · ${status.apiUrl}` : (status.reason ?? undefined)}
         actions={
           <Button size="sm" disabled={sync.isPending} onClick={() => sync.mutate()}>
-            <RefreshCw className={sync.isPending ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
+            <RefreshCw className={sync.isPending ? 'animate-spin' : undefined} />
             {t('sync')}
           </Button>
         }
       />
       <CardBody>
         {sync.error ? <ErrorBox error={sync.error} /> : null}
-        <dl className="divide-y divide-line/60">
+        <dl className="divide-y divide-line-subtle">
           <KeyValue label={t('installations')}>
             {view.installations.length === 0 ? (
               <span className="text-subtle">
@@ -102,7 +103,7 @@ export function GitHubStatusCard() {
               <div className="space-y-0.5 text-xs">
                 {view.sync.map((entry) => (
                   <div key={entry.scope}>
-                    <span className="font-mono">{entry.scope}</span>{' '}
+                    <Mono kind="text" tone="ink">{entry.scope}</Mono>{' '}
                     <span className="text-subtle">
                       {entry.lastSyncedAt === null ? t('never', { defaultValue: 'never' }) : relativeTime(entry.lastSyncedAt)}
                     </span>

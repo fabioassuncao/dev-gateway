@@ -42,8 +42,8 @@ export function TaskProperties({
   const due = task.dueAt ? new Date(task.dueAt * 1000).toISOString().slice(0, 10) : ''
 
   return (
-    <aside className="lg:sticky lg:top-4 lg:w-[19rem]">
-      <dl>
+    <aside className="lg:sticky lg:top-4 lg:w-68">
+      <dl className="space-y-0.5">
         <PropertyMenu label={t('dialog.status')} value={<TaskStatusBadge status={task.status} />} disabled={readOnly}>
           {statusOptions.map((entry) => (
             <PopoverClose key={entry.value} asChild>
@@ -78,7 +78,7 @@ export function TaskProperties({
           value={task.type ? <TaskTypeBadge type={task.type} /> : t('detail.addType')}
           disabled={readOnly}
         >
-          <div className="px-1 pt-1 text-[11px] font-semibold tracking-wider text-subtle uppercase">{t('detail.typeVocabulary')}</div>
+          <div className="px-2 pt-1.5 pb-1 text-2xs font-medium text-subtle">{t('detail.typeVocabulary')}</div>
           <PopoverClose asChild>
             <PropertyChoice selected={!task.type} onSelect={() => onPatch({ type: null })}>{t('detail.addType')}</PropertyChoice>
           </PopoverClose>
@@ -89,26 +89,26 @@ export function TaskProperties({
               </PropertyChoice>
             </PopoverClose>
           ))}
-          <div className="mt-1 border-t border-line px-1 pt-1 text-[11px] text-subtle">{t('detail.typeFree')}</div>
-          <form className="p-1" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onPatch({ type: type.trim() === '' ? null : type.trim() }) }} onSubmit={(event) => { event.preventDefault(); onPatch({ type: type.trim() === '' ? null : type.trim() }) }}>
+          <div className="mt-1 border-t border-line px-2 pt-1.5 text-2xs text-subtle">{t('detail.typeFree')}</div>
+          <form className="p-1 pt-1.5" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onPatch({ type: type.trim() === '' ? null : type.trim() }) }} onSubmit={(event) => { event.preventDefault(); onPatch({ type: type.trim() === '' ? null : type.trim() }) }}>
             <Input value={type} onChange={(event) => setType(event.target.value)} placeholder={t('dialog.typePlaceholder')} />
           </form>
         </PropertyMenu>
 
         <PropertyMenu label={t('dialog.labels')} empty={task.labels.length === 0} value={task.labels.length > 0 ? <TaskLabels labels={task.labels} max={6} /> : t('detail.addLabels')} disabled={readOnly}>
-          <form className="p-2" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onPatch({ labels: labels.split(',').map((entry) => entry.trim()).filter(Boolean) }) }} onSubmit={(event) => { event.preventDefault(); onPatch({ labels: labels.split(',').map((entry) => entry.trim()).filter(Boolean) }) }}>
+          <form className="p-1" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onPatch({ labels: labels.split(',').map((entry) => entry.trim()).filter(Boolean) }) }} onSubmit={(event) => { event.preventDefault(); onPatch({ labels: labels.split(',').map((entry) => entry.trim()).filter(Boolean) }) }}>
             <Input value={labels} onChange={(event) => setLabels(event.target.value)} placeholder={t('dialog.labelsPlaceholder')} />
           </form>
         </PropertyMenu>
 
         <PropertyMenu label={t('dialog.assignee')} empty={!task.assignee} value={task.assignee ?? t('detail.addAssignee')} disabled={readOnly}>
-          <form className="p-2" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onPatch({ assignee: assignee.trim() === '' ? null : assignee.trim() }) }} onSubmit={(event) => { event.preventDefault(); onPatch({ assignee: assignee.trim() === '' ? null : assignee.trim() }) }}>
+          <form className="p-1" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onPatch({ assignee: assignee.trim() === '' ? null : assignee.trim() }) }} onSubmit={(event) => { event.preventDefault(); onPatch({ assignee: assignee.trim() === '' ? null : assignee.trim() }) }}>
             <Input value={assignee} onChange={(event) => setAssignee(event.target.value)} />
           </form>
         </PropertyMenu>
 
         <PropertyMenu label={t('dialog.agent')} empty={!task.agent} value={task.agent ?? t('detail.addAgent')} disabled={readOnly}>
-          <form className="p-2" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onPatch({ agent: agent.trim() === '' ? null : agent.trim() }) }} onSubmit={(event) => { event.preventDefault(); onPatch({ agent: agent.trim() === '' ? null : agent.trim() }) }}>
+          <form className="p-1" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onPatch({ agent: agent.trim() === '' ? null : agent.trim() }) }} onSubmit={(event) => { event.preventDefault(); onPatch({ agent: agent.trim() === '' ? null : agent.trim() }) }}>
             <Input value={agent} onChange={(event) => setAgent(event.target.value)} placeholder="claude-code" />
           </form>
         </PropertyMenu>
@@ -119,7 +119,7 @@ export function TaskProperties({
           value={task.dueAt ? new Date(task.dueAt * 1000).toLocaleDateString() : t('detail.addDue')}
           disabled={readOnly}
         >
-          <div className="p-2">
+          <div className="p-1">
             <Input
               type="date"
               value={due}
@@ -178,12 +178,12 @@ export function TaskProperties({
         </PropertyMenu>
 
         <PropertyMenu label={t('dialog.service')} empty={!task.service} value={task.service ?? t('detail.addService')} disabled={readOnly}>
-          <form className="p-2" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onPatch({ service: service.trim() === '' ? null : service.trim() }) }} onSubmit={(event) => { event.preventDefault(); onPatch({ service: service.trim() === '' ? null : service.trim() }) }}>
+          <form className="p-1" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onPatch({ service: service.trim() === '' ? null : service.trim() }) }} onSubmit={(event) => { event.preventDefault(); onPatch({ service: service.trim() === '' ? null : service.trim() }) }}>
             <Input value={service} onChange={(event) => setService(event.target.value)} placeholder="api" />
           </form>
         </PropertyMenu>
       </dl>
-      <div className="mt-3 border-t border-line pt-2">
+      <div className="mt-4 border-t border-line pt-3">
         <TaskGitHubCard task={task} readOnly={readOnly} {...github} />
       </div>
     </aside>

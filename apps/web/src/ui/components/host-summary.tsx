@@ -26,11 +26,12 @@ import {
   type ResourceTone,
 } from '../lib/resources.ts'
 import { cn } from '../lib/utils.ts'
-import { Badge } from './ui/badge.tsx'
+import { StatusIndicator } from './ui/badge.tsx'
+import { narrowTone } from '../lib/tone.ts'
 import { Button } from './ui/button.tsx'
 import { Tooltip } from './ui/tooltip.tsx'
 import { Sparkline } from './sparkline.tsx'
-import { Skeleton } from './shell-bits.tsx'
+import { Eyebrow, Skeleton } from './shell-bits.tsx'
 
 /** How long the history window the sparklines draw is, in minutes. */
 export const HISTORY_MINUTES = 30
@@ -183,16 +184,16 @@ export function readingsFor(
 function ReadingTile({ reading }: { reading: Reading }) {
   const Icon = reading.icon
   const tile = (
-    <div className="min-w-0 rounded-md border border-line bg-surface-2/40 px-2.5 py-2">
-      <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-subtle uppercase">
-        <Icon className="h-3 w-3 shrink-0" aria-hidden />
+    <div className="min-w-0 rounded-md border border-line bg-surface-2/50 px-2.5 py-2">
+      <Eyebrow className="flex items-center gap-1.5">
+        <Icon className="size-3 shrink-0" aria-hidden />
         <span className="truncate">{reading.label}</span>
-      </div>
+      </Eyebrow>
       <div className={cn('mt-1 truncate text-sm font-semibold tabular-nums', resourceTextClass(reading.tone))}>
         {reading.value}
       </div>
       {reading.ratio !== null ? (
-        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-surface-3" aria-hidden>
+        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-fill-strong" aria-hidden>
           <div
             className={cn('h-full rounded-full transition-[width] duration-500', resourceBarClass(reading.tone))}
             style={{ width: `${Math.min(100, Math.max(2, reading.ratio * 100))}%` }}
@@ -209,7 +210,7 @@ function ReadingTile({ reading }: { reading: Reading }) {
   if (!reading.detail) return tile
   return (
     <Tooltip label={reading.detail}>
-      <div tabIndex={0} className="min-w-0 rounded-md outline-none focus-visible:outline-2 focus-visible:outline-accent">
+      <div tabIndex={0} className="min-w-0 rounded-md focus-ring">
         {tile}
       </div>
     </Tooltip>
@@ -233,13 +234,13 @@ function identityLine(host: HostMetrics): string {
 /** The band's own shape while the first snapshot is on its way. */
 export function HostSummarySkeleton() {
   return (
-    <div className="mb-4 rounded-lg border border-line bg-surface shadow-raised" aria-hidden>
-      <div className="flex items-center gap-3 border-b border-line px-4 py-3">
-        <Skeleton className="h-4 w-4 rounded" />
+    <div className="mb-4 rounded-lg border border-line bg-surface" aria-hidden>
+      <div className="flex h-9 items-center gap-3 border-b border-line px-3">
+        <Skeleton className="size-4 rounded-sm" />
         <Skeleton className="h-3.5 w-40" />
         <Skeleton className="ml-auto h-4 w-24" />
       </div>
-      <div className="grid gap-2 px-4 py-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-2 px-3 py-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {[0, 1, 2].map((index) => (
           <Skeleton key={index} className="h-[4.5rem]" />
         ))}
@@ -270,13 +271,13 @@ export function HostSummary({
     // No metrics is not no information: the gateway's own state still belongs
     // at the top of the page, where it would have been beside them.
     return (
-      <section aria-label={t('summary')} className="mb-4 rounded-lg border border-line bg-surface px-4 py-2.5 shadow-raised">
+      <section aria-label={t('summary')} className="mb-4 rounded-lg border border-line bg-surface px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Server className="h-4 w-4 shrink-0 text-subtle" aria-hidden />
+          <Server className="size-4 shrink-0 text-subtle" aria-hidden />
           <span className="text-sm font-medium text-ink">{t('unavailable')}</span>
           <span className="text-xs text-muted">{t('unavailableHint')}</span>
           {gateway ? (
-            <Badge tone={gateway.up ? 'ok' : 'danger'} dot className="ml-auto">{gateway.label}</Badge>
+            <StatusIndicator tone={gateway.up ? 'ok' : 'danger'} className="ml-auto">{gateway.label}</StatusIndicator>
           ) : null}
         </div>
       </section>
@@ -310,53 +311,53 @@ export function HostSummary({
         : null
 
   return (
-    <section aria-label={t('summary')} className="mb-4 rounded-lg border border-line bg-surface shadow-raised">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-4 py-2.5">
-        <Server className="h-4 w-4 shrink-0 text-subtle" aria-hidden />
+    <section aria-label={t('summary')} className="mb-4 rounded-lg border border-line bg-surface">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-3 py-2">
+        <Server className="size-4 shrink-0 text-subtle" aria-hidden />
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-            <span className="truncate text-sm font-semibold text-ink">{host.hostname ?? t('title')}</span>
+            <span className="truncate text-sm font-medium text-ink">{host.hostname ?? t('title')}</span>
             {host.uptimeSeconds !== null ? (
               <span className="text-xs text-subtle">{t('up', { time: format.uptime(host.uptimeSeconds) })}</span>
             ) : null}
           </div>
-          <p className="truncate text-xs text-muted">{identityLine(host) || t('description')}</p>
+          <p className="truncate text-xs text-subtle">{identityLine(host) || t('description')}</p>
         </div>
 
-        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+        <div className="ml-auto flex flex-wrap items-center gap-3">
           {gateway ? (
-            <Badge tone={gateway.up ? 'ok' : 'danger'} dot>{gateway.label}</Badge>
+            <StatusIndicator tone={gateway.up ? 'ok' : 'danger'}>{gateway.label}</StatusIndicator>
           ) : null}
           <Tooltip label={verdictHint}>
-            <span tabIndex={0} className="rounded outline-none focus-visible:outline-2 focus-visible:outline-accent">
-              <Badge tone={level === null ? 'neutral' : pressureTone(level)} dot={level !== null && level !== 'normal'}>
+            <span tabIndex={0} className="inline-flex rounded-xs focus-ring">
+              <StatusIndicator tone={level === null ? 'neutral' : narrowTone(pressureTone(level))} emphasis={level !== null && level !== 'normal' ? 'tone' : 'muted'}>
                 {tp('label')} · {verdict}
-              </Badge>
+              </StatusIndicator>
             </span>
           </Tooltip>
-          {freshness ? <Badge tone={freshness.tone}>{freshness.text}</Badge> : null}
+          {freshness ? <span className={cn('text-xs', freshness.tone === 'warn' ? 'text-warn' : 'text-subtle')}>{freshness.text}</span> : null}
           <Button
             variant="ghost"
-            size="sm"
+            size="icon-sm"
             aria-expanded={open}
             aria-controls="host-details"
             onClick={() => setOpen((current) => !current)}
             title={open ? t('hideDetails') : t('showDetails')}
           >
-            <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} aria-hidden />
+            <ChevronDown className={cn('transition-transform', open && 'rotate-180')} aria-hidden />
             <span className="sr-only">{open ? t('hideDetails') : t('showDetails')}</span>
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-2 px-4 py-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+      <div className="grid gap-2 px-3 py-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
         {readings.map((reading) => (
           <ReadingTile key={reading.id} reading={reading} />
         ))}
       </div>
 
       {open ? (
-        <dl id="host-details" className="grid gap-x-6 gap-y-1 border-t border-line px-4 py-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
+        <dl id="host-details" className="grid gap-x-6 gap-y-1 border-t border-line px-3 py-2.5 text-xs sm:grid-cols-2 lg:grid-cols-3">
           <Fact label={t('system')}>{[host.distro ?? host.platform, host.version, host.kernel].filter(Boolean).join(' · ') || '—'}</Fact>
           <Fact label={t('architecture')}>{host.architecture ?? '—'}{host.virtual ? ` · ${t('virtual')}` : ''}</Fact>
           <Fact label={t('cpu')}>{host.cpu.brand ?? '—'}</Fact>

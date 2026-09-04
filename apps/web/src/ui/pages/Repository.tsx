@@ -9,12 +9,13 @@ import { useFormat } from '../lib/use-format.ts'
 import { useDocumentTitle } from '../lib/title.ts'
 import { navigate } from '../lib/router.ts'
 import type { Repository, RepositoryGit } from '../../shared/types.ts'
-import { Badge } from '../components/ui/badge.tsx'
+import { StatusIndicator } from '../components/ui/badge.tsx'
+import { narrowTone } from '../lib/tone.ts'
 import { Button } from '../components/ui/button.tsx'
 import { Card, CardHeader } from '../components/ui/card.tsx'
 import { Dialog } from '../components/ui/dialog.tsx'
 import { Tabs, TabPanel, type TabDefinition } from '../components/ui/tabs.tsx'
-import { Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
+import { Callout, Empty, ErrorBox, Loading, PageHeader } from '../components/shell-bits.tsx'
 import type { BreadcrumbItem } from '../components/ui/breadcrumb.tsx'
 import { Mono } from '../components/copy.tsx'
 import { EndpointList } from '../components/entities/endpoint-list.tsx'
@@ -51,7 +52,7 @@ export function RepositoryPage({ slug, id, tab: requested }: { slug: string; id:
       <>
         <PageHeader title={id} />
         <Card>
-          <Empty title={t('notFound', { id })} hint={<a className="text-accent hover:underline" href={`#/projects/${encodeURIComponent(slug)}`}>{t('backToProject')}</a>} />
+          <Empty title={t('notFound', { id })} hint={<a className="rounded-xs text-accent hover:underline focus-ring" href={`#/projects/${encodeURIComponent(slug)}`}>{t('backToProject')}</a>} />
         </Card>
       </>
     )
@@ -103,18 +104,20 @@ function RepositoryHeader({ repository, slug, git, project }: { repository: Repo
         actions={
           <>
             {repository.github ? (
-              <a className="inline-flex h-7 items-center gap-1 rounded-md border border-line-strong px-2 text-xs text-ink hover:bg-surface-2" href={repository.github.htmlUrl} target="_blank" rel="noreferrer noopener">
-                GitHub <ExternalLink className="h-3 w-3" />
-              </a>
+              <Button asChild size="sm">
+                <a href={repository.github.htmlUrl} target="_blank" rel="noreferrer noopener">
+                  GitHub <ExternalLink />
+                </a>
+              </Button>
             ) : null}
             <Button size="sm" variant="ghost" onClick={() => setConfirm(true)}>{t('page.remove')}</Button>
           </>
         }
       />
       {git && !git.collected ? (
-        <div className="mb-4 rounded-lg border border-line bg-surface px-4 py-2 text-xs text-muted">
-          {t('page.notScanned')}. {t('page.notScannedHint')} <Mono value={git.refreshCommand} />
-        </div>
+        <Callout className="mb-4" title={t('page.notScanned')}>
+          {t('page.notScannedHint')} <Mono kind="command" tone="ink" value={git.refreshCommand} />
+        </Callout>
       ) : null}
       <Dialog
         open={confirm}
@@ -123,7 +126,7 @@ function RepositoryHeader({ repository, slug, git, project }: { repository: Repo
         description={t('page.removeDescription')}
         footer={
           <>
-            <Button onClick={() => setConfirm(false)}>{tc('cancel')}</Button>
+            <Button variant="ghost" onClick={() => setConfirm(false)}>{tc('cancel')}</Button>
             <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate()}>{t('page.remove')}</Button>
           </>
         }
@@ -150,7 +153,7 @@ function OverviewTab({ repository, git, slug }: { repository: Repository; git: R
           ) : forge.pulls.length === 0 ? (
             <Empty title={t('pulls.none')} />
           ) : (
-            <div className="divide-y divide-line/70">
+            <div className="divide-y divide-line-subtle">
               {forge.pulls.map((pull) => <PullRequestRow key={pull.number} pull={pull} showBranch />)}
             </div>
           )}
@@ -160,13 +163,13 @@ function OverviewTab({ repository, git, slug }: { repository: Repository; git: R
           {environments.isPending ? <Loading /> : (environments.data ?? []).length === 0 ? (
             <Empty title={t('page.environments.empty')} />
           ) : (
-            <div className="divide-y divide-line/70">
+            <div className="divide-y divide-line-subtle">
               {(environments.data ?? []).map((environment) => (
-                <div key={environment.environment} className="flex flex-wrap items-center gap-2 px-4 py-2 text-sm">
-                  <a className="font-medium underline-offset-2 hover:text-accent hover:underline" href={`#/environments/${encodeURIComponent(environment.environment)}`}>
+                <div key={environment.environment} className="flex min-h-9 flex-wrap items-center gap-2 px-3 py-1.5 text-sm hover:bg-fill">
+                  <a className="rounded-xs font-medium underline-offset-2 hover:underline focus-ring" href={`#/environments/${encodeURIComponent(environment.environment)}`}>
                     {environment.environment}
                   </a>
-                  <Badge tone={healthTone(environmentHealth(environment))}>{t('page.running', { running: environment.runningCount, total: environment.serviceCount })}</Badge>
+                  <StatusIndicator tone={narrowTone(healthTone(environmentHealth(environment)))}>{t('page.running', { running: environment.runningCount, total: environment.serviceCount })}</StatusIndicator>
                   <EndpointList endpoints={environment.urls} compact limit={2} className="min-w-0 flex-1" />
                 </div>
               ))}
@@ -178,7 +181,7 @@ function OverviewTab({ repository, git, slug }: { repository: Repository; git: R
         <CardHeader
           title={t('instructions.title')}
           description={t('instructions.description')}
-          actions={<a className="text-xs text-accent hover:underline" href={repositoryHref(slug, repository.id, 'instructions')}>{t('page.tabs.instructions')}</a>}
+          actions={<a className="rounded-xs text-xs text-accent hover:underline focus-ring" href={repositoryHref(slug, repository.id, 'instructions')}>{t('page.tabs.instructions')}</a>}
         />
         <InstructionsPanel files={git?.instructions ?? []} compact />
       </Card>
@@ -196,7 +199,7 @@ function CommitsTab({ id }: { id: string }) {
     <Card>
       <CardHeader title={t('title')} description={data.stale ? t('stale') : t('description')} />
       {data.commits.length === 0 ? <Empty title={t('empty')} /> : (
-        <div className="divide-y divide-line/70">
+        <div className="divide-y divide-line-subtle">
           {data.commits.map((commit) => <CommitRow key={commit.sha} commit={commit} />)}
         </div>
       )}

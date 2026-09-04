@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { ForgePullRequest } from '../../../shared/types.ts'
-import { Badge } from '../ui/badge.tsx'
+import { Badge, StatusIndicator } from '../ui/badge.tsx'
+import { Mono } from '../copy.tsx'
 
 /** One open pull request with its review decision and checks, as a line. */
 export function PullRequestRow({ pull, showBranch = false }: { pull: ForgePullRequest; showBranch?: boolean }) {
@@ -15,9 +16,9 @@ export function PullRequestRow({ pull, showBranch = false }: { pull: ForgePullRe
           : null
   const title = `#${pull.number} ${pull.title}`
   return (
-    <div className="flex flex-wrap items-center gap-1.5 px-4 py-2 text-xs">
+    <div className="flex min-h-8 flex-wrap items-center gap-1.5 px-3 py-1.5 text-xs">
       {pull.url ? (
-        <a className="underline-offset-2 hover:text-accent hover:underline" href={pull.url} target="_blank" rel="noreferrer noopener">
+        <a className="rounded-xs text-ink underline-offset-2 hover:underline focus-ring" href={pull.url} target="_blank" rel="noreferrer noopener">
           {title}
         </a>
       ) : (
@@ -26,13 +27,13 @@ export function PullRequestRow({ pull, showBranch = false }: { pull: ForgePullRe
       {pull.draft ? <Badge>{t('draft')}</Badge> : null}
       {review ? <Badge tone={review.tone}>{review.label}</Badge> : null}
       {pull.checks === 'failing' ? (
-        <Badge tone="danger">{t('checksFailing')}</Badge>
+        <StatusIndicator tone="danger">{t('checksFailing')}</StatusIndicator>
       ) : pull.checks === 'pending' ? (
-        <Badge tone="warn">{t('checksPending')}</Badge>
+        <StatusIndicator tone="warn" pulse>{t('checksPending')}</StatusIndicator>
       ) : pull.checks === 'passing' ? (
-        <Badge tone="ok">{t('checksPassing')}</Badge>
+        <StatusIndicator tone="ok">{t('checksPassing')}</StatusIndicator>
       ) : null}
-      {showBranch && pull.headRefName ? <span className="font-mono text-[11px] text-subtle">{pull.headRefName}</span> : null}
+      {showBranch && pull.headRefName ? <Mono kind="branch" tone="subtle" className="text-2xs">{pull.headRefName}</Mono> : null}
     </div>
   )
 }

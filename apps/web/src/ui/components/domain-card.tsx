@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next'
-import { Globe, TriangleAlert } from 'lucide-react'
+import { Globe } from 'lucide-react'
 import type { ProjectDomain } from '../../shared/types.ts'
 import { Badge } from './ui/badge.tsx'
 import { Card, CardBody, CardHeader } from './ui/card.tsx'
-import { KeyValue } from './shell-bits.tsx'
-import { CopyButton } from './copy.tsx'
+import { Callout, KeyValue, NoValue } from './shell-bits.tsx'
+import { CodeChip, CopyButton, Mono } from './copy.tsx'
 
 /**
  * What the chosen mode actually produces.
@@ -29,7 +29,7 @@ export function ProjectDomainCard({ domain }: { domain: ProjectDomain }) {
       <CardHeader
         title={
           <span className="flex flex-wrap items-center gap-2">
-            <Globe className="h-4 w-4" />
+            <Globe className="size-4 text-subtle" />
             <span>{t('title')}</span>
             <Badge tone={tone}>{state}</Badge>
           </span>
@@ -40,12 +40,12 @@ export function ProjectDomainCard({ domain }: { domain: ProjectDomain }) {
         <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
           <KeyValue label={t('mode')}>{domain.mode}</KeyValue>
           <KeyValue label={t('base')}>
-            <span className="font-mono">{domain.domain}</span>
+            <Mono kind="host" tone="ink">{domain.domain}</Mono>
           </KeyValue>
           {domain.mode === 'auto' ? (
             <>
               <KeyValue label={t('publicIp')}>
-                <span className="font-mono">{domain.publicIp ?? '—'}</span>
+                {domain.publicIp ? <Mono kind="host" tone="ink">{domain.publicIp}</Mono> : <NoValue />}
               </KeyValue>
               <KeyValue label={t('provider')}>{domain.provider}</KeyValue>
             </>
@@ -59,7 +59,7 @@ export function ProjectDomainCard({ domain }: { domain: ProjectDomain }) {
           <ul className="space-y-1">
             {domain.examples.map((example) => (
               <li key={example} className="flex items-center gap-2">
-                <code className="font-mono text-sm">{example}</code>
+                <CodeChip>{example}</CodeChip>
                 <CopyButton value={example} label={example} />
               </li>
             ))}
@@ -67,17 +67,11 @@ export function ProjectDomainCard({ domain }: { domain: ProjectDomain }) {
         </div>
 
         {domain.problem ? (
-          <p className="mt-4 flex items-start gap-2 rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
-            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{domain.problem}</span>
-          </p>
+          <Callout tone="danger" className="mt-4">{domain.problem}</Callout>
         ) : null}
 
         {domain.advice ? (
-          <p className="mt-2 flex items-start gap-2 rounded-md border border-warn/40 bg-warn/5 px-3 py-2 text-sm text-warn">
-            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{domain.advice}</span>
-          </p>
+          <Callout tone="warn" className="mt-2">{domain.advice}</Callout>
         ) : null}
 
         {/* A hostname is a name. Who may reach a service is a separate,

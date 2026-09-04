@@ -12,7 +12,8 @@ import { Button } from '../ui/button.tsx'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../ui/menu.tsx'
 import { Td, Th, Tr } from '../ui/table.tsx'
 import { useToast } from '../ui/toast.tsx'
-import { AddressLine } from '../copy.tsx'
+import { AddressLine, Mono } from '../copy.tsx'
+import { NoValue } from '../shell-bits.tsx'
 import { ServiceIcon } from '../service-icon.tsx'
 import { StateBadge } from '../status.tsx'
 import { OpenTestMenu } from './open-test-menu.tsx'
@@ -84,7 +85,7 @@ export function ServiceRow({
     <Tr aria-label={t('row.label', { name: service.name })} className={cn(service.hidden && 'opacity-60', className)} data-service={service.name}>
       {showEnvironment ? (
         <Td className="text-xs text-muted">
-          <a className="underline-offset-2 hover:text-accent hover:underline" href={`#/environments/${encodeURIComponent(service.environment)}`}>
+          <a className="rounded-xs underline-offset-2 hover:text-ink hover:underline focus-ring" href={`#/environments/${encodeURIComponent(service.environment)}`}>
             {service.environment}
           </a>
         </Td>
@@ -93,7 +94,7 @@ export function ServiceRow({
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <button
             type="button"
-            className="flex min-w-0 items-center gap-1.5 text-left font-medium text-ink hover:text-accent"
+            className="flex min-w-0 items-center gap-1.5 rounded-xs text-left font-medium text-ink underline-offset-2 hover:underline focus-ring"
             onClick={() => onOpen('overview')}
             aria-label={t('row.openDrawer', { name: service.name })}
           >
@@ -123,49 +124,49 @@ export function ServiceRow({
         {service.resources ? (
           <ResourceUsage cpu={service.resources.cpuUtilisation} memoryBytes={service.resources.memoryUsedBytes} memoryLimitBytes={service.resources.memoryLimitBytes} diskBytes={service.resources.diskBytes} stale={service.resources.stale} />
         ) : (
-          <span className="text-xs text-subtle">—</span>
+          <NoValue />
         )}
       </Td>
-      <Td className="hidden font-mono text-xs text-muted xl:table-cell">
-        <span title={service.image}>{shortImage(service.image)}</span>
-        <span className="text-subtle"> · {shortId(service.containerId)}</span>
+      <Td className="hidden xl:table-cell">
+        <Mono kind="text" title={service.image}>{shortImage(service.image)}</Mono>
+        <Mono kind="id" tone="subtle"> · {shortId(service.containerId)}</Mono>
       </Td>
       <Td className="hidden text-xs text-muted tabular-nums lg:table-cell">{uptime(service.uptimeSeconds)}</Td>
       <Td className="text-right">
         <div className="flex items-center justify-end gap-0.5">
-          <Button variant="ghost" size="icon" title={t('menu.logs')} aria-label={t('menu.logs')} onClick={() => onOpen('logs')}>
-            <ScrollText className="h-3.5 w-3.5" />
+          <Button variant="ghost" size="icon-sm" title={t('menu.logs')} aria-label={t('menu.logs')} onClick={() => onOpen('logs')}>
+            <ScrollText />
           </Button>
           <Menu>
             <MenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label={t('row.actionsFor', { name: service.name })}>
-                <MoreHorizontal className="h-4 w-4" />
+              <Button variant="ghost" size="icon-sm" aria-label={t('row.actionsFor', { name: service.name })}>
+                <MoreHorizontal />
               </Button>
             </MenuTrigger>
             <MenuContent>
               <MenuItem onSelect={() => onOpen('overview')}>{t('menu.details')}</MenuItem>
               <MenuSeparator />
               <MenuItem disabled={!service.actions.start || act.isPending} onSelect={() => act.mutate('start')}>
-                <Play className="h-3.5 w-3.5" /> {t('menu.start')}
+                <Play className="size-3.5" /> {t('menu.start')}
               </MenuItem>
               <MenuItem disabled={!service.actions.stop || act.isPending} onSelect={() => act.mutate('stop')}>
-                <Square className="h-3.5 w-3.5" /> {t('menu.stop')}
+                <Square className="size-3.5" /> {t('menu.stop')}
               </MenuItem>
               <MenuItem disabled={!service.actions.restart || act.isPending} onSelect={() => act.mutate('restart')}>
-                <RotateCw className="h-3.5 w-3.5" /> {t('menu.restart')}
+                <RotateCw className="size-3.5" /> {t('menu.restart')}
               </MenuItem>
               <MenuSeparator />
               <MenuItem onSelect={() => onOpen('logs')}>
-                <ScrollText className="h-3.5 w-3.5" /> {t('menu.logs')}
+                <ScrollText className="size-3.5" /> {t('menu.logs')}
               </MenuItem>
               {service.actions.openAccess ? (
                 <MenuItem onSelect={() => onOpen('access')}>
-                  <PlugZap className="h-3.5 w-3.5" /> {t('menu.openAccess')}
+                  <PlugZap className="size-3.5" /> {t('menu.openAccess')}
                 </MenuItem>
               ) : null}
               {service.actions.share ? (
                 <MenuItem onSelect={() => onOpen('share')}>
-                  <Share2 className="h-3.5 w-3.5" /> {t('menu.share')}
+                  <Share2 className="size-3.5" /> {t('menu.share')}
                 </MenuItem>
               ) : null}
             </MenuContent>

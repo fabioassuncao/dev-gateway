@@ -9,7 +9,8 @@ import { useToast } from './ui/toast.tsx'
 import { Button } from './ui/button.tsx'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from './ui/menu.tsx'
 import { Dialog } from './ui/dialog.tsx'
-import { ErrorBox } from './shell-bits.tsx'
+import { Callout, ErrorBox } from './shell-bits.tsx'
+import { Mono } from './copy.tsx'
 import { Badge } from './ui/badge.tsx'
 import { OwnershipBadge } from './status.tsx'
 import { LogViewer } from './logs.tsx'
@@ -48,17 +49,17 @@ export function ContainerActions({
       <div className="flex items-center justify-end gap-1">
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-sm"
           title={t('logs')}
           aria-label={t('logs')}
           onClick={() => setShowLogs(true)}
         >
-          <ScrollText className="h-3.5 w-3.5" />
+          <ScrollText />
         </Button>
         <Menu>
           <MenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={t('actionsFor', { name: container.name })}>
-              <MoreHorizontal className="h-4 w-4" />
+            <Button variant="ghost" size="icon-sm" aria-label={t('actionsFor', { name: container.name })}>
+              <MoreHorizontal />
             </Button>
           </MenuTrigger>
           <MenuContent>
@@ -69,17 +70,17 @@ export function ContainerActions({
               </>
             ) : null}
             <MenuItem disabled={running || isGateway || act.isPending} onSelect={() => act.mutate('start')}>
-              <Play className="h-3.5 w-3.5" /> {t('start')}
+              <Play className="size-3.5" /> {t('start')}
             </MenuItem>
             <MenuItem disabled={!running || isGateway || act.isPending} onSelect={() => act.mutate('stop')}>
-              <Square className="h-3.5 w-3.5" /> {t('stop')}
+              <Square className="size-3.5" /> {t('stop')}
             </MenuItem>
             <MenuItem disabled={isGateway || act.isPending} onSelect={() => act.mutate('restart')}>
-              <RotateCw className="h-3.5 w-3.5" /> {t('restart')}
+              <RotateCw className="size-3.5" /> {t('restart')}
             </MenuItem>
             <MenuSeparator />
             <MenuItem tone="danger" disabled={isGateway} onSelect={() => setConfirmRemove(true)}>
-              <Trash2 className="h-3.5 w-3.5" /> {t('removeContainer')}
+              <Trash2 className="size-3.5" /> {t('removeContainer')}
             </MenuItem>
           </MenuContent>
         </Menu>
@@ -92,7 +93,7 @@ export function ContainerActions({
         onOpenChange={setShowLogs}
         title={t('logsTitle', { name: container.name })}
         description={shortImage(container.image)}
-        className="w-[min(94vw,60rem)]"
+        size="lg"
       >
         <div className="h-[55vh] min-h-0">
           <LogViewer
@@ -139,7 +140,7 @@ export function RemoveDialog({
       description={t('description')}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{tc('cancel')}</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>{tc('cancel')}</Button>
           <Button
             variant="danger"
             disabled={remove.isPending || preview.data?.allowed === false}
@@ -156,21 +157,18 @@ export function RemoveDialog({
             <span className="font-medium text-ink">{container.name}</span>
             <OwnershipBadge ownership={container.ownership} />
           </div>
-          <div className="mt-1 font-mono text-xs text-muted">{container.image}</div>
+          <div className="mt-1"><Mono kind="text">{container.image}</Mono></div>
         </div>
 
         {preview.data?.namedVolumes.length ? (
-          <div className="rounded-md border border-warn/40 bg-warn/5 p-3">
-            <div className="text-xs font-medium text-warn">
-              {t('namedVolumes', { count: preview.data.namedVolumes.length })}
-            </div>
-            <ul className="mt-1 space-y-0.5 font-mono text-xs text-muted">
+          <Callout tone="warn" title={t('namedVolumes', { count: preview.data.namedVolumes.length })}>
+            <ul className="mt-1 space-y-0.5">
               {preview.data.namedVolumes.map((volume) => (
-                <li key={volume}>{volume}</li>
+                <li key={volume}><Mono kind="path">{volume}</Mono></li>
               ))}
             </ul>
-            <p className="mt-1.5 text-xs text-muted">{t('volumesKept')}</p>
-          </div>
+            <p className="mt-1.5">{t('volumesKept')}</p>
+          </Callout>
         ) : null}
 
         {preview.data?.warnings.length ? (

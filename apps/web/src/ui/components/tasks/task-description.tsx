@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pencil } from 'lucide-react'
+import { Button } from '../ui/button.tsx'
 import { MarkdownEditor } from './markdown-editor.tsx'
 import { MarkdownView } from './markdown-view.tsx'
 
@@ -69,13 +70,18 @@ export function TaskDescription({ value, disabled, onSave }: {
   if (editing && !disabled) {
     return <section ref={root} aria-label={t('detail.description')}>
       <MarkdownEditor value={draft} disabled={disabled} autoFocus placeholder={t('detail.addDescription')} onChange={change} onEscape={() => void finish()} />
-      <p className={`mt-1 min-h-4 text-[11px] ${error ? 'text-danger' : 'text-subtle'}`}>{error ?? (draft !== lastSaved.current ? t('save.saving') : t('save.saved'))}</p>
+      <p className={`mt-1 min-h-4 text-xs ${error ? 'text-danger' : 'text-subtle'}`}>{error ?? (draft !== lastSaved.current ? t('save.saving') : t('save.saved'))}</p>
     </section>
   }
 
   return <section className="group relative min-h-16">
-    {!disabled ? <button type="button" onClick={() => setEditing(true)} className="absolute right-0 top-0 rounded px-1.5 py-0.5 text-[11px] text-subtle opacity-0 hover:bg-surface-2 hover:text-ink focus:opacity-100 group-hover:opacity-100" aria-label={t('detail.edit')}><span className="inline-flex items-center gap-1"><Pencil className="h-3 w-3" />{t('detail.edit')}</span></button> : null}
-    <div onClick={() => { if (!disabled) setEditing(true) }} className="block w-full cursor-text text-left outline-none">
+    {!disabled ? (
+      <Button variant="ghost" size="xs" onClick={() => setEditing(true)} className="absolute top-0 right-0 row-actions" aria-label={t('detail.edit')}>
+        <Pencil />
+        {t('detail.edit')}
+      </Button>
+    ) : null}
+    <div onClick={() => { if (!disabled) setEditing(true) }} className="block w-full cursor-text rounded-md text-left outline-none transition-colors duration-100 hover:bg-fill/60">
       {draft ? <MarkdownView source={draft} /> : <p className="py-2 text-sm text-subtle">{t('detail.addDescription')}</p>}
     </div>
   </section>

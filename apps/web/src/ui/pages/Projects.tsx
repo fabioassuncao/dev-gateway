@@ -7,7 +7,7 @@ import { keys, useDevelopmentOverview, useEnvironments, useProjects } from '../l
 import { Button } from '../components/ui/button.tsx'
 import { Card } from '../components/ui/card.tsx'
 import { Dialog } from '../components/ui/dialog.tsx'
-import { Input, Select } from '../components/ui/field.tsx'
+import { Checkbox, Field, Input, Select } from '../components/ui/field.tsx'
 import { Segmented } from '../components/ui/segmented.tsx'
 import { ProjectCard } from '../components/entities/project-card.tsx'
 import { ProjectTable } from '../components/entities/project-table.tsx'
@@ -78,13 +78,15 @@ export function Projects() {
         value={filters.search}
         onChange={(event) => set('search', event.target.value)}
         placeholder={t('searchPlaceholder')}
-        className="h-8 w-56"
+        size="sm"
+        className="w-56"
         aria-label={t('searchAria')}
       />
       <Select
         value={filters.state}
         onChange={(event) => set('state', event.target.value as ProjectFilters['state'])}
-        className="h-8 w-36"
+        size="sm"
+        className="w-36"
         aria-label={t('filters.state')}
       >
         <option value="all">{t('filters.anyState')}</option>
@@ -92,10 +94,8 @@ export function Projects() {
           <option key={state} value={state}>{t(`state.${state}` as 'state.running')}</option>
         ))}
       </Select>
-      <label className="flex items-center gap-1.5 text-xs text-muted">
-        <input
-          type="checkbox"
-          className="h-3.5 w-3.5 accent-[var(--portta-accent)]"
+      <label className="flex h-7 items-center gap-1.5 text-xs text-muted">
+        <Checkbox
           checked={filters.includeArchived}
           onChange={(event) => set('includeArchived', event.target.checked)}
         />
@@ -125,7 +125,7 @@ export function Projects() {
               ]}
             />
             <Button variant="primary" disabled={catalogUnavailable} onClick={() => setCreating(true)}>
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="size-3.5" />
               {t('newProject')}
             </Button>
           </>
@@ -137,7 +137,7 @@ export function Projects() {
           // The controls and the shape of the list stay put, so nothing jumps
           // when the catalog lands.
           <>
-            <div className="mb-3 flex flex-wrap items-center gap-2">{controls}</div>
+            <div className="mb-3 flex flex-wrap items-center gap-1.5">{controls}</div>
             <Card><SkeletonRows rows={4} /></Card>
           </>
         ) : catalogUnavailable ? (
@@ -150,7 +150,7 @@ export function Projects() {
           </Card>
         ) : (
           <>
-            <div className="mb-3 flex flex-wrap items-center gap-2">{controls}</div>
+            <div className="mb-3 flex flex-wrap items-center gap-1.5">{controls}</div>
             {shown.length === 0 ? (
               <Card>{emptyState}</Card>
             ) : (
@@ -210,19 +210,15 @@ function CreateProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     >
       {create.error ? <ErrorBox error={create.error} /> : null}
       <div className="space-y-3">
-        <label className="block">
-          <span className="text-xs text-subtle">{t('create.name')}</span>
-          <Input value={name} onChange={(event) => setName(event.target.value)} aria-label={t('create.name')} />
-        </label>
-        <label className="block">
-          <span className="text-xs text-subtle">{t('create.slug')}</span>
-          <Input value={slug} onChange={(event) => setSlug(event.target.value)} placeholder={name.trim() === '' ? 'meu-produto' : slugify(name)} aria-label={t('create.slug')} />
-          <span className="mt-0.5 block text-[11px] text-subtle">{t('create.slugHint')}</span>
-        </label>
-        <label className="block">
-          <span className="text-xs text-subtle">{t('create.descriptionLabel')}</span>
-          <Input value={description} onChange={(event) => setDescription(event.target.value)} aria-label={t('create.descriptionLabel')} />
-        </label>
+        <Field label={t('create.name')}>
+          {(id) => <Input id={id} value={name} onChange={(event) => setName(event.target.value)} aria-label={t('create.name')} />}
+        </Field>
+        <Field label={t('create.slug')} hint={t('create.slugHint')}>
+          {(id) => <Input id={id} mono value={slug} onChange={(event) => setSlug(event.target.value)} placeholder={name.trim() === '' ? 'meu-produto' : slugify(name)} aria-label={t('create.slug')} />}
+        </Field>
+        <Field label={t('create.descriptionLabel')}>
+          {(id) => <Input id={id} value={description} onChange={(event) => setDescription(event.target.value)} aria-label={t('create.descriptionLabel')} />}
+        </Field>
       </div>
     </Dialog>
   )

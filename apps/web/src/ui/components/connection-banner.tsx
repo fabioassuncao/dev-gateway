@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LiveState } from '../lib/live.ts'
 import { cn } from '../lib/utils.ts'
+import { toneBorder, toneText, toneWash } from '../lib/tone.ts'
 
 const CONNECTING_DELAY_MS = 2_000
 
@@ -27,19 +28,14 @@ export function ConnectionBanner({ state }: { state: LiveState }) {
   const visible = useShowConnectionBanner(state)
   if (!visible) return null
 
-  const reconnecting = state === 'connecting'
+  const tone = state === 'connecting' ? 'warn' : 'danger'
 
   return (
     <div
       role="status"
-      className={cn(
-        'shrink-0 border-b px-4 py-1.5 text-center text-xs',
-        reconnecting
-          ? 'border-warn/30 bg-warn/10 text-warn'
-          : 'border-danger/30 bg-danger/10 text-danger',
-      )}
+      className={cn('shrink-0 border-b px-4 py-1 text-center text-xs font-medium', toneBorder[tone], toneWash[tone], toneText[tone])}
     >
-      {reconnecting ? t('connection.reconnecting') : t('connection.offline')}
+      {state === 'connecting' ? t('connection.reconnecting') : t('connection.offline')}
     </div>
   )
 }
