@@ -49,12 +49,6 @@ export function ConfigField({
             <Badge tone="warn" dot>{tc('pendingRestart')}</Badge>
           </span>
         </Tooltip>
-      ) : field.restartRequired ? (
-        <Tooltip label={t('restartHint')}>
-          <span tabIndex={0} className="inline-flex rounded-xs text-subtle focus-ring">
-            <RotateCw className="size-3" aria-label={t('restartRequired')} />
-          </span>
-        </Tooltip>
       ) : null}
     </span>
   )
@@ -66,6 +60,17 @@ export function ConfigField({
         <CodeChip tone="muted">{field.key}</CodeChip>
         {!boolean && !field.secret && field.runtimeValue ? (
           <span>{t('runningValue', { value: field.runtimeValue })}</span>
+        ) : null}
+        {field.restartRequired && !field.pending ? (
+          // A fact about the setting, not an action: it sits with the other
+          // facts under the control, where a refresh icon after the label
+          // used to ask to be clicked.
+          <Tooltip label={t('restartHint')}>
+            <span tabIndex={0} className="inline-flex items-center gap-1 rounded-xs text-subtle focus-ring">
+              <RotateCw className="size-3" aria-hidden />
+              {t('restartRequired')}
+            </span>
+          </Tooltip>
         ) : null}
       </span>
     </>

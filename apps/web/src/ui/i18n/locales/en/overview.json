@@ -20,7 +20,8 @@
     "description": "Who is working, on what, since when.",
     "title": "Agents and sessions",
     "empty": "No agent is working right now",
-    "emptyHint": "A session appears here when an agent or a person starts one against a task."
+    "emptyHint": "A session appears here when an agent or a person starts one against a task.",
+    "none": "No active session"
   },
   "attention": {
     "title": "Needs attention",
@@ -29,7 +30,9 @@
     "none": "Nothing needs attention.",
     "count": "{{count}} to act on",
     "count_one": "{{count}} to act on",
-    "count_other": "{{count}} to act on"
+    "count_other": "{{count}} to act on",
+    "hostPressure": "Host under pressure: {{reasons}}",
+    "serviceUnhealthy": "{{environment}}/{{service}} is unhealthy"
   },
   "projects": {
     "title": "Projects",
@@ -44,7 +47,8 @@
     "empty": "No commit collected yet",
     "emptyHint": "The host collector scans every repository once a minute; portta repos scan does it now.",
     "dirty": "Local changes",
-    "recent": "Recent commits"
+    "recent": "Recent commits",
+    "emptyHintShort": "The host collector scans every repository once a minute; to do it now, run"
   },
   "resources": {
     "top": "Using this host",

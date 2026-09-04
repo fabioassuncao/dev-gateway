@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Bot, Boxes, FolderGit2, GitCommitHorizontal, OctagonX } from 'lucide-react'
 import type { ProjectListItem } from '../../lib/projects.ts'
 import { projectState, projectStateTone } from '../../lib/projects.ts'
-import { Badge, StatusIndicator } from '../ui/badge.tsx'
+import { StatusIndicator } from '../ui/badge.tsx'
 import { narrowTone } from '../../lib/tone.ts'
 import { Card } from '../ui/card.tsx'
 import { Tooltip } from '../ui/tooltip.tsx'
@@ -86,9 +86,9 @@ export function ProjectWork({ item, className }: { item: ProjectListItem; classN
   if (item.openTasks === null) return null
   if (item.openTasks === 0 && !item.inProgressTasks) return null
   return (
-    <Badge tone={item.inProgressTasks ? 'info' : 'outline'} className={className}>
+    <span className={cn('text-xs tabular-nums whitespace-nowrap', item.inProgressTasks ? 'text-muted' : 'text-subtle', className)}>
       {t('pulse.tasks', { open: item.openTasks, inProgress: item.inProgressTasks ?? 0 })}
-    </Badge>
+    </span>
   )
 }
 
@@ -168,14 +168,15 @@ export function ProjectRow({ item, className }: { item: ProjectListItem; classNa
       className={cn('flex h-9 min-w-0 items-center gap-2 border-b border-line-subtle px-3 text-sm transition-colors duration-100 last:border-b-0 hover:bg-fill', className)}
     >
       <a
-        className="min-w-0 flex-1 truncate rounded-xs font-medium text-ink underline-offset-2 hover:underline focus-ring"
+        className="min-w-24 flex-1 truncate rounded-xs font-medium text-ink underline-offset-2 hover:underline focus-ring"
         href={`#/projects/${encodeURIComponent(item.slug)}`}
+        title={item.name}
       >
         {item.name}
       </a>
-      <ProjectWork item={item} className="hidden shrink-0 sm:inline-flex" />
-      <ProjectCounts item={item} className="shrink-0" />
-      <ProjectStateBadge item={item} className="shrink-0" />
+      <ProjectWork item={item} className="hidden shrink-0 md:inline" />
+      <ProjectCounts item={item} className="hidden w-28 shrink-0 justify-start sm:inline-flex" />
+      <ProjectStateBadge item={item} className="w-24 shrink-0 justify-start" />
     </div>
   )
 }

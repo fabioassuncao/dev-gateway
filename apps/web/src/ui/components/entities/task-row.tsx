@@ -90,7 +90,7 @@ export function TaskRow({
         <TaskWorker task={task} />
         {showAge || !compact ? (
           <Tooltip label={t('updatedAgo', { time: relativeTime(task.updatedAt) })}>
-            <span tabIndex={0} className="hidden w-12 shrink-0 rounded-xs text-right text-xs text-subtle tabular-nums focus-ring sm:inline">
+            <span tabIndex={0} className="hidden min-w-14 shrink-0 rounded-xs text-right text-xs whitespace-nowrap text-subtle tabular-nums focus-ring sm:inline">
               {relativeTime(task.updatedAt)}
             </span>
           </Tooltip>

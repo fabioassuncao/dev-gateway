@@ -207,6 +207,18 @@
     "GITHUB_API_URL": {
       "label": "API base URL",
       "help": "https://api.github.com, or your GitHub Enterprise Server API root."
+    },
+    "PORTTA_DOMAIN_MODE": {
+      "label": "Mode",
+      "help": "What every project hostname is built on. local is localhost, which only resolves on this machine. auto derives a name from this host public address and needs no DNS record. custom uses a wildcard you own."
+    },
+    "PORTTA_PUBLIC_IP": {
+      "label": "Public address",
+      "help": "The address the auto mode builds a hostname from. Detected during installation."
+    },
+    "PORTTA_AUTO_DOMAIN_PROVIDER": {
+      "label": "Wildcard DNS service",
+      "help": "Both resolve any name embedding an address, so neither needs a record or an account."
     }
   },
   "validation": {

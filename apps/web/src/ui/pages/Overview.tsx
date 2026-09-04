@@ -1,17 +1,16 @@
-import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Boxes, CheckCircle2, CircleDot, GitCommitHorizontal, ShieldCheck, XCircle } from 'lucide-react'
 import { ApiError } from '../lib/api/index.ts'
 import { useDevelopmentOverview, useEnvironments, useMetricsCurrent, useMetricsHistory, useStatus } from '../lib/queries/index.ts'
-import type { DevelopmentOverview } from '../../shared/overview-types.ts'
+import type { AttentionItem, DevelopmentOverview, HostPressure } from '../../shared/overview-types.ts'
 import { navigate } from '../lib/router.ts'
 import { Card, CardBody, CardHeader, CardSection } from '../components/ui/card.tsx'
 import { Badge, StatusIndicator } from '../components/ui/badge.tsx'
 import { Button } from '../components/ui/button.tsx'
-import { Empty, ErrorBox, Loading, NoValue, PageHeader } from '../components/shell-bits.tsx'
-import { Mono } from '../components/copy.tsx'
+import { Empty, ErrorBox, Loading, NoValue, PageHeader, SectionHeader } from '../components/shell-bits.tsx'
+import { CodeChip, Mono } from '../components/copy.tsx'
 import { DiagnosticText } from '../components/diagnostic-text.tsx'
-import { HostSummary, HostSummarySkeleton } from '../components/host-summary.tsx'
+import { HostIdentity, HostReadings, HostSummarySkeleton, HostVerdict, pressureReasons } from '../components/host-summary.tsx'
 import { EnvironmentActions } from '../components/environment-actions.tsx'
 import { CommitRow } from '../components/entities/commit-row.tsx'
 import { ProjectRow } from '../components/entities/project-card.tsx'
@@ -27,6 +26,11 @@ import { cn } from '../lib/utils.ts'
  * What is happening: the host it happens on, the work, who is on it, what
  * needs attention, what changed. Infrastructure has its own pages; this one
  * answers the question a person asks when they open the panel.
+ *
+ * The page is dense because related things share a line, not because
+ * anything is small: the verdict sits beside the title, the host's name
+ * under it, the readings in one strip, and a panel with nothing to say
+ * takes one row rather than a card.
  */
 export function Overview() {
   const { t } = useTranslation('overview')
@@ -47,73 +51,69 @@ export function Overview() {
 }
 
 /**
- * One panel of the cockpit.
- *
- * The page is a list of these rather than nested JSX, so the composition is
- * data: reordering the dashboard, or hiding a panel a given host has nothing
- * to say about, is an edit to one array. Drag-and-drop is not here because
- * nobody has asked to move these five things; the arrangement being data is
- * what makes adding it later a change to this file alone.
+ * The top of the page, shared by the full and the reduced dashboard: the
+ * title, the gateway's and the host's verdict beside it, the host's identity
+ * under it, and the readings in a strip.
  */
-interface Widget {
-  id: string
-  span: 1 | 2 | 3
-  content: ReactNode
-}
-
-const SPAN: Record<1 | 2 | 3, string> = {
-  1: '',
-  2: 'lg:col-span-2',
-  3: 'lg:col-span-3',
-}
-
-/**
- * The gateway's state belongs beside the host's, in the band at the top. When
- * there are no host metrics that band does not render, so the badge falls back
- * to the page header rather than disappearing with it.
- */
-function GatewayBadge({ up }: { up: boolean }) {
-  const { t } = useTranslation('overview')
-  return <StatusIndicator tone={up ? 'ok' : 'danger'} emphasis="ink">{up ? t('gatewayRunning') : t('gatewayDown')}</StatusIndicator>
-}
-
-function Dashboard({ data }: { data: DevelopmentOverview }) {
+function OverviewHeader({ gatewayUp, pressure }: { gatewayUp: boolean; pressure?: HostPressure }) {
   const { t } = useTranslation('overview')
   const metrics = useMetricsCurrent()
   const history = useMetricsHistory('30m')
-
-  const widgets: Widget[] = [
-    { id: 'work', span: 2, content: <WorkPanel data={data} /> },
-    { id: 'sessions', span: 1, content: <SessionsPanel data={data} /> },
-    { id: 'attention', span: 3, content: <AttentionPanel data={data} /> },
-    { id: 'projects', span: 2, content: <ProjectsPanel data={data} /> },
-    { id: 'resources', span: 1, content: <EnvironmentUsagePanel data={data} /> },
-    { id: 'code', span: 3, content: <CodePanel data={data} /> },
-  ]
+  const gateway = { up: gatewayUp, label: gatewayUp ? t('gatewayRunning') : t('gatewayDown') }
 
   return (
     <>
       <PageHeader
         title={t('title')}
         description={t('description')}
-        actions={metrics.data ? undefined : <GatewayBadge up={data.gateway.up} />}
+        actions={
+          metrics.data
+            ? <HostVerdict data={metrics.data} pressure={pressure} gateway={gateway} />
+            : <StatusIndicator tone={gateway.up ? 'ok' : 'danger'} emphasis="ink">{gateway.label}</StatusIndicator>
+        }
+        meta={metrics.data?.host ? <HostIdentity data={metrics.data} /> : undefined}
       />
+      {metrics.data?.host ? (
+        <HostReadings data={metrics.data} history={history.data} className="mb-4" />
+      ) : metrics.isPending ? (
+        <HostSummarySkeleton />
+      ) : null}
+    </>
+  )
+}
 
-      {metrics.data ? (
-        <HostSummary
-          data={metrics.data}
-          history={history.data}
-          pressure={data.resources.host?.pressure}
-          gateway={{ up: data.gateway.up, label: data.gateway.up ? t('gatewayRunning') : t('gatewayDown') }}
-        />
-      ) : metrics.isPending ? <HostSummarySkeleton /> : null}
+function Dashboard({ data }: { data: DevelopmentOverview }) {
+  const sessions = data.sessions.length > 0
+  return (
+    <>
+      <OverviewHeader gatewayUp={data.gateway.up} pressure={data.resources.host?.pressure} />
 
-      <div className="grid items-start gap-4 lg:grid-cols-3">
-        {widgets.map((widget) => (
-          <div key={widget.id} className={cn('min-w-0', SPAN[widget.span])}>
-            {widget.content}
+      <div className="space-y-4">
+        <AttentionBand data={data} />
+
+        {/* Work and sessions share a row while there is someone to show;
+            with nobody working, the work takes the row and says so. */}
+        <div className={cn('grid items-start gap-4', sessions && 'lg:grid-cols-3')}>
+          <div className={cn('min-w-0', sessions && 'lg:col-span-2')}>
+            <WorkPanel data={data} />
           </div>
-        ))}
+          {sessions ? (
+            <div className="min-w-0">
+              <SessionsPanel data={data} />
+            </div>
+          ) : null}
+        </div>
+
+        <div className="grid items-start gap-4 xl:grid-cols-5">
+          <div className="min-w-0 xl:col-span-3">
+            <ProjectsPanel data={data} />
+          </div>
+          <div className="min-w-0 xl:col-span-2">
+            <EnvironmentUsagePanel data={data} />
+          </div>
+        </div>
+
+        <CodePanel data={data} />
       </div>
     </>
   )
@@ -127,11 +127,15 @@ function WorkPanel({ data }: { data: DevelopmentOverview }) {
     <Card>
       <CardHeader
         title={t('work.title')}
-        meta={<Badge tone={work.counts.open > 0 ? 'accent' : 'neutral'}>{work.counts.open} {t('work.open')}</Badge>}
-        description={t('work.description', { open: work.counts.open, inProgress: work.counts.inProgress, review: work.counts.review, blocked: work.counts.blocked })}
+        meta={<span className="text-xs font-normal text-subtle">{t('work.description', { open: work.counts.open, inProgress: work.counts.inProgress, review: work.counts.review, blocked: work.counts.blocked })}</span>}
+        actions={
+          data.sessions.length === 0
+            ? <StatusIndicator tone="neutral" className="text-xs">{t('sessions.none')}</StatusIndicator>
+            : null
+        }
       />
       {work.counts.open === 0 ? (
-        <Empty icon={CheckCircle2} tone="ok" title={t('work.empty')} hint={t('work.emptyHint')} />
+        <Empty compact icon={CheckCircle2} tone="ok" title={t('work.empty')} hint={t('work.emptyHint')} />
       ) : (
         <>
           <WorkSection label={tk('status.inProgress')} tasks={work.inProgress} empty={t('work.nothingInProgress')} />
@@ -148,7 +152,7 @@ function WorkSection({ label, tasks, empty }: { label: string; tasks: Developmen
   return (
     <CardSection label={label} count={tasks.length}>
       {tasks.length === 0
-        ? <p className="px-3 py-2 text-xs text-subtle">{empty}</p>
+        ? <p className="px-3 py-1.5 text-xs text-subtle">{empty}</p>
         : tasks.map((task) => <TaskRow key={task.id} task={task} href={taskHref(task.project, task.id)} compact showProject showAge />)}
     </CardSection>
   )
@@ -157,54 +161,88 @@ function WorkSection({ label, tasks, empty }: { label: string; tasks: Developmen
 function SessionsPanel({ data }: { data: DevelopmentOverview }) {
   const { t } = useTranslation('overview')
   const { t: ts } = useTranslation('sessions')
-  const agents = data.sessions.filter((session) => session.actorKind === 'agent').length
   return (
     <Card>
       <CardHeader
         title={t('sessions.title')}
-        meta={data.sessions.length > 0 ? <Badge tone="agent" dot>{ts('active', { count: data.sessions.length })}</Badge> : null}
-        description={agents > 0 ? t('sessions.description') : undefined}
+        meta={<Badge tone="agent" dot>{ts('active', { count: data.sessions.length })}</Badge>}
       />
-      {data.sessions.length === 0 ? (
-        <Empty compact icon={CircleDot} title={t('sessions.empty')} />
-      ) : (
-        data.sessions.map((session) => <SessionRow key={session.id} session={session} showProject />)
-      )}
+      {data.sessions.map((session) => <SessionRow key={session.id} session={session} showProject />)}
     </Card>
   )
 }
 
-function AttentionPanel({ data }: { data: DevelopmentOverview }) {
+/**
+ * What an attention item says, in the operator's language. The server writes
+ * a summary in English for the API; the ones the page can rebuild from the
+ * item's own fields are said again here, translated.
+ */
+function useAttentionText(data: DevelopmentOverview) {
   const { t } = useTranslation('overview')
-  const failures = data.attention.filter((item) => item.severity === 'fail').length
+  const { t: tp } = useTranslation('overview', { keyPrefix: 'pressure' })
+  return (item: AttentionItem): string => {
+    if (item.kind === 'host-pressure') {
+      const reasons = pressureReasons(data.resources.host?.pressure, tp as never)
+      if (reasons.length > 0) return t('attention.hostPressure', { reasons: reasons.join(', ') })
+    }
+    if (item.kind === 'service-unhealthy' && item.environment && item.service) {
+      return t('attention.serviceUnhealthy', { environment: item.environment, service: item.service })
+    }
+    return item.summary
+  }
+}
+
+/**
+ * What needs attention, sized to how much there is: one line saying nothing
+ * does, one band for one thing, a list for several. A card reserved for an
+ * alert that is usually absent is space the work could have had.
+ */
+function AttentionBand({ data }: { data: DevelopmentOverview }) {
+  const { t } = useTranslation('overview')
+  const text = useAttentionText(data)
+  const items = data.attention
+  const failures = items.filter((item) => item.severity === 'fail').length
+  const diagnostics = (
+    <Button size="xs" variant="ghost" className="shrink-0" onClick={() => navigate('/gateway')}>
+      {t('attention.diagnostics')}
+    </Button>
+  )
+
+  if (items.length === 0) {
+    return (
+      <div className="flex h-8 items-center gap-2 px-1 text-xs text-subtle">
+        <h2 className="sr-only">{t('attention.title')}</h2>
+        <ShieldCheck className="size-3.5 text-ok" aria-hidden />
+        <span>{t('attention.none')}</span>
+        <span className="ml-auto">{diagnostics}</span>
+      </div>
+    )
+  }
+
+  const rows = items.map((item, index) => (
+    <li key={`${item.kind}-${index}`} className="flex h-8 min-w-0 items-center gap-2.5 px-3 text-sm transition-colors duration-100 hover:bg-fill">
+      {item.severity === 'fail'
+        ? <XCircle className="size-3.5 shrink-0 text-danger" aria-hidden />
+        : <AlertTriangle className="size-3.5 shrink-0 text-warn" aria-hidden />}
+      <a className="min-w-0 flex-1 truncate rounded-xs text-ink underline-offset-2 hover:underline focus-ring" href={item.href} title={text(item)}>
+        {text(item)}
+      </a>
+      {item.project ? <span className="hidden shrink-0 text-xs text-subtle sm:inline">{item.project}</span> : null}
+    </li>
+  ))
+
   return (
-    <Card>
-      <CardHeader
-        title={t('attention.title')}
-        meta={data.attention.length > 0
-          ? <Badge tone={failures > 0 ? 'danger' : 'warn'} dot>{t('attention.count', { count: data.attention.length })}</Badge>
-          : null}
-        description={data.attention.length > 0 ? t('attention.description') : undefined}
-        actions={<Button size="sm" variant="ghost" onClick={() => navigate('/gateway')}>{t('attention.diagnostics')}</Button>}
-      />
-      {data.attention.length === 0 ? (
-        <Empty compact icon={ShieldCheck} tone="ok" title={t('attention.none')} />
-      ) : (
-        <ul className="divide-y divide-line-subtle">
-          {data.attention.map((item, index) => (
-            <li key={`${item.kind}-${index}`} className="flex h-9 items-center gap-2.5 px-3 text-sm transition-colors duration-100 hover:bg-fill">
-              {item.severity === 'fail'
-                ? <XCircle className="size-4 shrink-0 text-danger" aria-hidden />
-                : <AlertTriangle className="size-4 shrink-0 text-warn" aria-hidden />}
-              <a className="min-w-0 flex-1 truncate rounded-xs text-ink underline-offset-2 hover:underline focus-ring" href={item.href}>
-                {item.summary}
-              </a>
-              {item.project ? <Badge tone="outline">{item.project}</Badge> : null}
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
+    <section
+      aria-label={t('attention.title')}
+      className={cn('overflow-hidden rounded-lg border', failures > 0 ? 'border-danger/35' : 'border-warn/35')}
+    >
+      <div className={cn('flex h-8 items-center gap-2 px-3 text-xs', failures > 0 ? 'bg-danger/6' : 'bg-warn/8')}>
+        <h2 className={cn('font-medium', failures > 0 ? 'text-danger' : 'text-warn')}>{t('attention.title')}</h2>
+        <span className="text-subtle">{t('attention.count', { count: items.length })}</span>
+        <span className="ml-auto">{diagnostics}</span>
+      </div>
+      <ul className="divide-y divide-line-subtle bg-surface">{rows}</ul>
+    </section>
   )
 }
 
@@ -215,8 +253,9 @@ function ProjectsPanel({ data }: { data: DevelopmentOverview }) {
     <Card>
       <CardHeader
         title={t('projects.title')}
-        icon={<Boxes className="size-4" />}
-        actions={<a className="text-xs text-accent hover:underline" href="#/projects">{t('projects.all')}</a>}
+        icon={<Boxes />}
+        meta={<span className="text-xs font-normal text-subtle tabular-nums">{shown.length}</span>}
+        actions={<a className="rounded-xs px-1 text-xs text-subtle hover:text-ink hover:underline focus-ring" href="#/projects">{t('projects.all')}</a>}
       />
       {shown.length === 0 ? (
         <Empty compact title={t('projects.empty')} hint={t('projects.emptyHint')} />
@@ -235,25 +274,28 @@ function EnvironmentUsagePanel({ data }: { data: DevelopmentOverview }) {
     <Card>
       <CardHeader
         title={t('resources.top')}
-        meta={<Badge tone="outline">{t('resources.environments')} {data.runtime.environmentsRunning}/{data.runtime.environmentsTotal}</Badge>}
-        description={t('resources.topDescription')}
+        meta={
+          <span className="text-xs font-normal text-subtle tabular-nums">
+            {t('resources.environments')} {data.runtime.environmentsRunning}/{data.runtime.environmentsTotal}
+          </span>
+        }
       />
       {data.resources.topProjects.length === 0 ? (
-        <Empty compact title={t('resources.none')} />
+        <Empty compact title={t('resources.none')} hint={t('resources.topDescription')} />
       ) : (
         data.resources.topProjects.map((entry) => {
           const environment = known.get(entry.environment)
           return (
-            <div key={entry.environment} className="group flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line-subtle px-3 py-1.5 text-sm last:border-b-0 hover:bg-fill">
+            <div key={entry.environment} className="group flex h-9 min-w-0 items-center gap-2 border-b border-line-subtle px-3 text-sm last:border-b-0 hover:bg-fill">
               <a
-                className="min-w-0 truncate rounded-xs font-medium underline-offset-2 hover:underline focus-ring"
+                className="min-w-0 flex-1 truncate rounded-xs font-medium underline-offset-2 hover:underline focus-ring"
                 href={entry.slug ? `#/projects/${encodeURIComponent(entry.slug)}` : `#/environments/${encodeURIComponent(entry.environment)}`}
               >
                 {entry.name}
               </a>
-              <ResourceUsage cpu={entry.cpuUtilisation} memoryBytes={entry.memoryUsedBytes} className="text-2xs" />
+              <ResourceUsage cpu={entry.cpuUtilisation} memoryBytes={entry.memoryUsedBytes} className="ml-auto shrink-0 text-2xs" />
               {environment && environment.runningCount > 0 ? (
-                <span className="row-actions ml-auto"><EnvironmentActions project={environment} /></span>
+                <span className="row-actions"><EnvironmentActions project={environment} /></span>
               ) : null}
             </div>
           )
@@ -263,22 +305,37 @@ function EnvironmentUsagePanel({ data }: { data: DevelopmentOverview }) {
   )
 }
 
+/**
+ * Recent commits and local changes. With nothing collected yet it is a
+ * heading and one line, not a card with an empty state in the middle.
+ */
 function CodePanel({ data }: { data: DevelopmentOverview }) {
   const { t } = useTranslation('overview')
   const dirty = data.code.dirtyRepositories
   const commits = data.code.recentCommits
+
+  if (dirty.length === 0 && commits.length === 0) {
+    return (
+      <section aria-label={t('code.title')}>
+        <SectionHeader title={t('code.title')} description={t('code.description')} />
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-subtle">
+          <GitCommitHorizontal className="size-3.5" aria-hidden />
+          <span className="text-muted">{t('code.empty')}</span>
+          <span>{t('code.emptyHintShort')}</span>
+          <CodeChip tone="muted">portta repos scan</CodeChip>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <Card>
-      <CardHeader
-        title={t('code.title')}
-        icon={<GitCommitHorizontal className="size-4" />}
-        description={t('code.description')}
-      />
+      <CardHeader title={t('code.title')} icon={<GitCommitHorizontal />} description={t('code.description')} />
       {dirty.length > 0 ? (
         <CardSection label={t('code.dirty')} count={dirty.length}>
           <ul className="divide-y divide-line-subtle">
             {dirty.map((repository) => (
-              <li key={repository.id} className="flex flex-wrap items-center gap-2 px-3 py-1.5 text-sm">
+              <li key={repository.id} className="flex h-8 flex-wrap items-center gap-2 px-3 text-sm">
                 <a
                   className="rounded-xs font-medium underline-offset-2 hover:underline focus-ring"
                   href={`#/projects/${encodeURIComponent(repository.project)}/repositories/${encodeURIComponent(repository.id)}`}
@@ -295,9 +352,7 @@ function CodePanel({ data }: { data: DevelopmentOverview }) {
           </ul>
         </CardSection>
       ) : null}
-      {commits.length === 0 ? (
-        <Empty compact title={t('code.empty')} hint={t('code.emptyHint')} />
-      ) : (
+      {commits.length > 0 ? (
         <CardSection label={t('code.recent')} count={commits.length}>
           <ul className="divide-y divide-line-subtle">
             {commits.map((commit) => (
@@ -317,7 +372,7 @@ function CodePanel({ data }: { data: DevelopmentOverview }) {
             ))}
           </ul>
         </CardSection>
-      )}
+      ) : null}
     </Card>
   )
 }
@@ -326,54 +381,42 @@ function CodePanel({ data }: { data: DevelopmentOverview }) {
 function ReducedOverview({ reason }: { reason: number }) {
   const { t } = useTranslation('overview')
   const status = useStatus()
-  const metrics = useMetricsCurrent()
-  const history = useMetricsHistory('30m')
   if (status.isPending) return <Loading label={t('reading')} />
   if (status.error) return <ErrorBox error={status.error} />
   if (!status.data) return null
   const { gateway, problems } = status.data
   return (
     <>
-      <PageHeader
-        title={t('title')}
-        description={t('description')}
-        actions={metrics.data ? undefined : <GatewayBadge up={gateway.up} />}
-      />
-      {metrics.data ? (
-        <HostSummary
-          data={metrics.data}
-          history={history.data}
-          gateway={{ up: gateway.up, label: gateway.up ? t('gatewayRunning') : t('gatewayDown') }}
-        />
-      ) : null}
-      <Card>
-        <Empty title={reason === 503 ? t('reduced.needsDatabase') : t('reduced.unavailable')} hint={t('reduced.hint')} />
-      </Card>
-      <Card className="mt-4">
-        <CardHeader title={t('attention.title')} actions={<Button size="sm" onClick={() => navigate('/gateway')}>{t('attention.diagnostics')}</Button>} />
-        {problems.length === 0 ? (
-          <CardBody>
-            <div className="flex items-center gap-2 text-sm text-ok">
-              <CheckCircle2 className="size-4" aria-hidden />
-              {t('attention.none')}
-            </div>
-          </CardBody>
-        ) : (
-          <ul className="divide-y divide-line-subtle">
-            {problems.map((problem) => (
-              <li key={problem.id} className="flex gap-2.5 px-3 py-2">
-                {problem.status === 'fail'
-                  ? <XCircle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
-                  : <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />}
-                <div className="min-w-0">
-                  <DiagnosticText diagnostic={problem} part="title" className="text-sm font-medium text-ink" />
-                  <DiagnosticText diagnostic={problem} part="detail" className="text-xs text-muted" />
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      <OverviewHeader gatewayUp={gateway.up} />
+      <div className="space-y-4">
+        <Empty compact icon={CircleDot} title={reason === 503 ? t('reduced.needsDatabase') : t('reduced.unavailable')} hint={t('reduced.hint')} />
+        <Card>
+          <CardHeader title={t('attention.title')} actions={<Button size="xs" variant="ghost" onClick={() => navigate('/gateway')}>{t('attention.diagnostics')}</Button>} />
+          {problems.length === 0 ? (
+            <CardBody>
+              <div className="flex items-center gap-2 text-sm text-ok">
+                <CheckCircle2 className="size-4" aria-hidden />
+                {t('attention.none')}
+              </div>
+            </CardBody>
+          ) : (
+            <ul className="divide-y divide-line-subtle">
+              {problems.map((problem) => (
+                <li key={problem.id} className="flex gap-2.5 px-3 py-1.5">
+                  {problem.status === 'fail'
+                    ? <XCircle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
+                    : <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />}
+                  <div className="min-w-0">
+                    <DiagnosticText diagnostic={problem} part="title" className="text-sm font-medium text-ink" />
+                    <DiagnosticText diagnostic={problem} part="detail" className="text-xs text-muted" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
     </>
   )
 }
+

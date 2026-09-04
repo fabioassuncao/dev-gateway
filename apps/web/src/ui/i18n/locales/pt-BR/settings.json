@@ -207,6 +207,18 @@
     "GITHUB_API_URL": {
       "label": "URL base da API",
       "help": "https://api.github.com, ou a raiz da API do seu GitHub Enterprise Server."
+    },
+    "PORTTA_DOMAIN_MODE": {
+      "label": "Modo",
+      "help": "A base de todo hostname de projeto. local é localhost, que só resolve nesta máquina. auto deriva um nome do endereço público deste host e não precisa de registro DNS. custom usa um curinga que você possui."
+    },
+    "PORTTA_PUBLIC_IP": {
+      "label": "Endereço público",
+      "help": "O endereço a partir do qual o modo auto monta o hostname. Detectado na instalação."
+    },
+    "PORTTA_AUTO_DOMAIN_PROVIDER": {
+      "label": "Serviço de DNS curinga",
+      "help": "Os dois resolvem qualquer nome que embuta um endereço, então nenhum precisa de registro ou conta."
     }
   },
   "validation": {
