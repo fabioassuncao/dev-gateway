@@ -37,6 +37,37 @@ class FakeEventSource {
 
 vi.stubGlobal('EventSource', FakeEventSource)
 
+/**
+ * Next's router, as far as a component test is concerned.
+ *
+ * A page under test navigates, reads the path and reads the query string. None
+ * of those exist outside a Next render, and mocking them per file would be the
+ * same twelve lines in every one. `navigation.push` is exported so a test can
+ * assert where a click went.
+ */
+export const navigation = {
+  push: vi.fn(),
+  replace: vi.fn(),
+  refresh: vi.fn(),
+  back: vi.fn(),
+  pathname: '/',
+  search: '',
+}
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: navigation.push,
+    replace: navigation.replace,
+    refresh: navigation.refresh,
+    back: navigation.back,
+    prefetch: () => undefined,
+  }),
+  usePathname: () => navigation.pathname,
+  useSearchParams: () => new URLSearchParams(navigation.search),
+  redirect: (href: string) => { navigation.push(href) },
+  notFound: () => { throw new Error('notFound') },
+}))
+
 if (!window.matchMedia) {
   vi.stubGlobal(
     'matchMedia',

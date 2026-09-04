@@ -25,6 +25,16 @@ export { resolveServiceTech } from './services/tech.ts'
 // What a Server Component reads. A page calls these directly; it never fetches
 // the API this process is already serving.
 export { developmentOverview, listProjects } from './services/development.ts'
+export {
+  readActivity,
+  readProject,
+  readProjects,
+  readRepositories,
+  readRepository,
+  readSessions,
+  readTask,
+  readTasks,
+} from './services/reads.ts'
 export { panelOverview } from './services/status.ts'
 export { readCurrentMetrics } from './services/metrics.ts'
 

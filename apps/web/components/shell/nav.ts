@@ -55,8 +55,8 @@ export const NAV_GROUPS: NavGroup[] = [
     labelKey: 'groups.development',
     items: [
       { href: '/overview', labelKey: 'overview', icon: LayoutDashboard, enabled: true },
-      { href: '/projects', labelKey: 'projects', icon: Boxes, enabled: false },
-      { href: '/tasks', labelKey: 'tasks', icon: ListTodo, enabled: false },
+      { href: '/projects', labelKey: 'projects', icon: Boxes, enabled: true },
+      { href: '/tasks', labelKey: 'tasks', icon: ListTodo, enabled: true },
     ],
   },
   {

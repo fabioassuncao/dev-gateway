@@ -229,7 +229,7 @@ are all part of the document. It declares the host-scoped Portta session and
 the HTTP Basic compatibility path for non-browser clients. Traefik asks the
 separate auth process to enforce either one before a request reaches the panel.
 
-`http://127.0.0.1:8081/docs/#/api` renders that document: operations grouped by
+`http://127.0.0.1:8081/docs/api` renders that document: operations grouped by
 tag, resolved schemas for parameters, request bodies and responses, the
 declared security schemes, and a console. `/api/docs` redirects there, so a
 bookmark keeps working.
@@ -446,6 +446,13 @@ diagnostics still answer. It is served by `GET /api/overview`, which
 
 ### Projects
 
+Every page below is a route, not a tab held in memory: `/projects`,
+`/projects/<slug>`, `/projects/<slug>/tasks`, and so on. Each one is a link
+somebody can paste, a bookmark that survives a reload, and a step the browser's
+back button walks. What a role may not do is not shown rather than shown
+disabled — the exception is a task's own controls, which stay visible and
+inert, because a task's status is information a viewer came to read.
+
 ![Projects as cards: each with its state, its counts, its last commit and the actions its state allows](images/panel-projects.png)
 
 The products you recognise, as cards or as a table: repositories, open tasks,
@@ -487,7 +494,7 @@ below it, tabs that are URLs:
 
 ![The Demo Shop task board: backlog, to do, in progress and blocked, seeded from docker/examples](images/panel-tasks.png)
 
-A task is Portta's own: it exists without GitHub. `#/projects/<slug>/tasks` is
+A task is Portta's own: it exists without GitHub. `/projects/<slug>/tasks` is
 the board — six columns, `Backlog`, `To do`, `In progress`, `Review`,
 `Blocked`, `Done` — or the list, nested by parent; the choice and the filters
 (status, assignee, repository, text) live in the hash, so a filtered view is
@@ -503,7 +510,7 @@ nested under their parent until a column is sorted on.
 
 ![One task: the status control, the next step it offers, the description, its attachments, subtasks, sessions and activity](images/panel-task.png)
 
-A task page, `#/projects/<slug>/tasks/<id>`, carries the description, the
+A task page, `/projects/<slug>/tasks/<id>`, carries the description, the
 subtasks, the notes, the sessions working on it and their commits, the
 environments it runs in (linked by the `portta.task` label, the branch name,
 the namespace, or by hand) and the GitHub binding: which issue, whether the
@@ -517,7 +524,7 @@ conflict either way, unbind, comment on the issue. See
 
 ### Repositories
 
-`#/projects/<slug>/repositories/<id>` is one repository: branch, HEAD, the
+`/projects/<slug>/repositories/<id>` is one repository: branch, HEAD, the
 working tree spelled out, ahead/behind, the remote, the directory on the host,
 and three tabs — the overview with open pull requests and the environments
 running from it, the last twenty commits, and the **instruction files** the
@@ -534,8 +541,8 @@ carries the command that refreshes it. See
 
 ![The Environments page: every Compose project on this host, each as a table of its services with state, access, resources, runtime and actions](images/panel-environments.png)
 
-`#/environments` lists every Compose project on this host, adopted or not,
-each as a table of its services. `#/environments/<name>` is one environment:
+`/environments` lists every Compose project on this host, adopted or not,
+each as a table of its services. `/environments/<name>` is one environment:
 
 ![One environment: its services as one table, with an Open / Test menu, resources and actions per row](images/panel-environment.png)
 
@@ -556,7 +563,7 @@ datastore the loopback bridge to open or close, the host, the port and a
 connection string. It is the same model the Access page manages
 ([ADR 0024](adr/0024-capabilities-providers-endpoints.md)).
 
-An old `#/environments/<name>/services` opens the overview; `#/…/git` opens
+An old `/environments/<name>/services` opens the overview; `/…/git` opens
 the repository the environment runs from.
 
 #### Remembered environments
@@ -586,7 +593,7 @@ postgres | 10:00:03  ready to accept connections
 ```
 
 A selector narrows the view to one service, and the choice is in the URL
-(`#/environments/alpha/logs?service=api`), so a link opens on exactly what you were
+(`/environments/alpha/logs?service=api`), so a link opens on exactly what you were
 reading. Tail size, the text filter, follow, timestamps and copy are the same
 controls the service drawer has, because it is the same component; copying an
 aggregated view prefixes each line with its service.
@@ -830,7 +837,7 @@ cannot see truthfully. The panel says so and points at the command.
 The settings people actually change, from a fixed catalogue: domains, ports,
 bind address, profile, TLS and ACME, Tailscale, public access, DNS provider,
 and the panel's own options. Each server-defined group has a stable deep link,
-such as `#/settings/tls` or `#/settings/public-access`. Moving between groups
+such as `/settings/tls` or `/settings/public-access`. Moving between groups
 keeps one shared draft; badges identify unsaved work in another group and Save
 writes every changed key in one transaction. A key that is not in the
 catalogue cannot be read or written through the API, whatever a request asks

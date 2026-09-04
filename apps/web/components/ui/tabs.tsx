@@ -2,13 +2,14 @@
 
 import type { ReactNode } from 'react'
 import { useRef } from 'react'
-import { navigate } from '../../lib/navigation.ts'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { cn } from '../../lib/utils.ts'
 
 export interface TabDefinition {
   id: string
   label: string
-  /** Hash path this tab navigates to. A tab is a URL, never component state. */
+  /** The path this tab is. A tab is a URL, never component state. */
   href: string
   /** A number beside the label: how many of the thing the tab shows. */
   count?: number
@@ -17,10 +18,9 @@ export interface TabDefinition {
 /**
  * A tab list that navigates instead of holding state.
  *
- * Each tab is an anchor to a hash path, so a tab is addressable, survives a
- * reload and moves with the browser's back button. Radix is already a
- * dependency for dialog, menu and switch; a link list needs twenty lines and
- * no fourth package.
+ * Each tab is a link, so a tab is addressable, survives a reload and moves with
+ * the browser's back button. Radix is already a dependency for dialog, menu and
+ * switch; a link list needs twenty lines and no fourth package.
  *
  * Every tab has the same weight whether selected or not, so choosing one
  * never shifts its neighbours.
@@ -37,6 +37,7 @@ export function Tabs({
   className?: string
 }) {
   const list = useRef<HTMLDivElement>(null)
+  const router = useRouter()
 
   function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
     const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End']
@@ -56,7 +57,7 @@ export function Tabs({
 
     const target = tabs[next]
     if (!target) return
-    navigate(target.href)
+    router.push(target.href)
     // Roving focus follows the selection, which is what a tablist promises.
     list.current?.querySelector<HTMLElement>(`[data-tab="${target.id}"]`)?.focus()
   }
@@ -72,11 +73,11 @@ export function Tabs({
       {tabs.map((tab) => {
         const selected = tab.id === active
         return (
-          <a
+          <Link
             key={tab.id}
             role="tab"
             data-tab={tab.id}
-            href={`#${tab.href}`}
+            href={tab.href}
             aria-selected={selected}
             aria-controls={`tabpanel-${tab.id}`}
             id={`tab-${tab.id}`}
@@ -91,7 +92,7 @@ export function Tabs({
             {tab.count !== undefined ? (
               <span className={cn('text-xs tabular-nums', selected ? 'text-subtle' : 'text-faint')}>{tab.count}</span>
             ) : null}
-          </a>
+          </Link>
         )
       })}
     </div>

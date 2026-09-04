@@ -142,7 +142,7 @@ if [ "$RUN_UNIT" = "1" ]; then
     # Dependency order, so a failure is reported by the package that caused it
     # rather than by everything downstream: core is imported by all of them,
     # contracts and db by the server, the server by the panel.
-    for workspace in packages/core packages/contracts packages/db packages/cli apps/auth packages/server apps/web; do
+    for workspace in packages/core packages/contracts packages/db packages/auth packages/cli apps/auth packages/server apps/web; do
       [ -d "$workspace" ] || continue
       bold "== $workspace =="
       if ( cd "$workspace" && npm run --silent test ); then

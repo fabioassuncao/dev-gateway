@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { developmentOverview, panelOverview } from 'portta-server'
 import { OverviewView } from '@/components/overview/overview-view'
+import { redirect } from 'next/navigation'
 import { serverDeps } from '@/lib/server/deps'
 import { requirePrincipal } from '@/lib/server/principal'
 import { serverTranslation } from '@/lib/i18n/server'
@@ -32,8 +33,10 @@ export default async function OverviewPage() {
   // The layout above already redirected anybody without one, so this is the
   // same principal the API would resolve for the same request — the dashboard
   // sums what this person can see and nothing else.
+  // The layout redirects too, and normally first; this is what keeps a
+  // parallel render from throwing a real error a moment before it lands.
   const principal = await requirePrincipal()
-  if (!principal) throw new Error('the panel layout should have redirected before this page rendered')
+  if (!principal) redirect('/sign-in')
   const [overview, status] = await Promise.all([developmentOverview(deps, principal), panelOverview(deps)])
   return <OverviewView initialOverview={overview} initialStatus={status} />
 }

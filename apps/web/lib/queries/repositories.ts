@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import type { Repository } from 'portta-contracts'
 import { api } from '../api/index.ts'
 import { keys } from './keys.ts'
 
@@ -12,8 +13,14 @@ export function useProjectRepositories(slug: string, enabled = true) {
   return useQuery({ queryKey: keys.repositories(slug), queryFn: () => api.projectRepositories(slug), enabled, retry: false })
 }
 
-export function useRepository(id: string) {
-  return useQuery({ queryKey: keys.repository(id), queryFn: () => api.repository(id), retry: false })
+export function useRepository(id: string, enabled = true, initialData?: Repository) {
+  return useQuery({
+    queryKey: keys.repository(id),
+    queryFn: () => api.repository(id),
+    retry: false,
+    enabled,
+    ...(initialData ? { initialData } : {}),
+  })
 }
 
 /** The host rewrites the scan once a minute; thirty seconds of staleness is fine. */

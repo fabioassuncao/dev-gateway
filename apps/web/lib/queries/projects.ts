@@ -1,16 +1,34 @@
 'use client'
 
 import { useQueries, useQuery } from '@tanstack/react-query'
-import type { Project } from 'portta-contracts'
+import type { Project, ProjectSummary } from 'portta-contracts'
 import { api } from '../api/index.ts'
 import { keys } from './keys.ts'
 
-export function useProjects() {
-  return useQuery({ queryKey: keys.projects(), queryFn: api.projects, retry: false })
+/**
+ * `initialData` is what the Server Component already read for this render.
+ *
+ * Passing it means the first paint is the list rather than a skeleton, and the
+ * query still owns the value from then on: the interval refetches it and
+ * `lib/live.ts` invalidates it when something changes.
+ */
+export function useProjects(initialData?: ProjectSummary[]) {
+  return useQuery({
+    queryKey: keys.projects(),
+    queryFn: api.projects,
+    retry: false,
+    ...(initialData ? { initialData } : {}),
+  })
 }
 
-export function useProject(slug: string, enabled = true) {
-  return useQuery({ queryKey: keys.project(slug), queryFn: () => api.project(slug), retry: false, enabled: enabled && slug !== '' })
+export function useProject(slug: string, enabled = true, initialData?: Project) {
+  return useQuery({
+    queryKey: keys.project(slug),
+    queryFn: () => api.project(slug),
+    retry: false,
+    enabled: enabled && slug !== '',
+    ...(initialData ? { initialData } : {}),
+  })
 }
 
 /**

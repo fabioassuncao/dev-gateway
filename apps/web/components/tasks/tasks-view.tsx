@@ -14,7 +14,7 @@ import { Segmented } from '../ui/segmented.tsx'
 import { useToast } from '../ui/toast.tsx'
 import { Empty, ErrorBox, Loading } from '../shell-bits.tsx'
 import { useOptimisticMutation } from '../../lib/optimistic.ts'
-import { navigate } from '../../lib/navigation.ts'
+import { useRouter } from 'next/navigation'
 import {
   labelsOf,
   matchesFilters,
@@ -41,16 +41,20 @@ export function TasksView({
   view,
   filters,
   readOnly = false,
+  initialTasks,
 }: {
   scope: TasksScope
   view: TaskView
   filters: TaskFilterValues
   readOnly?: boolean
+  /** What the server read for this render, so the board is there on first paint. */
+  initialTasks?: TaskSummary[]
 }) {
   const { t } = useTranslation('tasks')
   const { statusOptions, priorityOptions } = useTaskStatuses()
   const boardColumns = useBoardColumns()
   const toast = useToast()
+  const router = useRouter()
   const [failure, setFailure] = useState<unknown>(null)
 
   const slug = scope.kind === 'project' ? scope.project.slug : null
@@ -67,7 +71,7 @@ export function TasksView({
   // The board wants every open task; the table is the place to look at what is
   // already done, so it asks for everything.
   const serverFilters = view === 'table' ? {} : { open: 'true' }
-  const query = useTasksList(slug, serverFilters)
+  const query = useTasksList(slug, serverFilters, true, initialTasks)
   const queryKey = slug ? keys.tasks(slug, serverFilters) : keys.allTasks(serverFilters)
 
   const move = useOptimisticMutation<unknown, { task: TaskSummary; status: TaskStatus; beforeId: string | null; afterId: string | null }, TaskSummary[]>({
@@ -122,8 +126,8 @@ export function TasksView({
 
   const unavailable = query.error instanceof ApiError && query.error.status === 503
   const setFilter = (key: keyof TaskFilterValues, value: string) =>
-    navigate(tasksHref(scope.kind === 'global' ? { global: true } : slug!, view, { ...filters, [key]: value === '' ? undefined : value }))
-  const setView = (next: TaskView) => navigate(tasksHref(scope.kind === 'global' ? { global: true } : slug!, next, filters))
+    router.push(tasksHref(scope.kind === 'global' ? { global: true } : slug!, view, { ...filters, [key]: value === '' ? undefined : value }))
+  const setView = (next: TaskView) => router.push(tasksHref(scope.kind === 'global' ? { global: true } : slug!, next, filters))
   const clearHref = tasksHref(scope.kind === 'global' ? { global: true } : slug!, view)
 
   const setStatus = (task: TaskSummary, status: TaskStatus) => {
@@ -181,7 +185,7 @@ export function TasksView({
         </Select>
       ) : null}
       {activeFilters > 0 ? (
-        <Button size="sm" variant="ghost" onClick={() => navigate(clearHref)}>
+        <Button size="sm" variant="ghost" onClick={() => router.push(clearHref)}>
           <X />
           {t('clearFilters')}
         </Button>
@@ -262,11 +266,21 @@ export function TasksTab({
   view,
   filters,
   readOnly = false,
+  initialTasks,
 }: {
   project: Project
   view: TaskView
   filters: TaskFilterValues
   readOnly?: boolean
+  initialTasks?: TaskSummary[]
 }) {
-  return <TasksView scope={{ kind: 'project', project }} view={view} filters={filters} readOnly={readOnly} />
+  return (
+    <TasksView
+      scope={{ kind: 'project', project }}
+      view={view}
+      filters={filters}
+      readOnly={readOnly}
+      {...(initialTasks ? { initialTasks } : {})}
+    />
+  )
 }
