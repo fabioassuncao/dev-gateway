@@ -377,20 +377,28 @@ top; the rest follow:
   repositories with uncommitted or unpushed work;
 - **Using this host** — the environments using the most of it, each with a Stop.
 
-The host itself is the band at the top, not a card at the bottom: hostname,
-system, uptime, and every measurement `portta host collect` reported — CPU,
-memory, storage, and, where the machine has them, GPU, temperature, battery
-and load — each with the last thirty minutes beside it. A host that has no
-battery grows no battery tile. Before any of those numbers it says the verdict
-in one word: **Normal**, **Watch**, **Under pressure** or **Critical**,
-computed from all of them together (see `hostPressure` in `packages/core`),
-with the readings that produced it in its tooltip.
+The host itself is not a card of its own. Its name, uptime and system sit
+under the page title; its verdict — **Normal**, **Watch**, **Under pressure**
+or **Critical**, computed from every reading together (see `hostPressure` in
+`packages/core`) — sits beside the title with the gateway's state and the age
+of the last snapshot; and every measurement `portta host collect` reported —
+CPU, memory, storage, and, where the machine has them, GPU, temperature,
+battery and load — is one cell of a strip, with the last thirty minutes and
+the details in its tooltip. A host that has no battery grows no battery cell.
+The same pressure is said once at each level: the verdict names it, the
+reading's colour points at it, and the attention band spells out the
+readings that caused it.
 
-The gateway's own state is a badge in that band, and its configuration
-moved to the Gateway page. Without PostgreSQL the work and project sections
-are empty and say so; the runtime, the host and the diagnostics still answer.
-It is served by `GET /api/overview`, which `portta overview` and an agent read
-too.
+The page sizes itself to what there is to say. With nobody working, the
+sessions panel is a word in the work panel's corner rather than an empty
+card; with nothing to act on, the attention band is one line; with no
+commit collected yet, the code section is a heading and the command that
+collects one.
+
+The gateway's configuration lives on the Gateway page. Without PostgreSQL the
+work and project sections are empty and say so; the runtime, the host and the
+diagnostics still answer. It is served by `GET /api/overview`, which
+`portta overview` and an agent read too.
 
 ### Projects
 
