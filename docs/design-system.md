@@ -195,6 +195,9 @@ All in `apps/web/src/ui/components/ui/` unless noted.
   title, description, `meta`, `toolbar`, `actions`), `Toolbar`,
   `SectionHeader`, `Eyebrow`, `NoValue`, `Callout`, `ErrorBox`, `Empty`,
   `Loading`, `Skeleton*`, `StatTile`, `KeyValue`.
+- **Host** (`components/host-summary.tsx`) — `HostHeader` (who the machine
+  is, and its state), `HostReadings` (every measurement it reports, as one
+  strip).
 - **Technical values** (`components/copy.tsx`) — `Mono kind=path|port|url|sha|branch|command|id|host`,
   `CodeChip`, `CommandRow`, `Pre`, `CopyButton`, `AddressLine`.
 
@@ -216,7 +219,11 @@ hairline, so the content is what the eye lands on.
 
 A page starts with `PageHeader`. Filters and view switchers go in its
 `toolbar` (or right above the list), sized `sm`. Pages do not invent their
-own headers, paddings or section titles.
+own headers, paddings or section titles. The one exception is the Overview,
+which has no visible title: its subject is the host, so it opens with
+`HostHeader` (`components/host-summary.tsx`) — the machine's name and kind
+where a title would be, its facts under them, the gateway's and the host's
+state beside them — and keeps the route name as a screen-reader-only `h1`.
 
 A list is a table (`DataTable`) or a list of rows (`TaskRow`); a board is
 columns of `TaskCard`. A detail is content on the left and properties on the

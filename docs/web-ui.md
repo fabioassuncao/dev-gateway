@@ -250,7 +250,8 @@ ForwardAuth service runs before either path is reached
 ### Regenerating the screenshots
 
 The images on this page and in the README are produced by the real panel, run
-against a fixed host described in `apps/web/e2e/demo-host.mjs` and a disposable
+against a fixed host described in `apps/web/e2e/demo-host.mjs`, a host metrics
+snapshot the script writes itself (no collector runs), and a disposable
 PostgreSQL that imports `docker/examples/*/portta.example.json`. Every frame is
 1440×900 (`deviceScaleFactor` 2, so the files are 2880×1800):
 
@@ -377,17 +378,25 @@ top; the rest follow:
   repositories with uncommitted or unpushed work;
 - **Using this host** — the environments using the most of it, each with a Stop.
 
-The host itself is not a card of its own. Its name, uptime and system sit
-under the page title; its verdict — **Normal**, **Watch**, **Under pressure**
-or **Critical**, computed from every reading together (see `hostPressure` in
-`packages/core`) — sits beside the title with the gateway's state and the age
-of the last snapshot; and every measurement `portta host collect` reported —
-CPU, memory, storage, and, where the machine has them, GPU, temperature,
-battery and load — is one cell of a strip, with the last thirty minutes and
-the details in its tooltip. A host that has no battery grows no battery cell.
-The same pressure is said once at each level: the verdict names it, the
-reading's colour points at it, and the attention band spells out the
-readings that caused it.
+The page has no visible title: its subject is the host, so the host is what
+it opens with. One line says what the machine is — its commercial name where
+the platform reports one (`MacBook Pro`) or else its hostname, and whether it
+is a notebook, a desktop, a server or a virtual machine, from the chassis the
+collector read; a machine that reports none of that gets its name and nothing
+invented. The line under it holds the facts: the hostname when the commercial
+name took its place, the provider or hypervisor of a virtual machine
+(`Hetzner`, `QEMU`), the model, the OS and its version, the architecture, and
+how long it has been up. Beside them sit the gateway's state, the host's
+verdict — **Normal**, **Watch**, **Under pressure** or **Critical**, computed
+from every reading together (see `hostPressure` in `packages/core`) — and the
+age of the last snapshot. Then every measurement `portta host collect`
+reported — CPU, memory, storage, and, where the machine has them, GPU,
+temperature, battery and load — is one cell of a strip, with the last thirty
+minutes and the details in its tooltip. A host that has no battery grows no
+battery cell. The top says who the machine is; the strip says how it is. The
+same pressure is said once at each level: the verdict names it, the reading's
+colour points at it, and the attention band spells out the readings that
+caused it.
 
 The page sizes itself to what there is to say. With nobody working, the
 sessions panel is a word in the work panel's corner rather than an empty

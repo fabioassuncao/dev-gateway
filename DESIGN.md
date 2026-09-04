@@ -155,7 +155,7 @@ iconography:
 
 layout:
   shell: "sidebar on the canvas · main content as an inset panel with a hairline"
-  page: "PageHeader (breadcrumb, title, description, meta, toolbar, actions) → content"
+  page: "PageHeader (breadcrumb, title, description, meta, toolbar, actions) → content; the Overview alone opens with the host's identity (HostHeader) and keeps its title for screen readers"
   detail: "content on the left · a 17rem property column on the right"
   list: "DataTable or rows of 36px; a board is columns of cards on surface-2"
 

@@ -13,7 +13,8 @@
 
 import { execFileSync } from 'node:child_process'
 import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
@@ -32,6 +33,57 @@ const DATABASE_URL = `postgres://postgres:screenshots@127.0.0.1:${PG_PORT}/portt
 const BASE = `http://127.0.0.1:${PANEL_PORT}`
 
 const VIEWPORT = { width: 1440, height: 900 }
+
+// The host collector never runs here, so the Overview would open on
+// "Unavailable". This is the snapshot it would have written on the
+// documentation host: a laptop with room, refreshed so it never goes stale.
+const GB = 1024 ** 3
+const HOST_SNAPSHOT = {
+  version: 1,
+  instance: { id: 'e0f1c2d3-0000-4000-8000-documentation', name: 'workstation', hostname: 'workstation' },
+  collectedAt: 0,
+  host: {
+    hostname: 'workstation',
+    manufacturer: 'Apple Inc.',
+    model: 'Mac15,6',
+    productName: 'MacBook Pro (14-inch, M3 Pro, Nov 2023)',
+    kind: 'notebook',
+    architecture: 'arm64',
+    virtual: false,
+    platform: 'darwin',
+    distro: 'macOS',
+    version: '26.5.2',
+    release: 'Tahoe',
+    kernel: '25.5.0',
+    uptimeSeconds: 17 * 86_400 + 3 * 3_600,
+    cpu: { manufacturer: 'Apple', brand: 'Apple M3 Pro', physicalCores: 12, logicalCores: 12, speed: null, speedMax: null },
+    memoryTotalBytes: 36 * GB,
+    memoryUsedBytes: 17 * GB,
+    memoryAvailableBytes: 19 * GB,
+    memoryUsedPercent: 17 / 36,
+    swapTotalBytes: null,
+    swapUsedBytes: null,
+    cpuUtilisation: 0.23,
+    cpuIdle: 0.77,
+    load: { one: 2.14, five: 1.86, fifteen: 1.62 },
+    storage: { path: '/Users/dev/portta', mount: '/', filesystem: 'apfs', totalBytes: 460 * GB, usedBytes: 190 * GB, availableBytes: 270 * GB, usedPercent: 190 / 460 },
+    gpu: [{ vendor: 'Apple', model: 'Apple M3 Pro', vramBytes: null, utilisation: null, temperature: null }],
+    temperatureCelsius: null,
+    battery: { hasBattery: true, percent: 1, charging: false, acConnected: true, minutesRemaining: null, cycleCount: 143 },
+  },
+  runtime: { name: 'orbstack' },
+  projects: [
+    { id: 'demo-shop', name: 'demo-shop', composeProject: 'demo-shop', cpuUtilisation: 0.012, memoryUsedBytes: 564 * 1024 ** 2, containerCount: 4, networkRxBytes: 0, networkTxBytes: 0, containers: [] },
+    { id: 'demo-monorepo', name: 'demo-monorepo', composeProject: 'demo-monorepo', cpuUtilisation: 0.004, memoryUsedBytes: 210 * 1024 ** 2, containerCount: 3, networkRxBytes: 0, networkTxBytes: 0, containers: [] },
+    { id: 'demo-a', name: 'demo-a', composeProject: 'demo-a', cpuUtilisation: 0.02, memoryUsedBytes: 35 * 1024 ** 2, containerCount: 1, networkRxBytes: 0, networkTxBytes: 0, containers: [] },
+  ],
+}
+
+const metricsDir = mkdtempSync(join(tmpdir(), 'portta-screenshots-metrics-'))
+
+function writeHostSnapshot() {
+  writeFileSync(join(metricsDir, 'current.json'), JSON.stringify({ ...HOST_SNAPSHOT, collectedAt: Math.floor(Date.now() / 1000) }))
+}
 
 const SHOTS = [
   { name: 'panel-overview', route: '/#/overview', ready: 'Demo Shop' },
@@ -172,6 +224,8 @@ async function seedExamples() {
 }
 
 mkdirSync(outDir, { recursive: true })
+writeHostSnapshot()
+const collector = setInterval(writeHostSnapshot, 3_000)
 startPostgres()
 await waitForPostgres()
 
@@ -185,6 +239,7 @@ const harness = spawn(process.execPath, [join(here, 'harness.mjs')], {
     PORTTA_E2E_DOCKER_PORT: String(DOCKER_PORT),
     PORTTA_E2E_PANEL_PORT: String(PANEL_PORT),
     PORTTA_RUNTIME_DATABASE_URL: DATABASE_URL,
+    PORTTA_RUNTIME_METRICS_DIR: metricsDir,
   },
 })
 
@@ -220,6 +275,8 @@ try {
   }
   await browser.close()
 } finally {
+  clearInterval(collector)
   harness.kill('SIGTERM')
   stopPostgres()
+  rmSync(metricsDir, { recursive: true, force: true })
 }
