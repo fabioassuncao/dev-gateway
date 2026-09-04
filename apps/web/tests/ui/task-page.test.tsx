@@ -104,6 +104,10 @@ describe('one task', () => {
     expect(await within(nav).findByRole('link', { name: 'Meu Produto' })).toHaveAttribute('href', '#/projects/produto')
     expect(within(nav).getByRole('link', { name: 'Tasks' })).toHaveAttribute('href', '#/projects/produto/tasks')
     expect(within(nav).getByText('#42')).toHaveAttribute('aria-current', 'page')
+    // The crumb is where the page says which task this is, so the column
+    // above the content holds the title and nothing repeating it.
+    const heading = screen.getByRole('heading', { name: 'Implementar refresh token' })
+    expect(heading.parentElement?.parentElement).toHaveTextContent(/^Implementar refresh token$/)
     expect(screen.queryByRole('link', { name: 'All tasks' })).toBeNull()
     expect(screen.queryByRole('link', { name: 'Part of #42' })).toBeNull()
   })

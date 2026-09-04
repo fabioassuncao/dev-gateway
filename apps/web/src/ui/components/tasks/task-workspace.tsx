@@ -75,13 +75,17 @@ export function TaskWorkspace({
       <div className="min-w-0 space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="mb-1 flex flex-wrap items-center gap-2">
-              <Mono kind="id" tone="subtle" className="text-xs">#{task.id}</Mono>
-              {task.draft ? <Badge tone="outline">{t('draft.badge')}</Badge> : null}
-              {saveState === 'saving' ? <span className="text-xs text-subtle">{t('save.saving')}</span> : null}
-              {saveState === 'saved' ? <span className="text-xs text-subtle">{t('save.saved')}</span> : null}
-              {saveState === 'error' ? <span className="text-xs text-danger">{t('save.failed')}</span> : null}
-            </div>
+            {/* The id is the last step of the breadcrumb above; this line
+                carries only what the breadcrumb cannot say, and takes no room
+                when there is none. */}
+            {task.draft || (saveState && saveState !== 'idle') ? (
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                {task.draft ? <Badge tone="outline">{t('draft.badge')}</Badge> : null}
+                {saveState === 'saving' ? <span className="text-xs text-subtle">{t('save.saving')}</span> : null}
+                {saveState === 'saved' ? <span className="text-xs text-subtle">{t('save.saved')}</span> : null}
+                {saveState === 'error' ? <span className="text-xs text-danger">{t('save.failed')}</span> : null}
+              </div>
+            ) : null}
             <EditableTitle
               value={task.title}
               draft={task.draft}
