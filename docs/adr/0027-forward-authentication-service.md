@@ -1,6 +1,6 @@
 # 0027. Protected HTTP access is checked by a separate ForwardAuth service
 
-**Status:** Accepted
+**Status:** Accepted, amended by [0035](0035-authentication-lives-in-the-panel.md) — it still protects project hostnames and shares, and no longer protects the panel
 
 ## Context
 

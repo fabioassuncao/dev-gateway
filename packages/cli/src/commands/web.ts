@@ -116,7 +116,6 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
     initial,
     expose,
     options.port ? String(Number(options.port)) : String(initial.config.webPort),
-    options.dev === true,
   )
   if (!initial.env['PORTTA_RUNTIME_DB_PASSWORD']) values['PORTTA_RUNTIME_DB_PASSWORD'] = randomBytes(32).toString('hex')
   if (!initial.env['PORTTA_AUTH_SECRET']) values['PORTTA_AUTH_SECRET'] = randomBytes(32).toString('hex')
@@ -256,10 +255,9 @@ export async function requestPanelMigrate(
 /**
  * Where the panel actually answers.
  *
- * In development Vite owns the port and proxies `/api` to the server beside
- * it; the server's own port serves no UI at all, because the dev image never
- * builds one. Reporting 8081 there sends people to a page that only explains
- * itself.
+ * One port in every mode, development included: the panel is one process, and
+ * HMR arrives on the same port the API does. There used to be a Vite container
+ * on 5173 in front of it, and this function used to report that port.
  */
 export function webUrl(context: ReturnType<typeof gatewayContext>): string {
   if (context.config.webExpose === 'vpn') return `${context.config.tlsEnabled ? 'https' : 'http'}://${context.env['PORTTA_WEB_HOST'] ?? 'portta-web'}.${context.config.domain}`
@@ -273,10 +271,7 @@ export function webUrl(context: ReturnType<typeof gatewayContext>): string {
     return `http://${advertised ?? '<this-host>'}:${context.config.webPort}`
   }
   const host = context.env['PORTTA_WEB_BIND_ADDRESS'] ?? '127.0.0.1'
-  const port = context.config.webDev
-    ? (context.env['PORTTA_WEB_DEV_PORT'] ?? '5173')
-    : context.config.webPort
-  return `http://${host}:${port}`
+  return `http://${host}:${context.config.webPort}`
 }
 
 /**
@@ -294,7 +289,6 @@ export function panelUrlFor(
   context: ReturnType<typeof gatewayContext>,
   expose: string,
   port: string,
-  dev = false,
 ): string {
   const scheme = context.config.tlsEnabled ? 'https' : 'http'
   if (expose === 'domain') {
@@ -303,17 +297,13 @@ export function panelUrlFor(
   if (expose === 'vpn') {
     return `${scheme}://${context.env['PORTTA_WEB_HOST'] ?? 'portta-web'}.${context.config.domain}`
   }
-  // In development the browser is on Vite's port and Vite proxies `/api`, so
-  // the origin it sends is Vite's. Naming the API's port here would make every
-  // sign-in a cross-origin write.
-  const reached = dev ? (context.env['PORTTA_WEB_DEV_PORT'] ?? '5173') : port
   if (expose === 'public') {
     const advertised = context.env['PORTTA_PANEL_ADVERTISED_HOST'] || null
-    return advertised ? `http://${advertised}:${reached}` : `http://127.0.0.1:${reached}`
+    return advertised ? `http://${advertised}:${port}` : `http://127.0.0.1:${port}`
   }
   const bind = context.env['PORTTA_WEB_BIND_ADDRESS'] ?? '127.0.0.1'
   const host = bind === '0.0.0.0' || bind === '::' || bind === '[::]' ? '127.0.0.1' : bind
-  return `http://${host}:${reached}`
+  return `http://${host}:${port}`
 }
 
 /**

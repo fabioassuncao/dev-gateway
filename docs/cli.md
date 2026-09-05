@@ -196,7 +196,7 @@ file or stdin.
 | `users grant <email> <project>` | Global flags only. Sends the whole list, with this Project added. |
 | `users revoke <email> <project>` | Global flags only. Sends the whole list, with this Project removed. |
 | `users remove <email>` | Global flags only. |
-| `auth token list\|create\|revoke` | Manage revocable Bearer tokens. `create --name --actor [--human] [--capabilities <a,b>]` prints the secret once. |
+| `auth token list\|create\|revoke` | Personal Bearer tokens. `create --name [--human] [--scopes <a,b>] [--expires-in-days <n>]` prints the secret once; `list --all` needs `user:list`. |
 | `network status` | `--public-ip` explicitly permits one external lookup. |
 | `public status|enable|disable` | Enable needs confirmation; TCP services are never published. |
 | `dns check|status` | Read-only. |

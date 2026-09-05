@@ -37,22 +37,17 @@ describe('where the panel answers', () => {
     expect(webUrl(context({}))).toBe('http://127.0.0.1:8081')
   })
 
-  // In development Vite owns the port and proxies /api to the server beside
-  // it; the server's own port serves no UI, because the dev image builds none.
-  it('is Vite’s port in development, never the server’s', () => {
-    expect(webUrl(context({ webDev: true }))).toBe('http://127.0.0.1:5173')
-  })
-
-  it('honours a configured development port', () => {
-    expect(webUrl(context({ webDev: true }, { PORTTA_WEB_DEV_PORT: '4000' }))).toBe(
-      'http://127.0.0.1:4000',
-    )
+  // The panel is one process and HMR arrives on the port the API answers on.
+  // There used to be a Vite container on 5173 in front of it, and reporting
+  // that port now sends people to a door that is not there.
+  it('is the same port in development', () => {
+    expect(webUrl(context({ webDev: true }))).toBe('http://127.0.0.1:8081')
   })
 
   it('honours the bind address in both modes', () => {
     const env = { PORTTA_WEB_BIND_ADDRESS: '100.64.0.2' }
     expect(webUrl(context({}, env))).toBe('http://100.64.0.2:8081')
-    expect(webUrl(context({ webDev: true }, env))).toBe('http://100.64.0.2:5173')
+    expect(webUrl(context({ webDev: true }, env))).toBe('http://100.64.0.2:8081')
   })
 
   it('is the routed hostname when the panel is exposed over the VPN', () => {

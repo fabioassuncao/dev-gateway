@@ -9,9 +9,15 @@ services and the HTTP API are `packages/server`, the shapes they answer with
 are `packages/contracts`, and the derivations the host and the CLI share are
 `packages/core`. The TypeScript CLI lives in `packages/cli` and is configured
 for unscoped publication as `portta`. `npm ci` at the repository root installs
-every workspace from one lockfile. The lockfile must keep optional native
-bindings for Linux: `npm install` on macOS workspaces otherwise drops them, and
-the Alpine panel image cannot build Vite.
+every workspace from one lockfile.
+
+One thing about that lockfile is worth knowing before it costs an afternoon.
+Native bindings are optional dependencies chosen by platform, and npm records
+`cpu` and `os` for them but not always `libc` — so inside the Alpine image it
+can pick the glibc build of a package where the musl one was needed, and the
+image build fails on a missing `.node` a long way from anything you changed.
+Where the choice matters and can be avoided, it is: the login page's CSS is
+minified by esbuild rather than by lightningcss for exactly this reason.
 
 ## Map
 

@@ -1,8 +1,8 @@
 # Documentation
 
 The README explains the idea and the shortest path to a running gateway. This
-is the complete operator and contributor index. Historical build briefs under
-`prompts/` are deliberately not part of the product documentation.
+is the complete operator and contributor index: everything a person needs to
+run Portta, or to change it, is reachable from here.
 
 ## Getting started
 

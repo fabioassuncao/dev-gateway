@@ -176,7 +176,7 @@ Nothing is exposed by default. Datastores stay private, Docker access is filtere
 
 Experimental (`v0.x`), personal, and without a support promise. Expect rough edges and bugs. I break it regularly.
 
-**Exercised end to end:** the local profile, the panel, persistence, parallel environments, TCP access, and installing from scratch on a real VPS.
+**Exercised end to end:** the local profile, the panel and its accounts, persistence, parallel environments, TCP access, and installing from scratch on a real VPS.
 
 **Partly verified:** Cloudflare Tunnel. The transport was measured against a live tunnel from the public internet, including the single wildcard rule, the Host header surviving to the container, WebSocket, and each distinct failure mode. The named-tunnel path against a real zone has not been exercised, because that needs credentials I do not want in a test.
 

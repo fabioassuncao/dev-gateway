@@ -1042,8 +1042,7 @@ All of these live in `.env`; `portta web up` sets the first ones for you.
 | `PORTTA_WEB_EXPOSE` | `local` | `local`, or `vpn` to add a Traefik router |
 | `PORTTA_WEB_HOST` | `portta-web` | Hostname label used by `--expose vpn` |
 | `PORTTA_WEB_READ_ONLY` | `false` | Refuse every mutating endpoint |
-| `PORTTA_WEB_DEV` | `false` | Development mode, with Vite in front |
-| `PORTTA_WEB_DEV_PORT` | `5173` | Vite's port in development mode |
+| `PORTTA_WEB_DEV` | `false` | Development mode: HMR on the same port the API answers on |
 | `PORTTA_WEB_NETWORK` | `portta-web` | The panel's internal control network |
 | `PORTTA_WEB_USER` | `node` | User the container runs as, see below |
 
@@ -1060,8 +1059,9 @@ happens to be 1000 — on macOS it is usually 501, so the default was wrong ther
 as well, not only on Linux. The panel reports whether the file is writable and
 says to edit it on the host when it is not.
 
-Vite, in development mode, deliberately keeps running as `node`: it writes no
-host file and does write inside the image, where only `node` has permission.
+In development mode the container keeps running as `node` on purpose: it writes
+no host file, and it does write inside the image, where only `node` has
+permission.
 
 ---
 

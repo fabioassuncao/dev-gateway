@@ -80,6 +80,9 @@ const HOST_SNAPSHOT = {
 }
 
 const metricsDir = mkdtempSync(join(tmpdir(), 'portta-screenshots-metrics-'))
+// The store the ForwardAuth diagnostics look for. Empty is a valid store: no
+// hostname is protected on this fake host, which is the truth about it.
+writeFileSync(join(metricsDir, 'protections.json'), JSON.stringify({ version: 1, protections: [] }), { mode: 0o600 })
 
 function writeHostSnapshot() {
   writeFileSync(join(metricsDir, 'current.json'), JSON.stringify({ ...HOST_SNAPSHOT, collectedAt: Math.floor(Date.now() / 1000) }))
@@ -91,9 +94,51 @@ function writeHostSnapshot() {
 // services, Docker, network, gateway, settings — come back as each page is
 // ported to the App Router, and their shots come back with them; a shot of a
 // 404 is worse than a missing shot.
+// Every image the documentation embeds, in the order a reader meets them.
+//
+// A shot names the route and one string that proves the page finished: waiting
+// for the network to go quiet is not enough on a page whose content arrives
+// from a query, and a screenshot taken a moment early is a screenshot of a
+// skeleton. `ready` is that string, `before` is anything that has to be clicked
+// first, and `scrollTo` moves the main column rather than growing the frame.
 const SHOTS = [
   { name: 'panel-overview', route: '/overview', ready: 'Demo Shop' },
+  { name: 'panel-overview-dark', route: '/overview', ready: 'Demo Shop', theme: 'dark' },
+  { name: 'panel-projects', route: '/projects', ready: 'Demo Shop' },
+  {
+    name: 'panel-projects-table',
+    route: '/projects?view=table',
+    ready: 'Demo Shop',
+  },
+  { name: 'panel-tasks', route: '/projects/demo-shop/tasks', ready: 'Demo Shop' },
+  {
+    name: 'panel-tasks-table',
+    route: '/projects/demo-shop/tasks?view=table',
+    ready: 'Demo Shop',
+  },
+  { name: 'panel-environments', route: '/environments', ready: 'demo-a' },
+  { name: 'panel-environment', route: '/environments/demo-a', ready: 'demo-a' },
+  { name: 'panel-services', route: '/services', ready: 'Services' },
+  { name: 'panel-docker', route: '/docker', ready: 'Docker' },
+  { name: 'panel-docker-external', route: '/docker', ready: 'Docker', scrollTo: 1200 },
+  { name: 'panel-network', route: '/network', ready: 'Network' },
+  { name: 'panel-access', route: '/access', ready: 'Access' },
+  { name: 'panel-gateway', route: '/gateway', ready: 'Gateway' },
+  { name: 'panel-settings', route: '/settings/general/gateway', ready: 'Settings' },
   { name: 'panel-docs', route: '/docs', ready: 'Portta docs' },
+  // The task's own workspace. Its id is whatever the import produced, so the
+  // shot opens the board and clicks the first card rather than guessing one.
+  {
+    name: 'panel-task',
+    route: '/projects/demo-shop/tasks',
+    ready: 'Demo Shop',
+    before: async (page) => {
+      await page.getByRole('article').first().click()
+      await page.waitForURL(/\/projects\/demo-shop\/tasks\/\d+/, { timeout: 10_000 })
+      await page.waitForLoadState('networkidle')
+      await page.waitForTimeout(600)
+    },
+  },
 ]
 
 function sleep(ms) {
@@ -202,6 +247,10 @@ const harness = spawn(process.execPath, [join(here, 'harness.mjs')], {
     PORTTA_E2E_PANEL_PORT: String(PANEL_PORT),
     PORTTA_RUNTIME_DATABASE_URL: DATABASE_URL,
     PORTTA_RUNTIME_METRICS_DIR: metricsDir,
+    // A signing secret and a protection store, so the Overview shows a healthy
+    // host rather than three findings about the harness it is running in.
+    PORTTA_AUTH_SECRET: 'a-screenshot-secret-long-enough-to-sign',
+    PORTTA_RUNTIME_AUTH_STORE: join(metricsDir, 'protections.json'),
   },
 })
 

@@ -110,7 +110,7 @@ Work:
 | `start_session` | `POST /api/projects/:slug/sessions` | — |
 | `end_session` | `PATCH /api/sessions/:id` | — |
 
-Operation, gated by capability:
+Operation, each gated by the permission its route declares:
 
 | Tool | Reaches |
 |---|---|
@@ -173,8 +173,9 @@ edit is a `conflict`, kept and shown, never resolved silently.
 - **Read GitHub comments.** They are never projected. `comment_task` writes a
   local Portta comment; the UI/API can explicitly publish that comment as a
   copy when required.
-- **Destroy anything**, by default: removing an environment, a container or a
-  volume needs a capability the operator grants explicitly.
+- **Destroy anything**, by default: removing an environment or a container
+  needs `environment:destroy` or `container:destroy`, which an agent's token
+  does not hold unless somebody put it there.
 - **Reach a repository the App was not installed on**, or publish a task to
   a repository its Project does not own.
 - **Hold a GitHub credential, or the Docker socket.**
@@ -187,7 +188,7 @@ tell "you asked for something impossible" from "try again later":
 | The panel said | The tool says |
 |---|---|
 | 400 | `refused: …` — the request will never succeed as written |
-| 401, 403 | `not permitted: …` — read-only mode, a capability the actor does not hold, or no App configured |
+| 401, 403 | `not permitted: …` — no credential, read-only mode, a permission the caller does not hold, a Project they do not reach, or no App configured |
 | 404 | `not found: …` |
 | 503 | `temporarily unavailable, and worth retrying: …` — the database, a GitHub outage or an exhausted rate limit |
 | nothing | the panel URL, and why the connection failed |

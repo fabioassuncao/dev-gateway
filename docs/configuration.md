@@ -108,8 +108,7 @@ See [tcp-routing.md](tcp-routing.md).
 | `PORTTA_PANEL_URL` | `http://127.0.0.1:<port>` | The origin a browser reaches the panel on. Decides where sign-in redirects to and whether the session cookie may be `Secure` |
 | `PORTTA_PANEL_TRUSTED_ORIGINS` | empty | Other origins a browser may sign in from, comma-separated. Loopback and the panel URL are always trusted |
 | `PORTTA_AUTH_SIGNIN_ATTEMPTS` | `5` | Sign-in attempts one address gets every ten minutes. 3–100; anything else reads as the default |
-| `PORTTA_WEB_DEV` | `false` | Development mode, Vite with HMR in front |
-| `PORTTA_WEB_DEV_PORT` | `5173` | Vite's host port in development mode |
+| `PORTTA_WEB_DEV` | `false` | Development mode: the panel is rebuilt on change and HMR arrives on the same port |
 | `PORTTA_WEB_NETWORK` | `portta-web` | The panel's own internal control network |
 | `PORTTA_WEB_USER` | owner of `.env` | User the panel container runs as, so Settings can save |
 | `PORTTA_APPLY` | `false` | Prepare the applier the panel may start to run `portta up` ([ADR 0026](adr/0026-applying-settings-from-the-panel.md)) |

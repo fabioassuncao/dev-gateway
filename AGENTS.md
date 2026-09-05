@@ -34,6 +34,7 @@ every edit. They cost a minute or more; the targeted run costs under a second.
 | `packages/core/src/**` | `npm test --workspace=portta-core` |
 | `packages/contracts/src/**` | `npm test --workspace=portta-contracts` and `npm run openapi:check --workspace=portta-contracts` |
 | `packages/db/src/schema/**` | `npm test --workspace=portta-db` and `npm run db:check --workspace=portta-db` |
+| `packages/auth/src/**` | `npm test --workspace=portta-auth-core` |
 | `packages/server/src/**` | `npm test --workspace=portta-server` |
 | `packages/cli/src/**` | `npm test --workspace=portta` |
 | `apps/auth/src/**` | `npm test --workspace=portta-auth` |
