@@ -155,7 +155,7 @@ iconography:
 
 layout:
   shell: "sidebar on the canvas · main content as an inset panel with a hairline"
-  page: "PageHeader (breadcrumb, title, description, meta, toolbar, actions) → content; the Overview alone opens with the host's identity (HostHeader) and keeps its title for screen readers"
+  page: "PageHeader (breadcrumb, title, description, meta, toolbar, actions) → ViewToolbar (switcher first, then filters) → content; actions is the page verb, toolbar is a page-level filter, ViewToolbar is the list chrome and embeds into DataTable on a table; the Overview alone opens with the host's identity (HostHeader) and keeps its title for screen readers"
   detail: "content on the left · a 17rem property column on the right"
   list: "DataTable or rows of 36px; a board is columns of cards on surface-2"
 
@@ -164,11 +164,13 @@ do:
   - "One primary button per page."
   - "Callout for a notice, Field for a labelled control, Mono for a technical value."
   - "Add a token when you need a colour."
+  - "Put a view switcher in ViewToolbar, first, as Segmented."
 dont:
   - "Write a hex, an oklch or a Tailwind palette colour in a component."
   - "Use text-[11px]; use text-2xs."
   - "Paint a selected item with the accent tint; use fill-strong."
   - "Add a shadow to a card, or a fourth badge to a row."
+  - "Put a view switcher in PageHeader.actions or roll a pair of buttons."
 ---
 
 # Portta

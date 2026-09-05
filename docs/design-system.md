@@ -10,8 +10,8 @@ colour and its keyboard-first interaction. The identity, the tokens and the
 components are Portta's own. `DESIGN.md` at the repository root is the
 machine-readable summary of the same system.
 
-Everything here is implemented in `apps/web/src/ui/index.css` (tokens) and
-`apps/web/src/ui/components/ui/` (primitives). When a value in this page and a
+Everything here is implemented in `apps/web/app/globals.css` (tokens) and
+`apps/web/components/ui/` (primitives). When a value in this page and a
 value in those files disagree, the file is right and this page needs a fix.
 
 ## Principles
@@ -185,14 +185,16 @@ All in `apps/web/src/ui/components/ui/` unless noted.
   and the preferences.
 - **Tabs** — URL-driven, 36px, an accent underline, the same weight whether
   selected or not so nothing shifts. **Segmented** — a lifted segment for a
-  view switch.
+  view switch or a two-way scope filter. With an icon, the label hides below
+  `sm` and the radio keeps its `aria-label`. Icons: `LayoutGrid` (cards),
+  `Columns3` (board), `Table2` (table).
 - **Table, DataTable** — `thClass`/`tdClass`/`trClass` are shared so a plain
   table and the data table cannot drift. Headers are 12px sentence case, rows
   are dense, hover is a tint, selection is `bg-selection`.
 - **Kbd, Shortcut** — keys as keys, in menus, tooltips and the palette.
 - **Timeline, Breadcrumb, Switch, Skeleton** — as their names say.
 - **Shell pieces** (`components/shell-bits.tsx`) — `PageHeader` (breadcrumb,
-  title, description, `meta`, `toolbar`, `actions`), `Toolbar`,
+  title, description, `meta`, `toolbar`, `actions`), `Toolbar`, `ViewToolbar`,
   `SectionHeader`, `Eyebrow`, `NoValue`, `Callout`, `ErrorBox`, `Empty`,
   `Loading`, `Skeleton*`, `StatTile`, `KeyValue`.
 - **Host** (`components/host-summary.tsx`) — `HostHeader` (who the machine
@@ -217,13 +219,35 @@ row above the content. Nav items are links, 28px tall, with the active one
 lifted by `bg-fill-strong`. The main panel is inset from the canvas with a
 hairline, so the content is what the eye lands on.
 
-A page starts with `PageHeader`. Filters and view switchers go in its
-`toolbar` (or right above the list), sized `sm`. Pages do not invent their
-own headers, paddings or section titles. The one exception is the Overview,
-which has no visible title: its subject is the host, so it opens with
-`HostHeader` (`components/host-summary.tsx`) — the machine's name and kind
-where a title would be, its facts under them, the gateway's and the host's
-state beside them — and keeps the route name as a screen-reader-only `h1`.
+A page starts with `PageHeader`. Three slots, with fixed jobs:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Title + description                        [+ Primary verb] │  PageHeader.actions
+├─────────────────────────────────────────────────────────────┤
+│ [Cards|Table]  [search] [filters…]                [trailing]│  ViewToolbar
+├─────────────────────────────────────────────────────────────┤
+│ Content: cards / board / table                              │
+│   on a table, Columns stays at the end of the same bar      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- `PageHeader.actions` is the page verb (create). Never a view switcher.
+- `PageHeader.toolbar` is a page-level filter that does not change with the
+  layout (Tokens' mine/all). It is not the view switcher.
+- `ViewToolbar` is the chrome above the list: `Segmented` first, then the
+  filters that shape the same rows. On cards or a board it sits above the
+  list. On a table the same controls go into `DataTable.toolbar` (`embedded`)
+  so there is one bar, not a switcher stranded above the card. Nested
+  surfaces (a project Tasks tab) use the same bar; they do not grow a second
+  header.
+
+Pages do not invent their own headers, paddings or section titles. The one
+exception is the Overview, which has no visible title: its subject is the
+host, so it opens with `HostHeader` (`components/host-summary.tsx`) — the
+machine's name and kind where a title would be, its facts under them, the
+gateway's and the host's state beside them — and keeps the route name as a
+screen-reader-only `h1`.
 
 A list is a table (`DataTable`) or a list of rows (`TaskRow`); a board is
 columns of `TaskCard`. A detail is content on the left and properties on the
@@ -256,3 +280,5 @@ right (`PropertyRow`), the way a task page does it.
 - Do keep headers 36px and rows 36px. Don't add a padding step because a
   page "felt tight".
 - Do add a token when you need a colour. Don't write a hex.
+- Do put a view switcher in `ViewToolbar`, first, as `Segmented`. Don't put
+  it in `PageHeader.actions` or roll a pair of buttons.
