@@ -854,27 +854,34 @@ of them says the panel is local rather than showing an empty table.
 
 | Section | What it is | Who has it |
 |---|---|---|
-| General | The gateway's `.env`, from a fixed catalogue | `settings:read` |
+| General | How Portta names projects, who can reach them, and how this panel is reached | `settings:read` |
 | Users | Accounts, roles, Project access, ownership | `user:list` |
 | API tokens | The credentials that are not a browser | `token:read` |
 | Security | Your own password, second factor and sessions | anybody signed in |
 | Integrations | GitHub: the connection and its keys | `github:read` |
 | Audit | Who did what, newest first | `audit:read` |
 
-**General** is the settings people actually change, from a fixed catalogue:
-domains, ports, bind address, profile, TLS and ACME, Tailscale, public access,
-DNS provider, and the panel's own options. Each server-defined group has a
-stable deep link, such as `/settings/general/tls` or
-`/settings/general/public-access`. Moving between groups keeps one shared
+**General** is the settings people actually change. The groups follow three
+decisions that stay independent: how projects are named, who can reach Traefik,
+and how this panel is reached. The conceptual map is
+[addresses-and-access.md](addresses-and-access.md). Each group has a stable
+deep link, such as `/settings/general/tls` or
+`/settings/general/project-access`. Moving between groups keeps one shared
 draft; badges identify unsaved work in another group and Save writes every
 changed key in one transaction. A key that is not in the catalogue cannot be
 read or written through the API, whatever a request asks for.
 
+Gateway, public access and VPN are one **Project access** group. The form writes
+their existing environment keys together so an operator cannot select a public
+profile while leaving the public access decision or bind address behind.
+
 The Traefik group shows the dashboard's status, every address that applies,
-and an Open action that is enabled only when an endpoint is usable. Changing
+and an Open action that is enabled only when an endpoint is usable. The
+dashboard stays on loopback under the normal host attachment: it has no login
+of its own. The panel warns when a Tailscale attachment also exposes it on the
+tailnet. Changing
 `PORTTA_DASHBOARD` needs the gateway recreated; the apply bar at the bottom
-is how that happens. `PORTTA_DASHBOARD_EXPOSE=domain` puts the dashboard on
-the derived hostname behind the same login as the panel.
+is how that happens.
 
 The Panel group also carries **what a local agent may do**: the
 `agentPermissions` setting, ticked one permission at a time, with the default

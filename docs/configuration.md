@@ -8,6 +8,11 @@ Precedence follows Compose: **shell environment > `.env` > built-in defaults**.
 Every value has a default, so an empty `.env` still yields a working local
 gateway.
 
+How those values relate — project hostnames, public access, the panel URL,
+Traefik, TLS, VPN and DNS — is [addresses-and-access.md](addresses-and-access.md).
+The Settings pages edit the same keys without asking you to think in variable
+names.
+
 ```bash
 portta inspect     # what the CLI actually resolved (secrets shown as <set>)
 ```

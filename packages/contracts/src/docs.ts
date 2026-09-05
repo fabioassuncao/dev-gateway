@@ -9,17 +9,20 @@ export function slugFor(repoPath: string): string {
 }
 
 /**
- * A citation in panel copy (`docs/github.md`, `/docs/api`) becomes the URL
- * the documentation site actually serves.
+ * A citation in panel copy (`docs/github.md`, `/docs/api`,
+ * `docs/addresses-and-access.md#the-panel`) becomes the URL the documentation
+ * site actually serves.
  */
 export function docsHref(citation: string): string {
-  if (citation === '/docs' || citation === '/docs/') return '/docs/'
-  if (citation === '/docs/api') return '/docs/api'
-  return `/docs/${slugFor(citation)}`
+  const [path = '', anchor] = citation.split('#')
+  const suffix = anchor ? `#${anchor}` : ''
+  if (path === '/docs' || path === '/docs/') return `/docs/${suffix}`
+  if (path === '/docs/api') return `/docs/api${suffix}`
+  return `/docs/${slugFor(path)}${suffix}`
 }
 
-/** Longest-first so `/docs/api` is not eaten by `/docs`. */
-export const DOC_REF = /docs\/[\w./-]+\.md|\/docs\/api\b|\/docs\/?/g
+/** Longest-first so `/docs/api` is not eaten by `/docs`. Anchors stay on the citation. */
+export const DOC_REF = /docs\/[\w./-]+\.md(?:#[\w-]+)?|\/docs\/api(?:#[\w-]+)?\b|\/docs\/?/g
 
 export function splitDocRefs(text: string): Array<{ text: string; href: string | null }> {
   const parts: Array<{ text: string; href: string | null }> = []

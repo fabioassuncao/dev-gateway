@@ -21,6 +21,10 @@ beforeEach(() => {
 })
 
 describe('docsHref', () => {
+  it('keeps a section anchor on a settings citation', () => {
+    expect(docsHref('docs/addresses-and-access.md#the-panel')).toBe('/docs/addresses-and-access#the-panel')
+  })
+
   it('maps a repository path to the documentation route', () => {
     expect(docsHref('docs/adr/0031-projects-home-and-project.md')).toBe(
       '/docs/adr/0031-projects-home-and-project',
@@ -37,6 +41,14 @@ describe('docsHref', () => {
 })
 
 describe('splitDocRefs', () => {
+  it('keeps the anchor on a markdown citation', () => {
+    expect(splitDocRefs('See docs/addresses-and-access.md#the-panel.')).toEqual([
+      { text: 'See ', href: null },
+      { text: 'docs/addresses-and-access.md#the-panel', href: '/docs/addresses-and-access#the-panel' },
+      { text: '.', href: null },
+    ])
+  })
+
   it('leaves surrounding copy intact', () => {
     expect(splitDocRefs('See docs/github.md for the App.')).toEqual([
       { text: 'See ', href: null },

@@ -140,6 +140,24 @@ describe('the real corpus', () => {
 
   // A script or an event handler is escaped at collect time, so a raw tag in
   // a Markdown file never reaches dangerouslySetInnerHTML.
+  it('anchors the addresses-and-access guide the settings pages link to', () => {
+    const ids = (bundle.pages['addresses-and-access']?.headings ?? []).map((heading) => heading.id)
+    for (const id of [
+      'the-three-decisions',
+      'project-addresses',
+      'project-access',
+      'public-access',
+      'traefik',
+      'tls',
+      'the-panel',
+      'custom-panel-domain',
+      'vpn',
+      'dns',
+    ]) {
+      expect(ids, id).toContain(id)
+    }
+  })
+
   it('never emits a script tag', () => {
     for (const page of Object.values(bundle.pages)) {
       expect(page.html.toLowerCase(), page.slug).not.toContain('<script')

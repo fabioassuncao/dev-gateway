@@ -52,6 +52,7 @@ run Portta, or to change it, is reachable from here.
 
 ## Web panel
 
+- [Addresses and access](addresses-and-access.md) — project hostnames, public access, the panel URL, Traefik, TLS, VPN, and the DNS each scenario needs.
 - [Web UI](web-ui.md) — installation, pages, API, actions, authentication, the documentation site it serves, and screenshots.
 - [Design system](design-system.md) — the panel's tokens, type scale, states, components and layout, and the rules for adding to them.
 - [Tasks](tasks.md) — the workspace, kick-create drafts, import/export, GitHub binding, and how commits will attach.
