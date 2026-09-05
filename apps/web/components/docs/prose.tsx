@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useTheme } from 'next-themes'
+import { useDarkTheme } from '@/lib/theme'
 import { renderMermaid } from '@/lib/docs/mermaid'
 
 /**
@@ -18,8 +18,7 @@ import { renderMermaid } from '@/lib/docs/mermaid'
  */
 export function Prose({ html, slug }: { html: string; slug: string }) {
   const container = useRef<HTMLDivElement>(null)
-  const { resolvedTheme } = useTheme()
-  const dark = resolvedTheme === 'dark'
+  const dark = useDarkTheme()
 
   useEffect(() => {
     const element = container.current

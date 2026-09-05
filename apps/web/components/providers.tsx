@@ -9,22 +9,10 @@
 import { useState, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { I18nextProvider } from 'react-i18next'
-import { ThemeProvider as NextThemeProvider } from 'next-themes'
-import type { ThemeProviderProps } from 'next-themes'
 import { initI18n } from '@/lib/i18n/client'
 import type { Locale } from '@/lib/i18n/resources'
 import { ToastProvider } from '@/components/ui/toast'
-
-/**
- * next-themes ships props typed against React 18, where `children` came from
- * `PropsWithChildren`. Under React 19's types that is no longer implied, and
- * the component's own declaration does not name it. Naming it here is the
- * narrowest fix: it changes nothing at runtime, and it goes away when the
- * package's types catch up.
- */
-const ThemeProvider = NextThemeProvider as (
-  props: ThemeProviderProps & { children: ReactNode },
-) => ReactNode
+import { ThemeProvider } from '@/lib/theme'
 
 export function Providers({ children, locale }: { children: ReactNode; locale: Locale }) {
   // One cache per browser session, created in state so React's strict double

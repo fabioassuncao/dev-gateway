@@ -11,7 +11,6 @@ import { useCallback, useState, type ComponentType, type ReactNode } from 'react
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
-import { useTheme } from 'next-themes'
 import {
   BookOpen,
   Languages,
@@ -29,7 +28,8 @@ import { cn } from '@/lib/utils'
 import { useLocale, type Locale } from '@/lib/i18n/use-locale'
 import { Menu, MenuContent, MenuRadio, MenuRadioGroup, MenuTrigger } from '@/components/ui/menu'
 import { Tooltip } from '@/components/ui/tooltip'
-import { Kbd, MOD_KEY } from '@/components/ui/kbd'
+import { Kbd, useModKey } from '@/components/ui/kbd'
+import { useThemeChoice, type Theme } from '@/lib/theme'
 import { iconButton } from '@/components/ui/surfaces'
 import { GatewayStatusDot } from '@/components/gateway-status-dot'
 import { ConnectionBanner } from '@/components/connection-banner'
@@ -39,8 +39,6 @@ import { UserMenu } from './user-menu'
 import { NAV_GROUPS, activeHref } from './nav'
 import { useSidebarCollapsed } from './use-sidebar'
 import { usePrincipal } from '@/lib/principal'
-
-type Theme = 'light' | 'dark' | 'system'
 
 /**
  * The mark. Three bars of decreasing height inside a rounded square: a port,
@@ -83,10 +81,8 @@ function ShellControls({
   const { t } = useTranslation('nav')
   const { t: tc } = useTranslation('common')
   const [locale, setLocale] = useLocale()
-  const { theme, setTheme } = useTheme()
-  // Before the theme is read from storage it is undefined, and the monitor is
-  // the honest icon for "whatever this machine says".
-  const ThemeIcon = THEME_ICON[(theme as Theme) ?? 'system'] ?? Monitor
+  const { theme, setTheme } = useThemeChoice()
+  const ThemeIcon = THEME_ICON[theme]
 
   return (
     <div className={cn('flex items-center gap-0.5', vertical && 'md:flex-col')}>
@@ -110,7 +106,7 @@ function ShellControls({
           </MenuTrigger>
         </Tooltip>
         <MenuContent align={vertical ? 'start' : 'end'} side={vertical ? 'right' : 'bottom'}>
-          <MenuRadioGroup value={theme ?? 'system'} onValueChange={(value) => setTheme(value)}>
+          <MenuRadioGroup value={theme} onValueChange={(value) => setTheme(value as Theme)}>
             <MenuRadio value="light" icon={<Sun />}>{t('theme.light')}</MenuRadio>
             <MenuRadio value="dark" icon={<Moon />}>{t('theme.dark')}</MenuRadio>
             <MenuRadio value="system" icon={<Monitor />}>{t('theme.system')}</MenuRadio>
@@ -147,6 +143,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const mod = useModKey()
   const live = useLive()
   const status = useStatus()
   const metrics = useMetricsCurrent()
@@ -211,7 +208,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 <Search className="size-3.5 shrink-0" aria-hidden />
                 <span className={cn('flex-1 truncate text-left', sidebarCollapsed && 'md:sr-only')}>{t('commandPalette')}</span>
                 <span className={cn('flex items-center gap-0.5', sidebarCollapsed && 'md:hidden')} aria-hidden>
-                  <Kbd>{MOD_KEY}</Kbd>
+                  <Kbd>{mod}</Kbd>
                   <Kbd>K</Kbd>
                 </span>
               </button>

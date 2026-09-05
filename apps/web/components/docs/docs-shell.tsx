@@ -10,9 +10,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useTheme } from 'next-themes'
 import { BookOpen, ChevronRight, Moon, PanelLeft, Search, Sun } from 'lucide-react'
 import type { DocSection } from '@/lib/docs/collect'
+import { useDarkTheme, useThemeChoice } from '@/lib/theme'
 
 interface Hit {
   slug: string
@@ -42,8 +42,8 @@ export function DocsShell({ sections, children }: { sections: DocSection[]; chil
   const [open, setOpen] = useState(false)
   const input = useRef<HTMLInputElement>(null)
   const shortcut = useSearchShortcut(input)
-  const { resolvedTheme, setTheme } = useTheme()
-  const dark = resolvedTheme === 'dark'
+  const { setTheme } = useThemeChoice()
+  const dark = useDarkTheme()
 
   const index = useMemo(
     () => sections.flatMap((section) => section.pages.map((page) => ({ ...page, section: section.title }))),

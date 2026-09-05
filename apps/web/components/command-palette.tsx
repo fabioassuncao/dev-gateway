@@ -25,11 +25,9 @@ import { cn } from '../lib/utils.ts'
 import { navigate } from '../lib/navigation.ts'
 import { useProjects } from '../lib/queries/index.ts'
 import { useKickCreate } from '../lib/kick-create.ts'
-import { useTheme } from 'next-themes'
 import { useLocale, type Locale } from '../lib/i18n/use-locale.ts'
-
-type Theme = 'light' | 'dark' | 'system'
-import { Kbd, MOD_KEY } from './ui/kbd.tsx'
+import { useThemeChoice, type Theme } from '../lib/theme.ts'
+import { Kbd, useModKey } from './ui/kbd.tsx'
 import { Scrim } from './ui/dialog.tsx'
 import { overlayItem, overlayLabel, overlaySurface } from './ui/surfaces.ts'
 
@@ -91,14 +89,14 @@ export function CommandPalette({
   // The palette reads the preferences itself rather than being handed them:
   // it is the second place they can be changed, and a copy passed down would
   // be a second source of truth for what is currently selected.
-  const { theme: chosenTheme, setTheme } = useTheme()
-  const theme = (chosenTheme ?? 'system') as Theme
+  const { theme, setTheme } = useThemeChoice()
   const [locale, setLocale] = useLocale()
   const { t } = useTranslation('nav')
   const { t: tc } = useTranslation('common')
   const projects = useProjects()
   const kick = useKickCreate(projectSlug ?? '')
   const [query, setQuery] = useState('')
+  const mod = useModKey()
   const [active, setActive] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -302,7 +300,7 @@ export function CommandPalette({
                         {command.shortcut ? (
                           <span className="ml-1 flex shrink-0 items-center gap-0.5" aria-hidden>
                             {command.shortcut.map((key) => (
-                              <Kbd key={key}>{key === 'mod' ? MOD_KEY : key}</Kbd>
+                              <Kbd key={key}>{key === 'mod' ? mod : key}</Kbd>
                             ))}
                           </span>
                         ) : null}
@@ -321,6 +319,7 @@ export function CommandPalette({
 }
 
 function PaletteFooter(): ReactNode {
+  const mod = useModKey()
   return (
     <div className="flex items-center gap-3 border-t border-line px-3 py-1.5 text-2xs text-subtle" aria-hidden>
       <span className="flex items-center gap-1">
@@ -331,7 +330,7 @@ function PaletteFooter(): ReactNode {
         <Kbd>↵</Kbd>
       </span>
       <span className="ml-auto flex items-center gap-1">
-        <Kbd>{MOD_KEY}</Kbd>
+        <Kbd>{mod}</Kbd>
         <Kbd>K</Kbd>
       </span>
     </div>
