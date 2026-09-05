@@ -111,10 +111,32 @@ test.describe('the panel end to end', () => {
     expect(contract.status()).toBe(200)
   })
 
-  test('reserves /ws for the realtime handlers and refuses it until they exist', async ({ request }) => {
-    const response = await request.get('/ws/environments/alpha/logs', {
+  test('refuses a /ws path no route claims, rather than leaving the socket open', async ({ request }) => {
+    const response = await request.get('/ws/nothing/here', {
       headers: { connection: 'Upgrade', upgrade: 'websocket' },
     })
     expect(response.status()).toBe(404)
+  })
+
+  test('streams an environment log over a websocket', async ({ page }) => {
+    await page.goto('/overview')
+    // From the page, so the handshake carries whatever a browser would carry.
+    const received = await page.evaluate(async () => {
+      const socket = new WebSocket(`ws://${location.host}/ws/environments/alpha/logs?service=web&tail=10`)
+      return await new Promise<string[]>((resolve, reject) => {
+        const messages: string[] = []
+        socket.onmessage = (event) => {
+          messages.push(String(event.data))
+          if (messages.length >= 1) {
+            socket.close()
+            resolve(messages)
+          }
+        }
+        socket.onerror = () => reject(new Error('the socket refused the handshake'))
+        setTimeout(() => resolve(messages), 5_000)
+      })
+    })
+    expect(received.length).toBeGreaterThan(0)
+    expect(JSON.parse(received[0]!)).toMatchObject({ kind: 'open', environment: 'alpha' })
   })
 })

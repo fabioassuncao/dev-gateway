@@ -42,6 +42,7 @@ export function EnvironmentLogs({ project, service }: { project: Environment; se
         selectedService={service}
         onSelectService={(next) => navigate(next ? `${base}?service=${encodeURIComponent(next)}` : base)}
         showOrigin={service === null}
+        stream={{ environment: project.name }}
       />
     </Card>
   )

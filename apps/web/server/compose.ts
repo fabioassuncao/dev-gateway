@@ -36,6 +36,15 @@ export interface PorttaDeps {
    * where nothing but `/ws/*` ever asks to upgrade.
    */
   nextUpgrade?: UpgradeHandler | undefined
+  /**
+   * The panel's own upgrade handler: everything under `/ws/`.
+   *
+   * It answers whether the path was its own, so this module never has to know
+   * which `/ws/…` routes exist — and a path under `/ws/` that no route matches
+   * is still refused there rather than falling through to Next, which would
+   * leave the socket open.
+   */
+  wsUpgrade?: ((request: IncomingMessage, socket: Duplex, head: Buffer) => Promise<boolean>) | undefined
   /** Intervals the panel owns. Started after `listen`, stopped before close. */
   jobs?: Startable[]
   /** Connections to close on the way down: the database pool, the event hub. */
@@ -79,12 +88,12 @@ export function createPortta(deps: PorttaDeps): Portta {
     void deps.next(request, response)
   }
 
-  const upgrade: UpgradeHandler = (request, socket, head) => {
+  const upgrade: UpgradeHandler = async (request, socket, head) => {
+    // The panel's handler decides for every `/ws/…` path, including the ones it
+    // refuses. Anything else is Next's, or nobody's.
+    if (deps.wsUpgrade && await deps.wsUpgrade(request, socket, head)) return
     const path = (request.url ?? '/').split('?')[0] ?? '/'
     if (path.startsWith('/ws/')) {
-      // The authorised handlers arrive with the realtime phase. Until then the
-      // path is reserved and refused, rather than falling through to Next and
-      // hanging.
       reject(socket, 404, 'Not Found')
       return
     }

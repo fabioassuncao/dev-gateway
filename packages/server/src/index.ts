@@ -9,6 +9,8 @@
 export { createApi, createApp, type AppDeps } from './api/index.ts'
 export { generateOpenApi } from './api/openapi.ts'
 export { eventRoutes } from './realtime/sse.ts'
+export { createUpgradeHandler, matchPath, NotFound, type UpgradeHandler, type WsRoute } from './realtime/ws/upgrade.ts'
+export { logStreamRoute } from './realtime/ws/logs.ts'
 export { isProtected, loadConfig, type PanelConfig } from './config.ts'
 export { Database, DatabaseUnavailable } from './db/index.ts'
 export { DockerClient } from './services/docker/client.ts'

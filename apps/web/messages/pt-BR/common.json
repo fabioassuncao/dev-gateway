@@ -118,7 +118,9 @@
     "lineCount": "{{count}} linhas",
     "approximateOrder": "Uma fonte registra sem timestamps, então a ordem entre serviços é aproximada.",
     "noMatch": "Nenhuma linha corresponde ao filtro",
-    "noOutput": "Nenhuma saída ainda"
+    "noOutput": "Nenhuma saída ainda",
+    "liveStream": "Transmitindo ao vivo",
+    "reconnecting": "reconectando…"
   },
   "container": {
     "status": "Status",

@@ -228,6 +228,33 @@ export function fakeDocker(options: FakeDockerOptions = {}): FakeDocker {
         ]
       )
     },
+    /**
+     * A stream that ends, so a follower's loop terminates.
+     *
+     * The real one is held open by Docker until the container stops or the
+     * caller aborts. A fake that never ends would make every test that follows
+     * it hang, so this delivers what it has and closes — which is exactly what
+     * a stopped container does.
+     */
+    async followLogs(id: string, followOptions: { tail?: number; signal: AbortSignal }) {
+      record('followLogs', id, { tail: followOptions.tail })
+      const specific = options.logsByContainer?.[id]
+      if (specific instanceof Error) throw specific
+      const lines = specific ?? options.logs ?? [
+        { stream: 'stdout' as const, timestamp: '2026-01-01T00:00:01Z', text: 'hello' },
+        { stream: 'stderr' as const, timestamp: '2026-01-01T00:00:02Z', text: 'boom' },
+      ]
+      const text = lines.map((line) => `${line.timestamp ?? ''} ${line.text}\n`).join('')
+      return {
+        multiplexed: false,
+        stream: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(text))
+            controller.close()
+          },
+        }),
+      }
+    },
     async createBridge(spec: unknown) {
       record('createBridge', spec)
       created.push(spec)

@@ -16,12 +16,14 @@ import {
   resolveSecurityMode,
   type Permission,
 } from 'portta-auth-core'
+import { WebSocketServer } from 'ws'
 import {
   createApp,
   createCommitWatch,
   createMaintenance,
   createReconciliationSchedule,
   createSnapshotCache,
+  createUpgradeHandler,
   createVerdictCache,
   Database,
   DockerClient,
@@ -30,6 +32,7 @@ import {
   intervalMinutes,
   LiveHub,
   loadConfig,
+  logStreamRoute,
   reconcilePanelDynamic,
   type AppDeps,
 } from 'portta-server'
@@ -159,12 +162,26 @@ const schedule = github.status().configured
 const jobs: Startable[] = [hub, createCommitWatch(config, db, hub), createMaintenance(db, hub)]
 if (schedule) jobs.push(schedule)
 
+// The WebSocket half of the panel. One server, no port of its own: it never
+// listens, it only takes sockets the upgrade handler has already authorised.
+const sockets = new WebSocketServer({ noServer: true })
+const wsUpgrade = createUpgradeHandler({
+  principals,
+  routes: [logStreamRoute(deps)],
+  server: sockets,
+})
+
 const portta = createPortta({
   api: createApp(deps),
   next: app.getRequestHandler(),
   nextUpgrade: development ? app.getUpgradeHandler() : undefined,
+  wsUpgrade,
   jobs,
-  close: () => db.close(),
+  close: async () => {
+    for (const socket of sockets.clients) socket.close(1001, 'the panel is shutting down')
+    sockets.close()
+    await db.close()
+  },
 })
 
 const server = createServer(portta.handle)

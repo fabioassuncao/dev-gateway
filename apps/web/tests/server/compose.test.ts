@@ -103,29 +103,50 @@ describe('an upgrade', () => {
     return { stream, written, destroyed }
   }
 
-  // The authorised handlers arrive with the realtime phase. Until then the path
-  // is reserved and refused: falling through to Next would leave the client
-  // waiting for a handshake nothing is going to answer.
-  it('refuses /ws and closes the socket', () => {
+  // A `/ws/…` path with no handler behind it is refused rather than handed to
+  // Next: falling through would leave the client waiting for a handshake
+  // nothing is going to answer.
+  it('refuses /ws with no handler, and closes the socket', async () => {
     const portta = createPortta({ api: api(), next: () => undefined })
     const { stream, written, destroyed } = socket()
-    portta.upgrade(request('/ws/environments/alpha/logs'), stream, Buffer.alloc(0))
+    await portta.upgrade(request('/ws/environments/alpha/logs'), stream, Buffer.alloc(0))
     expect(written.join('')).toContain('404')
     expect(destroyed).toHaveBeenCalledOnce()
   })
 
-  it('hands anything else to Next, which owns HMR in development', () => {
+  it('gives every /ws path to the panel handler, including the ones it refuses', async () => {
+    const wsUpgrade = vi.fn().mockResolvedValue(true)
+    const nextUpgrade = vi.fn()
+    const portta = createPortta({ api: api(), next: () => undefined, wsUpgrade, nextUpgrade })
+    const { stream, destroyed } = socket()
+    await portta.upgrade(request('/ws/environments/alpha/logs'), stream, Buffer.alloc(0))
+    expect(wsUpgrade).toHaveBeenCalledOnce()
+    // The handler answered, so nothing else touches the socket.
+    expect(nextUpgrade).not.toHaveBeenCalled()
+    expect(destroyed).not.toHaveBeenCalled()
+  })
+
+  it('and still refuses a /ws path the panel handler did not claim', async () => {
+    const wsUpgrade = vi.fn().mockResolvedValue(false)
+    const portta = createPortta({ api: api(), next: () => undefined, wsUpgrade })
+    const { stream, written, destroyed } = socket()
+    await portta.upgrade(request('/ws/nothing'), stream, Buffer.alloc(0))
+    expect(written.join('')).toContain('404')
+    expect(destroyed).toHaveBeenCalledOnce()
+  })
+
+  it('hands anything else to Next, which owns HMR in development', async () => {
     const nextUpgrade = vi.fn()
     const portta = createPortta({ api: api(), next: () => undefined, nextUpgrade })
     const { stream } = socket()
-    portta.upgrade(request('/_next/webpack-hmr'), stream, Buffer.alloc(0))
+    await portta.upgrade(request('/_next/webpack-hmr'), stream, Buffer.alloc(0))
     expect(nextUpgrade).toHaveBeenCalledOnce()
   })
 
-  it('refuses it in production, where nothing but /ws asks', () => {
+  it('refuses it in production, where nothing but /ws asks', async () => {
     const portta = createPortta({ api: api(), next: () => undefined })
     const { stream, destroyed } = socket()
-    portta.upgrade(request('/_next/webpack-hmr'), stream, Buffer.alloc(0))
+    await portta.upgrade(request('/_next/webpack-hmr'), stream, Buffer.alloc(0))
     expect(destroyed).toHaveBeenCalledOnce()
   })
 })

@@ -199,6 +199,37 @@ export class DockerClient {
   }
 
   /**
+   * The same logs, as they arrive.
+   *
+   * `follow=1` on the endpoint the allowlist already permits: the query string
+   * is not part of what the allowlist matches, because a query cannot reach an
+   * endpoint the panel is not allowed to call. The caller owns the stream and
+   * the `AbortSignal` that ends it — Docker holds the connection open until
+   * one side closes, and a follower nobody aborts is a socket nobody closes.
+   */
+  async followLogs(
+    id: string,
+    options: { tail?: number; since?: number; signal: AbortSignal },
+  ): Promise<{ stream: ReadableStream<Uint8Array>; multiplexed: boolean }> {
+    const response = await this.request('GET', `/containers/${assertValidId(id)}/logs`, {
+      signal: options.signal,
+      query: {
+        stdout: '1',
+        stderr: '1',
+        timestamps: '1',
+        follow: '1',
+        tail: String(options.tail ?? 200),
+        since: options.since === undefined ? undefined : String(options.since),
+      },
+    })
+    if (!response.body) throw new Error('the Docker API answered the log stream with no body')
+    return {
+      stream: response.body,
+      multiplexed: (response.headers.get('content-type') ?? '').includes('multiplexed'),
+    }
+  }
+
+  /**
    * The one call that creates something. The shape is fixed here: a socat
    * forwarder on one network, with no binds, no privileges and no environment.
    * Nothing from the request body reaches Docker unchecked.
@@ -292,6 +323,51 @@ export function demultiplex(buffer: Buffer): LogLine[] {
     offset = end
   }
   return lines
+}
+
+/**
+ * The same framing, one chunk at a time.
+ *
+ * A follower receives whatever the socket happened to deliver: half a frame,
+ * three frames, a line with no newline yet. `demultiplex` is written for a
+ * finished body and would drop every partial tail, so a stream needs a decoder
+ * that keeps what it could not finish and starts the next chunk with it.
+ */
+export function createLogDecoder(multiplexed: boolean): (chunk: Uint8Array) => LogLine[] {
+  let rest = Buffer.alloc(0)
+
+  if (!multiplexed) {
+    return (chunk) => {
+      rest = Buffer.concat([rest, Buffer.from(chunk)])
+      const text = rest.toString('utf8')
+      const parts = text.split('\n')
+      // The last piece has no newline yet: it is the beginning of a line the
+      // socket has not finished delivering.
+      rest = Buffer.from(parts.pop() ?? '', 'utf8')
+      return parts.filter((line) => line !== '').map((line) => parseLine(line, 'stdout'))
+    }
+  }
+
+  return (chunk) => {
+    rest = Buffer.concat([rest, Buffer.from(chunk)])
+    const lines: LogLine[] = []
+    let offset = 0
+    while (offset + 8 <= rest.length) {
+      const streamType = rest[offset]
+      const size = rest.readUInt32BE(offset + 4)
+      const start = offset + 8
+      // The frame has not arrived in full. Keep everything from its header on.
+      if (start + size > rest.length) break
+      const payload = rest.subarray(start, start + size).toString('utf8')
+      const stream: 'stdout' | 'stderr' = streamType === 2 ? 'stderr' : 'stdout'
+      for (const line of payload.split('\n')) {
+        if (line !== '') lines.push(parseLine(line, stream))
+      }
+      offset = start + size
+    }
+    rest = rest.subarray(offset)
+    return lines
+  }
 }
 
 function splitRaw(buffer: Buffer): LogLine[] {

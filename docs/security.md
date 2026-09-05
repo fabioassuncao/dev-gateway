@@ -147,6 +147,16 @@ containers, so it is fenced on three sides.
   panel also defaults to read-only, and `doctor` fails if either is missing. See
   [authentication.md](authentication.md) and
   [ADR 0035](adr/0035-authentication-lives-in-the-panel.md).
+- **Live channels.** The event stream needs `activity:read` and filters every
+  event against the principal that opened it; an event about a Project somebody
+  does not reach is never delivered, and an event about no Project at all goes
+  only to `scope: 'all'`. The log WebSocket is authorised *before* the
+  handshake becomes a socket — `logs:read`, scoped to the Project that adopted
+  the environment — and a refusal is answered as HTTP and then closed, never
+  left hanging. One `upgrade` listener owns every `/ws/…` path, including the
+  ones it refuses. Query parameters are validated before anything uses them,
+  and the stream comes from the Docker API through the panel's own socket
+  proxy: nothing is concatenated into a command.
 - **Traefik configuration.** The panel may write four filenames in
   `config/traefik/dynamic/` and refuses every other path in its own process.
   See [ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md).

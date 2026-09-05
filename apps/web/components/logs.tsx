@@ -10,6 +10,7 @@ import { Button } from './ui/button.tsx'
 import { Input, Select } from './ui/field.tsx'
 import { CopyButton } from './copy.tsx'
 import { Empty, ErrorBox, Loading } from './shell-bits.tsx'
+import { useLogStream } from '../lib/ws.ts'
 import { cn } from '../lib/utils.ts'
 
 interface ViewerLine {
@@ -55,6 +56,7 @@ export function LogViewer({
   showOrigin = false,
   selectedService,
   onSelectService,
+  stream,
 }: {
   queryKey: readonly unknown[]
   load: (tail: number) => Promise<ViewerResponse>
@@ -63,24 +65,43 @@ export function LogViewer({
   showOrigin?: boolean
   selectedService?: string | null
   onSelectService?: (service: string | null) => void
+  /**
+   * The environment to follow live, when there is one.
+   *
+   * Following used to be three requests for the same lines every three
+   * seconds. With this the viewer holds one socket and receives what Docker
+   * sends; without it, and whenever the socket will not stay up, it falls back
+   * to exactly the polling it replaced.
+   */
+  stream?: { environment: string } | undefined
 }) {
   const { t } = useTranslation('common')
   const [tail, setTail] = useState(200)
   const [filter, setFilter] = useState('')
   const [follow, setFollow] = useState(false)
 
+  const live = useLogStream(
+    stream?.environment ?? null,
+    selectedService ?? null,
+    { enabled: follow && stream !== undefined, tail },
+  )
+  // Polling is what following meant before, and it is what following means
+  // again the moment the socket gives up.
+  const polling = follow && (stream === undefined || live.state === 'failed')
+
   const query = useQuery({
     queryKey: [...queryKey, tail],
     queryFn: () => load(tail),
-    refetchInterval: follow ? 3000 : false,
+    refetchInterval: polling ? 3000 : false,
   })
 
   const lines = useMemo(() => {
-    const all = query.data?.lines ?? []
+    // The loaded tail first, then whatever arrived on the socket after it.
+    const all = [...(query.data?.lines ?? []), ...live.lines]
     if (filter.trim() === '') return all
     const needle = filter.toLowerCase()
     return all.filter((line) => line.text.toLowerCase().includes(needle))
-  }, [query.data, filter])
+  }, [query.data, live.lines, filter])
 
   const asText = useMemo(
     () => lines.map((line) => (line.service ? `${line.service} | ${line.text}` : line.text)).join('\n'),
@@ -139,12 +160,18 @@ export function LogViewer({
         <Button
           size="sm"
           variant={follow ? 'primary' : 'default'}
-          onClick={() => setFollow((value) => !value)}
-          title={t('logs.refreshEvery3s')}
+          onClick={() => {
+            if (follow) live.reset()
+            setFollow((value) => !value)
+          }}
+          title={polling ? t('logs.refreshEvery3s') : t('logs.liveStream')}
         >
-          <RefreshCw className={cn(follow && 'animate-spin')} />
+          <RefreshCw className={cn(follow && polling && 'animate-spin')} />
           {follow ? t('following') : t('follow')}
         </Button>
+        {follow && live.state === 'retrying' ? (
+          <span role="status" className="text-2xs text-warn">{t('logs.reconnecting')}</span>
+        ) : null}
         <Button size="sm" onClick={() => void query.refetch()}>
           {t('refresh')}
         </Button>

@@ -118,7 +118,9 @@
     "lineCount": "{{count}} lines",
     "approximateOrder": "A source logs without timestamps, so ordering between services is approximate.",
     "noMatch": "No line matches the filter",
-    "noOutput": "No output yet"
+    "noOutput": "No output yet",
+    "liveStream": "Streaming live",
+    "reconnecting": "reconnecting…"
   },
   "container": {
     "status": "Status",

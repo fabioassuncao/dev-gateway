@@ -909,6 +909,33 @@ instead, and nothing that authenticates anything is in it either
 
 ![The Gateway settings group: a stable group navigation beside each field, the key it writes and what it means](images/panel-settings.png)
 
+### Live updates
+
+Two channels, and they carry different things.
+
+**The event stream** (`GET /api/events`, server-sent events) is what keeps the
+pages current: a container changed state, a task moved, a repository was
+scanned. It needs `activity:read`, and every event is filtered against the
+principal it belongs to — an event about a Project somebody does not reach is
+not delivered late or redacted, it is not delivered. Events with no Project in
+them at all (a settings change, a gateway restart) go only to the people who
+see everything. The browser reconnects on its own; the panel sends a keepalive
+every twenty seconds so a proxy does not close a quiet stream.
+
+**The log stream** (`/ws/environments/:name/logs`) is a WebSocket, because
+following a log is a stream and polling for it was three requests for the same
+lines every three seconds. Pressing **Follow** opens one connection and the
+lines arrive as Docker emits them. It reconnects with a widening delay, says so
+while it is trying, and falls back to the polling it replaced when it cannot
+stay up.
+
+The handshake is authorised before it becomes a socket: `logs:read`, scoped to
+whichever Project adopted the environment. A refusal is an HTTP status —
+`401` with no credential, `403` without the permission or the Project, `404`
+for a path or an environment that is not there — and the socket is closed
+rather than left open. One listener handles every `/ws/…` path, so a path no
+route claims is refused there rather than falling through to Next.
+
 ### Light and dark
 
 The theme is light, dark or system, chosen from the theme control at the foot
