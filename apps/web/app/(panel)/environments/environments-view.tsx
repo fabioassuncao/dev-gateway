@@ -8,8 +8,7 @@ import { useCan } from '@/lib/permissions'
 import { useEnvironmentOwners, useEnvironments } from '@/lib/queries'
 import type { Environment } from 'portta-contracts'
 import { Card } from '@/components/ui/card'
-import { Input, Select } from '@/components/ui/field'
-import { Empty, ErrorBox, Loading, PageHeader } from '@/components/shell-bits'
+import { Empty, ErrorBox, Loading, PageHeader, ToolbarSearch, ToolbarSelect, ViewToolbar } from '@/components/shell-bits'
 import { EnvironmentCard } from '@/components/entities/environment-card'
 
 type Filter = 'all' | 'unattributed' | 'running' | 'remembered'
@@ -53,25 +52,21 @@ export function EnvironmentsView({ readOnly = false }: { readOnly?: boolean }) {
       <PageHeader
         title={t('title')}
         description={t('description')}
-        actions={
-          <>
-            <Select value={filter} onChange={(event) => setFilter(event.target.value as Filter)} size="sm" className="w-40" aria-label={t('filterAria')}>
-              <option value="all">{t('all')}</option>
-              <option value="running">{t('running')}</option>
-              <option value="remembered">{t('remembered')}</option>
-              <option value="unattributed">{t('unattributed')}</option>
-            </Select>
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t('title')}
-              size="sm"
-              className="w-64"
-              aria-label={t('filterAria')}
-            />
-          </>
-        }
       />
+      <ViewToolbar>
+        <ToolbarSearch
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder={t('searchPlaceholder')}
+          aria-label={t('searchAria')}
+        />
+        <ToolbarSelect width="lg" value={filter} onChange={(event) => setFilter(event.target.value as Filter)} aria-label={t('filterAria')}>
+          <option value="all">{t('all')}</option>
+          <option value="running">{t('running')}</option>
+          <option value="remembered">{t('remembered')}</option>
+          <option value="unattributed">{t('unattributed')}</option>
+        </ToolbarSelect>
+      </ViewToolbar>
       {(query.data ?? []).length === 0 ? (
         <Card><Empty title={t('empty')} hint={t('emptyHint')} /></Card>
       ) : environments.length === 0 ? (

@@ -16,9 +16,8 @@ import { useFormat } from '@/lib/use-format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Select } from '@/components/ui/field'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
-import { Empty, ErrorBox, Loading, PageHeader, Toolbar } from '@/components/shell-bits'
+import { Empty, ErrorBox, Loading, PageHeader, ToolbarSelect, ViewToolbar } from '@/components/shell-bits'
 import { Mono } from '@/components/copy'
 
 export function AuditView() {
@@ -38,24 +37,22 @@ export function AuditView() {
       <PageHeader
         title={t('audit.title')}
         description={t('audit.description')}
-        toolbar={
-          mayListUsers ? (
-            <Toolbar>
-              <Select
-                size="sm"
-                aria-label={t('audit.filterByUser')}
-                value={user}
-                onChange={(event) => { setUser(event.currentTarget.value); setBefore(undefined) }}
-              >
-                <option value="">{t('audit.everybody')}</option>
-                {(users.data ?? []).map((row) => (
-                  <option key={row.id} value={row.id}>{row.name}</option>
-                ))}
-              </Select>
-            </Toolbar>
-          ) : undefined
-        }
       />
+      {mayListUsers ? (
+        <ViewToolbar>
+          <ToolbarSelect
+            width="lg"
+            aria-label={t('audit.filterByUser')}
+            value={user}
+            onChange={(event) => { setUser(event.currentTarget.value); setBefore(undefined) }}
+          >
+            <option value="">{t('audit.everybody')}</option>
+            {(users.data ?? []).map((row) => (
+              <option key={row.id} value={row.id}>{row.name}</option>
+            ))}
+          </ToolbarSelect>
+        </ViewToolbar>
+      ) : null}
 
       {query.error ? <div className="mb-4"><ErrorBox error={query.error} /></div> : null}
 

@@ -218,6 +218,8 @@
     "title": "Ambientes",
     "description": "Todo projeto Compose neste host, adotado ou não. Um Project é o produto; isto é o que está rodando para ele.",
     "filterAria": "Filtrar ambientes",
+    "searchPlaceholder": "Buscar ambiente, projeto ou serviço",
+    "searchAria": "Buscar ambientes",
     "all": "Todos",
     "unattributed": "Sem projeto",
     "running": "Em execução",

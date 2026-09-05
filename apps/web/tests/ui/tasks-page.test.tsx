@@ -71,6 +71,7 @@ const catalog: ProjectSummary[] = [
 
 beforeEach(() => {
   sessionStorage.clear()
+  localStorage.clear()
   navigation.push.mockReset()
   navigation.search = ''
   allTasks.mockReset().mockResolvedValue([
@@ -105,14 +106,31 @@ describe('the global tasks page', () => {
     expect(screen.getByRole('button', { name: 'New task' })).toBeInTheDocument()
   })
 
-  it('keeps the view switcher in the table toolbar', async () => {
+  it('keeps the toolbar above the table, with the column menu beside it', async () => {
+    navigation.search = 'view=table'
+    renderWithQuery(view())
+    const table = (await screen.findByRole('table')).closest('[data-slot="data-table"]')
+    expect(table).not.toBeNull()
+    const views = screen.getByRole('radiogroup', { name: 'View' })
+    expect(within(views).getByRole('radio', { name: 'Table' })).toHaveAttribute('aria-checked', 'true')
+    expect(table).not.toContainElement(views)
+    expect(table).not.toContainElement(screen.getByLabelText('Project'))
+    const columns = screen.getByRole('button', { name: 'Columns' })
+    expect(table).not.toContainElement(columns)
+    expect(views.parentElement).toContainElement(columns)
+    expect(screen.getByRole('button', { name: 'New task' })).toBeInTheDocument()
+  })
+
+  it('hides a column from the toolbar menu and remembers it', async () => {
     navigation.search = 'view=table'
     renderWithQuery(view())
     await screen.findByRole('table')
-    const views = screen.getByRole('radiogroup', { name: 'View' })
-    expect(within(views).getByRole('radio', { name: 'Table' })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByLabelText('Project')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'New task' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: /Type/ })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Columns' }))
+    await userEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Type' }))
+    await waitFor(() => expect(screen.queryByRole('columnheader', { name: /Type/ })).not.toBeInTheDocument())
+    expect(localStorage.getItem('portta-table:tasks-all')).toContain('"type"')
   })
 
   it('shows tasks from every project and names the project on each card', async () => {

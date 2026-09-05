@@ -1,5 +1,6 @@
 {
   "title": "Tarefas",
+  "description": "Tudo o que está aberto, em todos os projetos deste host.",
   "newTask": "Nova tarefa",
   "draft": {
     "badge": "Rascunho",

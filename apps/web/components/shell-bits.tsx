@@ -8,6 +8,7 @@ import { toneBorder, toneText, toneWash, type Tone } from '../lib/tone.ts'
 import { translateApiError, translateApiHint } from '@/lib/i18n/translate-error.ts'
 import { DocText } from './doc-text.tsx'
 import { Breadcrumb, type BreadcrumbItem } from './ui/breadcrumb.tsx'
+import { Checkbox, Input, Select, type CheckboxProps, type InputProps, type SelectProps } from './ui/field.tsx'
 
 /**
  * The top of every page: where it sits, what it is called, what can be done
@@ -21,18 +22,15 @@ export function PageHeader({
   breadcrumb,
   /** A compact status strip that belongs to the page, under the title. */
   meta,
-  /** Page-level filters that do not change with the layout (scope, a search that is the page). */
-  toolbar,
   icon,
 }: {
   title: string
   description?: ReactNode
-  /** Page verbs: the one primary action. Never a view switcher. */
+  /** Page verbs: the one primary action, `md`. Never a filter, never a view switcher. */
   actions?: ReactNode
   /** Where the page sits; shown above the title when it has at least two steps. */
   breadcrumb?: BreadcrumbItem[]
   meta?: ReactNode
-  toolbar?: ReactNode
   icon?: ReactNode
 }) {
   return (
@@ -49,7 +47,6 @@ export function PageHeader({
         </div>
         {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
-      {toolbar ? <div className="mt-3 flex flex-wrap items-center gap-2">{toolbar}</div> : null}
     </header>
   )
 }
@@ -60,34 +57,57 @@ export function Toolbar({ className, ...props }: HTMLAttributes<HTMLDivElement>)
 }
 
 /**
- * The chrome above a list that can be cards, a board or a table: the view
- * switcher first, then the filters that shape the same rows. On a table the
- * same controls go into DataTable.toolbar (`embedded`) so there is one bar,
- * not a switcher stranded above the card.
+ * The row above a list: the view switcher first, then the filters that shape
+ * the rows, then what belongs at the right edge (the column menu of a table,
+ * a read-only badge). It is one row in one place, in every view: switching
+ * cards to a table changes what is under the row, never the row.
  */
 export function ViewToolbar({
   switcher,
   children,
   trailing,
-  embedded = false,
   className,
 }: {
-  switcher: ReactNode
+  switcher?: ReactNode
   children?: ReactNode
   trailing?: ReactNode
-  /** Render the controls without a wrapper, for DataTable.toolbar. */
-  embedded?: boolean
   className?: string
 }) {
-  const controls = (
-    <>
+  return (
+    <Toolbar className={cn('mb-3', className)}>
       {switcher}
       {children}
       {trailing ? <div className="ml-auto flex items-center gap-2">{trailing}</div> : null}
-    </>
+    </Toolbar>
   )
-  if (embedded) return controls
-  return <Toolbar className={cn('mb-3', className)}>{controls}</Toolbar>
+}
+
+/**
+ * The controls a toolbar is made of, at the toolbar's one size (28px) and
+ * one set of widths, so a search box is the same search box on every page.
+ */
+export function ToolbarSearch({ className, ...props }: Omit<InputProps, 'size'>) {
+  return <Input type="search" size="sm" className={cn('w-64', className)} {...props} />
+}
+
+export function ToolbarSelect({
+  width = 'md',
+  className,
+  ...props
+}: Omit<SelectProps, 'size'> & {
+  /** `lg` for a sentence-long first option ("Qualquer prioridade"). */
+  width?: 'md' | 'lg'
+}) {
+  return <Select size="sm" className={cn(width === 'lg' ? 'w-40' : 'w-36', className)} {...props} />
+}
+
+export function ToolbarCheck({ children, className, ...props }: CheckboxProps & { children: ReactNode }) {
+  return (
+    <label className={cn('flex h-7 shrink-0 items-center gap-1.5 text-xs text-muted', className)}>
+      <Checkbox {...props} />
+      {children}
+    </label>
+  )
 }
 
 /**

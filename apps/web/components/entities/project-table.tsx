@@ -10,6 +10,7 @@ import { api, ApiError } from '../../lib/api/index.ts'
 import { useFormat } from '../../lib/use-format.ts'
 import type { Column } from '../../lib/table.ts'
 import { DataTable, type BulkAction } from '../ui/data-table.tsx'
+import type { TableArrangementHandle } from '../ui/table-arrangement.tsx'
 import { ConfirmDialog } from '../ui/confirm-dialog.tsx'
 import { Badge } from '../ui/badge.tsx'
 import { NoValue } from '../shell-bits.tsx'
@@ -36,11 +37,12 @@ type BulkKind = LifecycleAction | 'archive'
  */
 export function ProjectTable({
   items,
-  toolbar,
+  arrangement,
   empty,
 }: {
   items: ProjectListItem[]
-  toolbar?: ReactNode
+  /** Held by the page, so the column menu can sit in its toolbar. */
+  arrangement?: TableArrangementHandle
   empty?: ReactNode
 }) {
   const { t } = useTranslation('projects')
@@ -228,14 +230,14 @@ export function ProjectTable({
       {
         id: 'start',
         label: ta('bulk.start'),
-        icon: <Play className="size-3.5" />,
+        icon: <Play />,
         disabledReason: startable.length === 0 ? ta('bulk.nothingToStart') : undefined,
         onRun: () => void run('start', startable, clear),
       },
       {
         id: 'stop',
         label: ta('bulk.stop'),
-        icon: <Square className="size-3.5" />,
+        icon: <Square />,
         tone: 'danger',
         disabledReason: stoppable.length === 0 ? ta('bulk.nothingToStop') : undefined,
         onRun: () => setPending({ kind: 'stop', items: stoppable, clear }),
@@ -243,14 +245,14 @@ export function ProjectTable({
       {
         id: 'restart',
         label: ta('bulk.restart'),
-        icon: <RotateCw className="size-3.5" />,
+        icon: <RotateCw />,
         disabledReason: stoppable.length === 0 ? ta('bulk.nothingToStop') : undefined,
         onRun: () => setPending({ kind: 'restart', items: stoppable, clear }),
       },
       {
         id: 'archive',
         label: ta('bulk.archive'),
-        icon: <Archive className="size-3.5" />,
+        icon: <Archive />,
         onRun: () => setPending({ kind: 'archive', items: selected.filter((item) => !item.archived), clear }),
       },
     ]
@@ -270,7 +272,7 @@ export function ProjectTable({
         storageKey="projects"
         selectable
         bulkActions={bulkActions}
-        toolbar={toolbar}
+        arrangement={arrangement}
         caption={t('table.caption')}
         empty={empty}
       />

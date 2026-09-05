@@ -8,9 +8,8 @@ import type { ActivityEvent } from 'portta-contracts'
 import { useProjectActivity } from '@/lib/queries'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input, Select } from '@/components/ui/field'
 import { ActivityTimeline } from '@/components/entities/activity-timeline'
-import { ErrorBox, Loading } from '@/components/shell-bits'
+import { ErrorBox, Loading, Toolbar, ToolbarSearch, ToolbarSelect } from '@/components/shell-bits'
 
 export function ActivityTab({ slug, initialEvents }: { slug: string; initialEvents: ActivityEvent[] }) {
   const { t } = useTranslation('activity')
@@ -34,15 +33,15 @@ export function ActivityTab({ slug, initialEvents }: { slug: string; initialEven
         title={t('title')}
         description={t('description')}
         actions={
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Select value={kind} onChange={(event) => { setKind(event.target.value); reset() }} size="sm" className="w-40" aria-label={t('kindFilter')}>
+          <Toolbar>
+            <ToolbarSelect width="lg" value={kind} onChange={(event) => { setKind(event.target.value); reset() }} aria-label={t('kindFilter')}>
               <option value="">{t('anyKind')}</option>
               {['task', 'session', 'repository', 'environment', 'service', 'project'].map((entity) => (
                 <option key={entity} value={entity}>{t(`entity.${entity}` as 'entity.task')}</option>
               ))}
-            </Select>
-            <Input value={actor} onChange={(event) => { setActor(event.target.value); reset() }} placeholder={t('actorFilter')} size="sm" className="w-36" aria-label={t('actorFilter')} />
-          </div>
+            </ToolbarSelect>
+            <ToolbarSearch className="w-40" value={actor} onChange={(event) => { setActor(event.target.value); reset() }} placeholder={t('actorFilter')} aria-label={t('actorFilter')} />
+          </Toolbar>
         }
       />
       {activity.isPending && events.length === 0 ? (

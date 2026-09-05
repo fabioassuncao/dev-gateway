@@ -6,7 +6,7 @@
 // is the list. From there the query owns it: the interval refetches, and
 // `lib/live.ts` invalidates when Docker says something changed.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -20,11 +20,12 @@ import { useCan } from '@/lib/permissions'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
-import { Checkbox, Field, Input, Select } from '@/components/ui/field'
+import { Field, Input } from '@/components/ui/field'
 import { Segmented } from '@/components/ui/segmented'
 import { ProjectCard } from '@/components/entities/project-card'
 import { ProjectTable } from '@/components/entities/project-table'
-import { Empty, ErrorBox, PageHeader, SkeletonRows, ViewToolbar } from '@/components/shell-bits'
+import { ColumnsMenu, useTableArrangement } from '@/components/ui/table-arrangement'
+import { Empty, ErrorBox, PageHeader, SkeletonRows, ToolbarCheck, ToolbarSearch, ToolbarSelect, ViewToolbar } from '@/components/shell-bits'
 import {
   DEFAULT_PROJECT_FILTERS,
   defaultProjectOrder,
@@ -50,13 +51,17 @@ export function ProjectsView({
   const { t } = useTranslation('projects')
   const [filters, setFilters] = useState<ProjectFilters>(DEFAULT_PROJECT_FILTERS)
   const [creating, setCreating] = useState(false)
-  const [view, setView] = useState<ProjectView>(() => {
+  // Cards until the browser has read its storage: the server cannot know the
+  // preference, and a first render that disagrees with its HTML is thrown
+  // away and rebuilt, which costs more than the re-render nobody sees.
+  const [view, setView] = useState<ProjectView>('cards')
+  useEffect(() => {
     try {
-      return resolveProjectView(localStorage.getItem(VIEW_STORAGE))
+      setView(resolveProjectView(localStorage.getItem(VIEW_STORAGE)))
     } catch {
-      return 'cards'
+      /* private browsing */
     }
-  })
+  }, [])
   const catalog = useProjects(initialProjects)
   const overview = useDevelopmentOverview(initialOverview)
   const runtimes = useEnvironments(true)
@@ -85,39 +90,36 @@ export function ProjectsView({
   const set = <Key extends keyof ProjectFilters>(key: Key, value: ProjectFilters[Key]) =>
     setFilters((current) => ({ ...current, [key]: value }))
 
+  const table = useTableArrangement('projects')
+
   if (catalog.error && !catalogUnavailable) return <ErrorBox error={catalog.error} />
 
-  // The same controls above the cards and inside the table's toolbar, so the
+  // One row of controls, in one place, whichever shape the list takes: the
   // two views are the same page in two shapes rather than two pages.
   const controls = (
     <>
-      <Input
+      <ToolbarSearch
         value={filters.search}
         onChange={(event) => set('search', event.target.value)}
         placeholder={t('searchPlaceholder')}
-        size="sm"
-        className="w-56"
         aria-label={t('searchAria')}
       />
-      <Select
+      <ToolbarSelect
         value={filters.state}
         onChange={(event) => set('state', event.target.value as ProjectFilters['state'])}
-        size="sm"
-        className="w-36"
         aria-label={t('filters.state')}
       >
         <option value="all">{t('filters.anyState')}</option>
         {STATES.map((state) => (
           <option key={state} value={state}>{t(`state.${state}` as 'state.running')}</option>
         ))}
-      </Select>
-      <label className="flex h-7 items-center gap-1.5 text-xs text-muted">
-        <Checkbox
-          checked={filters.includeArchived}
-          onChange={(event) => set('includeArchived', event.target.checked)}
-        />
+      </ToolbarSelect>
+      <ToolbarCheck
+        checked={filters.includeArchived}
+        onChange={(event) => set('includeArchived', event.target.checked)}
+      >
         {t('filters.showArchived')}
-      </label>
+      </ToolbarCheck>
     </>
   )
 
@@ -143,7 +145,7 @@ export function ProjectsView({
     />
   )
   const chrome = (
-    <ViewToolbar switcher={switcher} embedded={view === 'table' && !catalog.isPending && !catalogUnavailable}>
+    <ViewToolbar switcher={switcher} trailing={view === 'table' ? <ColumnsMenu arrangement={table} /> : null}>
       {controls}
     </ViewToolbar>
   )
@@ -158,7 +160,7 @@ export function ProjectsView({
              this role is noise, not a hint. The API refuses it regardless. */
           mayCreate ? (
             <Button variant="primary" disabled={catalogUnavailable} onClick={() => setCreating(true)}>
-              <Plus className="size-3.5" />
+              <Plus />
               {t('newProject')}
             </Button>
           ) : undefined
@@ -166,22 +168,19 @@ export function ProjectsView({
       />
 
       <section className="mb-6">
+        {chrome}
         {catalog.isPending ? (
-          <>
-            {chrome}
-            <Card><SkeletonRows rows={4} /></Card>
-          </>
+          <Card><SkeletonRows rows={4} /></Card>
         ) : catalogUnavailable ? (
           <Card>
             <Empty title={t('needsDatabase')} hint={t('needsDatabaseHint')} />
           </Card>
         ) : view === 'table' ? (
           <Card>
-            <ProjectTable items={shown} toolbar={chrome} empty={emptyState} />
+            <ProjectTable items={shown} arrangement={table} empty={emptyState} />
           </Card>
         ) : (
           <>
-            {chrome}
             {shown.length === 0 ? (
               <Card>{emptyState}</Card>
             ) : (

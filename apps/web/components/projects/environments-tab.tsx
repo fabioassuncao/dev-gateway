@@ -11,9 +11,8 @@ import { keys, useEnvironments } from '@/lib/queries'
 import { useCan } from '@/lib/permissions'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Select } from '@/components/ui/field'
 import { EnvironmentCard } from '@/components/entities/environment-card'
-import { Empty, ErrorBox } from '@/components/shell-bits'
+import { Empty, ErrorBox, ToolbarSelect, ViewToolbar } from '@/components/shell-bits'
 import { AdoptedRow, sourceKey } from './project-overview'
 
 export function EnvironmentsTab({ project, readOnly }: { project: Project; readOnly: boolean }) {
@@ -42,14 +41,14 @@ export function EnvironmentsTab({ project, readOnly }: { project: Project; readO
   return (
     <div className="space-y-3">
       {mayAdopt && candidates.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={adopting} onChange={(event) => setAdopting(event.target.value)} aria-label={t('environments.adopt')} size="sm" className="w-56">
+        <ViewToolbar className="mb-0">
+          <ToolbarSelect width="lg" value={adopting} onChange={(event) => setAdopting(event.target.value)} aria-label={t('environments.adopt')}>
             <option value="">{t('environments.adopt')}</option>
             {candidates.map((environment) => <option key={environment.name} value={environment.name}>{environment.name}</option>)}
-          </Select>
+          </ToolbarSelect>
           <Button size="sm" disabled={adopting === '' || adopt.isPending} onClick={() => adopt.mutate(adopting)}>{t('environments.adoptButton')}</Button>
           {adopt.error ? <ErrorBox error={adopt.error} /> : null}
-        </div>
+        </ViewToolbar>
       ) : null}
       {project.environments.length === 0 ? (
         <Card><Empty title={t('environments.empty')} hint={t('environments.emptyHint')} /></Card>

@@ -218,6 +218,8 @@
     "title": "Environments",
     "description": "Every Compose project on this host, adopted or not. A Project is the product; this is what is running for it.",
     "filterAria": "Filter environments",
+    "searchPlaceholder": "Search environment, project or service",
+    "searchAria": "Search environments",
     "all": "All",
     "unattributed": "Without a project",
     "running": "Running",

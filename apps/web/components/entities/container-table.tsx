@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import type { ContainerResourceMetrics, ContainerSummary, MetricsCurrent } from 'portta-contracts'
 import type { Column } from '../../lib/table.ts'
 import { DataTable } from '../ui/data-table.tsx'
+import type { TableArrangementHandle } from '../ui/table-arrangement.tsx'
 import { Badge } from '../ui/badge.tsx'
 import { useFormat } from '../../lib/use-format.ts'
 import { Mono } from '../copy.tsx'
@@ -43,7 +44,7 @@ export function ContainerTable({
   metrics,
   storageKey,
   onDetails,
-  toolbar,
+  arrangement,
   caption,
   empty,
 }: {
@@ -51,7 +52,8 @@ export function ContainerTable({
   metrics?: MetricsCurrent
   storageKey: string
   onDetails: (container: ContainerSummary) => void
-  toolbar?: ReactNode
+  /** Held by the card, so the column menu can sit in its header. */
+  arrangement?: TableArrangementHandle
   caption: string
   empty?: ReactNode
 }) {
@@ -183,7 +185,7 @@ export function ContainerTable({
       rowKey={(container) => container.id}
       rowLabel={(container) => container.name}
       storageKey={storageKey}
-      toolbar={toolbar}
+      arrangement={arrangement}
       caption={caption}
       empty={empty}
     />

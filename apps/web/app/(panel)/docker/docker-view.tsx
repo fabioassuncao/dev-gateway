@@ -6,12 +6,12 @@ import { useContainers, useDockerHost, useMetricsCurrent } from '@/lib/queries'
 import type { ContainerSummary, MetricsCurrent, Ownership } from 'portta-contracts'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Input, Select } from '@/components/ui/field'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
-import { Empty, ErrorBox, KeyValue, Loading, PageHeader, StatTile } from '@/components/shell-bits'
+import { Empty, ErrorBox, KeyValue, Loading, PageHeader, StatTile, ToolbarSearch, ToolbarSelect, ViewToolbar } from '@/components/shell-bits'
 import { Mono } from '@/components/copy'
 import { OwnershipBadge } from '@/components/status'
 import { ContainerTable } from '@/components/entities/container-table'
+import { ColumnsMenu, useTableArrangement } from '@/components/ui/table-arrangement'
 import { ServiceDrawer } from '@/components/entities/service-drawer'
 import { useFormat } from '@/lib/use-format'
 
@@ -59,44 +59,37 @@ export function DockerView() {
       <PageHeader
         title={t('title')}
         description={t('description')}
-        actions={
-          <>
-            <Select
-              value={ownership}
-              onChange={(event) => setOwnership(event.target.value as 'all' | Ownership)}
-              size="sm"
-              className="w-40"
-              aria-label={t('filterOwnership')}
-            >
-              <option value="all">{tc('all')}</option>
-              <option value="gateway">{tc('ownership.gateway')}</option>
-              <option value="integrated">{tc('ownership.integrated')}</option>
-              <option value="external">{tc('ownership.external')}</option>
-              <option value="standalone">{tc('ownership.standalone')}</option>
-            </Select>
-            <Select
-              value={state}
-              onChange={(event) => setState(event.target.value)}
-              size="sm"
-              className="w-32"
-              aria-label={t('filterState')}
-            >
-              <option value="all">{t('anyState')}</option>
-              <option value="running">{tc('running')}</option>
-              <option value="stopped">{tc('stopped')}</option>
-              <option value="unhealthy">{tc('unhealthy')}</option>
-            </Select>
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t('searchPlaceholder')}
-              size="sm"
-              className="w-64"
-              aria-label={t('searchAria')}
-            />
-          </>
-        }
       />
+      <ViewToolbar>
+        <ToolbarSearch
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder={t('searchPlaceholder')}
+          aria-label={t('searchAria')}
+        />
+        <ToolbarSelect
+          width="lg"
+          value={ownership}
+          onChange={(event) => setOwnership(event.target.value as 'all' | Ownership)}
+          aria-label={t('filterOwnership')}
+        >
+          <option value="all">{tc('all')}</option>
+          <option value="gateway">{tc('ownership.gateway')}</option>
+          <option value="integrated">{tc('ownership.integrated')}</option>
+          <option value="external">{tc('ownership.external')}</option>
+          <option value="standalone">{tc('ownership.standalone')}</option>
+        </ToolbarSelect>
+        <ToolbarSelect
+          value={state}
+          onChange={(event) => setState(event.target.value)}
+          aria-label={t('filterState')}
+        >
+          <option value="all">{t('anyState')}</option>
+          <option value="running">{tc('running')}</option>
+          <option value="stopped">{tc('stopped')}</option>
+          <option value="unhealthy">{tc('unhealthy')}</option>
+        </ToolbarSelect>
+      </ViewToolbar>
 
       {host.data ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
@@ -251,17 +244,23 @@ function ContainerGroup({
   onDetails: (container: ContainerSummary) => void
 }) {
   const { t } = useTranslation('docker')
+  // The card's header is this group's toolbar: what the group is, and the
+  // one control its table has.
+  const table = useTableArrangement(storageKey)
   return (
     <Card>
-      <CardHeader title={title} meta={<span className="text-xs font-normal text-subtle tabular-nums">{containers.length}</span>} />
+      <CardHeader
+        title={title}
+        description={description}
+        meta={<span className="text-xs font-normal text-subtle tabular-nums">{containers.length}</span>}
+        actions={<ColumnsMenu arrangement={table} />}
+      />
       <ContainerTable
         containers={containers}
         metrics={metrics}
         storageKey={storageKey}
+        arrangement={table}
         caption={t('table.caption', { group: title })}
-        // The band above the rows holds the column control either way; the
-        // group's description earns it rather than leaving it empty.
-        toolbar={<span className="text-xs text-subtle">{description}</span>}
         onDetails={onDetails}
       />
     </Card>

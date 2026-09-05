@@ -9,10 +9,10 @@ import type { Project, ProjectSummary, TaskStatus, TaskSummary } from 'portta-co
 import { Badge } from '../ui/badge.tsx'
 import { Button } from '../ui/button.tsx'
 import { Card } from '../ui/card.tsx'
-import { Input, Select } from '../ui/field.tsx'
 import { Segmented } from '../ui/segmented.tsx'
 import { useToast } from '../ui/toast.tsx'
-import { Empty, ErrorBox, Loading, ViewToolbar } from '../shell-bits.tsx'
+import { ColumnsMenu, useTableArrangement } from '../ui/table-arrangement.tsx'
+import { Empty, ErrorBox, Loading, ToolbarSearch, ToolbarSelect, ViewToolbar } from '../shell-bits.tsx'
 import { useOptimisticMutation } from '../../lib/optimistic.ts'
 import { useRouter } from 'next/navigation'
 import {
@@ -130,6 +130,10 @@ export function TasksView({
   const setView = (next: TaskView) => router.push(tasksHref(scope.kind === 'global' ? { global: true } : slug!, next, filters))
   const clearHref = tasksHref(scope.kind === 'global' ? { global: true } : slug!, view)
 
+  // Which columns the table shows is the page's to hold: the menu that
+  // changes it sits in the row above, beside the switcher.
+  const table = useTableArrangement(scope.kind === 'global' ? 'tasks-all' : 'tasks')
+
   const setStatus = (task: TaskSummary, status: TaskStatus) => {
     setFailure(null)
     move.mutate({ task, status, beforeId: null, afterId: null })
@@ -138,51 +142,50 @@ export function TasksView({
   const controls = (
     <>
       {scope.kind === 'global' ? (
-        <Select value={filters.project ?? ''} onChange={(event) => setFilter('project', event.target.value)} size="sm" className="w-40" aria-label={t('projectFilter')}>
+        <ToolbarSelect width="lg" value={filters.project ?? ''} onChange={(event) => setFilter('project', event.target.value)} aria-label={t('projectFilter')}>
           <option value="">{t('allProjects')}</option>
           {scope.projects.filter((project) => !project.archived).map((project) => (
             <option key={project.slug} value={project.slug}>{project.name}</option>
           ))}
-        </Select>
+        </ToolbarSelect>
       ) : null}
-      <Input
+      <ToolbarSearch
         value={filters.q ?? ''}
         onChange={(event) => setFilter('q', event.target.value)}
         placeholder={t('filterPlaceholder')}
-        size="sm" className="w-52"
         aria-label={t('filterAria')}
       />
-      <Select value={filters.status ?? ''} onChange={(event) => setFilter('status', event.target.value)} size="sm" className="w-36" aria-label={t('statusFilter')}>
+      <ToolbarSelect value={filters.status ?? ''} onChange={(event) => setFilter('status', event.target.value)} aria-label={t('statusFilter')}>
         <option value="">{t('anyStatus')}</option>
         {statusOptions.map((entry) => (
           <option key={entry.value} value={entry.value}>{entry.label}</option>
         ))}
-      </Select>
-      <Select value={filters.priority ?? ''} onChange={(event) => setFilter('priority', event.target.value)} size="sm" className="w-32" aria-label={t('priorityFilter')}>
+      </ToolbarSelect>
+      <ToolbarSelect width="lg" value={filters.priority ?? ''} onChange={(event) => setFilter('priority', event.target.value)} aria-label={t('priorityFilter')}>
         <option value="">{t('anyPriority')}</option>
         {priorityOptions.filter((entry) => entry.value !== '').map((entry) => (
           <option key={entry.value} value={entry.value}>{entry.label}</option>
         ))}
-      </Select>
+      </ToolbarSelect>
       {types.length > 0 ? (
-        <Select value={filters.type ?? ''} onChange={(event) => setFilter('type', event.target.value)} size="sm" className="hidden w-32 lg:inline-block" aria-label={t('typeFilter')}>
+        <ToolbarSelect value={filters.type ?? ''} onChange={(event) => setFilter('type', event.target.value)} className="hidden lg:inline-block" aria-label={t('typeFilter')}>
           <option value="">{t('anyType')}</option>
           {types.map((type) => <option key={type} value={type}>{type}</option>)}
-        </Select>
+        </ToolbarSelect>
       ) : null}
       {labels.length > 0 ? (
-        <Select value={filters.label ?? ''} onChange={(event) => setFilter('label', event.target.value)} size="sm" className="hidden w-32 lg:inline-block" aria-label={t('labelFilter')}>
+        <ToolbarSelect value={filters.label ?? ''} onChange={(event) => setFilter('label', event.target.value)} className="hidden lg:inline-block" aria-label={t('labelFilter')}>
           <option value="">{t('anyLabel')}</option>
           {labels.map((label) => <option key={label} value={label}>{label}</option>)}
-        </Select>
+        </ToolbarSelect>
       ) : null}
       {repositories.length > 0 ? (
-        <Select value={filters.repository ?? ''} onChange={(event) => setFilter('repository', event.target.value)} size="sm" className="hidden w-40 xl:inline-block" aria-label={t('repositoryFilter')}>
+        <ToolbarSelect width="lg" value={filters.repository ?? ''} onChange={(event) => setFilter('repository', event.target.value)} className="hidden xl:inline-block" aria-label={t('repositoryFilter')}>
           <option value="">{t('anyRepository')}</option>
           {repositories.map((repository) => (
             <option key={repository.id} value={repository.id}>{repository.name}</option>
           ))}
-        </Select>
+        </ToolbarSelect>
       ) : null}
       {activeFilters > 0 ? (
         <Button size="sm" variant="ghost" onClick={() => router.push(clearHref)}>
@@ -204,12 +207,15 @@ export function TasksView({
       ]}
     />
   )
-  const tableReady = view === 'table' && !query.isPending && !query.error
   const chrome = (
     <ViewToolbar
       switcher={switcher}
-      trailing={readOnly ? <Badge tone="outline">{t('readOnly')}</Badge> : null}
-      embedded={tableReady}
+      trailing={
+        <>
+          {view === 'table' ? <ColumnsMenu arrangement={table} /> : null}
+          {readOnly ? <Badge tone="outline">{t('readOnly')}</Badge> : null}
+        </>
+      }
     >
       {controls}
     </ViewToolbar>
@@ -217,7 +223,7 @@ export function TasksView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {tableReady ? null : chrome}
+      {chrome}
 
       {failure ? (
         <div className="mb-3">
@@ -241,7 +247,7 @@ export function TasksView({
             columns={boardColumns}
             readOnly={readOnly}
             onSetStatus={readOnly ? undefined : setStatus}
-            toolbar={chrome}
+            arrangement={table}
             empty={<BoardEmpty />}
             showProject={scope.kind === 'global'}
             projectNames={projectNames}

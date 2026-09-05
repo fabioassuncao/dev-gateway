@@ -119,18 +119,27 @@ describe('the Projects page', () => {
     expect(environmentAction).toHaveBeenCalledWith('produto', 'stop')
   })
 
-  it('keeps the view switcher with the list, not beside the page verb', async () => {
+  it('keeps the toolbar in one place above the list, whichever view is on', async () => {
     renderWithQuery(view())
     await screen.findByRole('link', { name: 'Meu Produto' })
     const views = screen.getByRole('radiogroup', { name: 'View' })
     expect(within(views).getByRole('radio', { name: 'Cards' })).toHaveAttribute('aria-checked', 'true')
     expect(within(views).queryByRole('button', { name: 'New project' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'New project' })).toBeInTheDocument()
+    // The column menu belongs to a table; on cards there is none to offer.
+    expect(screen.queryByRole('button', { name: 'Columns' })).not.toBeInTheDocument()
 
     await userEvent.click(within(views).getByRole('radio', { name: 'Table' }))
-    await screen.findByRole('table')
-    expect(screen.getByRole('radiogroup', { name: 'View' })).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: 'Table' })).toHaveAttribute('aria-checked', 'true')
+    const table = (await screen.findByRole('table')).closest('[data-slot="data-table"]')
+    expect(table).not.toBeNull()
+    // The same row, outside the table: the switcher, the filters, and now the column menu.
+    const switcher = screen.getByRole('radiogroup', { name: 'View' })
+    expect(within(switcher).getByRole('radio', { name: 'Table' })).toHaveAttribute('aria-checked', 'true')
+    expect(table).not.toContainElement(switcher)
+    expect(table).not.toContainElement(screen.getByLabelText('Search projects'))
+    const columns = screen.getByRole('button', { name: 'Columns' })
+    expect(table).not.toContainElement(columns)
+    expect(switcher.parentElement).toContainElement(columns)
   })
 
   it('switches to a real table and remembers it', async () => {

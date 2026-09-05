@@ -23,7 +23,7 @@ import { Card } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Segmented } from '@/components/ui/segmented'
 import { Table, Td, Th, Tr } from '@/components/ui/table'
-import { Empty, ErrorBox, Loading, PageHeader } from '@/components/shell-bits'
+import { Empty, ErrorBox, Loading, PageHeader, ViewToolbar } from '@/components/shell-bits'
 import { Mono } from '@/components/copy'
 import { CreateTokenDialog } from '@/components/settings/create-token-dialog'
 
@@ -55,8 +55,19 @@ export function TokensView() {
       <PageHeader
         title={t('tokens.title')}
         description={t('tokens.description')}
-        toolbar={
-          maySeeEverybody ? (
+        actions={
+          mayCreate ? (
+            <Button variant="primary" onClick={() => setCreating(true)}>
+              <Plus />
+              {t('tokens.create')}
+            </Button>
+          ) : null
+        }
+      />
+
+      {maySeeEverybody ? (
+        <ViewToolbar
+          switcher={
             <Segmented
               label={t('tokens.whose')}
               value={all ? 'all' : 'mine'}
@@ -66,17 +77,9 @@ export function TokensView() {
                 { value: 'all', label: t('tokens.everybody') },
               ]}
             />
-          ) : undefined
-        }
-        actions={
-          mayCreate ? (
-            <Button variant="primary" size="sm" onClick={() => setCreating(true)}>
-              <Plus />
-              {t('tokens.create')}
-            </Button>
-          ) : null
-        }
-      />
+          }
+        />
+      ) : null}
 
       {query.error ? <div className="mb-4"><ErrorBox error={query.error} /></div> : null}
       {revoke.error ? <div className="mb-4"><ErrorBox error={revoke.error} /></div> : null}

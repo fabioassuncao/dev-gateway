@@ -10,6 +10,7 @@ import { nestTasks, projectNameOf, taskHref } from '../../lib/tasks.ts'
 import { useFormat } from '../../lib/use-format.ts'
 import type { Column } from '../../lib/table.ts'
 import { DataTable } from '../ui/data-table.tsx'
+import type { TableArrangementHandle } from '../ui/table-arrangement.tsx'
 import { Button } from '../ui/button.tsx'
 import { NoValue } from '../shell-bits.tsx'
 import { navigate } from '../../lib/navigation.ts'
@@ -37,7 +38,7 @@ export function TaskTable({
   onSetStatus,
   onOpen,
   readOnly = false,
-  toolbar,
+  arrangement,
   empty,
   showProject = false,
   projectNames = {},
@@ -49,7 +50,8 @@ export function TaskTable({
   onSetStatus?: (task: TaskSummary, status: TaskStatus) => void
   onOpen?: (task: TaskSummary) => void
   readOnly?: boolean
-  toolbar?: ReactNode
+  /** Held by the page, so the column menu can sit in its toolbar. */
+  arrangement?: TableArrangementHandle
   empty?: ReactNode
   showProject?: boolean
   projectNames?: Record<string, string>
@@ -216,7 +218,7 @@ export function TaskTable({
       rowKey={({ task }) => task.id}
       rowLabel={({ task }) => `#${task.id} ${task.title}`}
       storageKey={showProject ? 'tasks-all' : 'tasks'}
-      toolbar={toolbar}
+      arrangement={arrangement}
       caption={t('table.caption')}
       empty={empty}
     />

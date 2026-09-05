@@ -86,12 +86,14 @@ export function visibleColumns<Row>(columns: readonly Column<Row>[], hidden: rea
   return columns.filter((column) => column.pinned || !hidden.includes(column.id))
 }
 
-export function defaultHidden<Row>(columns: readonly Column<Row>[]): string[] {
+type HideableColumn = { id: string; pinned?: boolean; defaultHidden?: boolean }
+
+export function defaultHidden(columns: readonly HideableColumn[]): string[] {
   return columns.filter((column) => column.defaultHidden && !column.pinned).map((column) => column.id)
 }
 
 /** Toggling a pinned column is a no-op rather than an error. */
-export function toggleHidden<Row>(columns: readonly Column<Row>[], hidden: readonly string[], columnId: string): string[] {
+export function toggleHidden(columns: readonly HideableColumn[], hidden: readonly string[], columnId: string): string[] {
   const column = columns.find((entry) => entry.id === columnId)
   if (!column || column.pinned) return [...hidden]
   return hidden.includes(columnId) ? hidden.filter((id) => id !== columnId) : [...hidden, columnId]

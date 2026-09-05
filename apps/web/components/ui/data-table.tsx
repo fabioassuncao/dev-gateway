@@ -1,26 +1,22 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowDown, ArrowUp, ChevronsUpDown, Columns3, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronsUpDown, X } from 'lucide-react'
 import { cn } from '../../lib/utils.ts'
 import {
-  defaultHidden,
   nextSort,
   pruneSelection,
-  readArrangement,
   sortRows,
-  toggleHidden,
   visibleColumns,
-  writeArrangement,
   type Column,
   type SortState,
 } from '../../lib/table.ts'
 import { Button } from './button.tsx'
-import { Menu, MenuContent, MenuLabel, MenuSeparator, MenuTrigger, MenuToggle } from './menu.tsx'
 import { Empty } from '../shell-bits.tsx'
 import { Checkbox } from './field.tsx'
 import { tdClass, thClass } from './table.tsx'
+import { ColumnsMenu, hiddenIn, useTableArrangement, type ColumnMeta, type TableArrangementHandle } from './table-arrangement.tsx'
 
 export type { Column, SortState } from '../../lib/table.ts'
 
@@ -53,6 +49,14 @@ export interface BulkAction {
  * screen. Columns leave by priority instead, and the identity column stays
  * pinned to the left edge while the rest scrolls.
  */
+function sameColumns(a: readonly ColumnMeta[], b: readonly ColumnMeta[]): boolean {
+  return a.length === b.length && a.every((column, index) => {
+    const other = b[index]!
+    return column.id === other.id && column.header === other.header && column.srHeader === other.srHeader
+      && column.pinned === other.pinned && column.defaultHidden === other.defaultHidden
+  })
+}
+
 export function DataTable<Row>({
   rows,
   columns,
@@ -67,7 +71,7 @@ export function DataTable<Row>({
   empty,
   emptyTitle,
   emptyHint,
-  toolbar,
+  arrangement,
   caption,
   className,
 }: {
@@ -87,21 +91,30 @@ export function DataTable<Row>({
   empty?: ReactNode
   emptyTitle?: string
   emptyHint?: string
-  toolbar?: ReactNode
+  /**
+   * The arrangement held by the page, so the column menu can sit in the
+   * toolbar above. Without it the table keeps its own and offers the menu in
+   * a band of its own.
+   */
+  arrangement?: TableArrangementHandle
   caption?: string
   className?: string
 }) {
   const { t } = useTranslation('common', { keyPrefix: 'table' })
-  const stored = useRef<ReturnType<typeof readArrangement>>(undefined as never)
-  if (stored.current === undefined) stored.current = readArrangement(storageKey)
-
-  const [hidden, setHidden] = useState<string[]>(() => stored.current?.hidden ?? defaultHidden(columns))
-  const [sort, setSort] = useState<SortState | null>(() => stored.current?.sort ?? initialSort)
+  const own = useTableArrangement(arrangement ? null : storageKey, initialSort)
+  const state = arrangement ?? own
+  const { setColumns, setSort, sort } = state
+  const hidden = hiddenIn(state, columns)
   const [selection, setSelection] = useState<string[]>([])
 
+  // What the menu can offer: published from here, so the menu never needs
+  // the column definitions, only their names. Kept by value, not by
+  // reference: a caller that rebuilds its columns on every render must not
+  // start a render loop through the page that holds the handle.
   useEffect(() => {
-    writeArrangement(storageKey, { hidden, sort })
-  }, [hidden, sort, storageKey])
+    const next = columns.map(({ id, header, srHeader, pinned, defaultHidden: hiddenByDefault }) => ({ id, header, srHeader, pinned, defaultHidden: hiddenByDefault }))
+    setColumns((current) => (sameColumns(current, next) ? current : next))
+  }, [columns, setColumns])
 
   const present = useMemo(() => rows.map(rowKey), [rows, rowKey])
   useEffect(() => {
@@ -113,7 +126,7 @@ export function DataTable<Row>({
 
   const shown = useMemo(() => visibleColumns(columns, hidden), [columns, hidden])
   const ordered = useMemo(() => sortRows(rows, columns, sort), [rows, columns, sort])
-  const hideable = columns.filter((column) => !column.pinned)
+  const ownMenu = !arrangement && columns.some((column) => !column.pinned)
 
   const selected = useMemo(() => ordered.filter((row) => selection.includes(rowKey(row))), [ordered, selection, rowKey])
   const clear = () => setSelection([])
@@ -122,40 +135,15 @@ export function DataTable<Row>({
   const allSelected = ordered.length > 0 && selection.length === ordered.length
   const someSelected = selection.length > 0 && !allSelected
 
-  if (rows.length === 0 && !toolbar) {
+  if (rows.length === 0) {
     return <>{empty ?? <Empty title={emptyTitle ?? t('empty')} hint={emptyHint} />}</>
   }
 
   return (
-    <div className={cn('min-w-0', className)}>
-      {(toolbar || hideable.length > 0) ? (
-        <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-1.5">
-          {toolbar}
-          {hideable.length > 0 ? (
-            <div className="ml-auto">
-              <Menu>
-                <MenuTrigger asChild>
-                  <Button variant="ghost" size="sm" aria-label={t('columns')} title={t('columns')}>
-                    <Columns3 />
-                    <span className="hidden sm:inline">{t('columns')}</span>
-                  </Button>
-                </MenuTrigger>
-                <MenuContent>
-                  <MenuLabel>{t('columnsHint')}</MenuLabel>
-                  <MenuSeparator />
-                  {hideable.map((column) => (
-                    <MenuToggle
-                      key={column.id}
-                      checked={!hidden.includes(column.id)}
-                      onCheckedChange={() => setHidden((current) => toggleHidden(columns, current, column.id))}
-                    >
-                      {column.srHeader ?? column.header}
-                    </MenuToggle>
-                  ))}
-                </MenuContent>
-              </Menu>
-            </div>
-          ) : null}
+    <div data-slot="data-table" className={cn('min-w-0', className)}>
+      {ownMenu ? (
+        <div className="flex items-center justify-end border-b border-line px-3 py-1.5">
+          <ColumnsMenu arrangement={own} />
         </div>
       ) : null}
 

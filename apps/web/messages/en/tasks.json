@@ -1,5 +1,6 @@
 {
   "title": "Tasks",
+  "description": "Everything open across every project on this host.",
   "newTask": "New task",
   "draft": {
     "badge": "Draft",

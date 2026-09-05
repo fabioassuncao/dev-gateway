@@ -6,8 +6,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useServices } from '@/lib/queries'
 import { Card } from '@/components/ui/card'
-import { Input, Select } from '@/components/ui/field'
-import { ErrorBox, Loading, PageHeader } from '@/components/shell-bits'
+import { ErrorBox, Loading, PageHeader, ToolbarSearch, ToolbarSelect, ViewToolbar } from '@/components/shell-bits'
 import { ServiceTable } from '@/components/entities/service-table'
 import { serviceFromContainer } from '@/lib/services'
 
@@ -45,33 +44,27 @@ export function ServicesView() {
       <PageHeader
         title={t('title')}
         description={t('description')}
-        actions={
-          <>
-            <Select
-              value={state}
-              onChange={(event) => setState(event.target.value)}
-              size="sm"
-              className="w-32"
-              aria-label={t('filterAria')}
-            >
-              <option value="all">{tc('all')}</option>
-              <option value="running">{tc('running')}</option>
-              <option value="stopped">{tc('stopped')}</option>
-              <option value="unhealthy">{tc('unhealthy')}</option>
-              <option value="http">{t('filters.http')}</option>
-              <option value="tcp">{t('filters.tcp')}</option>
-            </Select>
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t('searchPlaceholder')}
-              size="sm"
-              className="w-64"
-              aria-label={t('searchAria')}
-            />
-          </>
-        }
       />
+      <ViewToolbar>
+        <ToolbarSearch
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder={t('searchPlaceholder')}
+          aria-label={t('searchAria')}
+        />
+        <ToolbarSelect
+          value={state}
+          onChange={(event) => setState(event.target.value)}
+          aria-label={t('filterAria')}
+        >
+          <option value="all">{tc('all')}</option>
+          <option value="running">{tc('running')}</option>
+          <option value="stopped">{tc('stopped')}</option>
+          <option value="unhealthy">{tc('unhealthy')}</option>
+          <option value="http">{t('filters.http')}</option>
+          <option value="tcp">{t('filters.tcp')}</option>
+        </ToolbarSelect>
+      </ViewToolbar>
 
       <Card>
         <ServiceTable

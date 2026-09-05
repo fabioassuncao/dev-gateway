@@ -49,9 +49,10 @@ export function TasksPageView({
     <>
       <PageHeader
         title={t('title')}
+        description={t('description')}
         actions={
           mayCreate ? (
-            <Button size="sm" variant="primary" disabled={readOnly || projects.length === 0} onClick={() => setPicking(true)}>
+            <Button variant="primary" disabled={readOnly || projects.length === 0} onClick={() => setPicking(true)}>
               <Plus />
               {t('newTask')}
             </Button>
