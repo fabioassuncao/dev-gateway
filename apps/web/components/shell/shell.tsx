@@ -306,7 +306,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <main
           className={cn(
             'min-h-0 min-w-0 flex-1 overflow-y-auto bg-surface scroll-thin',
-            'border-t border-line md:mr-2 md:mb-2 md:rounded-lg md:border',
+            'border-t border-line md:my-2 md:mr-2 md:rounded-lg md:border',
           )}
         >
           <div className="mx-auto max-w-[88rem] px-4 py-4 md:px-6 md:py-5">{children}</div>
