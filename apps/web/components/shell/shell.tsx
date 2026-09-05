@@ -162,14 +162,14 @@ export function Shell({ children }: { children: ReactNode }) {
   useShortcut({ key: '[' }, toggleSidebar)
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col bg-bg">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-bg">
       <ConnectionBanner state={live.state} />
       <ApplyBar readOnly={gateway?.panel.readOnly ?? false} />
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <aside
           data-collapsed={sidebarCollapsed}
           className={cn(
-            'flex shrink-0 flex-wrap items-center transition-[width] duration-150 md:h-full md:flex-col md:flex-nowrap md:items-stretch',
+            'flex shrink-0 flex-wrap items-center transition-[width] duration-150 md:h-full md:min-h-0 md:flex-col md:flex-nowrap md:items-stretch md:overflow-hidden',
             sidebarCollapsed ? 'md:w-12' : 'md:w-56',
           )}
         >
@@ -218,7 +218,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <nav
             id="section-navigation"
             aria-label={t('sections')}
-            className={cn('order-3 flex w-full gap-1 overflow-x-auto px-2 py-1 md:order-none md:flex-col md:overflow-visible scroll-thin', sidebarCollapsed && 'md:px-1.5')}
+            className={cn('order-3 flex w-full gap-1 overflow-x-auto px-2 py-1 md:order-none md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto scroll-thin', sidebarCollapsed && 'md:px-1.5')}
           >
             {NAV_GROUPS.map((group, index) => {
               // A page a role does not hold is not in that person's rail: it
