@@ -21,12 +21,13 @@ export function PageHeader({
   breadcrumb,
   /** A compact status strip that belongs to the page, under the title. */
   meta,
-  /** Filters, a search box, a view switcher: what shapes the content below. */
+  /** Page-level filters that do not change with the layout (scope, a search that is the page). */
   toolbar,
   icon,
 }: {
   title: string
   description?: ReactNode
+  /** Page verbs: the one primary action. Never a view switcher. */
   actions?: ReactNode
   /** Where the page sits; shown above the title when it has at least two steps. */
   breadcrumb?: BreadcrumbItem[]
@@ -53,9 +54,40 @@ export function PageHeader({
   )
 }
 
-/** A row of controls above a list: search, filters, the view switcher. */
+/** A row of controls above a list: search, filters, page-level scope. */
 export function Toolbar({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div className={cn('flex min-w-0 flex-wrap items-center gap-2', className)} {...props} />
+}
+
+/**
+ * The chrome above a list that can be cards, a board or a table: the view
+ * switcher first, then the filters that shape the same rows. On a table the
+ * same controls go into DataTable.toolbar (`embedded`) so there is one bar,
+ * not a switcher stranded above the card.
+ */
+export function ViewToolbar({
+  switcher,
+  children,
+  trailing,
+  embedded = false,
+  className,
+}: {
+  switcher: ReactNode
+  children?: ReactNode
+  trailing?: ReactNode
+  /** Render the controls without a wrapper, for DataTable.toolbar. */
+  embedded?: boolean
+  className?: string
+}) {
+  const controls = (
+    <>
+      {switcher}
+      {children}
+      {trailing ? <div className="ml-auto flex items-center gap-2">{trailing}</div> : null}
+    </>
+  )
+  if (embedded) return controls
+  return <Toolbar className={cn('mb-3', className)}>{controls}</Toolbar>
 }
 
 /**

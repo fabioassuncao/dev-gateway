@@ -24,7 +24,7 @@ import { Checkbox, Field, Input, Select } from '@/components/ui/field'
 import { Segmented } from '@/components/ui/segmented'
 import { ProjectCard } from '@/components/entities/project-card'
 import { ProjectTable } from '@/components/entities/project-table'
-import { Empty, ErrorBox, PageHeader, SkeletonRows } from '@/components/shell-bits'
+import { Empty, ErrorBox, PageHeader, SkeletonRows, ViewToolbar } from '@/components/shell-bits'
 import {
   DEFAULT_PROJECT_FILTERS,
   defaultProjectOrder,
@@ -131,38 +131,44 @@ export function ProjectsView({
     )
     : <Empty title={t('noMatch')} hint={t('noMatchHint')} action={<Button size="sm" onClick={() => setFilters(DEFAULT_PROJECT_FILTERS)}>{t('filters.anyState')}</Button>} />
 
+  const switcher = (
+    <Segmented
+      label={t('viewLabel')}
+      value={view}
+      onChange={chooseView}
+      options={[
+        { value: 'cards', label: t('views.cards'), icon: LayoutGrid },
+        { value: 'table', label: t('views.table'), icon: Table2 },
+      ]}
+    />
+  )
+  const chrome = (
+    <ViewToolbar switcher={switcher} embedded={view === 'table' && !catalog.isPending && !catalogUnavailable}>
+      {controls}
+    </ViewToolbar>
+  )
+
   return (
     <>
       <PageHeader
         title={t('title')}
         description={t('catalogDescription')}
         actions={
-          <>
-            <Segmented
-              label={t('viewLabel')}
-              value={view}
-              onChange={chooseView}
-              options={[
-                { value: 'cards', label: t('views.cards'), icon: LayoutGrid },
-                { value: 'table', label: t('views.table'), icon: Table2 },
-              ]}
-            />
-            {/* Hidden rather than disabled: a control that is never available to
-                this role is noise, not a hint. The API refuses it regardless. */}
-            {mayCreate ? (
-              <Button variant="primary" disabled={catalogUnavailable} onClick={() => setCreating(true)}>
-                <Plus className="size-3.5" />
-                {t('newProject')}
-              </Button>
-            ) : null}
-          </>
+          /* Hidden rather than disabled: a control that is never available to
+             this role is noise, not a hint. The API refuses it regardless. */
+          mayCreate ? (
+            <Button variant="primary" disabled={catalogUnavailable} onClick={() => setCreating(true)}>
+              <Plus className="size-3.5" />
+              {t('newProject')}
+            </Button>
+          ) : undefined
         }
       />
 
       <section className="mb-6">
         {catalog.isPending ? (
           <>
-            <div className="mb-3 flex flex-wrap items-center gap-1.5">{controls}</div>
+            {chrome}
             <Card><SkeletonRows rows={4} /></Card>
           </>
         ) : catalogUnavailable ? (
@@ -171,11 +177,11 @@ export function ProjectsView({
           </Card>
         ) : view === 'table' ? (
           <Card>
-            <ProjectTable items={shown} toolbar={controls} empty={emptyState} />
+            <ProjectTable items={shown} toolbar={chrome} empty={emptyState} />
           </Card>
         ) : (
           <>
-            <div className="mb-3 flex flex-wrap items-center gap-1.5">{controls}</div>
+            {chrome}
             {shown.length === 0 ? (
               <Card>{emptyState}</Card>
             ) : (

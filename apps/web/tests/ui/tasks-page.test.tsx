@@ -96,6 +96,25 @@ beforeEach(() => {
 })
 
 describe('the global tasks page', () => {
+  it('keeps the view switcher with the list, not beside the page verb', async () => {
+    renderWithQuery(view())
+    await screen.findByRole('article', { name: '#10 Fix gateway' })
+    const views = screen.getByRole('radiogroup', { name: 'View' })
+    expect(within(views).getByRole('radio', { name: 'Board' })).toHaveAttribute('aria-checked', 'true')
+    expect(within(views).queryByRole('button', { name: 'New task' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New task' })).toBeInTheDocument()
+  })
+
+  it('keeps the view switcher in the table toolbar', async () => {
+    navigation.search = 'view=table'
+    renderWithQuery(view())
+    await screen.findByRole('table')
+    const views = screen.getByRole('radiogroup', { name: 'View' })
+    expect(within(views).getByRole('radio', { name: 'Table' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByLabelText('Project')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New task' })).toBeInTheDocument()
+  })
+
   it('shows tasks from every project and names the project on each card', async () => {
     renderWithQuery(view())
     expect(await screen.findByRole('article', { name: '#10 Fix gateway' })).toBeInTheDocument()

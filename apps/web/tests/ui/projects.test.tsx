@@ -119,6 +119,20 @@ describe('the Projects page', () => {
     expect(environmentAction).toHaveBeenCalledWith('produto', 'stop')
   })
 
+  it('keeps the view switcher with the list, not beside the page verb', async () => {
+    renderWithQuery(view())
+    await screen.findByRole('link', { name: 'Meu Produto' })
+    const views = screen.getByRole('radiogroup', { name: 'View' })
+    expect(within(views).getByRole('radio', { name: 'Cards' })).toHaveAttribute('aria-checked', 'true')
+    expect(within(views).queryByRole('button', { name: 'New project' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New project' })).toBeInTheDocument()
+
+    await userEvent.click(within(views).getByRole('radio', { name: 'Table' }))
+    await screen.findByRole('table')
+    expect(screen.getByRole('radiogroup', { name: 'View' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Table' })).toHaveAttribute('aria-checked', 'true')
+  })
+
   it('switches to a real table and remembers it', async () => {
     renderWithQuery(view())
     await screen.findByRole('link', { name: 'Meu Produto' })

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LayoutGrid, Table2, X } from 'lucide-react'
+import { Columns3, Table2, X } from 'lucide-react'
 import { api, ApiError } from '../../lib/api/index.ts'
 import { keys, useProject, useTasksList } from '../../lib/queries/index.ts'
 import type { Project, ProjectSummary, TaskStatus, TaskSummary } from 'portta-contracts'
@@ -12,7 +12,7 @@ import { Card } from '../ui/card.tsx'
 import { Input, Select } from '../ui/field.tsx'
 import { Segmented } from '../ui/segmented.tsx'
 import { useToast } from '../ui/toast.tsx'
-import { Empty, ErrorBox, Loading } from '../shell-bits.tsx'
+import { Empty, ErrorBox, Loading, ViewToolbar } from '../shell-bits.tsx'
 import { useOptimisticMutation } from '../../lib/optimistic.ts'
 import { useRouter } from 'next/navigation'
 import {
@@ -193,21 +193,31 @@ export function TasksView({
     </>
   )
 
+  const switcher = (
+    <Segmented
+      label={t('viewLabel')}
+      value={view}
+      onChange={setView}
+      options={[
+        { value: 'board', label: t('views.board'), icon: Columns3 },
+        { value: 'table', label: t('views.table'), icon: Table2 },
+      ]}
+    />
+  )
+  const tableReady = view === 'table' && !query.isPending && !query.error
+  const chrome = (
+    <ViewToolbar
+      switcher={switcher}
+      trailing={readOnly ? <Badge tone="outline">{t('readOnly')}</Badge> : null}
+      embedded={tableReady}
+    >
+      {controls}
+    </ViewToolbar>
+  )
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
-        <Segmented
-          label={t('viewLabel')}
-          value={view}
-          onChange={setView}
-          options={[
-            { value: 'board', label: t('views.board'), icon: LayoutGrid },
-            { value: 'table', label: t('views.table'), icon: Table2 },
-          ]}
-        />
-        {view === 'board' ? controls : null}
-        {readOnly ? <Badge tone="outline" className="ml-auto">{t('readOnly')}</Badge> : null}
-      </div>
+      {tableReady ? null : chrome}
 
       {failure ? (
         <div className="mb-3">
@@ -231,7 +241,7 @@ export function TasksView({
             columns={boardColumns}
             readOnly={readOnly}
             onSetStatus={readOnly ? undefined : setStatus}
-            toolbar={controls}
+            toolbar={chrome}
             empty={<BoardEmpty />}
             showProject={scope.kind === 'global'}
             projectNames={projectNames}

@@ -64,18 +64,18 @@ export function Segmented<Value extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
-            aria-label={iconOnly ? option.label : undefined}
+            aria-label={option.label}
             title={option.label}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn(
               'flex h-full items-center gap-1.5 rounded-sm text-xs font-medium transition-colors duration-100 focus-ring',
-              iconOnly ? 'px-1.5' : 'px-2',
+              iconOnly || Icon ? 'px-1.5 sm:px-2' : 'px-2',
               selected ? 'bg-surface text-ink shadow-raised ring-1 ring-line' : 'text-subtle hover:text-ink',
             )}
           >
             {Icon ? <Icon className="size-3.5" /> : null}
-            {iconOnly ? null : option.label}
+            {iconOnly ? null : Icon ? <span className="hidden sm:inline">{option.label}</span> : option.label}
           </button>
         )
       })}
