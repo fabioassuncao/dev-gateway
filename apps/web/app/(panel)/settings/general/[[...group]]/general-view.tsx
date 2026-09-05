@@ -96,7 +96,6 @@ export function GeneralView({ group }: { group: string | null }) {
               {dirty ? <Badge tone="warn">{tc('unsaved', { count: Object.keys(draft).length })}</Badge> : null}
               <Button
                 variant="primary"
-                size="sm"
                 disabled={!dirty || save.isPending || !view.envFile.writable}
                 onClick={() => save.mutate()}
               >

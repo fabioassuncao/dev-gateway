@@ -19,6 +19,7 @@ import { useCan } from '@/lib/permissions'
 import { useFormat } from '@/lib/use-format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { DataTable, type Column } from '@/components/ui/data-table'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -216,7 +217,7 @@ export function UsersView() {
         description={t('users.description')}
         actions={
           mayCreate ? (
-            <Button variant="primary" size="sm" onClick={() => setCreating(true)}>
+            <Button variant="primary" onClick={() => setCreating(true)}>
               <UserPlus />
               {t('users.create')}
             </Button>
@@ -230,14 +231,16 @@ export function UsersView() {
         </div>
       ) : null}
 
-      <DataTable
-        rows={users}
-        columns={columns}
-        rowKey={(user) => user.id}
-        storageKey="settings-users"
-        initialSort={{ columnId: 'name', direction: 'asc' }}
-        emptyTitle={t('users.empty')}
-      />
+      <Card>
+        <DataTable
+          rows={users}
+          columns={columns}
+          rowKey={(user) => user.id}
+          storageKey="settings-users"
+          initialSort={{ columnId: 'name', direction: 'asc' }}
+          emptyTitle={t('users.empty')}
+        />
+      </Card>
 
       <CreateUserDialog
         open={creating}

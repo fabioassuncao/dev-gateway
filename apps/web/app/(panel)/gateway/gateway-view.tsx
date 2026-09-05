@@ -58,12 +58,11 @@ export function GatewayView() {
         description={t('description')}
         actions={
           <>
-            <Button size="sm" disabled={doctor.isPending} onClick={() => doctor.mutate()}>
+            <Button disabled={doctor.isPending} onClick={() => doctor.mutate()}>
               <Stethoscope />
               {doctor.isPending ? t('checking') : t('runDiagnostics')}
             </Button>
             <Button
-              size="sm"
               variant="primary"
               disabled={restart.isPending}
               onClick={() => restart.mutate(['traefik'])}

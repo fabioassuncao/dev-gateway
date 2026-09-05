@@ -62,8 +62,8 @@ export function ProjectHeader({ project, readOnly }: { project: Project; readOnl
         <>
           {primary ? <EnvironmentOpenMenu environment={primary} /> : null}
           {mayWrite ? (
-            <Button size="sm" variant="primary" disabled={readOnly || kickCreate.isPending} onClick={() => kickCreate.mutate()}>
-              <Plus className="size-3.5" />
+            <Button variant="primary" disabled={readOnly || kickCreate.isPending} onClick={() => kickCreate.mutate()}>
+              <Plus />
               {tk('newTask')}
             </Button>
           ) : null}

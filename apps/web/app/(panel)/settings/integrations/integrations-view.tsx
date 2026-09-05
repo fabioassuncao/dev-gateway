@@ -68,7 +68,7 @@ export function IntegrationsView() {
           mayManage ? (
             <>
               {dirty ? <Badge tone="warn">{tc('unsaved', { count: Object.keys(draft).length })}</Badge> : null}
-              <Button variant="primary" size="sm" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
+              <Button variant="primary" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
                 <Save />
                 {save.isPending ? tc('saving') : tc('save')}
               </Button>

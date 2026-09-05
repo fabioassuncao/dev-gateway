@@ -34,7 +34,7 @@ export function RepositoriesTab({ project, readOnly }: { project: Project; readO
           actions={
             mayManage ? (
               <Button size="sm" onClick={() => setAttaching(true)}>
-                <Plus className="size-3.5" />
+                <Plus />
                 {tr('add.button')}
               </Button>
             ) : undefined
