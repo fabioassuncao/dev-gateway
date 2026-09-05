@@ -91,7 +91,7 @@ npm run db:check --workspace=portta-db      # fails if the schema and the SQL di
 
 Nothing in `packages/db/drizzle/` is written by hand. `db:check` runs the
 generator and fails if it wanted to write anything, which is the only way to
-notice a column added to the schema and never generated; `tests/run.sh` runs it.
+notice a column added to the schema and never generated; `npm run test:integration` runs it in a disposable directory.
 
 Applied migrations are recorded in `drizzle_migrations`. Startup takes a
 session-level advisory lock and applies what is pending, so two panels starting

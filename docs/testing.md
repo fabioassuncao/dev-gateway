@@ -1,196 +1,238 @@
 # Testing
 
-One principle decides what to run and when:
+> Targeted while developing → affected scope when finishing an ordinary task →
+> broad regression at integration → full/E2E for release or an explicit reason.
 
-> **While you are working, test what you changed. Before you hand it over,
-> widen the scope to match the risk.**
+Finishing a feature increment, answering a user, or handing off a small task is
+not an integration milestone. Run the smallest test that protects the changed
+behavior. Do not repeat passing checks unless relevant code changed afterward.
+The agent policy in [AGENTS.md](../AGENTS.md) governs test selection.
 
-The full local pass takes about a minute, and most of that minute is spent
-re-proving things your change could not have touched. Running it after every
-edit does not make the change safer; it makes the edit slower, which is what
-makes people stop running tests at all.
+## Choose a test
 
-## While you are working
+Every Node workspace accepts a Vitest filename and test-name filter. Prefer a
+full relative filename; a substring such as `tasks` can select several files.
+Combine a filename with `-t` to avoid importing unrelated files. Check the
+executed test count: Vitest can exit successfully when a name matches no cases.
 
-Run the suite that covers the file you edited, and the tests you wrote for it.
-Nothing else.
+```bash
+npm test --workspace=portta-server -- tests/tasks.test.ts -t 'creates, lists, reads and deletes'
+npm test --workspace=portta-core -- src/config.test.ts
+npm test --workspace=portta-web -- --project ui tests/ui/settings-users.test.tsx
+npm test --workspace=portta-web -- --project logic tests/logic/health.test.ts
+npm test --workspace=portta-web -- --project server tests/server/compose.test.ts
+npm test --workspace=portta-web -- --project docs
+bash tests/unit/install.test.sh
+bash tests/unit/profiles.test.sh --profile local
+bash tests/unit/templates.test.sh --template 01-single-web.yaml
+```
 
-| You changed | Run | Cost |
+Use an existing template filename from `templates/overlays/`. Profile filtering narrows expensive renders and profile parity;
+cheap cross-profile safety invariants still run. No argument runs the full matrix.
+
+For a module, give its test directory or several filenames. A workspace suite
+is the fallback when no reliable narrower selection exists. Types have the
+same scope: `npm run typecheck --workspace=portta-server`, for example.
+
+```bash
+npm run test:affected                        # list local changes against HEAD
+npm run test:affected -- --base origin/main  # merge-base plus all local changes
+npm run test:affected -- --base origin/main --run
+```
+
+The selector shows the changed files, commands, reasons, recommendations and
+unmapped paths. It includes staged, unstaged, untracked, renamed and removed
+files. `--run` refuses a plan with gaps before executing anything. Source files
+without an exact test fall back to their workspace; shared packages select
+transitive workspace consumers. Configuration and unknown files require an
+explicit integration decision. Browser and gateway scenarios are recommendations,
+never silently started by diff selection. Reviewing a recommendation is still
+necessary: a passing selected scope is not a release certificate.
+
+The selector is deliberately conservative. It does not claim that an import
+graph covers SQL, shell sourcing, dynamically imported files, or documentation
+read from disk. No remote cache or external monorepo task system is required.
+
+## Layers and commands
+
+| Layer | Trigger | Command |
 | --- | --- | --- |
-| `packages/core/src/*.ts` | `npm test --workspace=portta-core` | ~0.5s |
-| `packages/contracts/src/**` | `npm test --workspace=portta-contracts` | ~0.2s |
-| `packages/db/src/schema/**` | `npm test --workspace=portta-db` and `npm run db:check --workspace=portta-db` | ~8s |
-| `packages/server/src/**` | `npm test --workspace=portta-server` | ~35s |
-| `packages/cli/src/**` | `npm test --workspace=portta` | ~0.7s |
-| `apps/auth/src/**` | `npm test --workspace=portta-auth` | ~0.5s |
-| `apps/web/{app,components,lib}/**` | `npm test --workspace=portta-web -- --project ui` | ~11s |
-| `apps/web/server/**` | `npm test --workspace=portta-web -- --project server` | ~1s |
-| `apps/web/lib/docs/**` | `npm test --workspace=portta-web -- --project docs` | ~0.5s |
-| an API route or a schema | also `npm run openapi:check --workspace=portta-contracts` | ~0.5s |
-| `scripts/lib/*.sh`, `bin/portta`, `install.sh` | `bash tests/unit/<subject>.test.sh` | 0.1–13s |
-| `docker/compose/**`, `templates/**` | `bash tests/unit/profiles.test.sh` and `bash tests/unit/templates.test.sh` | ~6s |
+| Development | A coherent small change | Filename/case commands above |
+| Affected | Several related modules or a changed shared boundary | Review `test:affected`, then `--run` or explicit suites |
+| Integration | PR/meaningful merge milestone | `npm run test:integration` |
+| E2E | Changed real system interaction | `npm run test:e2e -- --suite lifecycle` or `--spec roles.spec.ts` |
+| Release | Candidate before publishing | `npm run test:release` |
 
-Narrow further with a name filter, which every suite here accepts:
+Integration runs static lint (including Compose), shell suites, tooling tests,
+all workspace tests, scoped typechecks, OpenAPI and schema drift checks. It
+builds core and CLI first so shell parity/smoke uses this checkout's compiled
+entrypoint. It does not rebuild the panel or start lifecycle containers.
+Some host-observation assertions are conditional; their skips are recorded.
+Required static tools (including cloudflared for connector parsing), Node dependencies and selected browser prerequisites
+must be present. A name-filtered Vitest execution with zero cases fails in the
+orchestrated commands.
 
-```bash
-npm test --workspace=portta-server -- apply       # one file
-npm test --workspace=portta-core -- -t 'refuses'  # one description
-```
+`tests/run.sh` remains a compatibility shim requiring Node 22.12+. No arguments
+mean integration with an explicit notice. `--fast` is deprecated and has the
+same broad scope. `--unit` retains shell + workspaces + types + OpenAPI and now
+also schema drift checks. `--lint` runs static checks only; `--e2e` runs only
+E2E; `--all` aliases release. Extra/unknown arguments are errors.
 
-Widen only when there is a concrete reason to think something else is affected:
-a shared type, an exported helper with several callers, a change to
-`packages/core` or `packages/contracts` (which everything downstream imports),
-or a compose overlay that more than one profile selects.
+`node tests/run.mjs --compose --profile local` and `--compose --template FILE.yaml`
+select Compose checks. Use one selector at a time. `just test` still means broad
+integration; use the npm filename commands for routine work.
 
-Do **not** run `./tests/run.sh`, the end-to-end suites, or the Playwright run
-for an ordinary fix, feature increment or refactor. They exist for the moments
-below.
+Every orchestrated stage records wall-clock, status, command, skips and a log in
+`test-results/<run>/`. Successful stages print a short summary; failed stages
+print their diagnostics once. Browser JSON and failure traces live in
+`apps/web/test-results/`. CI uploads these artifacts.
 
-## Before you hand it over
+## Change-to-test matrix
 
-Run the full local pass when you finish a feature, when the change is
-structural or crosses workspace boundaries, when it touches something shared
-(`packages/core`, `src/shared/types.ts`, a compose overlay, the installer), and
-always before a merge or a release:
+The minimum is the directly related case/file, not every example in a row.
+Widen only for an actual consumer, contract or risk. Integration below applies
+to code/configuration PRs; documentation-only PRs check links. A release runs the
+complete release gate once, rather than repeating it for each category.
 
-```bash
-./tests/run.sh          # shell lint, compose validation, unit and workspace suites (~1 min)
-```
+| Change | Minimum | Widen when affected | Real-system check before merge when applicable |
+| --- | --- | --- | --- |
+| React component | UI file | Consumers, web types | Related browser interaction |
+| Copy or colors | Review | Existing visual assertion | None automatically |
+| Width/layout | Relevant UI behavior | Affected containers/layouts | `viewports` when layout changed |
+| API | Route case | Contract, service, authorization; OpenAPI if it can change | HTTP dispatcher/browser boundary |
+| Service | Rule case | Routes and callers | External integration changed |
+| Repository | PGlite query/write case | Service caller | PostgreSQL driver-specific behavior |
+| Schema | Constraint/cascade test + `db:check` | Repositories | PostgreSQL behavior if different |
+| Migration | Fresh migration/idempotence/data preservation + `db:check` | Repositories | Upgrade against PostgreSQL |
+| Contract | Schema test + OpenAPI if affected | Typed consumers and route | External API flow |
+| Shared core | Core file | Consumers of the changed export | Parity/routing if changed |
+| CLI | Command test | CLI build + entrypoint smoke if packaging changed | Relevant command scenario |
+| Shell | Subject suite + shellcheck | TypeScript parity | Relevant gateway scenario |
+| Installer | Install/maintenance fixture | Audit, upgrade/refusal cases | Disposable install/lifecycle |
+| Compose | Affected profile/template | Consumers and matrix | Affected live services |
+| Traefik/TCP/TLS | Routing derivation/refusal | Compose and discovery | TCP/TLS with distinct databases |
+| Authentication | Auth-core/ForwardAuth case | API security/principal/scope | auth/roles/settings as affected |
+| Security | Changed refusal/boundary | All callers of the policy | Corresponding attack/session path |
+| Documentation | Links | Docs collector if behavior changed | None automatically |
+| Build/packaging | Owning build and entrypoint smoke | Types, consumers | Runtime image as affected |
+| Monorepo structure | Boundaries and affected compilation | Transitive consumers | Integration, broader if impact is unclear |
 
-The two expensive layers stay opt-in, because both need a Docker daemon and
-both take minutes. The panel's browser run needs one too now: PostgreSQL is a
-boot dependency of the panel, so the harness starts a disposable database and
-removes it afterwards. Point `PORTTA_E2E_DATABASE_URL` at one you already have
-to skip that.
+## What the tests protect
 
-```bash
-./tests/run.sh --e2e    # the gateway end to end, plus the panel in a browser
-./tests/run.sh --all    # everything above in one run
-```
+Keep tests for business rules, refusals, exit codes, authorization boundaries,
+secret handling, data-loss paths and previous bugs. The role matrix, API origin
+and scope guards, and browser session tests protect different boundaries. An
+Engine API fake does not replace the Docker-backed panel scenario. Bash and
+TypeScript implementations both ship and still need parity checks.
 
-**Nothing runs these for you.** The repository's one workflow publishes the
-Docker image and checks nothing; a push is not verified by anything but you. So
-the expensive layers are not a safety net someone else holds — run `--e2e`
-yourself before a merge that touches the lifecycle commands, the compose files,
-the installer or the panel's routing, and `--all` before a release.
+Prefer assertions on observable arguments/results to source strings, labels or
+class names. Do not remove a security assertion until another test demonstrably
+protects the same failure mode. Don't use a browser or database just to test a
+pure function; don't replace real constraints/transactions with permissive mocks.
+Drive polling timers with fake timers where the timer is the subject. Do not
+replace real socket or protocol behavior with artificial clocks.
 
-## What belongs in the suite
+The panel has four Vitest projects: `logic` (pure Node derivations), `ui`
+(jsdom/components), `server` (Node dispatcher), and `docs` (Node collection).
+The pools, worker defaults and per-file isolation remain unchanged. Do not turn
+on `isolate: false` or concurrent cases over mutable fixtures merely to improve
+a benchmark. Compare a representative sample before changing workers.
 
-The suite is small on purpose. Every test in it has to earn the time it costs
-on every future run.
+## PostgreSQL and PGlite
 
-**Write a test when** it pins a business rule, a refusal, an exit code, a
-security boundary, a data-loss path, or a bug that already happened once. The
-shell audit suites (`tests/unit/audit.test.sh`, `install.test.sh`,
-`web.test.sh`) are the clearest example: they assert invariants such as "no
-prune, ever" and "no password on a command line" in milliseconds.
-
-## The database in a test
-
-Anything that touches a row opens [PGlite](https://pglite.dev) — PostgreSQL
-compiled to WebAssembly — and applies the real migrations:
+`createTestDb()` creates an independent PostgreSQL/WASM instance on every call.
+It lazily caches only an immutable, unseeded image produced by the real
+migrations, in the current test module. The template client is closed after
+export. No persistent snapshot cache can outlive a schema/version change.
 
 ```ts
-import { createTestDb } from 'portta-db/testing'
-
 const { db, close } = await createTestDb()
+// migration tests must execute SQL directly, without restoring the image
+const fresh = await createTestDb({ fresh: true })
 ```
 
-There used to be hand-written stand-ins for each repository instead. They were
-faster and they were wrong in the way stand-ins always are: they accepted rows a
-check would refuse, they returned ids in a shape the driver never produces, and
-a query the panel got wrong passed anyway. Three tests in the panel's own suite
-were asserting a fake's behaviour rather than the database's, and only noticed
-when the fake went away.
+Always close instances. Schema tests retain real constraints, foreign keys,
+transactions and sequences. Migration tests explicitly use fresh instances.
+Snapshots contain no shared mutable rows. `seededDatabase()` adds the Project,
+repository and environments needed by service tests. Avoid redundant seeds.
 
-The cost is a few seconds per file, nearly all of it compiling the WebAssembly
-once per worker; each test after the first costs about a hundred milliseconds.
-`packages/server/tests/helpers.ts` has `seededDatabase()`, which is one already
-holding a Project, a repository and two environments.
+`db:check` copies schema/config/migrations to a temporary package, runs the
+actual generator there, compares SQL and metadata, and removes the temporary
+package even on failure. It never edits the checkout's journal or snapshots.
 
-`tests/unit/boundaries.test.sh` is the same idea applied to the monorepo's
-shape: an import that crosses a boundary the [map](monorepo.md) does not allow
-compiles perfectly well, because npm workspaces resolve every package from one
-`node_modules`. Nothing but that suite would notice.
+## E2E ownership, selection and CI
 
-**Do not write a test that** restates the implementation, asserts a static
-label or a class name, checks that a file exists next to another assertion that
-reads it, covers browser plumbing with no rule behind it (`localStorage`,
-`document.title`), or duplicates a decision another layer already asserts. When
-the panel and the server both look at the same rule, the server test is the one
-to keep: it runs in about 3ms, the component test in about 50ms.
+Gateway scripts refuse direct execution on a shared daemon. The launcher builds
+a disposable host with its own Docker daemon, copies source (without local
+credentials/state), and runs selected scenarios there. No host Docker socket or
+host checkout is mounted. Cleanup verifies ownership and removes only that host
+and its anonymous data volume. This requires Docker support for privileged
+nested containers; failures are reported, never converted to skips.
 
-Two implementations of one decision — the shell gateway and the TypeScript CLI,
-per [ADR 0015](adr/0015-node-on-the-host.md) — are not duplication. Both are
-shipped, so both are tested, and a parity assertion keeps them in step.
+Browser specs each own a fresh PostgreSQL, a loopback access bridge, an Engine
+API fake and a panel. PostgreSQL publishes no host port. Resource names include
+a random invocation identity; teardown checks labels. The browser never reuses
+a pre-existing server. Every invocation builds dependencies and the panel once
+before workers start. Concurrent E2E builds are refused by a lock.
 
-## Keeping it fast
-
-The suite is only worth running often if it stays quick, so cost is part of
-review:
-
-- **One document per question, not one per assertion.** A `portta` invocation
-  is a process spawn. `tests/unit/cli.test.sh` reads each command's help once
-  and makes every assertion against that output.
-- **Drive timers, do not wait on them.** `useApply` polls on a plain
-  `setTimeout` loop precisely so a test can step it with `vi.useFakeTimers()`.
-  Waiting on the real clock cost eight seconds for two tests.
-- **Assert on the server where the rule lives.** A jsdom environment costs
-  roughly ten times what a Node one does.
-- **Watch the slowest file, not the total.** The suites run in parallel, so
-  wall-clock time is the longest single file.
-
-## Layers
-
-| Layer | Where | Needs Docker | Runs in |
-| --- | --- | --- | --- |
-| Shared core | `packages/core/src/*.test.ts` | no | `tests/run.sh`, CI |
-| The contract | `packages/contracts/src/*.test.ts` | no | `tests/run.sh`, CI |
-| Schema and migrations | `packages/db/tests/` | no (PGlite) | `tests/run.sh`, CI |
-| Services and API | `packages/server/tests/` | no (PGlite) | `tests/run.sh`, CI |
-| CLI | `packages/cli/src/**/*.test.ts` | no | `tests/run.sh`, CI |
-| ForwardAuth | `apps/auth/src/*.test.ts` | no | `tests/run.sh`, CI |
-| Panel components | `apps/web/tests/ui/` | no | `tests/run.sh`, CI |
-| The panel's dispatcher | `apps/web/tests/server/` | no | `tests/run.sh`, CI |
-| Documentation collection | `apps/web/tests/docs/` | no | `tests/run.sh`, CI |
-| Shell gateway, invariants and workspace boundaries | `tests/unit/` | compose only | `tests/run.sh`, CI |
-| Gateway end to end | `tests/e2e/` | yes | `--e2e`, CI |
-| Panel in a browser | `apps/web/e2e/` | yes (a disposable PostgreSQL; the Engine API is faked) | `--e2e`, CI |
-| Panel layout at every width | `apps/web/e2e/viewports.mjs` | yes (a disposable PostgreSQL) | by hand |
-
-### The suites that guard the boundaries
-
-Four of them exist for one reason each, and all four are cheap enough to leave
-in the fast run:
-
-| Suite | What it is for | What it costs |
-| --- | --- | --- |
-| `packages/auth/tests/` | Who a request is, and what a role may do. The whole matrix — four roles against every permission, scopes, tokens, the bootstrap — against PGlite. | ~2s |
-| `packages/server/tests/api/security.test.ts` | The rules that live in one place and are easy to lose: the origin guard, read-only, 401 against 403, credential shapes the panel refuses, the rate limit in front of guessing, and the promise that no secret reaches the output. | ~3s |
-| `packages/server/tests/audit-actions.test.ts` | One line per action. Table-guided from the vocabulary itself, so an action nobody records fails the build rather than going unnoticed. | ~2s |
-| `packages/server/tests/realtime/` | The event stream's scope filter, the WebSocket handshake (401/403/404 before a socket exists), and the framing a live stream needs. Runs a real HTTP server on an ephemeral port. | ~2s |
-
-In the browser, `apps/web/e2e/roles.spec.ts` is the one that cannot be replaced
-by a unit test: an owner creates an admin, a developer and a viewer, gives two
-of them one Project each, and every refusal is checked twice — once as what the
-panel offers, and once as what the server answers a `fetch` from that person's
-own session. It signs in four times, which matters because sign-in is
-rate-limited per address and the whole run comes from `127.0.0.1`; the harness
-raises `PORTTA_AUTH_SIGNIN_ATTEMPTS` for that reason and for no other.
-
-### The layout check
+Roles/settings fixtures create their own owner. Auth bootstrap stays a real UI
+scenario, and its wrong-password test also works alone. Retries get fresh worker
+resources. Native Playwright filters still work:
 
 ```bash
-npm run viewports --workspace=portta-web           # report
-node apps/web/e2e/viewports.mjs --shots            # and write the frames to /tmp
+npm run test:e2e --workspace=portta-web -- roles.spec.ts
+npm run test:e2e --workspace=portta-web -- auth.spec.ts -g 'password that is wrong'
 ```
 
-It boots the panel against the documentation host at five widths, from a 1920
-desktop to a tablet in portrait, and asserts the one thing that actually breaks
-a layout: the window must not scroll sideways, and no control may end up
-off-screen. Anything wide — a table, the board, a toolbar — has to scroll
-inside its own container.
+The manual screenshots/viewports tools use the same owned resources. Viewports
+remain a deliberate layout check, not a prerequisite for every frontend change.
 
-Run it after changing a table, the shell, or anything that decides a width. It
-is not in `tests/run.sh` because it wants Docker and a full build; it is the
-check to run when you have been looking at the panel.
+GitHub Actions validates code PRs with integration and chooses relevant E2E
+families for auth, routing, lifecycle and harness changes. Pure component changes
+do not automatically run browsers. Tags run all E2E families. Publication depends
+on the reusable validation job; failed prerequisites/tests prevent publication.
+No schedule, sharding or remote result cache is introduced.
+
+## Measured costs
+
+Audit baseline on 2026-09-05: macOS arm64, 11 available CPUs, 18 GB, Node 22.22.1,
+Vitest 4.1.11, installed dependencies and existing build caches. These are single
+observations, not universal budgets or cold-install benchmarks.
+
+| Baseline scope | Wall-clock |
+| --- | ---: |
+| One API case with PGlite | 2.10 s |
+| One pure helper file under the former UI project | 0.77 s |
+| Core / contracts / CLI / ForwardAuth | 1.34 / 0.46 / 3.80 / 0.65 s |
+| DB / auth-core | 13.45 / 12.89 s |
+| Web UI / server / docs | 15.93 / 0.40 / 0.57 s |
+| Shell suites, sequential | 29.76 s |
+| Global types / OpenAPI / static lint | 4.05 / 0.73 / 12.22 s |
+| Cached web build | 6.86 s |
+
+The server baseline (57.14 s) included two sandbox socket timeouts and is not a
+healthy-suite benchmark. Those two files passed outside the sandbox in 1.12 s.
+Do not subtract their individual durations from total wall-clock: workers overlap.
+
+PGlite microprofiling measured about 510 ms for another initialization, 65 ms for
+migration, 1 ms for minimal seed and 1 ms for close. Restoring the migrated image
+measured 108 ms; exporting it measured 22 ms and about 42 MB. This motivates
+sharing an immutable template, not sharing test data. Updated suite and E2E
+measurements should come from stage reports, not estimates in this document.
+
+After the setup changes, targeted verification measured DB at 5.17 s (including
+an added isolation test), auth-core at 5.15 s, and the six Node logic files at
+0.50 s including npm. Five server files (tasks, remembered, overrides, security,
+scope) passed together in 9.59 s including npm. The complete integration pass
+also passed; its timings overlapped a cold Docker build and are not an isolated
+before/after benchmark.
+
+Representative isolated E2E on the same host: the gateway host image took
+16.59 s, dependency install 12.83 s, inner web build 31.56 s, gateway image build
+125.89 s, and lifecycle including its fixtures/cleanup 165.32 s. These phases
+explain why gateway E2E stays outside the interactive loop. Roles passed alone;
+bootstrap, wrong password, standalone settings and open-panel scenarios also
+passed. In the latter run, per-spec database/bridge readiness was around 2.2 s,
+panel startup including migrations/seed 1.3–1.5 s, and database teardown about
+0.5 s. Browser cases themselves took 0.28–3.4 s. PostgreSQL migration/seed time
+is included in panel startup, not claimed as a separately measured phase.

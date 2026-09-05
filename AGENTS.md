@@ -53,10 +53,10 @@ npm test --workspace=portta-server -- apply
 npm test --workspace=portta-server -- -t 'refuses invalid configuration'
 
 npm test --workspace=portta-web -- --project ui settings
-npm test --workspace=portta-web -- --project server apply
+npm test --workspace=portta-web -- --project server tests/server/compose.test.ts
 
 npm test --workspace=portta-core -- environment
-npm test --workspace=portta-contracts -- route
+npm test --workspace=portta-contracts -- src/enums.test.ts
 ```
 
 When a shell command or script has a dedicated test, run that test directly:
@@ -280,3 +280,18 @@ For agent-driven development, this section governs the default behavior:
 
 See [docs/testing.md](docs/testing.md) for the detailed test architecture and
 release procedures.
+
+
+## Selection and integration commands
+
+`npm run test:affected` lists tests and reasons for the local diff; it does not
+execute them. Review the list, then use `--run` if the scope is appropriate.
+Unmapped paths block execution; E2E recommendations remain explicit. Check the
+number of executed tests: a successful Vitest exit can still mean zero matches.
+Pure web helpers live in `tests/logic` and use `--project logic`.
+
+`npm run test:integration` is broad validation for integration milestones.
+`npm run test:release` also runs isolated gateway and browser scenarios. Neither
+belongs to ordinary conversational handoffs. CI holds the broad regression gate.
+Use `npm run test:e2e -- --suite NAME` for gateway scenarios; direct shell E2E
+execution on the shared host is refused. Never bypass the disposable-host guard.

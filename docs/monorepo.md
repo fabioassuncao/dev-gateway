@@ -188,7 +188,7 @@ Details in [ADR 0015](adr/0015-node-on-the-host.md).
 
 ## AGENTS.md
 
-The root `AGENTS.md` is an index. It holds no rules of its own. Per-directory
+The root `AGENTS.md` is an index and holds the repository-wide agent testing policy. Per-directory
 `AGENTS.md` files are added only when a workspace has rules that are not true
 of the rest of the repository, starting with `packages/cli` and
 `packages/core` when they gain code. Document once; reference everywhere it

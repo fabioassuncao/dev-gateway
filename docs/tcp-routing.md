@@ -459,7 +459,7 @@ integration test `tests/e2e/tcp-routing.test.sh` is that lab, automated, and it
 is what keeps these answers true.
 
 ```bash
-./tests/run.sh --e2e         # includes the TCP routing suite
+npm run test:e2e -- --suite tcp-routing  # isolated Docker host
 ```
 
 The questions it answers, in order: two instances on one port told apart by

@@ -8,7 +8,7 @@ because it "should" work.
 | Platform | Status |
 |---|---|
 | macOS 15+ (arm64) + OrbStack | **Verified**, full suite run by hand during development |
-| Ubuntu 24.04 (amd64) + Docker Engine | **Verified in CI**, full suite on every change |
+| Ubuntu 24.04 (amd64) + Docker Engine | Integration in PR CI; full E2E on release tags |
 | macOS + Docker Desktop | **Expected to work, not verified.** Nothing here uses an OrbStack-specific API. |
 | Debian 12 + Docker Engine | **Expected to work, not verified.** |
 | Linux arm64 | **Expected to work, not verified.** Every pinned image publishes arm64. |
@@ -75,5 +75,5 @@ uname -s -m
 docker version --format '{{.Server.Version}}'
 docker compose version --short
 bash --version | head -1
-./tests/run.sh --all
+npm run test:release
 ```

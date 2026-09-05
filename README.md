@@ -105,7 +105,7 @@ There are three ways in beyond the local one, and each is a deliberate choice ra
 | Verified environment | Evidence |
 |---|---|
 | macOS 15+ arm64 with OrbStack | Full suite run during development |
-| Ubuntu 24.04 amd64 with Docker Engine | Full suite in CI |
+| Ubuntu 24.04 amd64 with Docker Engine | Integration in PR CI; full E2E on release tags |
 | Ubuntu VPS with Docker and Tailscale | Installed from scratch, `doctor` clean |
 
 Other platforms may work but are not claimed as verified. See the complete [compatibility matrix](docs/compatibility.md).
