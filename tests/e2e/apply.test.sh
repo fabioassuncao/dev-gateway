@@ -16,6 +16,8 @@
 # ============================================================================
 set -uo pipefail
 
+node "$(dirname "$0")/../lib/require-disposable.mjs" || exit 1
+
 PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 . "$PORTTA_TEST_DIR/lib/assert.sh"
 PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT

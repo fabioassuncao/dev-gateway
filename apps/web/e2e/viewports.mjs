@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { startPanel } from './resources.mjs'
 // Checks that the panel is usable at every width it is meant for.
 //
 //   node e2e/viewports.mjs            report only
@@ -13,8 +14,6 @@
 // It boots the same harness the screenshots use, so what it measures is the
 // real panel against the documentation host.
 
-import { spawn } from 'node:child_process'
-import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs'
@@ -25,12 +24,6 @@ const root = join(here, '..')
 const repo = join(root, '..', '..')
 const examplesDir = join(repo, 'docker', 'examples')
 
-const DOCKER_PORT = 9941
-const PANEL_PORT = 9942
-const PG_PORT = 55443
-const PG_NAME = 'portta-viewports-pg'
-const DATABASE_URL = `postgres://postgres:viewports@127.0.0.1:${PG_PORT}/portta`
-const BASE = `http://127.0.0.1:${PANEL_PORT}`
 const SHOTS = process.argv.includes('--shots')
 const OUT = '/tmp/portta-viewports'
 
@@ -50,19 +43,6 @@ const TARGETS = [
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function startPostgres() {
-  try { execFileSync('docker', ['rm', '-f', PG_NAME], { stdio: 'ignore' }) } catch { /* absent */ }
-  execFileSync('docker', [
-    'run', '-d', '--rm', '--name', PG_NAME,
-    '-e', 'POSTGRES_PASSWORD=viewports', '-e', 'POSTGRES_DB=portta',
-    '-p', `${PG_PORT}:5432`, 'postgres:18.6-alpine',
-  ], { stdio: 'ignore' })
-}
-
-function stopPostgres() {
-  try { execFileSync('docker', ['rm', '-f', PG_NAME], { stdio: 'ignore' }) } catch { /* gone */ }
 }
 
 async function waitFor(check, what) {
@@ -98,24 +78,9 @@ async function seedExamples() {
   }
 }
 
-startPostgres()
-await waitFor(async () => {
-  try { execFileSync('docker', ['exec', PG_NAME, 'pg_isready', '-U', 'postgres'], { stdio: 'ignore' }); return true } catch { return false }
-}, 'postgres')
+const panel = await startPanel({ fixture: './demo-host.mjs', env: { PORTTA_TCP: 'true' } })
+const BASE = panel.url
 
-const harness = spawn(process.execPath, [join(here, 'harness.mjs')], {
-  cwd: root,
-  stdio: 'ignore',
-  env: {
-    ...process.env,
-    PORTTA_E2E_FIXTURE: './demo-host.mjs',
-    PORTTA_TCP: 'true',
-    PORTTA_E2E_DOCKER_PORT: String(DOCKER_PORT),
-    PORTTA_E2E_PANEL_PORT: String(PANEL_PORT),
-    PORTTA_RUNTIME_DB_MODE: 'external',
-      PORTTA_RUNTIME_DATABASE_URL: DATABASE_URL,
-  },
-})
 
 const problems = []
 
@@ -244,8 +209,7 @@ try {
   }
   await browser.close()
 } finally {
-  harness.kill('SIGTERM')
-  stopPostgres()
+  await panel.close()
 }
 
 if (problems.length > 0) {

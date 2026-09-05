@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
+import { type APIRequestContext, type Page } from '@playwright/test'
+import { expect, test } from './test-fixture'
 
 // The whole matrix, on the panel that signs people in.
 //
@@ -11,8 +12,6 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 // One test, in sequence, for the same reason the sign-in flow is: each account
 // exists because the step before it created one.
 
-const PORT = process.env.PORTTA_E2E_PROTECTED_PORT ?? '9914'
-const PANEL = `http://127.0.0.1:${PORT}`
 
 const OWNER = { email: 'ada@example.test', password: 'an-end-to-end-password' }
 const PASSWORD = 'a-role-suite-password'
@@ -43,7 +42,6 @@ async function status(request: APIRequestContext, path: string, init: Parameters
 }
 
 test.describe('what each role can reach', () => {
-  test.use({ baseURL: PANEL })
 
   test('an owner makes three roles, and each one sees only its own panel', async ({ page }) => {
     test.slow()

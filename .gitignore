@@ -58,3 +58,6 @@ tests/**/.env
 # Local working notes, never part of the repository
 .references
 .prompt
+
+/test-results/
+apps/web/.e2e-build-lock/

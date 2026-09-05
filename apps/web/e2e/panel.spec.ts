@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './test-fixture'
 
 // The panel, driven in a browser against a fake Docker Engine API and a real
 // PostgreSQL. What is asserted here is what only a browser can tell you: that
@@ -10,15 +10,14 @@ import { expect, test } from '@playwright/test'
 // environments and settings come back with the phases that port them, and
 // their specs come back with them.
 
-const DOCKER_PORT = process.env.PORTTA_E2E_DOCKER_PORT ?? '9911'
 
 // This panel runs with PORTTA_AUTH_MODE=disabled, which is the documented
 // default: on loopback there is nobody to sign in as, and the overview opens
 // straight away. `auth.spec.ts` drives the other mode, on its own panel.
 test.describe('the panel end to end', () => {
   // Every test describes the same host, whatever the previous one did to it.
-  test.beforeEach(async ({ request }) => {
-    await request.post(`http://127.0.0.1:${DOCKER_PORT}/__reset`)
+  test.beforeEach(async ({ request, engineURL }) => {
+    await request.post(`${engineURL}/__reset`)
   })
 
   test('opens on the overview and says whether the gateway is healthy', async ({ page }) => {

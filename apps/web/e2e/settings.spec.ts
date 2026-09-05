@@ -1,17 +1,15 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { expect, test } from '@playwright/test'
+import { expect, test } from './test-fixture'
 
 // Administration, against the second panel: the one started with
-// PORTTA_AUTH_MODE=required, whose owner `auth.spec.ts` created.
+// PORTTA_AUTH_MODE=required, whose owner its own fixture creates.
 //
 // One test, in sequence, for the same reason the sign-in flow is one: an
 // account exists because the step before it created it, and a viewer cannot
 // sign in until an administrator has made them.
 
-const PORT = process.env.PORTTA_E2E_PROTECTED_PORT ?? '9914'
-const PANEL = `http://127.0.0.1:${PORT}`
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 const CLI = `${ROOT}packages/cli/dist/cli.js`
 
@@ -27,9 +25,8 @@ async function signIn(page: import('@playwright/test').Page, who: { email: strin
 }
 
 test.describe('administering a panel that asks who you are', () => {
-  test.use({ baseURL: PANEL })
 
-  test('an owner makes a viewer, who sees their own tokens and nothing else', async ({ page }) => {
+  test('an owner makes a viewer, who sees their own tokens and nothing else', async ({ page, baseURL }) => {
     test.slow()
     await signIn(page, OWNER)
 
@@ -86,7 +83,7 @@ test.describe('administering a panel that asks who you are', () => {
     if (!existsSync(CLI)) {
       execFileSync('npm', ['run', 'build', '--workspace=portta'], { cwd: ROOT, stdio: 'inherit' })
     }
-    const output = execFileSync('node', [CLI, 'auth', 'token', 'list', '--url', PANEL, '--json'], {
+    const output = execFileSync('node', [CLI, 'auth', 'token', 'list', '--url', baseURL!, '--json'], {
       env: { ...process.env, PORTTA_TOKEN: secret },
       encoding: 'utf8',
     })

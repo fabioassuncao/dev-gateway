@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './test-fixture'
 
 // The development pages, end to end: a Project is created, a task is created in
 // it, moved on the board, opened, and the Project's repositories tab answers.

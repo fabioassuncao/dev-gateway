@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './test-fixture'
 
 // The infrastructure pages, against the fake Docker host the harness describes.
 test.describe('the infrastructure pages', () => {
@@ -32,9 +32,8 @@ test.describe('the infrastructure pages', () => {
     }
   })
 
-  test('starts and stops an environment through the panel', async ({ page, request }) => {
-    const dockerPort = process.env.PORTTA_E2E_DOCKER_PORT ?? '9911'
-    await request.post(`http://127.0.0.1:${dockerPort}/__reset`)
+  test('starts and stops an environment through the panel', async ({ page, request, engineURL }) => {
+    await request.post(`${engineURL}/__reset`)
 
     await page.goto('/environments/alpha')
     await page.getByRole('button', { name: 'Stop', exact: true }).click()

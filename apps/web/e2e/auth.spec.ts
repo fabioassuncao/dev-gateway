@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './test-fixture'
 
 // Signing in, against the second panel: the same build, started with
 // PORTTA_AUTH_MODE=required and its own database.
@@ -7,7 +7,6 @@ import { expect, test } from '@playwright/test'
 // per panel, so a second test could not repeat it, and splitting the flow would
 // mean each half depended on the other having run.
 
-const PANEL = `http://127.0.0.1:${process.env.PORTTA_E2E_PROTECTED_PORT ?? '9914'}`
 
 const OWNER = {
   name: 'Ada Lovelace',
@@ -16,7 +15,6 @@ const OWNER = {
 }
 
 test.describe('a panel that asks who you are', () => {
-  test.use({ baseURL: PANEL })
 
   test('goes setup, sign-in, overview, and refuses everything in between', async ({ page, request }) => {
     // 1. Nothing is answered about the host while there is no owner.
