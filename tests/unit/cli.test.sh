@@ -194,12 +194,15 @@ describe "a closed pipe is not an error"
 # `doctor` walks the host and is the slowest command in the CLI, so the cheap
 # three carry this check; the pipe handling is one `tolerateClosedOutput()` for
 # all of them, not something each command implements.
-for c in status urls inspect; do
-  it "portta $c | head -2 exits cleanly and prints no stack trace"
-  head=$("$GW" "$c" 2>/dev/null | head -2); rc=$?
-  if [ "$rc" -ne 0 ]; then _t_fail "exit $rc"
-  else assert_not_contains "$head" "EPIPE"; fi
-done
+# Help exercises the shipped entrypoint and its output handler without querying
+# a developer's Docker daemon. Emit enough bytes to close the pipe early.
+it "a closed help pipe prints no stack trace"
+pipe_error=$(mktemp)
+"$GW" --help 2>"$pipe_error" | head -c 1 >/dev/null
+pipe_status=$?
+assert_eq "0" "$pipe_status"
+assert_not_contains "$(cat "$pipe_error")" "EPIPE"
+rm -f "$pipe_error"
 
 describe "public access accepts a derived base domain"
 

@@ -67,23 +67,31 @@ for service, spec in sorted((config.get('services') or {}).items()):
 PORTTA_PY
 }
 
+TEMPLATES=("$PORTTA_ROOT"/templates/overlays/*.yaml)
+if [ "$#" -gt 0 ]; then
+  if [ "$#" -ne 2 ] || [ "$1" != "--template" ] || [[ "$2" == */* ]] || [ ! -f "$PORTTA_ROOT/templates/overlays/$2" ] || [[ "$2" != *.yaml ]]; then
+    echo "usage: templates.test.sh [--template filename.yaml]" >&2; exit 2
+  fi
+  TEMPLATES=("$PORTTA_ROOT/templates/overlays/$2")
+fi
+
 describe "every overlay template is valid Compose"
-for tpl in "$PORTTA_ROOT"/templates/overlays/*.yaml; do
+for tpl in "${TEMPLATES[@]}"; do
   name=$(basename "$tpl")
   base="$TMP/base-$name"
   render_base "$tpl" "$base"
 
   it "$name renders"
   if COMPOSE_PROJECT_NAME=tpl PORTTA_NETWORK=portta \
-     docker compose -f "$base" -f "$tpl" config --quiet >/dev/null 2>&1; then
+     docker compose -f "$base" -f "$tpl" config --format json > "$TMP/rendered-$name.json" 2> "$TMP/error"; then
     _t_pass
   else
-    _t_fail "$(COMPOSE_PROJECT_NAME=tpl docker compose -f "$base" -f "$tpl" config 2>&1 | head -2)"
+    _t_fail "$(head -2 "$TMP/error")"
   fi
 done
 
 describe "templates follow the rules that are easy to get wrong"
-for tpl in "$PORTTA_ROOT"/templates/overlays/*.yaml; do
+for tpl in "${TEMPLATES[@]}"; do
   name=$(basename "$tpl")
   body=$(cat "$tpl")
   base="$TMP/base-$name"
@@ -107,9 +115,7 @@ for tpl in "$PORTTA_ROOT"/templates/overlays/*.yaml; do
   # the access network on purpose, which is what makes hostname routing
   # possible. What must never happen is a datastore joining the shared network
   # that carries HTTP traffic.
-  COMPOSE_PROJECT_NAME=tpl PORTTA_NETWORK=portta \
-    docker compose -f "$base" -f "$tpl" config --format json > "$TMP/rendered.json" 2>/dev/null
-  assert_eq "" "$(datastores_on_shared_network "$TMP/rendered.json")"
+  assert_eq "" "$(datastores_on_shared_network "$TMP/rendered-$name.json")"
 done
 
 describe "the worktree template"

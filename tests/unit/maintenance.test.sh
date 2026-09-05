@@ -253,7 +253,7 @@ assert_eq "755" "$(portta_file_mode "$HOME_D/state/github")"
 # by design, and demanding it reported a repair that was not one.
 # `.env` wins over the environment here, so the setting goes in the file.
 it "does not demand the access network when TCP routing is off"
-printf 'PORTTA_TCP=false\n' >> "$HOME_D/.env"
+portta_env_set PORTTA_TCP false "$HOME_D/.env"
 assert_not_contains "$(run_isolated "$HOME_D" repair --dry-run 2>&1)" "portta-access"
 
 it "does demand it when TCP routing is on"

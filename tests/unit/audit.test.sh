@@ -58,7 +58,7 @@ it "no consumer directory is mounted into the gateway"
 # A bind mount is `src:dst`; a tmpfs entry has no colon, so require one.
 assert_eq "" "$(grep -hE '^\s+- [./][^ ]*:' docker/compose/compose.yaml docker/compose/*/*.yaml \
   | grep -vE '\./(config|state|apps|packages)/' \
-  | grep -vE '\./(\.env|VERSION|README\.md|CHANGELOG\.md|docs):' \
+  | grep -vE '\./(\.env|\.env\.example|\.env-lock|VERSION|README\.md|CHANGELOG\.md|docs):' \
   | grep -vE '/var/run/docker\.sock:/var/run/docker\.sock:ro' \
   | grep -vE '/dev/net/tun:/dev/net/tun' || true)"
 
@@ -335,12 +335,8 @@ it "just build produces the explicit local release"
 assert_contains "$(awk '/^build:/,/^$/' justfile)" '{{gw}} build'
 
 it "just up and just web consume the local release without building"
-assert_contains "$(awk '/^up /,/^$/' justfile)" 'PORTTA_LOCAL_RELEASE=true'
-assert_contains "$(awk '/^up /,/^$/' justfile)" 'PORTTA_WEB_BUILD=false'
-assert_contains "$(awk '/^up /,/^$/' justfile)" 'PORTTA_WEB_DEV=false'
-assert_contains "$(awk '/^web /,/^$/' justfile)" 'PORTTA_LOCAL_RELEASE=true'
-assert_contains "$(awk '/^web /,/^$/' justfile)" 'PORTTA_WEB_BUILD=false'
-assert_contains "$(awk '/^web /,/^$/' justfile)" 'PORTTA_WEB_DEV=false'
+assert_contains "$(awk '/^up /,/^$/' justfile)" '{{gw}} up --local-release {{args}}'
+assert_contains "$(awk '/^web /,/^$/' justfile)" '{{gw}} web --local-release {{args}}'
 
 it "reset is the checkout setup with --reset"
 assert_contains "$(sed -n '/export async function resetCommand/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)" 'reset: true'

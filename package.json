@@ -13,7 +13,12 @@
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present"
+    "lint": "npm run lint --workspaces --if-present",
+    "test:affected": "node tests/affected.mjs",
+    "test:integration": "node tests/run.mjs --integration",
+    "test:e2e": "node tests/run.mjs --e2e",
+    "test:release": "node tests/run.mjs --release",
+    "test:tooling": "node --test tests/tooling/*.test.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

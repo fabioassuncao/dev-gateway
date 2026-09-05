@@ -33,6 +33,14 @@ files_for() {
 # secret. See docs/adr/0035-authentication-lives-in-the-panel.md.
 PORTTA_RUNTIME_CREDENTIAL="PORTTA_AUTH_MODE=required PORTTA_AUTH_SECRET=a-test-secret-that-is-long-enough"
 
+PROFILE_FILTER=""
+if [ "$#" -gt 0 ]; then
+  if [ "$#" -ne 2 ] || [ "$1" != "--profile" ]; then
+    echo "usage: profiles.test.sh [--profile local|remote-private|remote-public]" >&2; exit 2
+  fi
+  case "$2" in local|remote-private|remote-public) PROFILE_FILTER="$2" ;; *) exit 2 ;; esac
+fi
+
 describe "domains follow the profile"
 it "local uses localhost"
 assert_eq "localhost" "$(resolve local PORTTA_DOMAIN)"
@@ -148,19 +156,43 @@ else
       portta_resolve_profile "$profile" >/dev/null 2>&1 || return 1
       portta_compose "$profile" config >/dev/null 2>&1 )
   }
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "local" ]; then
   it "local";                       assert_success validate local
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "local" ]; then
   it "local with TLS";              assert_success validate local TLS_ENABLED=true TLS_MODE=local
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "local" ]; then
   it "local with the dashboard";    assert_success validate local PORTTA_DASHBOARD=true
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "remote-private" ]; then
   it "remote-private + tailscale";  assert_success validate remote-private TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "remote-private" ]; then
   it "remote-private, own VPN";     assert_success validate remote-private PORTTA_BIND_ADDRESS=100.64.0.1 PRIVATE_DOMAIN=vpn.test
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "remote-public" ]; then
   it "remote-public";               assert_success validate remote-public PUBLIC_DOMAIN=d.test TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "remote-public" ]; then
   it "remote-public + tailscale";   assert_success validate remote-public PUBLIC_DOMAIN=d.test TAILSCALE_ENABLED=true TS_AUTHKEY=dummy TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "local" ]; then
   it "local with the web panel";    assert_success validate local PORTTA_WEB=true
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "local" ]; then
   it "local with the panel in dev"; assert_success validate local PORTTA_WEB=true PORTTA_WEB_DEV=true
+  fi
   # shellcheck disable=SC2086  # the credential is three separate assignments
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "remote-private" ]; then
   it "remote-private + panel/vpn";  assert_success validate remote-private TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy PORTTA_WEB=true PORTTA_WEB_EXPOSE=vpn $PORTTA_RUNTIME_CREDENTIAL
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "local" ]; then
   it "local with tcp entrypoints";  assert_success validate local PORTTA_TCP=true
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "remote-private" ]; then
   it "remote-private + tcp";        assert_success validate remote-private TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy PORTTA_TCP=true
+  fi
 fi
 
 describe "panel access selects exactly one front door"
@@ -452,6 +484,7 @@ else
     "PORTTA_PROFILE=local PORTTA_WEB=true CLOUDFLARE_TUNNEL_ENABLED=true" \
     "PORTTA_PROFILE=remote-public PUBLIC_DOMAIN=d.test CLOUDFLARE_TUNNEL_ENABLED=true"
   do
+    if [ -n "$PROFILE_FILTER" ] && [[ "$case_env" != "PORTTA_PROFILE=$PROFILE_FILTER"* ]]; then continue; fi
     it "same files for: $case_env"
     # shellcheck disable=SC2086
     profile=$(printf '%s' "$case_env" | sed -n 's/.*PORTTA_PROFILE=\([a-z-]*\).*/\1/p')
