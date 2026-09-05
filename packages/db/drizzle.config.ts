@@ -1,3 +1,4 @@
+import { resolveDatabase } from 'portta-core'
 import { defineConfig } from 'drizzle-kit'
 
 // `migrations` repeats what src/migrate.ts declares. The two have to agree:
@@ -8,9 +9,8 @@ export default defineConfig({
   schema: './src/schema/index.ts',
   out: './drizzle',
   migrations: { table: 'drizzle_migrations', schema: 'public' },
-  dbCredentials: {
-    url: process.env['PORTTA_RUNTIME_DATABASE_URL'] ?? 'postgres://portta@127.0.0.1:5432/portta',
-  },
+  // Schema generation/checking is offline. Connected operations need configuration.
+  ...(resolveDatabase(process.env).url ? { dbCredentials: { url: resolveDatabase(process.env).url! } } : {}),
   strict: true,
   verbose: true,
 })

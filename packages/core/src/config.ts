@@ -1,3 +1,4 @@
+import { databaseMode, type DatabaseMode } from './database-config.ts'
 import { resolveDomain, type DomainMode } from './domain.ts'
 import { dashboardAdvertisedHost, isHostnameStyle, type HostnameStyle } from './hostname.ts'
 
@@ -61,6 +62,7 @@ export interface GatewayConfig {
   controlNetwork: string
   accessNetwork: string
   webNetwork: string
+  databaseMode: DatabaseMode
   databaseNetwork: string
   domain: string
   bindAddress: string
@@ -165,6 +167,7 @@ export function loadGatewayConfig(env: Record<string, string | undefined> = proc
     controlNetwork: value(env, 'PORTTA_CONTROL_NETWORK', 'portta-control'),
     accessNetwork: value(env, 'PORTTA_ACCESS_NETWORK', 'portta-access'),
     webNetwork: value(env, 'PORTTA_WEB_NETWORK', 'portta-web'),
+    databaseMode: databaseMode(env),
     databaseNetwork: value(env, 'PORTTA_DB_NETWORK', 'portta-data'),
     domain,
     bindAddress,
@@ -262,7 +265,8 @@ export function composeFiles(config: GatewayConfig): string[] {
     // Always together. PostgreSQL is a boot dependency of the panel, not a
     // feature of it: a panel with no database refuses to start, so a profile
     // that selected one without the other could only ever produce that.
-    files.push('docker/compose/features/web.yaml', 'docker/compose/features/db.yaml')
+    files.push('docker/compose/features/web.yaml')
+    if (config.databaseMode !== 'external') files.push('docker/compose/features/db.yaml')
     // Exactly one overlay owns the panel's front door, so `public` and a host
     // publish can never both claim PORTTA_WEB_PORT.
     if (config.webExpose === 'public') files.push('docker/compose/features/panel-public.yaml')

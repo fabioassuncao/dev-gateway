@@ -21,7 +21,7 @@ function fixture(env: string): string {
   return root
 }
 
-describe('the environment wins over the file, except right after a write', () => {
+describe('installation values win over inherited environment', () => {
   let root: string
   const saved = process.env['PORTTA_WEB']
 
@@ -32,9 +32,9 @@ describe('the environment wins over the file, except right after a write', () =>
     else process.env['PORTTA_WEB'] = saved
   })
 
-  it('an inherited value normally beats the file, so PORTTA_X=y portta up works', () => {
+  it('an inherited value cannot override persisted installation configuration', () => {
     process.env['PORTTA_WEB'] = 'false'
-    expect(gatewayContext({ root }).config.webEnabled).toBe(false)
+    expect(gatewayContext({ root }).config.webEnabled).toBe(true)
   })
 
   // The regression: `web up` wrote PORTTA_WEB=true, re-resolved, and read the

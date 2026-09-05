@@ -116,6 +116,16 @@ services:
     # right just when the host uid happens to be 1000.
     user: ${PORTTA_WEB_USER:-node}
     environment:
+      PORTTA_RUNTIME_DB_MODE: ${PORTTA_RUNTIME_DB_MODE:-managed}
+      PORTTA_RUNTIME_DB_NAME: ${PORTTA_RUNTIME_DB_NAME:-portta}
+      PORTTA_RUNTIME_DB_USER: ${PORTTA_RUNTIME_DB_USER:-portta}
+      PORTTA_RUNTIME_DB_PASSWORD: ${PORTTA_RUNTIME_DB_PASSWORD:-}
+      PORTTA_RUNTIME_DATABASE_URL: ${PORTTA_RUNTIME_DATABASE_URL:-}
+      PORTTA_AUTH_SIGNIN_ATTEMPTS: ${PORTTA_AUTH_SIGNIN_ATTEMPTS:-}
+      ACME_CHALLENGE: ${ACME_CHALLENGE:-dns}
+      ACME_DNS_RESOLVERS: ${ACME_DNS_RESOLVERS:-}
+      CLOUDFLARE_TUNNEL_ENABLED: ${CLOUDFLARE_TUNNEL_ENABLED:-false}
+      CLOUDFLARE_TUNNEL_ZONE: ${CLOUDFLARE_TUNNEL_ZONE:-}
       PORTTA_RUNTIME_DOCKER_API: http://web-socket-proxy:2375
       PORTTA_RUNTIME_HOST: 0.0.0.0
       PORTTA_RUNTIME_PORT: "8081"
@@ -234,6 +244,8 @@ services:
       #                    and refuses every other path in its own process.
       #                    See docs/adr/0011-panel-reads-traefik-writes-one-file.md.
       - ./.env:/app/state/.env
+      - ./.env.example:/app/state/.env.example:ro
+      - ./.env-lock:/app/state/.env-lock
       - ./VERSION:/app/state/VERSION:ro
       - ./state/git:/app/state/git:ro
       - ./state/metrics:/app/state/metrics:ro

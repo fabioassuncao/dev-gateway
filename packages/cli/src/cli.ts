@@ -10,7 +10,7 @@ import { dnsCheck, dnsSetup, dnsStatus, networkStatus, publicDisable, publicEnab
 import { gitClear, gitScan, gitStatus } from './commands/git.js'
 import { reposClear, reposScan, reposStatus } from './commands/repos.js'
 import { hostCollect, hostStatus, hostWatch } from './commands/host.js'
-import { configGet, configList, configSet } from './commands/config.js'
+import { configPrepare, configGet, configList, configSet } from './commands/config.js'
 import { setupCommand } from './commands/setup.js'
 import { authBootstrap, authLogin, authLogout, authStatus, authTokenCreate, authTokenList, authTokenRevoke, authWhoami } from './commands/auth.js'
 import { protectHost, protectStatus, unprotectHost } from './commands/protect.js'
@@ -73,6 +73,7 @@ describe(program.command('bootstrap'), 'Prepare this checkout and run diagnostic
   .action(bootstrapCommand)
 describe(program.command('build'), 'Build every local Portta release image from VERSION').action((_options, command) => buildCommand(command))
 describe(program.command('up [profile]'), 'Start gateway components')
+  .option('--local-release', 'use the locally built release from VERSION')
   .option('--attach', 'run in the foreground')
   .option('--demo', 'also start docker/examples and import their panel records')
   .action(upCommand)
@@ -157,8 +158,8 @@ describe(dns.command('check'), 'Resolve a wildcard probe').action((_options, com
 describe(dns.command('status'), 'Show DNS configuration without secrets').action((_options, command) => dnsStatus(command))
 describe(dns.command('setup'), 'Plan or apply a Cloudflare wildcard record').option('--target <ip>').option('--dry-run').action(dnsSetup)
 
-const web = describe(program.command('web'), 'Run the optional administration panel')
-describe(web.command('up'), 'Enable and start the panel').option('--expose <scope>', 'local, tailscale, public or vpn').option('--port <number>').option('--read-only').option('--writable').action(webUp)
+const web = describe(program.command('web'), 'Run the optional administration panel').option('--local-release', 'use the locally built release from VERSION')
+describe(web.command('up'), 'Enable and start the panel').option('--expose <scope>', 'local, tailscale, public or vpn').option('--port <number>').option('--read-only').option('--writable').action((options, command) => webUp({ ...options, localRelease: command.optsWithGlobals().localRelease }, command))
 describe(web.command('dev'), 'Start the panel with hot reload').option('--expose <scope>').option('--port <number>').option('--read-only').option('--writable').action((options, command) => webUp({ ...options, dev: true }, command))
 describe(web.command('down'), 'Stop the panel only').action((_options, command) => webDown(command))
 describe(web.command('disable'), 'Stop and disable the panel').action((_options, command) => webDisable(command))
@@ -169,6 +170,7 @@ describe(web.command('logs [service]'), 'Follow panel logs').action((service, _o
 describe(web.command('build'), 'Build the panel image').action((_options, command) => webBuild(command))
 
 const config = describe(program.command('config'), 'Read and change settings on an installed gateway')
+describe(config.command('prepare'), 'Create or reconcile .env without starting services').action((_options, command) => configPrepare(command))
 describe(config.command('list', { isDefault: true }).alias('ls'), 'List the named settings and their values').action((_options, command) => configList(command))
 describe(config.command('get <setting>'), 'Print one setting').action((name, _options, command) => configGet(name, command))
 describe(config.command('set <setting> <value>'), 'Change one setting and apply it')

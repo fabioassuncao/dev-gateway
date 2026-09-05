@@ -39,7 +39,10 @@ called=$(grep -v '^[[:space:]]*#' "$INSTALLER" \
   | sed -E 's/^[^a-z]*//; s/[[:space:]]*$//' | sort -u)
 # sw_vers is macOS. The portta_* helpers are called inside the subshell that
 # sources the installed scripts/lib, and are defined there.
-allowed="portta_compose_files
+allowed="portta_env_get
+portta_env_set
+portta_prepare_env
+portta_compose_files
 portta_defaults
 portta_load_env
 portta_resolve_profile
@@ -110,16 +113,16 @@ it "with the URL a browser will be on, because the session cookie depends on it"
 assert_contains "$SOURCE" 'env_set "$ENV_FILE" PORTTA_PANEL_URL'
 
 it "the signing secret is generated once and never printed"
-assert_contains "$SOURCE" 'if [ -z "$(env_get "$ENV_FILE" PORTTA_AUTH_SECRET)" ]; then'
+assert_contains "$SOURCE" 'portta_prepare_env "$ENV_FILE"'
 assert_eq "" "$(printf '%s' "$SOURCE" | grep -n 'say.*PORTTA_AUTH_SECRET' || true)"
 
 describe "an update never destroys what the first install generated"
 
 it ".env is created only when absent"
-assert_contains "$SOURCE" 'if [ ! -f "$ENV_FILE" ]; then'
+assert_contains "$SOURCE" '[ -f "$ENV_FILE" ] || ENV_WAS_CREATED=true'
 
 it "the database credential is generated once"
-assert_contains "$SOURCE" 'if [ -z "$(env_get "$ENV_FILE" PORTTA_RUNTIME_DB_PASSWORD)" ]; then'
+assert_contains "$SOURCE" 'portta_prepare_env "$ENV_FILE"'
 
 it "state, TLS material and the dynamic directory are never in the replaced set"
 replaced=$(printf '%s' "$SOURCE" | sed -n 's/^for path in \(.*\); do$/\1/p' | head -n1)
@@ -165,15 +168,15 @@ describe "the panel database survives an uninstall and reinstall"
 # password lived. A later install generates a new one, PostgreSQL still expects
 # the old, and the panel starts, answers /health and persists nothing: it is
 # designed to run degraded, which is what makes this failure quiet.
-it "the installer makes .env authoritative over the volume"
-assert_contains "$SOURCE" 'ALTER USER portta WITH PASSWORD'
+it "the installer never changes a persistent cluster credential"
+assert_not_contains "$SOURCE" 'ALTER USER'
 
 it "and the password never crosses a command line to do it"
 assert_contains "$SOURCE" 'POSTGRES_PASSWORD'
 assert_eq "" "$(printf '%s' "$SOURCE" | grep -n 'PASSWORD '"'"'\$DB_PASSWORD' || true)"
 
 it "the credential is verified over TCP, the way the panel connects"
-assert_contains "$SOURCE" 'the panel database rejects the credential in .env'
+assert_contains "$SOURCE" 'the database rejects the configured credential'
 
 it "and uninstall says where that credential went"
 assert_contains "$SOURCE" 'its password lived in the .env just removed'

@@ -4,7 +4,7 @@ import type { AppDeps } from '../../deps.ts'
 import { TunnelView } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 import { TunnelSetupError, forgetTunnel, tunnelView } from '../../services/tunnel.ts'
-import { setEnvValue, readEnvFile, writeEnvFile, isWritable } from '../../services/envfile.ts'
+import { patchEnvFile, isWritable } from '../../services/envfile.ts'
 
 /**
  * Cloudflare Tunnel, configured from the panel.
@@ -128,7 +128,5 @@ export function tunnelRoutes(deps: AppDeps): Hono {
 /** One place that writes .env, so a failure to write is reported the same way. */
 function applyEnv(deps: AppDeps, values: Record<string, string>): void {
   if (!isWritable(deps.config.envFile)) throw new Error('.env is not writable by the panel')
-  let text = readEnvFile(deps.config.envFile)
-  for (const [key, value] of Object.entries(values)) text = setEnvValue(text, key, value)
-  writeEnvFile(deps.config.envFile, text)
+  patchEnvFile(deps.config.envFile, values)
 }

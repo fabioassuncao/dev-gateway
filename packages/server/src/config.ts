@@ -5,7 +5,7 @@
 // Gateway-wide defaults are owned by portta-core.
 
 import { readFileSync, existsSync } from 'node:fs'
-import { attachment, BRIDGE_IMAGE, isHostnameStyle, isTrue, loadGatewayConfig, type HostnameStyle } from 'portta-core'
+import { resolveDatabase, attachment, BRIDGE_IMAGE, isHostnameStyle, isTrue, loadGatewayConfig, type HostnameStyle } from 'portta-core'
 
 export { isTrue }
 
@@ -38,7 +38,7 @@ export interface PanelConfig {
   webNetwork: string
   /** Private network shared only by the panel and its PostgreSQL database. */
   databaseNetwork: string
-  /** Bootstrap connection string. Null keeps persistence entirely optional. */
+  /** Resolved connection string. Null prevents the panel from starting. */
   databaseUrl: string | null
   domain: string
   /** How the base domain was chosen: local, auto or custom. */
@@ -166,7 +166,7 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     accessNetwork: gateway.accessNetwork,
     webNetwork: gateway.webNetwork,
     databaseNetwork: gateway.databaseNetwork,
-    databaseUrl: optional('PORTTA_RUNTIME_DATABASE_URL'),
+    databaseUrl: resolveDatabase(process.env).url,
     domain: gateway.domain,
     domainMode: gateway.domainMode,
     hostnameStyle: isHostnameStyle(env('PORTTA_HOSTNAME_STYLE', 'project-service'))

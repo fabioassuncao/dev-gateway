@@ -68,7 +68,7 @@ if (rendered.written) process.stdout.write(`wrote ${GENERATED_FILES.auth}: ${ren
 // somebody has to diagnose.
 if (config.databaseUrl === null) {
   process.stderr.write(
-    'PORTTA_RUNTIME_DATABASE_URL is not set; the panel needs PostgreSQL.\n' +
+    'PostgreSQL is not configured; prepare managed credentials or select an external database.\n' +
       'Run: portta web up  (it starts the database beside the panel)\n',
   )
   process.exit(1)

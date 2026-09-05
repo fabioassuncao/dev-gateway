@@ -29,7 +29,7 @@ if (password.length < 10) {
 
 const config = loadConfig()
 if (config.databaseUrl === null) {
-  process.stderr.write('PORTTA_RUNTIME_DATABASE_URL is not set; there is no database to reset a password in\n')
+  process.stderr.write('PostgreSQL is not configured; there is no database to reset a password in\n')
   process.exit(1)
 }
 

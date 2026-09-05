@@ -249,6 +249,7 @@ docker.listen(DOCKER_PORT, '127.0.0.1', () => {
       ...process.env,
       NODE_ENV: 'production',
       PORTTA_RUNTIME_DOCKER_API: `http://127.0.0.1:${DOCKER_PORT}`,
+      PORTTA_RUNTIME_DB_MODE: 'external',
       PORTTA_RUNTIME_DATABASE_URL: DATABASE_URL,
       PORTTA_RUNTIME_HOST: '127.0.0.1',
       PORTTA_RUNTIME_PORT: String(PANEL_PORT),

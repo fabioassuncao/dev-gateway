@@ -1,5 +1,6 @@
+import { patchEnvFile, prepareEnvFile } from 'portta-core'
 import { join } from 'node:path'
-import { AUTO_DOMAIN_PROVIDERS, DOMAIN_MODES, PANEL_ACCESS_MODES, autoDomainFor, exampleHostnames, isAutoDomainProvider, isDomainMode, isPanelAccess, readEnvFile, setEnvValue, writeEnvFile } from 'portta-core'
+import { AUTO_DOMAIN_PROVIDERS, DOMAIN_MODES, PANEL_ACCESS_MODES, autoDomainFor, exampleHostnames, isAutoDomainProvider, isDomainMode, isPanelAccess } from 'portta-core'
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
 import { PreconditionError, RefusedError, UsageError } from '../errors.js'
@@ -66,9 +67,7 @@ function setting(name: string): Setting {
 
 function write(root: string, values: Record<string, string>): void {
   const path = join(root, '.env')
-  let text = readEnvFile(path)
-  for (const [key, value] of Object.entries(values)) text = setEnvValue(text, key, value)
-  writeEnvFile(path, text)
+  patchEnvFile(path, values)
 }
 
 export async function configList(command: Command): Promise<void> {
@@ -285,4 +284,11 @@ export async function configSet(name: string, value: string, options: { apply?: 
   }
 
   if (output.json) output.data({ setting: name, value, applied: options.apply !== false, changed: values })
+}
+
+/** Prepare configuration without starting or touching Docker resources. */
+export function configPrepare(command: Command): void {
+  const context = gatewayContext({ profile: globals(command).profile })
+  prepareEnvFile(join(context.root, '.env'))
+  new Output(globals(command)).progress('configuration prepared from .env.example; existing values preserved')
 }

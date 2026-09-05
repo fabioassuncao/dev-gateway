@@ -286,7 +286,8 @@ portta_compose_files() {
   # The panel is opt-in and rides along with the gateway once enabled, so
   # `portta up` and `portta web` cannot drift apart.
   if portta_is_true "${PORTTA_WEB:-false}"; then
-    files="$files docker/compose/features/web.yaml docker/compose/features/db.yaml"
+    files="$files docker/compose/features/web.yaml"
+    [ "${PORTTA_RUNTIME_DB_MODE:-managed}" = external ] || files="$files docker/compose/features/db.yaml"
     # Exactly one overlay owns the panel's front door, so a host publish and
     # the public Traefik entrypoint can never both claim PORTTA_WEB_PORT.
     if [ "${PORTTA_WEB_EXPOSE:-local}" = "public" ]; then

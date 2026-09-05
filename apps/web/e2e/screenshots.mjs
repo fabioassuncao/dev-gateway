@@ -245,7 +245,8 @@ const harness = spawn(process.execPath, [join(here, 'harness.mjs')], {
     PORTTA_TCP: 'true',
     PORTTA_E2E_DOCKER_PORT: String(DOCKER_PORT),
     PORTTA_E2E_PANEL_PORT: String(PANEL_PORT),
-    PORTTA_RUNTIME_DATABASE_URL: DATABASE_URL,
+    PORTTA_RUNTIME_DB_MODE: 'external',
+      PORTTA_RUNTIME_DATABASE_URL: DATABASE_URL,
     PORTTA_RUNTIME_METRICS_DIR: metricsDir,
     // A signing secret and a protection store, so the Overview shows a healthy
     // host rather than three findings about the harness it is running in.

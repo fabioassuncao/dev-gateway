@@ -352,8 +352,6 @@ export async function runDoctor(context: GatewayContext): Promise<DoctorCheck[]>
     // it. Nothing reads either any more.
     const panelFile = join(root, 'config/traefik/dynamic/portta-panel.yaml')
     const legacyPanelAuth =
-      Boolean(env['PORTTA_WEB_AUTH_HASH'] || env['PORTTA_WEB_AUTH_USER']) ||
-      (env['PORTTA_WEB_AUTH'] ?? 'none') !== 'none' ||
       (existsSync(panelFile) && readFileSync(panelFile, 'utf8').includes('middlewares:'))
     add(...panelAuthVerdicts({
       expose: env['PORTTA_WEB_EXPOSE'] || 'local',

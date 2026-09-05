@@ -128,6 +128,7 @@ describe('regenerable checkout snapshots', () => {
     writeFileSync(join(root, 'state/metrics/host.json'), '{}')
     writeFileSync(join(root, 'state/github/app.pem'), 'key')
     writeFileSync(join(root, 'state/auth/secret'), 'keep')
+    writeFileSync(join(root, '.env.example'), '# Portta environment structure: 1\nPORTTA_AUTH_SECRET=\nPORTTA_RUNTIME_DB_PASSWORD=\n')
     writeFileSync(join(root, '.env'), 'PORTTA_WEB=true\n')
 
     expect(clearRegenerableState(root)).toEqual(['state/git', 'state/metrics'])
@@ -166,6 +167,7 @@ describe('resetCommand', () => {
     mkdirSync(join(root, 'state/metrics'), { recursive: true })
     writeFileSync(join(root, 'state/git/index.json'), '{}')
     writeFileSync(join(root, 'state/metrics/host.json'), '{}')
+    writeFileSync(join(root, '.env.example'), '# Portta environment structure: 1\nPORTTA_AUTH_SECRET=\nPORTTA_RUNTIME_DB_PASSWORD=\n')
     writeFileSync(join(root, '.env'), 'PORTTA_PROFILE=local\n')
     const context = {
       root,

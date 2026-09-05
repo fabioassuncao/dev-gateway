@@ -9,7 +9,7 @@ import { PreconditionError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
 import { confirm } from '../confirm.js'
-import { porttaImages } from 'portta-core'
+import { resolveDatabase, databaseClientEnvironment, porttaImages } from 'portta-core'
 
 function globals(command: Command) { return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string } }
 
@@ -79,7 +79,7 @@ export async function dbUrl(options: { project: string; service?: string }, comm
   new Output(globals(command)).data(url)
 }
 
-function panelDb(containers: Awaited<ReturnType<typeof inspectContainers>>) { return containers.find((container) => container.labels['portta.component'] === 'db') }
+function panelDb(containers: Awaited<ReturnType<typeof inspectContainers>>, project: string) { return containers.find((container) => container.labels['portta.component'] === 'db' && container.labels['com.docker.compose.project'] === project) }
 export async function dbMigrate(command: Command): Promise<void> {
   const result = await requestPanelMigrate(gatewayContext({ profile: globals(command).profile }))
   const output = new Output(globals(command))
@@ -89,7 +89,13 @@ export async function dbMigrate(command: Command): Promise<void> {
 }
 
 export async function dbStatus(command: Command): Promise<void> {
-  const database = panelDb(await inspectContainers())
+  const context = gatewayContext({ profile: globals(command).profile })
+  if (context.config.databaseMode === 'external') {
+    await panelDbClient('psql', ['-At', '-c', 'select 1'], command)
+    new Output(globals(command)).data({ state: 'ready', mode: 'external', container: null })
+    return
+  }
+  const database = panelDb(await inspectContainers(), context.config.projectName)
   const result = { state: database?.state ?? 'absent', container: database?.name ?? null, network: gatewayContext({ profile: globals(command).profile }).config.databaseNetwork }
   const output = new Output(globals(command)); if (output.json) output.data(result); else output.line(`Panel database: ${result.state}${result.container ? ` (${result.container})` : ''}\nPrivate network: ${result.network}`)
   if (!database || database.state !== 'running') throw new PreconditionError('the panel database is not running', 'run portta web up')
@@ -97,10 +103,16 @@ export async function dbStatus(command: Command): Promise<void> {
 
 async function panelDbClient(program: 'psql' | 'pg_dump' | 'pg_restore', args: string[], command: Command, options: { input?: Uint8Array; inherit?: boolean; tty?: boolean } = {}) {
   const context = gatewayContext({ profile: globals(command).profile })
-  if (!context.env['PORTTA_RUNTIME_DB_PASSWORD']) throw new PreconditionError('the panel database credential is not configured')
+  const database = resolveDatabase(context.env)
+  if (!database.url) throw new PreconditionError('the panel database credential is not configured')
   const toolbox = await ensureToolbox(command)
-  const env = { ...process.env, PGPASSWORD: context.env['PORTTA_RUNTIME_DB_PASSWORD'] }
-  return runProcess('docker', ['run', '--rm', '-i', ...(options.tty && process.stdin.isTTY ? ['-t'] : []), '--network', context.config.databaseNetwork, '-e', 'PGPASSWORD', toolbox, program, '-h', 'db', '-U', 'portta', '-d', 'portta', ...args], { env, input: options.input, stdio: options.inherit ? 'inherit' : 'pipe' })
+  const connection = databaseClientEnvironment(database.url)
+  const env = { ...process.env, ...connection }
+  const network = database.mode === 'managed' ? context.config.databaseNetwork : context.config.network
+  return runProcess('docker', ['run', '--rm', '-i', ...(options.tty && process.stdin.isTTY ? ['-t'] : []), '--network', network,
+    ...Object.keys(connection).flatMap(key => ['-e', key]), toolbox, program,
+    ...(program === 'pg_restore' ? ['--dbname', connection['PGDATABASE']!] : []), ...args],
+    { env, input: options.input, stdio: options.inherit ? 'inherit' : 'pipe' })
 }
 
 export async function dbShell(command: Command): Promise<void> {

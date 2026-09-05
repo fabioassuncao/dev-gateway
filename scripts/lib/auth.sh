@@ -6,9 +6,8 @@ portta_auth_prepare() { # portta_auth_prepare <profile>
   mkdir -p "$PORTTA_ROOT/state/auth" "$PORTTA_ROOT/config/traefik/dynamic"
   chmod 700 "$PORTTA_ROOT/state/auth"
   if [ -z "${PORTTA_AUTH_SECRET:-}" ]; then
-    PORTTA_AUTH_SECRET=$(portta_random_hex 32)
-    export PORTTA_AUTH_SECRET
-    portta_env_set PORTTA_AUTH_SECRET "$PORTTA_AUTH_SECRET"
+    err "authentication secret missing; run portta bootstrap"
+    return 1
   fi
 
   # A separate disposable service gets the two write mounts the long-running

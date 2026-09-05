@@ -1,7 +1,7 @@
 // The Settings view, and the only path that writes to .env.
 
 import type { PanelConfig } from '../config.ts'
-import { parseEnv, readEnvFile, setEnvValue, writeEnvFile, isWritable } from './envfile.ts'
+import { parseEnv, readEnvFile, setEnvValue, updateEnvFile, isWritable } from './envfile.ts'
 import { FIELDS, FIELDS_BY_KEY, ValidationError, validateCombination, validateValue } from './settings.ts'
 import type {
   ConfigDiscardResult,
@@ -160,8 +160,6 @@ export function patchConfig(
     throw new ValidationError('.env', 'is not writable by the panel')
   }
 
-  const text = readEnvFile(config.envFile)
-  const merged = parseEnv(text)
   const applied = new Map<string, string>()
 
   for (const [key, raw] of Object.entries(updates)) {
@@ -179,12 +177,14 @@ export function patchConfig(
     applied.set(key, value)
   }
 
-  for (const [key, value] of applied) merged.set(key, value)
-  validateCombination(merged)
-
-  let next = text
-  for (const [key, value] of applied) next = setEnvValue(next, key, value)
-  writeEnvFile(config.envFile, next)
+  updateEnvFile(config.envFile, (current, template) => {
+    const merged = parseEnv(current)
+    for (const [key, value] of applied) merged.set(key, value)
+    validateCombination(merged)
+    let next = current
+    for (const [key, value] of applied) next = setEnvValue(next, key, value, template)
+    return next
+  })
 
   const view = buildConfigView(config)
   return {
@@ -255,8 +255,6 @@ export function discardConfig(
     }
   }
 
-  const text = readEnvFile(config.envFile)
-  const merged = parseEnv(text)
   const applied = new Map<string, string>()
 
   for (const field of wanted) {
@@ -272,12 +270,14 @@ export function discardConfig(
     applied.set(field.key, value)
   }
 
-  for (const [key, value] of applied) merged.set(key, value)
-  validateCombination(merged)
-
-  let next = text
-  for (const [key, value] of applied) next = setEnvValue(next, key, value)
-  writeEnvFile(config.envFile, next)
+  updateEnvFile(config.envFile, (current, template) => {
+    const merged = parseEnv(current)
+    for (const [key, value] of applied) merged.set(key, value)
+    validateCombination(merged)
+    let next = current
+    for (const [key, value] of applied) next = setEnvValue(next, key, value, template)
+    return next
+  })
 
   const after = buildConfigView(config)
   return {

@@ -31,3 +31,5 @@ export * from './activity.ts'
 export * from './repos-scan.ts'
 export * from './tasks.ts'
 export * from './task-example.ts'
+
+export * from './database-config.ts'

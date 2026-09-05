@@ -126,65 +126,16 @@ confirm_default_yes() {
 }
 
 # ---------------------------------------------------------------------------
-# Secrets
+# Environment access
 # ---------------------------------------------------------------------------
-
-random_hex() { # random_hex <bytes>
-  LC_ALL=C od -An -N "${1:-32}" -tx1 /dev/urandom | tr -d ' \n'
-}
-
-# A password a human has to retype once, so: no ambiguous characters, and
-# ---------------------------------------------------------------------------
-# .env editing
-# ---------------------------------------------------------------------------
-# Same contract as portta_env_set in scripts/lib/common.sh: rewrite the line in
-# place when the key exists, append otherwise, and never truncate the file if
-# the run is interrupted.
-
-env_get() { # env_get <file> <key>
-  local raw
+# Existing installs ship their reader. A fresh install has no file to read;
+# all writes happen after the current runtime adapter has been downloaded.
+env_get() {
   [ -f "$1" ] || return 0
-  raw=$(sed -n "s/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}$2=//p" "$1" | tail -n1)
-  case "$raw" in
-    \"*\") raw=${raw#\"}; raw=${raw%\"} ;;
-    "'"*"'") raw=${raw#\'}; raw=${raw%\'} ;;
-  esac
-  printf '%s' "$raw"
+  [ -f "$PORTTA_HOME/scripts/lib/env.sh" ] || die "the installation environment adapter is missing"
+  ( . "$PORTTA_HOME/scripts/lib/env.sh"; portta_env_get "$1" "$2" )
 }
-
-env_set() { # env_set <file> <key> <value>
-  local file="$1" key="$2" value="$3" tmp
-  case "$key" in ''|*[!A-Za-z0-9_]*) die "refusing to write invalid .env key: $key" ;; esac
-  # A value can carry a `$` — a hash, a generated password, a connection
-  # string. Compose expands `$name` inside a dotenv value and a shell would
-  # too, so quote anything containing one. Every reader here strips one layer
-  # of matching quotes.
-  case "$value" in
-    *\$*)
-      case "$value" in
-        *"'"*) die "refusing to write a value containing a single quote: $key" ;;
-      esac
-      value="'$value'"
-      ;;
-  esac
-  if [ ! -f "$file" ]; then
-    printf '%s=%s\n' "$key" "$value" > "$file"
-    chmod 600 "$file"
-    return 0
-  fi
-  tmp="$file.portta-tmp.$$"
-  if grep -q "^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}$key=" "$file"; then
-    awk -v k="$key" -v v="$value" '
-      $0 ~ "^[[:space:]]*(export[[:space:]]+)?" k "=" { print k "=" v; next }
-      { print }
-    ' "$file" > "$tmp"
-  else
-    cp "$file" "$tmp"
-    printf '%s=%s\n' "$key" "$value" >> "$tmp"
-  fi
-  chmod 600 "$tmp"
-  mv "$tmp" "$file"
-}
+env_set() { portta_env_set "$2" "$3" "$1"; }
 
 # ---------------------------------------------------------------------------
 # Arguments
@@ -871,25 +822,12 @@ step "Configuration"
 # from "this is the template's default". Only a file that already existed
 # carries a choice.
 ENV_WAS_CREATED=false
-if [ ! -f "$ENV_FILE" ]; then
-  cp "$PORTTA_HOME/.env.example" "$ENV_FILE"
-  chmod 600 "$ENV_FILE"
-  ENV_WAS_CREATED=true
-  good "created .env from the shipped example"
-else
-  chmod 600 "$ENV_FILE"
-  good "kept the existing .env; only the settings below were reconciled"
-fi
-
-# Generated once and never regenerated: rotating it would orphan the volume.
-if [ -z "$(env_get "$ENV_FILE" PORTTA_RUNTIME_DB_PASSWORD)" ]; then
-  env_set "$ENV_FILE" PORTTA_RUNTIME_DB_PASSWORD "$(random_hex 32)"
-  good "generated the panel database credential"
-fi
-if [ -z "$(env_get "$ENV_FILE" PORTTA_AUTH_SECRET)" ]; then
-  env_set "$ENV_FILE" PORTTA_AUTH_SECRET "$(random_hex 32)"
-  good "generated the authentication signing secret"
-fi
+[ -f "$ENV_FILE" ] || ENV_WAS_CREATED=true
+# The downloaded zero-Node adapter is shared with bootstrap and the CLI fallback.
+. "$PORTTA_HOME/scripts/lib/env.sh"
+env_get() { portta_env_get "$1" "$2"; }
+portta_prepare_env "$ENV_FILE" || die "environment preparation failed"
+good "prepared .env from the installation template"
 
 PANEL_IMAGE="${PORTTA_REGISTRY}/portta:${NEW_VERSION}"
 
@@ -905,10 +843,16 @@ else
   good "keeping the configured profile: $EXISTING_PROFILE"
 fi
 env_set "$ENV_FILE" PORTTA_WEB "true"
-env_set "$ENV_FILE" PORTTA_WEB_IMAGE "$PANEL_IMAGE"
-env_set "$ENV_FILE" PORTTA_AUTH_IMAGE "$PANEL_IMAGE"
-env_set "$ENV_FILE" PORTTA_WEB_BUILD "false"
-env_set "$ENV_FILE" PORTTA_WEB_DEV "false"
+for imagekey in PORTTA_WEB_IMAGE PORTTA_AUTH_IMAGE; do
+  configured_image=$(env_get "$ENV_FILE" "$imagekey")
+  case "$configured_image" in
+    ""|"${PORTTA_REGISTRY}/portta:${PREVIOUS_VERSION:-}") env_set "$ENV_FILE" "$imagekey" "$PANEL_IMAGE" ;;
+  esac
+done
+if [ "$ENV_WAS_CREATED" = true ]; then
+  env_set "$ENV_FILE" PORTTA_WEB_BUILD "false"
+  env_set "$ENV_FILE" PORTTA_WEB_DEV "false"
+fi
 if [ -z "$(env_get "$ENV_FILE" PORTTA_PROJECTS_HOME)" ]; then
   env_set "$ENV_FILE" PORTTA_PROJECTS_HOME "$PROJECTS_HOME"
   good "Projects Home: $PROJECTS_HOME"
@@ -920,11 +864,11 @@ env_set "$ENV_FILE" PORTTA_WEB_BIND_ADDRESS "$PANEL_BIND"
 env_set "$ENV_FILE" PORTTA_WEB_PORT "$PANEL_PORT"
 # The panel writes .env from its Settings page and reads it at startup, so it
 # runs as whoever owns PORTTA_HOME rather than as the image's default uid.
-env_set "$ENV_FILE" PORTTA_WEB_USER "${CURRENT_UID}:${CURRENT_GID}"
+[ -n "$(env_get "$ENV_FILE" PORTTA_WEB_USER)" ] || env_set "$ENV_FILE" PORTTA_WEB_USER "${CURRENT_UID}:${CURRENT_GID}"
 # The authentication service reads .env once and the protection store on every
 # request. Both are owner-only and owned by whoever ran this installer -- root,
 # on a VPS -- so the image's default uid could open neither.
-env_set "$ENV_FILE" PORTTA_AUTH_USER "${CURRENT_UID}:${CURRENT_GID}"
+[ -n "$(env_get "$ENV_FILE" PORTTA_AUTH_USER)" ] || env_set "$ENV_FILE" PORTTA_AUTH_USER "${CURRENT_UID}:${CURRENT_GID}"
 
 if [ -n "$DOMAIN" ]; then
   env_set "$ENV_FILE" PUBLIC_DOMAIN "$DOMAIN"
@@ -1137,7 +1081,7 @@ portta() { # run the installed CLI against this PORTTA_HOME
 
 # The shared and control networks must exist before Compose resolves the
 # `external: true` references. bootstrap is idempotent and does exactly that.
-portta bootstrap --skip-pull >/dev/null 2>&1 || true
+portta bootstrap --skip-pull || die "bootstrap failed"
 
 # The overlay list and the two values the overlays interpolate that are
 # derived rather than stored: the base domain comes from the mode, and the bind
@@ -1164,6 +1108,7 @@ COMPOSE_ARGS=$(printf '%s' "$COMPOSE_RESOLVED" | sed -n 3p)
 # the env-file. Without that, Compose would interpolate the stored
 # PORTTA_BIND_ADDRESS and start the public profile bound to loopback.
 run_compose() {
+  portta_load_env "$ENV_FILE" || return 1
   # shellcheck disable=SC2086
   ( cd "$PORTTA_HOME" \
     && export PORTTA_DOMAIN="$RESOLVED_DOMAIN" PORTTA_BIND_ADDRESS="$RESOLVED_BIND" \
@@ -1204,39 +1149,14 @@ step "Starting Portta"
 run_compose run --rm --no-deps portta-auth-migrate >/dev/null \
   || die "existing authentication state could not be migrated"
 
-# The panel database first, and on its own, because the credential in .env has
-# to be reconciled with it before anything tries to use it.
-#
-# The volume outlives PORTTA_HOME by design: --uninstall keeps it so an
-# accidental removal does not take the data with it. But the password lives in
-# .env, which --uninstall does remove, so a later install generates a new one
-# and PostgreSQL still expects the old. The panel then starts, answers /health,
-# and silently persists nothing — persistence is optional at runtime by design
-# (ADR 0013), which is exactly what makes this failure quiet.
-#
-# So .env is made authoritative: the password there is set on the role, over
-# the container's own trusted local socket. Idempotent, and it keeps the data.
-run_compose up -d --wait --wait-timeout 120 db \
-  || die "the panel database did not become healthy. Inspect it with: $PORTTA_HOME/bin/portta logs db"
-
-DB_CONTAINER=$(docker ps -q --filter "label=portta.component=db" | head -n1)
-if [ -n "$DB_CONTAINER" ]; then
-  # The statement text comes from here and carries no secret; the password
-  # comes from the container's own environment, where Compose already put it,
-  # into a psql variable that psql quotes as a literal. Nothing interpolates a
-  # password into SQL, and it never reaches a command line on this host.
-  #
-  # On stdin rather than through -c: psql expands :'var' only in input it
-  # reads, never in a -c string.
-  if printf "ALTER USER portta WITH PASSWORD :'p';\n" \
-     | docker exec -i "$DB_CONTAINER" sh -c \
-         'psql -U portta -d portta -v ON_ERROR_STOP=1 -q -v p="$POSTGRES_PASSWORD"' \
-       >/dev/null 2>&1; then
-    good "panel database credential reconciled"
-  else
-    warn "could not reconcile the panel database credential"
-    note "the panel will run without persistence; $PORTTA_HOME/bin/portta logs db has the detail"
-  fi
+# Never rotate a persistent cluster's credential during installation.
+# Compose health waits for TCP readiness; the panel authenticates and migrates
+# before it starts serving. All lookups are scoped to this Compose project.
+DB_CONTAINER=""
+if [ "$(env_get "$ENV_FILE" PORTTA_RUNTIME_DB_MODE)" != external ]; then
+  run_compose up -d --wait --wait-timeout 120 db \
+    || die "the panel database did not become healthy; inspect portta logs db"
+  DB_CONTAINER=$(run_compose ps -q db)
 fi
 
 run_compose up -d --remove-orphans --wait --wait-timeout 240 \
@@ -1251,31 +1171,26 @@ step "Health checks"
 
 container_health() { # container_health <component>
   local cid
-  cid=$(docker ps -q --filter "label=portta.component=$1" | head -n1)
+  cid=$(run_compose ps -q "$1")
   [ -n "$cid" ] || { printf 'absent'; return; }
   docker inspect "$cid" --format '{{ if .State.Health }}{{ .State.Health.Status }}{{ else }}{{ .State.Status }}{{ end }}' 2>/dev/null
 }
 
 HEALTH_OK=true
 
-# The panel keeps running when its database refuses it — persistence is
-# optional at runtime — so a healthy container proves nothing about whether
-# anything will actually be saved. Ask PostgreSQL whether the credential in
-# .env works, which is the thing that breaks.
+# Prove authentication over TCP, not a trusted local Unix socket.
 if [ -n "${DB_CONTAINER:-}" ]; then
-  # Over TCP with the password, which is the path the panel actually takes;
-  # the local socket is trusted and would prove nothing.
   if docker exec "$DB_CONTAINER" sh -c \
-       'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U portta -d portta -At -c "select 1"' >/dev/null 2>&1; then
+       'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "select 1"' >/dev/null 2>&1; then
     good "the panel can authenticate to its database"
   else
-    bad "the panel database rejects the credential in .env"
-    note "persistence will be unavailable; docker volume rm portta-db starts a fresh one"
+    bad "the database rejects the configured credential; recover the credential or rotate it explicitly (see docs/persistence.md)"
     HEALTH_OK=false
   fi
 fi
 
 for component in traefik socket-proxy web web-socket-proxy db; do
+  if [ "$component" = db ] && [ "$(env_get "$ENV_FILE" PORTTA_RUNTIME_DB_MODE)" = external ]; then continue; fi
   state=$(container_health "$component")
   case "$state" in
     healthy|running) good "$component: $state" ;;

@@ -1,7 +1,7 @@
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs'
-import { randomBytes } from 'node:crypto'
+import { patchEnvFile, prepareEnvFile } from 'portta-core'
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { AUTH_BUILD_FILE, AUTH_DEV_FILE, dashboardExposeRefusal, parseAliases, projectsFor, readEnvFile, routesFor, setEnvValue, writeEnvFile, type StoredAlias } from 'portta-core'
+import { AUTH_BUILD_FILE, AUTH_DEV_FILE, dashboardExposeRefusal, parseAliases, projectsFor, routesFor, type StoredAlias } from 'portta-core'
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
 import { ensureNetwork, identifier, inspectContainers, networkExists, requireDocker } from '../docker.js'
@@ -16,7 +16,7 @@ import { ensureRunner, removeRunner } from './runner.js'
 import { refreshRepositories } from './repos.js'
 import { ensureMetricsCollector, stopMetricsCollector } from './host.js'
 import { finishWebUp, prepareWebUp } from './web.js'
-import { requireLocalRelease } from '../local-release.js'
+import { requireLocalRelease, selectLocalRelease } from '../local-release.js'
 import { applyDemo, demoStacksDown } from './examples.js'
 
 export function checkoutLocalEnv(): Record<string, string> {
@@ -31,9 +31,7 @@ export function checkoutLocalEnv(): Record<string, string> {
 
 function persistEnv(root: string, values: Record<string, string>): void {
   const path = join(root, '.env')
-  let text = readEnvFile(path)
-  for (const [key, value] of Object.entries(values)) text = setEnvValue(text, key, value)
-  writeEnvFile(path, text)
+  patchEnvFile(path, values)
 }
 
 function buildsLocally(command: Command): boolean {
@@ -65,10 +63,7 @@ function ensureAuthState(root: string): void {
   mkdirSync(authDirectory, { recursive: true, mode: 0o700 })
   chmodSync(authDirectory, 0o700)
   const path = join(root, '.env')
-  const current = readEnvFile(path)
-  if (!/^PORTTA_AUTH_SECRET=.+$/m.test(current)) {
-    writeEnvFile(path, setEnvValue(current, 'PORTTA_AUTH_SECRET', randomBytes(32).toString('hex')))
-  }
+  prepareEnvFile(path)
 }
 
 /**
@@ -160,10 +155,7 @@ export async function bootstrapCommand(options: { skipPull?: boolean }, command:
   await requireDocker()
   const composeVersion = await runProcess('docker', ['compose', 'version', '--short'], { reject: false })
   if (composeVersion.exitCode !== 0) throw new CliError('Docker Compose v2 is required', EXIT.precondition)
-  if (!existsSync(join(context.root, '.env'))) {
-    copyFileSync(join(context.root, '.env.example'), join(context.root, '.env'))
-    output.progress('created  .env from .env.example')
-  }
+  prepareEnvFile(join(context.root, '.env'))
   for (const directory of ['state', 'state/auth', 'state/git', 'state/github', 'state/metrics', 'state/logs', 'config/tls', 'config/traefik/dynamic']) mkdirSync(join(context.root, directory), { recursive: true })
   ensureAuthState(context.root)
   const network = await ensureNetwork(context.config.network)
@@ -175,9 +167,12 @@ export async function bootstrapCommand(options: { skipPull?: boolean }, command:
   await doctorCommand(command)
 }
 
-export async function upCommand(profile: string | undefined, options: { attach?: boolean; demo?: boolean }, command: Command): Promise<void> {
+export async function upCommand(profile: string | undefined, options: { attach?: boolean; demo?: boolean; localRelease?: boolean }, command: Command): Promise<void> {
   if (profile) command.setOptionValueWithSource('profile', profile, 'cli')
+  prepareEnvFile(join(gatewayContext({ profile: profile ?? globals(command).profile }).root, '.env'))
+  if (options.localRelease) selectLocalRelease(gatewayContext({ profile: profile ?? globals(command).profile }))
   const context = gatewayContext({ profile: profile ?? globals(command).profile })
+  if (options.localRelease) context.env['PORTTA_LOCAL_RELEASE'] = 'true'
   if (context.config.profile === 'remote-public' && context.config.tcpEnabled) throw new RefusedError('TCP entrypoints must not run on the remote-public profile')
   // `vpn` routes the panel on the tailnet hostname; with Traefik bound to every
   // interface that router answers the internet too, which is not what the mode
@@ -343,7 +338,7 @@ export async function resetCommand(options: { demo?: boolean }, command: Command
   await devCommand(undefined, { reset: true, demo: options.demo }, command)
 }
 
-export async function restartCommand(command: Command): Promise<void> { await compose(command, ['up', '-d', '--force-recreate']) }
+export async function restartCommand(command: Command): Promise<void> { await compose(command, ['up', '-d', '--force-recreate', '--wait', '--wait-timeout', '180']) }
 export async function logsCommand(service: string | undefined, options: { follow?: boolean; tail?: string }, command: Command): Promise<void> {
   const global = globals(command)
   if (global.json) {
@@ -353,17 +348,18 @@ export async function logsCommand(service: string | undefined, options: { follow
 }
 
 export async function updateCommand(command: Command): Promise<void> {
+  prepareEnvFile(join(gatewayContext({ profile: globals(command).profile }).root, '.env'))
   await compose(command, ['config', '--quiet'])
   await compose(command, ['pull', '--ignore-buildable'])
   await confirm('recreate gateway components with the pulled images?', globals(command).yes === true)
-  await compose(command, ['up', '-d', '--force-recreate'])
+  await compose(command, ['up', '-d', '--force-recreate', '--wait', '--wait-timeout', '180'])
 }
 
 export async function inspectCommand(command: Command): Promise<void> {
   const options = globals(command)
   const context = gatewayContext({ profile: options.profile })
   const output = new Output(options)
-  const secrets = new Set(['TS_AUTHKEY', 'CLOUDFLARE_API_TOKEN', 'PORTTA_RUNTIME_DB_PASSWORD', 'PORTTA_WEB_AUTH_HASH', 'PORTTA_AUTH_SECRET'])
+  const secrets = new Set(['TS_AUTHKEY', 'CF_DNS_API_TOKEN', 'PORTTA_RUNTIME_DATABASE_URL', 'PORTTA_RUNTIME_DB_PASSWORD', 'PORTTA_AUTH_SECRET'])
   const configuration = Object.fromEntries(Object.entries(context.env).filter(([key]) => key.startsWith('PORTTA_') || ['TLS_ENABLED', 'TLS_MODE', 'PUBLIC_DOMAIN', 'PRIVATE_DOMAIN', 'TAILSCALE_ENABLED'].includes(key)).map(([key, value]) => [key, secrets.has(key) ? (value ? '<set>' : '<unset>') : value]))
   if (output.json) output.data({ profile: context.config.profile, configuration, composeFiles: context.composeFiles })
   else {

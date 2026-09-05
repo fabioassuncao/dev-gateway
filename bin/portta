@@ -202,14 +202,16 @@ cmd_doctor() {
 cmd_up() {
   local profile="${PORTTA_PROFILE}"
   local detach=1
+  local local_release=0
   # --wait makes the exit code mean "the gateway came back healthy" rather than
   # "Compose accepted the plan". The applier runs with it, because its exit code
   # is the only account of the apply the panel gets to read.
-  local wait=0
+  local wait=1
 
   while [ $# -gt 0 ]; do
     case "$1" in
       --attach) detach=0 ;;
+      --local-release) local_release=1 ;;
       --wait) wait=1 ;;
       --demo)
         err "'up --demo' requires Node 22.12 or newer and the full CLI"
@@ -224,6 +226,16 @@ cmd_up() {
 
   portta_require_docker || exit 1
   portta_require_compose || exit 1
+  portta_prepare_env || exit 1
+  portta_load_env || exit 1
+  portta_defaults
+  if [ "$local_release" = 1 ]; then
+    portta_env_set PORTTA_AUTH_IMAGE "fabioassuncao/portta:$(portta_version)"
+    portta_env_set PORTTA_WEB_IMAGE "fabioassuncao/portta:$(portta_version)"
+    portta_env_set PORTTA_WEB_BUILD false
+    portta_env_set PORTTA_WEB_DEV false
+    export PORTTA_LOCAL_RELEASE=true
+  fi
   portta_resolve_profile "$profile" || exit 1
 
   if portta_is_true "${PORTTA_LOCAL_RELEASE:-false}"; then
@@ -504,6 +516,9 @@ cmd_inspect() {
 }
 
 cmd_update() {
+  portta_prepare_env || exit 1
+  portta_load_env || exit 1
+  portta_defaults
   local profile="${PORTTA_PROFILE}"
   portta_require_docker || exit 1
   portta_resolve_profile "$profile" || exit 1
@@ -523,7 +538,7 @@ cmd_update() {
     return 0
   }
 
-  portta_compose "$profile" up -d --remove-orphans
+  portta_compose "$profile" up -d --remove-orphans --wait --wait-timeout 180
   ok "gateway updated"
   hint "run 'portta doctor' to confirm the new components are healthy"
 }

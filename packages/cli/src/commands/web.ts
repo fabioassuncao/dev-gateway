@@ -1,16 +1,14 @@
-import { randomBytes } from 'node:crypto'
+import { patchEnvFile, prepareEnvFile } from 'portta-core'
 import { chmodSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   PANEL_ACCESS_MODES,
   isPanelAccess,
   isTrue,
-  readEnvFile,
   readProtectionStore,
   removeProtection,
   renderAuthDynamic,
   renderPanelAuth as renderSharedPanelAuth,
-  setEnvValue,
   writeEnvFile,
   writeProtectionStore,
   porttaImages,
@@ -21,7 +19,7 @@ import { ensureNetwork, inspectContainers } from '../docker.js'
 import { CliError, EXIT, PreconditionError, RefusedError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
-import { requireLocalRelease } from '../local-release.js'
+import { requireLocalRelease, selectLocalRelease } from '../local-release.js'
 import { refreshRepositories } from './repos.js'
 import { ensureMetricsCollector, stopMetricsCollector } from './host.js'
 
@@ -29,9 +27,7 @@ function globals(command: Command) { return command.optsWithGlobals() as { json?
 
 function setValues(root: string, values: Record<string, string>): void {
   const path = join(root, '.env')
-  let text = readEnvFile(path)
-  for (const [key, value] of Object.entries(values)) text = setEnvValue(text, key, value)
-  writeEnvFile(path, text)
+  patchEnvFile(path, values)
 }
 
 /**
@@ -67,7 +63,7 @@ async function webCompose(command: Command, args: string[], extraEnv: NodeJS.Pro
   return runProcess('docker', ['compose', ...composeArguments(context), ...args], { cwd: context.root, env: { ...context.env, ...extraEnv }, stdio })
 }
 
-export interface WebUpOptions { expose?: string; port?: string; readOnly?: boolean; writable?: boolean; dev?: boolean }
+export interface WebUpOptions { localRelease?: boolean; expose?: string; port?: string; readOnly?: boolean; writable?: boolean; dev?: boolean }
 
 export interface PreparedWebUp {
   context: ReturnType<typeof gatewayContext>
@@ -77,6 +73,8 @@ export interface PreparedWebUp {
 
 /** Persist and resolve everything the panel needs before Compose converges. */
 export function prepareWebUp(options: WebUpOptions, command: Command): PreparedWebUp {
+  prepareEnvFile(join(gatewayContext({ profile: globals(command).profile }).root, '.env'))
+  if (options.localRelease) selectLocalRelease(gatewayContext({ profile: globals(command).profile }))
   const initial = gatewayContext({ profile: globals(command).profile })
   const expose = options.expose ?? initial.config.webExpose
   if (!isPanelAccess(expose)) throw new UsageError(`--expose must be one of: ${PANEL_ACCESS_MODES.join(', ')}`)
@@ -115,7 +113,7 @@ export function prepareWebUp(options: WebUpOptions, command: Command): PreparedW
   }
   const readOnly = options.writable ? false : options.readOnly ?? (expose === 'vpn' ? true : initial.config.webReadOnly)
   const values: Record<string, string> = {
-    PORTTA_WEB: 'true', PORTTA_WEB_EXPOSE: expose, PORTTA_WEB_READ_ONLY: String(readOnly), PORTTA_WEB_DEV: String(options.dev === true),
+    PORTTA_WEB: 'true', PORTTA_WEB_EXPOSE: expose, PORTTA_WEB_READ_ONLY: String(readOnly), PORTTA_WEB_DEV: String(options.dev ?? initial.config.webDev),
   }
   if (options.port) values['PORTTA_WEB_PORT'] = String(Number(options.port))
   // Where a browser reaches the panel, decided here because the exposure is
@@ -123,26 +121,11 @@ export function prepareWebUp(options: WebUpOptions, command: Command): PreparedW
   // `Secure`, which origins a write is accepted from, and the address the
   // panel prints. Getting it wrong on a routed panel means a cookie that is
   // never sent back, which looks exactly like a password that does not work.
-  values['PORTTA_PANEL_URL'] = panelUrlFor(
+  if (!initial.env['PORTTA_PANEL_URL'] || options.expose || options.port) values['PORTTA_PANEL_URL'] = panelUrlFor(
     initial,
     expose,
     options.port ? String(Number(options.port)) : String(initial.config.webPort),
   )
-  if (!initial.env['PORTTA_RUNTIME_DB_PASSWORD']) values['PORTTA_RUNTIME_DB_PASSWORD'] = randomBytes(32).toString('hex')
-  if (!initial.env['PORTTA_AUTH_SECRET']) values['PORTTA_AUTH_SECRET'] = randomBytes(32).toString('hex')
-  // The Settings page writes .env, and .env is owner-only, so the container has
-  // to run as whoever owns it. The installer records this; starting the panel
-  // from a checkout had nothing that did, so it fell back to the image's `node`
-  // (uid 1000) and could not write a file owned by anyone else. Only set when
-  // the platform reports a uid: on Windows process.getuid is undefined.
-  if (!initial.env['PORTTA_WEB_USER'] && typeof process.getuid === 'function') {
-    values['PORTTA_WEB_USER'] = `${process.getuid()}:${process.getgid?.() ?? 0}`
-  }
-  // The authentication service has the same problem for the same reason: it
-  // reads .env once and the owner-only protection store on every request.
-  if (!initial.env['PORTTA_AUTH_USER'] && typeof process.getuid === 'function') {
-    values['PORTTA_AUTH_USER'] = `${process.getuid()}:${process.getgid?.() ?? 0}`
-  }
   setValues(initial.root, values)
   mkdirSync(join(initial.root, 'state/git'), { recursive: true })
   mkdirSync(join(initial.root, 'state/github'), { recursive: true })
@@ -163,6 +146,7 @@ export function prepareWebUp(options: WebUpOptions, command: Command): PreparedW
 export async function webUp(options: WebUpOptions, command: Command): Promise<void> {
   const prepared = prepareWebUp(options, command)
   const { context, output } = prepared
+  if (options.localRelease) context.env['PORTTA_LOCAL_RELEASE'] = 'true'
   output.step('panel')
   if (!options.dev) await requireLocalRelease(context)
   await ensureNetwork(context.config.network)
@@ -171,8 +155,10 @@ export async function webUp(options: WebUpOptions, command: Command): Promise<vo
   // `reject: false` on the second one meant a failure produced no output at all.
   output.progress('pulling alpine/socat:1.8.1.3')
   await runProcess('docker', ['pull', 'alpine/socat:1.8.1.3'], { reject: false, stdio: 'stream' })
-  output.progress('starting the panel database')
-  await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', 'db'], { cwd: context.root, env: context.env, reject: false, stdio: 'stream' })
+  if (context.config.databaseMode === 'managed') {
+    output.progress('starting the panel database')
+    await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', '--wait', '--wait-timeout', '120', 'db'], { cwd: context.root, env: context.env, stdio: 'stream' })
+  }
   // The same three in both modes. There used to be a fourth, `web-ui`, running
   // Vite in front of the panel; the panel is one process now, and naming a
   // service the file list no longer defines makes Compose refuse the whole

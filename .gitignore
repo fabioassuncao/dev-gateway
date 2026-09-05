@@ -1,6 +1,7 @@
 # Local configuration (may contain secrets)
 .env
 .env.*
+.env-lock/
 !.env.example
 
 # Runtime state owned by the gateway (never commit)

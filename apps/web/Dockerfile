@@ -58,7 +58,7 @@ COPY apps/web/public ./apps/web/public
 # offline; the Markdown reaches the runtime stage too, because a page
 # regenerated on demand reads it again.
 COPY docs ./docs
-COPY README.md CHANGELOG.md ./
+COPY README.md CHANGELOG.md .env.example ./
 RUN npm run build --workspace=portta-core \
  && npm run build --workspace=portta-contracts \
  && npm run build --workspace=portta-db \
@@ -93,7 +93,7 @@ COPY packages/auth/src ./packages/auth/src
 COPY packages/server/tsconfig.json ./packages/server/
 COPY packages/server/src ./packages/server/src
 COPY docs ./docs
-COPY README.md CHANGELOG.md ./
+COPY README.md CHANGELOG.md .env.example ./
 WORKDIR /app/apps/web
 # The container runs as an unprivileged user, and Next writes .next beside the
 # source it was given.
@@ -154,7 +154,7 @@ COPY packages/db/drizzle ./packages/db/drizzle
 # The Markdown behind /docs. Most pages are prerendered into .next, and one that
 # is regenerated on demand reads the source again.
 COPY docs ./docs
-COPY README.md CHANGELOG.md ./
+COPY README.md CHANGELOG.md .env.example ./
 
 WORKDIR /app/apps/web
 USER node

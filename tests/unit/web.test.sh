@@ -89,7 +89,7 @@ assert_contains "$(sed -n '/^  web:/,/^[^ ]/p' docker/compose/features/db.yaml)"
 assert_contains "$(sed -n '/^  web:/,/^[^ ]/p' docker/compose/features/db.yaml)" "db:"
 
 it "the password is generated and declared secret"
-assert_contains "$(cat scripts/bootstrap.sh)" "portta_env_set PORTTA_RUNTIME_DB_PASSWORD"
+assert_contains "$(cat scripts/bootstrap.sh)" "portta_prepare_env"
 assert_contains "$(sed -n '/PORTTA_RUNTIME_DB_PASSWORD/,/},/p' packages/server/src/services/settings.ts)" "secret: true"
 
 
@@ -171,11 +171,17 @@ describe "the CLI drives it"
 # `public` is a supported mode since ADR 0021, and it is the one the installer
 # offers first. What is refused is reaching the panel from another machine with
 # nothing in front of it.
+# Refusal tests must never inherit the developer's real installation settings.
+refusal_root=$(mktemp -d)
+trap 'rm -rf "$refusal_root"' EXIT
+cp VERSION .env.example "$refusal_root/"
+mkdir -p "$refusal_root/docker"
+ln -s "$PORTTA_ROOT/docker/compose" "$refusal_root/docker/compose"
 it "publishing the panel publicly without a credential is refused"
-assert_contains "$(./bin/portta web up --expose public 2>&1)" "needs the panel to sign people in"
+assert_contains "$(PORTTA_ROOT="$refusal_root" ./bin/portta web up --expose public 2>&1)" "needs the panel to sign people in"
 
 it "an unknown expose value fails"
-assert_failure ./bin/portta web up --expose nonsense
+assert_failure env PORTTA_ROOT="$refusal_root" ./bin/portta web up --expose nonsense
 
 describe "the panel is handed the settings it renders"
 
@@ -337,7 +343,7 @@ it "and so is required mode with no secret to sign sessions with"
 assert_contains "$(cat scripts/lib/docker.sh)" "PORTTA_AUTH_MODE=required with no PORTTA_AUTH_SECRET"
 
 it "and by web up"
-out=$(PORTTA_AUTH_MODE=disabled ./bin/portta web up --expose vpn 2>&1 || true)
+out=$(PORTTA_ROOT="$refusal_root" ./bin/portta web up --expose vpn 2>&1 || true)
 assert_contains "$out" "needs the panel to sign people in"
 
 # The panel has no password of its own to hash: people sign in to it, and Better
@@ -526,8 +532,9 @@ done
 
 it "and so does web up, for a checkout the installer never touched"
 web_source="$(cat packages/cli/src/commands/web.ts)"
+assert_contains "$web_source" "prepareEnvFile"
 for key in PORTTA_WEB_USER PORTTA_AUTH_USER; do
-  assert_contains "$web_source" "values['$key']"
+  assert_contains "$(cat packages/core/src/env.ts)" "$key"
 done
 
 t_summary

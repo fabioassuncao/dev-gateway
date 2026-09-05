@@ -510,7 +510,7 @@ export const FIELDS: FieldSpec[] = [
     key: 'PORTTA_RUNTIME_DB_PASSWORD',
     group: 'Panel',
     label: 'Database password',
-    help: 'Generated bootstrap credential for the panel-owned PostgreSQL database.',
+    help: 'Credential for managed PostgreSQL. Changing this file does not rotate a password in an existing volume; rotate the database role explicitly first.',
     kind: 'string',
     secret: true,
     restartRequired: true,
