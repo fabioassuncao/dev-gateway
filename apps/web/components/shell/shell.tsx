@@ -309,7 +309,12 @@ export function Shell({ children }: { children: ReactNode }) {
             'border-t border-line md:my-2 md:mr-2 md:rounded-lg md:border',
           )}
         >
-          <div className="mx-auto flex min-h-full w-full max-w-[88rem] flex-col px-4 py-4 md:px-6 md:py-5">{children}</div>
+          {/* [&>*]:shrink-0: this column is held to the height of `main`, so a
+              page's top-level children would otherwise shrink to fit, and one
+              with overflow-hidden (the Overview's readings strip, a Card) would
+              collapse to its border. A child that fills the leftover height has
+              flex-1, grows from a basis of 0, and never needs to shrink. */}
+          <div className="mx-auto flex min-h-full w-full max-w-[88rem] flex-col px-4 py-4 md:px-6 md:py-5 [&>*]:shrink-0">{children}</div>
         </main>
       </div>
       <CommandPalette
