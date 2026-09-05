@@ -20,7 +20,7 @@ let cached: DocsBundle | null = null
  * and the image's `WORKDIR` all agree — so the working directory is the stable
  * anchor here.
  */
-function repositoryRoot(): string {
+export function repositoryRoot(): string {
   return process.env['PORTTA_RUNTIME_DOCS_ROOT'] ?? resolve(process.cwd(), '..', '..')
 }
 

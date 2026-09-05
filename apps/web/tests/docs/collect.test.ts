@@ -125,14 +125,15 @@ describe('the real corpus', () => {
   })
 
   it('rewrites the screenshots to the copies the image carries', () => {
-    expect(bundle.pages['web-ui']?.html).toContain('./images/panel-overview.png')
+    expect(bundle.pages['web-ui']?.html).toContain('/docs/images/panel-overview.png')
     expect(bundle.pages['web-ui']?.html).not.toContain('.github/images')
+    expect(bundle.pages['web-ui']?.headings.length).toBeGreaterThan(2)
   })
 
   it('renders the overview screenshot table, with the bundled image paths', () => {
     const html = bundle.pages['overview']?.html ?? ''
     expect(html).toContain('<table>')
-    expect(html).toContain('./images/panel-overview.png')
+    expect(html).toContain('/docs/images/panel-overview.png')
     expect(html).not.toContain('.github/images')
     expect(html).not.toContain('&lt;table')
   })
@@ -166,7 +167,7 @@ describe('raw HTML in a page', () => {
       known,
     )
     expect(html).toContain('<table>')
-    expect(html).toContain('src="./images/x.png"')
+    expect(html).toContain('src="/docs/images/x.png"')
     expect(html).not.toContain('.github/images')
   })
 

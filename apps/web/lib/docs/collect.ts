@@ -105,7 +105,7 @@ function rewriteHtmlUrl(url: string, fromRepoPath: string, known: Set<string>, k
   const [rawPath = '', anchor] = url.split('#')
   const target = relative('.', resolve(dirname(fromRepoPath), rawPath)).replace(/\\/g, '/')
   const suffix = anchor ? `#${anchor}` : ''
-  if (target.startsWith('docs/images/')) return `./images/${basename(target)}${suffix}`
+  if (target.startsWith('docs/images/')) return `/docs/images/${basename(target)}${suffix}`
   if (kind === 'href') return rewriteLink(url, fromRepoPath, known).href
   return `${GITHUB_BLOB}/${target}${suffix}`
 }
@@ -289,7 +289,7 @@ export function collectDocs(root: string): DocsBundle {
           const src = child.attrGet('src') ?? ''
           if (/^[a-z]+:/i.test(src)) continue
           const target = relative('.', resolve(dirname(repoPath), src)).replace(/\\/g, '/')
-          child.attrSet('src', target.startsWith('docs/images/') ? `./images/${basename(target)}` : `${GITHUB_BLOB}/${target}`)
+          child.attrSet('src', target.startsWith('docs/images/') ? `/docs/images/${basename(target)}` : `${GITHUB_BLOB}/${target}`)
           child.attrSet('loading', 'lazy')
         }
       }
