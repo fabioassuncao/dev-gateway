@@ -102,6 +102,15 @@ services:
     depends_on:
       web-socket-proxy:
         condition: service_healthy
+    # `node` is in both the runtime and the `dev` image; the Dockerfile's
+    # `wget` healthcheck only exists on the runtime stage. start_period covers
+    # the first `next.prepare()`; retries then fit `--wait-timeout 180`.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8081/api/health').then((r)=>process.exit(r.ok||r.status===401?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 60s
     # Whoever owns .env, which the Settings page writes. `bootstrap` and
     # `web up` record it; the image's own `node` is only a last resort, and is
     # right just when the host uid happens to be 1000.

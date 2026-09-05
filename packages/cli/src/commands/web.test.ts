@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { panelLoopbackApiUrl, webUrl } from './web.js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { panelLoopbackApiUrl, requestPanelMigrate, waitForPanelLoopback, webUrl } from './web.js'
 
 type Context = Parameters<typeof webUrl>[0]
 
@@ -54,5 +54,34 @@ describe('where the panel answers', () => {
     expect(webUrl(context({ webExpose: 'vpn', tlsEnabled: true }))).toBe(
       'https://portta-web.localhost',
     )
+  })
+})
+
+describe('waiting for the panel before migrate', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('POSTs migrate only after /api/health answers', async () => {
+    const seen: string[] = []
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      seen.push(`${init?.method ?? 'GET'} ${url}`)
+      if (String(url).endsWith('/api/health')) return new Response('{"ok":true}', { status: 200 })
+      if (String(url).endsWith('/api/database/migrate')) {
+        return new Response(JSON.stringify({ applied: [], migrations: ['0000_initial'] }), { status: 200 })
+      }
+      throw new Error(`unexpected ${url}`)
+    })
+
+    await expect(requestPanelMigrate(context({}))).resolves.toEqual({ applied: [], migrations: ['0000_initial'] })
+    expect(seen[0]).toBe('GET http://127.0.0.1:8081/api/health')
+    expect(seen[1]).toBe('POST http://127.0.0.1:8081/api/database/migrate')
+  })
+
+  it('times out instead of hanging when the panel never answers', async () => {
+    vi.stubGlobal('fetch', async () => {
+      throw new Error('ECONNREFUSED')
+    })
+    await expect(waitForPanelLoopback(context({}), 0)).rejects.toThrow(/the panel is not reachable/)
   })
 })

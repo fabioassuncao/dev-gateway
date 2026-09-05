@@ -248,24 +248,40 @@ export interface PanelMigrateResult {
   migrations: string[]
 }
 
+const PANEL_WAIT_MS = 120_000
+const PANEL_POLL_MS = 500
+
+export async function waitForPanelLoopback(
+  context: ReturnType<typeof gatewayContext>,
+  timeoutMs = PANEL_WAIT_MS,
+): Promise<void> {
+  const url = `${panelLoopbackApiUrl(context)}/api/health`
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(3000) })
+      if (response.ok || response.status === 401) return
+    } catch { /* still starting */ }
+    await new Promise((resolve) => setTimeout(resolve, PANEL_POLL_MS))
+  }
+  throw new PreconditionError('the panel is not reachable', 'run portta web up')
+}
+
 export async function requestPanelMigrate(
   context: ReturnType<typeof gatewayContext>,
 ): Promise<PanelMigrateResult> {
+  await waitForPanelLoopback(context)
   const url = `${panelLoopbackApiUrl(context)}/api/database/migrate`
   let response: Response | undefined
-  for (let attempt = 0; attempt < 6; attempt++) {
-    try {
-      response = await fetch(url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: '{}',
-        signal: AbortSignal.timeout(60_000),
-      })
-      break
-    } catch {
-      if (attempt === 5) throw new PreconditionError('the panel is not reachable', 'run portta web up')
-      await new Promise((resolve) => setTimeout(resolve, 400))
-    }
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+      signal: AbortSignal.timeout(60_000),
+    })
+  } catch {
+    throw new PreconditionError('the panel is not reachable', 'run portta web up')
   }
   const body = await response!.json().catch(() => ({})) as {
     error?: string

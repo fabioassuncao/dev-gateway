@@ -55,6 +55,10 @@ assert_contains "$(cat docker/compose/features/web-vpn.yaml)" 'traefik.enable: "
 it "the panel binds loopback in the example configuration"
 assert_contains "$(cat .env.example)" "PORTTA_WEB_BIND_ADDRESS=127.0.0.1"
 
+it "the panel service reports healthy on /api/health"
+assert_contains "$(sed -n '/^  web:/,/^  [a-z]/p' docker/compose/features/web.yaml)" "/api/health"
+assert_contains "$(sed -n '/^  web:/,/^  [a-z]/p' docker/compose/features/web.yaml)" "healthcheck:"
+
 it "and is off by default"
 assert_contains "$(cat .env.example)" "PORTTA_WEB=false"
 
@@ -79,6 +83,10 @@ assert_contains "$(cat docker/compose/features/db.yaml)" 'portta.component: db-v
 
 it "the overlay follows the panel"
 assert_contains "$(PORTTA_WEB=true PORTTA_RUNTIME_DB_PASSWORD=test bash -c '. scripts/lib/common.sh; . scripts/lib/docker.sh; portta_defaults; portta_compose_files local')" "docker/compose/features/db.yaml"
+
+it "the panel waits for Postgres to accept connections before it starts"
+assert_contains "$(sed -n '/^  web:/,/^[^ ]/p' docker/compose/features/db.yaml)" "condition: service_healthy"
+assert_contains "$(sed -n '/^  web:/,/^[^ ]/p' docker/compose/features/db.yaml)" "db:"
 
 it "the password is generated and declared secret"
 assert_contains "$(cat scripts/bootstrap.sh)" "portta_env_set PORTTA_RUNTIME_DB_PASSWORD"
@@ -438,6 +446,9 @@ assert_contains "$(cat docker/compose/features/web-dev.yaml)" 'command: ["npm", 
 
 it "mounts the shared package so editing it reloads the panel"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/core/src:/app/packages/core/src"
+
+it "mounts the auth package the panel process imports"
+assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/auth/src:/app/packages/auth/src"
 
 it "mounts the generated SQL so a new migration is visible without rebuilding"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/db/drizzle:/app/packages/db/drizzle"

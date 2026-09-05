@@ -335,6 +335,8 @@ describe('resetCommand', () => {
 
     expect(mocks.applyDemo).toHaveBeenCalledTimes(1)
     expect(mocks.applyDemo).toHaveBeenCalledWith(expect.anything(), { ensurePanel: true })
+    const up = mocks.runProcess.mock.calls.find((call) => ((call[1] ?? []) as string[]).includes('up'))
+    expect(up?.[1]).toEqual(expect.arrayContaining(['--wait', '--wait-timeout', '180']))
   })
 
   it('down --demo stops example stacks before the gateway', async () => {

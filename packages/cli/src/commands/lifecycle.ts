@@ -5,7 +5,7 @@ import { AUTH_BUILD_FILE, AUTH_DEV_FILE, dashboardExposeRefusal, parseAliases, p
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
 import { ensureNetwork, identifier, inspectContainers, networkExists, requireDocker } from '../docker.js'
-import { CliError, EXIT, RefusedError } from '../errors.js'
+import { CliError, EXIT, PreconditionError, RefusedError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
 import { CLI_VERSION } from '../version.js'
@@ -45,10 +45,10 @@ function globals(command: Command) {
   return command.optsWithGlobals() as { json?: boolean; yes?: boolean; quiet?: boolean; verbose?: boolean; profile?: string }
 }
 
-async function compose(command: Command, args: string[], stdio: 'inherit' | 'pipe' = 'inherit') {
+async function compose(command: Command, args: string[], stdio: 'inherit' | 'pipe' = 'inherit', extra: { reject?: boolean } = {}) {
   const options = globals(command)
   const context = gatewayContext({ profile: options.profile })
-  return runProcess('docker', ['compose', ...composeArguments(context), ...args], { cwd: context.root, env: context.env, stdio })
+  return runProcess('docker', ['compose', ...composeArguments(context), ...args], { cwd: context.root, env: context.env, stdio, reject: extra.reject })
 }
 
 export function authMigrationRunArguments(build: boolean, user?: string): string[] {
@@ -207,12 +207,20 @@ export async function upCommand(profile: string | undefined, options: { attach?:
     : 'migrating the authentication schema')
   await migrateAuthState(command)
   output.progress(builds ? 'starting components, building local images' : 'starting components')
-  await compose(command, [
+  const wait = !options.attach
+  const started = await compose(command, [
     'up',
     options.attach ? '' : '-d',
     ...(builds ? ['--build'] : []),
     options.attach ? '' : '--remove-orphans',
-  ].filter(Boolean))
+    ...(wait ? ['--wait', '--wait-timeout', '180'] : []),
+  ].filter(Boolean), 'inherit', wait ? { reject: false } : {})
+  if (wait && started.exitCode !== 0) {
+    throw new PreconditionError(
+      'the gateway did not report healthy within 180s',
+      'portta logs   shows what it is doing; portta doctor checks the rest',
+    )
+  }
 
   await refreshRepositories(context.config.profile, output)
   await ensureMetricsCollector(context.config.profile, output)

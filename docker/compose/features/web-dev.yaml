@@ -35,10 +35,11 @@ services:
       - ./apps/web/server:/app/apps/web/server
       - ./apps/web/public:/app/apps/web/public
       # The packages the panel composes, so editing one reloads it like its own
-      # source: the shared derivations, the contract, the schema, and the
+      # source: the shared derivations, the contract, the schema, auth, and the
       # services and API.
       - ./packages/core/src:/app/packages/core/src
       - ./packages/contracts/src:/app/packages/contracts/src
+      - ./packages/auth/src:/app/packages/auth/src
       - ./packages/db/src:/app/packages/db/src
       # The generated migrations the process applies on the next migrate.
       # Without this a newly generated file stays in the image until the next

@@ -57,3 +57,8 @@ services:
       PORTTA_DB_NETWORK: ${PORTTA_DB_NETWORK:-portta-data}
     networks:
       - webdata
+    # The panel exits if Postgres is not accepting connections yet. Compose
+    # merges this with the socket-proxy wait in web.yaml.
+    depends_on:
+      db:
+        condition: service_healthy
