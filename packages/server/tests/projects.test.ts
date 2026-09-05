@@ -283,7 +283,7 @@ describe('repositories', () => {
     expect(response.status).toBe(400)
     const body = await response.json()
     expect(body.error).toContain('not a repository this gateway was granted')
-    expect(body.hint).toContain('docs/github.md')
+    expect(body.hint).toContain('docs/product/guides/github.md')
   })
 
   it('the old PUT is gone', async () => {

@@ -74,7 +74,7 @@
     "publicAddressHelp": "O IP ou hostname digitado antes da porta do painel. O protocolo e a porta são adicionados automaticamente.",
     "publicAddressNeeded": "Informe um endereço alcançável pela internet para o Portta montar a URL de login.",
     "authRequired": "O painel vai pedir login. Esta alteração não publica os seus projetos.",
-    "tlsNeeded": "Um hostname em HTTPS precisa de TLS ligado. docs/addresses-and-access.md#tls",
+    "tlsNeeded": "Um hostname em HTTPS precisa de TLS ligado. docs/product/concepts/addresses-and-access.md#tls",
     "tailnetBindNeeded": "Informe em Rede do painel o endereço Tailscale deste nó antes de salvar.",
     "result": "URL resultante",
     "open": "Abrir o painel",
@@ -129,7 +129,7 @@
   "publicAccess": {
     "needsDomain": "localhost não é alcançável pela internet. Defina um domínio público dos projetos, ou mude os endereços para automático ou um domínio próprio primeiro.",
     "result": "Os projetos que optarem por isso ficarão em <projeto>-<serviço>.{{domain}}.",
-    "tlsOff": "O tráfego seria em texto claro. Ligue o TLS antes de deixar isto ativo. docs/addresses-and-access.md#tls"
+    "tlsOff": "O tráfego seria em texto claro. Ligue o TLS antes de deixar isto ativo. docs/product/concepts/addresses-and-access.md#tls"
   },
   "groups": {
     "Gateway": "Gateway",

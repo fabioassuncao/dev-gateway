@@ -1,5 +1,5 @@
 // Assemble a Project from the persisted grouping plus the live Environment
-// snapshot and the host scan. See docs/adr/0031-projects-home-and-project.md.
+// snapshot and the host scan. See docs/development/adr/0031-projects-home-and-project.md.
 
 import { relativePathFromWorkingDir, resolveProjectPath } from 'portta-core'
 import type { PanelConfig } from '../config.ts'

@@ -101,6 +101,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             PORTTA_VERSION=${{ steps.version.outputs.value }}
+            PORTTA_REVISION=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

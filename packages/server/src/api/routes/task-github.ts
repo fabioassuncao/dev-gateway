@@ -59,7 +59,7 @@ export function taskGitHubRoutes(deps: AppDeps): Hono {
   function requireGitHub() {
     const github = deps.github
     if (github === null || !github.status().configured) {
-      throw new OverrideRefused('the GitHub App is not configured, so nothing can reach GitHub', 'see docs/github.md')
+      throw new OverrideRefused('the GitHub App is not configured, so nothing can reach GitHub', 'see docs/product/guides/github.md')
     }
     return github
   }

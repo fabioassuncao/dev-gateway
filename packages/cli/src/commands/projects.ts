@@ -292,7 +292,7 @@ export async function analyzeCommand(path: string, options: AnalyzeOptions, comm
     output.line('\nAdoption plan')
     if (report.gateway_overlay) output.line(`  This project already has ${report.gateway_overlay}.`)
     else for (const service of report.services.filter((service) => service.kind === 'http')) output.line(`  ${service.name}\tport ${service.container_ports[0] ?? service.expose[0] ?? '?'} -> http://${report.project.name}-${service.name}.${report.domain}`)
-    output.line('\nNothing in this project was modified. See docs/adopting-projects.md.')
+    output.line('\nNothing in this project was modified. See docs/product/guides/adopting-projects.md.')
   }
 }
 

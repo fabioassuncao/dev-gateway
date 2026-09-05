@@ -3,7 +3,7 @@
 # ============================================================================
 # Same as docker/compose/features/tcp.yaml, but the ports and the access network belong
 # to the Tailscale container: Traefik shares its network namespace and has
-# neither of its own (see docs/adr/0007-tailscale-sidecar.md).
+# neither of its own (see docs/development/adr/0007-tailscale-sidecar.md).
 #
 # The published ports exist so the VPS itself can reach a database for
 # debugging. What matters is that the entrypoints listen on the tailnet

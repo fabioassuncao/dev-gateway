@@ -1,87 +1,76 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { ExternalLink } from 'lucide-react'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { docsBundle } from '@/lib/docs/bundle'
+import { sourceUrl } from '@/lib/docs/collect'
 import { DocsToc } from '@/components/docs/docs-shell'
+import { DocsBreadcrumbs } from '@/components/docs/breadcrumbs'
 import { Prose } from '@/components/docs/prose'
 
-// The corpus ships with the image and does not change while the panel runs, so
-// every page is rendered once at build time and served as a file after that.
 export const dynamic = 'force-static'
-
-interface Params {
-  slug?: string[]
-}
-
-function slugOf(params: Params): string {
-  return params.slug?.join('/') || 'overview'
-}
+export const dynamicParams = false
+interface Params { slug?: string[] }
 
 export function generateStaticParams(): Params[] {
-  // The bare `/docs` is the overview, so it is generated as the empty path too.
-  return [{ slug: [] }, ...docsBundle().order.map((slug) => ({ slug: slug.split('/') }))]
+  const { corpus } = docsBundle()
+  return [{ slug: [] }, { slug: ['overview'] }, ...corpus.pages.filter((page) => page.kind === 'markdown').map((page) => ({ slug: page.slug.split('/') })), ...Object.keys(corpus.aliases).map((slug) => ({ slug: slug.split('/') }))]
 }
-
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
-  const page = docsBundle().pages[slugOf(await params)]
-  return { title: page ? `${page.title} · Documentation` : 'Documentation' }
+  const slug = (await params).slug?.join('/')
+  const { corpus } = docsBundle()
+  const page = corpus.pages.find((page) => page.slug === (corpus.aliases[slug ?? ''] ?? slug))
+  return { title: page ? `${page.title} · Documentation` : 'Documentation', description: page?.description ?? 'Install, operate and develop Portta. Documentation for this installed version.' }
 }
-
+function DocsHome() {
+  const { corpus } = docsBundle()
+  const groups = [
+    { title: 'Get started', description: 'From installation to your first running project.', slugs: corpus.groups.find((group) => group.sequential)!.slugs },
+    { title: 'Common tasks', description: 'Choose the guide for what you need to do.', slugs: ['projects','dns-and-tls','remote-development','authentication','database-access','tasks','troubleshooting'] },
+    { title: 'Reference', description: 'Look up commands, settings and contracts.', slugs: ['configuration','cli','api','mcp','compatibility'] },
+    { title: 'Understand Portta', description: 'Learn the concepts behind your installation.', slugs: ['architecture','project-model','networking','persistence','security'] },
+    { title: 'Develop Portta', description: 'Set up a checkout and find contribution conventions.', slugs: ['development-setup','monorepo','testing','documentation','adr'] },
+  ]
+  return <article className="mx-auto max-w-5xl">
+    <h1 className="text-3xl font-semibold tracking-tight">Portta documentation</h1>
+    <p className="mt-3 max-w-prose text-muted">Install and operate Portta, understand its concepts, or contribute to its development. This documentation ships with Portta {corpus.identity.version}.</p>
+    <div className="mt-8 grid gap-8 md:grid-cols-2">{groups.map((group) => <section key={group.title}>
+      <h2 className="text-lg font-semibold">{group.title}</h2><p className="mt-1 text-sm text-muted">{group.description}</p>
+      <ul className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface">{group.slugs.map((slug) => {
+        const page = corpus.pages.find((page) => page.slug === slug)!
+        return <li key={slug}><Link href={page.url} className="block rounded px-4 py-3 focus-ring hover:bg-surface-2"><span className="block text-sm font-medium text-accent">{page.title}</span><span className="mt-1 block text-sm text-muted">{page.description}</span></Link></li>
+      })}</ul>
+    </section>)}</div>
+  </article>
+}
 export default async function DocPage({ params }: { params: Promise<Params> }) {
-  const slug = slugOf(await params)
-  const { pages, order, sections } = docsBundle()
+  const slug = (await params).slug?.join('/')
+  if (!slug) return <DocsHome />
+  if (slug === 'overview') permanentRedirect('/docs')
+  const { pages, corpus } = docsBundle()
+  if (corpus.aliases[slug]) permanentRedirect(`/docs/${corpus.aliases[slug]}`)
   const page = pages[slug]
   if (!page) notFound()
-
-  const position = order.indexOf(slug)
-  const previous = position > 0 ? pages[order[position - 1]!] : undefined
-  const next = position >= 0 && position < order.length - 1 ? pages[order[position + 1]!] : undefined
-  const section = sections.find((entry) => entry.pages.some((item) => item.slug === slug))?.title ?? ''
-
-  return (
-    <div className="flex gap-10">
-      <article className="min-w-0 flex-1">
-        {section ? <p className="text-sm text-muted">{section}</p> : null}
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">{page.title}</h1>
-        <Prose html={page.html} slug={slug} />
-        <footer className="mt-12 border-t border-line pt-6 text-sm">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {previous ? (
-              <Link
-                href={`/docs/${previous.slug}`}
-                className="group rounded-lg border border-line px-4 py-3 hover:border-accent/40 hover:text-accent"
-              >
-                <span className="block text-xs text-subtle">Previous</span>
-                <span className="mt-0.5 block font-medium">← {previous.title}</span>
-              </Link>
-            ) : (
-              <span />
-            )}
-            {next ? (
-              <Link
-                href={`/docs/${next.slug}`}
-                className="group rounded-lg border border-line px-4 py-3 text-right hover:border-accent/40 hover:text-accent sm:col-start-2"
-              >
-                <span className="block text-xs text-subtle">Next</span>
-                <span className="mt-0.5 block font-medium">{next.title} →</span>
-              </Link>
-            ) : null}
-          </div>
-          <p className="mt-5 text-xs text-subtle">
-            Served from this panel’s image.{' '}
-            <a
-              className="underline hover:text-accent"
-              href={`https://github.com/fabioassuncao/portta/blob/main/${page.source}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {page.source} on GitHub <ExternalLink className="inline size-3" aria-hidden />
-            </a>
-          </p>
-        </footer>
-      </article>
-      <DocsToc headings={page.headings} />
+  const sequence = corpus.groups.find((group) => group.sequential && group.slugs.includes(slug))
+  const position = sequence?.slugs.indexOf(slug) ?? -1
+  const previous = sequence && position > 0 ? pages[sequence.slugs[position - 1]!] : undefined
+  const next = sequence ? pages[sequence.slugs[position + 1] ?? ''] : undefined
+  return <article className="mx-auto grid max-w-6xl items-start gap-x-10 xl:grid-cols-[minmax(0,75ch)_14rem]">
+    <header className="mx-auto mb-6 w-full max-w-[75ch] xl:col-start-1 xl:row-start-1">
+      <DocsBreadcrumbs section={page.section} category={page.category} title={page.title} />
+      <h1 id={page.headings.find((heading) => heading.level === 1)?.id} className="text-3xl font-semibold tracking-tight">{page.title}</h1>
+    </header>
+    <DocsToc headings={page.headings} />
+    <div className="mx-auto w-full min-w-0 max-w-[75ch] xl:col-start-1 xl:row-start-2">
+      <Prose html={page.html} slug={slug} />
+      <footer className="mt-12 border-t border-line pt-6 text-sm">
+        {sequence && <nav aria-label="Tutorial sequence" className="grid gap-3 sm:grid-cols-2">
+          {previous ? <Link href={previous.url} className="rounded-lg border border-line px-4 py-3 hover:text-accent focus-ring"><span className="block text-xs text-muted">Previous</span>{previous.title}</Link> : <span />}
+          {next && <Link href={next.url} className="rounded-lg border border-line px-4 py-3 text-right hover:text-accent focus-ring"><span className="block text-xs text-muted">Next</span>{next.title}</Link>}
+        </nav>}
+        <p className="mt-5 text-xs text-muted">Portta {corpus.identity.version} · Bundled documentation.{' '}
+          <a className="rounded underline focus-ring" href={sourceUrl(page.source,corpus.identity.revision)} target="_blank" rel="noreferrer">View source on GitHub{corpus.identity.revision ? '' : ' (development branch)'}</a>
+        </p>
+      </footer>
     </div>
-  )
+  </article>
 }

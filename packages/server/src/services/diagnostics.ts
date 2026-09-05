@@ -59,7 +59,7 @@ export function diagnose(
           'warn',
           'GitHub App',
           github.reason ?? 'GitHub is unreachable; the projection is still readable',
-          'see docs/github.md',
+          'see docs/product/guides/github.md',
         ),
       )
     }
@@ -146,7 +146,7 @@ export function diagnose(
         'fail',
         'Routed services off the shared network',
         orphanRoutes.map((container) => container.name).join(', '),
-        `attach them to the ${config.network} network; see docs/adopting-projects.md`,
+        `attach them to the ${config.network} network; see docs/product/guides/adopting-projects.md`,
       ),
     )
   } else {

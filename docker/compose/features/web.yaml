@@ -10,7 +10,7 @@
 # It gets its OWN Docker socket proxy rather than sharing Traefik's. Traefik
 # needs a strictly read-only view; the panel needs to start, stop, restart and
 # remove containers, and those two permission sets must not be merged into one.
-# See docs/web-ui.md and docs/adr/0008-web-panel-socket-proxy.md.
+# See docs/product/guides/web-ui.md and docs/development/adr/0008-web-panel-socket-proxy.md.
 # ============================================================================
 
 networks:
@@ -140,7 +140,7 @@ services:
       # describe the same gateway.
       PORTTA_PROFILE: ${PORTTA_PROFILE:-local}
       # Projects Home as a string, for location classification only: no
-      # project directory is ever mounted here (docs/adr/0031-projects-home-and-project.md).
+      # project directory is ever mounted here (docs/development/adr/0031-projects-home-and-project.md).
       PORTTA_PROJECTS_HOME: ${PORTTA_PROJECTS_HOME:-}
       PORTTA_PROJECT_NAME: ${PORTTA_PROJECT_NAME:-portta}
       PORTTA_NETWORK: ${PORTTA_NETWORK:-portta}
@@ -153,7 +153,7 @@ services:
       PORTTA_DOMAIN: ${PORTTA_DOMAIN:-localhost}
       # How that base was chosen, so the Settings page can show the mode and
       # the address behind it rather than a bare hostname with no explanation.
-      # See docs/adr/0022-project-domain-modes.md.
+      # See docs/development/adr/0022-project-domain-modes.md.
       PORTTA_DOMAIN_MODE: ${PORTTA_DOMAIN_MODE:-local}
       PORTTA_PUBLIC_IP: ${PORTTA_PUBLIC_IP:-}
       PORTTA_AUTO_DOMAIN_PROVIDER: ${PORTTA_AUTO_DOMAIN_PROVIDER:-sslip.io}
@@ -169,7 +169,7 @@ services:
       # The panel resolves the host from the attachment (`traefik` normally,
       # `tailscale` when Traefik shares that namespace) and reaches it over the
       # shared network it is already on, never over `control`: see
-      # docs/adr/0011-panel-reads-traefik-writes-one-file.md.
+      # docs/development/adr/0011-panel-reads-traefik-writes-one-file.md.
       PORTTA_RUNTIME_TRAEFIK_API: ${PORTTA_RUNTIME_TRAEFIK_API:-}
       PORTTA_LOG_LEVEL: ${PORTTA_LOG_LEVEL:-INFO}
       PORTTA_ACCESS_LOG: ${PORTTA_ACCESS_LOG:-false}
@@ -220,7 +220,7 @@ services:
       # `./state/github` below is the only place the key is mounted from; the
       # filename is whatever GitHub called the .pem. The panel refuses a path
       # outside that directory on save, and `portta doctor` fails on one.
-      # See docs/github.md and docs/security.md.
+      # See docs/product/guides/github.md and docs/product/concepts/security.md.
       GITHUB_APP_ENABLED: ${GITHUB_APP_ENABLED:-false}
       GITHUB_APP_ID: ${GITHUB_APP_ID:-}
       GITHUB_APP_PRIVATE_KEY_FILE: ${GITHUB_APP_PRIVATE_KEY_FILE:-/app/state/github/app.pem}
@@ -229,7 +229,7 @@ services:
       GITHUB_SYNC_INTERVAL_MINUTES: ${GITHUB_SYNC_INTERVAL_MINUTES:-15}
     volumes:
       # Ten paths from the host, and nothing else. No project directory is ever
-      # mounted here: see docs/adr/0001-decoupled-infrastructure.md.
+      # mounted here: see docs/development/adr/0001-decoupled-infrastructure.md.
       #
       #   .env             the configuration the Settings page edits
       #   VERSION          the version string it reports
@@ -242,7 +242,7 @@ services:
       #   traefik/dynamic  read-write, and the ONE place the panel configures
       #                    Traefik. It may write four generated filenames there
       #                    and refuses every other path in its own process.
-      #                    See docs/adr/0011-panel-reads-traefik-writes-one-file.md.
+      #                    See docs/development/adr/0011-panel-reads-traefik-writes-one-file.md.
       - ./.env:/app/state/.env
       - ./.env.example:/app/state/.env.example:ro
       - ./.env-lock:/app/state/.env-lock
@@ -259,7 +259,7 @@ services:
       # Read-write because setting the tunnel up is something the panel is asked
       # to do; the directory stays 0700 and the credentials file 0600, and the
       # token itself is never stored anywhere else — not in .env, not in a log,
-      # not in any API response. See docs/adr/0025-cloudflare-tunnel.md.
+      # not in any API response. See docs/development/adr/0025-cloudflare-tunnel.md.
       - ./state/cloudflared:/app/state/cloudflared
     networks:
       # `gateway` so the panel can be published and, with the VPN overlay,

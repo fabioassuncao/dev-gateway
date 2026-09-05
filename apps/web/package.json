@@ -17,7 +17,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "screenshots": "npm run build && node e2e/screenshots.mjs",
-    "viewports": "npm run build && node e2e/viewports.mjs"
+    "viewports": "npm run build && node e2e/viewports.mjs",
+    "prebuild": "node --import tsx ../../tooling/docs.mjs --bundle"
   },
   "dependencies": {
     "@better-auth/api-key": "1.7.2",

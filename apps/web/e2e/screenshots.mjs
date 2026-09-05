@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { startPanel } from './resources.mjs'
-// Regenerates the panel screenshots used by README.md and docs/web-ui.md.
+// Regenerates the panel screenshots used by README.md and docs/product/guides/web-ui.md.
 //
 //   npm run screenshots
 //

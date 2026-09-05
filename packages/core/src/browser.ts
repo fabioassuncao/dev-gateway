@@ -32,3 +32,5 @@ export * from './tasks.ts'
 // `export type` emits nothing, so naming it here costs no bundle.
 export type { ProjectLocation } from './projects-home.ts'
 
+
+export * from './documentation.ts'

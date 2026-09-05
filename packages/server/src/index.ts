@@ -47,3 +47,4 @@ export {
   createReconciliationSchedule,
   intervalMinutes,
 } from './services/integrations/github/sync/schedule.ts'
+export { loadDocumentation } from './services/documentation.ts'

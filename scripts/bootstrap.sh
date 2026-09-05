@@ -110,7 +110,7 @@ step "7/8  Component images"
 if [ "$SKIP_PULL" = "1" ]; then
   info "skipping image pull (--skip-pull)"
 else
-  info "pulling pinned images (versions are fixed on purpose; see docs/adr/0004-pinned-versions.md)"
+  info "pulling pinned images (versions are fixed on purpose; see docs/development/adr/0004-pinned-versions.md)"
   portta_compose "$PORTTA_PROFILE" pull --quiet \
     || warn "could not pull every image; 'portta up' will retry"
 fi
@@ -129,7 +129,7 @@ cat >&2 <<PORTTA_NEXT
 
   To adapt a project, from that project's own directory:
     portta analyze /path/to/project
-  See docs/adopting-projects.md. Projects are never moved into this repository.
+  See docs/product/guides/adopting-projects.md. Projects are never moved into this repository.
 PORTTA_NEXT
 
 exit "$doctor_status"

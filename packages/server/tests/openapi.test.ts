@@ -157,7 +157,7 @@ describe('response contracts against the realistic host fixture', () => {
 describe('the API browser', () => {
   // It moved into the documentation site, where it shares the panel's themes,
   // typography and navigation. The old path is kept as a redirect so
-  // docs/web-ui.md, muscle memory and any bookmark keep working.
+  // docs/product/guides/web-ui.md, muscle memory and any bookmark keep working.
   it('redirects to the reference inside the documentation site', async () => {
     const { app } = makeApp({ containers: [] })
     const response = await app.request('/api/docs')

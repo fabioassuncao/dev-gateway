@@ -10,7 +10,7 @@ export const LABELS = {
   // Optional, and optional on purpose: everything below is inferred from the
   // Compose labels when it is absent, and a project that sets none behaves
   // exactly as it did before they existed. See
-  // docs/adr/0010-git-collected-on-the-host.md.
+  // docs/development/adr/0010-git-collected-on-the-host.md.
   //
   //   project   the logical project, when COMPOSE_PROJECT_NAME is a per-worktree
   //             namespace and several worktrees belong under one heading

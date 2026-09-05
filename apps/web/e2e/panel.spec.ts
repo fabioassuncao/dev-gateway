@@ -45,17 +45,17 @@ test.describe('the panel end to end', () => {
     await page.goto('/docs')
     await expect(page.getByRole('link', { name: 'Portta docs' })).toBeVisible()
 
-    await page.getByRole('link', { name: 'Installing and updating', exact: true }).first().click()
+    await page.getByRole('link', { name: 'Install Portta', exact: true }).first().click()
     await expect(page).toHaveURL(/\/docs\/install$/)
-    await expect(page.getByRole('heading', { level: 1, name: 'Installing and updating' }).first()).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Install Portta' }).first()).toBeVisible()
   })
 
   test('finds a page by name from the documentation search', async ({ page }) => {
     await page.goto('/docs')
-    // The index in docs/README.md is what names a page in the navigation, and
-    // the search reads the same list.
-    await page.getByRole('searchbox', { name: 'Search the documentation' }).fill('persist')
-    await page.getByRole('link', { name: 'Persistence', exact: true }).last().click()
+    // Search and navigation use the same classified corpus.
+    await page.getByRole('combobox', { name: 'Search the documentation' }).fill('persist')
+    await page.getByRole('combobox', { name: 'Search the documentation' }).press('ArrowDown')
+    await page.getByRole('combobox', { name: 'Search the documentation' }).press('Enter')
     await expect(page).toHaveURL(/\/docs\/persistence$/)
   })
 
@@ -156,4 +156,45 @@ test.describe('the panel end to end', () => {
     expect(received.length).toBeGreaterThan(0)
     expect(JSON.parse(received[0]!)).toMatchObject({ kind: 'open', environment: 'alpha' })
   })
+})
+
+
+test('documentation works offline across viewports, themes and keyboard navigation', async ({ page }, testInfo) => {
+  const external: string[] = []
+  await page.route('**/*', async (route) => {
+    const url = new URL(route.request().url())
+    if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) {
+      external.push(url.origin)
+      await route.abort()
+    } else await route.continue()
+  })
+  for (const width of [390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/docs/configuration')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Configuration reference')
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toBeVisible()
+    for (const theme of ['dark', 'light']) {
+      const dark = await page.locator('html').evaluate((element) => element.classList.contains('dark'))
+      if (dark !== (theme === 'dark')) await page.getByRole('button', { name: theme === 'dark' ? 'Switch to the dark theme' : 'Switch to the light theme' }).click()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`documentation-${width}-${theme}.png`) })
+    }
+    if (width < 1024) {
+      const trigger = page.getByRole('button', { name: 'Open documentation navigation' })
+      await trigger.click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(trigger).toBeFocused()
+    }
+  }
+  await page.goto('/docs/architecture')
+  await expect(page.locator('figure.mermaid-diagram svg').first()).toBeVisible()
+  await page.goto('/docs/backup-restore')
+  await expect(page.locator('.docs-alert-caution')).toBeVisible()
+  await page.getByRole('button', { name: 'Copy bash code' }).first().click()
+  await expect(page.getByRole('status').filter({ hasText: 'Code copied.' })).toBeAttached()
+  await page.getByLabel('Documentation audience').selectOption('developer')
+  await page.getByRole('link', { name: 'Contribute documentation', exact: true }).click()
+  await expect(page).toHaveURL(/\/docs\/documentation$/)
+  expect(external).toEqual([])
 })

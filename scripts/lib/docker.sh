@@ -81,7 +81,7 @@ portta_resolve_profile() {
 
   # The base every project hostname is built on, resolved from the mode before
   # the profile has its say. Mirrors resolveDomain in packages/core/src/domain.ts;
-  # see docs/adr/0022-project-domain-modes.md.
+  # see docs/development/adr/0022-project-domain-modes.md.
   portta_resolve_domain
 
   case "$profile" in
@@ -184,7 +184,7 @@ portta_resolve_profile() {
     err "TCP entrypoints must not run on the remote-public profile"
     hint "Traefik binds every interface there, so 5432 and 6379 would face the internet"
     hint "reach databases over the VPN (remote-private) or a loopback bridge instead"
-    hint "see docs/tcp-routing.md"
+    hint "see docs/product/guides/tcp-routing.md"
     return 1
   fi
 
@@ -220,7 +220,7 @@ portta_attachment() {
 # docker/compose/attach/ (how Traefik meets the world), docker/compose/profiles/ (which
 # entrypoints answer) and docker/compose/features/ (what is opted into). Their relative
 # paths still resolve against the repository root, because portta_compose passes
-# --project-directory. See docs/adr/0019-compose-files-live-under-docker.md.
+# --project-directory. See docs/development/adr/0019-compose-files-live-under-docker.md.
 portta_compose_files() {
   local profile="$1"
   local files="docker/compose/compose.yaml"
@@ -241,7 +241,7 @@ portta_compose_files() {
     remote-private|remote-public)
       # Redirecting :80 to :443 without a certificate the browser accepts turns
       # a working URL into a warning page, so the TLS overlay is applied only
-      # when there is TLS. See docs/adr/0022-project-domain-modes.md.
+      # when there is TLS. See docs/development/adr/0022-project-domain-modes.md.
       if portta_is_true "${TLS_ENABLED:-false}"; then
         files="$files docker/compose/profiles/remote-tls.yaml"
         # Exactly one challenge overlay rides with it. DNS-01 is the default
@@ -456,7 +456,7 @@ portta_discover_http() {
 
     # A datastore routed by hostname carries TCP router labels and no HTTP
     # ones. It opted into the gateway, but not into anything `urls` should
-    # list: it is not reached with a browser. See docs/tcp-routing.md.
+    # list: it is not reached with a browser. See docs/product/guides/tcp-routing.md.
     if printf '%s' "$labels" | grep -q '^traefik\.tcp\.routers\.' \
        && ! printf '%s' "$labels" | grep -q '^traefik\.http\.'; then
       continue

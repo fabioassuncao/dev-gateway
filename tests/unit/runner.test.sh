@@ -3,7 +3,7 @@
 # list the two CLIs build, the closed verb set, and the conditions under which
 # they refuse to build one at all.
 #
-# See docs/adr/0030-the-panel-and-a-project-lifecycle.md.
+# See docs/development/adr/0030-the-panel-and-a-project-lifecycle.md.
 set -uo pipefail
 
 PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)

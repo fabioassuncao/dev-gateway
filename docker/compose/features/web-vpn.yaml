@@ -12,7 +12,7 @@
 # There is no middleware on the router: the panel signs people in itself, and
 # `portta web up --expose vpn` refuses unless PORTTA_AUTH_MODE=required. The
 # tailnet is the first boundary and the panel's own login is the second.
-# See docs/adr/0035-authentication-lives-in-the-panel.md.
+# See docs/development/adr/0035-authentication-lives-in-the-panel.md.
 # ============================================================================
 
 services:

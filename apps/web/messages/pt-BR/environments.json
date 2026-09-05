@@ -145,7 +145,7 @@
     "collected": "Coletado"
   },
   "servicesEmpty": "Este projeto não tem serviços",
-  "servicesEmptyHint": "Um projeto entra adicionando o overlay do gateway: veja docs/adopting-projects.md.",
+  "servicesEmptyHint": "Um projeto entra adicionando o overlay do gateway: veja docs/product/guides/adopting-projects.md.",
   "containerActions": {
     "logs": "Logs",
     "actionsFor": "Ações para {{name}}",

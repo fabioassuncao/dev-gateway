@@ -66,7 +66,7 @@ describe "the applier is bounded by construction"
 
 # One container on this host may drive Compose, and this is the whole of what
 # keeps it from becoming a general remote-execution channel.
-# See docs/adr/0026-applying-settings-from-the-panel.md.
+# See docs/development/adr/0026-applying-settings-from-the-panel.md.
 
 it "only the applier mounts the docker socket writable, and only it"
 # Everywhere else the socket is `:ro`, into a socket proxy. The compose audit
@@ -282,7 +282,7 @@ it "no floating latest tag"
 assert_eq "" "$(grep -rn ':latest' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml docker/images/*/Dockerfile apps/web/Dockerfile 2>/dev/null || true)"
 
 it "the versions table in ADR 0004 lists every pinned image"
-adr="docs/adr/0004-pinned-versions.md"
+adr="docs/development/adr/0004-pinned-versions.md"
 missing=""
 for img in $(grep -rhoE 'image: [a-z0-9./_-]+' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml scripts/lib/discovery.sh 2>/dev/null \
              | awk '{print $2}' | sort -u); do
@@ -304,7 +304,7 @@ it "the Dockerfile builds from the repository root"
 assert_contains "$(cat apps/web/Dockerfile)" "COPY package.json package-lock.json ./"
 # The build lives in the two overlays that are only ever applied inside a
 # checkout. web.yaml itself pulls, because an installed PORTTA_HOME has no
-# source tree to build from. See docs/adr/0020-installer-and-portta-home.md.
+# source tree to build from. See docs/development/adr/0020-installer-and-portta-home.md.
 assert_contains "$(cat docker/compose/features/web-build.yaml)" "dockerfile: apps/web/Dockerfile"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "dockerfile: apps/web/Dockerfile"
 assert_contains "$(cat docker/compose/features/auth-build.yaml)" "dockerfile: apps/web/Dockerfile"

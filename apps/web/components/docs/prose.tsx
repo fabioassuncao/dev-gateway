@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useDarkTheme } from '@/lib/theme'
 import { renderMermaid } from '@/lib/docs/mermaid'
+import { copyText } from '@/lib/clipboard'
 
 /**
  * A rendered documentation page, with its Mermaid fences drawn.
@@ -30,5 +31,32 @@ export function Prose({ html, slug }: { html: string; slug: string }) {
     }
   }, [slug, dark])
 
-  return <div ref={container} className="prose mt-6" dangerouslySetInnerHTML={{ __html: html }} />
+  useEffect(() => {
+    const element = container.current
+    if (!element) return
+    const cleanups: Array<() => void> = []
+    for (const pre of element.querySelectorAll('pre')) {
+      const code = pre.querySelector('code')
+      if (!code || code.classList.contains('language-mermaid')) continue
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'docs-copy focus-ring'
+      const language = [...code.classList].find((name) => name.startsWith('language-'))?.slice(9) ?? 'code'
+      button.textContent = `Copy ${language}`
+      button.setAttribute('aria-label', `Copy ${language} code`)
+      const status = document.createElement('span')
+      status.className = 'sr-only'
+      status.setAttribute('role', 'status')
+      const copy = async () => {
+        try { await copyText(code.textContent ?? ''); status.textContent = 'Code copied.' }
+        catch { status.textContent = 'Copy failed. Select and copy the code manually.' }
+      }
+      button.addEventListener('click', copy)
+      pre.before(button, status)
+      cleanups.push(() => { button.removeEventListener('click',copy); button.remove(); status.remove() })
+    }
+    return () => cleanups.forEach((cleanup) => cleanup())
+  }, [html, slug])
+
+  return <div ref={container} className="prose" dangerouslySetInnerHTML={{ __html: html }} />
 }

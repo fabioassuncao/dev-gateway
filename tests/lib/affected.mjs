@@ -40,7 +40,7 @@ export function selectTests(root, files) {
     add(`${w.name}:${filter ?? '*'}`, { kind: 'vitest', workspace: w.name, filter, project }, reason)
   }
   for (const file of files) {
-    if (/^(docs\/|README\.md$|CLAUDE\.md$|AGENTS\.md$)/.test(file)) {
+    if (/^(tooling\/docs\.mjs$|docs\/|README\.md$|CLAUDE\.md$|AGENTS\.md$)/.test(file)) {
       add('links', { kind: 'command', command: ['bash', 'tests/lint-links.sh'] }, file)
       continue
     }

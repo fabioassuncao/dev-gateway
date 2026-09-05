@@ -158,7 +158,7 @@ export async function tlsInit(command: Command): Promise<void> {
         + ' -addext "keyUsage=critical,keyCertSign,cRLSign"',
       'chmod 600 /out/portta-ca.key',
     ].join('\n')], { volumes: [`${paths.directory}:/out`] })
-    if (created.failed) throw new PreconditionError('could not create the CA', created.stderr.trim() || 'see docs/dns-and-tls.md')
+    if (created.failed) throw new PreconditionError('could not create the CA', created.stderr.trim() || 'see docs/product/guides/dns-and-tls.md')
     output.progress(`created ${paths.caCertificate}`)
   }
 
@@ -173,7 +173,7 @@ export async function tlsInit(command: Command): Promise<void> {
     'openssl x509 -req -in /tmp/wildcard.csr -CA /out/portta-ca.crt -CAkey /out/portta-ca.key -CAcreateserial -out /out/wildcard.crt -days 397 -sha256 -extfile /tmp/ext',
     'chmod 600 /out/wildcard.key',
   ].join('\n')], { volumes: [`${paths.directory}:/out`], env: { DOMAIN: domain } })
-  if (issued.failed) throw new PreconditionError('could not issue the certificate', issued.stderr.trim() || 'see docs/dns-and-tls.md')
+  if (issued.failed) throw new PreconditionError('could not issue the certificate', issued.stderr.trim() || 'see docs/product/guides/dns-and-tls.md')
 
   // Belt and braces for the host-openssl path, where nothing ran the chmod above.
   for (const key of [paths.caKey, paths.leafKey]) {

@@ -179,7 +179,7 @@ EXAMPLES
   portta remote bootstrap deploy@vps --profile remote-private
 
 Consumer projects are adapted with an overlay file and stay where they are.
-See docs/adopting-projects.md.
+See docs/product/guides/adopting-projects.md.
 PORTTA_HELP
 }
 
@@ -384,7 +384,7 @@ EOF
   if [ -z "$rows" ]; then
     warn "no services are currently opted into the gateway"
     hint "a service joins by setting traefik.enable=true and attaching to the '$PORTTA_NETWORK' network"
-    hint "see docs/adopting-projects.md"
+    hint "see docs/product/guides/adopting-projects.md"
     return 0
   fi
 
@@ -594,7 +594,7 @@ socket proxy. Consumer projects are never started or stopped by this.
 
 With PORTTA_APPLY=true this also prepares the applier: a stopped, single-purpose
 container the panel may start to run this command for you. See
-docs/adr/0026-applying-settings-from-the-panel.md.
+docs/development/adr/0026-applying-settings-from-the-panel.md.
 PORTTA_HELP
       ;;
     down) cat >&2 <<'PORTTA_HELP'

@@ -19,7 +19,7 @@
  * persisted, so changing the mode re-labels every project at once, with no
  * project touched and nothing to migrate.
  *
- * See docs/adr/0022-project-domain-modes.md.
+ * See docs/development/adr/0022-project-domain-modes.md.
  */
 
 import { hostLabel } from './hostname.ts'

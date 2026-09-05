@@ -387,7 +387,7 @@ export async function runDoctor(context: GatewayContext): Promise<DoctorCheck[]>
   if (isTrue(env['GITHUB_APP_ENABLED'])) {
     if (!env['GITHUB_APP_ID']) {
       add(check('github.app', 'fail', 'github app', 'enabled with no GITHUB_APP_ID',
-        "set GITHUB_APP_ID from the App's settings page; see docs/github.md"))
+        "set GITHUB_APP_ID from the App's settings page; see docs/product/guides/github.md"))
     } else {
       const wanted = env['GITHUB_APP_PRIVATE_KEY_FILE'] || '/app/state/github/app.pem'
       const hostPath = githubKeyHostPath(wanted, root)
@@ -436,7 +436,7 @@ export async function runDoctor(context: GatewayContext): Promise<DoctorCheck[]>
     const onShared = routed.filter((container) => container.networks.includes(config.network)).map((container) => container.name)
     add(onShared.length > 0
       ? check('tcp.network', 'fail', 'routed datastores', `on the shared HTTP network: ${onShared.join(' ')}`,
-          `attach them to ${env['PORTTA_ACCESS_NETWORK'] || `${config.network}-access`} instead; see docs/tcp-routing.md`)
+          `attach them to ${env['PORTTA_ACCESS_NETWORK'] || `${config.network}-access`} instead; see docs/product/guides/tcp-routing.md`)
       : check('tcp.network', 'pass', 'routed datastores', `${routed.length} routed, none on the shared network`))
   } else {
     add(check('tcp.profile', 'pass', 'tcp entrypoints', 'disabled'))
@@ -598,7 +598,7 @@ export async function runDoctor(context: GatewayContext): Promise<DoctorCheck[]>
       .map((container) => container.name)
     add(risky.length > 0
       ? check('network.datastores', 'warn', 'datastores on the shared network', `attached: ${risky.join(' ')}`,
-          "databases and caches belong on the project's private network only; see docs/networking.md")
+          "databases and caches belong on the project's private network only; see docs/product/concepts/networking.md")
       : check('network.datastores', 'pass', 'datastores on the shared network', 'none'))
   }
 
@@ -647,7 +647,7 @@ export async function runDoctor(context: GatewayContext): Promise<DoctorCheck[]>
 
   // --- panel access --------------------------------------------------------
   // How the panel is reached is a security decision, so it is checked rather
-  // than merely reported. See docs/adr/0021-panel-access-modes.md.
+  // than merely reported. See docs/development/adr/0021-panel-access-modes.md.
   if (config.webEnabled) {
     const expose = env['PORTTA_WEB_EXPOSE'] || 'local'
     add(['local', 'tailscale', 'public', 'vpn', 'domain'].includes(expose)
@@ -731,9 +731,9 @@ async function domainChecks(config: GatewayContext['config'], env: Record<string
     checks.push(probe.length > 0
       ? check('dns.local', 'pass', 'local DNS', '*.localhost resolves to loopback')
       : check('dns.local', 'warn', 'local DNS', 'could not confirm *.localhost resolution',
-          'see docs/local-development.md if hostnames do not resolve'))
+          'see docs/product/guides/local-development.md if hostnames do not resolve'))
     // A loopback name on a host reached from elsewhere is a URL nobody can
-    // open, which is the failure docs/adr/0022 exists to catch.
+    // open, which is the failure docs/development/adr/0022 exists to catch.
     if (panelExpose !== 'local') {
       checks.push(check('domain.reachable', 'warn', 'project hostnames',
         '*.localhost only resolves on this machine, and the panel is reached from elsewhere',

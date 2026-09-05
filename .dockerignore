@@ -34,8 +34,7 @@ apps/web/playwright.config.ts
 apps/web/vitest.config.ts
 
 # `docs`, `README.md` and `CHANGELOG.md` are build *input*: the docs bundle is
-# rendered from them at build time (apps/web/vite.docs.config.ts) and only the
-# rendered HTML reaches the runtime stage. Everything else here is not.
+# compiled with tooling/docs.mjs and consumed by the Next.js application.
 templates
 tests
 scripts
@@ -48,3 +47,6 @@ LICENSE
 justfile
 VERSION
 docker
+
+docs/research
+docs/.generated

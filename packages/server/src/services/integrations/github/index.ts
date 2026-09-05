@@ -72,7 +72,7 @@ export class GitHubIntegration {
     if (!this.state.configured || this.client === null) {
       throw new GitHubUnavailable(
         'the GitHub App is not configured',
-        'set GITHUB_APP_ENABLED, GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY_FILE; see docs/github.md',
+        'set GITHUB_APP_ENABLED, GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY_FILE; see docs/product/guides/github.md',
       )
     }
     return this.client

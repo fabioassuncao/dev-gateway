@@ -15,7 +15,7 @@
 # Traefik's static configuration lives in `environment:` (TRAEFIK_* variables)
 # rather than a config file. Traefik treats file / CLI / env as mutually
 # exclusive sources, and only the env form composes across Compose overlays.
-# Dynamic configuration stays in config/traefik/dynamic/. See docs/adr/0003.
+# Dynamic configuration stays in config/traefik/dynamic/. See docs/development/adr/0003.
 # ============================================================================
 
 name: ${PORTTA_PROJECT_NAME:-portta}

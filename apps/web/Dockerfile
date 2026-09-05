@@ -32,6 +32,8 @@ RUN npm ci
 # --- build -------------------------------------------------------------------
 FROM deps AS build
 WORKDIR /app
+ARG PORTTA_REVISION
+ENV PORTTA_REVISION=$PORTTA_REVISION
 COPY packages/core/tsconfig.json packages/core/tsconfig.build.json ./packages/core/
 COPY packages/core/src ./packages/core/src
 COPY packages/contracts/tsconfig.json packages/contracts/tsconfig.build.json ./packages/contracts/
@@ -53,11 +55,10 @@ COPY apps/web/lib ./apps/web/lib
 COPY apps/web/messages ./apps/web/messages
 COPY apps/web/server ./apps/web/server
 COPY apps/web/public ./apps/web/public
-# The documentation itself, read at build time by app/docs and rendered into
-# static pages. What ships is the HTML it produced, which is what makes /docs
-# offline; the Markdown reaches the runtime stage too, because a page
-# regenerated on demand reads it again.
+# Canonical sources compile into static Next pages and a shared offline corpus.
+# Only the validated corpus and local images reach the runtime stage.
 COPY docs ./docs
+COPY tooling ./tooling
 COPY README.md CHANGELOG.md .env.example ./
 RUN npm run build --workspace=portta-core \
  && npm run build --workspace=portta-contracts \
@@ -93,6 +94,7 @@ COPY packages/auth/src ./packages/auth/src
 COPY packages/server/tsconfig.json ./packages/server/
 COPY packages/server/src ./packages/server/src
 COPY docs ./docs
+COPY tooling ./tooling
 COPY README.md CHANGELOG.md .env.example ./
 WORKDIR /app/apps/web
 # The container runs as an unprivileged user, and Next writes .next beside the
@@ -151,10 +153,10 @@ COPY apps/web/public ./apps/web/public
 # The generated SQL, beside the dist that resolves it: the panel applies pending
 # migrations at boot, so the image has to carry them.
 COPY packages/db/drizzle ./packages/db/drizzle
-# The Markdown behind /docs. Most pages are prerendered into .next, and one that
-# is regenerated on demand reads the source again.
-COPY docs ./docs
-COPY README.md CHANGELOG.md .env.example ./
+# The validated corpus and local assets, from the same build as the panel.
+COPY --from=build /app/docs/.generated ./docs/.generated
+COPY --from=build /app/docs/images ./docs/images
+COPY .env.example ./
 
 WORKDIR /app/apps/web
 USER node

@@ -11,7 +11,7 @@
 # entirely, because there would be nothing to route wrongly. So every check
 # uses two, with different data in each, and asserts which one answered.
 #
-# See docs/tcp-routing.md for why PostgreSQL and Redis can do this and MySQL
+# See docs/product/guides/tcp-routing.md for why PostgreSQL and Redis can do this and MySQL
 # cannot.
 # ============================================================================
 set -uo pipefail

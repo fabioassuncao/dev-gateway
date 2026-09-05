@@ -4,10 +4,10 @@ Rules live next to the work they govern. This file is an index and a set of
 repository-wide operating rules, not a second copy of the documentation.
 
 * [Safe operating rules](docs/agent-guidelines.md) — what an agent must never do on a shared development host
-* [Monorepo layout](docs/monorepo.md) — where new code goes, workspace boundaries, and how to add a command
-* [Shell scripts](docs/scripts.md) — what may still be Bash, and why a new script probably should not be
-* [Testing](docs/testing.md) — testing layers, ownership, costs, and release validation
-* [Architecture decisions](docs/adr/) — decisions that are expensive to reverse
+* [Monorepo layout](docs/development/monorepo.md) — where new code goes, workspace boundaries, and how to add a command
+* [Shell scripts](docs/development/scripts.md) — what may still be Bash, and why a new script probably should not be
+* [Testing](docs/development/testing.md) — testing layers, ownership, costs, and release validation
+* [Architecture decisions](docs/development/adr/README.md) — decisions that are expensive to reverse
 * [Documentation index](docs/README.md)
 
 Per-directory `AGENTS.md` files are added only when a workspace has rules that
@@ -123,7 +123,7 @@ Full regression belongs primarily to integration milestones.
   validated reliably with affected suites.
 
 Before a release, use the release validation required by
-[docs/testing.md](docs/testing.md), including E2E where appropriate.
+[docs/development/testing.md](docs/development/testing.md), including E2E where appropriate.
 
 Do not silently turn a normal coding task into release validation.
 
@@ -278,7 +278,7 @@ For agent-driven development, this section governs the default behavior:
 > **targeted while developing → affected scope when finishing the task →
 > full regression at integration/release milestones.**
 
-See [docs/testing.md](docs/testing.md) for the detailed test architecture and
+See [docs/development/testing.md](docs/development/testing.md) for the detailed test architecture and
 release procedures.
 
 

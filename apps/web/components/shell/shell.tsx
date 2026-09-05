@@ -7,6 +7,7 @@
 // return is passed through as `children` — the shell never re-renders because a
 // page changed, and a page never has to know the shell exists.
 
+import { PorttaBrand as Brand } from '@/components/ui/brand'
 import { useCallback, useState, type ComponentType, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -45,20 +46,6 @@ import { usePrincipal } from '@/lib/principal'
  * and the panel's own shorthand for a host with things running on it. Small on
  * purpose — it identifies the product, it does not decorate the page.
  */
-function Brand() {
-  return (
-    <span
-      aria-hidden
-      className="flex size-6 shrink-0 items-center justify-center rounded-md bg-accent text-accent-fg"
-    >
-      <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-        <path d="M4 11.5V6" />
-        <path d="M8 11.5V3.5" />
-        <path d="M12 11.5V8" />
-      </svg>
-    </span>
-  )
-}
 
 const THEME_ICON: Record<Theme, ComponentType<{ className?: string }>> = { light: Sun, dark: Moon, system: Monitor }
 

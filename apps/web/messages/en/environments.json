@@ -145,7 +145,7 @@
     "collected": "Collected"
   },
   "servicesEmpty": "This project has no services",
-  "servicesEmptyHint": "A project joins by adding the gateway overlay: see docs/adopting-projects.md.",
+  "servicesEmptyHint": "A project joins by adding the gateway overlay: see docs/product/guides/adopting-projects.md.",
   "containerActions": {
     "logs": "Logs",
     "actionsFor": "Actions for {{name}}",

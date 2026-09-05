@@ -12,11 +12,11 @@
 #
 #   * clone the repository. A normal installation runs published images and a
 #     handful of configuration files; the source tree is for developing Portta,
-#     not for running it. See docs/adr/0020-installer-and-portta-home.md.
+#     not for running it. See docs/development/adr/0020-installer-and-portta-home.md.
 #   * build anything. Builds belong in CI.
 #   * expose applications. It configures how you reach the PANEL and nothing
 #     else. Each project decides its own exposure later, from the panel or the
-#     CLI. See docs/adr/0021-panel-access-modes.md.
+#     CLI. See docs/development/adr/0021-panel-access-modes.md.
 #   * touch Tailscale, Git, GitHub or an AI agent CLI. It reports on them and
 #     stops there.
 #
@@ -185,7 +185,7 @@ OPTIONS
                           over HTTP-01, one per hostname, and :80 must be
                           reachable from the internet. The address is the ACME
                           account contact. For one wildcard instead, configure
-                          DNS-01 afterwards: see docs/dns-and-tls.md
+                          DNS-01 afterwards: see docs/product/guides/dns-and-tls.md
   --version <ref>         Tag, branch or commit to install   (default: main)
   --registry <namespace>  Image namespace  (default: ghcr.io/fabioassuncao)
   --skip-deps             Never offer to install Docker
@@ -490,7 +490,7 @@ PORTTA_HOME="$INSTALL_DIR"
 
 # Projects Home is a second directory: the code the operator is developing,
 # not the gateway. Changing it later changes the reference; this installer
-# never moves files. See docs/adr/0031-projects-home-and-project.md.
+# never moves files. See docs/development/adr/0031-projects-home-and-project.md.
 # Uninstall does not ask: it does not touch that directory.
 if [ "$ACTION" != "uninstall" ]; then
   if [ -z "$PROJECTS_HOME" ]; then PROJECTS_HOME="${PORTTA_PROJECTS_HOME:-}"; fi
@@ -692,7 +692,7 @@ esac
 # The panel signs people in itself: accounts, roles, sessions and tokens, in its
 # own database. There is no credential to invent here and nothing to hand over
 # — the first account is created once, at /setup, by whoever opens the panel
-# first. See docs/adr/0035-authentication-lives-in-the-panel.md.
+# first. See docs/development/adr/0035-authentication-lives-in-the-panel.md.
 #
 # What the installer decides is only whether it asks at all. `disabled` makes
 # every request the local operator, which is safe on loopback (reaching it
@@ -905,7 +905,7 @@ fi
 # reached from elsewhere gets a base that resolves from elsewhere too.
 #
 # This is a name and nothing more: it does not publish a single service. See
-# docs/adr/0022-project-domain-modes.md.
+# docs/development/adr/0022-project-domain-modes.md.
 
 # On an update the configured mode is a decision and is kept. On a fresh
 # install the value in the file is only the template's default, and reading it
@@ -968,7 +968,7 @@ esac
 # there is no certificate a public CA will issue for a bare IP or an auto
 # domain. HTTP-01 rather than DNS-01 because it needs no provider credential,
 # which is the only reason this can be a single flag at all; a wildcard is a
-# deliberate second step. See docs/dns-and-tls.md.
+# deliberate second step. See docs/product/guides/dns-and-tls.md.
 if [ -n "$TLS_EMAIL" ]; then
   case "$PROJECT_DOMAIN" in
     localhost|*.sslip.io|*.nip.io)
@@ -980,7 +980,7 @@ if [ -n "$TLS_EMAIL" ]; then
   env_set "$ENV_FILE" ACME_EMAIL "$TLS_EMAIL"
   good "HTTPS: Let's Encrypt over HTTP-01, one certificate per hostname"
   note "*.${PROJECT_DOMAIN} must resolve here and :80 must be reachable, or issuance fails"
-  note "one wildcard instead needs a DNS credential: docs/dns-and-tls.md"
+  note "one wildcard instead needs a DNS credential: docs/product/guides/dns-and-tls.md"
 fi
 
 # The panel's own address, for the summary and for `portta web status`. This
@@ -1043,7 +1043,7 @@ cat > "$PORTTA_HOME/config/traefik/dynamic/portta-panel.yaml" <<'YAML'
 # The panel authenticates its own requests: it is a Next application with
 # Better Auth behind it, not a router with a credential in front of it.
 # Nothing routes through Traefik middleware to reach it any more.
-# See docs/adr/0035-authentication-lives-in-the-panel.md.
+# See docs/development/adr/0035-authentication-lives-in-the-panel.md.
 # ============================================================================
 YAML
 chmod 600 "$PORTTA_HOME/config/traefik/dynamic/portta-panel.yaml"
@@ -1184,7 +1184,7 @@ if [ -n "${DB_CONTAINER:-}" ]; then
        'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "select 1"' >/dev/null 2>&1; then
     good "the panel can authenticate to its database"
   else
-    bad "the database rejects the configured credential; recover the credential or rotate it explicitly (see docs/persistence.md)"
+    bad "the database rejects the configured credential; recover the credential or rotate it explicitly (see docs/product/concepts/persistence.md)"
     HEALTH_OK=false
   fi
 fi

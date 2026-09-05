@@ -10,7 +10,7 @@
  * deliberately so: `apps/auth` protects project hostnames and shares, it is
  * served from a different origin than the panel, and it may not import from it.
  * The duplication is the price of that boundary; both are the tokens in
- * docs/design-system.md, and a change to one is a change to the other. */
+ * docs/development/design-system.md, and a change to one is a change to the other. */
 @source '.';
 
 /* Portta's surface language.

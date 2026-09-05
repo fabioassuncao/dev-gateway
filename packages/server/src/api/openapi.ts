@@ -300,7 +300,7 @@ export function registerOpenApiRoutes(api: Hono, config: PanelConfig): void {
   )
 
   /**
-   * Kept so `docs/web-ui.md`, muscle memory and any bookmark keep working. The
+   * Kept so `docs/product/guides/web-ui.md`, muscle memory and any bookmark keep working. The
    * browser itself moved into the documentation site, where it shares the
    * panel's themes, its typography and its navigation instead of being a
    * separate 58-line page nobody could style.

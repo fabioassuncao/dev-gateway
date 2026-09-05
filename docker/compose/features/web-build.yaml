@@ -7,7 +7,7 @@
 #
 # A normal installation pulls the published image instead, so a host never
 # needs a compiler, a lockfile or the panel's source to run the panel.
-# See docs/adr/0020-installer-and-portta-home.md.
+# See docs/development/adr/0020-installer-and-portta-home.md.
 # ============================================================================
 
 services:

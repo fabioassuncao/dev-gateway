@@ -206,7 +206,7 @@ export function issueRoutes(deps: AppDeps): Hono {
     if (github === null || !github.status().configured) {
       throw new OverrideRefused(
         'the GitHub App is not configured, so nothing can be written back',
-        'see docs/github.md',
+        'see docs/product/guides/github.md',
       )
     }
 

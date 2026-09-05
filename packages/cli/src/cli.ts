@@ -1,3 +1,4 @@
+import { docsCommand } from './commands/docs.js'
 import { Command, CommanderError } from 'commander'
 import { CliError, EXIT } from './errors.js'
 import { Output } from './output.js'
@@ -318,10 +319,20 @@ describe(panelOptions(sessions.command('heartbeat <id>')), 'Say a session is sti
 
 describe(panelOptions(program.command('activity')), 'What happened, newest first').option('--project <slug>').option('--kind <a,b>', 'comma-separated event kinds').option('--task <ref>').option('--repository <id>').option('--environment <name>').option('--limit <n>').action(activityCommand)
 
+const docs = describe(program.command('docs'), 'Read the documentation bundled with this CLI or an explicitly selected panel')
+function docsOptions(command: Command): Command {
+  return command.option('--url <url>', 'read this panel instead of the local corpus')
+    .option('--allow-remote', 'permit a non-loopback panel URL')
+}
+describe(docsOptions(docs.command('list')), 'List documentation').option('--audience <audience>', 'user, developer or all', 'all').action((_options, command) => docsCommand('list', undefined, command))
+describe(docsOptions(docs.command('search <query>')), 'Search documentation').option('--audience <audience>', 'user, developer or all', 'all').option('--limit <number>', 'maximum results (1–50)', '10').action((query, _options, command) => docsCommand('search', query, command))
+describe(docsOptions(docs.command('show <slug>')), 'Read a document or heading subtree').option('--anchor <id>', 'heading anchor').action((slug, _options, command) => docsCommand('show', slug, command))
+
 describe(program.command('mcp'), 'Serve the task verbs to an agent over stdio (MCP)')
   .option('--url <url>', 'the panel API base URL; defaults to the local panel')
   .option('--allow-remote', 'permit a non-loopback panel URL, which is where a credential would be sent')
   .option('--actor <name>', 'recorded on every write as X-Portta-Actor', 'agent')
+  .option('--docs-source <source>', 'documentation source: local or panel', 'local')
   .action(mcpCommand)
 
 const remote = describe(program.command('remote'), 'Operate a gateway on another host over SSH')

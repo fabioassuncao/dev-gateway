@@ -84,7 +84,7 @@ portta_random_hex() {
 # Mirrors resolveDomain in packages/core/src/domain.ts. The two implementations
 # have to agree, because Traefik bakes the resolved base into its default rule
 # and the panel derives the same hostnames for display.
-# See docs/adr/0022-project-domain-modes.md.
+# See docs/development/adr/0022-project-domain-modes.md.
 
 # portta_auto_domain <ipv4> [provider]: the wildcard-DNS name for an address.
 #

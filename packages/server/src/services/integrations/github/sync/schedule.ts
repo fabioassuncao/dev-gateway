@@ -1,6 +1,6 @@
 // The reconciliation timer.
 //
-// `docs/github.md` has described reconciliation as running "on demand, and on a
+// `docs/product/guides/github.md` has described reconciliation as running "on demand, and on a
 // timer" since the integration shipped. Only the first half was true: the sole
 // trigger was `POST /api/integrations/github/sync`, so on the *documented
 // default* — a loopback panel, which cannot receive webhook deliveries —

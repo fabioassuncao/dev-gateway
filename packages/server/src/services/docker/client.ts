@@ -1,7 +1,7 @@
 // A very small Docker Engine API client, pinned to Engine API v1.43 (Docker
 // Engine 24, the project's minimum supported version). The reasons for using
 // this narrow client instead of a general Docker SDK are recorded in
-// docs/adr/0017-no-docker-sdk.md.
+// docs/development/adr/0017-no-docker-sdk.md.
 //
 // It never opens the Docker socket: it talks to the panel's own socket proxy
 // over the internal control network, and every request passes through the

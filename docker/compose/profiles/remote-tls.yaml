@@ -9,7 +9,7 @@
 # is exactly what a host on an auto domain has: no public CA issues a wildcard
 # for sslip.io, and neither service offers the DNS-01 API one would need.
 # docker/compose/profiles/remote.yaml serves those over plain HTTP instead.
-# See docs/adr/0022-project-domain-modes.md.
+# See docs/development/adr/0022-project-domain-modes.md.
 # ============================================================================
 
 services:

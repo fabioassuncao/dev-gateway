@@ -21,6 +21,6 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
   // whether to serve them.
   if (hasDeps() && !serverDeps().config.docs) notFound()
 
-  const { sections } = docsBundle()
-  return <DocsShell sections={sections}>{children}</DocsShell>
+  const { sections, corpus } = docsBundle()
+  return <DocsShell sections={sections} version={corpus.identity.version} searchPages={corpus.pages.map((page) => ({ ...page, markdown: '' }))}>{children}</DocsShell>
 }

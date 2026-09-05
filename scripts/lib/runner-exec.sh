@@ -2,7 +2,7 @@
 # The command the project runner container is created with. Fixed at creation;
 # the panel supplies no argument. The request is { verb, project, flags } in
 # state/runner/request.json, plus { workingDir, configFiles } for an `up` of a
-# project that has no container left. See docs/adr/0030-the-panel-and-a-project-lifecycle.md.
+# project that has no container left. See docs/development/adr/0030-the-panel-and-a-project-lifecycle.md.
 set -euo pipefail
 
 PORTTA_ROOT="${PORTTA_ROOT:?PORTTA_ROOT is required}"

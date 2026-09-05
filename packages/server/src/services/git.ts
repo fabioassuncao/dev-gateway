@@ -3,7 +3,7 @@
 // The panel has no access to any project directory and runs no shell commands.
 // It reads one file per repository from a read-only mount (an index maps each
 // environment to the repository it runs from), and reports how old it is: what is on screen is as true as the last scan, and the UI says so rather
-// than implying currency. See docs/adr/0010-git-collected-on-the-host.md.
+// than implying currency. See docs/development/adr/0010-git-collected-on-the-host.md.
 
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'

@@ -29,6 +29,7 @@ export interface PorttaDeps {
    * event stream is one of its routes.
    */
   api: Hono
+  documentation?: { docs: boolean; apiDocs: boolean }
   /** Next's request handler: everything that is not the API. */
   next: NextHandler
   /**
@@ -81,6 +82,15 @@ export function createPortta(deps: PorttaDeps): Portta {
   const jobs = deps.jobs ?? []
 
   const handle = (request: IncomingMessage, response: ServerResponse): void => {
+    let pathname: string
+    try { pathname = decodeURIComponent(new URL(request.url ?? '/', 'http://localhost').pathname).replace(/\/+$/, '') || '/' }
+    catch { response.writeHead(400); response.end('Bad Request'); return }
+    const docs = deps.documentation
+    if (docs && (pathname === '/docs' || pathname.startsWith('/docs/')) && (!docs.docs || (pathname === '/docs/api' && !docs.apiDocs))) {
+      response.writeHead(404, { 'content-type': 'text/plain', 'cache-control': 'no-store' })
+      response.end('Not Found')
+      return
+    }
     if (isApi(request.url ?? '/')) {
       api(request, response)
       return

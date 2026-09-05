@@ -48,7 +48,7 @@
       "title": "GitHub App",
       "description": "Desativado por padrão.",
       "notConfigured": "Nenhum GitHub App configurado",
-      "notConfiguredHint": "Defina GITHUB_APP_ENABLED, GITHUB_APP_ID e GITHUB_APP_PRIVATE_KEY_FILE acima. Veja docs/github.md para o App a criar e as permissões exatas necessárias.",
+      "notConfiguredHint": "Defina GITHUB_APP_ENABLED, GITHUB_APP_ID e GITHUB_APP_PRIVATE_KEY_FILE acima. Veja docs/product/guides/github.md para o App a criar e as permissões exatas necessárias.",
       "installations": "Instalações",
       "repositories": "Repositórios",
       "rateLimit": "Limite de taxa",

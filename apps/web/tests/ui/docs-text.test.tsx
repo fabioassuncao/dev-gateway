@@ -22,15 +22,15 @@ beforeEach(() => {
 
 describe('docsHref', () => {
   it('keeps a section anchor on a settings citation', () => {
-    expect(docsHref('docs/addresses-and-access.md#the-panel')).toBe('/docs/addresses-and-access#the-panel')
+    expect(docsHref('docs/product/concepts/addresses-and-access.md#the-panel')).toBe('/docs/addresses-and-access#the-panel')
   })
 
   it('maps a repository path to the documentation route', () => {
-    expect(docsHref('docs/adr/0031-projects-home-and-project.md')).toBe(
+    expect(docsHref('docs/development/adr/0031-projects-home-and-project.md')).toBe(
       '/docs/adr/0031-projects-home-and-project',
     )
-    expect(docsHref('docs/github.md')).toBe('/docs/github')
-    expect(slugFor('docs/adr/README.md')).toBe('adr')
+    expect(docsHref('docs/product/guides/github.md')).toBe('/docs/github')
+    expect(slugFor('docs/development/adr/README.md')).toBe('adr')
   })
 
   it('maps the documentation HTTP paths the settings copy already uses', () => {
@@ -42,17 +42,17 @@ describe('docsHref', () => {
 
 describe('splitDocRefs', () => {
   it('keeps the anchor on a markdown citation', () => {
-    expect(splitDocRefs('See docs/addresses-and-access.md#the-panel.')).toEqual([
+    expect(splitDocRefs('See docs/product/concepts/addresses-and-access.md#the-panel.')).toEqual([
       { text: 'See ', href: null },
-      { text: 'docs/addresses-and-access.md#the-panel', href: '/docs/addresses-and-access#the-panel' },
+      { text: 'docs/product/concepts/addresses-and-access.md#the-panel', href: '/docs/addresses-and-access#the-panel' },
       { text: '.', href: null },
     ])
   })
 
   it('leaves surrounding copy intact', () => {
-    expect(splitDocRefs('See docs/github.md for the App.')).toEqual([
+    expect(splitDocRefs('See docs/product/guides/github.md for the App.')).toEqual([
       { text: 'See ', href: null },
-      { text: 'docs/github.md', href: '/docs/github' },
+      { text: 'docs/product/guides/github.md', href: '/docs/github' },
       { text: ' for the App.', href: null },
     ])
   })
@@ -66,8 +66,8 @@ describe('splitDocRefs', () => {
 
 describe('DocText', () => {
   it('turns a documentation path into a deep link', async () => {
-    renderWithQuery(<DocText>See docs/adr/0031-projects-home-and-project.md.</DocText>)
-    const link = await screen.findByRole('link', { name: 'docs/adr/0031-projects-home-and-project.md' })
+    renderWithQuery(<DocText>See docs/development/adr/0031-projects-home-and-project.md.</DocText>)
+    const link = await screen.findByRole('link', { name: 'docs/development/adr/0031-projects-home-and-project.md' })
     expect(link).toHaveAttribute('href', '/docs/adr/0031-projects-home-and-project')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noreferrer')
@@ -81,7 +81,7 @@ describe('DocText', () => {
 
   it('replaces a markdown citation with the settings label', async () => {
     renderWithQuery(
-      <DocText citationLabel="Learn more">See docs/adr/0031-projects-home-and-project.md.</DocText>,
+      <DocText citationLabel="Learn more">See docs/development/adr/0031-projects-home-and-project.md.</DocText>,
     )
     const link = await screen.findByRole('link', { name: 'Learn more' })
     expect(link).toHaveAttribute('href', '/docs/adr/0031-projects-home-and-project')
@@ -100,10 +100,10 @@ describe('DocText', () => {
 
   it('stays plain text when the panel does not serve the documentation', async () => {
     overview.mockResolvedValue(status(false))
-    renderWithQuery(<DocText>See docs/github.md.</DocText>)
+    renderWithQuery(<DocText>See docs/product/guides/github.md.</DocText>)
     await waitFor(() => {
       expect(screen.queryByRole('link')).not.toBeInTheDocument()
     })
-    expect(screen.getByText('See docs/github.md.')).toBeInTheDocument()
+    expect(screen.getByText('See docs/product/guides/github.md.')).toBeInTheDocument()
   })
 })

@@ -1,3 +1,4 @@
+import { documentationRoutes } from './routes/documentation.ts'
 // The panel's HTTP surface: a small API, and the built UI beside it.
 
 import { Hono } from 'hono'
@@ -209,6 +210,7 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', tokenRoutes(deps))
   api.route('/', auditRoutes(deps))
   api.route('/', settingsRoutes(deps))
+  api.route('/', documentationRoutes(deps))
   registerOpenApiRoutes(api, deps.config)
 
   api.all('*', (c) => c.json({ error: `no such endpoint: ${c.req.path}` }, 404))

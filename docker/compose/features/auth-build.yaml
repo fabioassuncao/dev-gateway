@@ -6,7 +6,7 @@
 #
 # The runtime target is what `portta up` migrates and what the long-running
 # service executes: /app/apps/auth/dist/migrate.js and index.js.
-# See docs/adr/0020-installer-and-portta-home.md.
+# See docs/development/adr/0020-installer-and-portta-home.md.
 # ============================================================================
 
 services:

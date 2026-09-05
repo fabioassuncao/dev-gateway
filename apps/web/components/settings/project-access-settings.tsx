@@ -186,7 +186,7 @@ export function ProjectAccessSettings({
                 <Link className="rounded-xs text-accent hover:underline focus-ring" href="/settings/general/tls">
                   {t('configureTls')}
                 </Link>
-                <LearnMore citation="docs/addresses-and-access.md#public-access" />
+                <LearnMore citation="docs/product/concepts/addresses-and-access.md#public-access" />
               </p>
             </div>
           ) : null}

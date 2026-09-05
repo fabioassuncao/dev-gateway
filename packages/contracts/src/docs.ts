@@ -1,28 +1,32 @@
+import { DOC_PATHS } from './docs-paths.generated.ts'
 // Paths the documentation site understands, shared by the build-time collector
 // and the panel UI. No filesystem: the UI bundle cannot import collect.ts.
 
-/** `docs/install.md` -> `install`; `docs/adr/0007-x.md` -> `adr/0007-x`. */
-export function slugFor(repoPath: string): string {
+/** Public slugs are explicit; repository-only paths have no public slug. */
+export function slugFor(repoPath: string): string | undefined {
+  if (DOC_PATHS[repoPath]) return DOC_PATHS[repoPath]
+  if (repoPath === 'docs/README.md') return ''
   if (repoPath === 'README.md') return 'overview'
   if (repoPath === 'CHANGELOG.md') return 'changelog'
-  return repoPath.replace(/^docs\//, '').replace(/\.md$/, '').replace(/\/README$/, '')
+  return undefined
 }
 
 /**
- * A citation in panel copy (`docs/github.md`, `/docs/api`,
- * `docs/addresses-and-access.md#the-panel`) becomes the URL the documentation
+ * A citation in panel copy (`docs/product/guides/github.md`, `/docs/api`,
+ * `docs/product/concepts/addresses-and-access.md#the-panel`) becomes the URL the documentation
  * site actually serves.
  */
 export function docsHref(citation: string): string {
   const [path = '', anchor] = citation.split('#')
   const suffix = anchor ? `#${anchor}` : ''
   if (path === '/docs' || path === '/docs/') return `/docs/${suffix}`
-  if (path === '/docs/api') return `/docs/api${suffix}`
-  return `/docs/${slugFor(path)}${suffix}`
+  if (path.startsWith('/docs/')) return `${path}${suffix}`
+  const slug = slugFor(path)
+  return slug !== undefined ? `/docs/${slug}${suffix}` : `https://github.com/fabioassuncao/portta/blob/main/${path}${suffix}`
 }
 
 /** Longest-first so `/docs/api` is not eaten by `/docs`. Anchors stay on the citation. */
-export const DOC_REF = /docs\/[\w./-]+\.md(?:#[\w-]+)?|\/docs\/api(?:#[\w-]+)?\b|\/docs\/?/g
+export const DOC_REF = /docs\/[\w./-]+\.md(?:#[\w-]+)?|\/docs(?:\/[a-z0-9][a-z0-9/-]*)?\/?(?:#[\w-]+)?/g
 
 export function splitDocRefs(text: string): Array<{ text: string; href: string | null }> {
   const parts: Array<{ text: string; href: string | null }> = []

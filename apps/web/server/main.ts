@@ -173,6 +173,7 @@ const wsUpgrade = createUpgradeHandler({
 
 const portta = createPortta({
   api: createApp(deps),
+  documentation: config,
   next: app.getRequestHandler(),
   nextUpgrade: development ? app.getUpgradeHandler() : undefined,
   wsUpgrade,

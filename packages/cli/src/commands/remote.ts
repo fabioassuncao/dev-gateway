@@ -132,7 +132,7 @@ export async function remoteBootstrap(target: string, options: RemoteBootstrapOp
     output.warning(`Docker is not available on ${target}`)
     if (!options.installDocker) {
       throw new PreconditionError('Docker is required on the remote host',
-        're-run with --install-docker to install it, or install it yourself first; see docs/remote-bootstrap.md')
+        're-run with --install-docker to install it, or install it yourself first; see docs/product/guides/remote-bootstrap.md')
     }
     // Docker's convenience script is the vendor's own, but it is still remote
     // code execution as root. Say so, show it, and ask.

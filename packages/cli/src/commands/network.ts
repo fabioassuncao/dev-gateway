@@ -50,7 +50,7 @@ export async function publicEnable(command: Command): Promise<void> {
   const context = gatewayContext({ profile: global.profile })
   // A derived base is a domain. Requiring PUBLIC_DOMAIN on top of it would mean
   // buying one to publish on a name that already resolves here.
-  // See docs/adr/0022-project-domain-modes.md.
+  // See docs/development/adr/0022-project-domain-modes.md.
   const publicDomain = context.config.publicDomain
     ?? (context.config.domainMode !== 'local' && context.config.domain !== 'localhost' ? context.config.domain : null)
   if (!publicDomain) {

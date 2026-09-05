@@ -69,10 +69,10 @@ export function envPermissionVerdict(mode: string | null): DoctorCheck {
 
 /**
  * A floating tag makes the gateway a different program after any `docker pull`.
- * See docs/adr/0004-pinned-versions.md.
+ * See docs/development/adr/0004-pinned-versions.md.
  */
 export function imageTagVerdict(image: string): DoctorCheck {
-  const fix = 'pin a version in docker/compose/compose.yaml; see docs/adr/0004-pinned-versions.md'
+  const fix = 'pin a version in docker/compose/compose.yaml; see docs/development/adr/0004-pinned-versions.md'
   if (image.endsWith(':latest')) return check('traefik.image', 'warn', 'traefik image', `${image} uses the floating 'latest' tag`, fix)
   // A tag, not a registry port: `ghcr.io:443/x` has a colon and no tag.
   const tagged = /:[^/:]+$/.test(image)
@@ -107,7 +107,7 @@ export function publishesSensitivePort(published: string): boolean {
  * The panel's own entrypoint (container port 8090) is public on purpose in
  * `public` access mode, and is the one port that is authenticated. Judging the
  * application entrypoints without it is what stops a correctly configured
- * public panel reading as a finding. See docs/adr/0021-panel-access-modes.md.
+ * public panel reading as a finding. See docs/development/adr/0021-panel-access-modes.md.
  */
 export function applicationBinds(binds: string, panelIsPublic: boolean): string {
   if (!panelIsPublic) return binds
@@ -158,7 +158,7 @@ export function dashboardExposeRefusal(env: Record<string, string | undefined>):
   // in itself now. The dashboard has no credential of its own, it exposes the
   // routing of every project on the host, and an unprotected one is refused
   // rather than warned about.
-  // See docs/adr/0035-authentication-lives-in-the-panel.md.
+  // See docs/development/adr/0035-authentication-lives-in-the-panel.md.
   return 'the Traefik dashboard can no longer be routed on a domain: it has no credential of its own'
 }
 

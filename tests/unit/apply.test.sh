@@ -3,7 +3,7 @@
 # list the two CLIs build, and the conditions under which they refuse to build
 # one at all.
 #
-# See docs/adr/0026-applying-settings-from-the-panel.md.
+# See docs/development/adr/0026-applying-settings-from-the-panel.md.
 set -uo pipefail
 
 PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)

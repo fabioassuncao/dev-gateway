@@ -22,7 +22,7 @@ export function isGatewayProfile(value: string): value is GatewayProfile {
 /**
  * How the panel is reached. Deliberately independent of the gateway profile:
  * publishing the panel must never publish an application, so `public` here is
- * not `remote-public` there. See docs/adr/0021-panel-access-modes.md.
+ * not `remote-public` there. See docs/development/adr/0021-panel-access-modes.md.
  *
  *   local      loopback only; reach it over an SSH tunnel
  *   tailscale  bound to the node's tailnet address, nothing on the public NIC
@@ -216,7 +216,7 @@ export function loadGatewayConfig(env: Record<string, string | undefined> = proc
  * reachable as `traefik`. With docker/compose/attach/tailscale.yaml it runs
  * inside the Tailscale container's namespace and has no name of its own, so
  * the same API answers on `tailscale`. See
- * docs/adr/0007-tailscale-sidecar.md.
+ * docs/development/adr/0007-tailscale-sidecar.md.
  */
 export function attachment(config: { profile: string; tailscaleEnabled: boolean }): 'tailscale' | 'host' {
   return config.profile !== 'local' && config.tailscaleEnabled ? 'tailscale' : 'host'
@@ -241,7 +241,7 @@ export function composeFiles(config: GatewayConfig): string[] {
   } else {
     // Redirecting :80 to :443 without a certificate the browser accepts turns a
     // working URL into a warning page, so the TLS overlay is applied only when
-    // there is TLS. See docs/adr/0022-project-domain-modes.md.
+    // there is TLS. See docs/development/adr/0022-project-domain-modes.md.
     if (config.tlsEnabled) {
       // Exactly one challenge overlay rides with the shared TLS one. DNS-01 is
       // the default because it is the only challenge that issues a wildcard,

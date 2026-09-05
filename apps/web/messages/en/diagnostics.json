@@ -7,7 +7,7 @@
     },
     "warn": {
       "detail": "GitHub is unreachable; the projection is still readable",
-      "fix": "see docs/github.md"
+      "fix": "see docs/product/guides/github.md"
     }
   },
   "database": {
@@ -70,7 +70,7 @@
   "routes-off-network": {
     "title": "Routed services off the shared network",
     "fail": {
-      "fix": "attach them to the {{network}} network; see docs/adopting-projects.md"
+      "fix": "attach them to the {{network}} network; see docs/product/guides/adopting-projects.md"
     },
     "pass": {
       "title": "Routed services",

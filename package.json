@@ -18,7 +18,9 @@
     "test:integration": "node tests/run.mjs --integration",
     "test:e2e": "node tests/run.mjs --e2e",
     "test:release": "node tests/run.mjs --release",
-    "test:tooling": "node --test tests/tooling/*.test.mjs"
+    "test:tooling": "node --test tests/tooling/*.test.mjs",
+    "docs:generate": "node --import tsx tooling/docs.mjs",
+    "docs:check": "node --import tsx tooling/docs.mjs --check"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

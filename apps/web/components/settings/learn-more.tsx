@@ -5,13 +5,13 @@ import { docsHref } from 'portta-contracts'
 import { DocText } from '../doc-text.tsx'
 
 const GROUP_DOCS: Record<string, string> = {
-  Projects: 'docs/adr/0031-projects-home-and-project.md',
-  'Project domain': 'docs/addresses-and-access.md#project-addresses',
-  'Project access': 'docs/addresses-and-access.md#project-access',
-  TLS: 'docs/addresses-and-access.md#tls',
-  DNS: 'docs/addresses-and-access.md#dns',
-  Panel: 'docs/addresses-and-access.md#the-panel',
-  Traefik: 'docs/addresses-and-access.md#traefik',
+  Projects: 'docs/development/adr/0031-projects-home-and-project.md',
+  'Project domain': 'docs/product/concepts/addresses-and-access.md#project-addresses',
+  'Project access': 'docs/product/concepts/addresses-and-access.md#project-access',
+  TLS: 'docs/product/concepts/addresses-and-access.md#tls',
+  DNS: 'docs/product/concepts/addresses-and-access.md#dns',
+  Panel: 'docs/product/concepts/addresses-and-access.md#the-panel',
+  Traefik: 'docs/product/concepts/addresses-and-access.md#traefik',
 }
 
 export function groupDocs(name: string): string | undefined {

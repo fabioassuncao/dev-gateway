@@ -4,7 +4,7 @@
 //
 // These helpers are lexical. realpath, directory listing and `du` belong on
 // the host (CLI / collector). The panel must not open Projects Home itself.
-// See docs/adr/0031-projects-home-and-project.md.
+// See docs/development/adr/0031-projects-home-and-project.md.
 
 import { posix } from 'node:path'
 

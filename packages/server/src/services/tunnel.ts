@@ -9,7 +9,7 @@
 //
 // **The panel does not drive Docker.** Enabling writes configuration and sets
 // one variable in `.env`; starting the connector is `portta up`, exactly as it
-// is for every other gateway setting ([ADR 0001](../../../../../docs/adr/0001-decoupled-infrastructure.md)).
+// is for every other gateway setting ([ADR 0001](../../../../../docs/development/adr/0001-decoupled-infrastructure.md)).
 // Inventing a second way to start containers, beside Compose, is the thing the
 // architecture most consistently refuses.
 

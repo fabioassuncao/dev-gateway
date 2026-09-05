@@ -16,7 +16,7 @@ import { patchEnvFile, isWritable } from '../../services/envfile.ts'
  * Enabling does not start anything. It writes configuration and flips one
  * variable, and the response says which command applies it — the same contract
  * every other gateway setting has, so there is exactly one way containers get
- * started. See docs/adr/0001-decoupled-infrastructure.md.
+ * started. See docs/development/adr/0001-decoupled-infrastructure.md.
  */
 export function tunnelRoutes(deps: AppDeps): Hono {
   const app = new Hono()

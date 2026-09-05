@@ -8,7 +8,7 @@
 //
 // The whole state lives in that file: one JSON line in a comment Traefik
 // ignores, and the YAML rendered from it. There is no database and no second
-// place to keep in step. See docs/adr/0011-panel-reads-traefik-writes-one-file.md.
+// place to keep in step. See docs/development/adr/0011-panel-reads-traefik-writes-one-file.md.
 
 import { randomBytes } from 'node:crypto'
 import {

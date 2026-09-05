@@ -4,7 +4,7 @@
 // it: the projection in github_issues stays a cache with an age, and a bound
 // task follows it, while an unbound task, or a bound one edited while the App
 // is unavailable, is local and marked pending
-// (docs/adr/0032-portta-development-model.md).
+// (docs/development/adr/0032-portta-development-model.md).
 
 import { relations, sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'

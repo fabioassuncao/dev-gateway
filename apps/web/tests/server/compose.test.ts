@@ -165,3 +165,28 @@ describe('the lifecycle', () => {
     expect(close).toHaveBeenCalledOnce()
   })
 })
+
+
+describe('documentation availability before Next static files', () => {
+  it('refuses every docs surface while leaving application routes available', () => {
+    const next = vi.fn()
+    const portta = createPortta({ api: api(), next, documentation: { docs: false, apiDocs: false } })
+    for (const path of ['/docs', '/docs/install', '/docs/images/panel-overview.png', '/docs?x=1', '/%64ocs/install', '/docs/api/']) {
+      const { response } = capture()
+      portta.handle(request(path), response)
+      expect(response.statusCode).toBe(404)
+    }
+    expect(next).not.toHaveBeenCalled()
+    portta.handle(request('/overview'), capture().response)
+    expect(next).toHaveBeenCalledOnce()
+  })
+  it('can disable the interactive API reference while serving Markdown', () => {
+    const next = vi.fn()
+    const portta = createPortta({ api: api(), next, documentation: { docs: true, apiDocs: false } })
+    const { response } = capture()
+    portta.handle(request('/docs/api'), response)
+    expect(response.statusCode).toBe(404)
+    portta.handle(request('/docs/install'), capture().response)
+    expect(next).toHaveBeenCalledOnce()
+  })
+})

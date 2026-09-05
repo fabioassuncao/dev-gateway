@@ -74,7 +74,7 @@
     "publicAddressHelp": "The IP address or hostname people type before the panel port. The protocol and port are added automatically.",
     "publicAddressNeeded": "Enter an address reachable from the internet so Portta can build the sign-in URL.",
     "authRequired": "The panel will ask people to sign in. Changing this does not publish your projects.",
-    "tlsNeeded": "A hostname on HTTPS needs TLS to be enabled. docs/addresses-and-access.md#tls",
+    "tlsNeeded": "A hostname on HTTPS needs TLS to be enabled. docs/product/concepts/addresses-and-access.md#tls",
     "tailnetBindNeeded": "Enter this node's Tailscale address under Panel network before saving.",
     "result": "Resulting URL",
     "open": "Open the panel",
@@ -129,7 +129,7 @@
   "publicAccess": {
     "needsDomain": "localhost is not reachable from the internet. Set a public project domain, or switch project addresses to automatic or your own domain first.",
     "result": "Opted-in projects will be reachable as <project>-<service>.{{domain}}.",
-    "tlsOff": "Traffic would be plaintext. Enable TLS before leaving this on. docs/addresses-and-access.md#tls"
+    "tlsOff": "Traffic would be plaintext. Enable TLS before leaving this on. docs/product/concepts/addresses-and-access.md#tls"
   },
   "groups": {
     "Gateway": "Gateway",

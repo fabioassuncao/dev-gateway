@@ -7,7 +7,7 @@
     },
     "warn": {
       "detail": "GitHub inacessível; a projeção ainda pode ser lida",
-      "fix": "veja docs/github.md"
+      "fix": "veja docs/product/guides/github.md"
     }
   },
   "database": {
@@ -70,7 +70,7 @@
   "routes-off-network": {
     "title": "Serviços roteados fora da rede compartilhada",
     "fail": {
-      "fix": "anexe-os à rede {{network}}; veja docs/adopting-projects.md"
+      "fix": "anexe-os à rede {{network}}; veja docs/product/guides/adopting-projects.md"
     },
     "pass": {
       "title": "Serviços roteados",

@@ -4,7 +4,7 @@
 # ============================================================================
 # The panel is the one component that can start, stop and remove containers,
 # so what it CANNOT do matters more than what it can. These assertions are the
-# enforcement; docs/web-ui.md is the explanation.
+# enforcement; docs/product/guides/web-ui.md is the explanation.
 # ============================================================================
 set -uo pipefail
 

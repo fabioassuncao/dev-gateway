@@ -65,7 +65,9 @@ export function Dialog({
   size = 'md',
   className,
   dismissible = true,
+  onCloseAutoFocus,
 }: {
+  onCloseAutoFocus?: (event: Event) => void
   open: boolean
   onOpenChange: (open: boolean) => void
   title: ReactNode
@@ -86,6 +88,7 @@ export function Dialog({
       <Primitive.Portal>
         <Scrim />
         <Primitive.Content
+          onCloseAutoFocus={onCloseAutoFocus}
           onEscapeKeyDown={(event) => { if (!dismissible) event.preventDefault() }}
           onPointerDownOutside={(event) => { if (!dismissible) event.preventDefault() }}
           className={cn(

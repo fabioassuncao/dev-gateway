@@ -7,7 +7,7 @@
 //
 // Tasks, sessions and commits are development activity and are not in it:
 // `activity_events` is the work record, and this is the sensitive writes.
-// See docs/adr/0035-authentication-lives-in-the-panel.md and 03 §9.
+// See docs/development/adr/0035-authentication-lives-in-the-panel.md and 03 §9.
 
 export const AUDIT_ACTIONS = [
   'auth.login', 'auth.logout', 'auth.login_failed',

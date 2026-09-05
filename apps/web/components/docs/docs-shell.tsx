@@ -1,273 +1,142 @@
 'use client'
 
-// The documentation's own frame: a search box, a section list, and the page.
-//
-// The search index is the pages' titles and section names — enough to find a
-// page by name without shipping the body text of seventy of them to the
-// browser. Full-text search over the corpus is what the panel's own command
-// palette is for once it reaches the docs.
-
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { BookOpen, ChevronRight, List, Moon, PanelLeft, Search, Sun } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { Menu, Moon, Sun } from 'lucide-react'
+import { searchDocumentation, type DocumentationPage, type DocsAudience } from 'portta-core/browser'
 import type { DocHeading, DocSection } from '@/lib/docs/collect'
 import { useDarkTheme, useThemeChoice } from '@/lib/theme'
+import { Button } from '@/components/ui/button'
+import { PorttaBrand } from '@/components/ui/brand'
+import { Dialog } from '@/components/ui/dialog'
 
 const DocsScrollContext = createContext<RefObject<HTMLElement | null>>({ current: null })
+export function useDocsScrollRoot() { return useContext(DocsScrollContext) }
 
-export function useDocsScrollRoot(): RefObject<HTMLElement | null> {
-  return useContext(DocsScrollContext)
-}
-
-function useActiveHeading(root: RefObject<HTMLElement | null>, ids: string[]): string | null {
-  const [active, setActive] = useState<string | null>(ids[0] ?? null)
-  const key = ids.join('\0')
-
+export function DocsToc({ headings }: { headings: Array<Pick<DocHeading, 'id' | 'text' | 'level'>> }) {
+  const root = useDocsScrollRoot()
+  const visible = useMemo(() => headings.filter((heading) => heading.level === 2 || heading.level === 3), [headings])
+  const [active, setActive] = useState(visible[0]?.id)
+  const [expanded, setExpanded] = useState(false)
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1280px)')
+    const update = () => setExpanded(media.matches)
+    update(); media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
   useEffect(() => {
     const container = root.current
-    if (!container || ids.length === 0) {
-      setActive(ids[0] ?? null)
-      return
+    if (!container) return
+    const update = () => {
+      const top = container.getBoundingClientRect().top + 80
+      let current = visible[0]?.id
+      for (const heading of visible) {
+        const element = document.getElementById(heading.id)
+        if (element && element.getBoundingClientRect().top <= top) current = heading.id
+      }
+      setActive(current)
     }
-    setActive(ids[0] ?? null)
-    const visible = new Set<string>()
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) visible.add(entry.target.id)
-          else visible.delete(entry.target.id)
-        }
-        const first = ids.find((id) => visible.has(id))
-        if (first) setActive(first)
-      },
-      { root: container, rootMargin: '0px 0px -70% 0px', threshold: 0 },
-    )
-    for (const id of ids) {
-      const element = document.getElementById(id)
-      if (element) observer.observe(element)
-    }
-    return () => observer.disconnect()
-  }, [root, key, ids])
-
-  return active
+    update()
+    container.addEventListener('scroll', update, { passive: true })
+    return () => container.removeEventListener('scroll', update)
+  }, [visible, root])
+  if (visible.length < 2) return null
+  return <aside className="mb-6 min-w-0 xl:sticky xl:top-0 xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 xl:max-h-[calc(100dvh-8rem)] xl:w-56 xl:overflow-y-auto">
+    <details open={expanded} onToggle={(event) => setExpanded(event.currentTarget.open)} className="rounded-lg border border-line p-3 xl:border-0">
+      <summary className="cursor-pointer text-sm font-medium focus-ring">On this page</summary>
+      <nav aria-label="On this page" className="mt-3 text-sm"><ul className="space-y-2">
+        {visible.map((heading) => <li key={heading.id} className={heading.level === 3 ? 'pl-3' : ''}>
+          <a href={`#${heading.id}`} aria-current={active === heading.id ? 'location' : undefined} className={`block break-words rounded focus-ring ${active === heading.id ? 'text-accent' : 'text-muted hover:text-ink'}`}>{heading.text}</a>
+        </li>)}
+      </ul></nav>
+    </details>
+  </aside>
 }
 
-export function DocsToc({ headings }: { headings: DocHeading[] }) {
-  const main = useDocsScrollRoot()
-  const ids = useMemo(() => headings.map((heading) => heading.id), [headings])
-  const active = useActiveHeading(main, ids)
-
-  if (headings.length < 2) return null
-
-  return (
-    <aside className="sticky top-0 hidden h-fit max-h-[calc(100dvh-6rem)] w-64 shrink-0 self-start overflow-y-auto scroll-thin xl:block">
-      <nav className="py-1 text-sm">
-        <p className="mb-3 flex items-center gap-2 text-[13px] font-medium text-ink">
-          <List className="size-3.5 text-subtle" aria-hidden />
-          On this page
-        </p>
-        <ul className="space-y-1">
-          {headings.map((heading) => (
-            <li key={heading.id} style={{ paddingLeft: heading.level === 3 ? '0.75rem' : 0 }}>
-              <a
-                href={`#${heading.id}`}
-                className={`block truncate ${
-                  active === heading.id ? 'font-medium text-accent' : 'text-muted hover:text-accent'
-                }`}
-                title={heading.text}
-              >
-                {heading.text}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
-    </aside>
-  )
-}
-
-interface Hit {
-  slug: string
-  title: string
-  section: string
-}
-
-function useSearchShortcut(input: RefObject<HTMLInputElement | null>): string {
-  const [label, setLabel] = useState('Ctrl K')
-  useEffect(() => {
-    setLabel(/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘K' : 'Ctrl K')
-    const onKey = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.key !== 'k') return
-      event.preventDefault()
-      input.current?.focus()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [input])
-  return label
-}
-
-export function DocsShell({ sections, children }: { sections: DocSection[]; children: ReactNode }) {
+export function DocsShell({ sections, searchPages, version, children }: { sections: DocSection[]; searchPages: DocumentationPage[]; version: string; children: ReactNode }) {
   const pathname = usePathname()
-  const slug = pathname.replace(/^\/docs\/?/, '') || 'overview'
+  const router = useRouter()
+  const slug = pathname.replace(/^\/docs\/?/, '')
+  const currentAudience = sections.find((section) => section.pages.some((page) => page.slug === slug))?.audience ?? 'user'
+  const [audience, setAudience] = useState<DocsAudience>(currentAudience)
+  const [allAudiences, setAllAudiences] = useState(false)
   const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [activeHit, setActiveHit] = useState(-1)
   const [open, setOpen] = useState(false)
   const input = useRef<HTMLInputElement>(null)
+  const menuButton = useRef<HTMLButtonElement>(null)
   const main = useRef<HTMLElement>(null)
-  const shortcut = useSearchShortcut(input)
-  const { setTheme } = useThemeChoice()
   const dark = useDarkTheme()
-
-  const index = useMemo(
-    () => sections.flatMap((section) => section.pages.map((page) => ({ ...page, section: section.title }))),
-    [sections],
-  )
-
-  // Substring, not fuzzy: the corpus is seventy pages and the reader knows
-  // roughly what the page is called. A ranking that put a partial match above
-  // an exact title would be worse than no ranking at all.
-  const hits: Hit[] = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    if (needle.length < 2) return []
-    return index
-      .filter((page) => page.title.toLowerCase().includes(needle) || page.slug.includes(needle))
-      .slice(0, 20)
-      .map((page) => ({ slug: page.slug, title: page.title, section: page.section }))
-  }, [index, query])
-
+  const { setTheme } = useThemeChoice()
+  const hits = useMemo(() => searchDocumentation(searchPages, query, { audience: allAudiences ? 'all' : audience, limit: 20 }), [searchPages, query, audience, allAudiences])
   useEffect(() => {
-    setQuery('')
-    setOpen(false)
-    const hash = typeof window !== 'undefined' ? window.location.hash.slice(1) : ''
-    if (!hash) {
-      main.current?.scrollTo({ top: 0 })
-      return
+    const listener = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); input.current?.focus(); setSearchOpen(true) }
     }
-    const timer = window.setTimeout(() => {
-      document.getElementById(hash)?.scrollIntoView({ block: 'start' })
-    }, 0)
-    return () => window.clearTimeout(timer)
-  }, [pathname])
-
-  const entry = (href: string, title: string, current: boolean, summary?: string) => (
-    <li key={href}>
-      <Link
-        href={href}
-        aria-current={current ? 'page' : undefined}
-        title={summary ?? title}
-        className={`block truncate rounded-lg px-2 py-1.5 ${
-          current ? 'bg-accent/12 font-medium text-accent' : 'text-muted hover:bg-surface-2 hover:text-ink'
-        }`}
-      >
-        {title}
-      </Link>
-    </li>
-  )
-
-  return (
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-bg text-ink">
-      <header className="flex shrink-0 items-center gap-3 border-b border-line px-4 py-2.5">
-        <div className="flex min-w-0 shrink-0 items-center gap-2 sm:w-48">
-          <button
-            type="button"
-            onClick={() => setOpen((value) => !value)}
-            className="rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-ink lg:hidden"
-            aria-label="Toggle the navigation"
-          >
-            <PanelLeft className="size-4" aria-hidden />
-          </button>
-          <Link href="/docs" className="flex items-center gap-2 font-semibold">
-            <BookOpen className="size-4 text-accent" aria-hidden />
-            Portta docs
-          </Link>
-        </div>
-
-        <div className="relative mx-auto w-full max-w-xl">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-subtle" aria-hidden />
-          <input
-            ref={input}
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search the documentation"
-            aria-label="Search the documentation"
-            className="w-full rounded-md border border-line bg-surface py-1.5 pl-8 pr-14 text-sm outline-none focus:border-accent"
-          />
-          <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-line px-1.5 py-0.5 text-[10px] text-subtle sm:inline">
-            {shortcut}
-          </kbd>
-          {hits.length > 0 ? (
-            <ul className="absolute z-20 mt-1 max-h-96 w-full overflow-y-auto scroll-thin rounded-md border border-line bg-surface shadow-lg">
-              {hits.map((hit) => (
-                <li key={hit.slug}>
-                  <Link href={`/docs/${hit.slug}`} className="block px-3 py-2 hover:bg-surface-2">
-                    <span className="flex items-center gap-1.5 text-sm font-medium">
-                      {hit.title}
-                      <ChevronRight className="size-3 text-subtle" aria-hidden />
-                      <span className="text-xs font-normal text-subtle">{hit.section}</span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1 sm:w-48 sm:justify-end">
-          <Link href="/" className="hidden rounded-md px-2 py-1.5 text-sm text-muted hover:bg-surface-2 hover:text-ink sm:block">
-            Back to the panel
-          </Link>
-          <button
-            type="button"
-            onClick={() => setTheme(dark ? 'light' : 'dark')}
-            className="rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-ink"
-            aria-label={dark ? 'Switch to the light theme' : 'Switch to the dark theme'}
-          >
-            {dark ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
-          </button>
-        </div>
-      </header>
-
-      <div className="flex min-h-0 flex-1">
-        <div
-          className={`w-64 shrink-0 overflow-hidden border-r border-line bg-surface ${open ? 'absolute inset-y-0 left-0 top-12 z-10' : 'hidden'} lg:static lg:block lg:min-h-0`}
-        >
-          <nav className="flex h-full min-h-0 flex-col gap-6 overflow-y-auto scroll-thin px-4 py-6 text-sm">
-            {sections.map((section) => (
-              <div key={section.title}>
-                <p className="mb-1.5 px-2 text-[13px] font-medium text-ink">{section.title}</p>
-                <ul>
-                  {section.pages.map((page) =>
-                    entry(`/docs/${page.slug}`, page.title, page.slug === slug, page.summary || undefined),
-                  )}
-                </ul>
-              </div>
-            ))}
-            <div>
-              <p className="mb-1.5 px-2 text-[13px] font-medium text-ink">Reference</p>
-              <ul>{entry('/docs/api', 'API reference', slug === 'api')}</ul>
-            </div>
-          </nav>
-        </div>
-        <DocsScrollContext.Provider value={main}>
-          <main
-            ref={main}
-            className="min-h-0 min-w-0 flex-1 overflow-y-auto scroll-thin px-6 py-8 lg:px-10 lg:py-10"
-          >
-            {children}
-          </main>
-        </DocsScrollContext.Provider>
+    window.addEventListener('keydown', listener)
+    return () => window.removeEventListener('keydown', listener)
+  }, [])
+  useEffect(() => {
+    setAudience(currentAudience); setQuery(''); setSearchOpen(false); setOpen(false)
+    const hash = decodeURIComponent(window.location.hash.slice(1))
+    if (hash) requestAnimationFrame(() => document.getElementById(hash)?.scrollIntoView({ block: 'start' }))
+    else main.current?.scrollTo({ top: 0 })
+  }, [pathname, currentAudience])
+  useEffect(() => { if (searchOpen && activeHit >= 0) document.getElementById(`docs-hit-${activeHit}`)?.scrollIntoView?.({ block: 'nearest' }) }, [activeHit, searchOpen])
+  const nav = <nav aria-label="Documentation navigation" className="space-y-5">
+    <label className="block text-xs font-medium text-muted">Documentation for
+      <select aria-label="Documentation audience" value={audience} onChange={(event) => setAudience(event.target.value as DocsAudience)} className="mt-2 w-full rounded-md border border-line bg-surface p-2 text-sm text-ink focus-ring">
+        <option value="user">Users and operators</option><option value="developer">Developers and contributors</option>
+      </select>
+    </label>
+    <Link href="/docs" aria-current={!slug ? 'page' : undefined} className="block rounded px-2 text-sm text-muted focus-ring">Documentation home</Link>
+    {sections.filter((section) => section.audience === audience).map((section, index, selected) => {
+      const links = <ul className="space-y-0.5">{section.pages.map((page) => <li key={page.slug}>
+        <Link href={`/docs/${page.slug}`} title={page.summary} aria-current={slug === page.slug ? 'page' : undefined} className={`block rounded-md px-2 py-1.5 text-sm focus-ring ${slug === page.slug ? 'bg-accent/12 font-medium text-accent' : 'text-muted hover:bg-surface-2 hover:text-ink'}`}>{page.title}</Link>
+      </li>)}</ul>
+      return <div key={`${section.title}/${section.category}`}>
+        {selected[index - 1]?.title !== section.title && <p className="mb-2 px-2 text-sm font-semibold">{section.title}</p>}
+        {section.category ? <details key={`${pathname}/${section.category}`} open={section.pages.some((page) => page.slug === slug)}>
+          <summary className="mb-1 cursor-pointer rounded px-2 text-sm font-medium text-muted focus-ring">{section.category}</summary>{links}
+        </details> : links}
       </div>
+    })}
+  </nav>
+  return <div lang="en" className="docs-root flex h-dvh min-h-0 flex-col overflow-hidden bg-bg text-ink">
+    <a href="#docs-main" className="sr-only z-50 rounded bg-surface p-3 focus:not-sr-only focus:absolute focus-ring">Skip to documentation content</a>
+    <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-line bg-surface px-4 py-3">
+      <button ref={menuButton} type="button" onClick={() => setOpen(true)} aria-label="Open documentation navigation" className="rounded p-2 focus-ring lg:hidden"><Menu className="size-4" /></button>
+      <Link href="/docs" className="flex items-center gap-2 rounded font-semibold focus-ring"><PorttaBrand />Portta docs</Link>
+      <span className="hidden text-xs text-subtle md:inline">{version}</span>
+      <div className="relative order-last w-full sm:order-none sm:ml-auto sm:max-w-md" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setSearchOpen(false) }}>
+        <input ref={input} type="text" role="combobox" aria-label="Search the documentation" aria-expanded={searchOpen && !!query.trim()} aria-controls={searchOpen && query.trim() ? 'docs-search-results' : undefined} aria-keyshortcuts="Control+K Meta+K" aria-autocomplete="list" aria-activedescendant={searchOpen && activeHit >= 0 && hits[activeHit] ? `docs-hit-${activeHit}` : undefined}
+          value={query} onFocus={() => setSearchOpen(true)} onChange={(event) => { setQuery(event.target.value); setSearchOpen(true); setActiveHit(-1) }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') { setSearchOpen(false); setActiveHit(-1) }
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setSearchOpen(true); setActiveHit((index) => Math.max(0, Math.min(hits.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)))) }
+            if (event.key === 'Enter' && searchOpen && hits[activeHit]) { event.preventDefault(); router.push(hits[activeHit]!.url); setSearchOpen(false); input.current?.blur() }
+          }} placeholder="Search documentation…" className="w-full rounded-md border border-line bg-bg px-3 py-2 text-sm focus-ring sm:pr-20" />
+        <kbd aria-hidden className="pointer-events-none absolute right-3 top-3 hidden text-[10px] text-subtle sm:block">Ctrl/⌘ K</kbd>
+        {searchOpen && query.trim() && <div className="absolute z-30 mt-1 max-h-[65dvh] w-full overflow-y-auto rounded-lg border border-line bg-surface p-2 shadow-lg">
+          <label className="mb-2 flex items-center gap-2 px-2 text-xs text-muted"><input type="checkbox" checked={allAudiences} onChange={(event) => { setAllAudiences(event.target.checked); setActiveHit(-1) }} />Search all audiences</label>
+          <p role="status" className="px-2 py-1 text-xs text-subtle">{hits.length ? `${hits.length} results` : 'No matching documentation.'}</p>
+          <ul id="docs-search-results" role="listbox" aria-label="Documentation search results">{hits.map((hit, index) => <li key={hit.slug} id={`docs-hit-${index}`} role="option" aria-selected={activeHit === index} className={activeHit === index ? 'rounded bg-surface-2' : ''}>
+            <Link href={hit.url} onClick={() => setSearchOpen(false)} className="block rounded p-2 focus-ring hover:bg-surface-2">
+              <span className="block text-sm font-medium">{hit.title}</span><span className="block text-xs text-accent">{hit.audience === 'developer' ? 'Development' : hit.section}{hit.category ? ` / ${hit.category}` : ''}</span>
+              <span className="mt-1 block text-xs text-muted">{hit.excerpt}</span>
+            </Link>
+          </li>)}</ul>
+        </div>}
+      </div>
+      <Link href="/" className="ml-auto rounded text-sm text-muted focus-ring sm:ml-0">Panel</Link>
+      <Button variant="ghost" onClick={() => setTheme(dark ? 'light' : 'dark')} aria-label={dark ? 'Switch to the light theme' : 'Switch to the dark theme'}>{dark ? <Sun className="size-4" /> : <Moon className="size-4" />}</Button>
+    </header>
+    <div className="flex min-h-0 flex-1">
+      <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-line bg-surface px-4 py-6 lg:block">{nav}</aside>
+      <Dialog open={open} onOpenChange={setOpen} onCloseAutoFocus={(event) => { event.preventDefault(); menuButton.current?.focus() }} title="Documentation navigation">{nav}</Dialog>
+      <DocsScrollContext.Provider value={main}><main id="docs-main" tabIndex={-1} ref={main} className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-6 outline-none sm:px-8 lg:px-10 lg:py-10">{children}</main></DocsScrollContext.Provider>
     </div>
-  )
+  </div>
 }

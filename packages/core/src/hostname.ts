@@ -5,7 +5,7 @@ import { slug } from './namespace.ts'
  *
  * Portta's original convention is `<project>-<service>.<base>`, produced by
  * Traefik's `defaultRule` and re-derived for display in three places
- * ([ADR 0005](../../../docs/adr/0005-hostname-convention.md)). It has one flaw
+ * ([ADR 0005](../../../docs/development/adr/0005-hostname-convention.md)). It has one flaw
  * that only shows up once a name has to carry more than two parts: a single
  * `-` is also the character `slug` uses *inside* each part, so `a-b-c` cannot
  * be read back as project and service, and there is nowhere to put a third
@@ -29,7 +29,7 @@ import { slug } from './namespace.ts'
  * a single wildcard — one the operator already has — covers every project this
  * gateway will ever route.
  *
- * See docs/adr/0023-flat-hostname-labels.md.
+ * See docs/development/adr/0023-flat-hostname-labels.md.
  */
 
 export const HOSTNAME_STYLES = ['project-service', 'service--project'] as const
@@ -147,7 +147,7 @@ export function dashboardAdvertisedHost(
  * The Traefik `defaultRule` template that produces this style.
  *
  * Traefik bakes this into every router that declares no rule of its own, at
- * container start ([ADR 0003](../../../docs/adr/0003-traefik-static-config-via-env.md)),
+ * container start ([ADR 0003](../../../docs/development/adr/0003-traefik-static-config-via-env.md)),
  * which is why the style is a gateway setting and not a per-project one: the
  * two implementations of this contract must generate the same names, and there
  * is only one rule in force at a time.

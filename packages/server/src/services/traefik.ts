@@ -10,7 +10,7 @@
 // exists only when the dashboard is enabled, which is off by default, so the
 // absence is a state the UI has to render rather than a failure.
 //
-// See docs/adr/0011-panel-reads-traefik-writes-one-file.md.
+// See docs/development/adr/0011-panel-reads-traefik-writes-one-file.md.
 
 import type { PanelConfig } from '../config.ts'
 import type { ContainerSummary, TraefikRouter, TraefikVerdict } from 'portta-contracts'

@@ -185,4 +185,4 @@ five semantic tones that say what a container, a task or an agent is doing.
 The tokens above are implemented in `apps/web/src/ui/index.css` and mapped
 into Tailwind; the components in `apps/web/src/ui/components/ui/`. The
 narrative version, with the reasoning behind each rule, is
-[docs/design-system.md](docs/design-system.md).
+[docs/development/design-system.md](docs/development/design-system.md).

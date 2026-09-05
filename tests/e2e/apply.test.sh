@@ -12,7 +12,7 @@
 #   - it survives the `up --remove-orphans` it runs, or its exit code is lost;
 #   - it never touches a consumer project.
 #
-# See docs/adr/0026-applying-settings-from-the-panel.md.
+# See docs/development/adr/0026-applying-settings-from-the-panel.md.
 # ============================================================================
 set -uo pipefail
 

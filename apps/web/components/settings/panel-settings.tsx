@@ -247,7 +247,7 @@ export function PanelSettings({
                 <Link className="rounded-xs text-accent hover:underline focus-ring" href="/settings/general/tls">
                   {t('configureTls')}
                 </Link>
-                <LearnMore citation="docs/addresses-and-access.md#custom-panel-domain" />
+                <LearnMore citation="docs/product/concepts/addresses-and-access.md#custom-panel-domain" />
               </p>
             </div>
           ) : null}

@@ -26821,6 +26821,541 @@
         "x-portta-permission": "settings:manage"
       }
     },
+    "/documentation": {
+      "get": {
+        "operationId": "listDocumentation",
+        "tags": [
+          "Documentation"
+        ],
+        "summary": "List the installed documentation and its navigation",
+        "parameters": [
+          {
+            "name": "audience",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "user",
+                "developer",
+                "all"
+              ],
+              "default": "all"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "identity": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hash": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "revision",
+                        "hash"
+                      ]
+                    },
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "audience": {
+                            "type": "string",
+                            "enum": [
+                              "user",
+                              "developer"
+                            ]
+                          },
+                          "sequential": {
+                            "type": "boolean"
+                          },
+                          "slugs": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "title",
+                          "category",
+                          "audience",
+                          "sequential",
+                          "slugs"
+                        ]
+                      }
+                    },
+                    "pages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "slug": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "audience": {
+                            "type": "string",
+                            "enum": [
+                              "user",
+                              "developer"
+                            ]
+                          },
+                          "section": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "markdown",
+                              "api"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "slug",
+                          "title",
+                          "description",
+                          "audience",
+                          "section",
+                          "category",
+                          "source",
+                          "url",
+                          "kind"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "identity",
+                    "groups",
+                    "pages"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-authenticated": true
+      }
+    },
+    "/documentation/search": {
+      "get": {
+        "operationId": "searchDocumentation",
+        "tags": [
+          "Documentation"
+        ],
+        "summary": "Search the installed documentation",
+        "parameters": [
+          {
+            "name": "audience",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "user",
+                "developer",
+                "all"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "identity": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hash": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "revision",
+                        "hash"
+                      ]
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "slug": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "audience": {
+                            "type": "string",
+                            "enum": [
+                              "user",
+                              "developer"
+                            ]
+                          },
+                          "section": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "anchor": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "excerpt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "slug",
+                          "title",
+                          "description",
+                          "audience",
+                          "section",
+                          "category",
+                          "url",
+                          "anchor",
+                          "excerpt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "identity",
+                    "results"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-authenticated": true
+      }
+    },
+    "/documentation/page": {
+      "get": {
+        "operationId": "getDocumentationPage",
+        "tags": [
+          "Documentation"
+        ],
+        "summary": "Read a document or one heading subtree as Markdown",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:[/-][a-z0-9]+)*$"
+            }
+          },
+          {
+            "name": "anchor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "identity": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hash": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "revision",
+                        "hash"
+                      ]
+                    },
+                    "page": {
+                      "type": "object",
+                      "properties": {
+                        "slug": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "audience": {
+                          "type": "string",
+                          "enum": [
+                            "user",
+                            "developer"
+                          ]
+                        },
+                        "section": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "markdown",
+                            "api"
+                          ]
+                        },
+                        "markdown": {
+                          "type": "string"
+                        },
+                        "headings": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "text": {
+                                "type": "string"
+                              },
+                              "level": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "line": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "text",
+                              "level",
+                              "line"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "slug",
+                        "title",
+                        "description",
+                        "audience",
+                        "section",
+                        "category",
+                        "source",
+                        "url",
+                        "kind",
+                        "markdown",
+                        "headings"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "identity",
+                    "page"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested project, service, container, share or endpoint does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-authenticated": true
+      }
+    },
     "/openapi.json": {
       "get": {
         "operationId": "getOpenApiDocument",

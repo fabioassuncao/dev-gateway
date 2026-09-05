@@ -2,7 +2,7 @@ import { patchEnvFile } from 'portta-core'
 // `portta tunnel`: publish over HTTPS without opening a port.
 //
 // Cloudflare Tunnel is an optional exposure provider, never a dependency
-// (docs/adr/0025-cloudflare-tunnel.md). Nothing here runs, and no container
+// (docs/development/adr/0025-cloudflare-tunnel.md). Nothing here runs, and no container
 // exists, until somebody enables it.
 //
 // What this command owns, and what it deliberately does not:

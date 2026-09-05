@@ -137,7 +137,7 @@ export function urlsFor(
 ): RouteUrl[] {
   if (labels[LABELS.traefikEnable] !== 'true') return []
   // A datastore routed by hostname opted into the gateway, but it is not
-  // reached with a browser and has no URL. See docs/tcp-routing.md.
+  // reached with a browser and has no URL. See docs/product/guides/tcp-routing.md.
   if (isTcpOnly(labels)) return []
   const scheme = schemeFor(config)
   let hosts = hostsFromRules(labels)

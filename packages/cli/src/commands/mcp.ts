@@ -1,3 +1,6 @@
+import { registerDocumentationTools } from './docs-mcp.js'
+import { localDocumentationReader, remoteDocumentationReader } from './docs.js'
+import { UsageError } from '../errors.js'
 // `portta mcp`: the task verbs, spoken to an agent over stdio.
 //
 // A thin adapter and nothing more. Every tool is one call to one endpoint; no
@@ -7,7 +10,7 @@
 //
 // It lives in the CLI rather than the panel for two reasons. The panel's
 // dependency budget (ADR 0018 §9) exists because the panel may be reachable
-// over a VPN, and this needs a large SDK; and `docs/monorepo.md` puts anything
+// over a VPN, and this needs a large SDK; and `docs/development/monorepo.md` puts anything
 // that holds no persistent decision outside the API. An MCP server holds no
 // state and needs no database.
 //
@@ -271,12 +274,14 @@ export const TOOL_NAMES = [
 ] as const
 
 export interface McpOptions {
+  docsSource?: string
   url?: string
   allowRemote?: boolean
   actor?: string
 }
 
 export async function mcpCommand(options: McpOptions, command: Command): Promise<void> {
+  if (options.docsSource && !['local', 'panel'].includes(options.docsSource)) throw new UsageError('--docs-source must be local or panel')
   const context = gatewayContext({ profile: globals(command).profile, required: false })
   const url = resolvePanelUrl(context.env, options, context.env['PORTTA_WEB_PORT'] ?? '8081')
   const actor = options.actor ?? context.env['PORTTA_MCP_ACTOR'] ?? 'agent'
@@ -290,6 +295,9 @@ export async function mcpCommand(options: McpOptions, command: Command): Promise
   // Explicitly an agent: this is the surface agents drive, and what it may do
   // is the `agentPermissions` ceiling rather than whatever the operator holds.
   registerTools(server, createCaller(url, panelHeaders(context.env, actor, 'agent', { url })))
+  registerDocumentationTools(server, options.docsSource === 'panel'
+    ? remoteDocumentationReader((path) => new PanelClient(url, panelHeaders(context.env, actor, 'agent', { url })).request('GET', path))
+    : localDocumentationReader(), options.docsSource === 'panel' ? 'panel' : 'local')
 
   try {
     await server.connect(new StdioServerTransport())

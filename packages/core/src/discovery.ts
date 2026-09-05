@@ -28,7 +28,7 @@ export type ServiceKind = (typeof SERVICE_KINDS)[number]
 /**
  * Whether a protocol can be told apart by hostname on a shared port, and how.
  * Every entry was verified with two live instances and a real client; see
- * docs/tcp-routing.md. Nothing is listed as routable because a neighbouring
+ * docs/product/guides/tcp-routing.md. Nothing is listed as routable because a neighbouring
  * protocol behaves that way.
  *
  *   starttls-sni  client opens in plaintext, asks to upgrade, then sends SNI
@@ -39,7 +39,7 @@ export type ServiceKind = (typeof SERVICE_KINDS)[number]
 export const TCP_ROUTINGS = ['starttls-sni', 'tls-sni', 'unsupported', 'unevaluated'] as const
 export type TcpRouting = (typeof TCP_ROUTINGS)[number]
 
-/** Pinned; see docs/adr/0004-pinned-versions.md. */
+/** Pinned; see docs/development/adr/0004-pinned-versions.md. */
 export const BRIDGE_IMAGE = 'alpine/socat:1.8.1.3'
 
 /**
@@ -130,7 +130,7 @@ export function tcpHostPort(kind: ServiceKind, env: Record<string, string | unde
  *
  * Flat on purpose, and the same shape the HTTP routers use: a wildcard
  * certificate covers exactly one label, so `postgres.storefront.<domain>` would
- * need a certificate per project. See docs/adr/0023-flat-hostname-labels.md.
+ * need a certificate per project. See docs/development/adr/0023-flat-hostname-labels.md.
  */
 export function tcpHostname(project: string, service: string, domain: string): string {
   return `${slug(project)}-${slug(service)}.${domain || 'localhost'}`

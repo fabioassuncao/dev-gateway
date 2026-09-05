@@ -7,7 +7,7 @@
 //
 // Used twice: on a `portta.repo` label a project declared, and on the
 // remote `portta git scan` read. See
-// docs/adr/0010-git-collected-on-the-host.md.
+// docs/development/adr/0010-git-collected-on-the-host.md.
 
 export type ForgeKind = 'github' | 'gitlab' | 'bitbucket' | 'unknown'
 

@@ -17,7 +17,7 @@
 #      router: `PORTTA_AUTH_MODE=required` is what stands in front of it, the
 #      panel's own process refuses to start in `disabled` mode on anything but
 #      loopback, and `portta web up --expose public` refuses before that.
-#      See docs/adr/0035-authentication-lives-in-the-panel.md.
+#      See docs/development/adr/0035-authentication-lives-in-the-panel.md.
 #
 # The panel container itself publishes no host port here (web-bind.yaml is not
 # applied), so the only way in is through this entrypoint.

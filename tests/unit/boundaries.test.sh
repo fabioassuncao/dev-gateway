@@ -5,7 +5,7 @@
 # The monorepo's shape is a decision, and a decision nothing enforces is a
 # suggestion. An import that crosses the wrong way does not fail to compile —
 # npm workspaces resolve every package from the same node_modules — so it is
-# caught here instead, in milliseconds, against the map in docs/monorepo.md.
+# caught here instead, in milliseconds, against the map in docs/development/monorepo.md.
 #
 # The permitted edges:
 #

@@ -1,3 +1,6 @@
+import { notFound } from 'next/navigation'
+import { hasDeps, serverDeps } from '@/lib/server/deps'
+import { DocsBreadcrumbs } from '@/components/docs/breadcrumbs'
 import type { Metadata } from 'next'
 import { ApiReference } from '@/components/docs/api'
 
@@ -6,12 +9,13 @@ import { ApiReference } from '@/components/docs/api'
 // this process is serving right now.
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = { title: 'API reference · Documentation' }
+export const metadata: Metadata = { title: 'API reference · Documentation', description: 'The OpenAPI contract served by this Portta panel.' }
 
 export default function ApiPage() {
+  if (hasDeps() && !serverDeps().config.apiDocs) notFound()
   return (
     <>
-      <p className="mb-1 text-sm text-muted">Reference</p>
+      <DocsBreadcrumbs section="Reference" title="API reference" />
       <ApiReference />
     </>
   )

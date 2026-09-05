@@ -30,7 +30,7 @@ files_for() {
 
 # A panel reachable from another machine is refused unless it signs people in,
 # so every case that publishes it beyond loopback carries the mode and the
-# secret. See docs/adr/0035-authentication-lives-in-the-panel.md.
+# secret. See docs/development/adr/0035-authentication-lives-in-the-panel.md.
 PORTTA_RUNTIME_CREDENTIAL="PORTTA_AUTH_MODE=required PORTTA_AUTH_SECRET=a-test-secret-that-is-long-enough"
 
 PROFILE_FILTER=""
@@ -197,7 +197,7 @@ fi
 
 describe "panel access selects exactly one front door"
 
-# See docs/adr/0021-panel-access-modes.md. The invariant worth testing is that
+# See docs/development/adr/0021-panel-access-modes.md. The invariant worth testing is that
 # `web-bind.yaml` (a host port on the panel container) and `panel-public.yaml`
 # (a Traefik entrypoint with ForwardAuth) are never both applied, because they
 # would claim the same host port and one of them would bypass the credential.
@@ -363,7 +363,7 @@ assert_contains "$overlay" "portta-panel-webhook.priority"
 
 describe "the base domain comes from the mode"
 
-# See docs/adr/0022-project-domain-modes.md. `localhost` is right for a machine
+# See docs/development/adr/0022-project-domain-modes.md. `localhost` is right for a machine
 # you are sitting at and useless from anywhere else, which is why a mode exists
 # at all.
 it "local is localhost"

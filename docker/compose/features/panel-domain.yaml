@@ -13,7 +13,7 @@
 # `public` mode the installer offers first already publishes the panel on
 # 0.0.0.0, and what stands in front of it is the panel itself -- accounts,
 # roles, sessions, a second factor and a rate limiter, all of them its own
-# (docs/adr/0035-authentication-lives-in-the-panel.md).
+# (docs/development/adr/0035-authentication-lives-in-the-panel.md).
 #
 # So the remaining difference between `public` and this is not exposure. It is
 # which entrypoint carries the panel, and what that costs:
@@ -31,7 +31,7 @@
 #
 # There is no middleware: the panel signs people in itself, and `portta web up
 # --expose domain` refuses unless PORTTA_AUTH_MODE=required and TLS is on.
-# See docs/adr/0035-authentication-lives-in-the-panel.md.
+# See docs/development/adr/0035-authentication-lives-in-the-panel.md.
 # ============================================================================
 
 services:

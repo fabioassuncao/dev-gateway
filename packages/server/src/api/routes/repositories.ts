@@ -118,7 +118,7 @@ export function repositoryRoutes(deps: AppDeps): Hono {
       if (!known) {
         throw new OverrideRefused(
           `${body.githubFullName} is not a repository this gateway was granted`,
-          'install the GitHub App on it, then run a sync; see docs/github.md',
+          'install the GitHub App on it, then run a sync; see docs/product/guides/github.md',
         )
       }
       return known

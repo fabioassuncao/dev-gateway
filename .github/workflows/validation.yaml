@@ -33,12 +33,11 @@ jobs:
           cache: npm
       - id: scope
         run: node tests/ci.mjs --scope
-      - name: Documentation links
-        if: steps.scope.outputs.code != 'true'
-        run: bash tests/lint-links.sh
       - name: Install
-        if: steps.scope.outputs.code == 'true'
         run: npm ci
+      - name: Documentation architecture
+        if: steps.scope.outputs.code != 'true'
+        run: npm run docs:check
       - name: Static tool prerequisites
         if: steps.scope.outputs.code == 'true'
         run: |

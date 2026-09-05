@@ -7,7 +7,7 @@
 #
 #   psql "postgresql://user@<project>-postgres.<domain>:5432/db?sslmode=require"
 #
-# Requires PORTTA_TCP=true on the gateway. Read docs/tcp-routing.md first:
+# Requires PORTTA_TCP=true on the gateway. Read docs/product/guides/tcp-routing.md first:
 # PostgreSQL and Redis work, MySQL cannot, and TLS is not optional.
 #
 #   docker compose -f compose.yaml -f compose.portta.yaml \
@@ -62,7 +62,7 @@ services:
   # MySQL and MariaDB are deliberately absent. The MySQL protocol has the
   # server speak first, so there is no SNI for the gateway to route on before
   # it must choose a backend. Reach them with `portta access open`, which
-  # works for every protocol. docs/tcp-routing.md explains why in full.
+  # works for every protocol. docs/product/guides/tcp-routing.md explains why in full.
 
 networks:
   portta-access:

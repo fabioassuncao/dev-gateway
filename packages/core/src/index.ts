@@ -33,3 +33,5 @@ export * from './tasks.ts'
 export * from './task-example.ts'
 
 export * from './database-config.ts'
+
+export * from './documentation.ts'

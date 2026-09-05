@@ -143,7 +143,7 @@ export const FIELDS: FieldSpec[] = [
     help:
       'The one directory this installation manages Projects in. Changing it changes the reference; ' +
       'files are not moved. Existing environments outside this path stay visible as unmanaged. ' +
-      'See docs/adr/0031-projects-home-and-project.md.',
+      'See docs/development/adr/0031-projects-home-and-project.md.',
     kind: 'string',
     restartRequired: false,
     validate: projectsHome,
@@ -155,7 +155,7 @@ export const FIELDS: FieldSpec[] = [
     help:
       'The base every project hostname is built on. This machine uses localhost. Automatic builds a name ' +
       'from this host address, with no DNS record. Your own domain needs a wildcard pointing here. ' +
-      'See docs/addresses-and-access.md#project-addresses.',
+      'See docs/product/concepts/addresses-and-access.md#project-addresses.',
     kind: 'choice',
     choices: ['local', 'auto', 'custom'],
     defaultValue: 'local',
@@ -185,7 +185,7 @@ export const FIELDS: FieldSpec[] = [
     key: 'PORTTA_DOMAIN',
     group: 'Project domain',
     label: 'Your domain',
-    help: 'Used when addresses are built on a domain you own. A wildcard *.<domain> must resolve to this host. See docs/addresses-and-access.md#custom-domain.',
+    help: 'Used when addresses are built on a domain you own. A wildcard *.<domain> must resolve to this host. See docs/product/concepts/addresses-and-access.md#custom-domain.',
     kind: 'string',
     defaultValue: 'localhost',
     restartRequired: true,
@@ -195,7 +195,7 @@ export const FIELDS: FieldSpec[] = [
     key: 'PORTTA_PROFILE',
     group: 'Project access',
     label: 'Gateway profile',
-    help: 'Where Traefik listens: this machine, a private network, or the internet. Independent of the panel. See docs/addresses-and-access.md#the-three-decisions.',
+    help: 'Where Traefik listens: this machine, a private network, or the internet. Independent of the panel. See docs/product/concepts/addresses-and-access.md#the-three-decisions.',
     kind: 'choice',
     choices: ['local', 'remote-private', 'remote-public'],
     defaultValue: 'local',
@@ -257,7 +257,7 @@ export const FIELDS: FieldSpec[] = [
     help:
       'Lets the internet reach Traefik on ports 80 and 443. It does not change how projects are named, ' +
       'and it does not publish the panel. Only services that opt in are routed. ' +
-      'See docs/addresses-and-access.md#public-access.',
+      'See docs/product/concepts/addresses-and-access.md#public-access.',
     kind: 'boolean',
     defaultValue: 'false',
     restartRequired: true,
@@ -275,7 +275,7 @@ export const FIELDS: FieldSpec[] = [
     key: 'TAILSCALE_ENABLED',
     group: 'Project access',
     label: 'Tailscale',
-    help: 'Run Traefik inside the Tailscale network namespace so projects are reachable on the tailnet, not the public NIC. See docs/addresses-and-access.md#vpn.',
+    help: 'Run Traefik inside the Tailscale network namespace so projects are reachable on the tailnet, not the public NIC. See docs/product/concepts/addresses-and-access.md#vpn.',
     kind: 'boolean',
     defaultValue: 'false',
     restartRequired: true,
@@ -312,7 +312,7 @@ export const FIELDS: FieldSpec[] = [
     key: 'TLS_ENABLED',
     group: 'TLS',
     label: 'HTTPS',
-    help: 'Issue certificates for project hostnames. Off, only the HTTP entrypoint serves routes. See docs/addresses-and-access.md#tls.',
+    help: 'Issue certificates for project hostnames. Off, only the HTTP entrypoint serves routes. See docs/product/concepts/addresses-and-access.md#tls.',
     kind: 'boolean',
     defaultValue: 'false',
     restartRequired: true,
@@ -360,7 +360,7 @@ export const FIELDS: FieldSpec[] = [
     key: 'ACME_DNS_PROVIDER',
     group: 'TLS',
     label: 'DNS-01 provider',
-    help: 'Provider name as understood by Traefik/lego. Ignored when the challenge is HTTP. See docs/addresses-and-access.md#dns.',
+    help: 'Provider name as understood by Traefik/lego. Ignored when the challenge is HTTP. See docs/product/concepts/addresses-and-access.md#dns.',
     kind: 'string',
     defaultValue: 'cloudflare',
     restartRequired: true,
@@ -369,7 +369,7 @@ export const FIELDS: FieldSpec[] = [
     key: 'CLOUDFLARE_ENABLED',
     group: 'DNS',
     label: 'Cloudflare DNS',
-    help: 'Create the wildcard record and answer DNS-01 challenges through Cloudflare. This does not choose the project domain. See docs/addresses-and-access.md#dns.',
+    help: 'Create the wildcard record and answer DNS-01 challenges through Cloudflare. This does not choose the project domain. See docs/product/concepts/addresses-and-access.md#dns.',
     kind: 'boolean',
     defaultValue: 'false',
     restartRequired: true,
@@ -418,7 +418,7 @@ export const FIELDS: FieldSpec[] = [
     label: 'How the panel is reached',
     help:
       'This machine is loopback only. The other modes put the panel beyond this host and require sign-in. ' +
-      'None of them publishes your projects. See docs/addresses-and-access.md#the-panel.',
+      'None of them publishes your projects. See docs/product/concepts/addresses-and-access.md#the-panel.',
     kind: 'choice',
     choices: ['local', 'tailscale', 'public', 'vpn', 'domain'],
     defaultValue: 'local',
@@ -519,7 +519,7 @@ export const FIELDS: FieldSpec[] = [
     key: 'PORTTA_DASHBOARD',
     group: 'Traefik',
     label: 'Traefik dashboard',
-    help: "Traefik's own dashboard. It has no login and stays on loopback under the normal host attachment. A Tailscale attachment can also make it reachable on the tailnet. See docs/addresses-and-access.md#traefik.",
+    help: "Traefik's own dashboard. It has no login and stays on loopback under the normal host attachment. A Tailscale attachment can also make it reachable on the tailnet. See docs/product/concepts/addresses-and-access.md#traefik.",
     kind: 'boolean',
     defaultValue: 'false',
     restartRequired: true,

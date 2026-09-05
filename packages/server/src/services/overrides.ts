@@ -257,12 +257,12 @@ export function planAlias(
     throw new OverrideRefused(`${host} is already an alias of ${clash.project}/${clash.service}`)
   }
 
-  // A datastore is reached through the mechanisms in docs/tcp-routing.md, not
+  // A datastore is reached through the mechanisms in docs/product/guides/tcp-routing.md, not
   // by an HTTP router that would answer with a protocol it does not speak.
   if (service.kind !== 'http' || isTcpOnly(service.labels)) {
     throw new OverrideRefused(
       `${request.service} is a ${service.kind} service, and an alias is an HTTP router`,
-      'reach a database or cache through the Access page; see docs/tcp-routing.md',
+      'reach a database or cache through the Access page; see docs/product/guides/tcp-routing.md',
     )
   }
 

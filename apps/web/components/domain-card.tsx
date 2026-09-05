@@ -66,7 +66,7 @@ export function ProjectDomainCard({ domain }: { domain: ProjectDomain }) {
 
         <p className="mt-3 text-xs text-subtle">
           {t('note')}{' '}
-          <LearnMore citation="docs/addresses-and-access.md#public-access" />
+          <LearnMore citation="docs/product/concepts/addresses-and-access.md#public-access" />
         </p>
       </CardBody>
     </Card>

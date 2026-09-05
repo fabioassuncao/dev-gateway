@@ -14,7 +14,7 @@ describe('inventory', () => {
 describe('routes without a hostname', () => {
   // The panel's public entrypoint carries `PathPrefix(`/`)` and is reached by
   // address, not by name. Deriving `portta-web.localhost` for it would list a
-  // URL nothing answers on. See docs/adr/0021-panel-access-modes.md.
+  // URL nothing answers on. See docs/development/adr/0021-panel-access-modes.md.
   it('a router with an explicit rule that names no host is not listed', () => {
     const routed: ContainerRecord = {
       ...container,

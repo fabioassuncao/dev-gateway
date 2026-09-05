@@ -36,7 +36,7 @@ test('E2E is advisory and never implicitly starts containers', () => {
   assert.equal(result.recommendations.length, 2)
 })
 test('documentation only checks links', () => {
-  assert.equal(selectTests(root, ['docs/testing.md']).actions.length, 1)
+  assert.equal(selectTests(root, ['docs/development/testing.md']).actions.length, 1)
 })
 test('diff covers committed, staged, unstaged, removed, renamed and new files', () => {
   const dir = mkdtempSync(join(tmpdir(), 'portta-diff-'))
@@ -62,7 +62,7 @@ test('runner rejects ambiguous modes and ignored selectors', () => {
 test('CI keeps cosmetic components out of browser regression and gates releases fully', async () => {
   const { ciScope } = await import('../lib/ci-scope.mjs')
   assert.deepEqual(ciScope(['apps/web/components/ui/button.tsx']).browser, [])
-  assert.equal(ciScope(['docs/testing.md']).code, false)
+  assert.equal(ciScope(['docs/development/testing.md']).code, false)
   assert.ok(ciScope(['packages/auth/src/bootstrap.ts']).browser.includes('roles'))
   assert.equal(ciScope([], true).gateway.length, 8)
   assert.equal(ciScope([], true).browser.length, 6)

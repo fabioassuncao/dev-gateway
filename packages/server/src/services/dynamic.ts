@@ -8,7 +8,7 @@
 // (middlewares.yaml, tcp.yaml, local-tls.yaml, anything a user dropped in)
 // belongs to the user and is never touched.
 //
-// See docs/adr/0011-panel-reads-traefik-writes-one-file.md.
+// See docs/development/adr/0011-panel-reads-traefik-writes-one-file.md.
 
 import {
   accessSync,
