@@ -9,6 +9,8 @@
 # ============================================================================
 set -uo pipefail
 
+node "$(dirname "$0")/../lib/require-disposable.mjs" || exit 1
+
 PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 . "$PORTTA_TEST_DIR/lib/assert.sh"
 PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
@@ -22,7 +24,7 @@ GW="$PORTTA_ROOT/bin/portta"
 ENVS="demo-a demo-a-issue-1 demo-a-issue-2 demo-b"
 export PORTTA_ASSUME_YES=true
 
-portta_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
+portta_require_docker >/dev/null 2>&1 || { echo "Docker unavailable: E2E incomplete"; exit 1; }
 
 up_env() {
   local dir="demo-a"; [ "$1" = "demo-b" ] && dir="demo-b"

@@ -81,7 +81,7 @@ portta_resolve_profile() {
 
   # The base every project hostname is built on, resolved from the mode before
   # the profile has its say. Mirrors resolveDomain in packages/core/src/domain.ts;
-  # see docs/adr/0022-project-domain-modes.md.
+  # see docs/development/adr/0022-project-domain-modes.md.
   portta_resolve_domain
 
   case "$profile" in
@@ -140,18 +140,28 @@ portta_resolve_profile() {
     return 1
   fi
 
-  # A panel reachable beyond this machine is one credential away from being an
-  # open control plane over every container on the host, so this is refused
-  # here too: `portta up` must not be a way around `portta web up`.
+  # A panel reachable beyond this machine is an open control plane over every
+  # container on the host unless it asks who is asking, so this is refused here
+  # too: `portta up` must not be a way around `portta web up`. The panel's own
+  # process refuses the same combination at boot; this says it first, with the
+  # command that fixes it.
   if portta_is_true "${PORTTA_WEB:-false}" \
-     && { [ "${PORTTA_WEB_EXPOSE:-local}" = "vpn" ] \
-          || [ "${PORTTA_WEB_EXPOSE:-local}" = "public" ]; } \
-     && { [ "${PORTTA_WEB_AUTH:-none}" != "basic" ] \
-          || [ -z "${PORTTA_WEB_AUTH_USER:-}" ] \
-          || [ -z "${PORTTA_WEB_AUTH_HASH:-}" ]; }; then
-    err "the panel is reachable beyond this host with no credential in front of it"
-    hint "portta web auth set   generates one and shows it once"
+     && [ "${PORTTA_WEB_EXPOSE:-local}" != "local" ] \
+     && [ "${PORTTA_AUTH_MODE:-disabled}" != "required" ]; then
+    err "the panel is reachable beyond this host and asks nobody who they are"
+    hint "portta config set panel.auth required   then portta web up"
     hint "or set PORTTA_WEB_EXPOSE=local to keep it on loopback"
+    return 1
+  fi
+
+  # `required` with no secret is a panel that refuses to start, which is worse
+  # than one that refuses to come up here: there the failure arrives as a
+  # container restarting in a loop.
+  if portta_is_true "${PORTTA_WEB:-false}" \
+     && [ "${PORTTA_AUTH_MODE:-disabled}" = "required" ] \
+     && [ -z "${PORTTA_AUTH_SECRET:-}" ]; then
+    err "PORTTA_AUTH_MODE=required with no PORTTA_AUTH_SECRET"
+    hint "portta web up   generates one without printing it"
     return 1
   fi
 
@@ -174,7 +184,7 @@ portta_resolve_profile() {
     err "TCP entrypoints must not run on the remote-public profile"
     hint "Traefik binds every interface there, so 5432 and 6379 would face the internet"
     hint "reach databases over the VPN (remote-private) or a loopback bridge instead"
-    hint "see docs/tcp-routing.md"
+    hint "see docs/product/guides/tcp-routing.md"
     return 1
   fi
 
@@ -210,7 +220,7 @@ portta_attachment() {
 # docker/compose/attach/ (how Traefik meets the world), docker/compose/profiles/ (which
 # entrypoints answer) and docker/compose/features/ (what is opted into). Their relative
 # paths still resolve against the repository root, because portta_compose passes
-# --project-directory. See docs/adr/0019-compose-files-live-under-docker.md.
+# --project-directory. See docs/development/adr/0019-compose-files-live-under-docker.md.
 portta_compose_files() {
   local profile="$1"
   local files="docker/compose/compose.yaml"
@@ -231,7 +241,7 @@ portta_compose_files() {
     remote-private|remote-public)
       # Redirecting :80 to :443 without a certificate the browser accepts turns
       # a working URL into a warning page, so the TLS overlay is applied only
-      # when there is TLS. See docs/adr/0022-project-domain-modes.md.
+      # when there is TLS. See docs/development/adr/0022-project-domain-modes.md.
       if portta_is_true "${TLS_ENABLED:-false}"; then
         files="$files docker/compose/profiles/remote-tls.yaml"
         # Exactly one challenge overlay rides with it. DNS-01 is the default
@@ -276,7 +286,8 @@ portta_compose_files() {
   # The panel is opt-in and rides along with the gateway once enabled, so
   # `portta up` and `portta web` cannot drift apart.
   if portta_is_true "${PORTTA_WEB:-false}"; then
-    files="$files docker/compose/features/web.yaml docker/compose/features/db.yaml"
+    files="$files docker/compose/features/web.yaml"
+    [ "${PORTTA_RUNTIME_DB_MODE:-managed}" = external ] || files="$files docker/compose/features/db.yaml"
     # Exactly one overlay owns the panel's front door, so a host publish and
     # the public Traefik entrypoint can never both claim PORTTA_WEB_PORT.
     if [ "${PORTTA_WEB_EXPOSE:-local}" = "public" ]; then
@@ -307,15 +318,13 @@ portta_compose_files() {
   fi
 
   # Auth is a gateway service: the migrator runs on `up` even when the panel
-  # is off. A checkout has the Dockerfile; PORTTA_HOME does not.
-  if portta_is_true "${PORTTA_WEB_BUILD:-false}" || portta_is_true "${PORTTA_WEB_DEV:-false}"; then
+  # is off. Local builds are explicit; merely running inside a checkout must
+  # not turn an otherwise production-like `up` into a build.
+  if portta_is_true "${PORTTA_WEB_BUILD:-false}"; then
     files="$files docker/compose/features/auth-build.yaml"
   fi
-  if [ -f "$PORTTA_ROOT/apps/web/Dockerfile" ] && [ -d "$PORTTA_ROOT/apps/auth" ]; then
-    case " $files " in
-      *" docker/compose/features/auth-build.yaml "*) ;;
-      *) files="$files docker/compose/features/auth-build.yaml" ;;
-    esac
+  if portta_is_true "${PORTTA_WEB_DEV:-false}"; then
+    files="$files docker/compose/features/auth-dev.yaml"
   fi
 
   # Last, and independent of every other axis: the connector is an extra way in,
@@ -447,7 +456,7 @@ portta_discover_http() {
 
     # A datastore routed by hostname carries TCP router labels and no HTTP
     # ones. It opted into the gateway, but not into anything `urls` should
-    # list: it is not reached with a browser. See docs/tcp-routing.md.
+    # list: it is not reached with a browser. See docs/product/guides/tcp-routing.md.
     if printf '%s' "$labels" | grep -q '^traefik\.tcp\.routers\.' \
        && ! printf '%s' "$labels" | grep -q '^traefik\.http\.'; then
       continue

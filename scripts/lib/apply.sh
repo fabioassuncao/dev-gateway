@@ -2,16 +2,16 @@
 # Portta: the applier container.
 #
 # Traefik reads its static configuration from the environment its container was
-# created with (docs/adr/0003-traefik-static-config-via-env.md), so a setting
+# created with (docs/development/adr/0003-traefik-static-config-via-env.md), so a setting
 # saved in the panel takes effect only once the containers are *recreated*.
 # Recreating them means Compose, and the panel deliberately cannot reach it
-# (docs/adr/0008-web-panel-socket-proxy.md): its Docker permissions stop at
+# (docs/development/adr/0008-web-panel-socket-proxy.md): its Docker permissions stop at
 # start, stop, restart and one fixed container shape.
 #
 # So the host prepares a single-purpose container, stopped, whose command is
 # fixed at creation time and reads nothing from the panel. Starting it is a
 # permission the panel already has. See
-# docs/adr/0026-applying-settings-from-the-panel.md.
+# docs/development/adr/0026-applying-settings-from-the-panel.md.
 #
 # Off unless PORTTA_APPLY=true.
 #
@@ -21,9 +21,9 @@
 # applyCreateArguments in packages/core/src/apply.ts, the same way
 # portta_compose_files is for composeFiles. tests/unit/apply.test.sh runs both
 # and compares the resulting `docker create` argument lists, so the two cannot
-# drift without a test failing. See docs/adr/0029-shell-only-for-bootstrap.md.
+# drift without a test failing. See docs/development/adr/0029-shell-only-for-bootstrap.md.
 
-PORTTA_APPLY_IMAGE="fabioassuncao/portta-apply:0.2.0"
+PORTTA_APPLY_IMAGE="fabioassuncao/portta-apply:$(portta_version)"
 PORTTA_APPLY_CONTAINER="portta-apply"
 PORTTA_APPLY_CONTEXT="$PORTTA_ROOT/docker/images/apply"
 
@@ -35,7 +35,7 @@ portta_apply_image_exists() {
 portta_apply_image_ensure() {
   portta_apply_image_exists && return 0
   info "building the applier image (first use only)"
-  docker build -q -t "$PORTTA_APPLY_IMAGE" "$PORTTA_APPLY_CONTEXT" >/dev/null || {
+  docker build -q --build-arg "PORTTA_VERSION=$(portta_version)" -t "$PORTTA_APPLY_IMAGE" "$PORTTA_APPLY_CONTEXT" >/dev/null || {
     err "could not build the applier image"
     hint "docker build -t $PORTTA_APPLY_IMAGE docker/images/apply/"
     return 1

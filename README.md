@@ -34,7 +34,7 @@ That creates a different set of problems: port conflicts, ports nobody remembers
 
 **This is for development, not deployment.** It exists so you can see and test what you are building, from wherever you happen to be. It is not a hosting platform, has no release or rollback story, and should not be what stands between your users and your application.
 
-It is host infrastructure installed once, not a parent Compose project. It does not move projects, own their volumes, or participate in their lifecycle. See [ADR 0001](docs/adr/0001-decoupled-infrastructure.md).
+It is host infrastructure installed once, not a parent Compose project. It does not move projects, own their volumes, or participate in their lifecycle. See [ADR 0001](docs/development/adr/0001-decoupled-infrastructure.md).
 
 ## Screenshots
 
@@ -53,7 +53,7 @@ It is host infrastructure installed once, not a parent Compose project. It does 
   </tr>
 </table>
 
-The panel is optional and loopback-only by default. Run `portta web up`, then open <http://127.0.0.1:8081>. The complete walkthrough and every screenshot are in [the panel documentation](docs/web-ui.md).
+The panel is optional and loopback-only by default, where it answers as the local operator: reaching it there already means having the machine. Run `portta web up`, then open <http://127.0.0.1:8081>. Publishing it anywhere else makes it sign people in — accounts, roles, sessions, tokens ([authentication](docs/product/guides/authentication.md)). The complete walkthrough and every screenshot are in [the panel documentation](docs/product/guides/web-ui.md).
 
 ## How it works
 
@@ -92,11 +92,11 @@ flowchart TB
 
 Traefik reaches HTTP services only on the shared network. It has no route into a project's private network.
 
-There are three ways in beyond the local one, and each is a deliberate choice rather than a default. `remote-private` attaches the gateway to a Tailscale sidecar, `remote-public` binds the public interface, and the [Cloudflare Tunnel](docs/cloudflare-tunnel.md) connector dials out instead, which is the only option when the machine has no public address at all. The exact networks, profiles and persistence boundary are in [Architecture](docs/architecture.md).
+There are three ways in beyond the local one, and each is a deliberate choice rather than a default. `remote-private` attaches the gateway to a Tailscale sidecar, `remote-public` binds the public interface, and the [Cloudflare Tunnel](docs/product/guides/cloudflare-tunnel.md) connector dials out instead, which is the only option when the machine has no public address at all. The exact networks, profiles and persistence boundary are in [Architecture](docs/product/concepts/architecture.md).
 
 ## Requirements
 
-**Required on the host:** Docker Engine 24+ with Compose v2 and a POSIX shell. Node is not required for the core commands ([ADR 0015](docs/adr/0015-node-on-the-host.md): `bootstrap`, `up`, `down`, `restart`, `status`, `logs`, `urls`, `inspect`, `update`, `doctor`, `version`, `toolbox`). The full CLI needs Node 22.12+. Git is needed only to develop Portta or to collect project metadata.
+**Required on the host:** Docker Engine 24+ with Compose v2 and a POSIX shell. Node is not required for the core commands ([ADR 0015](docs/development/adr/0015-node-on-the-host.md): `bootstrap`, `up`, `down`, `restart`, `status`, `logs`, `urls`, `inspect`, `update`, `doctor`, `version`, `toolbox`). The full CLI needs Node 22.12+. Git is needed only to develop Portta or to collect project metadata.
 
 **Run by the gateway:** Traefik, filtered Docker socket proxies, `jq`, `socat`, OpenSSL, database clients, access bridges, and the panel's Node runtime.
 
@@ -105,10 +105,10 @@ There are three ways in beyond the local one, and each is a deliberate choice ra
 | Verified environment | Evidence |
 |---|---|
 | macOS 15+ arm64 with OrbStack | Full suite run during development |
-| Ubuntu 24.04 amd64 with Docker Engine | Full suite in CI |
+| Ubuntu 24.04 amd64 with Docker Engine | Integration in PR CI; full E2E on release tags |
 | Ubuntu VPS with Docker and Tailscale | Installed from scratch, `doctor` clean |
 
-Other platforms may work but are not claimed as verified. See the complete [compatibility matrix](docs/compatibility.md).
+Other platforms may work but are not claimed as verified. See the complete [compatibility matrix](docs/product/reference/compatibility.md).
 
 ## Quick start
 
@@ -120,10 +120,11 @@ only what it cannot detect:
 curl -fsSL https://raw.githubusercontent.com/fabioassuncao/portta/main/install.sh | bash
 ```
 
-No clone, no build, and no Node on the host. It asks where to keep its data,
-how you want to reach the panel (public behind authentication, over Tailscale,
-or localhost only), and nothing else. Applications stay unexposed either way.
-See [installing and updating](docs/install.md).
+No clone, no build, and no Node on the host. It asks where to keep its data and
+how you want to reach the panel (this server's address, over Tailscale, or
+localhost only), and nothing else. Anything but localhost makes the panel sign
+people in; it prints the address where the first account is created. Applications
+stay unexposed either way. See [installing and updating](docs/product/getting-started/install.md).
 
 To work on Portta itself, take the checkout instead:
 
@@ -161,7 +162,7 @@ networks:
   portta: { external: true, name: portta }
 ```
 
-`portta analyze /path/to/project` reports the required changes without writing; `portta init /path/to/project` can generate the overlay. Follow the [adoption checklist](docs/adopting-projects.md).
+`portta analyze /path/to/project` reports the required changes without writing; `portta init /path/to/project` can generate the overlay. Follow the [adoption checklist](docs/product/guides/adopting-projects.md).
 
 ## Documentation
 
@@ -169,13 +170,13 @@ The categorised documentation index, command reference, ADRs and project templat
 
 ## Security
 
-Nothing is exposed by default. Datastores stay private, Docker access is filtered, public and VPN modes require explicit configuration, and destructive operations are constrained by ownership. Read the [threat model and hardening details](docs/security.md).
+Nothing is exposed by default. Datastores stay private, Docker access is filtered, public and VPN modes require explicit configuration, and destructive operations are constrained by ownership. Read the [threat model and hardening details](docs/product/concepts/security.md).
 
 ## Status
 
 Experimental (`v0.x`), personal, and without a support promise. Expect rough edges and bugs. I break it regularly.
 
-**Exercised end to end:** the local profile, the panel, persistence, parallel environments, TCP access, and installing from scratch on a real VPS.
+**Exercised end to end:** the local profile, the panel and its accounts, persistence, parallel environments, TCP access, and installing from scratch on a real VPS.
 
 **Partly verified:** Cloudflare Tunnel. The transport was measured against a live tunnel from the public internet, including the single wildcard rule, the Host header surviving to the container, WebSocket, and each distinct failure mode. The named-tunnel path against a real zone has not been exercised, because that needs credentials I do not want in a test.
 
@@ -183,7 +184,7 @@ Experimental (`v0.x`), personal, and without a support promise. Expect rough edg
 
 Cross-host synchronisation and task orchestration are future work, not current features. The TypeScript package and its binary are both named `portta`. More mature tools exist. Use one of them if this particular set of trade-offs is not useful to you. Issues, pull requests and forks are welcome.
 
-See [compatibility](docs/compatibility.md) and the [changelog](CHANGELOG.md).
+See [compatibility](docs/product/reference/compatibility.md) and the [changelog](CHANGELOG.md).
 
 ## License
 

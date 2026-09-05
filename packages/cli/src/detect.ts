@@ -3,7 +3,7 @@
 // This file only ever *observes*. It never runs `tailscale up`, never
 // authenticates a tunnel, and never changes a bind address. Turning something
 // on is a separate, deliberate act; see
-// docs/adr/0024-capabilities-providers-endpoints.md.
+// docs/development/adr/0024-capabilities-providers-endpoints.md.
 //
 // The verdicts — which facts add up to which capability state — are pure and
 // live in `capabilitiesFrom` in portta-core, so the same evidence yields the
@@ -22,7 +22,7 @@ const CLOUDFLARED_IMAGE = 'cloudflare/cloudflared:2026.8.3'
  * Read-only, always. Portta reports what the tailnet allows and never changes
  * it: `tailscale up`, the HTTPS-certificates switch and the policy file are the
  * operator's, and a gateway that edited them would be doing something nobody
- * asked for. See docs/tailscale.md.
+ * asked for. See docs/product/guides/tailscale.md.
  */
 export async function tailscaleFacts(): Promise<TailscaleFacts> {
   const absent: TailscaleFacts = { installed: false, connected: false, ipv4: null, magicDns: null, httpsCerts: false, funnel: false, tagged: false }
@@ -65,7 +65,7 @@ export async function tailscaleFacts(): Promise<TailscaleFacts> {
 /**
  * A connector this host can actually run: either a binary on the host or the
  * image already pulled. Portta prefers the container
- * (docs/adr/0025-cloudflare-tunnel.md) because everything else it runs is a
+ * (docs/development/adr/0025-cloudflare-tunnel.md) because everything else it runs is a
  * container, but an operator who already runs cloudflared under systemd keeps
  * it and Portta stays out of the way.
  */

@@ -13,6 +13,8 @@
 # ============================================================================
 set -uo pipefail
 
+node "$(dirname "$0")/../lib/require-disposable.mjs" || exit 1
+
 PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 . "$PORTTA_TEST_DIR/lib/assert.sh"
 PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
@@ -52,7 +54,7 @@ cleanup() {
   down_env demo-b demo-b
 }
 
-portta_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
+portta_require_docker >/dev/null 2>&1 || { echo "Docker unavailable: E2E incomplete"; exit 1; }
 
 describe "setting up four independent environments"
 trap cleanup EXIT INT TERM

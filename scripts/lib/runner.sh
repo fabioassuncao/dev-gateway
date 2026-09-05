@@ -4,7 +4,7 @@
 # The panel's Docker permissions stop at start, stop, restart and one fixed
 # container shape, so operations Compose must perform (rebuild, down, start
 # when the containers are gone) go through one opt-in container whose command
-# is fixed at creation. See docs/adr/0030-the-panel-and-a-project-lifecycle.md.
+# is fixed at creation. See docs/development/adr/0030-the-panel-and-a-project-lifecycle.md.
 #
 # Off unless PORTTA_RUNNER=true.
 #
@@ -15,7 +15,7 @@
 # tests/unit/runner.test.sh runs both and compares the resulting `docker create`
 # argument lists.
 
-PORTTA_RUNNER_IMAGE="fabioassuncao/portta-apply:0.2.0"
+PORTTA_RUNNER_IMAGE="fabioassuncao/portta-apply:$(portta_version)"
 PORTTA_RUNNER_CONTAINER="portta-runner"
 
 portta_runner_spec() {

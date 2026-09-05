@@ -13,7 +13,7 @@
 #
 # Only services that opt in are routed: `exposedByDefault` stays false, and a
 # datastore additionally has to join the access network. Nothing here publishes
-# a database by itself. See docs/tcp-routing.md.
+# a database by itself. See docs/product/guides/tcp-routing.md.
 #
 # This overlay is for the `host` attachment. docker/compose/features/tcp-tailscale.yaml
 # is the same thing for the Tailscale attachment, where the ports belong to the

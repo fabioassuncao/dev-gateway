@@ -7,7 +7,7 @@
 # Let's Encrypt has to see a TXT record, not this host.
 #
 # The cost is a DNS provider credential. `remote-tls-http.yaml` is the trade
-# in the other direction. See docs/dns-and-tls.md.
+# in the other direction. See docs/product/guides/dns-and-tls.md.
 # ============================================================================
 
 services:
@@ -22,5 +22,5 @@ services:
 
       # -- DNS provider credentials ----------------------------------------
       # Read by lego inside Traefik. Empty unless the provider is configured;
-      # a scoped token, never a global API key. See docs/cloudflare.md.
+      # a scoped token, never a global API key. See docs/product/guides/cloudflare.md.
       CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:-}

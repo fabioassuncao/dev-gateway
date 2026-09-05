@@ -9,7 +9,7 @@
  * A capability is that property, detected rather than configured. It says only
  * that something **can** be used. It never means anything is exposed: choosing
  * to publish a service is a separate, deliberate act, one service at a time.
- * See docs/adr/0024-capabilities-providers-endpoints.md.
+ * See docs/development/adr/0024-capabilities-providers-endpoints.md.
  *
  * Detection itself lives on the outside — `packages/cli/src/detect.ts` — and
  * hands this module plain facts, so the same evidence yields the same verdict

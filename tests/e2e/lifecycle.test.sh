@@ -8,6 +8,8 @@
 # ============================================================================
 set -uo pipefail
 
+node "$(dirname "$0")/../lib/require-disposable.mjs" || exit 1
+
 PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 . "$PORTTA_TEST_DIR/lib/assert.sh"
 PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
@@ -60,7 +62,7 @@ wait_for_health() {
 
 cleanup() { down_demo demo-a; down_demo demo-b; "$GW" up local >/dev/null 2>&1; }
 
-portta_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
+portta_require_docker >/dev/null 2>&1 || { echo "Docker unavailable: E2E incomplete"; exit 1; }
 
 trap cleanup EXIT INT TERM
 describe "authentication migration"
@@ -72,6 +74,24 @@ assert_eq "600" "$(portta_file_mode "$PORTTA_ROOT/state/auth/protections.json")"
 it "keeps the persistent authentication service read-only"
 auth_container=$(portta_gateway_container auth)
 assert_eq "true false" "$(docker inspect "$auth_container" --format '{{.HostConfig.ReadonlyRootfs}} {{range .Mounts}}{{if eq .Destination "/app/state/auth"}}{{.RW}}{{end}}{{end}}')"
+
+# The panel signs its own people in, so the file that used to carry its
+# credential declares nothing. Written rather than deleted: Traefik watches the
+# directory, and a file that merely stops being updated keeps working.
+it "leaves no middleware behind for the panel"
+panel_file="$PORTTA_ROOT/config/traefik/dynamic/portta-panel.yaml"
+if [ -f "$panel_file" ]; then
+  assert_eq "" "$(grep -n 'middlewares:' "$panel_file" || true)"
+else
+  skip "no generated panel file on this host"
+fi
+
+it "and the store carries no panel or dashboard scope"
+assert_eq "" "$(python3 -c "
+import json, sys
+store = json.load(open('$PORTTA_ROOT/state/auth/protections.json'))
+print(' '.join(p['scope'] for p in store.get('protections', []) if p['scope'] in ('panel', 'dashboard')))
+")"
 
 up_demo demo-a
 up_demo demo-b

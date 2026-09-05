@@ -7,7 +7,7 @@
 # namespaces, so Traefik listens directly on the node's tailnet address. No
 # port is published on the host at all: the gateway is unreachable from the
 # VPS's public interface, and reachable from the tailnet subject to your
-# Tailscale ACLs. See docs/adr/0007-tailscale-sidecar.md.
+# Tailscale ACLs. See docs/development/adr/0007-tailscale-sidecar.md.
 #
 # Traefik keeps its access to the shared and control networks because the
 # Tailscale container joins them and the two share a namespace.

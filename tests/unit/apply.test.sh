@@ -3,7 +3,7 @@
 # list the two CLIs build, and the conditions under which they refuse to build
 # one at all.
 #
-# See docs/adr/0026-applying-settings-from-the-panel.md.
+# See docs/development/adr/0026-applying-settings-from-the-panel.md.
 set -uo pipefail
 
 PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -105,7 +105,7 @@ else
   ts_args=$(PORTTA_VERSION="$(portta_version)" node --input-type=module -e '
     import { applyCreateArguments, applySpec } from "'"$PORTTA_ROOT"'/packages/core/dist/apply.js"
     const root = process.env.PORTTA_ROOT
-    process.stdout.write(applyCreateArguments(root, applySpec(root, process.env.PORTTA_VERSION)).join("\n"))
+    process.stdout.write(applyCreateArguments(root, applySpec(root, process.env.PORTTA_VERSION), process.env.PORTTA_VERSION).join("\n"))
   ' 2>/dev/null)
 
   it "argument for argument"

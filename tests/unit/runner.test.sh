@@ -3,7 +3,7 @@
 # list the two CLIs build, the closed verb set, and the conditions under which
 # they refuse to build one at all.
 #
-# See docs/adr/0030-the-panel-and-a-project-lifecycle.md.
+# See docs/development/adr/0030-the-panel-and-a-project-lifecycle.md.
 set -uo pipefail
 
 PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -109,7 +109,7 @@ else
   ts_args=$(PORTTA_VERSION="$(portta_version)" node --input-type=module -e '
     import { runnerCreateArguments, runnerSpec } from "'"$PORTTA_ROOT"'/packages/core/dist/runner.js"
     const root = process.env.PORTTA_ROOT
-    process.stdout.write(runnerCreateArguments(root, runnerSpec(root, process.env.PORTTA_VERSION)).join("\n"))
+    process.stdout.write(runnerCreateArguments(root, runnerSpec(root, process.env.PORTTA_VERSION), process.env.PORTTA_VERSION).join("\n"))
   ' 2>/dev/null)
 
   it "argument for argument"

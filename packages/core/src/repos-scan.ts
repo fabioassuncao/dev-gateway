@@ -4,7 +4,7 @@
 // repository under state/git, plus an index that maps environments to the
 // repository they run from. The panel only reads the result. This module is
 // the shape of that result and the pure helpers both sides share; the process
-// execution stays in the CLI. See docs/adr/0032-portta-development-model.md,
+// execution stays in the CLI. See docs/development/adr/0032-portta-development-model.md,
 // which amends ADR 0010: recent commits (metadata) and the content of the
 // instruction files an agent reads are collected; a diff, an arbitrary file or
 // a .env never is.

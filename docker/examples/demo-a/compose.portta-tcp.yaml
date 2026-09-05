@@ -14,7 +14,7 @@
 # Note which network the datastores join: `portta-access`, never the
 # shared `portta` network that carries HTTP. And note the rule is
 # HostSNIRegexp, so this file does not need to know the gateway's domain and
-# works unchanged on a workstation and on a VPS. See docs/tcp-routing.md.
+# works unchanged on a workstation and on a VPS. See docs/product/guides/tcp-routing.md.
 # ============================================================================
 
 services:

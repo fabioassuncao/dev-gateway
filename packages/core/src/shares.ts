@@ -21,7 +21,7 @@ const HEADER = [
   '# ============================================================================',
   '# Temporary shares: one additional hostname per service, each with an expiry.',
   '# A project\'s own router is never touched, and revoking a share deletes a',
-  '# block from this file. See docs/sharing.md.',
+  '# block from this file. See docs/product/guides/sharing.md.',
   '# ============================================================================',
 ]
 

@@ -58,7 +58,7 @@ it "no consumer directory is mounted into the gateway"
 # A bind mount is `src:dst`; a tmpfs entry has no colon, so require one.
 assert_eq "" "$(grep -hE '^\s+- [./][^ ]*:' docker/compose/compose.yaml docker/compose/*/*.yaml \
   | grep -vE '\./(config|state|apps|packages)/' \
-  | grep -vE '\./(\.env|VERSION|README\.md|CHANGELOG\.md|docs):' \
+  | grep -vE '\./(\.env|\.env\.example|\.env-lock|VERSION|README\.md|CHANGELOG\.md|docs):' \
   | grep -vE '/var/run/docker\.sock:/var/run/docker\.sock:ro' \
   | grep -vE '/dev/net/tun:/dev/net/tun' || true)"
 
@@ -66,7 +66,7 @@ describe "the applier is bounded by construction"
 
 # One container on this host may drive Compose, and this is the whole of what
 # keeps it from becoming a general remote-execution channel.
-# See docs/adr/0026-applying-settings-from-the-panel.md.
+# See docs/development/adr/0026-applying-settings-from-the-panel.md.
 
 it "only the applier mounts the docker socket writable, and only it"
 # Everywhere else the socket is `:ro`, into a socket proxy. The compose audit
@@ -104,7 +104,7 @@ assert_contains "$(cat scripts/lib/apply.sh)" 'portta_container_is_managed'
 it "the panel cannot enable the applier"
 # Turning it on is a host decision: the key is deliberately absent from the
 # catalogue of everything the Settings page may write.
-assert_eq "" "$(grep -n \"PORTTA_APPLY\" apps/web/src/server/core/settings.ts || true)"
+assert_eq "" "$(grep -n \"PORTTA_APPLY\" packages/server/src/services/settings.ts || true)"
 
 it "the runner is not a compose service"
 assert_eq "" "$(grep -rn 'portta-runner\|component: runner' docker/compose/ 2>/dev/null || true)"
@@ -113,13 +113,13 @@ it "the runner command is fixed, never composed from input"
 assert_contains "$(cat scripts/lib/runner.sh)" 'bash "$PORTTA_ROOT/scripts/lib/runner-exec.sh"'
 
 it "the panel cannot enable the runner"
-assert_eq "" "$(grep -n \"PORTTA_RUNNER\" apps/web/src/server/core/settings.ts || true)"
+assert_eq "" "$(grep -n \"PORTTA_RUNNER\" packages/server/src/services/settings.ts || true)"
 
 it "the panel gains no new Docker permission for it"
 # start, inspect and logs were already allowed; that is the whole point. Four
 # POST rules and one create, exactly as before this feature existed.
-assert_eq "4" "$(grep -c "method: 'POST'" apps/web/src/server/docker/allowlist.ts)"
-assert_eq "1" "$(grep -c 'containers..create' apps/web/src/server/docker/allowlist.ts)"
+assert_eq "4" "$(grep -c "method: 'POST'" packages/server/src/services/docker/allowlist.ts)"
+assert_eq "1" "$(grep -c 'containers..create' packages/server/src/services/docker/allowlist.ts)"
 
 describe "file modes are read portably"
 
@@ -144,7 +144,7 @@ describe "tests do not reach into procfs"
 # the prune audit below avoids naming its literals.
 PROCFS_PATH="/pro""c/"
 it "no test uses a procfs path to simulate a failure"
-assert_eq "" "$(grep -rn -- "$PROCFS_PATH" apps/web/tests tests 2>/dev/null || true)"
+assert_eq "" "$(grep -rn -- "$PROCFS_PATH" apps/web/tests packages/server/tests tests 2>/dev/null || true)"
 
 describe "the gateway never destroys what it does not own"
 
@@ -253,6 +253,7 @@ assert_eq "" "$(grep -rhE '^\s*(image|FROM):?\s' docker/compose/compose.yaml doc
   | sed -E 's/[[:space:]]+[Aa][Ss][[:space:]]+[A-Za-z0-9_.-]+[[:space:]]*$//' \
   | sed -E 's/\$\{[A-Za-z0-9_]+:-([^}]*)\}/\1/g' \
   | grep -vE '^[[:space:]]*FROM[[:space:]]+(deps|base|build|dev|runtime)[[:space:]]*$' \
+  | grep -v '\${PORTTA_VERSION}' \
   | grep -vE ':[A-Za-z0-9][A-Za-z0-9._-]*[[:space:]]*$' || true)"
 
 it "every Portta image the installer pulls matches VERSION"
@@ -265,11 +266,11 @@ assert_eq "" "$(grep -rhoE 'ghcr\.io/fabioassuncao/portta:[0-9][^}]*' docker/com
 
 it "and every Portta image is pinned, so none of them can float"
 assert_eq "" "$(grep -rhE 'image:.*fabioassuncao/portta' docker/compose/compose.yaml docker/compose/*/*.yaml \
-  | grep -vE 'ghcr\.io/fabioassuncao/portta:[0-9]|fabioassuncao/portta:(local|dev)' || true)"
+  | grep -vE 'ghcr\.io/fabioassuncao/portta:[0-9]|fabioassuncao/portta:(dev|\$\{PORTTA_VERSION\})' || true)"
 
 it "pulling never reaches for an image that only a local build produces"
-# A checkout adds auth-build.yaml unconditionally, which gives the auth
-# services a `build:` and a local tag. Every `pull` has to skip those or it
+# An explicit local-build overlay gives the auth services a `build:` and a
+# local tag. Every `pull` has to skip those or it
 # asks a registry for an image nobody ever pushed, and both CI jobs that boot
 # the gateway died there. ADR 0015: the shell and the CLI must agree.
 assert_contains "$(cat bin/portta)" "pull --ignore-buildable"
@@ -281,7 +282,7 @@ it "no floating latest tag"
 assert_eq "" "$(grep -rn ':latest' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml docker/images/*/Dockerfile apps/web/Dockerfile 2>/dev/null || true)"
 
 it "the versions table in ADR 0004 lists every pinned image"
-adr="docs/adr/0004-pinned-versions.md"
+adr="docs/development/adr/0004-pinned-versions.md"
 missing=""
 for img in $(grep -rhoE 'image: [a-z0-9./_-]+' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml scripts/lib/discovery.sh 2>/dev/null \
              | awk '{print $2}' | sort -u); do
@@ -303,7 +304,7 @@ it "the Dockerfile builds from the repository root"
 assert_contains "$(cat apps/web/Dockerfile)" "COPY package.json package-lock.json ./"
 # The build lives in the two overlays that are only ever applied inside a
 # checkout. web.yaml itself pulls, because an installed PORTTA_HOME has no
-# source tree to build from. See docs/adr/0020-installer-and-portta-home.md.
+# source tree to build from. See docs/development/adr/0020-installer-and-portta-home.md.
 assert_contains "$(cat docker/compose/features/web-build.yaml)" "dockerfile: apps/web/Dockerfile"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "dockerfile: apps/web/Dockerfile"
 assert_contains "$(cat docker/compose/features/auth-build.yaml)" "dockerfile: apps/web/Dockerfile"
@@ -330,9 +331,12 @@ done
 it "just has no leftover demo-up or examples recipes"
 assert_eq "" "$(grep -E '^(demo-up|demo-down|examples)' justfile || true)"
 
-it "just up and just web build local Portta images"
-assert_contains "$(awk '/^up /,/^$/' justfile)" 'PORTTA_WEB_BUILD=true'
-assert_contains "$(awk '/^web /,/^$/' justfile)" 'PORTTA_WEB_BUILD=true'
+it "just build produces the explicit local release"
+assert_contains "$(awk '/^build:/,/^$/' justfile)" '{{gw}} build'
+
+it "just up and just web consume the local release without building"
+assert_contains "$(awk '/^up /,/^$/' justfile)" '{{gw}} up --local-release {{args}}'
+assert_contains "$(awk '/^web /,/^$/' justfile)" '{{gw}} web --local-release {{args}}'
 
 it "reset is the checkout setup with --reset"
 assert_contains "$(sed -n '/export async function resetCommand/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)" 'reset: true'
@@ -341,6 +345,11 @@ it "dev --reset wipes the panel volume before the checkout setup"
 dev_body="$(sed -n '/export async function devCommand/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)"
 assert_contains "$dev_body" 'options.reset'
 assert_contains "$dev_body" 'wipePanelDatabase'
+
+it "dev prepares the panel around one gateway convergence"
+assert_contains "$dev_body" 'prepareWebUp'
+assert_contains "$dev_body" 'finishWebUp'
+assert_eq "" "$(printf '%s' "$dev_body" | grep -n 'webUp(' || true)"
 
 it "the wipe goes down, removes the panel volume, then returns"
 wipe_body="$(sed -n '/export async function wipePanelDatabase/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)"
@@ -353,8 +362,8 @@ assert_contains "$(cat packages/cli/src/cli.ts)" 'devCommand(profile, options, c
 
 it "the checkout setup never pulls the published image"
 assert_contains "$(sed -n '/export async function devCommand/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)" 'skipPull: true'
-assert_contains "$(sed -n '/export function checkoutLocalEnv/,/^}/p' packages/cli/src/commands/lifecycle.ts)" 'LOCAL_PORTA_IMAGE'
-assert_contains "$(cat packages/core/src/config.ts)" "LOCAL_PORTA_IMAGE = 'fabioassuncao/portta:local'"
+assert_contains "$(sed -n '/export function checkoutLocalEnv/,/^}/p' packages/cli/src/commands/lifecycle.ts)" "PORTTA_WEB_BUILD: 'false'"
+assert_contains "$(cat packages/core/src/images.ts)" 'fabioassuncao/portta:${release}'
 assert_eq "" "$(sed -n '/export function checkoutLocalEnv/,/^}/p' packages/cli/src/commands/lifecycle.ts | grep -E 'ghcr.io/fabioassuncao' || true)"
 
 

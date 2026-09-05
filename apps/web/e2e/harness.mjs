@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Boots the panel against a fake Docker Engine API, so the end-to-end run
-// needs no Docker daemon and describes a known host every time.
+// describes a known host. Its launcher owns the PostgreSQL and access bridge.
 
 import { createServer } from 'node:http'
 import { spawn } from 'node:child_process'
@@ -159,32 +159,50 @@ const docker = createServer((req, res) => {
   return json(res, { message: `unexpected call: ${req.method} ${path}` }, 500)
 })
 
+// The owner of this harness supplies a fresh database and owns its teardown.
+// A direct invocation must never attach to or reset a fixed-name database.
+const DATABASE_URL = process.env.PORTTA_E2E_DATABASE_URL
+if (!DATABASE_URL) throw new Error('Use the E2E resource launcher: a dedicated PORTTA_E2E_DATABASE_URL is required')
+
 docker.listen(DOCKER_PORT, '127.0.0.1', () => {
   process.stdout.write(`fake docker api on 127.0.0.1:${DOCKER_PORT}\n`)
 
-  const panel = spawn(process.execPath, [join(root, 'dist/server/index.js')], {
+  const panel = spawn(process.execPath, [join(root, 'dist/server.mjs')], {
     cwd: root,
     stdio: 'inherit',
     env: {
       ...process.env,
+      NODE_ENV: 'production',
       PORTTA_RUNTIME_DOCKER_API: `http://127.0.0.1:${DOCKER_PORT}`,
+      PORTTA_RUNTIME_DB_MODE: 'external',
+      PORTTA_RUNTIME_DATABASE_URL: DATABASE_URL,
       PORTTA_RUNTIME_HOST: '127.0.0.1',
       PORTTA_RUNTIME_PORT: String(PANEL_PORT),
       PORTTA_RUNTIME_ENV_FILE: join(root, 'e2e/env.fixture'),
-      PORTTA_RUNTIME_VERSION_FILE: join(root, 'e2e/VERSION.fixture'),
+      PORTTA_RUNTIME_VERSION_FILE: join(root, '..', '..', 'VERSION'),
       PORTTA_RUNTIME_BRIDGE_SETTLE_MS: '0',
       PORTTA_PROFILE: 'local',
       PORTTA_DOMAIN: 'localhost',
       PORTTA_NETWORK: 'portta',
+      // Open unless the run says otherwise. The protected harness is a second
+      // panel on its own port, so both flows are exercised in one run.
+      PORTTA_AUTH_MODE: process.env.PORTTA_E2E_AUTH_MODE ?? 'disabled',
+      PORTTA_AUTH_SECRET: 'an-end-to-end-secret-long-enough-to-sign',
+      PORTTA_PANEL_URL: `http://127.0.0.1:${PANEL_PORT}`,
+      // Every test signs in from 127.0.0.1, so the whole run is one address —
+      // the case the setting exists for, in its most extreme form.
+      PORTTA_AUTH_SIGNIN_ATTEMPTS: '50',
     },
   })
 
   const shutdown = () => {
     panel.kill('SIGTERM')
     docker.close()
-    process.exit(0)
+    // The parent waits for this harness, so wait for the panel before exiting.
   }
   process.on('SIGINT', shutdown)
   process.on('SIGTERM', shutdown)
-  panel.on('exit', (code) => process.exit(code ?? 0))
+  panel.on('exit', (code) => {
+    process.exit(code ?? 0)
+  })
 })

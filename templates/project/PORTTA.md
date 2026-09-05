@@ -93,7 +93,7 @@ docker compose logs -f
 **502**: the route matched but the backend did not answer, usually the wrong
 port in the overlay, or the service is not on the `portta` network.
 
-More: Portta's `docs/troubleshooting.md`.
+More: Portta's `docs/product/guides/troubleshooting.md`.
 
 ## Without the gateway
 

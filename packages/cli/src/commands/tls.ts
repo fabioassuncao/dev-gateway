@@ -1,3 +1,4 @@
+import { patchEnvFile } from 'portta-core'
 // `portta tls`: optional local HTTPS.
 //
 // HTTP works with no setup and is the right default for local development.
@@ -14,7 +15,6 @@ import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { platform } from 'node:os'
 import { join } from 'node:path'
 import type { Command } from 'commander'
-import { readEnvFile, setEnvValue, writeEnvFile } from 'portta-core'
 import { gatewayContext } from '../context.js'
 import { requireDocker } from '../docker.js'
 import { PreconditionError } from '../errors.js'
@@ -158,7 +158,7 @@ export async function tlsInit(command: Command): Promise<void> {
         + ' -addext "keyUsage=critical,keyCertSign,cRLSign"',
       'chmod 600 /out/portta-ca.key',
     ].join('\n')], { volumes: [`${paths.directory}:/out`] })
-    if (created.failed) throw new PreconditionError('could not create the CA', created.stderr.trim() || 'see docs/dns-and-tls.md')
+    if (created.failed) throw new PreconditionError('could not create the CA', created.stderr.trim() || 'see docs/product/guides/dns-and-tls.md')
     output.progress(`created ${paths.caCertificate}`)
   }
 
@@ -173,7 +173,7 @@ export async function tlsInit(command: Command): Promise<void> {
     'openssl x509 -req -in /tmp/wildcard.csr -CA /out/portta-ca.crt -CAkey /out/portta-ca.key -CAcreateserial -out /out/wildcard.crt -days 397 -sha256 -extfile /tmp/ext',
     'chmod 600 /out/wildcard.key',
   ].join('\n')], { volumes: [`${paths.directory}:/out`], env: { DOMAIN: domain } })
-  if (issued.failed) throw new PreconditionError('could not issue the certificate', issued.stderr.trim() || 'see docs/dns-and-tls.md')
+  if (issued.failed) throw new PreconditionError('could not issue the certificate', issued.stderr.trim() || 'see docs/product/guides/dns-and-tls.md')
 
   // Belt and braces for the host-openssl path, where nothing ran the chmod above.
   for (const key of [paths.caKey, paths.leafKey]) {
@@ -184,10 +184,7 @@ export async function tlsInit(command: Command): Promise<void> {
   writeFileSync(paths.dynamic, localTlsDynamic())
 
   const envPath = join(context.root, '.env')
-  let text = readEnvFile(envPath)
-  text = setEnvValue(text, 'TLS_ENABLED', 'true')
-  text = setEnvValue(text, 'TLS_MODE', 'local')
-  writeEnvFile(envPath, text)
+  patchEnvFile(envPath, { TLS_ENABLED: 'true', TLS_MODE: 'local' })
   output.progress('TLS enabled in .env')
 
   output.line('')

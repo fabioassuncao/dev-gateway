@@ -97,7 +97,7 @@ portta access close --project <name>
 ```
 
 Both bind loopback only, and neither changes the project. Details:
-[tcp-access.md](tcp-access.md).
+[tcp-access.md](product/guides/tcp-access.md).
 
 **Leave the environment as you found it.** Stop what you started, from its own
 directory:
@@ -144,7 +144,7 @@ portta doctor             # collisions, labels, exposure
 docker logs portta-traefik-1 --tail 50
 ```
 
-The usual causes are in [troubleshooting.md](troubleshooting.md): a wrong
+The usual causes are in [troubleshooting.md](product/guides/troubleshooting.md): a wrong
 backend port, the service missing from the shared network, a Traefik service
 name colliding with another project's, or labels written in map form so
 `${COMPOSE_PROJECT_NAME}` was never interpolated.

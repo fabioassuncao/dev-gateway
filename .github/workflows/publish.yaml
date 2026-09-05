@@ -27,7 +27,12 @@ env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/portta
 
 jobs:
+  validation:
+    uses: ./.github/workflows/validation.yaml
+    with:
+      release: ${{ startsWith(github.ref, 'refs/tags/v') }}
   panel:
+    needs: validation
     name: Panel image
     runs-on: ubuntu-24.04
     steps:
@@ -40,8 +45,8 @@ jobs:
       # Every compose default tag and VERSION have to agree, or an installation
       # pinned by those files would pull an image that was never published.
       # This checked only the panel's overlay, and portta-auth sat a release
-      # behind through 0.4.0 because of it. With the test workflow gone this is
-      # the last automated guard on what the installer will pull.
+      # behind through 0.4.0 because of it. Keep the published tags consistent
+      # with the release that the validation job checked.
       - name: Every compose default tag matches VERSION
         run: |
           set -euo pipefail
@@ -94,6 +99,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PORTTA_VERSION=${{ steps.version.outputs.value }}
+            PORTTA_REVISION=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

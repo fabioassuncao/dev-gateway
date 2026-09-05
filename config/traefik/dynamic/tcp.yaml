@@ -17,7 +17,7 @@ tls:
     #   psql: SSL error: tlsv1 alert no application protocol
     #
     # Older clients send no ALPN at all and are unaffected, so one option
-    # serves both. See docs/tcp-routing.md.
+    # serves both. See docs/product/guides/tcp-routing.md.
     postgres:
       alpnProtocols:
         - postgresql

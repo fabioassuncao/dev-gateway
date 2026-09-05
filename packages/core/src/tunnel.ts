@@ -25,8 +25,8 @@
  *   - adding a Traefik router made a hostname start working with no change on
  *     the Cloudflare side; removing it made it stop.
  *
- * See docs/adr/0025-cloudflare-tunnel.md for the comparison against publishing
- * a port, and docs/cloudflare-tunnel.md for the operator's guide.
+ * See docs/development/adr/0025-cloudflare-tunnel.md for the comparison against publishing
+ * a port, and docs/product/guides/cloudflare-tunnel.md for the operator's guide.
  */
 
 export interface TunnelConfig {
@@ -80,7 +80,7 @@ export function renderTunnelConfig(config: TunnelConfig): string {
     '# Traefik, which routes it by Host to the right container. Publishing a',
     '# project therefore needs no change here and none at Cloudflare.',
     '#',
-    '# See docs/adr/0025-cloudflare-tunnel.md.',
+    '# See docs/development/adr/0025-cloudflare-tunnel.md.',
     '# ============================================================================',
     `tunnel: ${yamlString(config.id)}`,
     `credentials-file: ${yamlString(config.credentialsFile)}`,
@@ -157,7 +157,7 @@ export function tunnelDnsTarget(id: string): string {
 // configured in the dashboard would put Cloudflare in charge of routing, which
 // is precisely the responsibility ADR 0025 keeps with Traefik.
 //
-// See docs/cloudflare-tunnel.md.
+// See docs/product/guides/cloudflare-tunnel.md.
 
 export interface TunnelCredentials {
   AccountTag: string

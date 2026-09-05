@@ -22,7 +22,7 @@
 #
 # Traefik installs the challenge router ahead of the :80 -> :443 redirection
 # above, so the redirect does not swallow the challenge.
-# See docs/dns-and-tls.md.
+# See docs/product/guides/dns-and-tls.md.
 # ============================================================================
 
 services:

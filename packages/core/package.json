@@ -10,6 +10,16 @@
       "types": "./src/index.ts",
       "development": "./src/index.ts",
       "import": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./src/browser.ts",
+      "development": "./src/browser.ts",
+      "import": "./dist/browser.js"
+    },
+    "./documentation-compile": {
+      "types": "./src/documentation-compile.ts",
+      "development": "./src/documentation-compile.ts",
+      "import": "./dist/documentation-compile.js"
     }
   },
   "files": [
@@ -26,10 +36,12 @@
   "devDependencies": {
     "@types/node": "24.13.3",
     "typescript": "7.0.2",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "@types/markdown-it": "^14.1.2"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
-    "zod": "4.5.4"
+    "zod": "4.5.4",
+    "markdown-it": "^14.1.0"
   }
 }

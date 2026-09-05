@@ -28,9 +28,18 @@ files_for() {
     portta_compose_files "$profile" | tr ' ' '\n' | grep -v '^-f$' | sed "s#^$PORTTA_ROOT/##" | tr '\n' ' ' )
 }
 
-# A routed panel is refused without one, so every case that routes it carries
-# the credential. See docs/adr/0012-panel-authentication-is-traefiks.md.
-PORTTA_RUNTIME_CREDENTIAL="PORTTA_WEB_AUTH=basic PORTTA_WEB_AUTH_USER=dev PORTTA_WEB_AUTH_HASH=\$apr1\$abcdefgh\$ckT15POyCRlen.h6XtGAZ1"
+# A panel reachable from another machine is refused unless it signs people in,
+# so every case that publishes it beyond loopback carries the mode and the
+# secret. See docs/development/adr/0035-authentication-lives-in-the-panel.md.
+PORTTA_RUNTIME_CREDENTIAL="PORTTA_AUTH_MODE=required PORTTA_AUTH_SECRET=a-test-secret-that-is-long-enough"
+
+PROFILE_FILTER=""
+if [ "$#" -gt 0 ]; then
+  if [ "$#" -ne 2 ] || [ "$1" != "--profile" ]; then
+    echo "usage: profiles.test.sh [--profile local|remote-private|remote-public]" >&2; exit 2
+  fi
+  case "$2" in local|remote-private|remote-public) PROFILE_FILTER="$2" ;; *) exit 2 ;; esac
+fi
 
 describe "domains follow the profile"
 it "local uses localhost"
@@ -90,6 +99,21 @@ it "off by default"
 assert_not_contains "$(files_for local)" "docker/compose/features/web.yaml"
 it "enabled by PORTTA_WEB"
 assert_contains "$(files_for local PORTTA_WEB=true)" "docker/compose/features/web.yaml"
+
+# PostgreSQL is a boot dependency of the panel, not a feature of it: the panel
+# refuses to start without it, so a profile that selected one and not the other
+# could only ever produce a panel that exits.
+it "and never without its database"
+for portta_profile in local remote-private remote-public; do
+  portta_selection=$(files_for "$portta_profile" PORTTA_WEB=true PUBLIC_DOMAIN=d.test)
+  case "$portta_selection" in
+    *"docker/compose/features/web.yaml"*)
+      assert_contains "$portta_selection" "docker/compose/features/db.yaml" ;;
+  esac
+done
+
+it "and never the database without the panel"
+assert_not_contains "$(files_for local)" "docker/compose/features/db.yaml"
 it "passes Projects Home as configuration without mounting it"
 web_overlay=$(cat "$PORTTA_ROOT/docker/compose/features/web.yaml")
 assert_contains "$web_overlay" 'PORTTA_PROJECTS_HOME: ${PORTTA_PROJECTS_HOME:-}'
@@ -132,24 +156,48 @@ else
       portta_resolve_profile "$profile" >/dev/null 2>&1 || return 1
       portta_compose "$profile" config >/dev/null 2>&1 )
   }
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "local" ]; then
   it "local";                       assert_success validate local
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "local" ]; then
   it "local with TLS";              assert_success validate local TLS_ENABLED=true TLS_MODE=local
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "local" ]; then
   it "local with the dashboard";    assert_success validate local PORTTA_DASHBOARD=true
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "remote-private" ]; then
   it "remote-private + tailscale";  assert_success validate remote-private TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "remote-private" ]; then
   it "remote-private, own VPN";     assert_success validate remote-private PORTTA_BIND_ADDRESS=100.64.0.1 PRIVATE_DOMAIN=vpn.test
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "remote-public" ]; then
   it "remote-public";               assert_success validate remote-public PUBLIC_DOMAIN=d.test TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "remote-public" ]; then
   it "remote-public + tailscale";   assert_success validate remote-public PUBLIC_DOMAIN=d.test TAILSCALE_ENABLED=true TS_AUTHKEY=dummy TLS_ENABLED=true TLS_MODE=acme ACME_EMAIL=a@d.test
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "local" ]; then
   it "local with the web panel";    assert_success validate local PORTTA_WEB=true
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "local" ]; then
   it "local with the panel in dev"; assert_success validate local PORTTA_WEB=true PORTTA_WEB_DEV=true
+  fi
   # shellcheck disable=SC2086  # the credential is three separate assignments
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "remote-private" ]; then
   it "remote-private + panel/vpn";  assert_success validate remote-private TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy PORTTA_WEB=true PORTTA_WEB_EXPOSE=vpn $PORTTA_RUNTIME_CREDENTIAL
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "local" ]; then
   it "local with tcp entrypoints";  assert_success validate local PORTTA_TCP=true
+  fi
+  if [ -z "$PROFILE_FILTER" ] || [ "$PROFILE_FILTER" = "remote-private" ]; then
   it "remote-private + tcp";        assert_success validate remote-private TAILSCALE_ENABLED=true PRIVATE_DOMAIN=vpn.test TS_AUTHKEY=dummy PORTTA_TCP=true
+  fi
 fi
 
 describe "panel access selects exactly one front door"
 
-# See docs/adr/0021-panel-access-modes.md. The invariant worth testing is that
+# See docs/development/adr/0021-panel-access-modes.md. The invariant worth testing is that
 # `web-bind.yaml` (a host port on the panel container) and `panel-public.yaml`
 # (a Traefik entrypoint with ForwardAuth) are never both applied, because they
 # would claim the same host port and one of them would bypass the credential.
@@ -180,13 +228,13 @@ assert_not_contains "$(files_for local PORTTA_WEB=true)" "docker/compose/feature
 it "and a developer can opt back into it"
 assert_contains "$(files_for local PORTTA_WEB=true PORTTA_WEB_BUILD=true)" "docker/compose/features/web-build.yaml"
 
-it "a checkout builds auth from the local Dockerfile"
-assert_contains "$(files_for local)" "docker/compose/features/auth-build.yaml"
+it "a checkout alone does not imply an auth build"
+assert_not_contains "$(files_for local)" "docker/compose/features/auth-build.yaml"
 
-it "development mode selects the auth build overlay once"
+it "development mode selects the auth development overlay once"
 selected="$(files_for local PORTTA_WEB=true PORTTA_WEB_DEV=true)"
-assert_contains "$selected" "docker/compose/features/auth-build.yaml"
-assert_eq "1" "$(printf '%s\n' $selected | grep -c 'docker/compose/features/auth-build.yaml')"
+assert_contains "$selected" "docker/compose/features/auth-dev.yaml"
+assert_eq "1" "$(printf '%s\n' $selected | grep -c 'docker/compose/features/auth-dev.yaml')"
 
 describe "both entry points create the networks the overlays declare external"
 
@@ -274,10 +322,10 @@ selected=$(files_for local PORTTA_WEB=true PORTTA_WEB_EXPOSE=local)
 assert_contains "$selected" "docker/compose/features/web-bind.yaml"
 assert_not_contains "$selected" "docker/compose/features/panel-domain.yaml"
 
-# The middleware is the panel scope, never the project one: a project's
-# protection must not be able to open the panel.
-it "the routed panel carries the panel-scoped middleware"
-assert_contains "$(cat "$PORTTA_ROOT/docker/compose/features/panel-domain.yaml")" "portta-web-auth@file"
+# Nothing in front of the router: the panel signs its own people in, and
+# `web up --expose domain` refuses unless it is in `required` mode with TLS on.
+it "the routed panel carries no Traefik middleware"
+assert_eq "" "$(grep -n 'middlewares' "$PORTTA_ROOT/docker/compose/features/panel-domain.yaml" || true)"
 
 describe "the webhook is the one path that authenticates itself"
 
@@ -315,7 +363,7 @@ assert_contains "$overlay" "portta-panel-webhook.priority"
 
 describe "the base domain comes from the mode"
 
-# See docs/adr/0022-project-domain-modes.md. `localhost` is right for a machine
+# See docs/development/adr/0022-project-domain-modes.md. `localhost` is right for a machine
 # you are sitting at and useless from anywhere else, which is why a mode exists
 # at all.
 it "local is localhost"
@@ -436,6 +484,7 @@ else
     "PORTTA_PROFILE=local PORTTA_WEB=true CLOUDFLARE_TUNNEL_ENABLED=true" \
     "PORTTA_PROFILE=remote-public PUBLIC_DOMAIN=d.test CLOUDFLARE_TUNNEL_ENABLED=true"
   do
+    if [ -n "$PROFILE_FILTER" ] && [[ "$case_env" != "PORTTA_PROFILE=$PROFILE_FILTER"* ]]; then continue; fi
     it "same files for: $case_env"
     # shellcheck disable=SC2086
     profile=$(printf '%s' "$case_env" | sed -n 's/.*PORTTA_PROFILE=\([a-z-]*\).*/\1/p')

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Regenerates the panel screenshots used by README.md and docs/web-ui.md.
+import { startPanel } from './resources.mjs'
+// Regenerates the panel screenshots used by README.md and docs/product/guides/web-ui.md.
 //
 //   npm run screenshots
 //
@@ -11,8 +12,6 @@
 // Every shot uses the same viewport. The main column scrolls; long pages set
 // scrollTo rather than growing the frame.
 
-import { execFileSync } from 'node:child_process'
-import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -25,12 +24,6 @@ const repo = join(root, '..', '..')
 const outDir = join(repo, 'docs', 'images')
 const examplesDir = join(repo, 'docker', 'examples')
 
-const DOCKER_PORT = 9931
-const PANEL_PORT = 9932
-const PG_PORT = 55433
-const PG_NAME = 'portta-screenshots-pg'
-const DATABASE_URL = `postgres://postgres:screenshots@127.0.0.1:${PG_PORT}/portta`
-const BASE = `http://127.0.0.1:${PANEL_PORT}`
 
 const VIEWPORT = { width: 1440, height: 900 }
 
@@ -66,7 +59,7 @@ const HOST_SNAPSHOT = {
     cpuUtilisation: 0.23,
     cpuIdle: 0.77,
     load: { one: 2.14, five: 1.86, fifteen: 1.62 },
-    storage: { path: '/Users/dev/portta', mount: '/', filesystem: 'apfs', totalBytes: 460 * GB, usedBytes: 190 * GB, availableBytes: 270 * GB, usedPercent: 190 / 460 },
+    storage: { path: '/srv/portta', mount: '/', filesystem: 'apfs', totalBytes: 460 * GB, usedBytes: 190 * GB, availableBytes: 270 * GB, usedPercent: 190 / 460 },
     gpu: [{ vendor: 'Apple', model: 'Apple M3 Pro', vramBytes: null, utilisation: null, temperature: null }],
     temperatureCelsius: null,
     battery: { hasBattery: true, percent: 1, charging: false, acConnected: true, minutesRemaining: null, cycleCount: 143 },
@@ -80,89 +73,69 @@ const HOST_SNAPSHOT = {
 }
 
 const metricsDir = mkdtempSync(join(tmpdir(), 'portta-screenshots-metrics-'))
+// The store the ForwardAuth diagnostics look for. Empty is a valid store: no
+// hostname is protected on this fake host, which is the truth about it.
+writeFileSync(join(metricsDir, 'protections.json'), JSON.stringify({ version: 1, protections: [] }), { mode: 0o600 })
 
 function writeHostSnapshot() {
   writeFileSync(join(metricsDir, 'current.json'), JSON.stringify({ ...HOST_SNAPSHOT, collectedAt: Math.floor(Date.now() / 1000) }))
 }
 
+// What the documentation shows.
+//
+// One entry per page that exists. The rest — projects, tasks, environments,
+// services, Docker, network, gateway, settings — come back as each page is
+// ported to the App Router, and their shots come back with them; a shot of a
+// 404 is worse than a missing shot.
+// Every image the documentation embeds, in the order a reader meets them.
+//
+// A shot names the route and one string that proves the page finished: waiting
+// for the network to go quiet is not enough on a page whose content arrives
+// from a query, and a screenshot taken a moment early is a screenshot of a
+// skeleton. `ready` is that string, `before` is anything that has to be clicked
+// first, and `scrollTo` moves the main column rather than growing the frame.
 const SHOTS = [
-  { name: 'panel-overview', route: '/#/overview', ready: 'Demo Shop' },
-  { name: 'panel-projects', route: '/#/projects', ready: 'Demo Shop' },
+  { name: 'panel-overview', route: '/overview', ready: 'Demo Shop' },
+  { name: 'panel-overview-dark', route: '/overview', ready: 'Demo Shop', theme: 'dark' },
+  { name: 'panel-projects', route: '/projects', ready: 'Demo Shop' },
   {
     name: 'panel-projects-table',
-    route: '/#/projects',
+    route: '/projects?view=table',
     ready: 'Demo Shop',
-    async before(page) {
-      await page.getByRole('radio', { name: 'Table' }).click()
-      await page.getByRole('table').waitFor()
-    },
   },
-  { name: 'panel-tasks', route: '/#/projects/demo-shop/tasks', ready: 'Configurar autenticação' },
+  { name: 'panel-tasks', route: '/projects/demo-shop/tasks', ready: 'Demo Shop' },
   {
     name: 'panel-tasks-table',
-    route: '/#/projects/demo-shop/tasks?view=table',
-    ready: 'Configurar autenticação',
+    route: '/projects/demo-shop/tasks?view=table',
+    ready: 'Demo Shop',
   },
+  { name: 'panel-environments', route: '/environments', ready: 'demo-a' },
+  { name: 'panel-environment', route: '/environments/demo-a', ready: 'demo-a' },
+  { name: 'panel-services', route: '/services', ready: 'Services' },
+  { name: 'panel-docker', route: '/docker', ready: 'Docker' },
+  { name: 'panel-docker-external', route: '/docker', ready: 'Docker', scrollTo: 1200 },
+  { name: 'panel-network', route: '/network', ready: 'Network' },
+  { name: 'panel-access', route: '/access', ready: 'Access' },
+  { name: 'panel-gateway', route: '/gateway', ready: 'Gateway' },
+  { name: 'panel-settings', route: '/settings/general/project-access', ready: 'Settings' },
+  { name: 'panel-docs', route: '/docs', ready: 'Portta docs' },
+  // The task's own workspace. Its id is whatever the import produced, so the
+  // shot opens the board and clicks the first card rather than guessing one.
   {
     name: 'panel-task',
-    route: '/#/projects/demo-shop/tasks',
-    ready: 'Configurar autenticação',
-    async before(page) {
-      // The board's ids are minted by the seed, so the shot follows a card
-      // rather than guessing a number.
-      await page.getByRole('link', { name: 'Configurar autenticação' }).first().click()
-      await page.getByRole('heading', { level: 1 }).or(page.getByText('Configurar autenticação')).first().waitFor()
+    route: '/projects/demo-shop/tasks',
+    ready: 'Demo Shop',
+    before: async (page) => {
+      await page.getByRole('article').first().click()
+      await page.waitForURL(/\/projects\/demo-shop\/tasks\/\d+/, { timeout: 10_000 })
+      await page.waitForLoadState('networkidle')
       await page.waitForTimeout(600)
     },
   },
-  { name: 'panel-environments', route: '/#/environments', ready: 'demo-shop' },
-  { name: 'panel-environment', route: '/#/environments/demo-shop', ready: 'Open / Test' },
-  { name: 'panel-services', route: '/#/services', ready: 'demo-shop' },
-  { name: 'panel-docker', route: '/#/docker' },
-  { name: 'panel-docker-external', route: '/#/docker', scrollTo: 1500 },
-  { name: 'panel-access', route: '/#/access', ready: '55431' },
-  { name: 'panel-network', route: '/#/network' },
-  {
-    name: 'panel-gateway',
-    route: '/#/gateway',
-    async before(page) {
-      await page.getByRole('button', { name: 'Run diagnostics' }).click()
-      await page.getByText('Traefik', { exact: true }).first().waitFor()
-    },
-  },
-  { name: 'panel-settings', route: '/#/settings/gateway' },
-  { name: 'panel-overview-dark', route: '/#/overview', theme: 'dark', ready: 'Demo Shop' },
 ]
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function startPostgres() {
-  try { execFileSync('docker', ['rm', '-f', PG_NAME], { stdio: 'ignore' }) } catch { /* absent */ }
-  execFileSync('docker', [
-    'run', '-d', '--rm', '--name', PG_NAME,
-    '-e', 'POSTGRES_PASSWORD=screenshots',
-    '-e', 'POSTGRES_DB=portta',
-    '-p', `${PG_PORT}:5432`,
-    'postgres:18.6-alpine',
-  ], { stdio: 'inherit' })
-}
-
-function stopPostgres() {
-  try { execFileSync('docker', ['rm', '-f', PG_NAME], { stdio: 'ignore' }) } catch { /* already gone */ }
-}
-
-async function waitForPostgres() {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    try {
-      execFileSync('docker', ['exec', PG_NAME, 'pg_isready', '-U', 'postgres'], { stdio: 'ignore' })
-      return
-    } catch {
-      await sleep(500)
-    }
-  }
-  throw new Error('screenshot postgres did not become ready')
 }
 
 async function waitForPanel() {
@@ -226,22 +199,13 @@ async function seedExamples() {
 mkdirSync(outDir, { recursive: true })
 writeHostSnapshot()
 const collector = setInterval(writeHostSnapshot, 3_000)
-startPostgres()
-await waitForPostgres()
-
-const harness = spawn(process.execPath, [join(here, 'harness.mjs')], {
-  cwd: root,
-  stdio: 'inherit',
-  env: {
-    ...process.env,
-    PORTTA_E2E_FIXTURE: './demo-host.mjs',
-    PORTTA_TCP: 'true',
-    PORTTA_E2E_DOCKER_PORT: String(DOCKER_PORT),
-    PORTTA_E2E_PANEL_PORT: String(PANEL_PORT),
-    PORTTA_RUNTIME_DATABASE_URL: DATABASE_URL,
-    PORTTA_RUNTIME_METRICS_DIR: metricsDir,
-  },
+const panel = await startPanel({ fixture: './demo-host.mjs', env: { PORTTA_TCP: 'true', PORTTA_RUNTIME_METRICS_DIR: metricsDir, PORTTA_AUTH_SECRET: 'a-screenshot-secret-long-enough-to-sign', PORTTA_RUNTIME_AUTH_STORE: join(metricsDir, 'protections.json') } }).catch((error) => {
+  clearInterval(collector)
+  rmSync(metricsDir, { recursive: true, force: true })
+  throw error
 })
+const BASE = panel.url
+
 
 try {
   await waitForPanel()
@@ -276,7 +240,6 @@ try {
   await browser.close()
 } finally {
   clearInterval(collector)
-  harness.kill('SIGTERM')
-  stopPostgres()
+  await panel.close()
   rmSync(metricsDir, { recursive: true, force: true })
 }

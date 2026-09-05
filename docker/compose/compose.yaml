@@ -15,7 +15,7 @@
 # Traefik's static configuration lives in `environment:` (TRAEFIK_* variables)
 # rather than a config file. Traefik treats file / CLI / env as mutually
 # exclusive sources, and only the env form composes across Compose overlays.
-# Dynamic configuration stays in config/traefik/dynamic/. See docs/adr/0003.
+# Dynamic configuration stays in config/traefik/dynamic/. See docs/development/adr/0003.
 # ============================================================================
 
 name: ${PORTTA_PROJECT_NAME:-portta}
@@ -194,7 +194,7 @@ services:
       PORTTA_AUTH_PORT: "4180"
       PORTTA_AUTH_STORE: /app/state/auth/protections.json
       PORTTA_AUTH_SECRET: ${PORTTA_AUTH_SECRET:-}
-      PORTTA_AUTH_UI_DIR: /app/apps/web/dist/auth
+      PORTTA_AUTH_UI_DIR: /app/apps/auth/dist/ui
       PORTTA_AUTH_SESSION_SECONDS: "43200"
     volumes:
       - ./state/auth:/app/state/auth:ro

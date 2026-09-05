@@ -9,6 +9,67 @@ While the version is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
+### The architecture migration
+
+The panel is a Next application that signs people in, on a database it requires.
+This is one release's worth of change to how a host is set up and operated, so
+it is stated here before the rest.
+
+**Upgrading takes one destructive step.** The panel's schema was rebuilt around
+Drizzle with no compatibility path, and a volume holding the old one is
+refused with the command that fixes it:
+
+```bash
+portta reset --yes     # removes the panel's database volume, and its data
+portta web up
+```
+
+Projects, tasks, repositories and activity recorded by an older Portta do not
+survive that. Nothing outside the panel's own volume is touched: no consumer
+project, no container, no image.
+
+**The panel asks who you are, when it is reachable.** `PORTTA_AUTH_MODE`
+replaces `PORTTA_WEB_AUTH`, `_USER` and `_HASH`, and with them
+`portta web auth set|status|clear|apply`.
+
+- `disabled` answers everybody as the local operator, and is only allowed on
+  loopback. The panel refuses to start any other way.
+- `required` gives it accounts, four roles, sessions, an optional second factor
+  and `ptt_` tokens, all in its own database.
+
+The first account is created once, in a browser at `/setup` or from the host
+with `portta auth bootstrap`. Sign-up closes the moment it exists. There is no
+password reset by email; an administrator sets one, or
+`portta auth reset-password` runs inside the panel's own container.
+
+**Every access mode but `local` requires it.** `portta web up --expose public`,
+`tailscale`, `vpn` and `domain` are refused without `PORTTA_AUTH_MODE=required`,
+by the CLI, by `portta up`, and by the panel's process at boot. The Traefik
+middleware that used to guard the panel's router is gone from every overlay;
+ForwardAuth stays exactly where it was, in front of project hostnames and
+shares.
+
+**PostgreSQL is a boot dependency.** The panel exits rather than serving
+without it. `docker/compose/features/db.yaml` is selected wherever the panel is.
+
+**New commands.** `portta users` (list, create, set-role, set-password, grant,
+revoke, remove), `portta auth` (status, login, logout, whoami, bootstrap,
+reset-password, token), `portta protect` (host, status, remove). `portta web
+auth` is gone.
+
+**The installer no longer invents a panel password.** It asks `required` or
+`disabled` — only offering the question when the panel stays on loopback —
+records the mode, and ends by printing where to create the owner. `--panel-user`
+is refused rather than ignored.
+
+The details are in [authentication](docs/product/guides/authentication.md),
+[configuration](docs/product/reference/configuration.md), and ADRs
+[0035](docs/development/adr/0035-authentication-lives-in-the-panel.md),
+[0036](docs/development/adr/0036-next-app-router-and-the-custom-server.md),
+[0037](docs/development/adr/0037-drizzle-and-a-required-database.md),
+[0038](docs/development/adr/0038-roles-and-project-access.md) and
+[0039](docs/development/adr/0039-personal-api-tokens.md).
+
 ### Added
 
 - **Files attach to a task.** A screenshot, a log, the JSON that reproduces
@@ -18,7 +79,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   task rather than to a channel shared with the host. The content type is an
   allowlist, not a guess: what the panel renders inline is enumerated, and
   anything else — SVG included, since it can carry script — is a download only.
-  See [docs/tasks.md](docs/tasks.md#attachments).
+  See [docs/product/guides/tasks.md](docs/product/guides/tasks.md#attachments).
 - **A verdict on the host.** `hostPressure` reads CPU, memory, swap, disk, GPU,
   temperature, load per core and battery against one set of thresholds and
   answers Normal, Watch, Under pressure or Critical, with the readings behind
@@ -66,7 +127,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   output is captured reports how long it has been running after ten seconds, so
   no call site can be mistaken for a hang again; `--verbose` streams everything,
   `--quiet` silences it, and `--json` keeps stdout to itself.
-  [ADR 0034](docs/adr/0034-child-process-output.md).
+  [ADR 0034](docs/development/adr/0034-child-process-output.md).
 - **"This host is under pressure" could never appear.** It compared ratios
   against percentages. It compares ratios against ratios now.
 - **A wide table pushed the whole page sideways** on anything narrower than a
@@ -82,7 +143,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   developed and its cycle — demand, code, execution, test, analysis,
   correction, completion — for a person and for an agent alike. Docker,
   Traefik, Git, GitHub, Cloudflare, Tailscale and the metrics stay, as the
-  tools that serve it. [ADR 0032](docs/adr/0032-portta-development-model.md)
+  tools that serve it. [ADR 0032](docs/development/adr/0032-portta-development-model.md)
   records the model: Project → Repositories, Tasks (with subtasks),
   Environments → Services → Containers, Development Sessions, Activity,
   Instructions.
@@ -206,7 +267,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   that slug is not a registered product. `portta environment` is an
   alias of `portta project`. The installer asks where projects should
   live. Changing the Home changes the reference; files are not moved.
-  See [ADR 0031](docs/adr/0031-projects-home-and-project.md).
+  See [ADR 0031](docs/development/adr/0031-projects-home-and-project.md).
 
 - **Rebuild a project, and remove one from this host.** Rebuild asks the
   runner for `compose up --build` and shows the log; rebuild without cache
@@ -232,7 +293,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   Desktop is a runtime hint, not the machine. Projects are aggregated from
   Compose and `portta.project` labels. A snapshot older than 30 seconds is
   marked stale. `portta up` and `portta web up` start the watcher; `down`
-  stops it. See [Host metrics](docs/host-metrics.md).
+  stops it. See [Host metrics](docs/product/reference/host-metrics.md).
 
 - **The Traefik dashboard is reachable from the panel, behind ForwardAuth.**
   `PORTTA_DASHBOARD_EXPOSE=domain` routes `api@internal` on a derived
@@ -386,9 +447,9 @@ While the version is `0.x`, minor releases may contain breaking changes.
   application, and no host port is published beside it, so there is no second
   door the middleware never sees. It gives up one — `websecure` carries every
   routed application, where the `panel` entrypoint carried only the panel.
-  [ADR 0021](docs/adr/0021-panel-access-modes.md) records the trade, and why
+  [ADR 0021](docs/development/adr/0021-panel-access-modes.md) records the trade, and why
   ADR 0012's blanket refusal of a routed panel on a public profile no longer
-  applies now that [ADR 0027](docs/adr/0027-forward-authentication-service.md)
+  applies now that [ADR 0027](docs/development/adr/0027-forward-authentication-service.md)
   replaced BasicAuth with a real login page, host-scoped sessions and a limiter.
 - **`install.sh --panel-access domain`** and **`portta config set panel.host`**,
   the hostname the router matches and the credential is looked up by. They are
@@ -420,7 +481,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   nothing else. `dns` stays the default: it is the only challenge that issues
   a wildcard, so a hostname works over HTTPS before anything runs on it, and
   the only one a gateway Let's Encrypt cannot reach can use at all.
-  [DNS and TLS](docs/dns-and-tls.md) compares the two. The overlay is split so
+  [DNS and TLS](docs/product/guides/dns-and-tls.md) compares the two. The overlay is split so
   exactly one challenge is ever configured — asking for a wildcard SAN over
   HTTP-01 makes every issuance fail rather than fall back — and the provider
   credential now lives only in the DNS-01 overlay.
@@ -470,7 +531,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   state are reachable as verbs rather than as rows, over the same projection and
   authorization boundary the panel uses. `portta mcp` exposes eight of them to
   an agent over stdio; it refuses a non-loopback panel URL unless you pass
-  `--allow-remote`. See `docs/mcp.md`.
+  `--allow-remote`. See `docs/product/reference/mcp.md`.
 - **`portta tunnel`, `backup`, `restore` and `repair` exist on every host.**
   They were documented, shipped and unreachable on any host with Node, because
   the TypeScript entry point had never heard of them: `portta backup` answered
@@ -483,7 +544,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   `tunnel`, `tls`, `remote` and `maintenance` are TypeScript, and `doctor` is a
   typed diagnostic of forty-odd checks against one container inspection, with
   the shell keeping a seven-check fallback for a host with no Node. The boundary
-  is written down in `docs/adr/0029-shell-only-for-bootstrap.md`, with a verdict
+  is written down in `docs/development/adr/0029-shell-only-for-bootstrap.md`, with a verdict
   for every script that remains, and a parity test that runs both and pins the
   fallback to a subset of the same check ids and statuses.
 - **One table says what a service is.** Kind, default port, TCP entrypoint,
@@ -546,16 +607,16 @@ While the version is `0.x`, minor releases may contain breaking changes.
   bcrypt and `{SHA}` hashes keep working, so nothing has to be re-set on
   upgrade, and `portta web auth` and `portta share` keep the shape they had.
   An unavailable auth service fails closed. Read
-  `docs/adr/0027-forward-authentication-service.md` for the trust boundary.
+  `docs/development/adr/0027-forward-authentication-service.md` for the trust boundary.
 - **`portta auth protect <host>`** extends that same front door to a project's
   own hostname. Portta never edits a consumer project's router, so you opt the
   router in with one label; until you do, an unresolved protection fails
   closed. `portta auth status` and `portta auth unprotect` inspect and remove
-  the records without ever exposing a hash. See `docs/authentication.md`.
+  the records without ever exposing a hash. See `docs/product/guides/authentication.md`.
 - **`portta doctor` checks the authentication service**: the signing secret
   `portta bootstrap` generates, the store's mode, and the container's health.
 - **A seven-step guide from creating the GitHub App to a filled-in panel.**
-  The Settings screen points at `docs/github.md` for "the App to create and the
+  The Settings screen points at `docs/product/guides/github.md` for "the App to create and the
   exact permissions it needs", and landed on four short paragraphs. The
   permission table now says what each permission pays for and which belong to
   later phases, the webhook is covered in practice, and every error the
@@ -574,7 +635,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   comes back on its own; the dialog counts the time, says not to close the tab,
   and reports the applier's exit code and output if it failed. The state is read
   back from the applier rather than remembered, so a reload mid-apply resumes.
-  Read `docs/adr/0026-applying-settings-from-the-panel.md` before enabling it:
+  Read `docs/development/adr/0026-applying-settings-from-the-panel.md` before enabling it:
   it says without softening that this lets anyone who can write through the
   panel run `portta up` on the host.
 - **Pending settings are visible on every page**, not only on Settings — the one
@@ -659,13 +720,13 @@ While the version is `0.x`, minor releases may contain breaking changes.
   test can step it. Against that, `tests/run.sh` never ran `packages/cli` or
   `apps/auth` at all, and the second is the ForwardAuth boundary: 32 assertions
   on open redirects, session scoping and cross-origin login that ran nowhere
-  locally. New in `docs/testing.md`: the cost of each layer, and what does and
+  locally. New in `docs/development/testing.md`: the cost of each layer, and what does and
   does not deserve a test.
 - **CI runs on Linux and one Node version.** The `cli` job was a four-way matrix
   over two operating systems and two Node versions re-running identical
   assertions, the `audit` job duplicated what `tests/run.sh` already runs, and
   the panel's unit suite ran in two jobs. macOS is verified by hand with
-  `make test`, which is what `docs/compatibility.md` already claimed.
+  `make test`, which is what `docs/product/reference/compatibility.md` already claimed.
 
 ## [0.3.0] — 2026-09-02
 
@@ -715,8 +776,8 @@ While the version is `0.x`, minor releases may contain breaking changes.
   two decisions separate at the router level. `--non-interactive` and eight
   flags cover automation, and a credential is never accepted as an argument
   where `ps` would show it. See
-  [ADR 0020](docs/adr/0020-installer-and-portta-home.md),
-  [ADR 0021](docs/adr/0021-panel-access-modes.md) and [installing](docs/install.md).
+  [ADR 0020](docs/development/adr/0020-installer-and-portta-home.md),
+  [ADR 0021](docs/development/adr/0021-panel-access-modes.md) and [installing](docs/product/getting-started/install.md).
 
 - **The base domain is a mode, so a host with no domain still hands out URLs
   that resolve.** `local` keeps `*.localhost`, `auto` derives a name from the
@@ -724,7 +785,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   `custom` uses a wildcard you own. Hostnames are derived and never persisted,
   so changing the mode relabels every project at once with nothing to migrate.
   A mode that cannot be honoured falls back and says why rather than refusing to
-  start. See [ADR 0022](docs/adr/0022-project-domain-modes.md).
+  start. See [ADR 0022](docs/development/adr/0022-project-domain-modes.md).
 
 - **Cloudflare Tunnel, as an optional way in.** A gateway can be reached over
   HTTPS from the internet with no open port, no public address and no
@@ -739,8 +800,8 @@ While the version is `0.x`, minor releases may contain breaking changes.
   matched every derived hostname, the Host header survived to the container,
   WebSocket completed a 101 upgrade, and each failure mode is distinguishable.
   Configured through the CLI and the API; the panel interface is still to come.
-  See [ADR 0025](docs/adr/0025-cloudflare-tunnel.md) and
-  [the guide](docs/cloudflare-tunnel.md).
+  See [ADR 0025](docs/development/adr/0025-cloudflare-tunnel.md) and
+  [the guide](docs/product/guides/cloudflare-tunnel.md).
 
 - **A service has endpoints, not an access mode.** Capabilities are detected
   (localhost, LAN, Tailscale and its DNS, HTTPS and Funnel, a public address, an
@@ -752,7 +813,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   gateway still runs without Node, the verdicts are shared TypeScript, and a
   contract test compares the two shapes field by field. Present in the core and
   not yet exposed in the interface. See
-  [ADR 0024](docs/adr/0024-capabilities-providers-endpoints.md).
+  [ADR 0024](docs/development/adr/0024-capabilities-providers-endpoints.md).
 
 - **`backup`, `restore` and `repair`.** `backup` archives what an installation
   cannot regenerate, `.env`, `config/` and `state/`, plus a `pg_dump` of the
@@ -771,7 +832,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   assumed: Cloudflare's Universal SSL covers the apex and first-level subdomains
   only, so a second level needs a paid add-on, and no wildcard certificate covers
   it either. The original `project-service` style stays the default so no
-  existing URL moves. See [ADR 0023](docs/adr/0023-flat-hostname-labels.md).
+  existing URL moves. See [ADR 0023](docs/development/adr/0023-flat-hostname-labels.md).
 
 - **A page per project, organised in tabs.** `#/projects/<name>` is now a
   destination of its own instead of the list filtered to one card: Overview,
@@ -781,7 +842,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   mounts, restart count, Traefik verdict and Exposure controls; Git shows the
   whole collected snapshot including **every** open pull request. A project that
   stopped renders an empty state with a route back to the list. See
-  [docs/web-ui.md](docs/web-ui.md).
+  [docs/product/guides/web-ui.md](docs/product/guides/web-ui.md).
 
 - **Every service's logs, in one place.** `GET /api/projects/:project/logs`
   reads each service of a project concurrently and returns one stream ordered by
@@ -797,7 +858,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   database; the derived name and hostname stay on screen beside every override,
   so nothing is ever only-renamed. A **hostname alias** genuinely resolves: it
   becomes one router in `portta-aliases.yaml`, the third generated file the
-  panel may write ([ADR 0011](docs/adr/0011-panel-reads-traefik-writes-one-file.md)),
+  panel may write ([ADR 0011](docs/development/adr/0011-panel-reads-traefik-writes-one-file.md)),
   is additive to the project's own hostname, and is refused before any write
   when it collides, sits outside a served domain, targets a non-HTTP service or
   has no unambiguous port. `portta urls` lists aliases and `doctor` flags
@@ -819,7 +880,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   read-only and cannot write, installation tokens live an hour in memory and
   are never persisted, and no token, key or webhook secret appears in any API
   response. `doctor` fails on a missing, unreadable or world-readable key. See
-  [docs/github.md](docs/github.md) and [docs/security.md](docs/security.md).
+  [docs/product/guides/github.md](docs/product/guides/github.md) and [docs/product/concepts/security.md](docs/product/concepts/security.md).
 
 - **Workspaces: a project that owns several repositories and environments.** A
   workspace is a grouping a person creates — a name, a slug, a description, the
@@ -892,7 +953,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   unchanged — container names, networks and volumes are identical. `make` and
   `./bin/portta` are unaffected; only a hand-written
   `docker compose -f compose.yaml …` needs the new paths. See
-  [ADR 0019](docs/adr/0019-compose-files-live-under-docker.md).
+  [ADR 0019](docs/development/adr/0019-compose-files-live-under-docker.md).
 
 - **The self-contained Compose demos now live under `docker/examples/`.** Each
   stack moved with its supporting web content and configuration, so relative
@@ -908,29 +969,29 @@ While the version is `0.x`, minor releases may contain breaking changes.
   `portta` binary through npm and `npx`, with structured JSON, stable exit
   codes, non-interactive confirmations, safe argument-array process execution,
   idempotent `setup`, tarball smoke tests on Linux and macOS, and a complete
-  contract in [docs/cli.md](docs/cli.md). Shared environment, configuration,
+  contract in [docs/product/reference/cli.md](docs/product/reference/cli.md). Shared environment, configuration,
   namespace and inventory logic now lives in `packages/core` and is consumed
   by both the CLI and panel. The repository entry point delegates to Node when
   available while keeping the five zero-Node lifecycle fallbacks.
 
-- **A decided monorepo and a decided answer on Node.** [ADR 0014](docs/adr/0014-monorepo-and-the-typescript-cli.md)
+- **A decided monorepo and a decided answer on Node.** [ADR 0014](docs/development/adr/0014-monorepo-and-the-typescript-cli.md)
   records the workspace layout (`apps/web`, `packages/core`, `packages/cli`),
   the CLI / API / Core rule, the npm name `portta`, and the
-  file-by-file Bash migration map. [ADR 0015](docs/adr/0015-node-on-the-host.md)
+  file-by-file Bash migration map. [ADR 0015](docs/development/adr/0015-node-on-the-host.md)
   keeps `bootstrap`, `up`, `down`, `status` and `doctor` working without Node.
-  [docs/monorepo.md](docs/monorepo.md) is the contributor map.
+  [docs/development/monorepo.md](docs/development/monorepo.md) is the contributor map.
 
 - **A classification of state that could be shared.**
-  [ADR 0016](docs/adr/0016-state-that-could-be-shared.md) records the
+  [ADR 0016](docs/development/adr/0016-state-that-could-be-shared.md) records the
   five-way split, portable project identity, instance UUID and alias-as-label
   rule. No synchronisation is implemented. Issue #4 already shipped the
   schema seams this page validates.
 
 - **GitHub access is decided, not built.**
-  [ADR 0018](docs/adr/0018-github-access-lives-in-the-panel.md) puts issues
+  [ADR 0018](docs/development/adr/0018-github-access-lives-in-the-panel.md) puts issues
   behind a GitHub App in the panel, keeps local `git` on the host, and names
   the cost of egress, webhooks, secrets and a projection cache.
-  [docs/github.md](docs/github.md) holds the source-of-truth table.
+  [docs/product/guides/github.md](docs/product/guides/github.md) holds the source-of-truth table.
 
 ### Changed
 
@@ -982,7 +1043,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
     into `config/traefik/dynamic/portta-panel.yaml` and referenced by the
     router in `compose.web-vpn.yaml`. A middleware Traefik cannot resolve makes
     the router fail closed. The trade is one credential for the whole panel,
-    with no users and no roles ([ADR 0012](docs/adr/0012-panel-authentication-is-traefiks.md)).
+    with no users and no roles ([ADR 0012](docs/development/adr/0012-panel-authentication-is-traefiks.md)).
   - A routed panel now defaults to read-only. `--writable` opts out.
   - `portta doctor` and the panel's own diagnostics **fail**, not warn, on
     a routed panel with no credential, matching the existing precedent for a
@@ -997,7 +1058,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
     directory the panel mounts **read-only**. The panel gains no new access at
     all: no project directory is mounted into it, `EXEC` stays off, and it
     still runs no shell commands
-    ([ADR 0010](docs/adr/0010-git-collected-on-the-host.md)).
+    ([ADR 0010](docs/development/adr/0010-git-collected-on-the-host.md)).
   - Nothing polls. The card always says how old the scan is, marks anything
     past the threshold as stale, and shows the exact host command to refresh
     it. `portta up` and `portta web up` run one for you.
@@ -1021,7 +1082,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   "not routed", "routed on the VPN so everyone on the tailnet can reach it" and
   "`PUBLIC_ENABLED=true`, so every opted-in service on the host is on the
   internet". None of those is "show this one thing to this one person until
-  tomorrow". See [docs/sharing.md](docs/sharing.md).
+  tomorrow". See [docs/product/guides/sharing.md](docs/product/guides/sharing.md).
   - Three states per service, and `private` is the absence of a share rather
     than a new deny mechanism: `protected` is an additional hostname behind a
     generated password, `public` one with none.
@@ -1054,7 +1115,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
     `control`, which would put Traefik's read-only socket proxy within its
     reach. The host is resolved from the attachment, since Traefik has no name
     of its own inside the Tailscale namespace
-    ([ADR 0011](docs/adr/0011-panel-reads-traefik-writes-one-file.md)).
+    ([ADR 0011](docs/development/adr/0011-panel-reads-traefik-writes-one-file.md)).
   - Its own cache, its own timeout, and never on the path a page render waits
     on. A dead Traefik API costs this block and nothing else.
   - It needs `PORTTA_DASHBOARD=true`, which is off by default, and the UI
@@ -1068,19 +1129,19 @@ While the version is `0.x`, minor releases may contain breaking changes.
   file is not at its root. A project that sets none behaves exactly as it did
   before they existed, and the test suite asserts that rather than the
   documentation promising it. `portta analyze` reports which ones a project
-  sets ([ADR 0010](docs/adr/0010-git-collected-on-the-host.md)).
+  sets ([ADR 0010](docs/development/adr/0010-git-collected-on-the-host.md)).
 - The panel mounts `config/traefik/dynamic/` read-write and may write exactly
   two filenames there, refusing every other path in its own process the way it
   already refuses a Docker call outside its allowlist. Everything else in that
   directory stays yours
-  ([ADR 0011](docs/adr/0011-panel-reads-traefik-writes-one-file.md)).
+  ([ADR 0011](docs/development/adr/0011-panel-reads-traefik-writes-one-file.md)).
 - **A web administration panel, off by default.** `portta web up` starts a
   small panel on `127.0.0.1:8081` that answers the lookups that come up when
   several environments run at once: which URL a project has today, what is
   holding a port, which containers are still up from last week, and how to
   point a GUI client at a database. It complements the CLI rather than
   replacing it, and both read the same Docker labels, so they cannot disagree.
-  See [docs/web-ui.md](docs/web-ui.md).
+  See [docs/product/guides/web-ui.md](docs/product/guides/web-ui.md).
   - Projects and services grouped by `COMPOSE_PROJECT_NAME`, with their local,
     VPN and public addresses, each one copyable.
   - Every other container on the host, kept in its own section: External
@@ -1102,14 +1163,14 @@ While the version is `0.x`, minor releases may contain breaking changes.
   `up` waits for the panel to answer before it reports success, so the URL it
   prints is never dead by the time you open it.
 - The panel's own Docker socket proxy, so Traefik's stays read-only
-  ([ADR 0008](docs/adr/0008-web-panel-socket-proxy.md)). It grants the read
+  ([ADR 0008](docs/development/adr/0008-web-panel-socket-proxy.md)). It grants the read
   endpoints plus the container lifecycle and denies images, volumes, exec,
   build, swarm, secrets and the system endpoints; the panel then refuses to
   emit any call that is not on its own allowlist.
 - `PORTTA_WEB*` settings, all documented in `.env.example`, and the
   `compose.web.yaml`, `compose.web-vpn.yaml` and `compose.web-dev.yaml`
   overlays.
-- Screenshots in the README and in `docs/web-ui.md`, generated by the real
+- Screenshots in the README and in `docs/product/guides/web-ui.md`, generated by the real
   panel against a fixed host (`cd web && npm run screenshots`) rather than
   taken by hand, so they stay in step with the UI and never contain whatever
   happened to be running on the machine that produced them.
@@ -1134,8 +1195,8 @@ While the version is `0.x`, minor releases may contain breaking changes.
   so there is no hostname to route on before a backend must be chosen, and no
   substitute was invented for it. It keeps the loopback bridge, which still
   works for every protocol. The analysis, the measurements and the exact limits
-  are in [docs/tcp-routing.md](docs/tcp-routing.md) and
-  [ADR 0009](docs/adr/0009-tcp-routing-by-hostname.md).
+  are in [docs/product/guides/tcp-routing.md](docs/product/guides/tcp-routing.md) and
+  [ADR 0009](docs/development/adr/0009-tcp-routing-by-hostname.md).
   - TLS is terminated at the gateway, so consumer projects need no certificate,
     no `ssl = on` and no renewal. `sslmode=require` is enough.
   - Opted-in datastores join the access network, never the shared HTTP one.
@@ -1204,7 +1265,7 @@ While the version is `0.x`, minor releases may contain breaking changes.
   adopted project's container can `curl http://traefik:8080/api/rawdata` and
   read the routing configuration of every other project on the host. The
   loopback bind constrains the host, not the network. This was already true; it
-  is now in [docs/security.md](docs/security.md) rather than inherited by
+  is now in [docs/product/concepts/security.md](docs/product/concepts/security.md) rather than inherited by
   accident.
 - Mutating requests must come from the panel's own origin, so a page on another
   site cannot drive it through `127.0.0.1`.
@@ -1344,12 +1405,12 @@ Stated plainly, because the alternative is a claim we cannot back:
 - **The tailnet and ACME paths.** They need a real tailnet, a real DNS zone and
   a real ACME account. Configuration tests assert that every profile renders
   and that `remote-private` never binds `0.0.0.0`; the rest is a manual
-  checklist in `docs/remote-development.md`.
+  checklist in `docs/product/guides/remote-development.md`.
 - **Tailscale Services.** The forwarder half is tested. The Service
   advertisement and grants are printed for you to apply and are not exercised
   here.
 - **macOS + Docker Desktop, Debian, Linux arm64, Windows/WSL2.** Expected to
-  work, not verified. See `docs/compatibility.md`.
+  work, not verified. See `docs/product/reference/compatibility.md`.
 - **UDP.** Not supported, and listed as absent rather than as a caveat.
 
 ### Known limitations

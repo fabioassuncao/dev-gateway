@@ -5,7 +5,7 @@
 # be told apart by hostname, the name a TCP client connects to — is one table in
 # packages/core/src/discovery.ts, and it used to be a second one here. This file
 # keeps only what `scripts/doctor.sh` and the zero-Node commands call directly;
-# see docs/adr/0029-shell-only-for-bootstrap.md.
+# see docs/development/adr/0029-shell-only-for-bootstrap.md.
 #
 # Everything here is derived from Docker labels at call time. There is no
 # registry of projects to keep in sync, and nothing to clean up when a project

@@ -19,7 +19,7 @@ GW="$PORTTA_ROOT/bin/portta"
 # per group proves the same thing — a leaf that was never wired up is missing
 # from its parent's help — at a fifteenth of the cost.
 COMMAND_TREE=(
-  ":version setup bootstrap up down reset restart status logs doctor urls inspect update envs projects overview network public dns tls remote analyze init namespace access services service db redis web auth git repos host share toolbox tunnel backup restore repair mcp config dev tasks sessions activity examples"
+  ":version setup bootstrap build up down reset restart status logs doctor urls inspect update envs projects overview network public dns tls remote analyze init namespace access services service db redis web auth protect users git repos host share toolbox tunnel backup restore repair mcp config dev tasks sessions activity examples"
   "envs:list show services analyze init namespace start stop restart logs endpoints"
   "projects:list show create context resources activity"
   "network:status"
@@ -33,9 +33,11 @@ COMMAND_TREE=(
   "service:publish list unpublish"
   "db:status shell dump restore open close url psql mysql"
   "redis:open close cli"
-  "web:up dev down disable restart status open logs build auth"
-  "web auth:status set clear apply"
-  "auth:status protect unprotect"
+  "web:up dev down disable restart status open logs build"
+  "auth:status login logout whoami bootstrap reset-password token"
+  "auth token:list create revoke"
+  "protect:status host remove"
+  "users:list create set-role set-password grant revoke remove"
   "git:scan status clear"
   "repos:scan status clear"
   "tasks:list next show create start status finish edit note subtasks link unlink publish sync comment"
@@ -192,12 +194,15 @@ describe "a closed pipe is not an error"
 # `doctor` walks the host and is the slowest command in the CLI, so the cheap
 # three carry this check; the pipe handling is one `tolerateClosedOutput()` for
 # all of them, not something each command implements.
-for c in status urls inspect; do
-  it "portta $c | head -2 exits cleanly and prints no stack trace"
-  head=$("$GW" "$c" 2>/dev/null | head -2); rc=$?
-  if [ "$rc" -ne 0 ]; then _t_fail "exit $rc"
-  else assert_not_contains "$head" "EPIPE"; fi
-done
+# Help exercises the shipped entrypoint and its output handler without querying
+# a developer's Docker daemon. Emit enough bytes to close the pipe early.
+it "a closed help pipe prints no stack trace"
+pipe_error=$(mktemp)
+"$GW" --help 2>"$pipe_error" | head -c 1 >/dev/null
+pipe_status=$?
+assert_eq "0" "$pipe_status"
+assert_not_contains "$(cat "$pipe_error")" "EPIPE"
+rm -f "$pipe_error"
 
 describe "public access accepts a derived base domain"
 

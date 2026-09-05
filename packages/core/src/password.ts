@@ -8,7 +8,7 @@
 // password a person chose. `generatePassword` produces about a hundred bits,
 // where the entropy is the boundary and the iteration count is not. Someone who
 // insists on their own password pastes a hash they made themselves. See
-// docs/adr/0011-panel-reads-traefik-writes-one-file.md.
+// docs/development/adr/0011-panel-reads-traefik-writes-one-file.md.
 
 import { createHash, randomBytes, randomInt, scrypt as nodeScrypt, timingSafeEqual } from 'node:crypto'
 import { compare as bcryptCompare } from 'bcryptjs'

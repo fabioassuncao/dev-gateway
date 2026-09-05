@@ -11,10 +11,12 @@
 # entirely, because there would be nothing to route wrongly. So every check
 # uses two, with different data in each, and asserts which one answered.
 #
-# See docs/tcp-routing.md for why PostgreSQL and Redis can do this and MySQL
+# See docs/product/guides/tcp-routing.md for why PostgreSQL and Redis can do this and MySQL
 # cannot.
 # ============================================================================
 set -uo pipefail
+
+node "$(dirname "$0")/../lib/require-disposable.mjs" || exit 1
 
 PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 . "$PORTTA_TEST_DIR/lib/assert.sh"
@@ -27,7 +29,7 @@ portta_load_env; portta_defaults
 GW="$PORTTA_ROOT/bin/portta"
 export PORTTA_ASSUME_YES=true
 
-portta_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
+portta_require_docker >/dev/null 2>&1 || { echo "Docker unavailable: E2E incomplete"; exit 1; }
 
 # Ports well away from anything the host is likely to be using: this suite is
 # about the mechanism, not about owning 5432 on somebody's machine.

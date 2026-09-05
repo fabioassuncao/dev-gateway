@@ -17,7 +17,7 @@ import { type HostnameStyle, hostLabel } from './hostname.ts'
  *   └── Exposures        what the operator turned on, one provider each
  *       └── Endpoints    the concrete URLs those produce
  *
- * See docs/adr/0024-capabilities-providers-endpoints.md.
+ * See docs/development/adr/0024-capabilities-providers-endpoints.md.
  */
 
 export const EXPOSURE_PROVIDERS = [

@@ -10,6 +10,8 @@
 # ============================================================================
 set -uo pipefail
 
+node "$(dirname "$0")/../lib/require-disposable.mjs" || exit 1
+
 PORTTA_TEST_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 . "$PORTTA_TEST_DIR/lib/assert.sh"
 PORTTA_ROOT=$(cd -P "$PORTTA_TEST_DIR/.." && pwd); export PORTTA_ROOT
@@ -20,7 +22,7 @@ portta_load_env; portta_defaults
 GW="$PORTTA_ROOT/bin/portta"
 export PORTTA_ASSUME_YES=true
 
-portta_require_docker >/dev/null 2>&1 || { echo "docker unavailable, skipping"; exit 0; }
+portta_require_docker >/dev/null 2>&1 || { echo "Docker unavailable: E2E incomplete"; exit 1; }
 
 BASE="http://127.0.0.1:${PORTTA_WEB_PORT:-8081}"
 WEB_WAS_ENABLED="$PORTTA_WEB"
@@ -110,9 +112,18 @@ assert_eq "$PORTTA_DB_NETWORK" "$(docker inspect "$DB_CONTAINER" \
 it "the data network has no external route"
 assert_eq "true" "$(docker network inspect "$PORTTA_DB_NETWORK" --format '{{ .Internal }}')"
 
-it "the latest migration is recorded"
-assert_eq "0013_task_issue_experience.sql" "$(docker exec "$DB_CONTAINER" psql -U portta -d portta \
-  -At -c 'SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1')"
+# Drizzle keeps its own ledger (`drizzle_migrations`, one row per applied file)
+# and the panel applies whatever the image carries at boot. Counting the files
+# rather than naming the newest keeps this from being edited on every migration.
+MIGRATION_COUNT=$(find "$PORTTA_ROOT/packages/db/drizzle" -maxdepth 1 -name '*.sql' | wc -l | tr -d ' ')
+
+it "every migration the image carries is recorded"
+assert_eq "$MIGRATION_COUNT" "$(docker exec "$DB_CONTAINER" psql -U portta -d portta \
+  -At -c 'SELECT count(*) FROM drizzle_migrations')"
+
+it "and the pre-Drizzle ledger is gone"
+assert_eq "" "$(docker exec "$DB_CONTAINER" psql -U portta -d portta \
+  -At -c "SELECT to_regclass('public.schema_migrations')")"
 
 docker stop "$DB_CONTAINER" >/dev/null
 
@@ -192,6 +203,30 @@ assert_eq "integrated" "$(owner_of demo-a-web-1)"
 
 it "a container started by hand is standalone"
 assert_eq "standalone" "$(owner_of "$STRAY")"
+
+describe "it says what mode it is in, and the CLI agrees"
+
+# The panel is what stands in front of the panel now, so `.env` and the running
+# process have to agree about whether it signs people in. This host is on
+# loopback, which is the one place `disabled` is legal.
+it "the public status endpoint answers in both modes"
+assert_success get /api/auth/status
+
+it "and reports open mode on a loopback panel"
+assert_eq "open" "$(get /api/auth/status | jq_py "d['mode']")"
+
+it "with nothing to set up, because there is nobody to be"
+assert_eq "False" "$(get /api/auth/status | jq_py "d['setupRequired']")"
+
+it "web status reports the same mode from .env"
+assert_eq "disabled" "$("$GW" web status --json | jq_py "d['authMode']")"
+
+# A host upgraded from an older Portta may still have the keys in .env; what
+# matters is that nothing hands them to the panel any more.
+it "and no credential of the panel's own reaches the container"
+panel_container=$(portta_gateway_container web)
+assert_eq "" "$(docker inspect "$panel_container" \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E '^PORTTA_WEB_AUTH' || true)"
 
 describe "it refuses what it must refuse"
 
@@ -284,9 +319,9 @@ it "the persisted marker comes back"
 assert_eq "1" "$(docker exec "$DB_CONTAINER" psql -U portta -d portta -At \
   -c "SELECT count(*) FROM settings WHERE key = 'web-e2e-persistence'")"
 
-it "the migration is still recorded exactly once"
-assert_eq "1" "$(docker exec "$DB_CONTAINER" psql -U portta -d portta -At \
-  -c "SELECT count(*) FROM schema_migrations WHERE version = '0001_initial.sql'")"
+it "the migrations are still recorded exactly once"
+assert_eq "$MIGRATION_COUNT" "$(docker exec "$DB_CONTAINER" psql -U portta -d portta -At \
+  -c "SELECT count(*) FROM drizzle_migrations")"
 
 docker exec "$DB_CONTAINER" psql -U portta -d portta \
   -c "DELETE FROM settings WHERE key = 'web-e2e-persistence';" >/dev/null
