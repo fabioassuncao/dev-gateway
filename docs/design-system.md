@@ -156,12 +156,13 @@ script in `index.html` applies the class before the first render.
 
 ## Components
 
-All in `apps/web/src/ui/components/ui/` unless noted.
+All in `apps/web/components/ui/` unless noted.
 
 - **Button** — variants `primary`, `default` (= `secondary`), `subtle`,
   `ghost`, `outline`, `danger`, `link`; sizes `xs` (24), `sm` (28), `md` (32),
   `icon`, `icon-sm`, `icon-xs`, `icon-md`. `sm` is the working size; `md` is
-  for a page's one main action. Icons inside are sized by the button.
+  for a page's one main action, on every page. Icons inside are sized by the
+  button: never give one a `size-*` of its own.
   `asChild` renders a link with the same styling. `busy` shows a spinner and
   disables.
 - **Badge** — soft tint, no border; `tone`, `size` (`sm` 20px, `md` 24px),
@@ -171,7 +172,11 @@ All in `apps/web/src/ui/components/ui/` unless noted.
 - **Input, Select, Textarea, Checkbox, Label, Field** — one border language
   in four states; `size="sm"` (28px) in toolbars, `md` (32px) in forms;
   `mono` for technical values. `Field` binds a label, a hint and an error to
-  the control and offers `inline` for a settings row.
+  the control and offers `inline` for a settings row. In a toolbar, use the
+  toolbar's own controls: `ToolbarSearch` (`w-64`), `ToolbarSelect` (`w-36`,
+  `width="lg"` = `w-40` for a sentence-long first option) and `ToolbarCheck`
+  (a checkbox with its label at 28px), so a search box is the same search box
+  on every page.
 - **Card** with `CardHeader`, `CardBody`, `CardFooter`, `CardSection` — a
   hairline, no shadow; a 36px header; a section band for grouped rows.
 - **Dialog, Drawer, ConfirmDialog** — share `Scrim`, `ModalHeader` and
@@ -190,13 +195,19 @@ All in `apps/web/src/ui/components/ui/` unless noted.
   `Columns3` (board), `Table2` (table).
 - **Table, DataTable** — `thClass`/`tdClass`/`trClass` are shared so a plain
   table and the data table cannot drift. Headers are 12px sentence case, rows
-  are dense, hover is a tint, selection is `bg-selection`.
+  are dense, hover is a tint, selection is `bg-selection`. Which columns show
+  and which one sorts is a `useTableArrangement(storageKey)` handle
+  (`components/ui/table-arrangement.tsx`): the page holds it, passes it to
+  the `DataTable` as `arrangement`, and renders `ColumnsMenu` in the toolbar
+  above (or a card's header). A `DataTable` without a handle keeps its own
+  and offers the menu in a band of its own.
 - **Kbd, Shortcut** — keys as keys, in menus, tooltips and the palette.
 - **Timeline, Breadcrumb, Switch, Skeleton** — as their names say.
 - **Shell pieces** (`components/shell-bits.tsx`) — `PageHeader` (breadcrumb,
-  title, description, `meta`, `toolbar`, `actions`), `Toolbar`, `ViewToolbar`,
-  `SectionHeader`, `Eyebrow`, `NoValue`, `Callout`, `ErrorBox`, `Empty`,
-  `Loading`, `Skeleton*`, `StatTile`, `KeyValue`.
+  title, description, `meta`, `actions`), `Toolbar`, `ViewToolbar`,
+  `ToolbarSearch`, `ToolbarSelect`, `ToolbarCheck`, `SectionHeader`,
+  `Eyebrow`, `NoValue`, `Callout`, `ErrorBox`, `Empty`, `Loading`,
+  `Skeleton*`, `StatTile`, `KeyValue`.
 - **Host** (`components/host-summary.tsx`) — `HostHeader` (who the machine
   is, and its state), `HostReadings` (every measurement it reports, as one
   strip).
@@ -219,28 +230,32 @@ row above the content. Nav items are links, 28px tall, with the active one
 lifted by `bg-fill-strong`. The main panel is inset from the canvas with a
 hairline, so the content is what the eye lands on.
 
-A page starts with `PageHeader`. Three slots, with fixed jobs:
+A page starts with `PageHeader`, then the row of controls, then the content.
+Two rows, with fixed jobs:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Title + description                        [+ Primary verb] │  PageHeader.actions
+│ Title + description                        [+ Primary verb] │  PageHeader.actions (md)
 ├─────────────────────────────────────────────────────────────┤
-│ [Cards|Table]  [search] [filters…]                [trailing]│  ViewToolbar
+│ [Cards|Table]  [search] [filters…]      [Columns] [badge]   │  ViewToolbar (sm)
 ├─────────────────────────────────────────────────────────────┤
 │ Content: cards / board / table                              │
-│   on a table, Columns stays at the end of the same bar      │
+│   the row above does not move when this changes             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-- `PageHeader.actions` is the page verb (create). Never a view switcher.
-- `PageHeader.toolbar` is a page-level filter that does not change with the
-  layout (Tokens' mine/all). It is not the view switcher.
-- `ViewToolbar` is the chrome above the list: `Segmented` first, then the
-  filters that shape the same rows. On cards or a board it sits above the
-  list. On a table the same controls go into `DataTable.toolbar` (`embedded`)
-  so there is one bar, not a switcher stranded above the card. Nested
-  surfaces (a project Tasks tab) use the same bar; they do not grow a second
-  header.
+- `PageHeader.actions` is the page verb (create), at `md`. Never a filter,
+  never a view switcher.
+- `ViewToolbar` is every control of the list, in one row, in one place:
+  `Segmented` first when there is a view to switch, then the filters that
+  shape the rows (search first), then what belongs at the right edge in
+  `trailing`: the `ColumnsMenu` while the view is a table, a read-only badge.
+  Switching cards to a table changes what is under the row, never the row.
+  A page with filters and no view switch (Services, Docker, Environments,
+  Tokens, Audit) uses the same row without a switcher. Nested surfaces (a
+  project Tasks tab) use the same row; they do not grow a second header.
+- A table inside a card that is not the page (a Docker group) keeps its
+  column menu in the card's header, beside the card's title.
 
 Pages do not invent their own headers, paddings or section titles. The one
 exception is the Overview, which has no visible title: its subject is the
@@ -282,3 +297,5 @@ right (`PropertyRow`), the way a task page does it.
 - Do add a token when you need a colour. Don't write a hex.
 - Do put a view switcher in `ViewToolbar`, first, as `Segmented`. Don't put
   it in `PageHeader.actions` or roll a pair of buttons.
+- Do keep the toolbar where it is when the view changes. Don't move it into
+  the table card, and don't put a filter beside the page verb.
