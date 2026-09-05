@@ -44,66 +44,6 @@
     "Projects": "Projects"
   },
   "fields": {
-    "PORTTA_PROJECTS_HOME": {
-      "label": "Projects Home",
-      "help": "The one directory this installation manages Projects in. Changing it changes the reference; files are not moved. Existing environments outside this path stay visible as unmanaged. See docs/adr/0031-projects-home-and-project.md."
-    },
-    "PORTTA_PROFILE": {
-      "label": "Profile",
-      "help": "Which set of Compose overlays the gateway starts with."
-    },
-    "PORTTA_DOMAIN": {
-      "label": "Custom domain",
-      "help": "Used when the mode is custom. A wildcard *.<domain> must resolve to this host."
-    },
-    "PORTTA_BIND_ADDRESS": {
-      "label": "Bind address",
-      "help": "Host interface Traefik publishes on. 127.0.0.1 keeps it off the local network."
-    },
-    "PORTTA_HTTP_PORT": {
-      "label": "HTTP port",
-      "help": "Host port for plain HTTP."
-    },
-    "PORTTA_HTTPS_PORT": {
-      "label": "HTTPS port",
-      "help": "Host port for HTTPS."
-    },
-    "PORTTA_LOG_LEVEL": {
-      "label": "Log level",
-      "help": "Log level for the gateway components."
-    },
-    "PORTTA_ACCESS_LOG": {
-      "label": "Traefik access log",
-      "help": "Useful while debugging routing, noisy otherwise."
-    },
-    "PORTTA_DASHBOARD": {
-      "label": "Traefik dashboard",
-      "help": "Traefik's own dashboard. local publishes :8080 on loopback; domain routes it behind the panel login."
-    },
-    "PORTTA_DASHBOARD_PORT": {
-      "label": "Dashboard port",
-      "help": "Host port for the Traefik dashboard when access is local."
-    },
-    "PORTTA_DASHBOARD_EXPOSE": {
-      "label": "Dashboard access",
-      "help": "local keeps :8080 on loopback. domain routes the dashboard on the gateway domain, behind the panel login."
-    },
-    "PORTTA_DASHBOARD_ADVERTISED_HOST": {
-      "label": "Dashboard hostname",
-      "help": "Derived as <project>-traefik.<domain> unless you override it."
-    },
-    "TLS_ENABLED": {
-      "label": "HTTPS",
-      "help": "Master switch. With it off, only the HTTP entrypoint serves routes."
-    },
-    "TLS_MODE": {
-      "label": "TLS mode",
-      "help": "local uses a certificate from a local CA; acme uses Let's Encrypt over DNS-01."
-    },
-    "ACME_EMAIL": {
-      "label": "ACME contact",
-      "help": "Required when TLS_MODE=acme."
-    },
     "ACME_CA_SERVER": {
       "label": "ACME directory",
       "help": "Point at the staging endpoint while testing to avoid rate limits."
@@ -112,29 +52,13 @@
       "label": "DNS-01 provider",
       "help": "Provider name as understood by Traefik/lego."
     },
-    "TAILSCALE_ENABLED": {
-      "label": "Tailscale",
-      "help": "Run Traefik inside the Tailscale container's network namespace."
+    "ACME_EMAIL": {
+      "label": "ACME contact",
+      "help": "Required when TLS_MODE=acme."
     },
-    "TAILSCALE_HOSTNAME": {
-      "label": "Tailscale hostname",
-      "help": "Name this node takes on the tailnet."
-    },
-    "TS_AUTHKEY": {
-      "label": "Tailscale auth key",
-      "help": "Prefer an ephemeral, tagged, pre-authorised key. Never leaves the host."
-    },
-    "PRIVATE_DOMAIN": {
-      "label": "VPN domain",
-      "help": "Private wildcard namespace served only over the VPN."
-    },
-    "PUBLIC_ENABLED": {
-      "label": "Public access",
-      "help": "Publishes 80/443 on every interface. Only opted-in HTTP services are routed."
-    },
-    "PUBLIC_DOMAIN": {
-      "label": "Public domain",
-      "help": "Public wildcard namespace, for example dev.example.com."
+    "CF_DNS_API_TOKEN": {
+      "label": "Cloudflare API token",
+      "help": "A scoped token (Zone:DNS:Edit), never the global API key."
     },
     "CLOUDFLARE_ENABLED": {
       "label": "Cloudflare DNS",
@@ -144,49 +68,9 @@
       "label": "Cloudflare zone",
       "help": "The zone the wildcard record lives in."
     },
-    "CF_DNS_API_TOKEN": {
-      "label": "Cloudflare API token",
-      "help": "A scoped token (Zone:DNS:Edit), never the global API key."
-    },
-    "PORTTA_WEB_PORT": {
-      "label": "Panel port",
-      "help": "Host port this panel is published on."
-    },
-    "PORTTA_WEB_BIND_ADDRESS": {
-      "label": "Panel bind address",
-      "help": "Keep 127.0.0.1: the panel is never meant to face the internet."
-    },
-    "PORTTA_WEB_EXPOSE": {
-      "label": "Reachable from",
-      "help": "local is loopback only. vpn adds a Traefik router, and requires panel authentication. See docs/adr/0021-panel-access-modes.md."
-    },
-    "PORTTA_WEB_READ_ONLY": {
-      "label": "Read-only",
-      "help": "Refuse every mutating endpoint. The default whenever the panel is routed."
-    },
-    "PORTTA_WEB_AUTH": {
-      "label": "Panel authentication",
-      "help": "basic keeps the compatible setting name and enables the Portta login through ForwardAuth. Required once the panel is routed."
-    },
-    "PORTTA_WEB_AUTH_USER": {
-      "label": "Panel username",
-      "help": "The user half of the credential. `portta web auth set` writes both."
-    },
-    "PORTTA_WEB_AUTH_HASH": {
-      "label": "Panel password hash",
-      "help": "A legacy compatibility hash; the private authentication store is authoritative. Generate a new credential with `portta web auth set`."
-    },
-    "PORTTA_RUNTIME_API_DOCS": {
-      "label": "API reference",
-      "help": "Serve the API reference and its console at /docs/api. It issues real requests against this panel, so empty uses the safe default: on for loopback, off when routed."
-    },
-    "PORTTA_RUNTIME_DOCS": {
-      "label": "Documentation",
-      "help": "Serve the project's documentation at /docs, from this image. Static text with no host information in it, so a routed panel may serve it."
-    },
-    "PORTTA_RUNTIME_DB_PASSWORD": {
-      "label": "Database password",
-      "help": "Generated bootstrap credential for the panel-owned PostgreSQL database."
+    "GITHUB_API_URL": {
+      "label": "API base URL",
+      "help": "https://api.github.com, or your GitHub Enterprise Server API root."
     },
     "GITHUB_APP_ENABLED": {
       "label": "GitHub App",
@@ -204,21 +88,141 @@
       "label": "Webhook secret",
       "help": "Verifies deliveries GitHub sends. Stored as a secret and never returned."
     },
-    "GITHUB_API_URL": {
-      "label": "API base URL",
-      "help": "https://api.github.com, or your GitHub Enterprise Server API root."
+    "PORTTA_ACCESS_LOG": {
+      "label": "Traefik access log",
+      "help": "Useful while debugging routing, noisy otherwise."
+    },
+    "PORTTA_AUTH_MODE": {
+      "label": "Panel authentication",
+      "help": "`required` makes the panel ask who you are: people sign in, agents carry a token. `disabled` makes every request the local operator, and is only allowed on loopback."
+    },
+    "PORTTA_AUTH_SECRET": {
+      "label": "Session signing secret",
+      "help": "What sessions and tokens are signed with. Generated during bootstrap; rotating it signs everybody out."
+    },
+    "PORTTA_AUTO_DOMAIN_PROVIDER": {
+      "label": "Wildcard DNS service",
+      "help": "Both resolve any name embedding an address, so neither needs a record or an account."
+    },
+    "PORTTA_BIND_ADDRESS": {
+      "label": "Bind address",
+      "help": "Host interface Traefik publishes on. 127.0.0.1 keeps it off the local network."
+    },
+    "PORTTA_DASHBOARD": {
+      "label": "Traefik dashboard",
+      "help": "Traefik's own dashboard. local publishes :8080 on loopback; domain routes it behind the panel login."
+    },
+    "PORTTA_DASHBOARD_ADVERTISED_HOST": {
+      "label": "Dashboard hostname",
+      "help": "Derived as <project>-traefik.<domain> unless you override it."
+    },
+    "PORTTA_DASHBOARD_EXPOSE": {
+      "label": "Dashboard access",
+      "help": "local keeps :8080 on loopback. domain routes the dashboard on the gateway domain, behind the panel login."
+    },
+    "PORTTA_DASHBOARD_PORT": {
+      "label": "Dashboard port",
+      "help": "Host port for the Traefik dashboard when access is local."
+    },
+    "PORTTA_DOMAIN": {
+      "label": "Custom domain",
+      "help": "Used when the mode is custom. A wildcard *.<domain> must resolve to this host."
     },
     "PORTTA_DOMAIN_MODE": {
       "label": "Mode",
       "help": "What every project hostname is built on. local is localhost, which only resolves on this machine. auto derives a name from this host public address and needs no DNS record. custom uses a wildcard you own."
     },
+    "PORTTA_HTTPS_PORT": {
+      "label": "HTTPS port",
+      "help": "Host port for HTTPS."
+    },
+    "PORTTA_HTTP_PORT": {
+      "label": "HTTP port",
+      "help": "Host port for plain HTTP."
+    },
+    "PORTTA_LOG_LEVEL": {
+      "label": "Log level",
+      "help": "Log level for the gateway components."
+    },
+    "PORTTA_PANEL_TRUSTED_ORIGINS": {
+      "label": "Extra trusted origins",
+      "help": "Other origins a browser may sign in from, comma-separated: a VPN name, a public domain. Loopback and the panel URL are always trusted."
+    },
+    "PORTTA_PANEL_URL": {
+      "label": "Panel URL",
+      "help": "The address a browser reaches the panel on. It decides where sign-in redirects to, and whether the session cookie may be `Secure`."
+    },
+    "PORTTA_PROFILE": {
+      "label": "Profile",
+      "help": "Which set of Compose overlays the gateway starts with."
+    },
+    "PORTTA_PROJECTS_HOME": {
+      "label": "Projects Home",
+      "help": "The one directory this installation manages Projects in. Changing it changes the reference; files are not moved. Existing environments outside this path stay visible as unmanaged. See docs/adr/0031-projects-home-and-project.md."
+    },
     "PORTTA_PUBLIC_IP": {
       "label": "Public address",
       "help": "The address the auto mode builds a hostname from. Detected during installation."
     },
-    "PORTTA_AUTO_DOMAIN_PROVIDER": {
-      "label": "Wildcard DNS service",
-      "help": "Both resolve any name embedding an address, so neither needs a record or an account."
+    "PORTTA_RUNTIME_API_DOCS": {
+      "label": "API reference",
+      "help": "Serve the API reference and its console at /docs/api. It issues real requests against this panel, so empty uses the safe default: on for loopback, off when routed."
+    },
+    "PORTTA_RUNTIME_DB_PASSWORD": {
+      "label": "Database password",
+      "help": "Generated bootstrap credential for the panel-owned PostgreSQL database."
+    },
+    "PORTTA_RUNTIME_DOCS": {
+      "label": "Documentation",
+      "help": "Serve the project's documentation at /docs, from this image. Static text with no host information in it, so a routed panel may serve it."
+    },
+    "PORTTA_WEB_BIND_ADDRESS": {
+      "label": "Panel bind address",
+      "help": "Keep 127.0.0.1: the panel is never meant to face the internet."
+    },
+    "PORTTA_WEB_EXPOSE": {
+      "label": "Reachable from",
+      "help": "local is loopback only. vpn adds a Traefik router, and requires panel authentication. See docs/adr/0021-panel-access-modes.md."
+    },
+    "PORTTA_WEB_PORT": {
+      "label": "Panel port",
+      "help": "Host port this panel is published on."
+    },
+    "PORTTA_WEB_READ_ONLY": {
+      "label": "Read-only",
+      "help": "Refuse every mutating endpoint. The default whenever the panel is routed."
+    },
+    "PRIVATE_DOMAIN": {
+      "label": "VPN domain",
+      "help": "Private wildcard namespace served only over the VPN."
+    },
+    "PUBLIC_DOMAIN": {
+      "label": "Public domain",
+      "help": "Public wildcard namespace, for example dev.example.com."
+    },
+    "PUBLIC_ENABLED": {
+      "label": "Public access",
+      "help": "Publishes 80/443 on every interface. Only opted-in HTTP services are routed."
+    },
+    "TAILSCALE_ENABLED": {
+      "label": "Tailscale",
+      "help": "Run Traefik inside the Tailscale container's network namespace."
+    },
+    "TAILSCALE_HOSTNAME": {
+      "label": "Tailscale hostname",
+      "help": "Name this node takes on the tailnet."
+    },
+    "TLS_ENABLED": {
+      "label": "HTTPS",
+      "help": "Master switch. With it off, only the HTTP entrypoint serves routes."
+    },
+    "TLS_MODE": {
+      "label": "TLS mode",
+      "help": "local uses a certificate from a local CA; acme uses Let's Encrypt over DNS-01."
+    },
+    "TS_AUTHKEY": {
+      "label": "Tailscale auth key",
+      "help": "Prefer an ephemeral, tagged, pre-authorised key. Never leaves the host."
     }
   },
   "validation": {

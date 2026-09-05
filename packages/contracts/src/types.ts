@@ -1772,7 +1772,7 @@ export type LiveEvent = z.infer<typeof LiveEvent>
 export const DatabaseMigrateResult = named(
   z.object({
     applied: z.array(z.string()).describe('Filenames this call applied'),
-    migrations: z.array(z.string()).describe('Every filename recorded in schema_migrations'),
+    migrations: z.array(z.string()).describe('Every migration the panel has applied'),
   }).strict(),
   'DatabaseMigrateResult',
 )
