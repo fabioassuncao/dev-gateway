@@ -297,9 +297,9 @@ directions, so it says which one it found and whether the two agree:
 
 ```console
 $ portta version
-portta 0.2.0
-  gateway  0.2.0  (/opt/portta)
-  panel    0.2.0 (from the image tag; the API asks who is calling)
+portta 0.8.0
+  gateway  0.8.0  (/opt/portta)
+  panel    0.8.0
 ```
 
 `portta version --json` carries the same as `cli`, `gateway`, `panel`,
@@ -321,7 +321,7 @@ warning, never a failure.
 ## Installing a specific version
 
 ```bash
-curl -fsSL .../install.sh | bash -s -- --version v0.2.0
+curl -fsSL .../install.sh | bash -s -- --version v0.8.0
 ```
 
 Any tag, branch or commit works. The panel image tag follows the `VERSION` file

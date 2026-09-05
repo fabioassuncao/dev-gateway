@@ -253,7 +253,7 @@ docker.listen(DOCKER_PORT, '127.0.0.1', () => {
       PORTTA_RUNTIME_HOST: '127.0.0.1',
       PORTTA_RUNTIME_PORT: String(PANEL_PORT),
       PORTTA_RUNTIME_ENV_FILE: join(root, 'e2e/env.fixture'),
-      PORTTA_RUNTIME_VERSION_FILE: join(root, 'e2e/VERSION.fixture'),
+      PORTTA_RUNTIME_VERSION_FILE: join(root, '..', '..', 'VERSION'),
       PORTTA_RUNTIME_BRIDGE_SETTLE_MS: '0',
       PORTTA_PROFILE: 'local',
       PORTTA_DOMAIN: 'localhost',

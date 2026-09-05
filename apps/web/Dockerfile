@@ -73,7 +73,9 @@ RUN npm run build --workspace=portta-core \
 # arrives on the same 8081 the API answers on.
 FROM deps AS dev
 WORKDIR /app
-ENV NODE_ENV=development
+ARG PORTTA_VERSION
+ENV NODE_ENV=development \
+    PORTTA_RUNTIME_VERSION=$PORTTA_VERSION
 COPY apps/web ./apps/web
 COPY apps/auth ./apps/auth
 # The workspace symlinks npm ci created point at these packages, so their source
@@ -117,7 +119,9 @@ CMD ["npm", "run", "dev"]
 # --- runtime -----------------------------------------------------------------
 FROM node:24.20.0-alpine AS runtime
 WORKDIR /app
-ENV NODE_ENV=production
+ARG PORTTA_VERSION
+ENV NODE_ENV=production \
+    PORTTA_RUNTIME_VERSION=$PORTTA_VERSION
 LABEL org.opencontainers.image.title="Portta" \
       org.opencontainers.image.description="Administration panel for Portta" \
       org.opencontainers.image.source="https://github.com/fabioassuncao/portta" \

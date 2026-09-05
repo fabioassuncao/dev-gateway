@@ -10989,8 +10989,8 @@
                 },
                 "example": {
                   "ok": true,
-                  "panelVersion": "0.1.0",
-                  "gatewayVersion": "0.2.0"
+                  "panelVersion": "0.8.0",
+                  "gatewayVersion": "0.8.0"
                 }
               }
             }

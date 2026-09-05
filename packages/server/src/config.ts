@@ -148,6 +148,7 @@ export interface PanelConfig {
 
 export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
   const versionFile = env('PORTTA_RUNTIME_VERSION_FILE', '/app/state/VERSION')
+  const installed = readVersion(versionFile)
   const gateway = loadGatewayConfig(process.env)
   const config: PanelConfig = {
     dockerApi: env('PORTTA_RUNTIME_DOCKER_API', 'http://web-socket-proxy:2375'),
@@ -206,8 +207,8 @@ export function loadConfig(overrides: Partial<PanelConfig> = {}): PanelConfig {
     // `portta access list` would not recognise it. One pin, in portta-core.
     bridgeImage: env('PORTTA_RUNTIME_BRIDGE_IMAGE', BRIDGE_IMAGE),
     bridgeSettleMs: Number(env('PORTTA_RUNTIME_BRIDGE_SETTLE_MS', '800')),
-    panelVersion: env('PORTTA_RUNTIME_VERSION', '0.1.0'),
-    gatewayVersion: readVersion(versionFile),
+    panelVersion: env('PORTTA_RUNTIME_VERSION', installed),
+    gatewayVersion: installed,
     readOnly: isTrue(process.env.PORTTA_RUNTIME_READ_ONLY),
     apiDocs: false,
     docs: isTrue(env('PORTTA_RUNTIME_DOCS', 'true')),
