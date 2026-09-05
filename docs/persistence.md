@@ -7,9 +7,9 @@ source of truth.
 
 **PostgreSQL is required.** A panel that starts without it can show Docker and
 nothing else, and every write it accepts is lost, so it says what is missing and
-exits instead. `docker/compose/features/db.yaml` is selected wherever
-`web.yaml` is; `tests/unit/profiles.test.sh` fails if a profile ever selects one
-without the other.
+exits instead. The managed mode selects `docker/compose/features/db.yaml` with the panel.
+External mode selects the panel without the local database. Both modes authenticate
+and apply migrations before the HTTP listener starts.
 
 ## Where the schema lives
 
@@ -174,3 +174,31 @@ const { db, close } = await createTestDb()
 
 One instance per test file. The first costs about three seconds to compile the
 WebAssembly; every one after it costs about a hundred milliseconds.
+
+## Configuration and an existing volume
+
+`PORTTA_RUNTIME_DB_MODE=managed` uses internal DNS `db` and port `5432`; neither
+is a pretend configurable setting. `PORTTA_RUNTIME_DB_USER`, `_NAME` and
+`_PASSWORD` are shared by PostgreSQL and the application's URL resolver. The
+password is generated into `.env` once. It is never generated inside PostgreSQL
+or discovered from a different container. The database has no host port.
+
+`PORTTA_RUNTIME_DB_MODE=external` requires `PORTTA_RUNTIME_DATABASE_URL`.
+The managed fields are inactive, no local `db` is started, and readiness comes
+from the application's authenticated connection and migrations. Administrative
+clients use the same resolver, running in the toolbox on the gateway network.
+Client TLS file paths must be available inside the toolbox; they are not mounted
+from arbitrary host paths automatically.
+
+Changing `.env` does not modify an initialized PostgreSQL cluster. The installer
+never issues an automatic `ALTER USER` or deletes a volume to make a password
+work. An incompatible credential prevents the panel from starting. Recover the
+original `.env`/backup first. For deliberate password rotation, connect using the
+current credential (`portta db shell`), use psql's interactive `\password` for
+the configured role, update `PORTTA_RUNTIME_DB_PASSWORD` on the host, and recreate
+the panel/database containers with `portta up`. A changed database or role name
+requires explicit PostgreSQL administration or dump/restore, not new defaults.
+
+The volume name and PostgreSQL major version remain unchanged in this revision.
+Schema migrations still use the existing advisory lock. There is no conversion
+of pre-Drizzle data or legacy configuration aliases in this development revision.

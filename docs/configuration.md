@@ -1,12 +1,33 @@
 # Configuration
 
-Everything lives in `.env` at the repository root, copied from
-`.env.example`. It is git-ignored and may hold secrets, so `bootstrap` creates
-it `chmod 600` and `doctor` warns if it becomes group- or world-readable.
+The installation `.env` is the source of shared configuration and credentials.
+`.env.example` defines its structure, groups, comments and supported variables.
+`portta config prepare` creates or reconciles it without starting services;
+`bootstrap`, `dev`, `up`, `web up`, `setup` and the installer also prepare it.
 
-Precedence follows Compose: **shell environment > `.env` > built-in defaults**.
-Every value has a default, so an empty `.env` still yields a working local
-gateway.
+Persisted `.env` values **win over the inherited shell environment**. Explicit
+configuration commands write the file before resolving Compose. Runtime selectors
+such as `PORTTA_ROOT`, `PATH` and `PORTTA_FORCE_BASH` are process inputs, not
+installation settings. Internal service ports and filesystem paths in containers
+are architectural constants. `PORTTA_VERSION` derives from `VERSION`.
+
+Preparation fills absent keys from the template and generates absent/empty secrets
+once. It keeps configured values, including deliberate empty optional fields.
+First structural normalization keeps a `0600` `.env.before-structure` backup;
+known keys follow the template and personal comments/extensions are retained.
+Future missing keys are inserted near their template neighbours. Ordinary edits
+only replace the requested values, preserving comments, order, spacing and line
+endings. Duplicate keys are rejected. Dotenv content is parsed, never executed;
+Portta treats values literally rather than evaluating `${OTHER_VARIABLE}`.
+
+CLI and panel share `portta-core`'s document editor. The zero-Node shell adapter
+is checked against the same fixtures. A `.env-lock/writer` directory serializes
+writes across the host and panel; `.env-lock` is a shared mount, not image content.
+Backups and in-place writes preserve the file's inode and mode `0600`. A stale
+lock fails with a diagnostic; only remove it after verifying no writer is active.
+
+See [the configuration audit](configuration-audit.md) for the variable inventory,
+container map, removals and validation results.
 
 How those values relate — project hostnames, public access, the panel URL,
 Traefik, TLS, VPN and DNS — is [addresses-and-access.md](addresses-and-access.md).
@@ -122,7 +143,10 @@ See [tcp-routing.md](tcp-routing.md).
 | `PORTTA_DB_NETWORK` | `portta-data` | Internal panel-to-PostgreSQL network |
 | `PORTTA_DB_VOLUME` | `portta-db` | Named volume holding panel data |
 | `PORTTA_RUNTIME_DB_PASSWORD` | generated | **Secret.** Panel PostgreSQL credential |
-| `PORTTA_RUNTIME_DATABASE_URL` | empty | Development/test bootstrap override; normally Compose supplies it |
+| `PORTTA_RUNTIME_DB_MODE` | `managed` | `managed` selects the private Compose database; `external` requires the URL below |
+| `PORTTA_RUNTIME_DB_NAME` | `portta` | Database initialized in a fresh managed volume |
+| `PORTTA_RUNTIME_DB_USER` | `portta` | Role initialized in a fresh managed volume |
+| `PORTTA_RUNTIME_DATABASE_URL` | empty | Explicit external connection URL; rejected when set in managed mode |
 | `PORTTA_AUTH_SECRET` | generated | **Secret.** Signs the panel's sessions and tokens, and the ForwardAuth process's host-scoped cookies. Rotating it signs everybody out of both |
 | `PORTTA_AUTH_IMAGE` | Portta release image | Image running the isolated auth process |
 | `PORTTA_RUNTIME_DOCS` | `true` | Serve this documentation at `/docs`, from the panel image. Static text with no host information in it, so a routed panel may serve it |

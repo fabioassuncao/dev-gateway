@@ -44,3 +44,5 @@ context, the decision, and what it costs us.
 | [0037](0037-drizzle-and-a-required-database.md) | Drizzle, and a database the panel refuses to start without | Accepted, amends 0013 |
 | [0038](0038-roles-and-project-access.md) | Four roles, and access by Project | Accepted, extends 0035, amends 0032 |
 | [0039](0039-personal-api-tokens.md) | A token belongs to a person, and never exceeds them | Accepted, extends 0035, supersedes the panel tokens in 0033 |
+
+- [0040 — Installation environment contract](0040-installation-environment-contract.md)

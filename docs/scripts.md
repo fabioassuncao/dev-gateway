@@ -144,3 +144,13 @@ Don't, unless it passes (a), (b) or (c) above. A new automation belongs in
 `packages/cli`, with anything derivable in `packages/core`. If you believe a
 new `.sh` is justified, add it here with the test it passes, in the same change
 that adds the file.
+
+## Environment preparation
+
+`scripts/lib/env.sh` and `env.awk` are the zero-Node document adapter (rule a).
+The installer sources the downloaded adapter before its first environment write;
+bootstrap and the Bash lifecycle path use the same code. No dotenv text is sourced.
+The TypeScript implementation is `packages/core/src/env.ts`; document preservation,
+normalization, secret persistence and cross-process writes are exercised by
+`packages/core/src/env-contract.test.ts`. The template owns structure and static
+defaults; the adapters own parsing, safe writes and generation policy.

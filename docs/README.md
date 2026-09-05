@@ -71,3 +71,5 @@ run Portta, or to change it, is reachable from here.
 
 - [Changelog](../CHANGELOG.md) — released behaviour and upgrade notes.
 - [Template copied into consumer projects](../templates/project/PORTTA.md) — a short project-local runbook.
+
+- [Configuration and startup audit](configuration-audit.md)
