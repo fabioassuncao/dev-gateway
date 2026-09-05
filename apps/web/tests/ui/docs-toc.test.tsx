@@ -10,7 +10,7 @@ const headings = [
 describe('DocsToc', () => {
   it('lists the headings on this page', () => {
     render(<DocsToc headings={headings} />)
-    expect(screen.getByText('On this page', { hidden: true })).toBeInTheDocument()
+    expect(screen.getByText('On this page')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Install', hidden: true })).toHaveAttribute('href', '#install')
     expect(screen.getByRole('link', { name: 'portta up', hidden: true })).toHaveAttribute('href', '#up')
   })
