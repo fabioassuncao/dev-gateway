@@ -245,7 +245,7 @@ describe "every panel command resolves the file list with the panel enabled"
 it "the shared compose helper passes the override"
 assert_contains "$(sed -n '/^async function webCompose/,/^}/p' packages/cli/src/commands/web.ts)" "overrides: PANEL_OVERRIDES"
 
-it "and so does web down, with the dev pair included"
+it "and so does web down, which resolves the dev overlay too"
 assert_contains "$(sed -n '/^export async function webDown/,/^}/p' packages/cli/src/commands/web.ts)" "PORTTA_WEB_DEV: 'true'"
 assert_contains "$(sed -n '/^export async function webDown/,/^}/p' packages/cli/src/commands/web.ts)" "overrides:"
 
@@ -447,6 +447,12 @@ assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./packages/db/dri
 # There used to be a second container running Vite on 5173.
 it "runs one container, not a second one for the UI"
 assert_eq "" "$(grep -vE '^\s*#' docker/compose/features/web-dev.yaml | grep -n 'web-ui\|5173' || true)"
+
+# The overlay stopped defining it and the CLI kept starting it, which Compose
+# answers with "no such service" — and that fails the whole `up`, so `web dev`
+# was broken from the moment the container was removed until somebody ran it.
+it "and the CLI does not name a service the overlay no longer defines"
+assert_eq "" "$(grep -vE '^\s*(//|\*|/\*)' packages/cli/src/commands/web.ts | grep -n "'web-ui'" || true)"
 
 it "mounts the documentation so a change to a page is visible without rebuilding"
 assert_contains "$(cat docker/compose/features/web-dev.yaml)" "./docs:/app/docs:ro"

@@ -96,6 +96,19 @@ WORKDIR /app/apps/web
 # The container runs as an unprivileged user, and Next writes .next beside the
 # source it was given.
 RUN chown -R node:node /app
+# Which unprivileged user is not known here.
+#
+# The panel container takes PORTTA_WEB_USER so it can write the host's
+# owner-only `.env` — that is the whole reason it exists — and in development
+# the same process also writes inside the image: the build cache, and the
+# `next-env.d.ts` Next regenerates on every start. Those belong to `node`, and
+# the operator's uid is whatever their host gave them.
+#
+# So the panel's own directory is writable by any uid, in this stage and no
+# other. It holds source the operator already owns and has bind-mounted over,
+# on their own machine; the runtime stage below stays `node`-owned and is the
+# one that ships.
+RUN mkdir -p /app/apps/web/.next && chmod -R a+rwX /app/apps/web
 USER node
 EXPOSE 8081
 # Through the package script, so `--conditions=development` is declared once.

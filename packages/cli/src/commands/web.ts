@@ -155,7 +155,11 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   await runProcess('docker', ['pull', 'alpine/socat:1.8.1.3'], { reject: false, stdio: 'stream' })
   output.progress('starting the panel database')
   await runProcess('docker', ['compose', ...composeArguments(context), 'up', '-d', 'db'], { cwd: context.root, env: context.env, reject: false, stdio: 'stream' })
-  const services = options.dev ? ['portta-auth', 'web', 'web-ui', 'web-socket-proxy'] : ['portta-auth', 'web', 'web-socket-proxy']
+  // The same three in both modes. There used to be a fourth, `web-ui`, running
+  // Vite in front of the panel; the panel is one process now, and naming a
+  // service the file list no longer defines makes Compose refuse the whole
+  // `up` — which is how `web dev` stopped working without anybody noticing.
+  const services = ['portta-auth', 'web', 'web-socket-proxy']
   // `--remove-orphans`, as `portta up` already does: leaving development
   // mode drops docker/compose/features/web-dev.yaml from the file list, and without this the
   // Vite container keeps serving a stale panel on its own port.
@@ -327,16 +331,14 @@ export async function panelSetupState(apiUrl: string): Promise<{ mode: string; s
 }
 
 export async function webDown(command: Command): Promise<void> {
-  // Both overlays, so the file list names every service this stops: the dev
-  // pair exists only while PORTTA_WEB_DEV is on, and leaving it out is how a
-  // Vite container survives `web down` and keeps serving a stale panel.
+  // The dev overlay is in the file list either way, because the panel container
+  // it defines is the same one: a checkout that was last started with
+  // `web dev` has to be stopped by a `web down` that resolves the same file.
   const context = gatewayContext({ profile: globals(command).profile, overrides: { ...PANEL_OVERRIDES, PORTTA_WEB_DEV: 'true' } })
   const env = { ...context.env, PORTTA_WEB: 'true', PORTTA_WEB_DEV: 'true' }
   const services = ['db', 'web', 'web-socket-proxy']
   await runProcess('docker', ['compose', ...composeArguments({ ...context, env }), 'stop', ...services], { cwd: context.root, env, reject: false })
   await runProcess('docker', ['compose', ...composeArguments({ ...context, env }), 'rm', '-f', ...services], { cwd: context.root, env, reject: false })
-  await runProcess('docker', ['compose', ...composeArguments({ ...context, env }), 'stop', 'web-ui'], { cwd: context.root, env, reject: false })
-  await runProcess('docker', ['compose', ...composeArguments({ ...context, env }), 'rm', '-f', 'web-ui'], { cwd: context.root, env, reject: false })
   const output = new Output(globals(command))
   stopMetricsCollector(globals(command).profile, output)
   output.progress('panel stopped; gateway and projects were not touched')
@@ -351,7 +353,7 @@ export async function webDisable(command: Command): Promise<void> {
 export async function webRestart(command: Command): Promise<void> { await webCompose(command, ['restart', 'web', 'web-socket-proxy']) }
 export async function webLogs(service: string | undefined, command: Command): Promise<void> {
   const target = service ?? 'web'
-  if (!['web', 'web-ui', 'web-socket-proxy', 'db', 'portta-auth'].includes(target)) throw new UsageError(`unknown panel service: ${target}`)
+  if (!['web', 'web-socket-proxy', 'db', 'portta-auth'].includes(target)) throw new UsageError(`unknown panel service: ${target}`)
   const global = globals(command)
   if (global.json) {
     const result = await webCompose(command, ['logs', '--no-color', '--no-log-prefix', '--tail', '100', target], {}, 'pipe')
