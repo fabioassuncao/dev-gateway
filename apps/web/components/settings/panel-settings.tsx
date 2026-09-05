@@ -227,7 +227,7 @@ export function PanelSettings({
                 <Field
                   id="panel-custom-host"
                   label={t('panel.customDomain')}
-                  hint={<DocText>{t('panel.customDomainHelp')}</DocText>}
+                  hint={<DocText citationLabel={t('learnMore')}>{t('panel.customDomainHelp')}</DocText>}
                 >
                   <Input
                     id="panel-custom-host"
@@ -262,7 +262,7 @@ export function PanelSettings({
 
           {kind === 'hostname' && !tls && (hostnameKind === 'custom' || values.PORTTA_PROFILE === 'remote-public') ? (
             <Callout tone="warn">
-              <DocText>{t('panel.tlsNeeded')}</DocText>
+              <DocText citationLabel={t('learnMore')}>{t('panel.tlsNeeded')}</DocText>
             </Callout>
           ) : null}
 

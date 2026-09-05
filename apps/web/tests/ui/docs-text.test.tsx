@@ -79,6 +79,25 @@ describe('DocText', () => {
     expect(link).toHaveAttribute('href', '/docs/api')
   })
 
+  it('replaces a markdown citation with the settings label', async () => {
+    renderWithQuery(
+      <DocText citationLabel="Learn more">See docs/adr/0031-projects-home-and-project.md.</DocText>,
+    )
+    const link = await screen.findByRole('link', { name: 'Learn more' })
+    expect(link).toHaveAttribute('href', '/docs/adr/0031-projects-home-and-project')
+    expect(screen.queryByText(/See/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/docs\/adr/)).not.toBeInTheDocument()
+  })
+
+  it('keeps /docs/api as the address when a citation label is set', async () => {
+    renderWithQuery(
+      <DocText citationLabel="Learn more">Serve the console at /docs/api.</DocText>,
+    )
+    const link = await screen.findByRole('link', { name: '/docs/api' })
+    expect(link).toHaveAttribute('href', '/docs/api')
+    expect(screen.queryByRole('link', { name: 'Learn more' })).not.toBeInTheDocument()
+  })
+
   it('stays plain text when the panel does not serve the documentation', async () => {
     overview.mockResolvedValue(status(false))
     renderWithQuery(<DocText>See docs/github.md.</DocText>)
