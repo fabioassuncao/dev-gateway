@@ -162,7 +162,7 @@ export function Shell({ children }: { children: ReactNode }) {
   useShortcut({ key: '[' }, toggleSidebar)
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-bg">
+    <div className="flex h-dvh min-h-0 flex-col bg-bg">
       <ConnectionBanner state={live.state} />
       <ApplyBar readOnly={gateway?.panel.readOnly ?? false} />
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
@@ -305,11 +305,11 @@ export function Shell({ children }: { children: ReactNode }) {
             sits on, so the content is what the eye lands on. */}
         <main
           className={cn(
-            'min-h-0 min-w-0 flex-1 overflow-y-auto bg-surface scroll-thin',
+            'flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-surface scroll-thin',
             'border-t border-line md:my-2 md:mr-2 md:rounded-lg md:border',
           )}
         >
-          <div className="mx-auto max-w-[88rem] px-4 py-4 md:px-6 md:py-5">{children}</div>
+          <div className="mx-auto flex min-h-full w-full max-w-[88rem] flex-col px-4 py-4 md:px-6 md:py-5">{children}</div>
         </main>
       </div>
       <CommandPalette

@@ -33,7 +33,7 @@ export default async function ProjectLayout({
   if (!project) notFound()
 
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col">
       <ProjectHeader project={project} readOnly={panelIsReadOnly()} />
       <ProjectTabs
         slug={project.slug}
@@ -41,7 +41,7 @@ export default async function ProjectLayout({
         repositories={project.repositories.length}
         environments={project.environments.length}
       />
-      <div role="tabpanel" tabIndex={0} className="pt-4 outline-none">{children}</div>
-    </>
+      <div role="tabpanel" tabIndex={0} className="flex min-h-0 flex-1 flex-col pt-4 outline-none">{children}</div>
+    </div>
   )
 }

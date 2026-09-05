@@ -101,7 +101,7 @@ export function TaskBoard({
       <div aria-live="polite" className="sr-only">
         {announcement}
       </div>
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 scroll-thin md:mx-0 md:px-0">
+      <div className="-mx-4 flex min-h-0 flex-1 gap-2 overflow-x-auto px-4 pb-2 scroll-thin md:mx-0 md:px-0">
         {columns.map((column) => (
           <BoardColumnView
             key={column.id}
@@ -185,7 +185,7 @@ function BoardColumnView({
       ref={region}
       aria-label={t('columnLabel', { label: column.label })}
       className={cn(
-        'flex w-64 shrink-0 flex-col rounded-lg border bg-surface-2/50 transition-colors duration-100',
+        'flex min-h-0 w-64 shrink-0 flex-col rounded-lg border bg-surface-2/50 transition-colors duration-100',
         over ? 'border-accent bg-selection' : 'border-transparent',
         // Every valid destination is visible while a card is in the air; the
         // column it came from is not a destination worth pointing at.
@@ -198,7 +198,7 @@ function BoardColumnView({
         <span className="text-xs text-subtle tabular-nums">{tasks.length}</span>
       </header>
 
-      <div className="max-h-[min(70vh,40rem)] min-h-24 space-y-1.5 overflow-y-auto px-2 pb-2 scroll-thin">
+      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-2 pb-2 scroll-thin">
         {shown.length === 0 ? (
           <p className={cn('px-1 py-6 text-center text-xs', over ? 'text-accent' : 'text-subtle')}>
             {over ? t('dropHere') : t('columnEmpty', { label: column.label })}

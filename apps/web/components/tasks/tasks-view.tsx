@@ -194,7 +194,7 @@ export function TasksView({
   )
 
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
         <Segmented
           label={t('viewLabel')}
@@ -256,7 +256,7 @@ export function TasksView({
           }}
         />
       )}
-    </>
+    </div>
   )
 }
 
