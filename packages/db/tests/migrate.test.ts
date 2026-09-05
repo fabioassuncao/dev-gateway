@@ -39,7 +39,7 @@ async function countOf(database: { execute: TestDatabase['db']['execute'] }, sta
 
 describe('the initial migration', () => {
   it('creates every table the panel reads', async () => {
-    open = await createTestDb()
+    open = await createTestDb({ fresh: true })
     const tables = await tableNames(open)
     for (const expected of [
       'accounts', 'activity_events', 'api_keys', 'audit_log', 'environment_settings', 'environments',
@@ -56,12 +56,12 @@ describe('the initial migration', () => {
   // The pre-Drizzle schema is gone, not converted. Its marker table must not
   // reappear: `Database.open` treats one as a volume that needs `portta reset`.
   it('leaves no trace of the schema_migrations the old migrator used', async () => {
-    open = await createTestDb()
+    open = await createTestDb({ fresh: true })
     expect(await tableNames(open)).not.toContain('schema_migrations')
   })
 
   it('records itself once in the migrator table', async () => {
-    open = await createTestDb()
+    open = await createTestDb({ fresh: true })
     expect(await countOf(open.db, sql`SELECT count(*)::text AS count FROM ${sql.identifier(MIGRATIONS_TABLE)}`)).toBe('1')
   })
 
@@ -85,7 +85,7 @@ describe('the initial migration', () => {
 
 describe('the seed', () => {
   it('creates the one identity row, and only one however often it runs', async () => {
-    open = await createTestDb()
+    open = await createTestDb({ fresh: true })
     await seedMinimal(open.db as never)
     await seedMinimal(open.db as never)
     const rows = await open.db.select().from(instance)

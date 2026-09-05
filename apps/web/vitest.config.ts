@@ -10,12 +10,16 @@ const root = fileURLToPath(new URL('.', import.meta.url)).replace(/\/$/, '')
 // builds the app. `@vitejs/plugin-react` is the JSX transform the runner needs,
 // which is why it survived the move to Next.
 //
-// Two projects. Components need a DOM; the documentation collector reads the
+// Separate projects. Components need a DOM; the documentation collector reads the
 // repository and must not have one, because a jsdom module URL is `/@fs/…`
 // rather than a file and every path it resolves would be wrong.
 export default defineConfig({
   test: {
     projects: [
+      {
+        resolve: { alias: { '@': root } },
+        test: { name: 'logic', environment: 'node', include: ['tests/logic/**/*.test.ts'] },
+      },
       {
         resolve: {
           alias: { '@': root },

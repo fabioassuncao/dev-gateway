@@ -46,7 +46,10 @@ beforeAll(async () => {
       if (!mine) socket.destroy()
     })
   })
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', () => { server.off('error', reject); resolve() })
+  })
   port = (server.address() as { port: number }).port
 })
 
