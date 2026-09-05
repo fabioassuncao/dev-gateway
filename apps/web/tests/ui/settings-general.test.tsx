@@ -131,6 +131,17 @@ describe('the General settings', () => {
     })))
   })
 
+  it('discards the local draft without saving', async () => {
+    renderWithQuery(<GeneralView group="panel" />, undefined, principal())
+    const port = await screen.findByLabelText('Port')
+    await userEvent.clear(port)
+    await userEvent.type(port, '9090')
+    expect(screen.getByText(/unsaved/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    expect(port).toHaveValue('8081')
+    expect(patchConfig).not.toHaveBeenCalled()
+  })
+
   it('hides Save from somebody who may only read the settings', async () => {
     const readOnly = principal({ permissions: ['settings:read'] })
     renderWithQuery(<GeneralView group="panel" />, undefined, readOnly)

@@ -17,7 +17,7 @@ import type { DockerClient } from './docker/client.ts'
 import type { PanelConfig } from '../config.ts'
 import type { Snapshot } from './inventory.ts'
 import { componentOf } from './gateway.ts'
-import { buildConfigView } from './configview.ts'
+import { buildConfigView, pendingChangesOf } from './configview.ts'
 import type {
   ApplyState,
   ApplyStatus,
@@ -116,6 +116,7 @@ export async function applyStatus(
   const common = {
     pendingRestart: view.pendingRestart,
     pendingKeys: pending.map((field) => field.key),
+    pendingChanges: pendingChangesOf(view.fields),
     movesPanel: movesPanel(pending, config),
     buildsImages: buildsImages(saved),
     profile: config.profile,

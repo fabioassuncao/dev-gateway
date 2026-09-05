@@ -175,6 +175,31 @@ describe('the settings', () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
+  it('records which pending keys were discarded, and never their values', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'portta-audit-'))
+    const envFile = join(dir, '.env')
+    writeFileSync(envFile, 'PORTTA_LOG_LEVEL=DEBUG\n')
+    const writable = makeProtectedApp(seeded.database, { envFile })
+    const cookie = await signInAs(writable.auth, 'owner@example.test', PASSWORD)
+    process.env['PORTTA_LOG_LEVEL'] = 'INFO'
+    try {
+      const response = await writable.app.request('/api/config/discard', {
+        method: 'POST',
+        body: JSON.stringify({}),
+        headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost', ...cookie },
+      })
+      expect(response.status).toBe(200)
+      const [entry] = await since()
+      expect(entry?.action).toBe('settings.discarded')
+      expect(entry?.metadata['changed']).toEqual(['PORTTA_LOG_LEVEL'])
+      expect(JSON.stringify(entry)).not.toContain('DEBUG')
+      expect(JSON.stringify(entry)).not.toContain('INFO')
+    } finally {
+      delete process.env['PORTTA_LOG_LEVEL']
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it('records a change to what a local agent may do', async () => {
     await send('PUT', '/api/settings/agent-permissions', 'owner', { permissions: ['task:read'] })
     const [entry] = await since()

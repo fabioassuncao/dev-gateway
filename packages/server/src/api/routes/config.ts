@@ -2,13 +2,17 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import type { AppDeps } from '../../deps.ts'
-import { buildConfigView, patchConfig } from '../../services/configview.ts'
-import { ConfigPatchResult, ConfigView } from 'portta-contracts'
+import { buildConfigView, discardConfig, patchConfig } from '../../services/configview.ts'
+import { ConfigDiscardResult, ConfigPatchResult, ConfigView } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 import { record } from '../audit.ts'
 
 const patchBody = z
   .object({ values: z.record(z.string(), z.union([z.string().max(4096), z.null()])) })
+  .strict()
+
+const discardBody = z
+  .object({ keys: z.array(z.string()).optional() })
   .strict()
 
 export function configRoutes(deps: AppDeps): Hono {
@@ -41,6 +45,32 @@ export function configRoutes(deps: AppDeps): Hono {
       resourceType: 'settings',
       resourceName: 'gateway',
       metadata: { changed: result.saved },
+    })
+    return c.json(result)
+  })
+
+  app.post('/config/discard', documentRoute({
+    tag: 'Configuration',
+    operationId: 'discardConfig',
+    permission: 'settings:manage',
+    summary: 'Discard saved settings that are not running yet',
+    description:
+      'Writes the running values back into .env. Omit keys to discard every pending change. Secret values never leave this process.',
+    response: ConfigDiscardResult,
+    request: discardBody,
+    errors: [400, 403, 500],
+  }), async (c) => {
+    const body = await c.req.json().catch(() => null)
+    const parsed = discardBody.safeParse(body ?? {})
+    if (!parsed.success) {
+      throw new HTTPException(400, { message: 'send {"keys": ["KEY"]} or {}' })
+    }
+    const result = discardConfig(deps.config, parsed.data.keys)
+    await record(deps, c, {
+      action: 'settings.discarded',
+      resourceType: 'settings',
+      resourceName: 'gateway',
+      metadata: { changed: result.discarded },
     })
     return c.json(result)
   })

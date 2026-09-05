@@ -3,7 +3,14 @@
 import type { PanelConfig } from '../config.ts'
 import { parseEnv, readEnvFile, setEnvValue, writeEnvFile, isWritable } from './envfile.ts'
 import { FIELDS, FIELDS_BY_KEY, ValidationError, validateCombination, validateValue } from './settings.ts'
-import type { ConfigField, ConfigPatchResult, ConfigView, ProjectDomain } from 'portta-contracts'
+import type {
+  ConfigDiscardResult,
+  ConfigField,
+  ConfigPatchResult,
+  ConfigView,
+  PendingChange,
+  ProjectDomain,
+} from 'portta-contracts'
 import { exampleHostnames, isDomainMode } from 'portta-core'
 import { existsSync } from 'node:fs'
 
@@ -186,5 +193,98 @@ export function patchConfig(
     pendingRestart: view.pendingRestart,
     applyCommand: view.applyCommand,
     view,
+  }
+}
+
+/**
+ * The before/after a confirmation needs, including secrets (as presence, never
+ * values). Built here so apply status and the settings page agree on one list.
+ */
+export function pendingChangesOf(fields: ConfigField[]): PendingChange[] {
+  return fields.filter((field) => field.pending).map((field) => {
+    const running = runtimeValue(field.key)
+    return {
+      key: field.key,
+      label: field.label,
+      group: field.group,
+      from: field.secret ? null : field.runtimeValue,
+      to: field.secret ? null : field.value,
+      secret: field.secret,
+      fromSet: running !== null && running !== '',
+      toSet: field.isSet,
+      restartRequired: field.restartRequired,
+    }
+  })
+}
+
+/**
+ * Put the running values back into `.env`. Secrets work because this process
+ * still has them; the client never sees them, so it cannot send them back.
+ *
+ * `keys` omitted or empty of pending names discards every pending change.
+ * A named key that is not pending is skipped. Unknown keys are refused, the
+ * same way a patch is.
+ */
+export function discardConfig(
+  config: PanelConfig,
+  keys?: string[],
+): ConfigDiscardResult {
+  if (!isWritable(config.envFile)) {
+    throw new ValidationError('.env', 'is not writable by the panel')
+  }
+
+  if (keys) {
+    for (const key of keys) {
+      if (!FIELDS_BY_KEY.has(key)) throw new ValidationError(key, 'is not a setting the panel manages')
+    }
+  }
+
+  const view = buildConfigView(config)
+  const pending = view.fields.filter((field) => field.pending)
+  const wanted = keys === undefined
+    ? pending
+    : pending.filter((field) => keys.includes(field.key))
+
+  if (wanted.length === 0) {
+    return {
+      ok: true,
+      discarded: [],
+      pendingRestart: view.pendingRestart,
+      applyCommand: view.applyCommand,
+      view,
+    }
+  }
+
+  const text = readEnvFile(config.envFile)
+  const merged = parseEnv(text)
+  const applied = new Map<string, string>()
+
+  for (const field of wanted) {
+    const spec = FIELDS_BY_KEY.get(field.key)
+    if (!spec) throw new ValidationError(field.key, 'is not a setting the panel manages')
+    const running = runtimeValue(field.key)
+    const value = running === null || running === ''
+      ? ''
+      : spec.kind === 'boolean'
+        ? normaliseBoolean(running)
+        : running
+    if (value !== '') validateValue(field.key, value)
+    applied.set(field.key, value)
+  }
+
+  for (const [key, value] of applied) merged.set(key, value)
+  validateCombination(merged)
+
+  let next = text
+  for (const [key, value] of applied) next = setEnvValue(next, key, value)
+  writeEnvFile(config.envFile, next)
+
+  const after = buildConfigView(config)
+  return {
+    ok: true,
+    discarded: [...applied.keys()],
+    pendingRestart: after.pendingRestart,
+    applyCommand: after.applyCommand,
+    view: after,
   }
 }

@@ -63,6 +63,7 @@ export function GeneralView({ group }: { group: string | null }) {
       setError(null)
       setSaved(true)
       void queryClient.invalidateQueries({ queryKey: keys.config() })
+      void queryClient.invalidateQueries({ queryKey: keys.apply() })
     },
     onError: (cause) => {
       setSaved(false)
@@ -138,6 +139,16 @@ export function GeneralView({ group }: { group: string | null }) {
           mayManage ? (
             <>
               {dirty ? <Badge tone="warn">{tc('unsaved', { count: Object.keys(draft).length })}</Badge> : null}
+              <Button
+                variant="ghost"
+                disabled={!dirty || save.isPending}
+                onClick={() => {
+                  setDraft({})
+                  setSaved(false)
+                }}
+              >
+                {tc('discard')}
+              </Button>
               <Button
                 variant="primary"
                 disabled={!dirty || save.isPending || !view.envFile.writable}

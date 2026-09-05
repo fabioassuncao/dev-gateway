@@ -1,11 +1,16 @@
 'use client'
 
 import { useTranslation } from 'react-i18next'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Circle, Loader2, TriangleAlert } from 'lucide-react'
 import { Dialog } from './ui/dialog.tsx'
 import { Button } from './ui/button.tsx'
 import { CommandRow, Mono, Pre } from './copy.tsx'
+import { PendingDiff } from './pending-diff.tsx'
 import { mmss, type ApplyMachine } from '../lib/use-apply.ts'
+import { api } from '../lib/api/index.ts'
+import { keys } from '../lib/queries/keys.ts'
+import { useToast } from './ui/toast.tsx'
 
 function Step({ done, active, label }: { done: boolean; active?: boolean; label: string }) {
   return (
@@ -22,51 +27,92 @@ function Step({ done, active, label }: { done: boolean; active?: boolean; label:
   )
 }
 
-function Command({ value }: { value: string; label: string }) {
+function Command({ value }: { value: string }) {
   return <CommandRow command={value} className="mt-3" />
 }
 
-export function ApplyDialog({ machine }: { machine: ApplyMachine }) {
+export function ApplyDialog({
+  machine,
+  readOnly = false,
+}: {
+  machine: ApplyMachine
+  readOnly?: boolean
+}) {
   const { t } = useTranslation('gateway', { keyPrefix: 'apply' })
   const { t: tc } = useTranslation('common')
   const { phase, busy, status, elapsedSeconds, sawOffline } = machine
   const command = status?.applyCommand ?? './bin/portta up'
+  const queryClient = useQueryClient()
+  const toast = useToast()
+
+  const discard = useMutation({
+    mutationFn: (keysToDrop?: string[]) => api.discardConfig(keysToDrop),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: keys.config() })
+      void queryClient.invalidateQueries({ queryKey: keys.apply() })
+      toast.push({
+        tone: 'ok',
+        title: t('discarded', { count: result.discarded.length }),
+      })
+      if (!result.pendingRestart) machine.dismiss()
+    },
+    onError: (cause) => {
+      toast.push({
+        tone: 'danger',
+        title: cause instanceof Error ? cause.message : String(cause),
+      })
+    },
+  })
 
   if (phase === 'confirming') {
+    const changes = status?.pendingChanges ?? []
+    const needsRecreate = changes.some((change) => change.restartRequired) || changes.length === 0
+    const canDiscard = !readOnly && changes.length > 0 && !discard.isPending
+
     return (
       <Dialog
         open
+        size="md"
         onOpenChange={(next) => !next && machine.dismiss()}
         title={t('confirmTitle')}
-        description={t('confirmDescription')}
+        description={needsRecreate ? t('confirmDescription') : t('confirmReference')}
         footer={
           <>
+            {canDiscard ? (
+              <Button variant="ghost" className="mr-auto" onClick={() => discard.mutate(undefined)}>
+                {t('discardAll')}
+              </Button>
+            ) : null}
             <Button variant="ghost" onClick={machine.dismiss}>{tc('cancel')}</Button>
-            <Button variant="primary" onClick={machine.confirm}>{t('confirm')}</Button>
+            {needsRecreate && !readOnly ? (
+              <Button variant="primary" onClick={machine.confirm}>{t('confirm')}</Button>
+            ) : null}
           </>
         }
       >
-        {status && status.pendingKeys.length > 0 ? (
-          <ul className="mb-3 space-y-1">
-            {status.pendingKeys.map((key) => (
-              <li key={key}><Mono kind="text" tone="ink" className="text-xs">{key}</Mono></li>
-            ))}
-          </ul>
+        <PendingDiff
+          changes={changes}
+          onDiscard={canDiscard ? (key) => discard.mutate([key]) : undefined}
+          discarding={discard.isPending}
+        />
+        {needsRecreate ? (
+          <>
+            <p className="text-xs text-muted">{t('confirmPanel')}</p>
+            <p className="mt-1 text-xs text-muted">{t('confirmProjects')}</p>
+            {status?.movesPanel ? (
+              <p className="mt-2 flex items-start gap-1.5 text-xs text-warn">
+                <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+                <span>{t('confirmMoves')}</span>
+              </p>
+            ) : null}
+            {/* The difference between ten seconds and five minutes. Without it, a
+                first apply on a checkout reads as a hang. */}
+            {status?.buildsImages ? (
+              <p className="mt-2 text-xs text-muted">{t('confirmBuild')}</p>
+            ) : null}
+            <p className="mt-2 text-xs text-subtle">{t('confirmKeepTab')}</p>
+          </>
         ) : null}
-        <p className="text-xs text-muted">{t('confirmPanel')}</p>
-        <p className="mt-1 text-xs text-muted">{t('confirmProjects')}</p>
-        {status?.movesPanel ? (
-          <p className="mt-2 flex items-start gap-1.5 text-xs text-warn">
-            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
-            <span>{t('confirmMoves')}</span>
-          </p>
-        ) : null}
-        {/* The difference between ten seconds and five minutes. Without it, a
-            first apply on a checkout reads as a hang. */}
-        {status?.buildsImages ? (
-          <p className="mt-2 text-xs text-muted">{t('confirmBuild')}</p>
-        ) : null}
-        <p className="mt-2 text-xs text-subtle">{t('confirmKeepTab')}</p>
       </Dialog>
     )
   }
@@ -144,7 +190,7 @@ export function ApplyDialog({ machine }: { machine: ApplyMachine }) {
           </details>
         ) : null}
         <p className="mt-3 text-xs text-muted">{t('failedHint')}</p>
-        <Command value={command} label={tc('copyCommand')} />
+        <Command value={command} />
       </Dialog>
     )
   }
@@ -165,7 +211,7 @@ export function ApplyDialog({ machine }: { machine: ApplyMachine }) {
         {/* Deliberately not "it failed": a slow host and a broken one look the
             same from a browser that cannot reach the panel. */}
         <p className="text-sm text-warn">{t('timeoutBody', { time: mmss(elapsedSeconds) })}</p>
-        <Command value={command} label={tc('copyCommand')} />
+        <Command value={command} />
       </Dialog>
     )
   }

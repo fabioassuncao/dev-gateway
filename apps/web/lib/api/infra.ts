@@ -3,6 +3,7 @@
 import type {
   AccessView,
   ServiceConnection,
+  ConfigDiscardResult,
   ConfigPatchResult,
   ConfigView,
   ContainerSummary,
@@ -111,4 +112,9 @@ export const infraApi = {
   config: () => request<ConfigView>('/config'),
   patchConfig: (values: Record<string, string | null>) =>
     request<ConfigPatchResult>('/config', { method: 'PATCH', body: JSON.stringify({ values }) }),
+  discardConfig: (keys?: string[]) =>
+    request<ConfigDiscardResult>('/config/discard', {
+      method: 'POST',
+      body: JSON.stringify(keys ? { keys } : {}),
+    }),
 }

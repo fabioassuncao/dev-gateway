@@ -21,7 +21,7 @@ export const AUDIT_ACTIONS = [
   'environment.rebuilt', 'environment.destroyed', 'environment.forgotten',
   'service.restarted', 'container.operated', 'container.destroyed',
   'access.bridge_opened', 'access.bridge_closed', 'share.created', 'share.revoked',
-  'gateway.applied', 'settings.changed', 'github.installed', 'github.removed',
+  'gateway.applied', 'settings.changed', 'settings.discarded', 'github.installed', 'github.removed',
   'database.migrated',
 ] as const
 

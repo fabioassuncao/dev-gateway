@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, statSync } from 'node
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseEnv, setEnvValue } from '../src/services/envfile.ts'
-import { buildConfigView, patchConfig } from '../src/services/configview.ts'
+import { buildConfigView, discardConfig, patchConfig, pendingChangesOf } from '../src/services/configview.ts'
 import { validateCombination, validateValue, ValidationError } from '../src/services/settings.ts'
 import { makeApp, testConfig } from './helpers.ts'
 import type { ConfigView } from 'portta-contracts'
@@ -247,7 +247,56 @@ describe('the Settings view and its writes', () => {
     expect(after.fields.find((f) => f.key === 'PORTTA_DOMAIN')?.pending).toBe(true)
     expect(after.pendingRestart).toBe(true)
     expect(after.applyCommand).toBe('./bin/portta up local')
+    expect(pendingChangesOf(after.fields)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        key: 'PORTTA_DOMAIN',
+        from: 'localhost',
+        to: 'dev.test',
+        secret: false,
+        fromSet: true,
+        toSet: true,
+        restartRequired: true,
+      }),
+    ]))
     delete process.env['PORTTA_DOMAIN']
+  })
+
+  it('puts the running value back when a pending change is discarded', () => {
+    process.env['PORTTA_DOMAIN'] = 'localhost'
+    process.env['PORTTA_LOG_LEVEL'] = 'INFO'
+    try {
+      patchConfig(testConfig({ envFile }), { PORTTA_DOMAIN: 'dev.test', PORTTA_LOG_LEVEL: 'DEBUG' })
+      expect(readFileSync(envFile, 'utf8')).toContain('PORTTA_DOMAIN=dev.test')
+
+      const one = discardConfig(testConfig({ envFile }), ['PORTTA_DOMAIN'])
+      expect(one.discarded).toEqual(['PORTTA_DOMAIN'])
+      expect(readFileSync(envFile, 'utf8')).toContain('PORTTA_DOMAIN=localhost')
+      expect(readFileSync(envFile, 'utf8')).toContain('PORTTA_LOG_LEVEL=DEBUG')
+
+      const rest = discardConfig(testConfig({ envFile }))
+      expect(rest.discarded).toContain('PORTTA_LOG_LEVEL')
+      expect(readFileSync(envFile, 'utf8')).toContain('PORTTA_LOG_LEVEL=INFO')
+      expect(rest.view.fields.find((field) => field.key === 'PORTTA_LOG_LEVEL')?.pending).toBe(false)
+    } finally {
+      delete process.env['PORTTA_DOMAIN']
+      delete process.env['PORTTA_LOG_LEVEL']
+    }
+  })
+
+  it('restores a secret from the running process without returning it', () => {
+    process.env['TS_AUTHKEY'] = 'tskey_auth_secret_value'
+    try {
+      patchConfig(testConfig({ envFile }), { TS_AUTHKEY: 'tskey_auth_new_value' })
+      expect(readFileSync(envFile, 'utf8')).toContain('tskey_auth_new_value')
+
+      const result = discardConfig(testConfig({ envFile }), ['TS_AUTHKEY'])
+      expect(result.discarded).toEqual(['TS_AUTHKEY'])
+      expect(readFileSync(envFile, 'utf8')).toContain('tskey_auth_secret_value')
+      expect(readFileSync(envFile, 'utf8')).not.toContain('tskey_auth_new_value')
+      expect(JSON.stringify(result)).not.toContain('tskey_auth')
+    } finally {
+      delete process.env['TS_AUTHKEY']
+    }
   })
 
   it('writes the file with mode 600', () => {
@@ -328,6 +377,23 @@ describe('the config endpoints', () => {
     expect(result.saved).toEqual(['PORTTA_DOMAIN'])
     expect(result.applyCommand).toContain('portta up')
     expect(readFileSync(envFile, 'utf8')).toContain('PORTTA_DOMAIN=dev.test')
+  })
+
+  it('discards pending settings through POST', async () => {
+    process.env['PORTTA_DOMAIN'] = 'localhost'
+    writeFileSync(envFile, 'PORTTA_DOMAIN=dev.test\nCF_DNS_API_TOKEN=super-secret\n')
+    const { app } = makeApp({ containers: [] }, { envFile })
+    const response = await app.request('/api/config/discard', {
+      method: 'POST',
+      body: JSON.stringify({ keys: ['PORTTA_DOMAIN'] }),
+      headers: { 'content-type': 'application/json', origin: 'http://localhost', host: 'localhost' },
+    })
+    expect(response.status).toBe(200)
+    const result = await response.json()
+    expect(result.discarded).toEqual(['PORTTA_DOMAIN'])
+    expect(readFileSync(envFile, 'utf8')).toContain('PORTTA_DOMAIN=localhost')
+    expect(JSON.stringify(result)).not.toContain('super-secret')
+    delete process.env['PORTTA_DOMAIN']
   })
 
   it('answers 400 with the offending key, and writes nothing', async () => {

@@ -405,7 +405,7 @@
   "savedShort": "Saved.",
   "restartRequired": "Needs a restart",
   "restartHint": "Changing this takes effect after the gateway restarts, not when it is saved.",
-  "pendingHint": "Saved, but the running process still has {{value}}. Apply to restart it.",
+  "pendingHint": "Saved, but the running process still has {{value}}.",
   "runningValue": "running: {{value}}",
   "sectionsLabel": "Settings sections",
   "sections": {

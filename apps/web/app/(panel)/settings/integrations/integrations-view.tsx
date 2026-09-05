@@ -40,6 +40,7 @@ export function IntegrationsView() {
       setDraft({})
       setError(null)
       void queryClient.invalidateQueries({ queryKey: keys.config() })
+      void queryClient.invalidateQueries({ queryKey: keys.apply() })
     },
     onError: setError,
   })
@@ -69,6 +70,13 @@ export function IntegrationsView() {
           mayManage ? (
             <>
               {dirty ? <Badge tone="warn">{tc('unsaved', { count: Object.keys(draft).length })}</Badge> : null}
+              <Button
+                variant="ghost"
+                disabled={!dirty || save.isPending}
+                onClick={() => setDraft({})}
+              >
+                {tc('discard')}
+              </Button>
               <Button variant="primary" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
                 <Save />
                 {save.isPending ? tc('saving') : tc('save')}

@@ -5454,6 +5454,60 @@
           "not-prepared"
         ]
       },
+      "PendingChange": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "from": {
+            "description": "Running value; null for a secret",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "to": {
+            "description": "Saved value; null for a secret",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "secret": {
+            "type": "boolean"
+          },
+          "fromSet": {
+            "type": "boolean",
+            "description": "Whether the running process had a value"
+          },
+          "toSet": {
+            "type": "boolean",
+            "description": "Whether the saved file has a value"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "group",
+          "from",
+          "to",
+          "secret",
+          "fromSet",
+          "toSet",
+          "restartRequired"
+        ],
+        "additionalProperties": false
+      },
       "ApplyStatus": {
         "type": "object",
         "properties": {
@@ -5527,6 +5581,12 @@
               "type": "string"
             }
           },
+          "pendingChanges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PendingChange"
+            }
+          },
           "movesPanel": {
             "type": "boolean"
           },
@@ -5555,6 +5615,7 @@
           "exitCode",
           "pendingRestart",
           "pendingKeys",
+          "pendingChanges",
           "movesPanel",
           "logTail",
           "profile",
@@ -6825,6 +6886,37 @@
         "required": [
           "ok",
           "saved",
+          "pendingRestart",
+          "applyCommand",
+          "view"
+        ],
+        "additionalProperties": false
+      },
+      "ConfigDiscardResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "discarded": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pendingRestart": {
+            "type": "boolean"
+          },
+          "applyCommand": {
+            "type": "string"
+          },
+          "view": {
+            "$ref": "#/components/schemas/ConfigView"
+          }
+        },
+        "required": [
+          "ok",
+          "discarded",
           "pendingRestart",
           "applyCommand",
           "view"
@@ -10833,6 +10925,7 @@
               "share.revoked",
               "gateway.applied",
               "settings.changed",
+              "settings.discarded",
               "github.installed",
               "github.removed",
               "database.migrated"
@@ -17302,6 +17395,86 @@
                 "required": [
                   "values"
                 ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-portta-permission": "settings:manage"
+      }
+    },
+    "/config/discard": {
+      "post": {
+        "operationId": "discardConfig",
+        "tags": [
+          "Configuration"
+        ],
+        "summary": "Discard saved settings that are not running yet",
+        "description": "Writes the running values back into .env. Omit keys to discard every pending change. Secret values never leave this process.",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigDiscardResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "keys": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
                 "additionalProperties": false
               }
             }

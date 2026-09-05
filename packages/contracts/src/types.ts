@@ -1537,6 +1537,38 @@ export const ConfigPatchResult = named(
 export type ConfigPatchResult = z.infer<typeof ConfigPatchResult>
 
 /**
+ * A saved setting that the running gateway has not picked up. Values are
+ * omitted for secrets; `fromSet` / `toSet` still say whether one was present.
+ */
+export const PendingChange = named(
+  z.object({
+    key: z.string(),
+    label: z.string(),
+    group: z.string(),
+    from: z.string().nullable().describe('Running value; null for a secret'),
+    to: z.string().nullable().describe('Saved value; null for a secret'),
+    secret: z.boolean(),
+    fromSet: z.boolean().describe('Whether the running process had a value'),
+    toSet: z.boolean().describe('Whether the saved file has a value'),
+    restartRequired: z.boolean(),
+  }).strict(),
+  'PendingChange',
+)
+export type PendingChange = z.infer<typeof PendingChange>
+
+export const ConfigDiscardResult = named(
+  z.object({
+    ok: z.boolean(),
+    discarded: z.array(z.string()),
+    pendingRestart: z.boolean(),
+    applyCommand: z.string(),
+    view: ConfigView,
+  }).strict(),
+  'ConfigDiscardResult',
+)
+export type ConfigDiscardResult = z.infer<typeof ConfigDiscardResult>
+
+/**
  * Applying is a container the gateway created stopped, which the panel may
  * start. Every field is derived from that container rather than remembered in
  * this process, because the apply recreates this process. See ADR 0026.
@@ -1582,6 +1614,7 @@ export const ApplyStatus = named(
     // Keys whose saved value is not running yet, so the confirmation can say
     // what is about to change rather than asking for blind trust.
     pendingKeys: z.array(z.string()),
+    pendingChanges: z.array(PendingChange),
     // A pending key that moves the panel's own address: this tab will not
     // reconnect on its own, and saying so is the difference between a wait and
     // a hang.

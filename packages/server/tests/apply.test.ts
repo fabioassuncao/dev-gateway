@@ -78,6 +78,19 @@ describe('GET /api/gateway/apply', () => {
     expect(body).toMatchObject({ state: 'idle', available: true, buildsImages: true })
   })
 
+  it('describes each pending change with the running and saved values', async () => {
+    process.env['PORTTA_DOMAIN'] = 'localhost'
+    try {
+      const { body } = await status([...GATEWAY, APPLIER], '', 'PORTTA_DOMAIN=dev.test\n')
+      expect(body.pendingKeys).toContain('PORTTA_DOMAIN')
+      expect(body.pendingChanges).toEqual(expect.arrayContaining([
+        expect.objectContaining({ key: 'PORTTA_DOMAIN', from: 'localhost', to: 'dev.test', secret: false }),
+      ]))
+    } finally {
+      delete process.env['PORTTA_DOMAIN']
+    }
+  })
+
   it('reports a prepared applier that has never run as idle', async () => {
     const { body } = await status([...GATEWAY, APPLIER])
     expect(body).toMatchObject({ state: 'idle', available: true, exitCode: null, startedAt: null })

@@ -405,7 +405,7 @@
   "savedShort": "Salvo.",
   "restartRequired": "Exige reinício",
   "restartHint": "Mudar isto passa a valer depois que o gateway reiniciar, não ao salvar.",
-  "pendingHint": "Salvo, mas o processo em execução ainda usa {{value}}. Aplique para reiniciá-lo.",
+  "pendingHint": "Salvo, mas o processo em execução ainda usa {{value}}.",
   "runningValue": "em execução: {{value}}",
   "sectionsLabel": "Seções de configurações",
   "sections": {

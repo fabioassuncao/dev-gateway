@@ -9,6 +9,7 @@ import { Field, Input, Select } from '../ui/field.tsx'
 import { Switch } from '../ui/switch.tsx'
 import { Tooltip } from '../ui/tooltip.tsx'
 import { CodeChip } from '../copy.tsx'
+import { ValueArrow } from '../pending-diff.tsx'
 
 /**
  * One setting, and everything a person needs before changing it: what it is,
@@ -67,8 +68,15 @@ export function ConfigField({
       <DocText citationLabel={t('learnMore')}>{t(`fields.${field.key}.help`, { defaultValue: field.help })}</DocText>
       <span className="mt-1 flex flex-wrap items-center gap-2 text-2xs">
         {source ? <span>{source}</span> : null}
-        {field.pending && !boolean && !field.secret && field.runtimeValue ? (
-          <span>{t('runningValue', { value: field.runtimeValue })}</span>
+        {field.pending && !field.secret ? (
+          <ValueArrow
+            from={boolean
+              ? (field.runtimeValue === 'true' ? tc('enabled') : tc('disabled'))
+              : field.runtimeValue}
+            to={boolean
+              ? (field.value === 'true' ? tc('enabled') : tc('disabled'))
+              : field.value}
+          />
         ) : null}
         <CodeChip tone="muted" title={t('envVar')}>{field.key}</CodeChip>
       </span>
