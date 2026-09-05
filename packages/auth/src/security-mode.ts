@@ -29,6 +29,18 @@ function isTrue(value: string | undefined): boolean {
   return value === 'true' || value === '1' || value === 'yes'
 }
 
+/**
+ * A variable Compose always sets, and often to nothing.
+ *
+ * Every key in a compose file's `environment` reaches the process, so an unset
+ * value arrives as an empty string rather than as absent. `??` does not catch
+ * that, and `new URL('')` throws — which is how a panel started with a default
+ * `PORTTA_PANEL_URL` crashed on boot instead of falling back to loopback.
+ */
+function set(value: string | undefined): string | undefined {
+  return value === undefined || value === '' ? undefined : value
+}
+
 function isLoopback(address: string): boolean {
   return address === '127.0.0.1' || address === 'localhost' || address === '::1' || address === '[::1]'
 }
@@ -41,25 +53,27 @@ function isLoopback(address: string): boolean {
  * is an open door anywhere else — so it is refused rather than warned about.
  */
 export function resolveSecurityMode(env: NodeJS.ProcessEnv): SecurityConfig {
-  const raw = (env['PORTTA_AUTH_MODE'] ?? 'disabled').toLowerCase()
+  const raw = (set(env['PORTTA_AUTH_MODE']) ?? 'disabled').toLowerCase()
   if (raw !== 'disabled' && raw !== 'required') {
     throw new ConfigError(`PORTTA_AUTH_MODE must be disabled or required, got ${raw}`)
   }
   const mode: SecurityMode = raw === 'required' ? 'protected' : 'open'
 
-  const bindAddress = env['PORTTA_WEB_BIND_ADDRESS'] ?? '127.0.0.1'
-  const exposed = !isLoopback(bindAddress) || (env['PORTTA_WEB_EXPOSE'] ?? 'local') !== 'local'
+  const bindAddress = set(env['PORTTA_WEB_BIND_ADDRESS']) ?? '127.0.0.1'
+  const exposed = !isLoopback(bindAddress) || (set(env['PORTTA_WEB_EXPOSE']) ?? 'local') !== 'local'
   if (mode === 'open' && exposed) {
     throw new ConfigError(
       'PORTTA_AUTH_MODE=disabled is only allowed on loopback; ' +
         'set PORTTA_AUTH_MODE=required before exposing the panel',
     )
   }
-  if (mode === 'protected' && !env['PORTTA_AUTH_SECRET']) {
+  if (mode === 'protected' && !set(env['PORTTA_AUTH_SECRET'])) {
     throw new ConfigError('PORTTA_AUTH_SECRET is required when PORTTA_AUTH_MODE=required')
   }
 
-  const panelUrl = new URL(env['PORTTA_PANEL_URL'] ?? `http://127.0.0.1:${env['PORTTA_WEB_PORT'] ?? '8081'}`)
+  const panelUrl = new URL(
+    set(env['PORTTA_PANEL_URL']) ?? `http://127.0.0.1:${set(env['PORTTA_WEB_PORT']) ?? '8081'}`,
+  )
   const trustedOrigins = (env['PORTTA_PANEL_TRUSTED_ORIGINS'] ?? '')
     .split(',')
     .map((origin) => origin.trim())
@@ -70,7 +84,7 @@ export function resolveSecurityMode(env: NodeJS.ProcessEnv): SecurityConfig {
     readOnly: isTrue(env['PORTTA_RUNTIME_READ_ONLY']),
     panelUrl,
     trustedOrigins,
-    secret: env['PORTTA_AUTH_SECRET'] ?? null,
+    secret: set(env['PORTTA_AUTH_SECRET']) ?? null,
     bindAddress,
   }
 }

@@ -83,3 +83,37 @@ describe('read-only mode', () => {
     expect(resolveSecurityMode(env()).readOnly).toBe(false)
   })
 })
+
+// Compose sets every key in a service's `environment`, whether or not the
+// operator gave it a value, so the process sees `''` and not "absent". `??`
+// does not catch that: the panel booted with an empty PORTTA_PANEL_URL and
+// crashed on `new URL('')` before it could serve anything.
+describe('a value Compose set to nothing', () => {
+  const emptied = {
+    PORTTA_AUTH_MODE: '',
+    PORTTA_AUTH_SECRET: '',
+    PORTTA_PANEL_URL: '',
+    PORTTA_PANEL_TRUSTED_ORIGINS: '',
+    PORTTA_WEB_BIND_ADDRESS: '',
+    PORTTA_WEB_EXPOSE: '',
+    PORTTA_WEB_PORT: '',
+  }
+
+  it('is the same as one nobody set', () => {
+    const security = resolveSecurityMode(env(emptied))
+    expect(security.mode).toBe('open')
+    expect(security.secret).toBeNull()
+    expect(security.bindAddress).toBe('127.0.0.1')
+    expect(security.panelUrl.origin).toBe('http://127.0.0.1:8081')
+    expect(security.trustedOrigins).toEqual([])
+  })
+
+  it('and an empty secret is still a missing secret in required mode', () => {
+    expect(() => resolveSecurityMode(env({ ...emptied, PORTTA_AUTH_MODE: 'required' }))).toThrow(ConfigError)
+  })
+
+  it('while a port with no URL beside it still decides the fallback', () => {
+    const security = resolveSecurityMode(env({ ...emptied, PORTTA_WEB_PORT: '9000' }))
+    expect(security.panelUrl.origin).toBe('http://127.0.0.1:9000')
+  })
+})

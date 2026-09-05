@@ -7,10 +7,11 @@
 # and no access to the Docker socket. The panel reaches Docker exclusively
 # through its own socket proxy over an internal network.
 #
-# The panel is composed from five packages, and they build in dependency order:
-# core → contracts → db → server → web. Skipping one leaves the next resolving
-# a dist/ that does not exist, because `next build` runs under NODE_ENV
-# production, where the `development` export condition no longer applies.
+# The panel is composed from six packages, and they build in dependency order:
+# core → contracts → db → auth → server → web. Skipping one leaves the next
+# resolving a dist/ that does not exist, because `next build` runs under
+# NODE_ENV production, where the `development` export condition no longer
+# applies.
 # =============================================================================
 
 FROM node:24.20.0-alpine AS deps
@@ -21,6 +22,7 @@ COPY apps/web/package.json ./apps/web/
 COPY packages/core/package.json ./packages/core/
 COPY packages/contracts/package.json ./packages/contracts/
 COPY packages/db/package.json ./packages/db/
+COPY packages/auth/package.json ./packages/auth/
 COPY packages/server/package.json ./packages/server/
 COPY packages/cli/package.json ./packages/cli/
 # Install the whole workspace graph. Filtering with --workspace drops optional
@@ -37,6 +39,8 @@ COPY packages/contracts/src ./packages/contracts/src
 COPY packages/db/tsconfig.json packages/db/tsconfig.build.json ./packages/db/
 COPY packages/db/src ./packages/db/src
 COPY packages/db/drizzle ./packages/db/drizzle
+COPY packages/auth/tsconfig.json packages/auth/tsconfig.build.json ./packages/auth/
+COPY packages/auth/src ./packages/auth/src
 COPY packages/server/tsconfig.json packages/server/tsconfig.build.json ./packages/server/
 COPY packages/server/src ./packages/server/src
 COPY apps/auth/tsconfig.json apps/auth/tsconfig.build.json apps/auth/tsconfig.ui.json apps/auth/vite.config.ts ./apps/auth/
@@ -58,6 +62,7 @@ COPY README.md CHANGELOG.md ./
 RUN npm run build --workspace=portta-core \
  && npm run build --workspace=portta-contracts \
  && npm run build --workspace=portta-db \
+ && npm run build --workspace=portta-auth-core \
  && npm run build --workspace=portta-server \
  && npm run build --workspace=portta-auth \
  && npm run build --workspace=portta-web
@@ -81,6 +86,8 @@ COPY packages/contracts/src ./packages/contracts/src
 COPY packages/db/tsconfig.json ./packages/db/
 COPY packages/db/src ./packages/db/src
 COPY packages/db/drizzle ./packages/db/drizzle
+COPY packages/auth/tsconfig.json ./packages/auth/
+COPY packages/auth/src ./packages/auth/src
 COPY packages/server/tsconfig.json ./packages/server/
 COPY packages/server/src ./packages/server/src
 COPY docs ./docs
@@ -108,6 +115,7 @@ COPY apps/web/package.json ./apps/web/
 COPY packages/core/package.json ./packages/core/
 COPY packages/contracts/package.json ./packages/contracts/
 COPY packages/db/package.json ./packages/db/
+COPY packages/auth/package.json ./packages/auth/
 COPY packages/server/package.json ./packages/server/
 COPY packages/cli/package.json ./packages/cli/
 RUN npm ci --workspace=portta-web --workspace=portta-auth --omit=dev && npm cache clean --force
@@ -117,6 +125,7 @@ COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY --from=build /app/packages/core/dist ./packages/core/dist
 COPY --from=build /app/packages/contracts/dist ./packages/contracts/dist
 COPY --from=build /app/packages/db/dist ./packages/db/dist
+COPY --from=build /app/packages/auth/dist ./packages/auth/dist
 COPY --from=build /app/packages/server/dist ./packages/server/dist
 COPY apps/web/next.config.ts ./apps/web/
 COPY apps/web/public ./apps/web/public

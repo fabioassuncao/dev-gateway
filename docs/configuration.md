@@ -72,6 +72,7 @@ by the public profile.
 The loopback path exposes your full routing table on its own port, never
 through `web`/`websecure`, so it can never appear under the public wildcard
 domain. `doctor` still fails if that port is bound anywhere but loopback.
+
 `PORTTA_DASHBOARD_EXPOSE=domain` is refused. It borrowed the panel's BasicAuth
 credential, and the panel signs people in itself now
 ([ADR 0035](adr/0035-authentication-lives-in-the-panel.md)); the dashboard has no
@@ -125,8 +126,8 @@ See [tcp-routing.md](tcp-routing.md).
 The panel binds loopback by default, and `PORTTA_AUTH_MODE=disabled` is only
 allowed there: reaching a loopback panel already means having the machine, which
 is true of nothing else, so the panel refuses to start rather than warn. Every
-routed mode (`vpn`, `public`, `domain`) requires `required`, and `vpn` is refused
-on the `remote-public` profile. On a Linux host set `PORTTA_WEB_USER` to
+other access mode — `tailscale`, `public`, `vpn`, `domain` — requires
+`required`, and `vpn` is refused on the `remote-public` profile. On a Linux host set `PORTTA_WEB_USER` to
 `$(id -u):$(id -g)` if you want the Settings page to be able to write `.env`.
 
 `portta web up` sets these for you and generates the database credential and the

@@ -206,6 +206,36 @@ it "the panel refuses a path it could not open, naming that directory"
 assert_contains "$(cat packages/server/src/services/settings.ts)" "the directory mounted into the panel"
 
 
+describe "the image carries every workspace the panel resolves"
+
+# `packages/auth` was added and the Dockerfile was not, so `portta-server`
+# compiled against a `portta-auth-core` that did not exist in the image and the
+# build failed at `docker build` — a long way from the change that caused it,
+# and only on a host that actually builds the image.
+dockerfile="$(cat apps/web/Dockerfile)"
+required=$(python3 - <<'PYEOF'
+import json, pathlib
+wanted = set()
+for manifest in ('apps/web/package.json', 'packages/server/package.json'):
+    data = json.loads(pathlib.Path(manifest).read_text())
+    wanted |= {name for name in data.get('dependencies', {}) if name.startswith('portta-')}
+# Resolve each name to the directory that declares it.
+for path in sorted(pathlib.Path('packages').glob('*/package.json')):
+    if json.loads(path.read_text())['name'] in wanted:
+        print(path.parent.as_posix())
+PYEOF
+)
+
+for workspace in $required; do
+  it "$workspace is installed, copied and built"
+  assert_contains "$dockerfile" "COPY $workspace/package.json"
+  assert_contains "$dockerfile" "COPY $workspace/src"
+done
+
+it "and each one is built before the packages that import it"
+order=$(printf '%s' "$dockerfile" | sed -n 's/.*npm run build --workspace=\(portta[a-z-]*\).*/\1/p' | tr '\n' ' ')
+assert_eq "portta-core portta-contracts portta-db portta-auth-core portta-server portta-auth portta-web " "$order"
+
 describe "every panel command resolves the file list with the panel enabled"
 
 # The environment beats .env, so an inherited PORTTA_WEB=false drops the
@@ -230,8 +260,11 @@ assert_contains "$(cat docker/compose/features/panel-public.yaml)" "TRAEFIK_ENTR
 it "and attaches the panel router to that entrypoint only"
 assert_contains "$(cat docker/compose/features/panel-public.yaml)" "traefik.http.routers.portta-panel.entrypoints: panel"
 
-it "behind the same ForwardAuth middleware the vpn mode uses"
-assert_contains "$(cat docker/compose/features/panel-public.yaml)" "portta-forward-auth@file"
+# The panel signs people in itself now, so the router carries no middleware:
+# what stands in front of it is PORTTA_AUTH_MODE=required, which `web up` and
+# the panel's own process both refuse to do without.
+it "and carries no Traefik middleware, because the panel authenticates itself"
+assert_eq "" "$(grep -n 'middlewares' docker/compose/features/panel-public.yaml || true)"
 
 it "the panel container publishes no host port of its own there"
 assert_eq "" "$(sed -n '/^  web:/,$p' docker/compose/features/panel-public.yaml | grep -E '^\s+ports:' || true)"
@@ -246,18 +279,34 @@ it "and publishing the panel publishes no application entrypoint"
 # The router is scoped to `panel`; nothing here touches web or websecure.
 assert_eq "" "$(grep -E 'entrypoints: (web|websecure)' docker/compose/features/panel-public.yaml || true)"
 
-describe "the panel is routed only behind a credential"
+describe "the panel is routed only when it signs people in"
 
-it "the vpn overlay names a middleware"
-assert_contains "$(cat docker/compose/features/web-vpn.yaml)" "portta-forward-auth@file"
+for overlay in web-vpn panel-domain panel-public; do
+  it "the $overlay router names no middleware"
+  assert_eq "" "$(grep -n 'middlewares' "docker/compose/features/$overlay.yaml" || true)"
+done
 
-for key in PORTTA_WEB_AUTH PORTTA_WEB_AUTH_USER PORTTA_WEB_AUTH_HASH; do
+for key in PORTTA_AUTH_MODE PORTTA_AUTH_SECRET PORTTA_PANEL_URL PORTTA_PANEL_TRUSTED_ORIGINS; do
   it "$key is in the example configuration"
   assert_contains "$(cat .env.example)" "$key="
 done
 
 it "authentication is off by default, because loopback needs none"
-assert_contains "$(cat .env.example)" "PORTTA_WEB_AUTH=none"
+assert_contains "$(cat .env.example)" "PORTTA_AUTH_MODE=disabled"
+
+it "and the keys that used to guard the panel are gone from it"
+assert_eq "" "$(grep -nE '^PORTTA_WEB_AUTH' .env.example || true)"
+
+it "the panel gets the mode, the secret and its own URL from compose"
+web_service="$(cat docker/compose/features/web.yaml)"
+assert_contains "$web_service" 'PORTTA_AUTH_MODE: ${PORTTA_AUTH_MODE:-disabled}'
+assert_contains "$web_service" 'PORTTA_AUTH_SECRET: ${PORTTA_AUTH_SECRET:-}'
+assert_contains "$web_service" 'PORTTA_PANEL_URL: ${PORTTA_PANEL_URL:-}'
+assert_contains "$web_service" 'PORTTA_PANEL_TRUSTED_ORIGINS: ${PORTTA_PANEL_TRUSTED_ORIGINS:-}'
+assert_eq "" "$(grep -n 'PORTTA_WEB_AUTH' docker/compose/features/web.yaml || true)"
+
+it "and web up writes a panel URL that matches the exposure"
+assert_contains "$(cat packages/cli/src/commands/web.ts)" "values['PORTTA_PANEL_URL']"
 
 it "the disposable auth migrator gets explicit write mounts without weakening the service"
 auth_prepare="$(cat scripts/lib/auth.sh)"
@@ -273,8 +322,11 @@ assert_contains "$auth_services" 'network_mode: none'
 it "the signing secret is declared a secret, so the API never returns it"
 assert_contains "$(sed -n '/PORTTA_AUTH_SECRET/,/},/p' packages/server/src/services/settings.ts)" "secret: true"
 
-it "routing the panel without a credential is refused by the profile resolver"
-assert_contains "$(cat scripts/lib/docker.sh)" "the panel is reachable beyond this host with no credential in front of it"
+it "routing the panel without a sign-in is refused by the profile resolver"
+assert_contains "$(cat scripts/lib/docker.sh)" "the panel is reachable beyond this host and asks nobody who they are"
+
+it "and so is required mode with no secret to sign sessions with"
+assert_contains "$(cat scripts/lib/docker.sh)" "PORTTA_AUTH_MODE=required with no PORTTA_AUTH_SECRET"
 
 it "and by web up"
 out=$(PORTTA_AUTH_MODE=disabled ./bin/portta web up --expose vpn 2>&1 || true)
@@ -284,6 +336,17 @@ assert_contains "$out" "needs the panel to sign people in"
 # Auth hashes what they type inside the process.
 it "the CLI stores no panel credential at all"
 assert_eq "" "$(grep -nE "hashPassword|PORTTA_WEB_AUTH" packages/cli/src/commands/web.ts || true)"
+
+# A panel in `required` mode has exactly one page until somebody creates the
+# owner, and an installer or an operator who is not told that has a host that
+# looks started and unreachable.
+it "web up says where the first account is created"
+assert_contains "$(cat packages/cli/src/commands/web.ts)" "/setup to create it"
+
+it "and web status reports the mode and whether it is still needed"
+status_body="$(sed -n '/^export async function webStatus/,/^}/p' packages/cli/src/commands/web.ts)"
+assert_contains "$status_body" "authMode"
+assert_contains "$status_body" "setupRequired"
 
 describe "the panel writes four filenames into Traefik's dynamic directory"
 

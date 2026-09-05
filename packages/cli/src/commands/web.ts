@@ -88,10 +88,15 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
     }
   }
   // Anything the panel can be reached on from another machine has to ask who is
-  // asking. `local` and `tailscale` publish a host port and are governed by the
-  // interface they bind, not by a credential.
+  // asking. `local` is the only mode that does not: it publishes on loopback,
+  // where reaching the panel already means having the machine. `tailscale`
+  // binds the node's tailnet address, which is another machine's reach.
+  //
+  // The panel's own process refuses the same combination at boot. This refusal
+  // exists so the answer arrives before the container is started, with the
+  // command that fixes it.
   const protectedPanel = initial.env['PORTTA_AUTH_MODE'] === 'required'
-  if ((expose === 'vpn' || expose === 'public' || expose === 'domain') && !protectedPanel) {
+  if (expose !== 'local' && !protectedPanel) {
     throw new RefusedError(
       `panel access '${expose}' needs the panel to sign people in`,
       'portta config set panel.auth required',
@@ -102,6 +107,17 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
     PORTTA_WEB: 'true', PORTTA_WEB_EXPOSE: expose, PORTTA_WEB_READ_ONLY: String(readOnly), PORTTA_WEB_DEV: String(options.dev === true),
   }
   if (options.port) values['PORTTA_WEB_PORT'] = String(Number(options.port))
+  // Where a browser reaches the panel, decided here because the exposure is
+  // decided here. Three things read it: whether the session cookie may be
+  // `Secure`, which origins a write is accepted from, and the address the
+  // panel prints. Getting it wrong on a routed panel means a cookie that is
+  // never sent back, which looks exactly like a password that does not work.
+  values['PORTTA_PANEL_URL'] = panelUrlFor(
+    initial,
+    expose,
+    options.port ? String(Number(options.port)) : String(initial.config.webPort),
+    options.dev === true,
+  )
   if (!initial.env['PORTTA_RUNTIME_DB_PASSWORD']) values['PORTTA_RUNTIME_DB_PASSWORD'] = randomBytes(32).toString('hex')
   if (!initial.env['PORTTA_AUTH_SECRET']) values['PORTTA_AUTH_SECRET'] = randomBytes(32).toString('hex')
   // The Settings page writes .env, and .env is owner-only, so the container has
@@ -173,7 +189,16 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   }
   // The context was resolved before .env was rewritten, so `web dev` would
   // otherwise report the URL the previous mode used.
-  output.data(webUrl(running))
+  const url = webUrl(running)
+  // A panel that signs people in has one page until somebody creates the owner,
+  // and knowing which one is the difference between an install that finished
+  // and one that appears to have started something unreachable.
+  const state = await panelSetupState(panelLoopbackApiUrl(running))
+  if (state?.setupRequired) {
+    output.progress(`this panel has no owner yet: open ${url}/setup to create it`)
+    output.hint('portta auth bootstrap --email you@example.com   creates it from this host instead')
+  }
+  output.data(url)
 }
 
 /**
@@ -254,6 +279,63 @@ export function webUrl(context: ReturnType<typeof gatewayContext>): string {
   return `http://${host}:${port}`
 }
 
+/**
+ * The origin a browser will actually be on, for PORTTA_PANEL_URL.
+ *
+ * Nearly `webUrl`, and deliberately not the same function: that one is written
+ * for a person to read and says `<this-host>` when the address is not knowable.
+ * This one has to parse as a URL, so where the host is unknown it falls back to
+ * loopback and the operator adds the real origin to
+ * PORTTA_PANEL_TRUSTED_ORIGINS. Everything the panel derives from it — whether
+ * the session cookie may be `Secure`, which origins a sign-in is accepted from
+ * — is wrong in a way that looks like a broken password if this is wrong.
+ */
+export function panelUrlFor(
+  context: ReturnType<typeof gatewayContext>,
+  expose: string,
+  port: string,
+  dev = false,
+): string {
+  const scheme = context.config.tlsEnabled ? 'https' : 'http'
+  if (expose === 'domain') {
+    return `${scheme}://${context.env['PORTTA_PANEL_ADVERTISED_HOST'] ?? context.config.domain}`
+  }
+  if (expose === 'vpn') {
+    return `${scheme}://${context.env['PORTTA_WEB_HOST'] ?? 'portta-web'}.${context.config.domain}`
+  }
+  // In development the browser is on Vite's port and Vite proxies `/api`, so
+  // the origin it sends is Vite's. Naming the API's port here would make every
+  // sign-in a cross-origin write.
+  const reached = dev ? (context.env['PORTTA_WEB_DEV_PORT'] ?? '5173') : port
+  if (expose === 'public') {
+    const advertised = context.env['PORTTA_PANEL_ADVERTISED_HOST'] || null
+    return advertised ? `http://${advertised}:${reached}` : `http://127.0.0.1:${reached}`
+  }
+  const bind = context.env['PORTTA_WEB_BIND_ADDRESS'] ?? '127.0.0.1'
+  const host = bind === '0.0.0.0' || bind === '::' || bind === '[::]' ? '127.0.0.1' : bind
+  return `http://${host}:${reached}`
+}
+
+/**
+ * Whether this panel still has to be set up, and where.
+ *
+ * `GET /api/auth/status` is public in both modes and is the only thing that can
+ * answer it: the owner lives in the database, not in `.env`. A panel that does
+ * not answer is not an error here — `up` has already reported that — so this
+ * returns null and the caller stays quiet.
+ */
+export async function panelSetupState(apiUrl: string): Promise<{ mode: string; setupRequired: boolean } | null> {
+  try {
+    const response = await fetch(`${apiUrl}/api/auth/status`, { signal: AbortSignal.timeout(5_000) })
+    if (!response.ok) return null
+    const body = await response.json() as { mode?: string; setupRequired?: boolean }
+    if (typeof body.mode !== 'string') return null
+    return { mode: body.mode, setupRequired: body.setupRequired === true }
+  } catch {
+    return null
+  }
+}
+
 export async function webDown(command: Command): Promise<void> {
   // Both overlays, so the file list names every service this stops: the dev
   // pair exists only while PORTTA_WEB_DEV is on, and leaving it out is how a
@@ -294,7 +376,21 @@ export async function webStatus(command: Command): Promise<void> {
   const containers = await inspectContainers()
   const panel = containers.find((container) => container.labels['portta.component'] === 'web')
   const proxy = containers.find((container) => container.labels['portta.component'] === 'web-socket-proxy')
-  const value = { enabled: context.config.webEnabled, devMode: isTrue(context.env['PORTTA_WEB_DEV']), readOnly: context.config.webReadOnly, expose: context.config.webExpose, url: webUrl(context), panel: { state: panel?.state ?? 'absent' }, socketProxy: { state: proxy?.state ?? 'absent' } }
+  // The mode comes from `.env`; whether an owner exists can only come from the
+  // panel, because it lives in the database. A panel that is not answering
+  // reports `null` rather than a guess.
+  const live = panel?.state === 'running' ? await panelSetupState(panelLoopbackApiUrl(context)) : null
+  const value = {
+    enabled: context.config.webEnabled,
+    devMode: isTrue(context.env['PORTTA_WEB_DEV']),
+    readOnly: context.config.webReadOnly,
+    expose: context.config.webExpose,
+    authMode: context.config.authMode,
+    setupRequired: live ? live.setupRequired : null,
+    url: webUrl(context),
+    panel: { state: panel?.state ?? 'absent' },
+    socketProxy: { state: proxy?.state ?? 'absent' },
+  }
   const output = new Output(global)
   if (output.json) output.data(value)
   else for (const [key, item] of Object.entries(value)) output.line(`${key}: ${typeof item === 'object' ? JSON.stringify(item) : String(item)}`)

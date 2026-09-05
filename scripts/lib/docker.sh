@@ -140,18 +140,28 @@ portta_resolve_profile() {
     return 1
   fi
 
-  # A panel reachable beyond this machine is one credential away from being an
-  # open control plane over every container on the host, so this is refused
-  # here too: `portta up` must not be a way around `portta web up`.
+  # A panel reachable beyond this machine is an open control plane over every
+  # container on the host unless it asks who is asking, so this is refused here
+  # too: `portta up` must not be a way around `portta web up`. The panel's own
+  # process refuses the same combination at boot; this says it first, with the
+  # command that fixes it.
   if portta_is_true "${PORTTA_WEB:-false}" \
-     && { [ "${PORTTA_WEB_EXPOSE:-local}" = "vpn" ] \
-          || [ "${PORTTA_WEB_EXPOSE:-local}" = "public" ]; } \
-     && { [ "${PORTTA_WEB_AUTH:-none}" != "basic" ] \
-          || [ -z "${PORTTA_WEB_AUTH_USER:-}" ] \
-          || [ -z "${PORTTA_WEB_AUTH_HASH:-}" ]; }; then
-    err "the panel is reachable beyond this host with no credential in front of it"
-    hint "portta web auth set   generates one and shows it once"
+     && [ "${PORTTA_WEB_EXPOSE:-local}" != "local" ] \
+     && [ "${PORTTA_AUTH_MODE:-disabled}" != "required" ]; then
+    err "the panel is reachable beyond this host and asks nobody who they are"
+    hint "portta config set panel.auth required   then portta web up"
     hint "or set PORTTA_WEB_EXPOSE=local to keep it on loopback"
+    return 1
+  fi
+
+  # `required` with no secret is a panel that refuses to start, which is worse
+  # than one that refuses to come up here: there the failure arrives as a
+  # container restarting in a loop.
+  if portta_is_true "${PORTTA_WEB:-false}" \
+     && [ "${PORTTA_AUTH_MODE:-disabled}" = "required" ] \
+     && [ -z "${PORTTA_AUTH_SECRET:-}" ]; then
+    err "PORTTA_AUTH_MODE=required with no PORTTA_AUTH_SECRET"
+    hint "portta web up   generates one without printing it"
     return 1
   fi
 

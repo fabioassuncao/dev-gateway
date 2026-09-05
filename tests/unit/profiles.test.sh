@@ -28,9 +28,10 @@ files_for() {
     portta_compose_files "$profile" | tr ' ' '\n' | grep -v '^-f$' | sed "s#^$PORTTA_ROOT/##" | tr '\n' ' ' )
 }
 
-# A routed panel is refused without one, so every case that routes it carries
-# the credential. See docs/adr/0012-panel-authentication-is-traefiks.md.
-PORTTA_RUNTIME_CREDENTIAL="PORTTA_WEB_AUTH=basic PORTTA_WEB_AUTH_USER=dev PORTTA_WEB_AUTH_HASH=\$apr1\$abcdefgh\$ckT15POyCRlen.h6XtGAZ1"
+# A panel reachable from another machine is refused unless it signs people in,
+# so every case that publishes it beyond loopback carries the mode and the
+# secret. See docs/adr/0035-authentication-lives-in-the-panel.md.
+PORTTA_RUNTIME_CREDENTIAL="PORTTA_AUTH_MODE=required PORTTA_AUTH_SECRET=a-test-secret-that-is-long-enough"
 
 describe "domains follow the profile"
 it "local uses localhost"
@@ -289,10 +290,10 @@ selected=$(files_for local PORTTA_WEB=true PORTTA_WEB_EXPOSE=local)
 assert_contains "$selected" "docker/compose/features/web-bind.yaml"
 assert_not_contains "$selected" "docker/compose/features/panel-domain.yaml"
 
-# The middleware is the panel scope, never the project one: a project's
-# protection must not be able to open the panel.
-it "the routed panel carries the panel-scoped middleware"
-assert_contains "$(cat "$PORTTA_ROOT/docker/compose/features/panel-domain.yaml")" "portta-web-auth@file"
+# Nothing in front of the router: the panel signs its own people in, and
+# `web up --expose domain` refuses unless it is in `required` mode with TLS on.
+it "the routed panel carries no Traefik middleware"
+assert_eq "" "$(grep -n 'middlewares' "$PORTTA_ROOT/docker/compose/features/panel-domain.yaml" || true)"
 
 describe "the webhook is the one path that authenticates itself"
 

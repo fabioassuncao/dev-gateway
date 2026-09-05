@@ -53,7 +53,7 @@ It is host infrastructure installed once, not a parent Compose project. It does 
   </tr>
 </table>
 
-The panel is optional and loopback-only by default. Run `portta web up`, then open <http://127.0.0.1:8081>. The complete walkthrough and every screenshot are in [the panel documentation](docs/web-ui.md).
+The panel is optional and loopback-only by default, where it answers as the local operator: reaching it there already means having the machine. Run `portta web up`, then open <http://127.0.0.1:8081>. Publishing it anywhere else makes it sign people in — accounts, roles, sessions, tokens ([authentication](docs/authentication.md)). The complete walkthrough and every screenshot are in [the panel documentation](docs/web-ui.md).
 
 ## How it works
 
@@ -120,10 +120,11 @@ only what it cannot detect:
 curl -fsSL https://raw.githubusercontent.com/fabioassuncao/portta/main/install.sh | bash
 ```
 
-No clone, no build, and no Node on the host. It asks where to keep its data,
-how you want to reach the panel (public behind authentication, over Tailscale,
-or localhost only), and nothing else. Applications stay unexposed either way.
-See [installing and updating](docs/install.md).
+No clone, no build, and no Node on the host. It asks where to keep its data and
+how you want to reach the panel (this server's address, over Tailscale, or
+localhost only), and nothing else. Anything but localhost makes the panel sign
+people in; it prints the address where the first account is created. Applications
+stay unexposed either way. See [installing and updating](docs/install.md).
 
 To work on Portta itself, take the checkout instead:
 

@@ -33,9 +33,12 @@ How do you want to reach the Portta panel?
   3. Local     — localhost only, reached over an SSH tunnel
   choose [1]:
 
-  panel user [admin]:
-  panel password (empty to generate a strong one):
+  panel authentication (required/disabled) [required]:
 ```
+
+The last question only appears when the panel stays on loopback. Anything that
+puts it on another interface makes it `required` without asking, because a panel
+that can start and stop every container on the host must know who is asking.
 
 Everything else — your OS, architecture, hostname, local and public IP, whether
 Docker is running, whether the port is free, whether Tailscale is connected — it
@@ -219,9 +222,10 @@ curl -fsSL https://raw.githubusercontent.com/fabioassuncao/portta/main/install.s
 
 It finds the existing installation, keeps every answer already recorded, pulls
 the new images, and recreates. It never regenerates the panel database
-password, the panel credential, the ACME material or the Tailscale identity,
-and it never overwrites `.env`, `state/`, `config/tls/`, or a file that already
-exists in `config/traefik/dynamic/`.
+password, the session signing secret, the ACME material or the Tailscale
+identity, and it never overwrites `.env`, `state/`, `config/tls/`, or a file
+that already exists in `config/traefik/dynamic/`. Panel accounts live in the
+database, which an update never touches.
 
 To see what would change without changing it:
 
@@ -239,7 +243,7 @@ curl -fsSL .../install.sh | bash -s -- \
   --install-dir /opt/portta \
   --panel-access public \
   --panel-port 8081 \
-  --panel-user admin
+  --panel-auth required
 ```
 
 | Flag | Meaning |
@@ -247,7 +251,7 @@ curl -fsSL .../install.sh | bash -s -- \
 | `--install-dir <path>` | where Portta keeps its data |
 | `--panel-access <mode>` | `public`, `tailscale` or `local` |
 | `--panel-port <port>` | host port for the panel |
-| `--panel-user <name>` | panel username |
+| `--panel-auth <mode>` | `required` or `disabled`; `disabled` only on loopback |
 | `--domain <domain>` | base domain, recorded but not activated |
 | `--domain-mode <mode>` | project hostnames: `local`, `auto` or `custom` |
 | `--version <ref>` | tag, branch or commit to install |
@@ -258,13 +262,17 @@ curl -fsSL .../install.sh | bash -s -- \
 | `-y, --yes` | assume yes; still takes defaults for unset values |
 | `--non-interactive` | never prompt at all |
 
-There is deliberately **no `--panel-password`**: it would end up in your shell
-history and in `ps` output. Use the environment instead, or let the installer
-generate one:
+There is deliberately **no panel password here**. The panel signs people in
+itself, and its first account is created once — in a browser at `/setup`, or
+from the host with no browser at all:
 
 ```bash
-PORTTA_PANEL_PASSWORD='…' curl -fsSL .../install.sh | bash -s -- --non-interactive
+portta auth bootstrap --email you@example.com
 ```
+
+Sign-up closes the moment that account exists; it creates everyone else. The
+installer prints the address at the end. `--panel-user` is refused rather than
+ignored, so a script that still passes one is told what replaced it.
 
 `PORTTA_HOME`, `PORTTA_REF` and `PORTTA_REGISTRY` are also read from the
 environment, matching `--install-dir`, `--version` and `--registry`.
@@ -291,7 +299,7 @@ directions, so it says which one it found and whether the two agree:
 $ portta version
 portta 0.2.0
   gateway  0.2.0  (/opt/portta)
-  panel    0.2.0 (from the image tag; the API is behind authentication)
+  panel    0.2.0 (from the image tag; the API asks who is calling)
 ```
 
 `portta version --json` carries the same as `cli`, `gateway`, `panel`,

@@ -157,12 +157,22 @@ services:
       PORTTA_WEB_PORT: ${PORTTA_WEB_PORT:-8081}
       PORTTA_WEB_BIND_ADDRESS: ${PORTTA_WEB_BIND_ADDRESS:-127.0.0.1}
       PORTTA_WEB_EXPOSE: ${PORTTA_WEB_EXPOSE:-local}
-      # The panel's own front door. The hash is never returned by the API, and
-      # the middleware it belongs to lives in a generated file, not in a label:
-      # a `$` in a Compose label is an interpolation accident waiting to happen.
-      PORTTA_WEB_AUTH: ${PORTTA_WEB_AUTH:-none}
-      PORTTA_WEB_AUTH_USER: ${PORTTA_WEB_AUTH_USER:-}
-      PORTTA_WEB_AUTH_HASH: ${PORTTA_WEB_AUTH_HASH:-}
+      # The panel's own front door, which is now the panel's own business.
+      #
+      # `required` makes it sign people in: accounts, roles, sessions and
+      # tokens, all in its database. `disabled` makes every request the local
+      # operator, and the process refuses to start that way on anything but
+      # loopback. The secret signs sessions and is shared with the ForwardAuth
+      # service, which is the only other thing here that signs anything.
+      #
+      # PORTTA_PANEL_URL is where a browser reaches it, and three things come
+      # from it: whether the session cookie may be `Secure`, which origins a
+      # write is accepted from, and the address the panel prints. Empty means
+      # loopback on the published port.
+      PORTTA_AUTH_MODE: ${PORTTA_AUTH_MODE:-disabled}
+      PORTTA_AUTH_SECRET: ${PORTTA_AUTH_SECRET:-}
+      PORTTA_PANEL_URL: ${PORTTA_PANEL_URL:-}
+      PORTTA_PANEL_TRUSTED_ORIGINS: ${PORTTA_PANEL_TRUSTED_ORIGINS:-}
       PORTTA_RUNTIME_DYNAMIC_DIR: /app/state/traefik-dynamic
       PORTTA_RUNTIME_AUTH_STORE: /app/state/auth/protections.json
       PORTTA_RUNTIME_RUNNER_DIR: /app/state/runner
@@ -237,10 +247,11 @@ services:
       - webcontrol
     # Deliberately no `ports:` here. Exactly one overlay decides how the panel
     # is reached, so the two ways can never both bind the same host port:
-    #   docker/compose/features/web-bind.yaml    publishes it on PORTTA_WEB_BIND_ADDRESS
+    #   docker/compose/features/web-bind.yaml     publishes it on PORTTA_WEB_BIND_ADDRESS
     #   docker/compose/features/panel-public.yaml routes it through Traefik's
-    #                                             own `panel` entrypoint, behind
-      #                                             ForwardAuth
+    #                                             own `panel` entrypoint
+    #   docker/compose/features/panel-domain.yaml routes it on one hostname of
+    #                                             the gateway's own domain
     labels:
       # Off unless docker/compose/features/web-vpn.yaml turns it on: the panel is
       # never routed through the public entrypoints by accident.

@@ -94,13 +94,12 @@ why it is off by default, and it is the same API the panel reads for a router's
 status ([ADR 0011](adr/0011-panel-reads-traefik-writes-one-file.md)). Nothing
 sensitive to a project's own users is there, but the inventory of the host is.
 
-`PORTTA_DASHBOARD_EXPOSE=domain` is a second, independent path: the dashboard
-answers on one derived hostname (`<project>-traefik.<domain>`) through
-`api@internal`, behind the same ForwardAuth as the panel. It publishes no host
-port and does not set `TRAEFIK_API_INSECURE`. The CLI refuses it without a
-credential or a real domain. If `portta-auth.yaml` is missing the router fails
-closed (404), never unauthenticated. `doctor` still fails a non-loopback
-`PORTTA_DASHBOARD_BIND_ADDRESS`.
+`PORTTA_DASHBOARD_EXPOSE=domain` is refused. Its only protection was the panel's
+BasicAuth credential, and the panel signs people in itself now; the dashboard
+has no credential of its own, and an unprotected view of every route on the host
+is not something to warn about. `portta up` and `doctor` both refuse the mode.
+`doctor` still fails a non-loopback `PORTTA_DASHBOARD_BIND_ADDRESS`.
+See [ADR 0035](adr/0035-authentication-lives-in-the-panel.md).
 
 ## Databases reached by hostname
 
@@ -135,8 +134,10 @@ containers, so it is fenced on three sides.
 - **Network.** Loopback by default. VPN routing and the dedicated public panel
   entrypoint are separate, explicit overlays; the public overlay does not
   publish the application's `web`/`websecure` entrypoints.
-- **Authentication, which the panel does itself.** `--expose vpn`, `public` and
-  `domain` require `PORTTA_AUTH_MODE=required` and are refused without it. The
+- **Authentication, which the panel does itself.** Every access mode but `local`
+  — `tailscale`, `public`, `vpn`, `domain` — requires `PORTTA_AUTH_MODE=required`
+  and is refused without it, by `portta web up`, by `portta up`, and by the
+  panel's own process at boot. The
   panel signs people in against its own database: a session cookie for a person,
   a `ptt_` Bearer token for a CLI or an agent, and a role that decides what each
   may do. Every operation declares the permission it needs, `401` and `403` mean
