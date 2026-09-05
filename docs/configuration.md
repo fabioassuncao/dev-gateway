@@ -107,6 +107,7 @@ See [tcp-routing.md](tcp-routing.md).
 | `PORTTA_AUTH_MODE` | `disabled` | `disabled` answers everybody as the local operator and is allowed only on loopback; `required` makes people sign in |
 | `PORTTA_PANEL_URL` | `http://127.0.0.1:<port>` | The origin a browser reaches the panel on. Decides where sign-in redirects to and whether the session cookie may be `Secure` |
 | `PORTTA_PANEL_TRUSTED_ORIGINS` | empty | Other origins a browser may sign in from, comma-separated. Loopback and the panel URL are always trusted |
+| `PORTTA_AUTH_SIGNIN_ATTEMPTS` | `5` | Sign-in attempts one address gets every ten minutes. 3–100; anything else reads as the default |
 | `PORTTA_WEB_DEV` | `false` | Development mode, Vite with HMR in front |
 | `PORTTA_WEB_DEV_PORT` | `5173` | Vite's host port in development mode |
 | `PORTTA_WEB_NETWORK` | `portta-web` | The panel's own internal control network |

@@ -158,6 +158,26 @@ review:
 | Panel in a browser | `apps/web/e2e/` | yes (a disposable PostgreSQL; the Engine API is faked) | `--e2e`, CI |
 | Panel layout at every width | `apps/web/e2e/viewports.mjs` | yes (a disposable PostgreSQL) | by hand |
 
+### The suites that guard the boundaries
+
+Four of them exist for one reason each, and all four are cheap enough to leave
+in the fast run:
+
+| Suite | What it is for | What it costs |
+| --- | --- | --- |
+| `packages/auth/tests/` | Who a request is, and what a role may do. The whole matrix — four roles against every permission, scopes, tokens, the bootstrap — against PGlite. | ~2s |
+| `packages/server/tests/api/security.test.ts` | The rules that live in one place and are easy to lose: the origin guard, read-only, 401 against 403, credential shapes the panel refuses, the rate limit in front of guessing, and the promise that no secret reaches the output. | ~3s |
+| `packages/server/tests/audit-actions.test.ts` | One line per action. Table-guided from the vocabulary itself, so an action nobody records fails the build rather than going unnoticed. | ~2s |
+| `packages/server/tests/realtime/` | The event stream's scope filter, the WebSocket handshake (401/403/404 before a socket exists), and the framing a live stream needs. Runs a real HTTP server on an ephemeral port. | ~2s |
+
+In the browser, `apps/web/e2e/roles.spec.ts` is the one that cannot be replaced
+by a unit test: an owner creates an admin, a developer and a viewer, gives two
+of them one Project each, and every refusal is checked twice — once as what the
+panel offers, and once as what the server answers a `fetch` from that person's
+own session. It signs in four times, which matters because sign-in is
+rate-limited per address and the whole run comes from `127.0.0.1`; the harness
+raises `PORTTA_AUTH_SIGNIN_ATTEMPTS` for that reason and for no other.
+
 ### The layout check
 
 ```bash

@@ -117,3 +117,21 @@ describe('a value Compose set to nothing', () => {
     expect(security.panelUrl.origin).toBe('http://127.0.0.1:9000')
   })
 })
+
+// Per address, and a whole office behind one NAT is one address. Configurable
+// for that reason, with a floor so it cannot be turned into no limit at all.
+describe('how many sign-in attempts an address gets', () => {
+  it('is five unless somebody says otherwise', () => {
+    expect(resolveSecurityMode(env()).signInAttempts).toBe(5)
+  })
+
+  it('takes a number an operator chose', () => {
+    expect(resolveSecurityMode(env({ PORTTA_AUTH_SIGNIN_ATTEMPTS: '25' })).signInAttempts).toBe(25)
+  })
+
+  it('and refuses one that would remove the limit', () => {
+    for (const value of ['0', '1', '2', '-5', '10000', 'lots', '']) {
+      expect(resolveSecurityMode(env({ PORTTA_AUTH_SIGNIN_ATTEMPTS: value })).signInAttempts, value).toBe(5)
+    }
+  })
+})

@@ -17,5 +17,14 @@ export default defineConfig({
   build: {
     outDir: resolve(import.meta.dirname, 'dist/ui'),
     emptyOutDir: true,
+    // esbuild, not Vite's default lightningcss.
+    //
+    // lightningcss is a native binding chosen per platform, and the lockfile
+    // records no `libc` for the Linux ones — so `npm ci` inside the Alpine
+    // image picks between the gnu and the musl build arbitrarily, and picking
+    // the wrong one fails the image build with a missing `.node`. This is one
+    // login page's CSS; esbuild minifies it perfectly well and needs nothing
+    // that has to be compiled for the machine it runs on.
+    cssMinify: 'esbuild',
   },
 })

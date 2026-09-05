@@ -38,7 +38,17 @@ test.describe('the development pages', () => {
     await page.getByRole('button', { name: 'New task' }).click()
     await expect(page).toHaveURL(new RegExp(`/projects/${SLUG}/tasks/\\d+`), { timeout: 20_000 })
     await page.getByRole('textbox', { name: 'Title' }).fill('Ship the thing')
+    // Blurring is what saves it, and the save is a request. Waiting for the
+    // response rather than for the blur: navigating first left the board
+    // looking for a title the panel had not been told about yet.
+    const saved = page.waitForResponse(
+      (response) => response.request().method() === 'PATCH'
+        && /\/api\/tasks\/\d+$/.test(new URL(response.url()).pathname)
+        && response.ok(),
+      { timeout: 20_000 },
+    )
     await page.getByRole('textbox', { name: 'Title' }).blur()
+    await saved
 
     // 4. The board has it, and the filters are in the URL.
     await page.goto(`/projects/${SLUG}/tasks`)

@@ -263,6 +263,9 @@ docker.listen(DOCKER_PORT, '127.0.0.1', () => {
       PORTTA_AUTH_MODE: process.env.PORTTA_E2E_AUTH_MODE ?? 'disabled',
       PORTTA_AUTH_SECRET: 'an-end-to-end-secret-long-enough-to-sign',
       PORTTA_PANEL_URL: `http://127.0.0.1:${PANEL_PORT}`,
+      // Every test signs in from 127.0.0.1, so the whole run is one address —
+      // the case the setting exists for, in its most extreme form.
+      PORTTA_AUTH_SIGNIN_ATTEMPTS: '50',
     },
   })
 

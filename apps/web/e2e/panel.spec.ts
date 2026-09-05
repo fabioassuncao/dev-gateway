@@ -111,6 +111,24 @@ test.describe('the panel end to end', () => {
     expect(contract.status()).toBe(200)
   })
 
+  // Set in `next.config.ts`, and only a real response proves they arrive: the
+  // panel can start, stop and remove containers, so nothing may frame it and
+  // nothing may guess at a response's type.
+  test('carries its security headers on a page', async ({ request }) => {
+    const response = await request.get('/overview')
+    const headers = response.headers()
+    expect(headers['x-frame-options']).toBe('DENY')
+    expect(headers['content-security-policy']).toContain("frame-ancestors 'none'")
+    expect(headers['x-content-type-options']).toBe('nosniff')
+    expect(headers['referrer-policy']).toBe('no-referrer')
+  })
+
+  test('and never lets the API be cached', async ({ request }) => {
+    const response = await request.get('/api/health')
+    expect(response.headers()['cache-control']).toContain('no-store')
+    expect(response.headers()['x-content-type-options']).toBe('nosniff')
+  })
+
   test('refuses a /ws path no route claims, rather than leaving the socket open', async ({ request }) => {
     const response = await request.get('/ws/nothing/here', {
       headers: { connection: 'Upgrade', upgrade: 'websocket' },

@@ -23,6 +23,15 @@ export interface SecurityConfig {
   /** Required when protected; null when open, where Better Auth is never built. */
   secret: string | null
   bindAddress: string
+  /**
+   * How many sign-in attempts one address gets in ten minutes.
+   *
+   * Five by default, which is the number that makes guessing expensive. It is
+   * configurable because the window is per address and a whole office behind
+   * one NAT is one address — not because anybody should turn it off, and the
+   * floor below says so.
+   */
+  signInAttempts: number
 }
 
 function isTrue(value: string | undefined): boolean {
@@ -39,6 +48,13 @@ function isTrue(value: string | undefined): boolean {
  */
 function set(value: string | undefined): string | undefined {
   return value === undefined || value === '' ? undefined : value
+}
+
+/** Between 3 and 100. A value outside that, or nonsense, is the default. */
+function attempts(raw: string | undefined): number {
+  const parsed = Number(raw)
+  if (!Number.isInteger(parsed) || parsed < 3 || parsed > 100) return 5
+  return parsed
 }
 
 function isLoopback(address: string): boolean {
@@ -86,6 +102,7 @@ export function resolveSecurityMode(env: NodeJS.ProcessEnv): SecurityConfig {
     trustedOrigins,
     secret: set(env['PORTTA_AUTH_SECRET']) ?? null,
     bindAddress,
+    signInAttempts: attempts(set(env['PORTTA_AUTH_SIGNIN_ATTEMPTS'])),
   }
 }
 

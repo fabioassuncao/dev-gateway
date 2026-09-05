@@ -164,7 +164,9 @@ refreshed daily. Signing out revokes the session; banning a user takes effect on
 their *next request*, not their next sign-in.
 
 Sign-in, TOTP verification and backup codes are rate-limited to five attempts in
-ten minutes. A user who has turned on a second factor is sent to `/two-factor`
+ten minutes, per address. A team behind one NAT is one address, which is what
+`PORTTA_AUTH_SIGNIN_ATTEMPTS` is for; it accepts 3 to 100, and anything else is
+read as the default, so the limit cannot be configured away. A user who has turned on a second factor is sent to `/two-factor`
 after their password is accepted.
 
 **Settings → Security** is where somebody turns it on. The panel asks for the

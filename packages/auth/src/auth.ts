@@ -69,10 +69,15 @@ export function createAuth(deps: AuthDeps) {
       max: 100,
       // One instance, no shared store: these are the endpoints where guessing
       // is the attack, and an in-memory window is enough to make it expensive.
+      //
+      // The window is per address, and a whole office behind one NAT is one
+      // address — which is why the count is a setting rather than a constant.
+      // Lowering it is safe; raising it is the operator saying their people
+      // share an address, and it is theirs to say.
       customRules: {
-        '/sign-in/email': { window: 600, max: 5 },
-        '/two-factor/verify-totp': { window: 600, max: 5 },
-        '/two-factor/verify-backup-code': { window: 600, max: 5 },
+        '/sign-in/email': { window: 600, max: security.signInAttempts },
+        '/two-factor/verify-totp': { window: 600, max: security.signInAttempts },
+        '/two-factor/verify-backup-code': { window: 600, max: security.signInAttempts },
       },
     },
     hooks: {
