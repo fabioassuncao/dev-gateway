@@ -320,7 +320,7 @@ export function registerOpenApiRoutes(api: Hono, config: PanelConfig): void {
     }),
     (c) => {
       if (!config.apiDocs) throw new HTTPException(404, { message: 'the API browser is disabled' })
-      return c.redirect('/docs/#/api', 302)
+      return c.redirect('/docs/api', 302)
     },
   )
 }

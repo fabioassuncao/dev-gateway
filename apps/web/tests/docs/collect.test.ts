@@ -30,13 +30,13 @@ describe('link rewriting', () => {
   const known = new Set(['install', 'adr/0007-tailscale-sidecar', 'overview', 'networking'])
 
   it('turns a relative documentation link into a route, keeping the anchor', () => {
-    expect(rewriteLink('install.md', 'docs/README.md', known)).toEqual({ href: '/install', external: false })
+    expect(rewriteLink('install.md', 'docs/README.md', known)).toEqual({ href: '/docs/install', external: false })
     expect(rewriteLink('networking.md#ports', 'docs/install.md', known))
-      .toEqual({ href: '/networking#ports', external: false })
+      .toEqual({ href: '/docs/networking#ports', external: false })
     expect(rewriteLink('adr/0007-tailscale-sidecar.md', 'docs/architecture.md', known))
-      .toEqual({ href: '/adr/0007-tailscale-sidecar', external: false })
+      .toEqual({ href: '/docs/adr/0007-tailscale-sidecar', external: false })
     expect(rewriteLink('../install.md', 'docs/adr/0007-x.md', known))
-      .toEqual({ href: '/install', external: false })
+      .toEqual({ href: '/docs/install', external: false })
   })
 
   // The panel ships the documentation, not the repository, so a link out of the

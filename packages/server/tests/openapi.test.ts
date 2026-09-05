@@ -162,7 +162,7 @@ describe('the API browser', () => {
     const { app } = makeApp({ containers: [] })
     const response = await app.request('/api/docs')
     expect(response.status).toBe(302)
-    expect(response.headers.get('location')).toBe('/docs/#/api')
+    expect(response.headers.get('location')).toBe('/docs/api')
   })
 
   it('is off by default when routed and can be opted in explicitly', async () => {

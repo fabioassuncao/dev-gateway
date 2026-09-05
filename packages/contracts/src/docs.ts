@@ -14,8 +14,8 @@ export function slugFor(repoPath: string): string {
  */
 export function docsHref(citation: string): string {
   if (citation === '/docs' || citation === '/docs/') return '/docs/'
-  if (citation === '/docs/api') return '/docs/#/api'
-  return `/docs/#/${slugFor(citation)}`
+  if (citation === '/docs/api') return '/docs/api'
+  return `/docs/${slugFor(citation)}`
 }
 
 /** Longest-first so `/docs/api` is not eaten by `/docs`. */

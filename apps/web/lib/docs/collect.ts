@@ -78,13 +78,13 @@ export function rewriteLink(href: string, fromRepoPath: string, known: Set<strin
   if (target.endsWith('.md')) {
     const slug = slugFor(target)
     // The index is the sidebar, so a link to it goes home.
-    if (slug === 'README') return { href: `/${suffix}`, external: false }
-    if (known.has(slug)) return { href: `/${slug}${suffix}`, external: false }
+    if (slug === 'README') return { href: `/docs${suffix}`, external: false }
+    if (known.has(slug)) return { href: `/docs/${slug}${suffix}`, external: false }
   }
   // A directory index, e.g. `adr/`.
   if (rawPath.endsWith('/')) {
     const slug = slugFor(`${target}/README.md`)
-    if (known.has(slug)) return { href: `/${slug}${suffix}`, external: false }
+    if (known.has(slug)) return { href: `/docs/${slug}${suffix}`, external: false }
   }
   return { href: `${GITHUB_BLOB}/${target}${suffix}`, external: true }
 }
@@ -250,7 +250,7 @@ export function collectDocs(root: string): DocsBundle {
     const slug = slugFor(repoPath)
     // `docs/README.md` is the index, and the sidebar *is* the index: rendering
     // it as a page would put a second copy of the navigation inside the
-    // navigation. Links to it resolve to the site root instead.
+    // navigation. Links to it resolve to `/docs` instead.
     if (slug === 'README') continue
     const headings: DocHeading[] = []
     const tokens = md.parse(text, {})
