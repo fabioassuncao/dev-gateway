@@ -13,7 +13,7 @@
   "valueDetected": "Detectado automaticamente",
   "valueDerived": "Derivado automaticamente",
   "valueEnvironment": "Definido pelo ambiente em execução",
-  "technicalDetails": "Detalhes técnicos",
+  "envVar": "Variável de ambiente",
   "restartPending": "Estas alterações passam a valer depois que o gateway for recriado. Salve agora e use a barra de aplicação em seguida.",
   "restartSummary": "{{count}} alterações exigem reinício do gateway.",
   "restartSummary_one": "{{count}} alteração exige reinício do gateway.",
@@ -69,7 +69,7 @@
     "subdomain": "Subdomínio",
     "subdomainHelp": "Somente o rótulo. A base vem dos endereços de projeto já configurados.",
     "customDomain": "Domínio",
-    "customDomainHelp": "Este nome precisa resolver para este servidor. Configure DNS e TLS se ainda não estiverem. docs/addresses-and-access.md#custom-panel-domain",
+    "customDomainHelp": "Este nome precisa resolver para este servidor. Configure DNS e TLS se ainda não estiverem.",
     "publicAddress": "Endereço público deste servidor",
     "publicAddressHelp": "O IP ou hostname digitado antes da porta do painel. O protocolo e a porta são adicionados automaticamente.",
     "publicAddressNeeded": "Informe um endereço alcançável pela internet para o Portta montar a URL de login.",
@@ -297,7 +297,7 @@
     },
     "PORTTA_PROJECTS_HOME": {
       "label": "Projects Home",
-      "help": "O único diretório em que esta instalação gerencia Projetos. Mudar altera a referência; os arquivos não são movidos. Ambientes existentes fora deste caminho continuam visíveis como não gerenciados. Veja docs/adr/0031-projects-home-and-project.md."
+      "help": "O único diretório em que esta instalação gerencia Projetos. Mudar altera a referência; os arquivos não são movidos. Ambientes existentes fora deste caminho continuam visíveis como não gerenciados."
     },
     "PORTTA_PUBLIC_IP": {
       "label": "Endereço do host",

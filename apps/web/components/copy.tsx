@@ -77,9 +77,10 @@ export function Mono({
 }
 
 /** A short value in a chip: an env key, a hostname, a command. */
-export function CodeChip({ children, className, tone = 'ink' }: { children: ReactNode; className?: string; tone?: 'ink' | 'muted' }) {
+export function CodeChip({ children, className, tone = 'ink', title }: { children: ReactNode; className?: string; tone?: 'ink' | 'muted'; title?: string }) {
   return (
     <code
+      title={title}
       className={cn(
         'inline-flex max-w-full items-center rounded-sm border border-line bg-surface-2 px-1.5 py-px font-mono text-[0.85em] leading-[1.6]',
         tone === 'ink' ? 'text-ink' : 'text-muted',

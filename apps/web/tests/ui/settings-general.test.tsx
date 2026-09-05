@@ -115,6 +115,7 @@ describe('the General settings', () => {
     renderWithQuery(<GeneralView group="panel" />, undefined, principal())
     expect(await screen.findByLabelText('Port')).toHaveValue('8081')
     expect(screen.getAllByText('Portta default').length).toBeGreaterThan(0)
+    expect(screen.getByText('PORTTA_WEB_PORT')).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /This machine only/ })).toBeChecked()
   })
 

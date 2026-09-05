@@ -13,7 +13,7 @@
   "valueDetected": "Detected automatically",
   "valueDerived": "Derived automatically",
   "valueEnvironment": "Set by the running environment",
-  "technicalDetails": "Technical details",
+  "envVar": "Environment variable",
   "restartPending": "These changes take effect after the gateway is recreated. Save now, then use the apply bar.",
   "restartSummary": "{{count}} changes need a gateway restart.",
   "restartSummary_one": "{{count}} change needs a gateway restart.",
@@ -69,7 +69,7 @@
     "subdomain": "Subdomain",
     "subdomainHelp": "Only the label. The base comes from the project addresses already configured.",
     "customDomain": "Domain",
-    "customDomainHelp": "This name must resolve to this server. Configure DNS and TLS if they are not already set. docs/addresses-and-access.md#custom-panel-domain",
+    "customDomainHelp": "This name must resolve to this server. Configure DNS and TLS if they are not already set.",
     "publicAddress": "Public address of this server",
     "publicAddressHelp": "The IP address or hostname people type before the panel port. The protocol and port are added automatically.",
     "publicAddressNeeded": "Enter an address reachable from the internet so Portta can build the sign-in URL.",
@@ -297,7 +297,7 @@
     },
     "PORTTA_PROJECTS_HOME": {
       "label": "Projects Home",
-      "help": "The one directory this installation manages Projects in. Changing it changes the reference; files are not moved. Existing environments outside this path stay visible as unmanaged. See docs/adr/0031-projects-home-and-project.md."
+      "help": "The one directory this installation manages Projects in. Changing it changes the reference; files are not moved. Existing environments outside this path stay visible as unmanaged."
     },
     "PORTTA_PUBLIC_IP": {
       "label": "Host address",

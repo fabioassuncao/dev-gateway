@@ -64,17 +64,14 @@ export function ConfigField({
 
   const hint = (
     <>
-      <DocText>{t(`fields.${field.key}.help`, { defaultValue: field.help })}</DocText>
+      <DocText citationLabel={t('learnMore')}>{t(`fields.${field.key}.help`, { defaultValue: field.help })}</DocText>
       <span className="mt-1 flex flex-wrap items-center gap-2 text-2xs">
         {source ? <span>{source}</span> : null}
         {field.pending && !boolean && !field.secret && field.runtimeValue ? (
           <span>{t('runningValue', { value: field.runtimeValue })}</span>
         ) : null}
+        <CodeChip tone="muted" title={t('envVar')}>{field.key}</CodeChip>
       </span>
-      <details className="mt-1 text-2xs text-subtle">
-        <summary className="w-fit cursor-pointer select-none hover:text-ink">{t('technicalDetails')}</summary>
-        <div className="mt-1"><CodeChip tone="muted">{field.key}</CodeChip></div>
-      </details>
     </>
   )
 
