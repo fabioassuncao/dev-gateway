@@ -1,7 +1,7 @@
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
-import { AUTH_BUILD_FILE, LOCAL_PORTA_IMAGE, dashboardExposeRefusal, parseAliases, projectsFor, readEnvFile, routesFor, setEnvValue, writeEnvFile, type StoredAlias } from 'portta-core'
+import { AUTH_BUILD_FILE, AUTH_DEV_FILE, dashboardExposeRefusal, parseAliases, projectsFor, readEnvFile, routesFor, setEnvValue, writeEnvFile, type StoredAlias } from 'portta-core'
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
 import { ensureNetwork, identifier, inspectContainers, networkExists, requireDocker } from '../docker.js'
@@ -15,16 +15,17 @@ import { ensureApplier, removeApplier } from './apply.js'
 import { ensureRunner, removeRunner } from './runner.js'
 import { refreshRepositories } from './repos.js'
 import { ensureMetricsCollector, stopMetricsCollector } from './host.js'
-import { webUp } from './web.js'
+import { finishWebUp, prepareWebUp } from './web.js'
+import { requireLocalRelease } from '../local-release.js'
 import { applyDemo, demoStacksDown } from './examples.js'
 
 export function checkoutLocalEnv(): Record<string, string> {
   return {
     PORTTA_WEB: 'true',
     PORTTA_WEB_DEV: 'true',
-    PORTTA_WEB_BUILD: 'true',
-    PORTTA_AUTH_IMAGE: LOCAL_PORTA_IMAGE,
-    PORTTA_WEB_IMAGE: LOCAL_PORTA_IMAGE,
+    PORTTA_WEB_BUILD: 'false',
+    PORTTA_AUTH_IMAGE: '',
+    PORTTA_WEB_IMAGE: '',
   }
 }
 
@@ -36,7 +37,8 @@ function persistEnv(root: string, values: Record<string, string>): void {
 }
 
 function buildsLocally(command: Command): boolean {
-  return gatewayContext({ profile: globals(command).profile }).composeFiles.includes(AUTH_BUILD_FILE)
+  const files = gatewayContext({ profile: globals(command).profile }).composeFiles
+  return files.includes(AUTH_BUILD_FILE) || files.includes(AUTH_DEV_FILE)
 }
 
 function globals(command: Command) {
@@ -80,7 +82,8 @@ async function migrateAuthState(command: Command): Promise<void> {
   const user = typeof process.getuid === 'function'
     ? `${process.getuid()}:${process.getgid?.() ?? 0}`
     : undefined
-  await compose(command, authMigrationRunArguments(context.composeFiles.includes(AUTH_BUILD_FILE), user))
+  const build = context.composeFiles.includes(AUTH_BUILD_FILE) || context.composeFiles.includes(AUTH_DEV_FILE)
+  await compose(command, authMigrationRunArguments(build, user))
 }
 
 /** major.minor, which is the granularity the API contract moves at. */
@@ -165,10 +168,9 @@ export async function bootstrapCommand(options: { skipPull?: boolean }, command:
   ensureAuthState(context.root)
   const network = await ensureNetwork(context.config.network)
   output.progress(`${network.padEnd(8)} shared network ${context.config.network}`)
-  // `--ignore-buildable` because a checkout adds `auth-build.yaml`, which gives
-  // the auth services a `build:` and a local tag. Without it Compose tries to
-  // pull an image that only ever exists after `docker compose build`, and a
-  // registry it was never pushed to answers "access denied".
+  // Explicit build/dev overlays carry checkout-only tags. Ignore those while
+  // pulling the remaining pinned images; normal local-release runs select no
+  // build overlay and are preflighted by `just up` instead.
   if (!options.skipPull) await compose(command, ['pull', '--ignore-buildable'])
   await doctorCommand(command)
 }
@@ -190,6 +192,7 @@ export async function upCommand(profile: string | undefined, options: { attach?:
   const builds = buildsLocally(command)
   output.step('gateway components')
   await requireDocker()
+  await requireLocalRelease(context)
   // Both networks are `external: true` in the overlays, so Compose refuses to
   // start until they exist. The shell entry point creates both; this created
   // only the shared one, so `PORTTA_TCP=true portta up` failed here and
@@ -268,8 +271,11 @@ export async function devCommand(
     await bootstrapCommand({ skipPull: true }, command)
   }
   persistEnv(gatewayContext({ profile: profile ?? globals(command).profile }).root, checkoutLocalEnv())
+  // Prepare the panel's credentials, ownership and generated ForwardAuth
+  // state before the one Compose convergence that starts the whole gateway.
+  const panel = prepareWebUp({ dev: true }, command)
   await upCommand(profile, { attach: false }, command)
-  await webUp({ dev: true }, command)
+  await finishWebUp(panel, command, false)
   if (options.demo) await applyDemo(command, { ensurePanel: false })
   await urlsCommand({}, command)
 }

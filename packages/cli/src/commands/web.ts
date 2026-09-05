@@ -13,6 +13,7 @@ import {
   setEnvValue,
   writeEnvFile,
   writeProtectionStore,
+  porttaImages,
 } from 'portta-core'
 import type { Command } from 'commander'
 import { composeArguments, gatewayContext } from '../context.js'
@@ -20,6 +21,7 @@ import { ensureNetwork, inspectContainers } from '../docker.js'
 import { CliError, EXIT, PreconditionError, RefusedError, UsageError } from '../errors.js'
 import { Output } from '../output.js'
 import { runProcess } from '../process.js'
+import { requireLocalRelease } from '../local-release.js'
 import { refreshRepositories } from './repos.js'
 import { ensureMetricsCollector, stopMetricsCollector } from './host.js'
 
@@ -65,7 +67,16 @@ async function webCompose(command: Command, args: string[], extraEnv: NodeJS.Pro
   return runProcess('docker', ['compose', ...composeArguments(context), ...args], { cwd: context.root, env: { ...context.env, ...extraEnv }, stdio })
 }
 
-export async function webUp(options: { expose?: string; port?: string; readOnly?: boolean; writable?: boolean; dev?: boolean }, command: Command): Promise<void> {
+export interface WebUpOptions { expose?: string; port?: string; readOnly?: boolean; writable?: boolean; dev?: boolean }
+
+export interface PreparedWebUp {
+  context: ReturnType<typeof gatewayContext>
+  values: Record<string, string>
+  output: Output
+}
+
+/** Persist and resolve everything the panel needs before Compose converges. */
+export function prepareWebUp(options: WebUpOptions, command: Command): PreparedWebUp {
   const initial = gatewayContext({ profile: globals(command).profile })
   const expose = options.expose ?? initial.config.webExpose
   if (!isPanelAccess(expose)) throw new UsageError(`--expose must be one of: ${PANEL_ACCESS_MODES.join(', ')}`)
@@ -146,7 +157,14 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
   // starting a service that no longer exists in its file list.
   const context = gatewayContext({ profile: globals(command).profile, overrides: values })
   const output = new Output(globals(command))
+  return { context, values, output }
+}
+
+export async function webUp(options: WebUpOptions, command: Command): Promise<void> {
+  const prepared = prepareWebUp(options, command)
+  const { context, output } = prepared
   output.step('panel')
+  if (!options.dev) await requireLocalRelease(context)
   await ensureNetwork(context.config.network)
   // Both of these were silent and both can be slow: a cold pull, and — right
   // after `reset` removed the volume — initialising a fresh Postgres cluster.
@@ -179,8 +197,16 @@ export async function webUp(options: { expose?: string; port?: string; readOnly?
       'portta web logs   shows what it is doing; portta doctor checks the rest',
     )
   }
-  await refreshRepositories(context.config.profile, output)
-  await ensureMetricsCollector(context.config.profile, output)
+  await finishWebUp(prepared, command)
+}
+
+/** Report and migrate after either `web up` or the full `dev` convergence. */
+export async function finishWebUp(prepared: PreparedWebUp, command: Command, refreshHost = true): Promise<void> {
+  const { context, values, output } = prepared
+  if (refreshHost) {
+    await refreshRepositories(context.config.profile, output)
+    await ensureMetricsCollector(context.config.profile, output)
+  }
   const running = gatewayContext({ profile: globals(command).profile, overrides: values })
   try {
     const result = await requestPanelMigrate(running)
@@ -360,7 +386,14 @@ export async function webLogs(service: string | undefined, command: Command): Pr
     new Output(global).data({ lines: result.stdout.split('\n').filter(Boolean) })
   } else await webCompose(command, ['logs', '--follow', '--tail', '100', target])
 }
-export async function webBuild(command: Command): Promise<void> { await webCompose(command, ['build', 'web']) }
+export async function webBuild(command: Command): Promise<void> {
+  const context = gatewayContext({ profile: globals(command).profile })
+  const image = porttaImages(context.version).runtime
+  await runProcess('docker', [
+    'build', '--build-arg', `PORTTA_VERSION=${context.version}`, '--target', 'runtime',
+    '-f', 'apps/web/Dockerfile', '-t', image, '.',
+  ], { cwd: context.root, stdio: 'inherit' })
+}
 
 export async function webStatus(command: Command): Promise<void> {
   const global = globals(command)

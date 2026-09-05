@@ -91,12 +91,14 @@ export function gatewayContext(options: { root?: string; profile?: string; requi
   for (const fileName of files) {
     if (!existsSync(join(root, fileName))) throw new PreconditionError(`missing compose file: ${fileName}`)
   }
+  const version = readFileSync(join(root, 'VERSION'), 'utf8').trim()
+  env['PORTTA_VERSION'] = version
   return {
     root,
     env,
     config,
     composeFiles: files,
-    version: readFileSync(join(root, 'VERSION'), 'utf8').trim(),
+    version,
   }
 }
 

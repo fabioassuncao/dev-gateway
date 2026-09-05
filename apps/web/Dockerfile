@@ -110,7 +110,8 @@ RUN chown -R node:node /app
 # other. It holds source the operator already owns and has bind-mounted over,
 # on their own machine; the runtime stage below stays `node`-owned and is the
 # one that ships.
-RUN mkdir -p /app/apps/web/.next && chmod -R a+rwX /app/apps/web
+RUN mkdir -p /app/apps/web/.next /app/apps/auth/dist \
+ && chmod -R a+rwX /app/apps/web /app/apps/auth
 USER node
 EXPOSE 8081
 # Through the package script, so `--conditions=development` is declared once.
@@ -124,6 +125,7 @@ ENV NODE_ENV=production \
     PORTTA_RUNTIME_VERSION=$PORTTA_VERSION
 LABEL org.opencontainers.image.title="Portta" \
       org.opencontainers.image.description="Administration panel for Portta" \
+      org.opencontainers.image.version="$PORTTA_VERSION" \
       org.opencontainers.image.source="https://github.com/fabioassuncao/portta" \
       org.opencontainers.image.licenses="MIT"
 COPY package.json package-lock.json ./

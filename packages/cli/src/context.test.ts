@@ -14,7 +14,7 @@ function fixture(env: string): string {
   mkdirSync(join(root, 'docker/compose/profiles'), { recursive: true })
   mkdirSync(join(root, 'docker/compose/features'), { recursive: true })
   writeFileSync(join(root, 'VERSION'), '0.2.0\n')
-  for (const file of ['compose.yaml', 'attach/host.yaml', 'attach/tailscale.yaml', 'profiles/local.yaml', 'profiles/remote.yaml', 'profiles/public.yaml', 'features/web.yaml', 'features/db.yaml', 'features/web-bind.yaml', 'features/web-dev.yaml', 'features/web-build.yaml', 'features/auth-build.yaml']) {
+  for (const file of ['compose.yaml', 'attach/host.yaml', 'attach/tailscale.yaml', 'profiles/local.yaml', 'profiles/remote.yaml', 'profiles/public.yaml', 'features/web.yaml', 'features/db.yaml', 'features/web-bind.yaml', 'features/web-dev.yaml', 'features/web-build.yaml', 'features/auth-build.yaml', 'features/auth-dev.yaml']) {
     writeFileSync(join(root, 'docker/compose', file), '{}\n')
   }
   writeFileSync(join(root, '.env'), env)
@@ -69,12 +69,12 @@ describe('the resolved values reach Compose', () => {
     expect(context.env['PORTTA_BIND_ADDRESS']).toBe('0.0.0.0')
   })
 
-  it('a checkout includes the auth build overlay', () => {
+  it('a checkout does not imply the auth build overlay', () => {
     root = fixture('')
     mkdirSync(join(root, 'apps/web'), { recursive: true })
     mkdirSync(join(root, 'apps/auth'), { recursive: true })
     writeFileSync(join(root, 'apps/web/Dockerfile'), '')
-    expect(gatewayContext({ root }).composeFiles).toContain('docker/compose/features/auth-build.yaml')
+    expect(gatewayContext({ root }).composeFiles).not.toContain('docker/compose/features/auth-build.yaml')
   })
 
   it('an installation root does not', () => {

@@ -191,10 +191,12 @@ One container, one port. The panel is a single process, so Next's HMR arrives on
 the same `http://127.0.0.1:8081` the API answers on — there is no second server
 and no second port to remember.
 
-`apps/web/{app,components,lib,messages,server,public}`, `packages/*/src`,
+`apps/web/{app,components,lib,messages,server,public}`, `apps/auth/{src,ui}`,
+`packages/*/src`,
 `packages/db/drizzle` and the Markdown under `docs/` are bind-mounted, so the
 image's `node_modules` stay in place. An edit to a page or a component reloads
-in the browser; an edit to `server/main.ts` restarts the process. A newly
+in the browser; an edit to `server/main.ts` or the ForwardAuth backend restarts
+its process, and its login UI rebuilds in watch mode. A newly
 generated migration is visible to the next `portta db migrate` without
 rebuilding the image.
 

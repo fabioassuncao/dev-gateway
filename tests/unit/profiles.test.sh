@@ -196,13 +196,13 @@ assert_not_contains "$(files_for local PORTTA_WEB=true)" "docker/compose/feature
 it "and a developer can opt back into it"
 assert_contains "$(files_for local PORTTA_WEB=true PORTTA_WEB_BUILD=true)" "docker/compose/features/web-build.yaml"
 
-it "a checkout builds auth from the local Dockerfile"
-assert_contains "$(files_for local)" "docker/compose/features/auth-build.yaml"
+it "a checkout alone does not imply an auth build"
+assert_not_contains "$(files_for local)" "docker/compose/features/auth-build.yaml"
 
-it "development mode selects the auth build overlay once"
+it "development mode selects the auth development overlay once"
 selected="$(files_for local PORTTA_WEB=true PORTTA_WEB_DEV=true)"
-assert_contains "$selected" "docker/compose/features/auth-build.yaml"
-assert_eq "1" "$(printf '%s\n' $selected | grep -c 'docker/compose/features/auth-build.yaml')"
+assert_contains "$selected" "docker/compose/features/auth-dev.yaml"
+assert_eq "1" "$(printf '%s\n' $selected | grep -c 'docker/compose/features/auth-dev.yaml')"
 
 describe "both entry points create the networks the overlays declare external"
 

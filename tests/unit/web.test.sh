@@ -250,7 +250,7 @@ assert_contains "$(sed -n '/^export async function webDown/,/^}/p' packages/cli/
 assert_contains "$(sed -n '/^export async function webDown/,/^}/p' packages/cli/src/commands/web.ts)" "overrides:"
 
 it "and web up uses what it just wrote"
-assert_contains "$(sed -n '/^export async function webUp/,/^}/p' packages/cli/src/commands/web.ts)" "overrides: values"
+assert_contains "$(sed -n '/^export function prepareWebUp/,/^}/p' packages/cli/src/commands/web.ts)" "overrides: values"
 
 describe "a public panel is published by Traefik, never by the container"
 
@@ -467,6 +467,27 @@ assert_contains "$(cat apps/auth/vite.config.ts)" "/__portta/auth/"
 
 it "the checkout migrator builds the auth image before running"
 assert_contains "$(sed -n '/export function authMigrationRunArguments/,/^}/p' packages/cli/src/commands/lifecycle.ts)" "'--build'"
+
+describe "ForwardAuth in development mode"
+
+it "runs the auth package's supervised development script"
+assert_contains "$(cat docker/compose/features/auth-dev.yaml)" 'command: ["npm", "run", "dev"]'
+
+it "mounts both the backend and the login page sources"
+assert_contains "$(cat docker/compose/features/auth-dev.yaml)" './apps/auth/src:/app/apps/auth/src'
+assert_contains "$(cat docker/compose/features/auth-dev.yaml)" './apps/auth/ui:/app/apps/auth/ui'
+
+it "keeps source and the container root read-only while the generated UI stays writable"
+assert_eq "" "$(grep -n 'read_only: false' docker/compose/features/auth-dev.yaml || true)"
+assert_contains "$(cat docker/compose/features/auth-dev.yaml)" '- /app/apps/auth/dist'
+assert_contains "$(cat docker/compose/features/auth-dev.yaml)" '- /app/apps/auth/node_modules'
+
+it "watches the backend and the generated login bundle"
+assert_contains "$(cat apps/auth/package.json)" 'node --conditions=development --watch src/index.ts'
+assert_contains "$(cat apps/auth/package.json)" 'vite build --watch'
+
+it "runs the isolated migrator directly from source"
+assert_contains "$(cat docker/compose/features/auth-dev.yaml)" 'command: ["node", "--conditions=development", "src/migrate.ts"]'
 
 describe "a container that reads an owner-only file runs as its owner"
 

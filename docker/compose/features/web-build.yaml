@@ -18,4 +18,4 @@ services:
       target: runtime
       args:
         PORTTA_VERSION: ${PORTTA_VERSION:-}
-    image: ${PORTTA_WEB_IMAGE:-fabioassuncao/portta:local}
+    image: ${PORTTA_WEB_IMAGE:-fabioassuncao/portta:${PORTTA_VERSION}}

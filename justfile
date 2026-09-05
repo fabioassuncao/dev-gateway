@@ -7,15 +7,20 @@
 # Checkout-only. Portta images are built from the Dockerfiles here, never
 # pulled from the published registry. Third-party images stay pinned.
 gw := "./bin/portta"
-local_image := "fabioassuncao/portta:local"
+release := `tr -d '[:space:]' < VERSION`
+release_image := "fabioassuncao/portta:" + release
 
 [private]
 default:
     @just --list
 
-# Start the gateway from local Dockerfiles
+# Build every Portta-owned image for the release in VERSION
+build:
+    @{{gw}} build
+
+# Start the gateway from the already-built local release
 up *args:
-    @PORTTA_AUTH_IMAGE={{local_image}} PORTTA_WEB_IMAGE={{local_image}} PORTTA_WEB_BUILD=true {{gw}} up {{args}}
+    @PORTTA_LOCAL_RELEASE=true PORTTA_AUTH_IMAGE={{release_image}} PORTTA_WEB_IMAGE={{release_image}} PORTTA_WEB_BUILD=false PORTTA_WEB_DEV=false {{gw}} up {{args}}
 
 # Start the gateway and the panel with hot reloading
 dev *args:
@@ -63,7 +68,7 @@ update *args:
 
 # Panel: up, dev, down, ...
 web *args:
-    @PORTTA_AUTH_IMAGE={{local_image}} PORTTA_WEB_IMAGE={{local_image}} PORTTA_WEB_BUILD=true {{gw}} web {{args}}
+    @PORTTA_LOCAL_RELEASE=true PORTTA_AUTH_IMAGE={{release_image}} PORTTA_WEB_IMAGE={{release_image}} PORTTA_WEB_BUILD=false PORTTA_WEB_DEV=false {{gw}} web {{args}}
 
 # Apply pending panel SQL without restarting the panel
 db-migrate:

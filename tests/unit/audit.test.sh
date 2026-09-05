@@ -253,6 +253,7 @@ assert_eq "" "$(grep -rhE '^\s*(image|FROM):?\s' docker/compose/compose.yaml doc
   | sed -E 's/[[:space:]]+[Aa][Ss][[:space:]]+[A-Za-z0-9_.-]+[[:space:]]*$//' \
   | sed -E 's/\$\{[A-Za-z0-9_]+:-([^}]*)\}/\1/g' \
   | grep -vE '^[[:space:]]*FROM[[:space:]]+(deps|base|build|dev|runtime)[[:space:]]*$' \
+  | grep -v '\${PORTTA_VERSION}' \
   | grep -vE ':[A-Za-z0-9][A-Za-z0-9._-]*[[:space:]]*$' || true)"
 
 it "every Portta image the installer pulls matches VERSION"
@@ -265,11 +266,11 @@ assert_eq "" "$(grep -rhoE 'ghcr\.io/fabioassuncao/portta:[0-9][^}]*' docker/com
 
 it "and every Portta image is pinned, so none of them can float"
 assert_eq "" "$(grep -rhE 'image:.*fabioassuncao/portta' docker/compose/compose.yaml docker/compose/*/*.yaml \
-  | grep -vE 'ghcr\.io/fabioassuncao/portta:[0-9]|fabioassuncao/portta:(local|dev)' || true)"
+  | grep -vE 'ghcr\.io/fabioassuncao/portta:[0-9]|fabioassuncao/portta:(dev|\$\{PORTTA_VERSION\})' || true)"
 
 it "pulling never reaches for an image that only a local build produces"
-# A checkout adds auth-build.yaml unconditionally, which gives the auth
-# services a `build:` and a local tag. Every `pull` has to skip those or it
+# An explicit local-build overlay gives the auth services a `build:` and a
+# local tag. Every `pull` has to skip those or it
 # asks a registry for an image nobody ever pushed, and both CI jobs that boot
 # the gateway died there. ADR 0015: the shell and the CLI must agree.
 assert_contains "$(cat bin/portta)" "pull --ignore-buildable"
@@ -330,9 +331,16 @@ done
 it "just has no leftover demo-up or examples recipes"
 assert_eq "" "$(grep -E '^(demo-up|demo-down|examples)' justfile || true)"
 
-it "just up and just web build local Portta images"
-assert_contains "$(awk '/^up /,/^$/' justfile)" 'PORTTA_WEB_BUILD=true'
-assert_contains "$(awk '/^web /,/^$/' justfile)" 'PORTTA_WEB_BUILD=true'
+it "just build produces the explicit local release"
+assert_contains "$(awk '/^build:/,/^$/' justfile)" '{{gw}} build'
+
+it "just up and just web consume the local release without building"
+assert_contains "$(awk '/^up /,/^$/' justfile)" 'PORTTA_LOCAL_RELEASE=true'
+assert_contains "$(awk '/^up /,/^$/' justfile)" 'PORTTA_WEB_BUILD=false'
+assert_contains "$(awk '/^up /,/^$/' justfile)" 'PORTTA_WEB_DEV=false'
+assert_contains "$(awk '/^web /,/^$/' justfile)" 'PORTTA_LOCAL_RELEASE=true'
+assert_contains "$(awk '/^web /,/^$/' justfile)" 'PORTTA_WEB_BUILD=false'
+assert_contains "$(awk '/^web /,/^$/' justfile)" 'PORTTA_WEB_DEV=false'
 
 it "reset is the checkout setup with --reset"
 assert_contains "$(sed -n '/export async function resetCommand/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)" 'reset: true'
@@ -341,6 +349,11 @@ it "dev --reset wipes the panel volume before the checkout setup"
 dev_body="$(sed -n '/export async function devCommand/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)"
 assert_contains "$dev_body" 'options.reset'
 assert_contains "$dev_body" 'wipePanelDatabase'
+
+it "dev prepares the panel around one gateway convergence"
+assert_contains "$dev_body" 'prepareWebUp'
+assert_contains "$dev_body" 'finishWebUp'
+assert_eq "" "$(printf '%s' "$dev_body" | grep -n 'webUp(' || true)"
 
 it "the wipe goes down, removes the panel volume, then returns"
 wipe_body="$(sed -n '/export async function wipePanelDatabase/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)"
@@ -353,8 +366,8 @@ assert_contains "$(cat packages/cli/src/cli.ts)" 'devCommand(profile, options, c
 
 it "the checkout setup never pulls the published image"
 assert_contains "$(sed -n '/export async function devCommand/,/^export async function /p' packages/cli/src/commands/lifecycle.ts)" 'skipPull: true'
-assert_contains "$(sed -n '/export function checkoutLocalEnv/,/^}/p' packages/cli/src/commands/lifecycle.ts)" 'LOCAL_PORTA_IMAGE'
-assert_contains "$(cat packages/core/src/config.ts)" "LOCAL_PORTA_IMAGE = 'fabioassuncao/portta:local'"
+assert_contains "$(sed -n '/export function checkoutLocalEnv/,/^}/p' packages/cli/src/commands/lifecycle.ts)" "PORTTA_WEB_BUILD: 'false'"
+assert_contains "$(cat packages/core/src/images.ts)" 'fabioassuncao/portta:${release}'
 assert_eq "" "$(sed -n '/export function checkoutLocalEnv/,/^}/p' packages/cli/src/commands/lifecycle.ts | grep -E 'ghcr.io/fabioassuncao' || true)"
 
 

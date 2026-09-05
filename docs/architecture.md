@@ -16,9 +16,9 @@ network.
 |---|---|---|
 | Traefik | `traefik:v3.7.12` | The only process holding 80/443. Routes by hostname. |
 | Docker socket proxy | `tecnativa/docker-socket-proxy:v0.5.0` | Read-only, filtered Docker API for discovery. |
-| Portta auth | `fabioassuncao/portta:local` | ForwardAuth for *project* hostnames and shares: a branded login and host-scoped sessions; no published port. Not the panel's login. |
+| Portta auth | `fabioassuncao/portta:<VERSION>` | ForwardAuth for *project* hostnames and shares: a branded login and host-scoped sessions; no published port. Not the panel's login. |
 | `bin/portta` | — | The operational contract: bootstrap, up/down, doctor, urls, access. |
-| Web panel | `fabioassuncao/portta:local` | Optional. One Node process: Next pages, the Hono API, the event stream and the WebSocket upgrades, on one port. |
+| Web panel | `fabioassuncao/portta:<VERSION>` | Optional. One Node process: Next pages, the Hono API, the event stream and the WebSocket upgrades, on one port. |
 | Panel socket proxy | `tecnativa/docker-socket-proxy:v0.5.0` | With the panel. The panel's own filtered Docker API. |
 | Panel PostgreSQL | `postgres:18.6-alpine` | With the panel, and required by it: accounts, decisions and identity, never runtime observations. |
 

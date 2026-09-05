@@ -3,7 +3,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Command } from 'commander'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { LOCAL_PORTA_IMAGE } from 'portta-core'
 
 const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
@@ -21,7 +20,8 @@ const mocks = vi.hoisted(() => ({
   ensureRunner: vi.fn(),
   applyDemo: vi.fn(),
   demoStacksDown: vi.fn(),
-  webUp: vi.fn(),
+  prepareWebUp: vi.fn(),
+  finishWebUp: vi.fn(),
   gatewayContext: vi.fn(),
 }))
 
@@ -55,7 +55,7 @@ vi.mock('./host.js', () => ({
 }))
 vi.mock('./repos.js', () => ({ refreshRepositories: mocks.refreshRepositories }))
 vi.mock('./examples.js', () => ({ applyDemo: mocks.applyDemo, demoStacksDown: mocks.demoStacksDown }))
-vi.mock('./web.js', () => ({ webUp: mocks.webUp }))
+vi.mock('./web.js', () => ({ prepareWebUp: mocks.prepareWebUp, finishWebUp: mocks.finishWebUp }))
 
 import { authMigrationRunArguments, checkoutLocalEnv, clearRegenerableState, devCommand, doctorReport, downCommand, panelDatabaseVolume, resetCommand, upCommand, type Check } from './lifecycle.js'
 
@@ -79,12 +79,11 @@ describe('what doctor prints', () => {
 })
 
 describe('checkout development images', () => {
-  it('never points Portta images at the published registry', () => {
+  it('selects development without leaking a runtime build or image override', () => {
     const values = checkoutLocalEnv()
-    expect(values.PORTTA_AUTH_IMAGE).toBe(LOCAL_PORTA_IMAGE)
-    expect(values.PORTTA_WEB_IMAGE).toBe(LOCAL_PORTA_IMAGE)
-    expect(Object.values(values).join(' ')).not.toContain('ghcr.io/fabioassuncao')
-    expect(values.PORTTA_WEB_BUILD).toBe('true')
+    expect(values.PORTTA_AUTH_IMAGE).toBe('')
+    expect(values.PORTTA_WEB_IMAGE).toBe('')
+    expect(values.PORTTA_WEB_BUILD).toBe('false')
     expect(values.PORTTA_WEB_DEV).toBe('true')
   })
 })
@@ -209,7 +208,8 @@ describe('resetCommand', () => {
     mocks.refreshRepositories.mockResolvedValue(undefined)
     mocks.ensureMetricsCollector.mockResolvedValue(undefined)
     mocks.inspectContainers.mockResolvedValue([])
-    mocks.webUp.mockImplementation(async () => { order.push('dev-web') })
+    mocks.prepareWebUp.mockImplementation(() => { order.push('prepare-web'); return {} })
+    mocks.finishWebUp.mockImplementation(async () => { order.push('dev-web') })
     mocks.runProcess.mockImplementation(async (_file: string, args: string[]) => {
       if (args.includes('down')) order.push('down')
       if (args[0] === 'volume' && args[1] === 'rm') order.push(`volume:${args[2]}`)
@@ -225,8 +225,10 @@ describe('resetCommand', () => {
     )
     expect(order.indexOf('confirm')).toBeLessThan(order.indexOf('down'))
     expect(order.indexOf('down')).toBeLessThan(order.indexOf('volume:portta-db'))
-    expect(order.indexOf('volume:portta-db')).toBeLessThan(order.indexOf('up'))
+    expect(order.indexOf('volume:portta-db')).toBeLessThan(order.indexOf('prepare-web'))
+    expect(order.indexOf('prepare-web')).toBeLessThan(order.indexOf('up'))
     expect(order.indexOf('up')).toBeLessThan(order.indexOf('dev-web'))
+    expect(order.filter((step) => step === 'up')).toHaveLength(1)
     expect(existsSync(join(root, 'state/git/index.json'))).toBe(false)
     expect(existsSync(join(root, 'state/metrics/host.json'))).toBe(false)
     expect(mocks.applyDemo).not.toHaveBeenCalled()
@@ -248,7 +250,8 @@ describe('resetCommand', () => {
     mocks.refreshRepositories.mockResolvedValue(undefined)
     mocks.ensureMetricsCollector.mockResolvedValue(undefined)
     mocks.inspectContainers.mockResolvedValue([])
-    mocks.webUp.mockResolvedValue(undefined)
+    mocks.prepareWebUp.mockReturnValue({})
+    mocks.finishWebUp.mockResolvedValue(undefined)
     mocks.runProcess.mockResolvedValue(ok())
 
     await resetCommand({}, command())
@@ -276,7 +279,8 @@ describe('resetCommand', () => {
     mocks.refreshRepositories.mockResolvedValue(undefined)
     mocks.ensureMetricsCollector.mockResolvedValue(undefined)
     mocks.inspectContainers.mockResolvedValue([])
-    mocks.webUp.mockResolvedValue(undefined)
+    mocks.prepareWebUp.mockReturnValue({})
+    mocks.finishWebUp.mockResolvedValue(undefined)
     mocks.runProcess.mockResolvedValue(ok())
 
     await resetCommand({}, command())
@@ -298,7 +302,8 @@ describe('resetCommand', () => {
     mocks.refreshRepositories.mockResolvedValue(undefined)
     mocks.ensureMetricsCollector.mockResolvedValue(undefined)
     mocks.inspectContainers.mockResolvedValue([])
-    mocks.webUp.mockResolvedValue(undefined)
+    mocks.prepareWebUp.mockReturnValue({})
+    mocks.finishWebUp.mockResolvedValue(undefined)
     mocks.applyDemo.mockResolvedValue(undefined)
     mocks.demoStacksDown.mockResolvedValue(undefined)
     mocks.runProcess.mockImplementation(async (_file: string, args: string[]) => {
@@ -371,7 +376,8 @@ describe('resetCommand', () => {
     mocks.refreshRepositories.mockResolvedValue(undefined)
     mocks.ensureMetricsCollector.mockResolvedValue(undefined)
     mocks.inspectContainers.mockResolvedValue([])
-    mocks.webUp.mockResolvedValue(undefined)
+    mocks.prepareWebUp.mockReturnValue({})
+    mocks.finishWebUp.mockResolvedValue(undefined)
     mocks.runProcess.mockResolvedValue(ok())
 
     await devCommand(undefined, { reset: true }, command())
@@ -389,7 +395,8 @@ describe('resetCommand', () => {
     mocks.refreshRepositories.mockResolvedValue(undefined)
     mocks.ensureMetricsCollector.mockResolvedValue(undefined)
     mocks.inspectContainers.mockResolvedValue([])
-    mocks.webUp.mockResolvedValue(undefined)
+    mocks.prepareWebUp.mockReturnValue({})
+    mocks.finishWebUp.mockResolvedValue(undefined)
     mocks.runProcess.mockResolvedValue(ok())
 
     await devCommand(undefined, {}, command())

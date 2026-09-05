@@ -24,6 +24,7 @@ import { tasksComment, tasksCreate, tasksDelete, tasksEdit, tasksFinish, tasksGi
 import { examplesApply, tasksImport } from './commands/examples.js'
 import { sessionsEnd, sessionsHeartbeat, sessionsList, sessionsStart } from './commands/sessions.js'
 import { activityCommand } from './commands/activity.js'
+import { buildCommand } from './commands/build.js'
 import { remoteAccessClose, remoteAccessList, remoteAccessOpen, remoteBootstrap, remoteExec, remoteGateway } from './commands/remote.js'
 import { tunnelDisable, tunnelEnable, tunnelLogs, tunnelSetup, tunnelStatus, tunnelTest } from './commands/tunnel.js'
 import { legacy, webBuild, webDisable, webDown, webLogs, webOpen, webRestart, webStatus, webUp } from './commands/web.js'
@@ -70,6 +71,7 @@ describe(program.command('setup'), 'Provision or update a gateway checkout safel
 describe(program.command('bootstrap'), 'Prepare this checkout and run diagnostics')
   .option('--skip-pull', 'do not pull component images')
   .action(bootstrapCommand)
+describe(program.command('build'), 'Build every local Portta release image from VERSION').action((_options, command) => buildCommand(command))
 describe(program.command('up [profile]'), 'Start gateway components')
   .option('--attach', 'run in the foreground')
   .option('--demo', 'also start docker/examples and import their panel records')

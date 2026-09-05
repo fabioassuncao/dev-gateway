@@ -88,6 +88,7 @@ USAGE
 CORE
   bootstrap              Prepare this host: check the runtime, create the shared
                          network and state directories, then run doctor
+  build                  Build every local Portta image tagged from VERSION
   up [profile]           Start the gateway (profile: local | remote-private | remote-public)
   dev [profile]          Checkout setup: build Portta images locally, start the panel
   down                   Stop the gateway. Consumer projects keep running
@@ -225,6 +226,22 @@ cmd_up() {
   portta_require_compose || exit 1
   portta_resolve_profile "$profile" || exit 1
 
+  if portta_is_true "${PORTTA_LOCAL_RELEASE:-false}"; then
+    local version image missing=""
+    version=$(portta_version)
+    for image in \
+      "fabioassuncao/portta:$version" \
+      "fabioassuncao/portta-apply:$version" \
+      "fabioassuncao/portta-toolbox:$version"; do
+      docker image inspect "$image" >/dev/null 2>&1 || missing="$missing $image"
+    done
+    if [ -n "$missing" ]; then
+      err "local release $version is incomplete; missing:${missing}"
+      hint "run just build"
+      exit 2
+    fi
+  fi
+
   # The shared network must exist before Compose resolves `external: true`.
   portta_network_ensure "$PORTTA_NETWORK" \
     || die "could not create the shared network '$PORTTA_NETWORK'"
@@ -240,21 +257,14 @@ cmd_up() {
   portta_auth_prepare "$profile" || die "authentication state could not be prepared"
 
   info "starting gateway (profile: $profile, domain: $PORTTA_DOMAIN)"
-  local build=""
-  if [ -f "$PORTTA_ROOT/apps/web/Dockerfile" ] && [ -d "$PORTTA_ROOT/apps/auth" ]; then
-    build="--build"
-  fi
   if [ "$detach" = "1" ]; then
     if [ "$wait" = "1" ]; then
-      # shellcheck disable=SC2086  # $build is empty or a single flag
-      portta_compose "$profile" up -d $build --remove-orphans --wait --wait-timeout 180 || exit 1
+      portta_compose "$profile" up -d --remove-orphans --wait --wait-timeout 180 || exit 1
     else
-      # shellcheck disable=SC2086
-      portta_compose "$profile" up -d $build --remove-orphans
+      portta_compose "$profile" up -d --remove-orphans
     fi
   else
-    # shellcheck disable=SC2086
-    portta_compose "$profile" up $build --remove-orphans
+    portta_compose "$profile" up --remove-orphans
   fi
 
   # The optional applier, so the panel can recreate these containers itself.
@@ -501,8 +511,8 @@ cmd_update() {
   info "validating the compose configuration before touching anything"
   portta_compose "$profile" config --quiet || die "compose configuration is invalid; nothing was changed"
 
-  # --ignore-buildable because a checkout adds auth-build.yaml, which gives the
-  # auth services a `build:` and a local tag. Without it Compose tries to pull an
+  # --ignore-buildable because an explicit build overlay gives the auth
+  # services a `build:` and a local tag. Without it Compose tries to pull an
   # image that only exists after `docker compose build`, and the registry it was
   # never pushed to answers "access denied".
   info "pulling pinned component images"
@@ -524,7 +534,7 @@ cmd_toolbox() {
     build)
       portta_require_docker || exit 1
       info "building $PORTTA_TOOLBOX_IMAGE"
-      docker build -t "$PORTTA_TOOLBOX_IMAGE" "$PORTTA_TOOLBOX_CONTEXT" || die "build failed"
+      docker build --build-arg "PORTTA_VERSION=$(portta_version)" -t "$PORTTA_TOOLBOX_IMAGE" "$PORTTA_TOOLBOX_CONTEXT" || die "build failed"
       ok "toolbox ready"
       ;;
     run)
@@ -687,7 +697,7 @@ main() {
     # one stops being: a spelling only this list knows is a command that does
     # not exist on any host with Node, which is every host the installer
     # touched. `analyse` and `adapt` were exactly that.
-    tls|tunnel|remote|backup|restore|repair|network|public|dns|analyze|init|namespace|ns|access|services|git|repos|host|share|auth|web|db|redis|service|setup|config|dev|reset|tasks|sessions|activity|projects|envs|env|overview|examples)
+    build|tls|tunnel|remote|backup|restore|repair|network|public|dns|analyze|init|namespace|ns|access|services|git|repos|host|share|auth|web|db|redis|service|setup|config|dev|reset|tasks|sessions|activity|projects|envs|env|overview|examples)
       err "'$cmd' requires Node 22.12 or newer and the full CLI"
       hint "npm install -g portta   (or run it inside a built checkout)"
       exit 3

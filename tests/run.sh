@@ -92,7 +92,7 @@ if [ "$RUN_LINT" = "1" ]; then
   bold "== no pinned-to-latest images =="
   # A floating tag turns an unrelated upstream release into an outage.
   floating=$(grep -rnE '^\s*image:\s*\S+(:latest)?\s*$' docker/compose/compose.yaml docker/compose/*/*.yaml docker/examples/*/compose*.yaml \
-    | grep -vE 'image:\s*\S+:[A-Za-z0-9]' || true)
+    | grep -vE 'image:\s*\S+:[A-Za-z0-9]|\$\{PORTTA_VERSION\}' || true)
   if [ -n "$floating" ]; then
     echo "  FAIL images without an explicit tag:"; printf '%s\n' "$floating" | sed 's/^/       /'; FAILED=1
   else
