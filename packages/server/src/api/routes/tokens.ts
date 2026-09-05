@@ -12,50 +12,13 @@
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
-import {
-  createToken,
-  findToken,
-  listTokens,
-  PERMISSIONS,
-  revokeToken,
-  type TokenRecord,
-} from 'portta-auth-core'
+import { createToken, findToken, listTokens, revokeToken, type TokenRecord } from 'portta-auth-core'
+import { ApiTokens, CreateApiToken, CreatedApiToken } from 'portta-contracts'
 import { principalOf } from 'portta-auth-core/hono'
 import type { AppDeps } from '../../deps.ts'
 import { documentRoute } from '../openapi.ts'
 
 const seconds = (value: Date | null): number | null => (value ? Math.floor(value.getTime() / 1000) : null)
-
-const ApiToken = z.object({
-  id: z.string(),
-  name: z.string(),
-  /** The first characters. Enough to recognise one, useless to anybody else. */
-  start: z.string().nullable(),
-  actor: z.string(),
-  actorKind: z.enum(['human', 'agent']),
-  scopes: z.array(z.string()),
-  createdAt: z.number(),
-  expiresAt: z.number().nullable(),
-  lastUsedAt: z.number().nullable(),
-  enabled: z.boolean(),
-  /** Whose it is. Present so an administrator's listing is readable. */
-  user: z.string(),
-}).strict().meta({ ref: 'ApiToken' })
-
-const ApiTokens = z.object({ tokens: z.array(ApiToken) }).strict().meta({ ref: 'ApiTokens' })
-
-const CreateToken = z.object({
-  name: z.string().min(1).max(80),
-  actorKind: z.enum(['human', 'agent']).default('agent'),
-  /** Absent means the default for the kind, narrowed by the owner's role. */
-  scopes: z.array(z.enum(PERMISSIONS as unknown as [string, ...string[]])).max(200).optional(),
-  expiresInDays: z.number().int().min(1).max(365).optional(),
-}).strict().meta({ ref: 'CreateApiToken' })
-
-const CreatedToken = z.object({
-  token: z.string().describe('The secret. Shown here and nowhere else, ever.'),
-  credential: ApiToken,
-}).strict().meta({ ref: 'CreatedApiToken' })
 
 const idParameter = {
   name: 'id', in: 'path' as const, required: true,
@@ -112,7 +75,7 @@ export function tokenRoutes(deps: AppDeps): Hono {
     tag: 'Authentication', operationId: 'createApiToken', permission: 'token:create',
     summary: 'Create a token for yourself',
     description: 'The secret appears once, in this response. What the token holds is the intersection of its scopes and your role, computed on every request — so lowering your role lowers it too.',
-    request: CreateToken, response: CreatedToken, status: 201,
+    request: CreateApiToken, response: CreatedApiToken, status: 201,
     errors: [400, 401, 403, 500, 503],
   }), async (c) => {
     const auth = requireAuth()
@@ -120,7 +83,7 @@ export function tokenRoutes(deps: AppDeps): Hono {
     if (principal.userId === null) {
       throw new HTTPException(403, { message: 'a token belongs to a person, and this request is not one' })
     }
-    const body = CreateToken.parse(await c.req.json())
+    const body = CreateApiToken.parse(await c.req.json())
     const created = await createToken({ db: deps.db.handle, auth }, {
       userId: principal.userId,
       name: body.name,

@@ -29,6 +29,8 @@ import { developmentRoutes } from './routes/development.ts'
 import { authRoutes } from './routes/auth.ts'
 import { userRoutes } from './routes/users.ts'
 import { tokenRoutes } from './routes/tokens.ts'
+import { auditRoutes } from './routes/audit.ts'
+import { settingsRoutes } from './routes/settings.ts'
 import { Forbidden, hasOwner, TokenRefused, Unauthenticated } from 'portta-auth-core'
 import { principalMiddleware, SetupRequired } from 'portta-auth-core/hono'
 import { shareRoutes } from './routes/shares.ts'
@@ -184,6 +186,8 @@ export function createApi(deps: AppDeps): Hono {
   api.route('/', authRoutes(deps))
   api.route('/', userRoutes(deps))
   api.route('/', tokenRoutes(deps))
+  api.route('/', auditRoutes(deps))
+  api.route('/', settingsRoutes(deps))
   registerOpenApiRoutes(api, deps.config)
 
   api.all('*', (c) => c.json({ error: `no such endpoint: ${c.req.path}` }, 404))

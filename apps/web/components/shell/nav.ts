@@ -79,7 +79,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     labelKey: null,
-    items: [{ href: '/settings', labelKey: 'settings', icon: SettingsIcon, enabled: false }],
+    // No permission on the entry: Settings is a place with sections, and every
+    // role holds at least one of them (`token:read` if nothing else). Which
+    // section somebody lands on is decided by `/settings` itself.
+    items: [{ href: '/settings', labelKey: 'settings', icon: SettingsIcon, enabled: true }],
   },
 ]
 

@@ -10638,18 +10638,29 @@
             }
           },
           "createdAt": {
-            "type": "number"
+            "type": "number",
+            "description": "Unix timestamp in seconds"
           },
           "expiresAt": {
-            "type": [
-              "number",
-              "null"
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "lastUsedAt": {
-            "type": [
-              "number",
-              "null"
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Unix timestamp in seconds"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "enabled": {
@@ -10720,6 +10731,196 @@
         "required": [
           "ok",
           "revoked"
+        ],
+        "additionalProperties": false
+      },
+      "AuditEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "at": {
+            "type": "number",
+            "description": "Unix timestamp in seconds"
+          },
+          "userId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "userEmail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "principalKind": {
+            "type": "string",
+            "enum": [
+              "local",
+              "user",
+              "token"
+            ]
+          },
+          "actor": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "auth.login",
+              "auth.logout",
+              "auth.login_failed",
+              "user.created",
+              "user.deleted",
+              "user.role_changed",
+              "user.banned",
+              "user.unbanned",
+              "user.password_set",
+              "user.password_changed",
+              "user.ownership_transferred",
+              "user.two_factor_enabled",
+              "user.two_factor_disabled",
+              "user.sessions_revoked",
+              "project_access.granted",
+              "project_access.revoked",
+              "token.created",
+              "token.revoked",
+              "project.created",
+              "project.updated",
+              "project.deleted",
+              "environment.started",
+              "environment.stopped",
+              "environment.restarted",
+              "environment.rebuilt",
+              "environment.destroyed",
+              "environment.forgotten",
+              "service.restarted",
+              "container.operated",
+              "container.destroyed",
+              "access.bridge_opened",
+              "access.bridge_closed",
+              "share.created",
+              "share.revoked",
+              "gateway.applied",
+              "settings.changed",
+              "github.installed",
+              "github.removed",
+              "database.migrated"
+            ]
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resourceName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project": {
+            "description": "Project slug, when the entry is about one",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ipAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "userId",
+          "userEmail",
+          "principalKind",
+          "actor",
+          "action",
+          "resourceType",
+          "resourceId",
+          "resourceName",
+          "project",
+          "ipAddress",
+          "metadata"
+        ],
+        "additionalProperties": false
+      },
+      "AuditPage": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            }
+          },
+          "nextBefore": {
+            "description": "Pass as ?before= for the next page",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "entries",
+          "nextBefore"
+        ],
+        "additionalProperties": false
+      },
+      "AgentPermissions": {
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "In force right now"
+          },
+          "defaults": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What an agent holds when nothing is set"
+          },
+          "available": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Every permission this installation knows"
+          },
+          "configured": {
+            "type": "boolean",
+            "description": "False when the default is what is in force"
+          }
+        },
+        "required": [
+          "permissions",
+          "defaults",
+          "available",
+          "configured"
         ],
         "additionalProperties": false
       },
@@ -26004,65 +26205,7 @@
                     "maxItems": 200,
                     "type": "array",
                     "items": {
-                      "type": "string",
-                      "enum": [
-                        "user:create",
-                        "user:list",
-                        "user:set-role",
-                        "user:ban",
-                        "user:impersonate",
-                        "user:impersonate-admins",
-                        "user:delete",
-                        "user:set-password",
-                        "user:set-email",
-                        "user:get",
-                        "user:update",
-                        "session:list",
-                        "session:revoke",
-                        "session:delete",
-                        "project:read",
-                        "project:create",
-                        "project:update",
-                        "project:delete",
-                        "project:members",
-                        "repository:read",
-                        "repository:manage",
-                        "task:read",
-                        "task:write",
-                        "task:delete",
-                        "task:sync",
-                        "environment:read",
-                        "environment:operate",
-                        "environment:destroy",
-                        "environment:settings",
-                        "service:read",
-                        "service:operate",
-                        "container:read",
-                        "container:operate",
-                        "container:destroy",
-                        "logs:read",
-                        "metrics:read",
-                        "activity:read",
-                        "worksession:read",
-                        "worksession:write",
-                        "access:read",
-                        "access:open",
-                        "access:manage",
-                        "gateway:read",
-                        "gateway:operate",
-                        "docker:read",
-                        "docker:operate",
-                        "docker:destroy",
-                        "github:read",
-                        "github:sync",
-                        "github:manage",
-                        "settings:read",
-                        "settings:manage",
-                        "token:read",
-                        "token:create",
-                        "token:revoke",
-                        "audit:read"
-                      ]
+                      "type": "string"
                     }
                   },
                   "expiresInDays": {
@@ -26174,6 +26317,308 @@
           }
         ],
         "x-portta-permission": "token:revoke"
+      }
+    },
+    "/audit": {
+      "get": {
+        "operationId": "listAudit",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Who did what, newest first",
+        "description": "The sensitive writes only. Tasks, sessions and commits are development activity and live in /api/activity.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Up to 500; default 50.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "description": "An entry id; only entries older than it, for paging.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user",
+            "in": "query",
+            "required": false,
+            "description": "Only what this account did.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "query",
+            "required": false,
+            "description": "Only what happened in this Project, by id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "description": "One of the closed action list.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The delivery signature could not be verified.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-permission": "audit:read"
+      }
+    },
+    "/settings/agent-permissions": {
+      "get": {
+        "operationId": "getAgentPermissions",
+        "tags": [
+          "Configuration"
+        ],
+        "summary": "What a local agent may do",
+        "description": "The ceiling over a request that announces itself with X-Portta-Actor. A permission a role does not hold is still refused: this narrows, it never grants.",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPermissions"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The delivery signature could not be verified.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-portta-permission": "settings:read"
+      },
+      "put": {
+        "operationId": "setAgentPermissions",
+        "tags": [
+          "Configuration"
+        ],
+        "summary": "Set what a local agent may do",
+        "description": "Send null to restore the default. Unknown names are refused here rather than ignored later, so a typo is visible while somebody is looking at it.",
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPermissions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or the requested action was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The delivery signature could not be verified.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The panel is read-only, the write is cross-origin, or the operation is outside the panel allowlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The panel encountered an unexpected failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required local dependency is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "permissions": {
+                    "anyOf": [
+                      {
+                        "maxItems": 64,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Null restores the default"
+                  }
+                },
+                "required": [
+                  "permissions"
+                ],
+                "additionalProperties": false,
+                "ref": "SetAgentPermissions"
+              }
+            }
+          }
+        },
+        "x-portta-permission": "settings:manage"
       }
     },
     "/openapi.json": {

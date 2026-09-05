@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useTranslation } from 'react-i18next'
 import { slug } from 'portta-core/browser'
 import { cn } from '../../lib/utils.ts'
@@ -9,10 +10,13 @@ export function SettingsNav({
   groups,
   active,
   dirtyCounts,
+  base = '/settings/general',
 }: {
   groups: string[]
   active: string | null
   dirtyCounts: ReadonlyMap<string, number>
+  /** What a group's slug hangs off. One place, so a moved section is one edit. */
+  base?: string
 }) {
   const { t } = useTranslation('settings')
   const { t: tc } = useTranslation('common')
@@ -28,9 +32,9 @@ export function SettingsNav({
         const dirty = dirtyCounts.get(group) ?? 0
         const label = t(`groups.${group}`, { defaultValue: group })
         return (
-          <a
+          <Link
             key={group}
-            href={`/settings/${groupSlug}`}
+            href={`${base}/${groupSlug}`}
             aria-label={dirty > 0 ? `${label}, ${tc('unsaved', { count: dirty })}` : undefined}
             aria-current={selected ? 'page' : undefined}
             className={cn(
@@ -40,7 +44,7 @@ export function SettingsNav({
           >
             <span>{label}</span>
             {dirty > 0 ? <Badge tone="warn">{dirty}</Badge> : null}
-          </a>
+          </Link>
         )
       })}
     </nav>

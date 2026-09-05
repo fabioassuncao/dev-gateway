@@ -196,5 +196,6 @@
     "selected_other": "{{count}} selecionados",
     "selectionActions": "Ações para a seleção",
     "clearSelection": "Limpar"
-  }
+  },
+  "continue": "Continuar"
 }

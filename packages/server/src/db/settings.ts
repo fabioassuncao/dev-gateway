@@ -129,6 +129,11 @@ export class SettingsRepository {
       })
   }
 
+  /** Forget a global setting, so whatever reads it falls back to its default. */
+  async clearGlobal(key: GlobalSettingKey): Promise<void> {
+    await this.db.delete(settings).where(eq(settings.key, key))
+  }
+
   async clearEnvironment(environmentId: string, key: EnvironmentSettingKey): Promise<void> {
     await this.db
       .delete(environmentSettings)

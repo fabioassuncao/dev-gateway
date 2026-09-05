@@ -85,6 +85,18 @@ export function panelIsReadOnly(): boolean {
 }
 
 /**
+ * Whether this panel has accounts at all.
+ *
+ * In `open` mode there is nobody to be: no users, no tokens, no second factor
+ * and nothing to audit. Settings shows those sections only when they mean
+ * something, because an empty Users page says the feature is broken rather
+ * than absent.
+ */
+export function panelSignsPeopleIn(): boolean {
+  return serverDeps().security.mode === 'protected'
+}
+
+/**
  * A page only somebody with this permission has.
  *
  * `notFound()` rather than a refusal: a page a role never has is not part of

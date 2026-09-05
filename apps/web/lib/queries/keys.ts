@@ -67,6 +67,13 @@ export const keys = {
   github: () => ['github'] as const,
   githubRepositories: () => ['github', 'repositories'] as const,
   config: () => ['config'] as const,
+  agentPermissions: () => ['config', 'agent-permissions'] as const,
+
+  users: () => ['users'] as const,
+  user: (id: string) => ['users', id] as const,
+  userSessions: (id: string) => ['users', id, 'sessions'] as const,
+  apiTokens: (all: boolean) => ['tokens', all ? 'all' : 'mine'] as const,
+  audit: (filters: Record<string, string | undefined> = {}) => ['audit', normalise(filters)] as const,
 }
 
 /** Filters become one stable string, so `{a, b}` and `{b, a}` share a cache entry. */

@@ -113,6 +113,12 @@ Owner and admin see every Project, so a membership list does not apply to them
 and setting one is refused. Promoting somebody to admin clears the memberships
 they had, because leaving them would suggest a boundary nothing enforces.
 
+All of it is also **Settings → Users** in the panel, for somebody who holds
+`user:list`. An action a rule would refuse is not offered there: there is no
+"change your own role", no ban on the owner from an administrator, and no
+removal of the last owner. Removing asks for the account's email to be typed
+first.
+
 ### Access by Project
 
 A role says what somebody may do. A membership says where. `owner` and `admin`
@@ -161,6 +167,18 @@ Sign-in, TOTP verification and backup codes are rate-limited to five attempts in
 ten minutes. A user who has turned on a second factor is sent to `/two-factor`
 after their password is accepted.
 
+**Settings → Security** is where somebody turns it on. The panel asks for the
+password, shows the QR code and the secret behind it, and only counts the factor
+as on once a code from the app comes back — an interrupted setup leaves the
+account exactly as it was. The backup codes are shown once, in a dialog that
+does not close on an escape key. Turning it off asks for the password again.
+
+The same page lists every session of the account, marks the browser it is being
+read in, and ends the others one at a time. An administrator sees the same list
+for somebody else under **Settings → Users**, where the only action is ending
+all of them at once: a session id is not something anybody recognises, and the
+question that gets asked is "sign this account out everywhere".
+
 There is no email transport in a self-hosted panel, so there is no reset link.
 A forgotten password is reset from the host that owns the panel:
 
@@ -205,6 +223,12 @@ The panel accepts a token as `Authorization: Bearer ptt_…` and in no other
 form; `x-api-key` is not accepted. Housekeeping disables a token that expired
 more than thirty days ago and deletes one revoked more than ninety days ago.
 
+**Settings → API tokens** is the same thing in the panel: your tokens by
+default, everybody's for somebody with `user:list`. A new secret appears once,
+in a dialog that will not close on an escape key and asks the person to say they
+copied it — because the panel keeps a hash, and a lost secret means making
+another token.
+
 ### Signing a terminal in
 
 ```bash
@@ -236,6 +260,11 @@ request announcing itself as an agent is held to what agents may do — the
 `agentPermissions` setting, which defaults to a developer minus the three things
 that change how the panel behaves (`environment:settings`, `repository:manage`,
 `github:sync`).
+
+That setting is editable in **Settings → General → Panel**, one permission at a
+time, and `GET`/`PUT /api/settings/agent-permissions` is the same list for a
+script. It is a ceiling in both modes: with accounts on, an agent holds the
+intersection of this list and the role of whoever the token belongs to.
 
 ## Project hostnames and shares
 

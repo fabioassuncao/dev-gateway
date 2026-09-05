@@ -24,14 +24,3 @@ export function usePrincipal(): PanelPrincipal {
   if (!principal) throw new Error('usePrincipal was called outside the panel layout')
   return principal
 }
-
-/**
- * Whether to render a control.
- *
- * Not a security check: the API decides, and it decides again on every request.
- * This is so a viewer is not shown a button that would answer 403 — the
- * difference between a panel that is read-only and one that is broken.
- */
-export function useCan(permission: string): boolean {
-  return usePrincipal().permissions.includes(permission)
-}

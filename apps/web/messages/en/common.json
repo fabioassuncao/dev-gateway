@@ -196,5 +196,6 @@
     "selected_other": "{{count}} selected",
     "selectionActions": "Actions for the selection",
     "clearSelection": "Clear"
-  }
+  },
+  "continue": "Continue"
 }
