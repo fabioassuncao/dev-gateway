@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Callout, ErrorBox, Loading, PageHeader } from '@/components/shell-bits'
 import { SettingsGroup } from '@/components/settings/settings-group'
+import { displayValue } from '@/components/settings/values'
 import { GitHubStatusCard } from '@/components/github-status'
 
 const GROUP = 'GitHub'
@@ -56,7 +57,7 @@ export function IntegrationsView() {
   const valueOf = (field: ConfigField): string => {
     const pending = draft[field.key]
     if (pending !== undefined) return pending ?? ''
-    return field.secret ? '' : (field.value ?? '')
+    return displayValue(field, draft)
   }
 
   return (

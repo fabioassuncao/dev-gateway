@@ -5,16 +5,13 @@ import { Globe } from 'lucide-react'
 import type { ProjectDomain } from 'portta-contracts'
 import { Badge } from './ui/badge.tsx'
 import { Card, CardBody, CardHeader } from './ui/card.tsx'
-import { Callout, KeyValue, NoValue } from './shell-bits.tsx'
+import { Callout } from './shell-bits.tsx'
 import { CodeChip, CopyButton, Mono } from './copy.tsx'
+import { LearnMore } from './settings/learn-more.tsx'
 
 /**
- * What the chosen mode actually produces.
- *
- * The settings fields above this card are the variables; this is the answer
- * they add up to. Showing the hostname a project will really get is the whole
- * point: the failure this feature exists to fix was a panel confidently
- * advertising `demo-web.localhost` to somebody reading it from another country.
+ * What the chosen mode actually produces: the formula and a few hostnames a
+ * project would get. A name is not an exposure.
  */
 export function ProjectDomainCard({ domain }: { domain: ProjectDomain }) {
   const { t } = useTranslation('settings', { keyPrefix: 'projectDomain' })
@@ -39,25 +36,16 @@ export function ProjectDomainCard({ domain }: { domain: ProjectDomain }) {
         description={t('description')}
       />
       <CardBody>
-        <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-          <KeyValue label={t('mode')}>{domain.mode}</KeyValue>
-          <KeyValue label={t('base')}>
-            <Mono kind="host" tone="ink">{domain.domain}</Mono>
-          </KeyValue>
-          {domain.mode === 'auto' ? (
-            <>
-              <KeyValue label={t('publicIp')}>
-                {domain.publicIp ? <Mono kind="host" tone="ink">{domain.publicIp}</Mono> : <NoValue />}
-              </KeyValue>
-              <KeyValue label={t('provider')}>{domain.provider}</KeyValue>
-            </>
-          ) : null}
-        </dl>
+        <p className="text-xs text-subtle">{t('formula')}</p>
+        <p className="mt-1">
+          <Mono kind="host" tone="ink">{t('formulaPattern')}</Mono>
+        </p>
+        <p className="mt-3 text-xs text-subtle">
+          {t('base')}: <Mono kind="host" tone="ink">{domain.domain}</Mono>
+        </p>
 
         <div className="mt-4">
-          <p className="mb-1 text-xs text-subtle">
-            {t('examples')}
-          </p>
+          <p className="mb-1 text-xs text-subtle">{t('examples')}</p>
           <ul className="space-y-1">
             {domain.examples.map((example) => (
               <li key={example} className="flex items-center gap-2">
@@ -76,11 +64,9 @@ export function ProjectDomainCard({ domain }: { domain: ProjectDomain }) {
           <Callout tone="warn" className="mt-2">{domain.advice}</Callout>
         ) : null}
 
-        {/* A hostname is a name. Who may reach a service is a separate,
-            deliberate setting, and saying so here stops the two being
-            confused. See docs/adr/0022-project-domain-modes.md. */}
         <p className="mt-3 text-xs text-subtle">
-          {t('note')}
+          {t('note')}{' '}
+          <LearnMore citation="docs/addresses-and-access.md#public-access" />
         </p>
       </CardBody>
     </Card>

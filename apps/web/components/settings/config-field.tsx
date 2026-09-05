@@ -2,7 +2,6 @@
 
 import type { ConfigField as ConfigFieldView } from 'portta-contracts'
 import { useTranslation } from 'react-i18next'
-import { RotateCw } from 'lucide-react'
 import { DocText } from '../doc-text.tsx'
 import { Badge } from '../ui/badge.tsx'
 import { Button } from '../ui/button.tsx'
@@ -13,34 +12,42 @@ import { CodeChip } from '../copy.tsx'
 
 /**
  * One setting, and everything a person needs before changing it: what it is,
- * what it does, what it is set to right now, whether the running process has
- * caught up, and whether it will until something restarts.
- *
- * `restartRequired` was already on the wire and shown nowhere, so the answer to
- * "I flipped it, why is nothing different?" was a support question rather than
- * a label. It is a label now.
+ * what it does, what it is set to, and — only when it matters — whether the
+ * running process has caught up.
  */
 export function ConfigField({
   field,
   value,
   onChange,
+  disabled = false,
 }: {
   field: ConfigFieldView
   value: string
   onChange: (value: string | null) => void
+  disabled?: boolean
 }) {
   const { t } = useTranslation('settings')
   const { t: tc } = useTranslation('common')
 
   const boolean = field.kind === 'boolean'
   const on = value === 'true'
-  // A secret's value never leaves the server, so "what it is now" is only ever
-  // "set" or "not set" for one.
   const current = field.secret
     ? (field.isSet ? tc('set') : tc('notSet'))
     : boolean
       ? (on ? tc('enabled') : tc('disabled'))
       : (field.runtimeValue ?? tc('notSet'))
+
+  const source = field.isSet || field.secret
+    ? null
+    : field.valueSource === 'detected'
+      ? t('valueDetected')
+      : field.valueSource === 'default'
+        ? t('valueDefault')
+        : field.valueSource === 'environment'
+          ? t('valueEnvironment')
+          : field.valueSource === 'derived'
+            ? t('valueDerived')
+        : null
 
   const label = (
     <span className="inline-flex flex-wrap items-center gap-2">
@@ -59,22 +66,15 @@ export function ConfigField({
     <>
       <DocText>{t(`fields.${field.key}.help`, { defaultValue: field.help })}</DocText>
       <span className="mt-1 flex flex-wrap items-center gap-2 text-2xs">
-        <CodeChip tone="muted">{field.key}</CodeChip>
-        {!boolean && !field.secret && field.runtimeValue ? (
+        {source ? <span>{source}</span> : null}
+        {field.pending && !boolean && !field.secret && field.runtimeValue ? (
           <span>{t('runningValue', { value: field.runtimeValue })}</span>
         ) : null}
-        {field.restartRequired && !field.pending ? (
-          // A fact about the setting, not an action: it sits with the other
-          // facts under the control, where a refresh icon after the label
-          // used to ask to be clicked.
-          <Tooltip label={t('restartHint')}>
-            <span tabIndex={0} className="inline-flex items-center gap-1 rounded-xs text-subtle focus-ring">
-              <RotateCw className="size-3" aria-hidden />
-              {t('restartRequired')}
-            </span>
-          </Tooltip>
-        ) : null}
       </span>
+      <details className="mt-1 text-2xs text-subtle">
+        <summary className="w-fit cursor-pointer select-none hover:text-ink">{t('technicalDetails')}</summary>
+        <div className="mt-1"><CodeChip tone="muted">{field.key}</CodeChip></div>
+      </details>
     </>
   )
 
@@ -86,6 +86,7 @@ export function ConfigField({
           <Switch
             id={field.key}
             checked={on}
+            disabled={disabled}
             onCheckedChange={(checked) => onChange(checked ? 'true' : 'false')}
           />
         </span>
@@ -96,10 +97,10 @@ export function ConfigField({
   return (
     <Field id={field.key} label={label} hint={hint}>
       {field.kind === 'choice' ? (
-        <Select id={field.key} size="sm" className="w-full max-w-md" value={value} onChange={(event) => onChange(event.target.value)}>
+        <Select id={field.key} size="sm" className="w-full max-w-md" value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
           {(field.choices ?? []).map((choice) => (
             <option key={choice} value={choice}>
-              {choice}
+              {t(`fields.${field.key}.choices.${choice}`, { defaultValue: choice })}
             </option>
           ))}
         </Select>
@@ -110,6 +111,7 @@ export function ConfigField({
             size="sm"
             type="password"
             autoComplete="off"
+            disabled={disabled}
             mono
             placeholder={field.isSet ? tc('unchanged') : tc('notSet')}
             value={value}
@@ -117,7 +119,7 @@ export function ConfigField({
           />
           <Badge tone={field.isSet ? 'ok' : 'neutral'}>{field.isSet ? tc('set') : tc('unset')}</Badge>
           {field.isSet ? (
-            <Button size="sm" variant="ghost" onClick={() => onChange(null)}>
+            <Button size="sm" variant="ghost" disabled={disabled} onClick={() => onChange(null)}>
               {tc('clear')}
             </Button>
           ) : null}
@@ -129,6 +131,7 @@ export function ConfigField({
           className="max-w-md"
           mono={field.kind === 'string'}
           inputMode={field.kind === 'number' ? 'numeric' : undefined}
+          disabled={disabled}
           value={value}
           onChange={(event) => onChange(event.target.value)}
         />

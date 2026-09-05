@@ -124,7 +124,7 @@ const SHOTS = [
   { name: 'panel-network', route: '/network', ready: 'Network' },
   { name: 'panel-access', route: '/access', ready: 'Access' },
   { name: 'panel-gateway', route: '/gateway', ready: 'Gateway' },
-  { name: 'panel-settings', route: '/settings/general/gateway', ready: 'Settings' },
+  { name: 'panel-settings', route: '/settings/general/project-access', ready: 'Settings' },
   { name: 'panel-docs', route: '/docs', ready: 'Portta docs' },
   // The task's own workspace. Its id is whatever the import produced, so the
   // shot opens the board and clicks the first card rather than guessing one.

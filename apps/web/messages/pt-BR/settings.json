@@ -1,38 +1,139 @@
 {
   "title": "Configurações",
-  "description": "O .env do gateway, editado por uma lista fixa de chaves.",
+  "description": "Como o Portta nomeia os projetos, quem pode alcançá-los e como este painel é acessado.",
   "saved": "Salvo. O Traefik lê a configuração estática na inicialização; estes valores passam a valer quando os containers do gateway forem recriados no host:",
   "notWritable": "O painel não pode gravar {{path}}. Edite no host.",
   "sectionNotFound": "A seção de configurações “{{group}}” não existe",
   "chooseGroup": "Escolha um dos grupos disponíveis.",
   "secretsNote": "Segredos nunca são retornados pela API: o painel só informa se um token está definido. Valores são gravados em {{path}} com mode 600.",
+  "learnMore": "Saiba mais",
+  "configureDns": "Configurar DNS",
+  "configureTls": "Configurar TLS",
+  "valueDefault": "Padrão do Portta",
+  "valueDetected": "Detectado automaticamente",
+  "valueDerived": "Derivado automaticamente",
+  "valueEnvironment": "Definido pelo ambiente em execução",
+  "technicalDetails": "Detalhes técnicos",
+  "restartPending": "Estas alterações passam a valer depois que o gateway for recriado. Salve agora e use a barra de aplicação em seguida.",
+  "restartSummary": "{{count}} alterações exigem reinício do gateway.",
+  "restartSummary_one": "{{count}} alteração exige reinício do gateway.",
+  "restartSummary_other": "{{count}} alterações exigem reinício do gateway.",
   "dashboard": {
     "title": "Dashboard do Traefik",
-    "description": "Estado, endereço e quem pode alcançá-lo. Aplique as configurações salvas pela barra no rodapé.",
+    "description": "O endereço que este host está servindo agora. Aplique as configurações salvas pela barra no rodapé.",
     "authenticated": "atrás do login Portta",
     "noCredential": "sem credencial",
-    "loopbackOnly": "apenas loopback",
-    "loopbackHint": "Este endereço só funciona nesta máquina. Defina o acesso do dashboard como domain para alcançá-lo pelo painel, atrás do mesmo login.",
-    "tailnetWarning": "Num attachment Tailscale, a :8080 também fica alcançável na tailnet sem login enquanto o overlay de loopback estiver ativo. O acesso domain é a correção suportada.",
+    "loopbackOnly": "apenas nesta máquina",
+    "loopbackHint": "Este endereço de loopback só funciona nesta máquina. O dashboard não tem login próprio, por isso nunca é publicado num domínio.",
+    "tailnetWarning": "Num attachment Tailscale, a :8080 também fica alcançável na tailnet sem login enquanto o overlay de loopback estiver ativo.",
     "copyAddress": "Copiar endereço",
     "open": "Abrir o dashboard do Traefik",
     "openDisabled": "Nenhum endereço utilizável daqui. O URL de loopback só funciona no host."
   },
   "projectDomain": {
-    "title": "Endereços dos projetos",
-    "description": "Cada projeto recebe <projeto>-<serviço>.<base>. Esta é a base em uso agora.",
+    "title": "Endereços resultantes",
+    "description": "O Portta monta o hostname de cada projeto a partir desta base.",
+    "formula": "Como um hostname é formado",
+    "formulaPattern": "<projeto>-<serviço>.<base>",
     "mode": "Modo",
     "base": "Domínio base",
-    "publicIp": "Endereço público",
-    "provider": "DNS curinga",
-    "examples": "Um projeto chamado web, api ou mail responderia em:",
+    "publicIp": "Endereço do host",
+    "provider": "DNS automático",
+    "examples": "Um projeto chamado loja responderia em:",
     "stateOk": "utilizável",
     "stateLimited": "requer atenção",
     "stateBroken": "não resolve",
-    "note": "Isto escolhe apenas o nome. Quais serviços são alcançáveis, e de onde, continua sendo do acesso público e de cada projeto."
+    "note": "Isto escolhe apenas o nome. Quem alcança o Traefik é decidido em Acesso aos projetos."
+  },
+  "panel": {
+    "network": "Rede do painel",
+    "networkHelp": "A porta e a interface do host usadas para publicar o painel. Elas são separadas da URL do navegador; modos roteados derivam e bloqueiam o bind.",
+    "access": "Endereço do painel",
+    "kinds": {
+      "local": "Somente nesta máquina",
+      "tailscale": "Pela VPN",
+      "public": "Na porta do painel, pela internet",
+      "hostname": "Por um endereço"
+    },
+    "kindHelp": {
+      "local": "http://127.0.0.1 e a porta acima. O padrão, e o mais seguro.",
+      "tailscale": "Associa o painel ao endereço da tailnet deste nó. O login passa a ser obrigatório.",
+      "public": "Publica o painel na própria porta. Não publica os projetos. O login passa a ser obrigatório.",
+      "hostname": "Alcance o painel por um nome. O login passa a ser obrigatório. Os projetos permanecem como estão."
+    },
+    "addressMode": "Qual hostname",
+    "hostnameKinds": {
+      "subdomain": "Subdomínio do domínio configurado",
+      "custom": "Um domínio próprio"
+    },
+    "subdomain": "Subdomínio",
+    "subdomainHelp": "Somente o rótulo. A base vem dos endereços de projeto já configurados.",
+    "customDomain": "Domínio",
+    "customDomainHelp": "Este nome precisa resolver para este servidor. Configure DNS e TLS se ainda não estiverem. docs/addresses-and-access.md#custom-panel-domain",
+    "publicAddress": "Endereço público deste servidor",
+    "publicAddressHelp": "O IP ou hostname digitado antes da porta do painel. O protocolo e a porta são adicionados automaticamente.",
+    "publicAddressNeeded": "Informe um endereço alcançável pela internet para o Portta montar a URL de login.",
+    "authRequired": "O painel vai pedir login. Esta alteração não publica os seus projetos.",
+    "tlsNeeded": "Um hostname em HTTPS precisa de TLS ligado. docs/addresses-and-access.md#tls",
+    "tailnetBindNeeded": "Informe em Rede do painel o endereço Tailscale deste nó antes de salvar.",
+    "result": "URL resultante",
+    "open": "Abrir o painel",
+    "security": "Segurança",
+    "securityHelp": "Quem pode usar o painel, e a partir de quais origens.",
+    "features": "Recursos do painel",
+    "featuresHelp": "Documentação enviada com esta imagem."
+  },
+  "projectAccess": {
+    "title": "Quem pode alcançar os projetos",
+    "kinds": {
+      "local": "Somente nesta máquina",
+      "private": "Pela VPN",
+      "public": "Pela internet"
+    },
+    "kindHelp": {
+      "local": "O Traefik escuta apenas em 127.0.0.1. É o padrão mais seguro.",
+      "private": "O Traefik entra na tailnet do Tailscale; o acesso público permanece desligado.",
+      "public": "Publica as portas HTTP e HTTPS em todas as interfaces. Somente serviços que optaram por roteamento respondem."
+    },
+    "vpn": "Configuração da VPN",
+    "vpnHelp": "Escolha uma tailnet gerenciada pelo Portta ou associe uma interface VPN existente. Um domínio privado pode substituir a base dos projetos.",
+    "privateKinds": {
+      "tailscale": "Tailscale gerenciado pelo Portta",
+      "interface": "VPN já instalada neste host"
+    },
+    "privateKindHelp": {
+      "tailscale": "O padrão autocontido. O Traefik entra na rede do container Tailscale.",
+      "interface": "Associa o Traefik ao endereço privado de um Tailscale nativo do host ou de outra VPN."
+    },
+    "privateBindNeeded": "Informe o endereço privado da interface VPN deste host. O Portta continuará recusando 0.0.0.0.",
+    "privateDomainNeeded": "localhost resolve para a máquina de cada pessoa. Use endereços automáticos para os projetos ou informe um domínio privado que resolva para este servidor.",
+    "publicDomain": "Domínio dos projetos na internet",
+    "publicDomainKinds": {
+      "base": "Usar o domínio base já configurado ({{domain}})",
+      "custom": "Usar outro domínio"
+    },
+    "customDomain": "Outro domínio público",
+    "customDomainHelp": "Um registro curinga para este domínio precisa apontar para este servidor.",
+    "needsDomain": "localhost não funciona pela internet. Configure endereços automáticos ou um domínio próprio, ou informe outro domínio público.",
+    "noTls": "O tráfego será HTTP sem criptografia. Configure TLS antes de usar este acesso em produção.",
+    "bind": "Bind:",
+    "ports": "Portas HTTP/HTTPS:",
+    "result": "Exemplo:",
+    "network": "Rede e operação do gateway",
+    "networkHelp": "Portas e logs do Traefik. O bind é derivado do modo de acesso acima.",
+    "confirmTitle": "Disponibilizar projetos pela internet?",
+    "confirmDescription": "Esta alteração recria o gateway numa configuração alcançável pela rede pública.",
+    "confirm": "Ativar acesso público",
+    "confirmWarning": "O painel, bancos de dados e serviços sem roteamento continuam fora deste acesso. Projetos roteados sem proteção poderão ser acessados por qualquer pessoa."
+  },
+  "publicAccess": {
+    "needsDomain": "localhost não é alcançável pela internet. Defina um domínio público dos projetos, ou mude os endereços para automático ou um domínio próprio primeiro.",
+    "result": "Os projetos que optarem por isso ficarão em <projeto>-<serviço>.{{domain}}.",
+    "tlsOff": "O tráfego seria em texto claro. Ligue o TLS antes de deixar isto ativo. docs/addresses-and-access.md#tls"
   },
   "groups": {
     "Gateway": "Gateway",
+    "Project access": "Acesso aos projetos",
     "Traefik": "Traefik",
     "TLS": "TLS",
     "VPN": "VPN",
@@ -40,21 +141,41 @@
     "DNS": "DNS",
     "Panel": "Painel",
     "GitHub": "GitHub",
-    "Project domain": "Domínio dos projetos",
+    "Project domain": "Endereços dos projetos",
     "Projects": "Projetos"
+  },
+  "groupIntro": {
+    "Projects": "O diretório que esta instalação trata como casa dos Projetos.",
+    "Project domain": "Como o Portta nomeia projetos e serviços. Um nome não é exposição.",
+    "Gateway": "Onde o Traefik escuta. Independente do endereço do painel.",
+    "Project access": "Onde o Traefik escuta e se os projetos respondem somente nesta máquina, pela VPN ou pela internet. Isto não publica o painel.",
+    "Public access": "Se a internet alcança o Traefik. Não muda como os projetos se chamam, e não publica este painel.",
+    "VPN": "Alcance os projetos numa tailnet em vez da rede pública.",
+    "TLS": "Certificados para os hostnames dos projetos. Não é presumido só porque um domínio foi definido.",
+    "DNS": "Automação opcional da Cloudflare para o wildcard e o DNS-01. Não escolhe o domínio dos projetos.",
+    "Panel": "Como você alcança este painel. Independente de os projetos serem públicos.",
+    "Traefik": "O proxy que roteia cada hostname. O dashboard sem autenticação fica em loopback, exceto quando o Traefik compartilha o namespace Tailscale."
   },
   "fields": {
     "ACME_CA_SERVER": {
       "label": "Diretório ACME",
       "help": "Aponte para o endpoint de staging ao testar, para evitar rate limits."
     },
+    "ACME_CHALLENGE": {
+      "label": "Como provar o domínio",
+      "help": "DNS emite um wildcard e precisa da credencial do provedor. HTTP emite um certificado por hostname e precisa da porta 80 alcançável na internet.",
+      "choices": {
+        "dns": "DNS (um wildcard)",
+        "http": "HTTP (um certificado por hostname)"
+      }
+    },
     "ACME_DNS_PROVIDER": {
       "label": "Provedor DNS-01",
-      "help": "Nome do provedor como o Traefik/lego entende."
+      "help": "Nome do provedor como o Traefik/lego entende. Necessário quando o desafio é DNS."
     },
     "ACME_EMAIL": {
-      "label": "Contato ACME",
-      "help": "Obrigatório quando TLS_MODE=acme."
+      "label": "Contato Let’s Encrypt",
+      "help": "Obrigatório quando os certificados vêm do Let’s Encrypt."
     },
     "CF_DNS_API_TOKEN": {
       "label": "Token de API Cloudflare",
@@ -62,7 +183,7 @@
     },
     "CLOUDFLARE_ENABLED": {
       "label": "DNS Cloudflare",
-      "help": "Usa Cloudflare para o registro wildcard e desafios DNS-01."
+      "help": "Cria o registro wildcard e responde aos desafios DNS-01 pela Cloudflare. Isto não escolhe o domínio dos projetos."
     },
     "CLOUDFLARE_ZONE": {
       "label": "Zona Cloudflare",
@@ -93,24 +214,28 @@
       "help": "Útil ao depurar roteamento; ruidoso no resto do tempo."
     },
     "PORTTA_AUTH_MODE": {
-      "label": "Autenticação do painel",
-      "help": "`required` faz o painel perguntar quem é você: pessoas entram com senha, agentes carregam um token. `disabled` faz toda requisição ser o operador local, e só é permitido no loopback."
+      "label": "Autenticação",
+      "help": "Obrigatória faz o painel perguntar quem é você. Desligada faz toda requisição ser o operador local, e só é permitida nesta máquina.",
+      "choices": {
+        "disabled": "Não obrigatória (somente nesta máquina)",
+        "required": "Obrigatória"
+      }
     },
     "PORTTA_AUTH_SECRET": {
       "label": "Segredo de assinatura das sessões",
       "help": "Com o que sessões e tokens são assinados. Gerado no bootstrap; trocá-lo desconecta todo mundo."
     },
     "PORTTA_AUTO_DOMAIN_PROVIDER": {
-      "label": "Serviço de DNS curinga",
-      "help": "Os dois resolvem qualquer nome que embuta um endereço, então nenhum precisa de registro ou conta."
+      "label": "Serviço de DNS automático",
+      "help": "sslip.io e nip.io resolvem qualquer nome que embuta o endereço deste host, então nenhum precisa de registro ou conta."
     },
     "PORTTA_BIND_ADDRESS": {
-      "label": "Endereço de bind",
-      "help": "Interface do host em que o Traefik publica. 127.0.0.1 mantém fora da rede local."
+      "label": "Escutar em",
+      "help": "Interface em que o Traefik publica. 127.0.0.1 mantém o tráfego dos projetos fora da rede local."
     },
     "PORTTA_DASHBOARD": {
       "label": "Dashboard do Traefik",
-      "help": "Dashboard próprio do Traefik. local publica :8080 em loopback; domain roteia atrás do login do painel."
+      "help": "Dashboard próprio do Traefik. Normalmente fica em loopback; um attachment Tailscale também pode deixá-lo alcançável na tailnet sem login."
     },
     "PORTTA_DASHBOARD_ADVERTISED_HOST": {
       "label": "Hostname do dashboard",
@@ -118,19 +243,28 @@
     },
     "PORTTA_DASHBOARD_EXPOSE": {
       "label": "Acesso ao dashboard",
-      "help": "local mantém :8080 em loopback. domain roteia o dashboard no domínio do gateway, atrás do login do painel."
+      "help": "O dashboard permanece em loopback. Não tem credencial própria, por isso nunca é roteado num domínio.",
+      "choices": {
+        "local": "Somente nesta máquina",
+        "domain": "Roteamento legado no domínio — mude para local"
+      }
     },
     "PORTTA_DASHBOARD_PORT": {
       "label": "Porta do dashboard",
-      "help": "Porta do host para o dashboard do Traefik quando o acesso é local."
+      "help": "Porta do host para o dashboard do Traefik."
     },
     "PORTTA_DOMAIN": {
-      "label": "Domínio próprio",
-      "help": "Usado quando o modo é custom. Um curinga *.<domínio> precisa resolver para este host."
+      "label": "Seu domínio",
+      "help": "A base que o Portta usa para montar os endereços dos projetos. Um curinga *.<domínio> precisa resolver para este host."
     },
     "PORTTA_DOMAIN_MODE": {
-      "label": "Modo",
-      "help": "A base de todo hostname de projeto. local é localhost, que só resolve nesta máquina. auto deriva um nome do endereço público deste host e não precisa de registro DNS. custom usa um curinga que você possui."
+      "label": "Como os endereços são montados",
+      "help": "Nesta máquina usa localhost. Automático monta um nome a partir do endereço deste host, sem registro DNS. Um domínio próprio precisa de um wildcard apontando para cá.",
+      "choices": {
+        "local": "Nesta máquina (localhost)",
+        "auto": "Automático (pelo endereço deste host)",
+        "custom": "Um domínio que você possui"
+      }
     },
     "PORTTA_HTTPS_PORT": {
       "label": "Porta HTTPS",
@@ -153,16 +287,21 @@
       "help": "O endereço em que um navegador alcança o painel. Ele decide para onde a entrada redireciona e se o cookie de sessão pode ser `Secure`."
     },
     "PORTTA_PROFILE": {
-      "label": "Perfil",
-      "help": "Conjunto de overlays Compose com que o gateway inicia."
+      "label": "Perfil do gateway",
+      "help": "Onde o Traefik escuta: nesta máquina, numa rede privada ou na internet. Independente do painel.",
+      "choices": {
+        "local": "Nesta máquina",
+        "remote-private": "Remoto privado",
+        "remote-public": "Remoto público"
+      }
     },
     "PORTTA_PROJECTS_HOME": {
       "label": "Projects Home",
       "help": "O único diretório em que esta instalação gerencia Projetos. Mudar altera a referência; os arquivos não são movidos. Ambientes existentes fora deste caminho continuam visíveis como não gerenciados. Veja docs/adr/0031-projects-home-and-project.md."
     },
     "PORTTA_PUBLIC_IP": {
-      "label": "Endereço público",
-      "help": "O endereço a partir do qual o modo auto monta o hostname. Detectado na instalação."
+      "label": "Endereço do host",
+      "help": "O IPv4 que o modo automático embute no hostname. Detectado na instalação."
     },
     "PORTTA_RUNTIME_API_DOCS": {
       "label": "Referência da API",
@@ -177,36 +316,44 @@
       "help": "Serve a documentação do projeto em /docs, a partir desta imagem. É texto estático, sem nenhuma informação sobre o host, então um painel roteado pode servi-la."
     },
     "PORTTA_WEB_BIND_ADDRESS": {
-      "label": "Endereço de bind do painel",
-      "help": "Mantenha 127.0.0.1: o painel nunca deve ficar exposto à internet."
+      "label": "Bind",
+      "help": "Interface do host usada para publicar o painel. Mantenha 127.0.0.1, salvo se for um endereço da tailnet ou se o entrypoint público for ativado explicitamente."
     },
     "PORTTA_WEB_EXPOSE": {
-      "label": "Acessível a partir de",
-      "help": "local é só loopback. vpn adiciona um router Traefik e exige autenticação do painel. Veja docs/adr/0021-panel-access-modes.md."
+      "label": "Como o painel é alcançado",
+      "help": "Nesta máquina é só loopback. Os outros modos colocam o painel além deste host e exigem login. Nenhum deles publica os projetos."
+    },
+    "PORTTA_WEB_HOST": {
+      "label": "Subdomínio do painel",
+      "help": "O rótulo na frente do domínio dos projetos quando o painel é alcançado como subdomínio."
+    },
+    "PORTTA_PANEL_ADVERTISED_HOST": {
+      "label": "Hostname do painel",
+      "help": "O hostname que o Traefik roteia para o painel quando ele é alcançado por um domínio."
     },
     "PORTTA_WEB_PORT": {
-      "label": "Porta do painel",
-      "help": "Porta do host em que este painel é publicado."
+      "label": "Porta",
+      "help": "Porta do host usada para publicar o painel."
     },
     "PORTTA_WEB_READ_ONLY": {
       "label": "Somente leitura",
       "help": "Recusa todo endpoint mutável. Padrão sempre que o painel é roteado."
     },
     "PRIVATE_DOMAIN": {
-      "label": "Domínio VPN",
-      "help": "Namespace wildcard privado atendido apenas pela VPN."
+      "label": "Domínio privado",
+      "help": "Wildcard opcional atendido só pela VPN. Deixe vazio para reutilizar a base dos projetos."
     },
     "PUBLIC_DOMAIN": {
-      "label": "Domínio público",
-      "help": "Namespace wildcard público, por exemplo dev.example.com."
+      "label": "Domínio público dos projetos",
+      "help": "Domínio usado para disponibilizar projetos opt-in na internet, por exemplo dev.example.com. Um wildcard precisa apontar para este host."
     },
     "PUBLIC_ENABLED": {
-      "label": "Acesso público",
-      "help": "Publica 80/443 em todas as interfaces. Só serviços HTTP opt-in são roteados."
+      "label": "Acesso pela internet",
+      "help": "Deixa a internet alcançar o Traefik nas portas 80 e 443. Não muda como os projetos se chamam e não publica o painel. Só serviços que optam são roteados."
     },
     "TAILSCALE_ENABLED": {
       "label": "Tailscale",
-      "help": "Executa o Traefik no namespace de rede do container Tailscale."
+      "help": "Executa o Traefik no namespace Tailscale para os projetos serem alcançáveis na tailnet, não na NIC pública."
     },
     "TAILSCALE_HOSTNAME": {
       "label": "Hostname Tailscale",
@@ -214,11 +361,19 @@
     },
     "TLS_ENABLED": {
       "label": "HTTPS",
-      "help": "Interruptor principal. Desligado, só o entrypoint HTTP atende rotas."
+      "help": "Emite certificados para os hostnames dos projetos. Desligado, só HTTP é servido."
     },
     "TLS_MODE": {
-      "label": "Modo TLS",
-      "help": "local usa certificado de uma CA local; acme usa Let's Encrypt via DNS-01."
+      "label": "Origem do certificado",
+      "help": "Nesta máquina usa uma CA local. Let’s Encrypt usa ACME.",
+      "choices": {
+        "local": "CA local",
+        "acme": "Let’s Encrypt"
+      }
+    },
+    "GITHUB_SYNC_INTERVAL_MINUTES": {
+      "label": "Intervalo de reconciliação",
+      "help": "Minutos entre passagens que relêem o que mudou. Um painel em loopback não recebe webhooks, então é isto que mantém a projeção atual. 0 desliga."
     },
     "TS_AUTHKEY": {
       "label": "Chave de autenticação Tailscale",

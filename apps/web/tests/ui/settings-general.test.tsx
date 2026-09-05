@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { principal, renderWithQuery } from './render.tsx'
+import { navigation } from './setup.ts'
 
 class ApiError extends Error {
   status: number
@@ -33,15 +34,18 @@ const { AgentPermissionsCard } = await import('../../components/settings/agent-p
 
 function field(overrides: Record<string, unknown> = {}) {
   return {
-    key: 'PORTTA_PANEL_PORT',
-    value: '9912',
-    runtimeValue: '9912',
+    key: 'PORTTA_WEB_PORT',
+    value: null,
+    runtimeValue: '8081',
+    effectiveValue: '8081',
+    defaultValue: '8081',
+    valueSource: 'default',
     secret: false,
-    isSet: true,
+    isSet: false,
     pending: false,
-    kind: 'string',
+    kind: 'number',
     group: 'Panel',
-    label: 'Panel port',
+    label: 'Port',
     help: 'Where the panel listens.',
     restartRequired: true,
     ...overrides,
@@ -49,9 +53,32 @@ function field(overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
+  navigation.replace.mockReset()
   config.mockReset().mockResolvedValue({
-    fields: [field(), field({ key: 'GITHUB_TOKEN', group: 'GitHub', secret: true, value: null })],
-    projectDomain: { mode: 'local', domain: 'localhost', publicIp: null, provider: 'none', examples: [], problem: null, reachable: true, advice: null },
+    fields: [
+      field(),
+      field({
+        key: 'PORTTA_WEB_BIND_ADDRESS',
+        value: null,
+        runtimeValue: '127.0.0.1',
+        effectiveValue: '127.0.0.1',
+        defaultValue: '127.0.0.1',
+        label: 'Bind',
+        kind: 'string',
+      }),
+      field({
+        key: 'PORTTA_WEB_EXPOSE',
+        value: null,
+        runtimeValue: 'local',
+        effectiveValue: 'local',
+        defaultValue: 'local',
+        label: 'How the panel is reached',
+        kind: 'choice',
+        choices: ['local', 'tailscale', 'public', 'vpn', 'domain'],
+      }),
+      field({ key: 'GITHUB_TOKEN', group: 'GitHub', secret: true, value: null, defaultValue: null }),
+    ],
+    projectDomain: { mode: 'local', domain: 'localhost', publicIp: null, provider: 'sslip.io', examples: ['loja-web.localhost'], problem: null, reachable: true, advice: null },
     envFile: { path: '/srv/portta/.env', exists: true, writable: true },
     pendingRestart: false,
     applyCommand: 'portta apply',
@@ -73,10 +100,34 @@ beforeEach(() => {
 })
 
 describe('the General settings', () => {
+  it('redirects old access links to the consolidated section', async () => {
+    renderWithQuery(<GeneralView group="public-access" />, undefined, principal())
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith('/settings/general/project-access'))
+  })
+
   it('leaves GitHub to its own section', async () => {
     renderWithQuery(<GeneralView group="panel" />, undefined, principal())
     expect(await screen.findByRole('link', { name: 'Panel' })).toHaveAttribute('href', '/settings/general/panel')
     expect(screen.queryByRole('link', { name: 'GitHub' })).toBeNull()
+  })
+
+  it('shows the catalogue default in an empty port field', async () => {
+    renderWithQuery(<GeneralView group="panel" />, undefined, principal())
+    expect(await screen.findByLabelText('Port')).toHaveValue('8081')
+    expect(screen.getAllByText('Portta default').length).toBeGreaterThan(0)
+    expect(screen.getByRole('radio', { name: /This machine only/ })).toBeChecked()
+  })
+
+  it('keeps the authentication origin in sync when the panel port changes', async () => {
+    renderWithQuery(<GeneralView group="panel" />, undefined, principal())
+    const port = await screen.findByLabelText('Port')
+    await userEvent.clear(port)
+    await userEvent.type(port, '9090')
+    await userEvent.click(screen.getAllByRole('button', { name: 'Save' })[0]!)
+    await waitFor(() => expect(patchConfig).toHaveBeenCalledWith(expect.objectContaining({
+      PORTTA_WEB_PORT: '9090',
+      PORTTA_PANEL_URL: 'http://127.0.0.1:9090',
+    })))
   })
 
   it('hides Save from somebody who may only read the settings', async () => {

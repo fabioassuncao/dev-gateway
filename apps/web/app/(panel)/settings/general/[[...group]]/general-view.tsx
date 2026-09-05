@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { useRouter } from 'next/navigation'
 import { Save } from 'lucide-react'
 import type { ConfigField } from 'portta-contracts'
-import { slug } from 'portta-core/browser'
+import { exampleHostnames, resolveDomain, slug } from 'portta-core/browser'
 import { api } from '@/lib/api'
 import { keys, useConfig } from '@/lib/queries'
 import { useCan } from '@/lib/permissions'
@@ -16,11 +16,22 @@ import { Callout, Empty, ErrorBox, Loading, PageHeader } from '@/components/shel
 import { SettingsGroup } from '@/components/settings/settings-group'
 import { SettingsNav } from '@/components/settings/settings-nav'
 import { AgentPermissionsCard } from '@/components/settings/agent-permissions-card'
+import { PanelSettings } from '@/components/settings/panel-settings'
+import { ProjectAccessSettings } from '@/components/settings/project-access-settings'
+import { RestartSummary } from '@/components/settings/restart-summary'
+import { displayValue, fieldByKey, valuesOf } from '@/components/settings/values'
+import { isFieldVisible } from '@/components/settings/visibility'
 import { DashboardCard } from '@/components/dashboard-card'
 import { ProjectDomainCard } from '@/components/domain-card'
+import { Dialog } from '@/components/ui/dialog'
 
 /** GitHub is a group of the same file, shown in its own section. */
 const ELSEWHERE = new Set(['GitHub'])
+const LEGACY_GROUPS: Record<string, string> = {
+  gateway: 'project-access',
+  'public-access': 'project-access',
+  vpn: 'project-access',
+}
 
 export function GeneralView({ group }: { group: string | null }) {
   const { t } = useTranslation('settings')
@@ -31,15 +42,18 @@ export function GeneralView({ group }: { group: string | null }) {
   const [draft, setDraft] = useState<Record<string, string | null>>({})
   const [error, setError] = useState<unknown>(null)
   const [saved, setSaved] = useState(false)
+  const [confirmPublic, setConfirmPublic] = useState(false)
   const query = useConfig()
 
   const view = query.data
   const groups = useMemo(() => (view?.groups ?? []).filter((name) => !ELSEWHERE.has(name)), [view?.groups])
-  const activeGroup = groups.find((name) => slug(name) === group) ?? (group === null ? groups[0] : undefined)
+  const requestedGroup = group ? (LEGACY_GROUPS[group] ?? group) : null
+  const activeGroup = groups.find((name) => slug(name) === requestedGroup) ?? (group === null ? groups[0] : undefined)
 
   useEffect(() => {
     const first = groups[0]
     if (group === null && first) router.replace(`/settings/general/${slug(first)}`)
+    else if (group && LEGACY_GROUPS[group]) router.replace(`/settings/general/${LEGACY_GROUPS[group]}`)
   }, [group, groups, router])
 
   const save = useMutation({
@@ -72,17 +86,47 @@ export function GeneralView({ group }: { group: string | null }) {
   if (!view) return null
 
   const dirty = Object.keys(draft).length > 0
-  const fields = activeGroup ? view.fields.filter((field) => field.group === activeGroup) : []
+  const allFields = view.fields
+  const currentValues = valuesOf(allFields, draft)
+  const groupFields = activeGroup ? allFields.filter((field) => field.group === activeGroup) : []
+  const visibleFields = groupFields.filter((field) => isFieldVisible(field.key, currentValues))
+  const liveDomain = (() => {
+    const resolved = resolveDomain({
+      mode: currentValues.PORTTA_DOMAIN_MODE || view.projectDomain.mode,
+      publicIp: currentValues.PORTTA_PUBLIC_IP || null,
+      provider: currentValues.PORTTA_AUTO_DOMAIN_PROVIDER || view.projectDomain.provider,
+      configured: currentValues.PORTTA_DOMAIN,
+    })
+    return {
+      ...view.projectDomain,
+      mode: resolved.mode,
+      domain: resolved.domain,
+      publicIp: currentValues.PORTTA_PUBLIC_IP || null,
+      provider: currentValues.PORTTA_AUTO_DOMAIN_PROVIDER || view.projectDomain.provider,
+      examples: exampleHostnames(resolved.domain),
+      problem: resolved.problem,
+    }
+  })()
 
-  const valueOf = (field: ConfigField): string => {
-    const pending = draft[field.key]
-    if (pending !== undefined) return pending ?? ''
-    return field.secret ? '' : (field.value ?? '')
-  }
+  const valueOf = (field: ConfigField): string => displayValue(field, draft)
 
   const setValue = (key: string, value: string | null) => {
     setSaved(false)
     setDraft((current) => ({ ...current, [key]: value }))
+  }
+
+  const patchValues = (updates: Record<string, string>) => {
+    setSaved(false)
+    setDraft((current) => ({ ...current, ...updates }))
+  }
+
+  const savedPublicField = fieldByKey(allFields, 'PUBLIC_ENABLED')
+  const isEnablingPublic = draft.PUBLIC_ENABLED === 'true' &&
+    Boolean(savedPublicField) && displayValue(savedPublicField!, {}) !== 'true'
+
+  const requestSave = () => {
+    if (isEnablingPublic) setConfirmPublic(true)
+    else save.mutate()
   }
 
   return (
@@ -97,7 +141,7 @@ export function GeneralView({ group }: { group: string | null }) {
               <Button
                 variant="primary"
                 disabled={!dirty || save.isPending || !view.envFile.writable}
-                onClick={() => save.mutate()}
+                onClick={requestSave}
               >
                 <Save />
                 {save.isPending ? tc('saving') : tc('save')}
@@ -119,21 +163,45 @@ export function GeneralView({ group }: { group: string | null }) {
         </div>
       ) : null}
 
-      {/* Confirmation that the file was written, and nothing more. What is
-          pending, and how to apply it, is the global bar's job: it says the
-          same thing on every page instead of only on this one. */}
       {saved && !dirty ? (
         <Callout tone="ok" role="status" className="mb-4">
           {t('savedShort')}
         </Callout>
       ) : null}
 
+      <RestartSummary fields={allFields} draft={draft} />
+
       <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-start">
         <SettingsNav groups={groups} active={activeGroup ?? null} dirtyCounts={dirtyCounts} />
         {activeGroup ? (
           <div className="min-w-0 flex-1 space-y-4">
-            <SettingsGroup name={activeGroup} fields={fields} valueOf={valueOf} onChange={setValue} />
-            {activeGroup === 'Project domain' ? <ProjectDomainCard domain={view.projectDomain} /> : null}
+            {activeGroup === 'Panel' ? (
+              <PanelSettings
+                fields={groupFields}
+                values={currentValues}
+                domain={liveDomain}
+                valueOf={valueOf}
+                onChange={setValue}
+                onPatch={patchValues}
+              />
+            ) : activeGroup === 'Project access' ? (
+              <ProjectAccessSettings
+                fields={groupFields}
+                values={currentValues}
+                domain={liveDomain}
+                valueOf={valueOf}
+                onChange={setValue}
+                onPatch={patchValues}
+              />
+            ) : (
+              <SettingsGroup
+                name={activeGroup}
+                fields={visibleFields}
+                valueOf={valueOf}
+                onChange={setValue}
+              />
+            )}
+            {activeGroup === 'Project domain' ? <ProjectDomainCard domain={liveDomain} /> : null}
             {activeGroup === 'Traefik' ? <DashboardCard /> : null}
             {activeGroup === 'Panel' ? <AgentPermissionsCard editable={mayManage} /> : null}
           </div>
@@ -145,6 +213,39 @@ export function GeneralView({ group }: { group: string | null }) {
       </div>
 
       <p className="mt-4 text-xs text-subtle">{t('secretsNote', { path: view.envFile.path })}</p>
+
+      <Dialog
+        open={confirmPublic}
+        onOpenChange={setConfirmPublic}
+        title={t('projectAccess.confirmTitle')}
+        description={t('projectAccess.confirmDescription')}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmPublic(false)}>{tc('cancel')}</Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                setConfirmPublic(false)
+                save.mutate()
+              }}
+            >
+              {t('projectAccess.confirm')}
+            </Button>
+          </>
+        }
+      >
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+          <dt className="text-subtle">{t('projectAccess.publicDomain')}</dt>
+          <dd className="font-mono text-ink">{currentValues.PUBLIC_DOMAIN || liveDomain.domain}</dd>
+          <dt className="text-subtle">{t('projectAccess.bind')}</dt>
+          <dd className="font-mono text-ink">0.0.0.0</dd>
+          <dt className="text-subtle">{t('projectAccess.ports')}</dt>
+          <dd className="font-mono text-ink">{currentValues.PORTTA_HTTP_PORT || '80'} / {currentValues.PORTTA_HTTPS_PORT || '443'}</dd>
+          <dt className="text-subtle">TLS</dt>
+          <dd className="text-ink">{currentValues.TLS_ENABLED === 'true' ? tc('enabled') : tc('disabled')}</dd>
+        </dl>
+        <Callout tone="warn" className="mt-3">{t('projectAccess.confirmWarning')}</Callout>
+      </Dialog>
     </>
   )
 }

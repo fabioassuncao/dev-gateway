@@ -70,7 +70,7 @@ describe('the Traefik dashboard card', () => {
     renderWithQuery(<DashboardCard />)
     expect(await screen.findByRole('button', { name: 'Open the Traefik dashboard' })).toBeEnabled()
     expect(screen.getByText('http://127.0.0.1:8080/dashboard/')).toBeInTheDocument()
-    expect(screen.getByText('loopback only')).toBeInTheDocument()
+    expect(screen.getByText('this machine only')).toBeInTheDocument()
   })
 
   it('disables Open when nothing is usable from here', async () => {

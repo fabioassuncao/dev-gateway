@@ -57,7 +57,7 @@ export function DashboardCard() {
           </div>
         ))}
 
-        {dashboard.enabled && dashboard.expose === 'local' && dashboard.advertisedHost === null ? (
+        {dashboard.enabled && dashboard.expose === 'local' ? (
           <p className="text-xs text-subtle">{t('loopbackHint')}</p>
         ) : null}
 
