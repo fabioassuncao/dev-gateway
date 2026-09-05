@@ -26,6 +26,16 @@ export interface Principal {
   source: ActivitySource
   sessionId: string | null
   tokenId: string | null
+  /**
+   * The address this request appeared to come from, or null.
+   *
+   * Here rather than threaded through every service signature: the audit log
+   * needs it, the audit log is written by services, and a service that had to
+   * be handed the request's address would be a service that knows about
+   * requests. It is the proxy's claim, like every address behind one, and it is
+   * recorded as such — never used to decide anything.
+   */
+  ip: string | null
 }
 
 /** Which project a resource belongs to. Absent means the resource is global. */

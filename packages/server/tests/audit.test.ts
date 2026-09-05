@@ -1,13 +1,15 @@
-// Reading the audit log.
+// The audit log: what gets written, what never does, and what is read back.
 //
-// The writer is phase 12's; what exists now is the read, and the page a
-// Settings section walks back through. These insert rows directly because
-// nothing else can: no route writes to this table, on purpose.
+// The reading half inserts rows directly, because nothing else can: no route
+// writes to this table, on purpose. The writing half goes through the API, one
+// case per action, because the thing worth testing is that the action reaches
+// the log at all — a service that forgets the call is exactly the defect this
+// suite exists to catch.
 
 import { beforeAll, describe, expect, it } from 'vitest'
 import type { Hono } from 'hono'
 import { auditLog, users, type Db } from 'portta-db'
-import { listAudit } from '../src/services/audit.ts'
+import { AUDIT_RETENTION_DAYS, collectAudit, listAudit, scrubMetadata } from '../src/services/audit.ts'
 import { makeApp, seededDatabase, type SeededDatabase } from './helpers.ts'
 
 let seeded: SeededDatabase
@@ -90,5 +92,55 @@ describe('the route', () => {
   it('ignores a filter it does not recognise rather than refusing the page', async () => {
     const body = await json(await app.request('/api/audit?action=nonsense&limit=abc'))
     expect(body.entries).toHaveLength(5)
+  })
+})
+
+describe('what never reaches the log', () => {
+  it('redacts a secret whatever a caller passes, at any depth', () => {
+    const scrubbed = scrubMetadata({
+      password: 'hunter2',
+      note: 'the token is ptt_abcdef0123456789 and it works',
+      hash: '$portta$scrypt$16384$8$1$abc',
+      nested: { apiKeys: ['ptt_zzzzzzzzzzzz'], fine: 'a name' },
+      keep: 42,
+    })
+    expect(scrubbed['password']).toBe('[redacted]')
+    expect(scrubbed['hash']).toBe('[redacted]')
+    expect(scrubbed['note']).toBe('[redacted]')
+    expect((scrubbed['nested'] as Record<string, unknown>)['apiKeys']).toBe('[redacted]')
+    expect((scrubbed['nested'] as Record<string, unknown>)['fine']).toBe('a name')
+    expect(scrubbed['keep']).toBe(42)
+  })
+
+  it('keeps a very long value from becoming the log', () => {
+    const scrubbed = scrubMetadata({ note: 'x'.repeat(4000) })
+    expect((scrubbed['note'] as string).length).toBe(512)
+  })
+
+  it('and does not follow a shape somebody nested to hide a secret in', () => {
+    const deep = scrubMetadata({ a: { b: { c: { d: { secret: 'ptt_deep' } } } } })
+    expect(JSON.stringify(deep)).not.toContain('ptt_deep')
+  })
+})
+
+describe('pruning', () => {
+  it('forgets entries past the retention window and keeps the rest', async () => {
+    const { db: pruneDb } = (await seededDatabase({ empty: true }))
+    const old = new Date(Date.now() - (AUDIT_RETENTION_DAYS + 1) * 24 * 60 * 60 * 1000)
+    const recent = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    await pruneDb.insert(auditLog).values([old, recent].map((at) => ({
+      at,
+      userId: null,
+      userEmail: 'ana@example.test',
+      principalKind: 'user' as const,
+      actor: 'ana',
+      action: 'settings.changed' as const,
+      resourceType: 'settings',
+      metadata: {},
+    })))
+    expect(await collectAudit(pruneDb)).toBe(1)
+    const left = await listAudit(pruneDb)
+    expect(left.entries).toHaveLength(1)
+    expect(left.entries[0]?.at).toBeGreaterThan(Math.floor(old.getTime() / 1000))
   })
 })

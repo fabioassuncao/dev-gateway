@@ -42,6 +42,21 @@ function readSource(raw: string | null, fallback: ActivitySource): ActivitySourc
   return raw !== null && (ACTIVITY_SOURCES as readonly string[]).includes(raw) ? (raw as ActivitySource) : fallback
 }
 
+/**
+ * The address a request appeared to come from.
+ *
+ * `X-Forwarded-For` is the proxy's claim and the panel always sits behind one
+ * — Traefik, or the Node server in front of Next. It is recorded in the audit
+ * log and used for nothing else, so a spoofed value is a wrong line in a log
+ * rather than a decision. The first hop is the client; the rest are proxies.
+ */
+function readAddress(headers: Headers): string | null {
+  const forwarded = headers.get('x-forwarded-for')
+  const first = forwarded?.split(',')[0]?.trim()
+  if (first) return first.slice(0, 64)
+  return headers.get('x-real-ip')?.trim().slice(0, 64) || null
+}
+
 function intersect(
   granted: ReadonlySet<Permission> | readonly Permission[],
   allowed: ReadonlySet<Permission> | readonly Permission[],
@@ -109,6 +124,7 @@ export function createPrincipalResolver(deps: ResolverDeps): PrincipalResolver {
       source: readSource(headers.get('x-portta-source'), 'web'),
       sessionId: null,
       tokenId: null,
+      ip: readAddress(headers),
     }
   }
 
@@ -151,6 +167,7 @@ export function createPrincipalResolver(deps: ResolverDeps): PrincipalResolver {
       source: readSource(headers.get('x-portta-source') ?? metadata.source ?? null, 'api'),
       sessionId: null,
       tokenId: record.id,
+      ip: readAddress(headers),
     }
   }
 
@@ -177,6 +194,7 @@ export function createPrincipalResolver(deps: ResolverDeps): PrincipalResolver {
       source: readSource(headers.get('x-portta-source'), 'web'),
       sessionId: session.session.id,
       tokenId: null,
+      ip: readAddress(headers),
     }
   }
 
@@ -205,6 +223,7 @@ export function principalFor(overrides: Partial<Principal> = {}): Principal {
     source: 'web',
     sessionId: null,
     tokenId: null,
+    ip: null,
     ...overrides,
   }
 }

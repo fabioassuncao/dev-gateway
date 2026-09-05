@@ -17,6 +17,7 @@ import { ApiTokens, CreateApiToken, CreatedApiToken } from 'portta-contracts'
 import { principalOf } from 'portta-auth-core/hono'
 import type { AppDeps } from '../../deps.ts'
 import { documentRoute } from '../openapi.ts'
+import { audit } from '../../services/audit.ts'
 
 const seconds = (value: Date | null): number | null => (value ? Math.floor(value.getTime() / 1000) : null)
 
@@ -91,6 +92,16 @@ export function tokenRoutes(deps: AppDeps): Hono {
       ...(body.scopes ? { scopes: body.scopes } : {}),
       ...(body.expiresInDays === undefined ? {} : { expiresInDays: body.expiresInDays }),
     })
+    // Written here rather than in the service the way every other action is:
+    // token creation lives in `portta-auth-core`, which the audit log must not
+    // depend on, and this route is the only Portta code in the path.
+    await audit(deps.db.handle, principal, {
+      action: 'token.created',
+      resourceType: 'token',
+      resourceId: created.record.id,
+      resourceName: created.record.name,
+      metadata: { actorKind: created.record.actorKind, scopes: created.record.scopes.length },
+    })
     return c.json({ token: created.token, credential: view(created.record) }, 201)
   })
 
@@ -112,6 +123,13 @@ export function tokenRoutes(deps: AppDeps): Hono {
       throw new HTTPException(403, { message: "revoking somebody else's token needs user:update" })
     }
     await revokeToken(deps.db.handle, id)
+    await audit(deps.db.handle, principal, {
+      action: 'token.revoked',
+      resourceType: 'token',
+      resourceId: id,
+      resourceName: record.name,
+      metadata: { owner: record.userEmail },
+    })
     return c.json({ ok: true as const, revoked: id })
   })
 

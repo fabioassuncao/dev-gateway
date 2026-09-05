@@ -61,6 +61,15 @@ describe('the role matrix', () => {
     }
   })
 
+  // The log says who did what to accounts, tokens and settings; a developer
+  // reading it would be reading an administrative record of their colleagues.
+  it('keeps the audit log to the two roles that administer the panel', () => {
+    expect(permissionsOf('owner').has('audit:read')).toBe(true)
+    expect(permissionsOf('admin').has('audit:read')).toBe(true)
+    expect(permissionsOf('developer').has('audit:read')).toBe(false)
+    expect(permissionsOf('viewer').has('audit:read')).toBe(false)
+  })
+
   it('gives a viewer only reads, and the tokens that are their own', () => {
     const granted = permissionsOf('viewer')
     for (const permission of granted) {

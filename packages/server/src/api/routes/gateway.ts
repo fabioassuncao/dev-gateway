@@ -12,6 +12,7 @@ import { applier, applyStatus } from '../../services/apply.ts'
 import { ActionRefused } from '../../services/actions.ts'
 import { DockerApiError } from '../../services/docker/client.ts'
 import { documentRoute, tailParameter } from '../openapi.ts'
+import { record } from '../audit.ts'
 
 const restartBody = z
   .object({ components: z.array(z.enum(RESTARTABLE_COMPONENTS)).min(1).optional() })
@@ -172,6 +173,12 @@ export function gatewayRoutes(deps: AppDeps): Hono {
     }
 
     deps.cache.invalidate()
+    await record(deps, c, {
+      action: 'gateway.applied',
+      resourceType: 'gateway',
+      resourceId: container.id,
+      resourceName: deps.config.profile,
+    })
     return c.json({
       ok: true as const,
       startedAt: Math.floor(Date.now() / 1000),

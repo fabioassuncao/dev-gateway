@@ -30,6 +30,7 @@ import { authRoutes } from './routes/auth.ts'
 import { userRoutes } from './routes/users.ts'
 import { tokenRoutes } from './routes/tokens.ts'
 import { auditRoutes } from './routes/audit.ts'
+import { AUDITED_AUTH_PATHS, auditAuthExchange } from '../services/audit-auth.ts'
 import { settingsRoutes } from './routes/settings.ts'
 import { Forbidden, hasOwner, TokenRefused, Unauthenticated } from 'portta-auth-core'
 import { principalMiddleware, SetupRequired } from 'portta-auth-core/hono'
@@ -121,7 +122,27 @@ export function createApi(deps: AppDeps): Hono {
   if (auth) {
     api.use('/auth/*', async (c, next) => {
       if (isPorttaAuthPath(c.req.path)) return next()
-      return auth.handler(c.req.raw)
+      // The request is read twice: once here, to know which email a failed
+      // sign-in was for, and once by the library. `c.req.raw` is cloned rather
+      // than consumed, because a body read to the end is a body the handler
+      // would receive empty.
+      const body = c.req.method === 'POST'
+        ? await c.req.raw.clone().json().catch(() => null)
+        : null
+      const response = await auth.handler(c.req.raw)
+      // The audit line is written from a copy for the same reason.
+      const seen = AUDITED_AUTH_PATHS.has(c.req.path)
+      const answered = seen ? await response.clone().json().catch(() => null) as { user?: { id: string; email: string; name: string } } | null : null
+      if (seen) {
+        void auditAuthExchange(deps.db.handle, {
+          path: c.req.path,
+          status: response.status,
+          body,
+          headers: c.req.raw.headers,
+          user: answered?.user ?? null,
+        })
+      }
+      return response
     })
   }
 

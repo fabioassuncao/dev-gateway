@@ -13,6 +13,7 @@ import {
   GitHubRepositoryView,
 } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
+import { record } from '../audit.ts'
 
 const SyncResult = z
   .object({
@@ -117,7 +118,30 @@ export function integrationRoutes(deps: AppDeps): Hono {
     if (deps.github === null) {
       return c.json({ error: 'the GitHub App is not configured' }, 503)
     }
+    // Which installations this host had before, so the two that are worth an
+    // audit line — one appeared, one went away — can be told apart from the
+    // repository counts a sync also moves.
+    const before = new Set((await db.github.listInstallations()).map((row) => row.installationId))
     const result = await deps.github.sync(db)
+    const after = await db.github.listInstallations()
+    for (const installation of after) {
+      if (before.has(installation.installationId)) continue
+      await record(deps, c, {
+        action: 'github.installed',
+        resourceType: 'github-installation',
+        resourceId: String(installation.installationId),
+        resourceName: installation.accountLogin,
+      })
+    }
+    const kept = new Set(after.map((row) => row.installationId))
+    for (const installationId of before) {
+      if (kept.has(installationId)) continue
+      await record(deps, c, {
+        action: 'github.removed',
+        resourceType: 'github-installation',
+        resourceId: String(installationId),
+      })
+    }
     // Issues follow the repositories they belong to: one button, one meaning.
     const runs = await reconcile(deps.github.require(), db)
     return c.json({

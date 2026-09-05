@@ -13,6 +13,7 @@ import { readRepositoryScan } from './git.ts'
 import { loadScans, matchScan } from './repositories.ts'
 import { recordActivity } from './activity.ts'
 import { collectTokens } from 'portta-auth-core'
+import { collectAudit } from './audit.ts'
 
 interface Seen {
   head: string | null
@@ -118,7 +119,7 @@ export function createCommitWatch(config: PanelConfig, db: Database, hub: LiveHu
   }
 }
 
-/** Hourly housekeeping: sessions nobody touched are abandoned, old activity is pruned. */
+/** Hourly housekeeping: stale sessions are closed, old activity, tokens and audit entries are pruned. */
 export function createMaintenance(db: Database, hub: LiveHub): { tick(): Promise<void>; start(intervalMs?: number): void; stop(): void } {
   let timer: NodeJS.Timeout | null = null
   async function tick(): Promise<void> {
@@ -137,6 +138,10 @@ export function createMaintenance(db: Database, hub: LiveHub): { tick(): Promise
       // quarter ago are dropped. Neither can end a token somebody is using:
       // both thresholds are long past the moment the token stopped working.
       await collectTokens(db.handle)
+      // And audit entries past the retention window. The log answers "who did
+      // that" about something noticed months later, not years later, and an
+      // unbounded table on a development host is a table nobody prunes by hand.
+      await collectAudit(db.handle)
     } catch (error) {
       process.stderr.write(`maintenance failed: ${error instanceof Error ? error.message : String(error)}\n`)
     }

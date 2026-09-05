@@ -10,6 +10,7 @@ import { loadProjectCatalog, toProject, toProjectSummary, type ProjectCatalog } 
 import { Project, ProjectSummary } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
 import { recordActivity } from '../../services/activity.ts'
+import { record } from '../audit.ts'
 import { authorizeScope, principalOf } from 'portta-auth-core/hono'
 import { projectScope, visible } from '../../services/access-control.ts'
 
@@ -144,6 +145,7 @@ export function projectRoutes(deps: AppDeps): Hono {
     )
     const principal = principalOf(c)
     await recordActivity({ db, hub: deps.hub }, { kind: 'project.created', actor: principal.actor, actorKind: principal.actorKind, project: created.slug, projectId: created.id, summary: `Project ${created.name} created` })
+    await record(deps, c, { action: 'project.created', resourceType: 'project', resourceId: String(created.id), resourceName: created.slug, projectId: Number(created.id) })
     return c.json(toProject(created, [], [], home()), 201)
   })
 
@@ -182,6 +184,7 @@ export function projectRoutes(deps: AppDeps): Hono {
     if (!updated) throw new HTTPException(404, { message: `no project '${slug}'` })
     const principal = principalOf(c)
     await recordActivity({ db, hub: deps.hub }, { kind: 'project.updated', actor: principal.actor, actorKind: principal.actorKind, project: updated.slug, projectId: updated.id, summary: `Project ${updated.name} updated`, data: { fields: Object.keys(patch) } })
+    await record(deps, c, { action: 'project.updated', resourceType: 'project', resourceId: String(updated.id), resourceName: updated.slug, projectId: Number(updated.id), metadata: { fields: Object.keys(patch) } })
     return c.json(toProjectSummary(updated, 0, []))
   })
 
@@ -207,6 +210,9 @@ export function projectRoutes(deps: AppDeps): Hono {
     }
     const principal = principalOf(c)
     await recordActivity({ db, hub: deps.hub }, { kind: 'project.deleted', actor: principal.actor, actorKind: principal.actorKind, project: slug, summary: `Project ${existing.name} removed from the panel`, data: { slug } })
+    // No projectId: the row is gone, and the column would be nulled by the
+    // cascade a moment later. The slug is what a person reads anyway.
+    await record(deps, c, { action: 'project.deleted', resourceType: 'project', resourceId: String(existing.id), resourceName: slug })
     return c.json({
       ok: true,
       removed: slug,

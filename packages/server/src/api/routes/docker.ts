@@ -6,6 +6,7 @@ import { findContainer, removalPreview, removeContainer, runContainerAction } fr
 import { readLogs } from './services.ts'
 import { ActionResult, ContainerSummary, DockerHost, LogsResponse, Ownership, RemovalPreview } from 'portta-contracts'
 import { containerIdParameter, documentRoute, tailParameter } from '../openapi.ts'
+import { record } from '../audit.ts'
 
 const ownershipFilter = z.enum(['all', 'gateway', 'integrated', 'external', 'standalone'])
 const stateFilter = z.enum(['all', 'running', 'stopped', 'unhealthy'])
@@ -123,6 +124,13 @@ export function dockerRoutes(deps: AppDeps): Hono {
       const snapshot = await deps.cache.get()
       const container = await runContainerAction(deps.client, snapshot, c.req.param('id'), action)
       deps.cache.invalidate()
+      await record(deps, c, {
+        action: 'container.operated',
+        resourceType: 'container',
+        resourceId: container.id,
+        resourceName: container.name,
+        metadata: { operation: action },
+      })
       return c.json({
         ok: true,
         action,
@@ -150,6 +158,13 @@ export function dockerRoutes(deps: AppDeps): Hono {
       force: parsed.data.force === true,
     })
     deps.cache.invalidate()
+    await record(deps, c, {
+      action: 'container.destroyed',
+      resourceType: 'container',
+      resourceId: container.id,
+      resourceName: container.name,
+      metadata: { force: parsed.data.force === true },
+    })
     return c.json({
       ok: true,
       action: 'remove',

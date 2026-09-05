@@ -5,6 +5,7 @@ import type { AppDeps } from '../../deps.ts'
 import { buildConfigView, patchConfig } from '../../services/configview.ts'
 import { ConfigPatchResult, ConfigView } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
+import { record } from '../audit.ts'
 
 const patchBody = z
   .object({ values: z.record(z.string(), z.union([z.string().max(4096), z.null()])) })
@@ -30,7 +31,18 @@ export function configRoutes(deps: AppDeps): Hono {
     if (!parsed.success) {
       throw new HTTPException(400, { message: 'send {"values": {"KEY": "value"}}' })
     }
-    return c.json(patchConfig(deps.config, parsed.data.values))
+    const result = patchConfig(deps.config, parsed.data.values)
+    // The names, never the values: half of this catalogue is secrets, and the
+    // question the log answers is which setting somebody changed and when.
+    // Called `changed` rather than `keys` because the scrubber redacts a field
+    // named `keys` — correctly, and this is not one.
+    await record(deps, c, {
+      action: 'settings.changed',
+      resourceType: 'settings',
+      resourceName: 'gateway',
+      metadata: { changed: result.saved },
+    })
+    return c.json(result)
   })
 
   return app

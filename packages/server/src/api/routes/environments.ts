@@ -26,6 +26,7 @@ import { composeUpCommand, findRememberedEnvironment, rememberedEnvironments } f
 import { runnerOf } from '../../services/runner.ts'
 import { documentRoute, projectParameter, tailParameter } from '../openapi.ts'
 import { recordActivity } from '../../services/activity.ts'
+import { audit, type AuditAction } from '../../services/audit.ts'
 import { authorizeScope, principalOf } from 'portta-auth-core/hono'
 import { adoptions, projectOfEnvironment, visible } from '../../services/access-control.ts'
 import type { Principal } from 'portta-auth-core'
@@ -109,7 +110,31 @@ async function taskOf(deps: AppDeps, snapshot: Snapshot, project: Environment) {
   }
 }
 
-/** One activity line per lifecycle operation, attributed to the Project that adopted the environment when one did. */
+/**
+ * Which lifecycle operations are also audit entries.
+ *
+ * Every one of them: an environment's lifecycle is a change to what is running
+ * on the host, which is the definition of what this log is for. The two
+ * vocabularies are deliberately not the same one — activity says `removed`
+ * where the audit list says `destroyed` — so the mapping is written out.
+ */
+const ENVIRONMENT_AUDIT: Partial<Record<ActivityKind, AuditAction>> = {
+  'environment.started': 'environment.started',
+  'environment.stopped': 'environment.stopped',
+  'environment.restarted': 'environment.restarted',
+  'environment.rebuilt': 'environment.rebuilt',
+  'environment.removed': 'environment.destroyed',
+  'environment.forgotten': 'environment.forgotten',
+}
+
+/**
+ * One activity line per lifecycle operation, attributed to the Project that
+ * adopted the environment when one did — and one audit line beside it.
+ *
+ * Both here rather than in the service: `runProjectAction` and `removeProject`
+ * are Docker calls with no database in them, and the panel already records
+ * their activity from the route for that reason.
+ */
 async function recordEnvironmentActivity(deps: AppDeps, name: string, principal: Principal, kind: ActivityKind, summary: string): Promise<void> {
   const db = deps.db
   if (!db.status().available) return
@@ -120,6 +145,16 @@ async function recordEnvironmentActivity(deps: AppDeps, name: string, principal:
     kind, actor: principal.actor, actorKind: principal.actorKind, project: slug,
     projectId: adoption?.projectId ?? null, environmentId: environment?.id ?? null, summary, data: { environment: name },
   })
+  const action = ENVIRONMENT_AUDIT[kind]
+  if (action) {
+    await audit(db.handle, principal, {
+      action,
+      resourceType: 'environment',
+      resourceId: environment?.id ?? null,
+      resourceName: name,
+      projectId: adoption ? Number(adoption.projectId) : null,
+    })
+  }
 }
 
 export function environmentRoutes(deps: AppDeps): Hono {

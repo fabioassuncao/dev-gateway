@@ -26,6 +26,7 @@ import {
   type Role,
 } from 'portta-auth-core'
 import type { BanUser, CreateUser, User, UserSession } from 'portta-contracts'
+import { audit } from './audit.ts'
 
 /** A refusal that is a rule, not a permission: 403 with a sentence. */
 export class UserRefused extends Error {
@@ -149,9 +150,16 @@ export class UsersService {
   }
 
   /** The target as the rules need to see it: an id and a role. */
-  private async subject(id: string): Promise<{ id: string; role: Role }> {
+  /**
+   * The account a rule is about.
+   *
+   * The email comes along because the audit line needs it: an entry naming an
+   * id nobody can resolve — least of all after the account is removed — is a
+   * line that says nothing to whoever reads it.
+   */
+  private async subject(id: string): Promise<{ id: string; role: Role; email: string }> {
     const [row] = await this.db
-      .select({ id: usersTable.id, role: usersTable.role })
+      .select({ id: usersTable.id, role: usersTable.role, email: usersTable.email })
       .from(usersTable)
       .where(eq(usersTable.id, id))
     if (!row) throw new UnknownUser(id)
@@ -178,6 +186,13 @@ export class UsersService {
     })
     const id = created.user.id
     if (input.projects?.length) await this.setProjects(principal, id, input.projects)
+    await audit(this.db, principal, {
+      action: 'user.created',
+      resourceType: 'user',
+      resourceId: id,
+      resourceName: input.email,
+      metadata: { role: input.role },
+    })
     return this.find(id)
   }
 
@@ -193,6 +208,13 @@ export class UsersService {
     if (role === 'owner' || role === 'admin') {
       await this.db.delete(projectMembers).where(eq(projectMembers.userId, id))
     }
+    await audit(this.db, principal, {
+      action: 'user.role_changed',
+      resourceType: 'user',
+      resourceId: id,
+      resourceName: target.email,
+      metadata: { from: target.role, to: role },
+    })
     return this.find(id)
   }
 
@@ -207,6 +229,14 @@ export class UsersService {
     // Somebody who knew the old password may still be holding a session with
     // it. Setting a password that leaves those open sets nothing.
     await auth.api.revokeUserSessions({ body: { userId: id }, headers: session })
+    // The password itself is not passed on: `audit` would redact it, and the
+    // way not to leak a secret is not to hand it to something that redacts.
+    await audit(this.db, principal, {
+      action: 'user.password_set',
+      resourceType: 'user',
+      resourceId: id,
+      resourceName: target.email,
+    })
   }
 
   async setBan(principal: Principal, headers: Headers, id: string, input: BanUser): Promise<User> {
@@ -228,6 +258,13 @@ export class UsersService {
     } else {
       await auth.api.unbanUser({ body: { userId: id }, headers: session })
     }
+    await audit(this.db, principal, {
+      action: input.banned ? 'user.banned' : 'user.unbanned',
+      resourceType: 'user',
+      resourceId: id,
+      resourceName: target.email,
+      metadata: input.banned ? { ...(input.reason ? { reason: input.reason } : {}), ...(input.days ? { days: input.days } : {}) } : {},
+    })
     return this.find(id)
   }
 
@@ -241,6 +278,15 @@ export class UsersService {
     // of those references it with `on delete cascade`. What survives is the
     // work — a task's `user_id` goes null and its actor name stays readable.
     await auth.api.removeUser({ body: { userId: id }, headers: sessionHeaders(principal, headers) })
+    // After the row is gone: the entry's own `user_id` is the caller's, and the
+    // account it names survives here as an email because nothing else does.
+    await audit(this.db, principal, {
+      action: 'user.deleted',
+      resourceType: 'user',
+      resourceId: id,
+      resourceName: target.email,
+      metadata: { role: target.role },
+    })
   }
 
   async sessionsOf(principal: Principal, headers: Headers, id: string): Promise<UserSession[]> {
@@ -265,6 +311,12 @@ export class UsersService {
     const refusal = refusalForUserWrite(principal, target)
     if (refusal) throw new UserRefused(refusal)
     await auth.api.revokeUserSessions({ body: { userId: id }, headers: sessionHeaders(principal, headers) })
+    await audit(this.db, principal, {
+      action: 'user.sessions_revoked',
+      resourceType: 'user',
+      resourceId: id,
+      resourceName: target.email,
+    })
   }
 
   /**
@@ -309,6 +361,27 @@ export class UsersService {
         .delete(projectMembers)
         .where(and(eq(projectMembers.userId, id), inArray(projectMembers.projectId, removed)))
     }
+    // One line per Project, not one per call: "who could reach this Project in
+    // March" is the question this table is read for, and a single line holding
+    // a list of ids answers it only to somebody who reads every line.
+    for (const projectId of added) {
+      await audit(this.db, principal, {
+        action: 'project_access.granted',
+        resourceType: 'user',
+        resourceId: id,
+        resourceName: target.email,
+        projectId,
+      })
+    }
+    for (const projectId of removed) {
+      await audit(this.db, principal, {
+        action: 'project_access.revoked',
+        resourceType: 'user',
+        resourceId: id,
+        resourceName: target.email,
+        projectId,
+      })
+    }
     return this.find(id)
   }
 
@@ -335,6 +408,13 @@ export class UsersService {
     // The new owner sees every Project, so their memberships stop meaning
     // anything; leaving them would suggest a boundary that is not enforced.
     await this.db.delete(projectMembers).where(eq(projectMembers.userId, id))
+    await audit(this.db, principal, {
+      action: 'user.ownership_transferred',
+      resourceType: 'user',
+      resourceId: id,
+      resourceName: target.email,
+      metadata: { from: principal.email, to: target.email },
+    })
     return this.find(id)
   }
 }

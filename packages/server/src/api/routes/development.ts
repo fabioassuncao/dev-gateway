@@ -26,6 +26,7 @@ import { findRememberedEnvironment } from '../../services/remembered.ts'
 import { buildContext } from '../../services/context-view.ts'
 import { developmentOverview, listProjects, scansFor } from '../../services/development.ts'
 import { recordActivity } from '../../services/activity.ts'
+import { record } from '../audit.ts'
 import {
   ActionResult,
   DevelopmentContext,
@@ -116,6 +117,17 @@ export function developmentRoutes(deps: AppDeps): Hono {
         actor: principal.actor, actorKind: principal.actorKind,
         environmentId: environmentRow?.id ?? null,
         data: { service: name, container: container.name },
+      })
+    }
+    // Only the restart is an audit line: starting and stopping one service of
+    // an environment is the environment's own lifecycle, already recorded
+    // there, and `service.restarted` is what `03 §9` names.
+    if (action.data === 'restart') {
+      await record(deps, c, {
+        action: 'service.restarted',
+        resourceType: 'service',
+        resourceId: container.id,
+        resourceName: `${environment.name}/${name}`,
       })
     }
     return c.json({ ok: true, action: action.data, containerId: container.id, message: `${action.data} sent to ${container.name}` })

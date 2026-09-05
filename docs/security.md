@@ -221,6 +221,43 @@ only, refused on a dirty tree unless overridden, and bounded to the
 resolved working directory. The project name is typed back and checked on
 the server. See [ADR 0030](adr/0030-the-panel-and-a-project-lifecycle.md).
 
+## The audit log
+
+Who did what, to what, and from where. Written by the panel to its own
+PostgreSQL, read at **Settings → Audit** and at `GET /api/audit` with
+`audit:read` — which only `owner` and `admin` hold.
+
+What is recorded is a closed list, fixed in
+[ADR 0035](adr/0035-authentication-lives-in-the-panel.md) and in
+`packages/core/src/audit-actions.ts`: signing in, signing out and a failed
+sign-in; every change to an account, a role, a password, a ban, a session or a
+Project membership; tokens created and revoked; Projects created, updated and
+deleted; an environment started, stopped, restarted, rebuilt, destroyed or
+forgotten; a service restarted; a container operated or removed; a bridge
+opened or closed; a share created or revoked; settings changed; the gateway
+applied; a GitHub installation appearing or going away; and a schema migration
+that actually applied something.
+
+What is deliberately **not** recorded:
+
+- **Development work.** Tasks, work sessions, commits and notes are the work
+  record and live in `activity_events`, which the Activity page reads. Mixing
+  them in would bury the ten entries that matter under a thousand that do not.
+- **Reads.** Nobody's browsing is logged. The log answers "who changed this",
+  not "who looked at it".
+- **Anything that authenticates.** No request body, no password, no hash, no
+  token, no environment value. Each entry carries a small object the caller
+  chose — a role, a list of setting *names*, a count — and a scrubber redacts a
+  field named like a secret or a value shaped like one (`ptt_…`, a scrypt or
+  apr1 hash, a PEM header) before it is written. `packages/server/tests/audit*`
+  passes a token through and asserts it does not come out.
+
+An entry keeps the email of the account it is about, so it stays readable after
+that account is deleted and its `user_id` goes null. Addresses come from
+`X-Forwarded-For`, which is the proxy's claim: it is recorded as such and used
+to decide nothing. Entries are pruned after 180 days by the hourly maintenance
+job.
+
 ## Secrets
 
 - `.env` is git-ignored; `bootstrap` creates it `0600`; `doctor` warns if it

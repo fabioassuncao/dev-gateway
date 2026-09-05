@@ -900,9 +900,12 @@ code (and the secret, for an app that cannot scan it), verifies one code from
 the app, and then shows the backup codes once. The session list marks the
 browser you are reading it in and signs the others out one at a time.
 
-**Audit** is the read half of the record: accounts, roles, tokens, Project
-membership and settings. Development activity — tasks, work sessions, commits —
-is not in it and lives on the Activity page instead.
+**Audit** is who did what: accounts, roles, tokens, Project membership,
+settings, and every lifecycle operation on an environment or a container.
+Newest first, filtered by account, paged backwards. Development activity —
+tasks, work sessions, commits — is not in it and lives on the Activity page
+instead, and nothing that authenticates anything is in it either
+([security](security.md#the-audit-log)).
 
 ![The Gateway settings group: a stable group navigation beside each field, the key it writes and what it means](images/panel-settings.png)
 

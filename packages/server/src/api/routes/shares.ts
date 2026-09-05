@@ -13,6 +13,7 @@ import {
 } from '../../services/shares.ts'
 import { Share, ShareView } from 'portta-contracts'
 import { containerIdParameter, documentRoute, shareIdParameter } from '../openapi.ts'
+import { record } from '../audit.ts'
 import { authorizeScope, principalOf } from 'portta-auth-core/hono'
 import { adoptions, projectOfEnvironment, visible } from '../../services/access-control.ts'
 
@@ -80,6 +81,15 @@ export function shareRoutes(deps: AppDeps): Hono {
     const container = findContainer(snapshot, c.req.param('id'))
     await reach(c, container.environment)
     const created = await createShare(deps.config, snapshot, container, parsed.data)
+    // The password is in the response and nowhere else, so it is not here
+    // either: what the log holds is the hostname and when it stops working.
+    await record(deps, c, {
+      action: 'share.created',
+      resourceType: 'share',
+      resourceId: created.share.id,
+      resourceName: created.share.host,
+      metadata: { mode: created.share.mode, expiresAt: created.share.expiresAt },
+    })
 
     return c.json(
       {
@@ -113,7 +123,14 @@ export function shareRoutes(deps: AppDeps): Hono {
   }), async (c) => {
     const snapshot = await deps.cache.get()
     await reach(c, listShares(deps.config, snapshot).find((share) => share.id === c.req.param('id'))?.project)
+    const revoking = listShares(deps.config, snapshot).find((share) => share.id === c.req.param('id')) ?? null
     revokeShare(deps.config, c.req.param('id'))
+    await record(deps, c, {
+      action: 'share.revoked',
+      resourceType: 'share',
+      resourceId: c.req.param('id'),
+      resourceName: revoking?.host ?? null,
+    })
     return c.json({ ok: true, message: 'share revoked; the project itself was not touched' })
   })
 

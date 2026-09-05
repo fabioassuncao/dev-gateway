@@ -12,6 +12,7 @@ import { AGENT_DEFAULT_PERMISSIONS, PERMISSIONS } from 'portta-auth-core'
 import { AgentPermissions, SetAgentPermissions } from 'portta-contracts'
 import type { AppDeps } from '../../deps.ts'
 import { documentRoute } from '../openapi.ts'
+import { record } from '../audit.ts'
 
 export function settingsRoutes(deps: AppDeps): Hono {
   const app = new Hono()
@@ -42,6 +43,12 @@ export function settingsRoutes(deps: AppDeps): Hono {
     const body = SetAgentPermissions.parse(await c.req.json().catch(() => null))
     if (body.permissions === null) {
       await deps.db.settings.clearGlobal('agentPermissions')
+      await record(deps, c, {
+        action: 'settings.changed',
+        resourceType: 'settings',
+        resourceName: 'agentPermissions',
+        metadata: { restored: 'default' },
+      })
       return c.json(await view())
     }
     const known = new Set<string>(PERMISSIONS)
@@ -49,7 +56,14 @@ export function settingsRoutes(deps: AppDeps): Hono {
     if (unknown.length > 0) {
       throw new HTTPException(400, { message: `not a permission this panel knows: ${unknown.join(', ')}` })
     }
-    await deps.db.settings.setGlobal('agentPermissions', [...new Set(body.permissions)].sort())
+    const permissions = [...new Set(body.permissions)].sort()
+    await deps.db.settings.setGlobal('agentPermissions', permissions)
+    await record(deps, c, {
+      action: 'settings.changed',
+      resourceType: 'settings',
+      resourceName: 'agentPermissions',
+      metadata: { permissions },
+    })
     return c.json(await view())
   })
 

@@ -5,6 +5,7 @@ import type { AppDeps } from '../../deps.ts'
 import { closeBridge, listBridges, listForwarders, listTcpServices, openBridge, serviceConnection } from '../../services/access.ts'
 import { AccessView, Bridge, ServiceConnection } from 'portta-contracts'
 import { bridgeIdParameter, documentRoute, projectParameter } from '../openapi.ts'
+import { record } from '../audit.ts'
 import { authorizeScope, principalOf } from 'portta-auth-core/hono'
 import { adoptions, projectOfEnvironment, visible } from '../../services/access-control.ts'
 
@@ -106,6 +107,13 @@ export function accessRoutes(deps: AppDeps): Hono {
 
     const refreshed = await deps.cache.get(true)
     const bridge = listBridges(refreshed).find((item) => item.id === opened.bridgeId) ?? null
+    await record(deps, c, {
+      action: 'access.bridge_opened',
+      resourceType: 'bridge',
+      resourceId: opened.bridgeId,
+      resourceName: `${parsed.data.project}/${parsed.data.service}`,
+      metadata: { port: bridge?.localPort ?? null },
+    })
     return c.json({ ok: true, bridge }, 201)
   })
 
@@ -116,8 +124,15 @@ export function accessRoutes(deps: AppDeps): Hono {
     const snapshot = await deps.cache.get(true)
     // The bridge is closed by id, so the environment comes from the bridge.
     await reach(c, listBridges(snapshot).find((bridge) => bridge.id === c.req.param('id'))?.project)
+    const closing = listBridges(snapshot).find((bridge) => bridge.id === c.req.param('id')) ?? null
     await closeBridge(deps.client, snapshot, c.req.param('id'))
     deps.cache.invalidate()
+    await record(deps, c, {
+      action: 'access.bridge_closed',
+      resourceType: 'bridge',
+      resourceId: c.req.param('id'),
+      resourceName: closing ? `${closing.project}/${closing.service}` : null,
+    })
     return c.json({ ok: true, message: 'bridge closed; the service itself was not touched' })
   })
 

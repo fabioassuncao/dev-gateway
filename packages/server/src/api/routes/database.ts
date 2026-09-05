@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import type { AppDeps } from '../../deps.ts'
 import { DatabaseMigrateResult } from 'portta-contracts'
 import { documentRoute } from '../openapi.ts'
+import { record } from '../audit.ts'
 
 export function databaseRoutes(deps: AppDeps): Hono {
   const app = new Hono()
@@ -23,7 +24,19 @@ export function databaseRoutes(deps: AppDeps): Hono {
     // Deliberately not behind `requireDatabase`: this is the endpoint that
     // *recovers* an unavailable database, so it runs against one and reports
     // 503 only if the run itself fails.
-    return c.json(await deps.db.applyMigrations())
+    const result = await deps.db.applyMigrations()
+    // Only when something was actually applied: this endpoint is idempotent and
+    // the CLI calls it on every `web up`, so a line per call would be a line
+    // per start rather than a line per change.
+    if (result.applied.length > 0) {
+      await record(deps, c, {
+        action: 'database.migrated',
+        resourceType: 'database',
+        resourceName: 'panel',
+        metadata: { applied: result.applied },
+      })
+    }
+    return c.json(result)
   })
 
   return app
