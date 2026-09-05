@@ -96,6 +96,14 @@ describe('validation', () => {
     ).toThrowError(/PUBLIC_DOMAIN/)
 
     expect(() =>
+      validateCombination(new Map([
+        ['PORTTA_PROFILE', 'remote-public'],
+        ['PORTTA_DOMAIN_MODE', 'custom'],
+        ['PORTTA_DOMAIN', 'dev.example.com'],
+      ])),
+    ).not.toThrow()
+
+    expect(() =>
       validateCombination(
         new Map([
           ['PORTTA_PROFILE', 'remote-private'],
@@ -135,6 +143,79 @@ describe('the Settings view and its writes', () => {
   })
 
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('exposes catalogue defaults when a key is absent from .env', () => {
+    const view = buildConfigView(testConfig({ envFile }))
+    const port = view.fields.find((field) => field.key === 'PORTTA_WEB_PORT')
+    expect(port?.value).toBeNull()
+    expect(port?.defaultValue).toBe('8081')
+    expect(port?.effectiveValue).toBe('8081')
+    expect(port?.valueSource).toBe('default')
+    expect(port?.isSet).toBe(false)
+
+    const bind = view.fields.find((field) => field.key === 'PORTTA_WEB_BIND_ADDRESS')
+    expect(bind?.defaultValue).toBe('127.0.0.1')
+    expect(bind?.effectiveValue).toBe('127.0.0.1')
+    expect(bind?.valueSource).toBe('default')
+  })
+
+  it('shows an environment override instead of labelling it as the default', () => {
+    process.env['PORTTA_WEB_PORT'] = '9090'
+    try {
+      const view = buildConfigView(testConfig({ envFile }))
+      const port = view.fields.find((field) => field.key === 'PORTTA_WEB_PORT')
+      expect(port?.effectiveValue).toBe('9090')
+      expect(port?.valueSource).toBe('environment')
+    } finally {
+      delete process.env['PORTTA_WEB_PORT']
+    }
+  })
+
+  it('normalises shell-style booleans for form controls', () => {
+    process.env['PORTTA_ACCESS_LOG'] = '1'
+    try {
+      const view = buildConfigView(testConfig({ envFile }))
+      const accessLog = view.fields.find((field) => field.key === 'PORTTA_ACCESS_LOG')
+      expect(accessLog?.effectiveValue).toBe('true')
+      expect(accessLog?.valueSource).toBe('environment')
+    } finally {
+      delete process.env['PORTTA_ACCESS_LOG']
+    }
+  })
+
+  it('derives the API reference default from panel reachability', () => {
+    const view = buildConfigView(testConfig({ envFile, apiDocs: false }))
+    const apiDocs = view.fields.find((field) => field.key === 'PORTTA_RUNTIME_API_DOCS')
+    expect(apiDocs?.effectiveValue).toBe('false')
+    expect(apiDocs?.valueSource).toBe('derived')
+  })
+
+  it('marks a saved value as saved, not as the default', () => {
+    const view = buildConfigView(testConfig({ envFile }))
+    const domain = view.fields.find((field) => field.key === 'PORTTA_DOMAIN')
+    expect(domain?.value).toBe('localhost')
+    expect(domain?.isSet).toBe(true)
+    expect(domain?.valueSource).toBe('saved')
+  })
+
+  it('lists groups in the order the settings pages should appear', () => {
+    const view = buildConfigView(testConfig({ envFile }))
+    expect(view.groups.filter((name) => name !== 'GitHub')).toEqual([
+      'Projects',
+      'Project domain',
+      'Project access',
+      'TLS',
+      'DNS',
+      'Panel',
+      'Traefik',
+    ])
+  })
+
+  it('accepts the panel hostname keys the address form writes', () => {
+    expect(() => validateValue('PORTTA_WEB_HOST', 'portta')).not.toThrow()
+    expect(() => validateValue('PORTTA_WEB_HOST', 'portta.example.com')).toThrow(ValidationError)
+    expect(() => validateValue('PORTTA_PANEL_ADVERTISED_HOST', 'portta.example.com')).not.toThrow()
+  })
 
   it('never returns a secret value', () => {
     const view = buildConfigView(testConfig({ envFile }))
@@ -232,7 +313,7 @@ describe('the config endpoints', () => {
     expect(body).not.toContain('super-secret')
     const view = JSON.parse(body) as ConfigView
     expect(view.envFile.writable).toBe(true)
-    expect(view.groups).toContain('Gateway')
+    expect(view.groups).toContain('Project access')
   })
 
   it('saves through PATCH and reports what needs recreating', async () => {
@@ -294,6 +375,39 @@ describe('the panel refuses to be routed without signing people in', () => {
         ]),
       ),
     ).not.toThrow()
+  })
+
+  it('allows the dedicated public entrypoint to bind every interface', () => {
+    expect(() => validateCombination(routed({
+      PORTTA_WEB_EXPOSE: 'public',
+      PORTTA_WEB_BIND_ADDRESS: '0.0.0.0',
+    }))).not.toThrow()
+  })
+
+  it('refuses a public bind outside the dedicated public mode', () => {
+    expect(() => validateCombination(routed({
+      PORTTA_WEB_EXPOSE: 'vpn',
+      PORTTA_WEB_BIND_ADDRESS: '0.0.0.0',
+    }))).toThrowError(/not published on every interface/)
+  })
+
+  it('requires a tailnet address for direct Tailscale access', () => {
+    expect(() => validateCombination(routed({
+      PORTTA_WEB_EXPOSE: 'tailscale',
+      PORTTA_WEB_BIND_ADDRESS: '127.0.0.1',
+    }))).toThrowError(/tailnet address/)
+    expect(() => validateCombination(routed({
+      PORTTA_WEB_EXPOSE: 'tailscale',
+      PORTTA_WEB_BIND_ADDRESS: '100.64.0.12',
+    }))).not.toThrow()
+  })
+
+  it('requires TLS for a panel routed by domain', () => {
+    expect(() => validateCombination(routed({
+      PORTTA_WEB_EXPOSE: 'domain',
+      PORTTA_PANEL_ADVERTISED_HOST: 'portta.example.com',
+      TLS_ENABLED: 'false',
+    }))).toThrowError(/requires TLS/)
   })
 })
 

@@ -6602,6 +6602,31 @@
               "null"
             ]
           },
+          "effectiveValue": {
+            "description": "Value the form should display after applying precedence and defaults",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "defaultValue": {
+            "description": "Canonical default when the key is absent from .env",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "valueSource": {
+            "description": "Where the displayed value comes from, when that is useful to say",
+            "type": "string",
+            "enum": [
+              "saved",
+              "default",
+              "detected",
+              "derived",
+              "environment"
+            ]
+          },
           "secret": {
             "type": "boolean"
           },
@@ -6644,6 +6669,8 @@
           "key",
           "value",
           "runtimeValue",
+          "effectiveValue",
+          "defaultValue",
           "secret",
           "isSet",
           "pending",

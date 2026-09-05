@@ -1430,6 +1430,12 @@ export const ConfigField = named(
     key: z.string(),
     value: z.string().nullable().describe('Never populated for a secret'),
     runtimeValue: z.string().nullable(),
+    effectiveValue: z.string().nullable().describe('Value the form should display after applying precedence and defaults'),
+    defaultValue: z.string().nullable().describe('Canonical default when the key is absent from .env'),
+    valueSource: z
+      .enum(['saved', 'default', 'detected', 'derived', 'environment'])
+      .optional()
+      .describe('Where the displayed value comes from, when that is useful to say'),
     secret: z.boolean(),
     isSet: z.boolean(),
     pending: z.boolean().describe('Saved value differs from the running process'),

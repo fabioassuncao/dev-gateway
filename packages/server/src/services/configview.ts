@@ -75,16 +75,45 @@ export function buildConfigView(config: PanelConfig): ConfigView {
     const secret = spec.secret === true
     const compare = (value: string | null) =>
       value === null || value === '' ? '' : spec.kind === 'boolean' ? normaliseBoolean(value) : value
+    const display = (value: string) => spec.kind === 'boolean' ? normaliseBoolean(value) : value
+
+    const isSet = stored !== null && stored !== ''
+    const derivedDefault = spec.key === 'PORTTA_RUNTIME_API_DOCS' ? String(config.apiDocs) : null
+    const defaultValue = derivedDefault ?? spec.defaultValue ?? null
+    const runningValue = running === null || running === '' ? null : running
+    let effectiveValue: string | null = null
+    let valueSource: ConfigField['valueSource']
+    if (!secret) {
+      if (isSet) {
+        effectiveValue = display(stored)
+        valueSource = 'saved'
+      } else if (runningValue !== null && runningValue !== defaultValue) {
+        effectiveValue = display(runningValue)
+        valueSource = spec.valueSource === 'detected' ? 'detected' : 'environment'
+      } else if (defaultValue !== null) {
+        effectiveValue = defaultValue
+        valueSource = derivedDefault !== null ? 'derived' : 'default'
+      } else if (runningValue !== null) {
+        effectiveValue = display(runningValue)
+        valueSource = spec.valueSource === 'detected' ? 'detected' : 'environment'
+      }
+    }
+
+    const desired = isSet ? stored : defaultValue
+    const actual = runningValue ?? defaultValue
 
     return {
       key: spec.key,
       value: secret ? null : stored,
       runtimeValue: secret ? null : running,
+      effectiveValue: secret ? null : effectiveValue,
+      defaultValue: secret ? null : defaultValue,
+      ...(valueSource ? { valueSource } : {}),
       secret,
-      isSet: stored !== null && stored !== '',
+      isSet,
       // Pending means "saved here, not yet in the running gateway". A key
       // absent from .env is on the CLI's default, which is what is running.
-      pending: stored !== null && running !== null && compare(stored) !== compare(running),
+      pending: stored !== null && compare(desired) !== compare(actual),
       kind: spec.kind,
       ...(spec.choices ? { choices: spec.choices } : {}),
       group: spec.group,
